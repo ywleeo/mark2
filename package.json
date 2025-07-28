@@ -1,0 +1,64 @@
+{
+  "name": "mark2",
+  "productName": "mark2",
+  "version": "1.0.0",
+  "description": "一个基于 Electron 的 Markdown 阅读器",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "markdown",
+    "reader"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^37.2.3",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "marked": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.mark2.app",
+    "productName": "mark2",
+    "directories": {
+      "output": "dist"
+    },
+    "fileAssociations": [
+      {
+        "ext": "md",
+        "name": "Markdown Document",
+        "description": "Markdown Document",
+        "role": "Editor"
+      },
+      {
+        "ext": "markdown",
+        "name": "Markdown Document",
+        "description": "Markdown Document",
+        "role": "Editor"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      },
+      "icon": "assets/icon.png",
+      "minimumSystemVersion": "10.15.0"
+    },
+    "dmg": {
+      "title": "mark2",
+      "icon": "assets/icon.png"
+    }
+  }
+}

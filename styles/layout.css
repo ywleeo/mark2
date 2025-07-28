@@ -1,0 +1,705 @@
+/* 基础布局样式 - 不包含颜色定义 */
+
+/* 文件树配置变量 */
+:root {
+    --tree-indent: 0;           /* 每层缩进距离 */
+    --tree-root-indent: 14px;      /* 根目录缩进 */
+    --tree-line-offset: 20px;       /* 竖线对齐偏移（相对于容器左边距） */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    display: flex;
+    height: 100vh;
+    font-weight: 300;
+    transition: opacity 0.1s ease;
+}
+
+/* 侧边栏布局 */
+.sidebar {
+    width: 260px; /* 增加宽度以更好地容纳深层级文件 */
+    padding: 0;
+    box-sizing: border-box;
+    overflow-y: auto;
+    border-right-width: 1px;
+    border-right-style: solid;
+    transition: width 0.3s ease;
+    flex-shrink: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.sidebar.hidden {
+    width: 0;
+    overflow: hidden;
+    border-right: none;
+}
+
+.file-tree {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 32px 16px;
+}
+
+.empty-state p {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+}
+
+.empty-state small {
+    font-size: 11px;
+}
+
+/* 文件项布局 */
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 3px 16px 3px var(--tree-root-indent);
+    margin: 1px 0;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.15s;
+    border-radius: 0;
+}
+
+.file-item.active {
+    border-right-width: 2px;
+    border-right-style: solid;
+}
+
+.file-item .file-icon {
+    margin-right: 6px;
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+}
+
+.file-item .file-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.file-item .file-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.file-item .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 400;
+    min-width: 0; /* 确保深层级项目能够正确收缩 */
+}
+
+/* 文件夹项布局 */
+.folder-item {
+    display: flex;
+    align-items: center;
+    padding: 3px 16px 3px var(--tree-root-indent);
+    margin: 1px 0;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background-color 0.15s;
+}
+
+.folder-item .expand-icon {
+    margin-right: 6px;
+    width: 12px;
+    height: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease;
+}
+
+.folder-item .expand-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.folder-item.expanded .expand-icon {
+    transform: rotate(90deg);
+}
+
+.folder-item .folder-icon {
+    margin-right: 6px;
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+    position: relative;
+}
+
+.folder-item .folder-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* 关闭状态的文件夹图标 */
+.folder-item .folder-icon .folder-closed {
+    display: block;
+}
+
+.folder-item .folder-icon .folder-open {
+    display: none;
+}
+
+/* 展开状态的文件夹图标 */
+.folder-item.expanded .folder-icon .folder-closed {
+    display: none;
+}
+
+.folder-item.expanded .folder-icon .folder-open {
+    display: block;
+}
+
+.folder-item .folder-icon svg .folder-outline {
+    stroke: currentColor;
+}
+
+.folder-item .folder-icon svg .folder-tab {
+    stroke: currentColor;
+}
+
+.folder-item .name {
+    font-weight: 500;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0; /* 确保深层级项目能够正确收缩 */
+}
+
+/* 简化的树形结构 */
+.tree-item {
+    position: relative;
+}
+
+/* 根文件夹布局 */
+.folder-item.root-folder {
+    font-weight: 600;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    margin-bottom: 4px;
+    padding: 10px 5px 10px 15px;
+}
+
+.folder-item.root-folder .name {
+    font-weight: 600;
+}
+
+.folder-children {
+    display: none;
+    position: relative;
+}
+
+.folder-children.expanded {
+    display: block;
+    margin-left: var(--tree-line-offset);  /* 竖线位置固定 */
+    border-left-width: 1px;
+    border-left-style: solid;
+    padding-left: var(--tree-indent);     /* 子项目缩进 */
+}
+
+/* 主内容区布局 */
+.main-content {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+    min-width: 0;
+}
+
+.content-area {
+    padding: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.6;
+    box-sizing: border-box;
+    width: 100%;
+    /* 确保内容可以选择和复制 */
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+
+/* 搜索栏布局 */
+.search-bar {
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    padding: 8px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.search-input-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#searchInput {
+    flex: 1;
+    padding: 3px 12px;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+}
+
+#searchInput:focus {
+    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.25);
+}
+
+.search-nav-btn {
+    width: 32px;
+    height: 20px;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+#searchCounter {
+    font-size: 12px;
+    white-space: nowrap;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+/* 搜索高亮布局 */
+.search-highlight {
+    padding: 0 1px;
+    border-radius: 2px;
+}
+
+.welcome-message {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 100px;
+}
+
+.markdown-content {
+    display: none;
+    /* 确保 markdown 内容可以选择和复制 */
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
+
+/* 编辑器布局 */
+.editor-content {
+    display: none;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.editor-content.active {
+    display: block;
+}
+
+.editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.editor-toolbar h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.editor-save-btn {
+    border-width: 1px;
+    border-style: solid;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.editor-save-btn:disabled {
+    cursor: not-allowed;
+    transform: none;
+}
+
+.editor-textarea {
+    width: 100%;
+    height: calc(100% - 50px);
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 4px;
+    padding: 16px;
+    font-family: auto;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.editor-textarea:focus {
+    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.25);
+}
+
+/* Markdown 内容布局 */
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+.markdown-content h1 {
+    font-size: 28px !important;
+    border-bottom-width: 3px;
+    border-bottom-style: solid;
+    padding-bottom: 10px;
+}
+
+.markdown-content h2 {
+    font-size: 24px !important;
+    border-bottom-width: 2px;
+    border-bottom-style: solid;
+    padding-bottom: 8px;
+}
+
+.markdown-content h3 {
+    font-size: 20px !important;
+}
+
+.markdown-content h4 {
+    font-size: 18px !important;
+}
+
+.markdown-content h5 {
+    font-size: 16px !important;
+}
+
+.markdown-content h6 {
+    font-size: 14px !important;
+}
+
+.markdown-content p {
+    margin-bottom: 15px;
+    text-align: justify;
+}
+
+.markdown-content code {
+    padding: 1px 3px;
+    border-radius: 4px;
+    font-family: auto;
+}
+
+.markdown-content pre {
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    border-left-width: 4px;
+    border-left-style: solid;
+}
+
+.markdown-content blockquote {
+    border-left-width: 4px;
+    border-left-style: solid;
+    padding-left: 20px;
+    margin: 20px 0;
+    font-style: italic;
+}
+
+.markdown-content ul, .markdown-content ol {
+    padding-left: 30px;
+}
+
+.markdown-content li {
+    margin-bottom: 8px;
+}
+
+/* 表格布局 */
+.markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 15px 0;
+}
+
+.markdown-content th, .markdown-content td {
+    border-width: 1px;
+    border-style: solid;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.markdown-content th {
+    font-weight: 600;
+}
+
+.markdown-content a {
+    text-decoration: underline;
+}
+
+.markdown-content hr {
+    border: none;
+    border-top-width: 1px;
+    border-top-style: solid;
+    margin: 20px 0;
+}
+
+/* 设置弹窗布局 */
+.settings-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.settings-modal.show {
+    display: flex;
+}
+
+.settings-content {
+    padding: 20px;
+    border-radius: 8px;
+    width: 320px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border-width: 1px;
+    border-style: solid;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    position: relative;
+}
+
+.settings-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    position: absolute;
+    right: -4px;
+    top: -4px;
+}
+
+.close-btn svg {
+    opacity: 1;
+    transition: all 0.2s ease;
+}
+
+.close-btn:hover svg {
+    opacity: 1;
+}
+
+.setting-group {
+    margin-bottom: 16px;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.setting-group select {
+    width: 100%;
+    padding: 6px 8px;
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.setting-group select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.25);
+}
+
+.settings-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top-width: 1px;
+    border-top-style: solid;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.welcome-buttons {
+    margin: 16px 0;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+/* 拖拽布局 */
+.drag-highlight {
+    position: relative;
+}
+
+.drag-highlight::before {
+    content: "拖放文件或文件夹到这里";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px 40px;
+    border-radius: 12px;
+    font-size: 18px;
+    z-index: 10000;
+    backdrop-filter: blur(10px);
+    border: 2px dashed white;
+    text-align: center;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.9;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.05);
+        opacity: 1;
+    }
+}
+
+/* 关键词高亮布局 */
+mark[class*="highlight-"] {
+    padding: 1px 2px;
+    border-radius: 2px;
+    border: none;
+}
+
+/* 消息提示布局 */
+.message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left-width: 4px;
+    border-left-style: solid;
+    font-size: 14px;
+    font-weight: 400;
+    z-index: 10000;
+    opacity: 0;
+    transform: translateX(100px);
+    transition: all 0.3s ease;
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.message.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* 滚动条布局 */
+.sidebar,
+.file-tree,
+.main-content,
+.settings-content,
+.markdown-content pre {
+    scrollbar-width: thin;
+    overflow-x: hidden;
+}
+
+/* WebKit 滚动条布局 */
+.sidebar::-webkit-scrollbar,
+.file-tree::-webkit-scrollbar,
+.main-content::-webkit-scrollbar,
+.settings-content::-webkit-scrollbar,
+.markdown-content pre::-webkit-scrollbar,
+.editor-textarea::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.file-tree::-webkit-scrollbar-track,
+.main-content::-webkit-scrollbar-track,
+.settings-content::-webkit-scrollbar-track,
+.markdown-content pre::-webkit-scrollbar-track,
+.editor-textarea::-webkit-scrollbar-track {
+    border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.file-tree::-webkit-scrollbar-thumb,
+.main-content::-webkit-scrollbar-thumb,
+.settings-content::-webkit-scrollbar-thumb,
+.markdown-content pre::-webkit-scrollbar-thumb,
+.editor-textarea::-webkit-scrollbar-thumb {
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+.editor-textarea {
+    scrollbar-width: thin;
+}

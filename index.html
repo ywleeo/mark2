@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mark2</title>
+    <link rel="stylesheet" href="styles/layout.css">
+    <link rel="stylesheet" id="theme-css" href="styles/light-theme.css">
+    <style>
+        /* 主题切换过渡效果 */
+        body {
+            transition: opacity 0.1s ease;
+        }
+    </style>
+    <script>
+        // 在页面渲染前立即应用保存的主题，避免闪烁
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const themeCSS = document.getElementById('theme-css');
+            if (savedTheme === 'dark') {
+                themeCSS.href = 'styles/dark-theme.css';
+            }
+            
+            // 监听CSS加载完成事件
+            themeCSS.addEventListener('load', function() {
+                document.body.classList.add('theme-loaded');
+            });
+            
+            // 如果CSS已经加载（缓存情况），立即显示
+            if (themeCSS.sheet) {
+                document.body.classList.add('theme-loaded');
+            }
+            
+            // 备用方案：最多等待100ms后强制显示，避免页面永远不显示
+            setTimeout(function() {
+                document.body.classList.add('theme-loaded');
+            }, 100);
+        })();
+    </script>
+</head>
+<body>
+    <div class="sidebar hidden" id="sidebar">
+        <div class="file-tree" id="fileTree">
+            <div class="empty-state">
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- 搜索栏 -->
+        <div class="search-bar" id="searchBar" style="display: none;">
+            <div class="search-input-container">
+                <input type="text" id="searchInput" placeholder="在当前文档中搜索..." autocomplete="off">
+                <button id="searchPrevBtn" title="上一个" class="search-nav-btn">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 11L8 7L4 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <button id="searchNextBtn" title="下一个" class="search-nav-btn">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 7L8 11L12 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <span id="searchCounter">0/0</span>
+                <button id="searchCloseBtn" title="关闭" class="search-close-btn">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 3L3 9M3 3L9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="content-area">
+            <div class="welcome-message">
+                <h2>欢迎使用 mark2</h2>
+                <p>拖拽 Markdown 文件或文件夹到此处</p>
+                <p>或者使用快捷键 <kbd>Ctrl/Cmd + O</kbd> 打开文件</p>
+                <p>按 <kbd>Ctrl/Cmd + F</kbd> 打开搜索功能</p>
+            </div>
+            <div class="markdown-content" id="markdownContent">
+            </div>
+        </div>
+        <div class="editor-content" id="editorContent">
+            <div class="editor-toolbar">
+                <h3 id="editorTitle">编辑模式</h3>
+                <button class="editor-save-btn" id="saveBtn">保存 (Ctrl+S)</button>
+            </div>
+            <textarea class="editor-textarea" id="editorTextarea" placeholder="在此编辑 Markdown 内容..."></textarea>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h3>显示设置</h3>
+                <button class="close-btn" id="closeSettingsBtn">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 3L3 9M3 3L9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="setting-group">
+                <label for="fontSizeSelect">字号大小</label>
+                <select id="fontSizeSelect">
+                    <option value="12">12px</option>
+                    <option value="14">14px</option>
+                    <option value="15">15px</option>
+                    <option value="16" selected>16px</option>
+                    <option value="18">18px</option>
+                    <option value="20">20px</option>
+                    <option value="22">22px</option>
+                    <option value="24">24px</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="lineHeightSelect">行间距</label>
+                <select id="lineHeightSelect">
+                    <option value="1.2">1.2</option>
+                    <option value="1.4">1.4</option>
+                    <option value="1.5">1.5</option>
+                    <option value="1.6" selected>1.6</option>
+                    <option value="1.8">1.8</option>
+                    <option value="2.0">2.0</option>
+                    <option value="2.2">2.2</option>
+                    <option value="2.4">2.4</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="letterSpacingSelect">字间距</label>
+                <select id="letterSpacingSelect">
+                    <option value="0" selected>正常</option>
+                    <option value="0.5">0.5px</option>
+                    <option value="1">1px</option>
+                    <option value="1.5">1.5px</option>
+                    <option value="2">2px</option>
+                    <option value="2.5">2.5px</option>
+                    <option value="3">3px</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="fontFamilySelect">字体</label>
+                <select id="fontFamilySelect">
+                    <option value="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif" selected>系统默认</option>
+                    <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                    <option value="'Arial', Helvetica, sans-serif">Arial</option>
+                    <option value="'Georgia', serif">Georgia</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="'微软雅黑', 'Microsoft YaHei', sans-serif">微软雅黑</option>
+                    <option value="'宋体', SimSun, serif">宋体</option>
+                    <option value="'黑体', SimHei, sans-serif">黑体</option>
+                </select>
+            </div>
+
+
+
+            <div class="settings-footer">
+                <button class="btn btn-secondary" id="cancelSettingsBtn">取消</button>
+                <button class="btn btn-primary" id="applySettingsBtn">应用</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="keyword-highlighter.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html>

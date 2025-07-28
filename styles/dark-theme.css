@@ -1,0 +1,382 @@
+/* 深色主题 - 只包含颜色定义 */
+
+/* 基础颜色 */
+body {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    font-weight: 100;
+}
+
+/* 侧边栏颜色 */
+.sidebar {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border-right-color: #404040;
+    scrollbar-color: #555 #1a1a1a;
+}
+
+.file-tree {
+    scrollbar-color: #555 #1a1a1a;
+}
+
+.empty-state {
+    color: #999;
+}
+
+.empty-state small {
+    color: #666;
+}
+
+/* 文件项颜色 */
+.file-item:hover {
+    background-color: #3a3a3a;
+}
+
+.file-item.active {
+    background-color: #2d4a73;
+    color: #7bb3f0;
+    border-right-color: #5c9bd5;
+}
+
+.file-item .file-icon {
+    color: #9ca3af;
+}
+
+.file-item .file-icon svg {
+    color: #9ca3af;
+}
+
+/* 文件夹项颜色 */
+.folder-item:hover {
+    background-color: #3a3a3a;
+}
+
+.folder-item .expand-icon {
+    color: #999;
+}
+
+.folder-item .folder-icon svg {
+    color: #7da7d8;
+}
+
+/* 文件夹连接线颜色 */
+.folder-children.expanded {
+    border-left-color: #4a5568;
+}
+
+.folder-item.root-folder {
+    border-bottom-color: #404040;
+}
+
+.folder-item.root-folder .name {
+    color: #e0e0e0;
+}
+
+
+/* 主内容区颜色 */
+.main-content {
+    background-color: #1e1e1e;
+    scrollbar-color: #555 #1a1a1a;
+}
+
+/* 搜索栏颜色 */
+.search-bar {
+    background-color: #2d2d2d;
+    border-bottom-color: #404040;
+}
+
+#searchInput {
+    border-color: #555;
+    background-color: #3a3a3a;
+    color: #e0e0e0;
+}
+
+#searchInput:focus {
+    border-color: #1f6feb;
+    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25);
+}
+
+.search-nav-btn {
+    border-color: #444;
+    background: #21262d;
+    color: #c9d1d9;
+}
+
+.search-nav-btn:hover {
+    background: #30363d;
+    border-color: #8b949e;
+}
+
+#searchCounter {
+    color: #ccc;
+}
+
+/* 搜索高亮颜色 */
+.search-highlight {
+    background-color: #ffd33d !important;
+    color: #1f2328 !important;
+}
+
+.search-highlight.current {
+    background-color: #fb8500 !important;
+    color: white !important;
+}
+
+.welcome-message {
+    color: #888;
+}
+
+/* 编辑器颜色 */
+.editor-toolbar {
+    background-color: #2d2d2d;
+    border-color: #404040;
+}
+
+.editor-toolbar h3 {
+    color: #e0e0e0;
+}
+
+.editor-save-btn {
+    background: #238636;
+    color: white;
+    border-color: transparent;
+}
+
+.editor-save-btn:hover {
+    background: #2ea043;
+    border-color: #2ea043;
+}
+
+.editor-save-btn:disabled {
+    background: #555;
+}
+
+.editor-textarea {
+    border-color: #404040;
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    font-weight: 300;
+}
+
+.editor-textarea:focus {
+    border-color: #1f6feb;
+    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25);
+}
+
+/* Markdown 内容颜色 */
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+    color: #e0e0e0;
+}
+
+.markdown-content h1 {
+    border-bottom-color: #5c9bd5;
+}
+
+.markdown-content h2 {
+    border-bottom-color: #7b7b7b;
+}
+
+.markdown-content p {
+    color: #e0e0e0;
+}
+
+.markdown-content code {
+    background-color: #3a3a3a;
+    color: #42cf4a;
+}
+
+.markdown-content pre {
+    background-color: #2d2d2d;
+    border-left-color: #5c9bd5;
+    color: #e0e0e0;
+}
+
+.markdown-content blockquote {
+    border-left-color: #5c9bd5;
+    color: #bbb;
+}
+
+.markdown-content table th, .markdown-content table td {
+    border-color: #555;
+}
+
+.markdown-content table th {
+    background-color: #2d2d2d;
+}
+
+.markdown-content a {
+    color: #7bb3f0;
+}
+
+.markdown-content a:hover {
+    color: #a8d0ff;
+}
+
+.markdown-content hr {
+    border-top-color: #555;
+}
+
+/* 设置弹窗颜色 */
+.settings-modal {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.settings-content {
+    background: #2d2d2d;
+    border-color: #404040;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    scrollbar-color: #555 #1a1a1a;
+}
+
+.settings-header {
+    border-bottom-color: #404040;
+}
+
+.settings-header h3 {
+    color: #e0e0e0;
+}
+
+.close-btn {
+    color: #c9d1d9;
+}
+
+.close-btn:hover {
+    background: #30363d;
+    color: #f0f6fc;
+}
+
+.setting-group label {
+    color: #e0e0e0;
+}
+
+.setting-group select {
+    border-color: #555;
+    background: #3a3a3a;
+    color: #e0e0e0;
+}
+
+.setting-group select:focus {
+    border-color: #1f6feb;
+    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25);
+}
+
+.settings-footer {
+    border-top-color: #404040;
+}
+
+.btn-primary {
+    background: #238636;
+    color: white;
+    border-color: #238636;
+}
+
+.btn-primary:hover {
+    background: #2ea043;
+    border-color: #2ea043;
+}
+
+.btn-secondary {
+    background: #21262d;
+    color: #c9d1d9;
+    border-color: #444;
+}
+
+.btn-secondary:hover {
+    background: #30363d;
+    border-color: #6e7681;
+}
+
+/* 拖拽颜色 */
+.drag-highlight {
+    background: linear-gradient(135deg, rgba(255, 102, 102, 0.2), rgba(102, 153, 255, 0.2));
+}
+
+.drag-highlight::before {
+    background: rgba(255, 102, 102, 0.95);
+    color: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* 关键词高亮颜色 - 深色主题 */
+mark.highlight-number {
+    background-color: #1e293b !important;
+    color: #7dd3fc !important;
+}
+
+mark.highlight-date {
+    background-color: #2d1b2e !important;
+    color: #f0abfc !important;
+}
+
+mark.highlight-entity {
+    background-color: #1e2d1e !important;
+    color: #6ee7b7 !important;
+}
+
+mark.highlight-keyword {
+    background-color: #2d1f1a !important;
+    color: #fdba74 !important;
+}
+
+mark.highlight-pattern {
+    background-color: #1e1b3a !important;
+    color: #a78bfa !important;
+}
+
+/* 消息提示颜色 - 深色主题 */
+.message {
+    background: #2d2d2d;
+    color: #e0e0e0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-left-color: #007acc;
+}
+
+.message.error {
+    border-left-color: #ff6b6b;
+    background: #3d2626;
+    color: #ff6b6b;
+}
+
+.message.success {
+    border-left-color: #51cf66;
+    background: #2b3d2b;
+    color: #51cf66;
+}
+
+.message.warning {
+    border-left-color: #ffd43b;
+    background: #3d3526;
+    color: #ffd43b;
+}
+
+/* 滚动条颜色 - 深色主题 */
+.sidebar::-webkit-scrollbar-track,
+.file-tree::-webkit-scrollbar-track,
+.main-content::-webkit-scrollbar-track,
+.settings-content::-webkit-scrollbar-track,
+.markdown-content pre::-webkit-scrollbar-track,
+.editor-textarea::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.file-tree::-webkit-scrollbar-thumb,
+.main-content::-webkit-scrollbar-thumb,
+.settings-content::-webkit-scrollbar-thumb,
+.markdown-content pre::-webkit-scrollbar-thumb,
+.editor-textarea::-webkit-scrollbar-thumb {
+    background: #555;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.file-tree::-webkit-scrollbar-thumb:hover,
+.main-content::-webkit-scrollbar-thumb:hover,
+.settings-content::-webkit-scrollbar-thumb:hover,
+.markdown-content pre::-webkit-scrollbar-thumb:hover,
+.editor-textarea::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+.editor-textarea {
+    scrollbar-color: #555 #1a1a1a;
+}
