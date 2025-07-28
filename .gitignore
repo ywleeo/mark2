@@ -44,5 +44,4 @@ logs/
 .windsurfrules
 
 # 调试和测试文件
-debug_tree.js
 test/
