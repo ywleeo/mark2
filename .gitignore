@@ -15,6 +15,7 @@ build/
 # 系统文件
 .DS_Store
 Thumbs.db
+CLAUDE.md
 
 # 编辑器配置
 .vscode/
