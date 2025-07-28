@@ -234,6 +234,7 @@ body {
     -ms-user-select: text;
 }
 
+
 /* 搜索栏布局 */
 .search-bar {
     border-bottom-width: 1px;
@@ -354,7 +355,7 @@ body {
 
 .editor-textarea {
     width: 100%;
-    height: calc(100% - 50px);
+    height: 100%;
     border-width: 1px;
     border-style: solid;
     border-radius: 4px;

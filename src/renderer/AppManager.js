@@ -18,6 +18,9 @@ class AppManager {
     this.currentFilePath = null;
     this.currentFolderPath = null;
     
+    // 应用模式管理：'single-file' | 'folder'
+    this.appMode = null;
+    
     this.setupEventListeners();
     this.setupIPCListeners();
     this.setupDragAndDrop();
@@ -31,7 +34,7 @@ class AppManager {
   setupEventListeners() {
     // 文件选择事件
     this.eventManager.on('file-selected', async (filePath) => {
-      await this.openFileFromPath(filePath);
+      await this.openFileFromPath(filePath, true); // 标记为从文件夹模式打开
     });
 
     // 编辑模式切换事件
@@ -173,18 +176,23 @@ class AppManager {
           }
         } else {
           // 处理文件拖拽
-          const file = item.getAsFile();
-          if (!file || !file.path) {
-            this.uiManager.showMessage('无法获取文件路径', 'error');
-            return;
-          }
-          
           try {
-            const result = await ipcRenderer.invoke('handle-drop-file', file.path);
+            const result = await ipcRenderer.invoke('handle-dropped-folder', {
+              entryName: entry.name,
+              entryFullPath: entry.fullPath
+            });
             
             if (result.success) {
-              this.currentFilePath = result.filePath;
-              this.displayMarkdown(result.content, result.filePath);
+              // 判断返回的是文件还是文件夹
+              if (result.fileTree) {
+                // 是文件夹
+                this.currentFolderPath = result.folderPath;
+                this.displayFileTree(result.folderPath, result.fileTree);
+              } else if (result.content) {
+                // 是文件
+                this.currentFilePath = result.filePath;
+                this.displayMarkdown(result.content, result.filePath);
+              }
             } else {
               this.uiManager.showMessage('打开文件失败: ' + result.error, 'error');
             }
@@ -225,23 +233,28 @@ class AppManager {
     }
   }
 
-  async openFileFromPath(filePath) {
+  async openFileFromPath(filePath, fromFolderMode = false) {
     try {
       const { ipcRenderer } = require('electron');
       const result = await ipcRenderer.invoke('open-file-dialog', filePath);
       
       if (result) {
         this.currentFilePath = result.filePath;
-        this.displayMarkdown(result.content, result.filePath);
+        this.displayMarkdown(result.content, result.filePath, fromFolderMode);
       }
     } catch (error) {
       this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
     }
   }
 
-  displayMarkdown(content, filePath) {
+  displayMarkdown(content, filePath, fromFolderMode = false) {
     // 保存当前文件路径
     this.currentFilePath = filePath;
+    
+    // 如果不是从文件夹模式打开的文件，则切换到单文件模式
+    if (!fromFolderMode) {
+      this.switchToSingleFileMode();
+    }
     
     // 隐藏欢迎信息，显示markdown内容
     const welcomeMessage = document.querySelector('.welcome-message');
@@ -260,8 +273,10 @@ class AppManager {
     // 更新文件名显示
     this.uiManager.updateFileNameDisplay(filePath);
     
-    // 更新文件树中的活动文件
-    this.fileTreeManager.updateActiveFile(filePath);
+    // 更新文件树中的活动文件（只在文件夹模式下）
+    if (this.appMode === 'folder') {
+      this.fileTreeManager.updateActiveFile(filePath);
+    }
     
     // 清除搜索状态
     if (this.searchManager.isVisible()) {
@@ -270,8 +285,9 @@ class AppManager {
   }
 
   displayFileTree(folderPath, fileTree) {
-    // 保存当前文件夹路径
+    // 保存当前文件夹路径并切换到文件夹模式
     this.currentFolderPath = folderPath;
+    this.switchToFolderMode();
     this.fileTreeManager.displayFileTree(folderPath, fileTree);
   }
 
@@ -303,6 +319,11 @@ class AppManager {
   }
 
   resetToInitialState() {
+    // 重置应用模式和状态
+    this.appMode = null;
+    this.currentFilePath = null;
+    this.currentFolderPath = null;
+    
     // 显示欢迎信息，隐藏markdown内容
     const welcomeMessage = document.querySelector('.welcome-message');
     const markdownContent = document.querySelector('.markdown-content');
@@ -314,8 +335,11 @@ class AppManager {
       markdownContent.style.display = 'none';
     }
     
+    // 重置各个管理器
     this.editorManager.resetToInitialState();
     this.uiManager.resetToInitialState();
+    this.uiManager.disableSidebar(); // 禁用侧边栏
+    this.fileTreeManager.clearFileTree(); // 清空文件树
     this.searchManager.hideSearch();
   }
 
@@ -420,6 +444,27 @@ class AppManager {
         this.uiManager.showSettings();
       }
     });
+  }
+
+  // 模式管理方法
+  switchToSingleFileMode() {
+    this.appMode = 'single-file';
+    this.currentFolderPath = null;
+    
+    // 隐藏侧边栏并清空文件树
+    this.uiManager.disableSidebar();
+    this.fileTreeManager.clearFileTree();
+  }
+
+  switchToFolderMode() {
+    this.appMode = 'folder';
+    
+    // 启用侧边栏
+    this.uiManager.enableSidebar();
+  }
+
+  getCurrentMode() {
+    return this.appMode;
   }
 }
 

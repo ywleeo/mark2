@@ -37,7 +37,6 @@ class EditorManager {
     const editorContent = document.getElementById('editorContent');
     const contentArea = document.querySelector('.content-area');
     const editButton = document.getElementById('edit-button');
-    const saveButton = document.getElementById('saveBtn');
     
     if (this.isEditMode) {
       // 切换到编辑模式
@@ -51,7 +50,6 @@ class EditorManager {
       }
       if (contentArea) contentArea.style.display = 'none';
       if (editButton) editButton.textContent = '预览';
-      if (saveButton) saveButton.style.display = 'inline-block';
     } else {
       // 切换到预览模式
       if (editorContent) {
@@ -65,7 +63,6 @@ class EditorManager {
       }
       if (contentArea) contentArea.style.display = 'block';
       if (editButton) editButton.textContent = '编辑';
-      if (saveButton) saveButton.style.display = 'none';
     }
     
     this.eventManager.emit('edit-mode-changed', this.isEditMode);
@@ -86,10 +83,23 @@ class EditorManager {
     this.currentFilePath = filePath;
     this.hasUnsavedChanges = false;
     
+    // 重置编辑模式状态
+    this.isEditMode = false;
+    
+    // 确保UI元素状态正确
     const editor = document.getElementById('editorTextarea');
+    const editorContent = document.getElementById('editorContent');
+    const contentArea = document.querySelector('.content-area');
+    const editButton = document.getElementById('edit-button');
+    
     if (editor) {
       editor.value = content;
     }
+    
+    // 确保编辑器容器隐藏，内容区域显示（预览模式）
+    if (editorContent) editorContent.style.display = 'none';
+    if (contentArea) contentArea.style.display = 'block';
+    if (editButton) editButton.textContent = '编辑';
     
     this.updatePreview(content);
     this.updateSaveButton();
@@ -144,16 +154,8 @@ class EditorManager {
   }
 
   updateSaveButton() {
-    const saveButton = document.getElementById('saveBtn');
-    if (!saveButton) return;
-    
-    if (this.hasUnsavedChanges && this.currentFilePath) {
-      saveButton.disabled = false;
-      saveButton.textContent = '保存 *';
-    } else {
-      saveButton.disabled = true;
-      saveButton.textContent = '保存';
-    }
+    // 移除了保存按钮，不再需要更新状态
+    // 保存状态通过 UI 消息提示显示
   }
 
   showSaveStatus(message, type) {
@@ -195,12 +197,14 @@ class EditorManager {
     this.hasUnsavedChanges = false;
     
     const editor = document.getElementById('editorTextarea');
+    const editorContent = document.getElementById('editorContent');
     const preview = document.getElementById('markdownContent');
     const editButton = document.getElementById('edit-button');
-    const saveButton = document.getElementById('saveBtn');
     
+    if (editorContent) {
+      editorContent.style.display = 'none';
+    }
     if (editor) {
-      editor.style.display = 'none';
       editor.value = '';
     }
     if (preview) {
@@ -208,10 +212,6 @@ class EditorManager {
       preview.innerHTML = '';
     }
     if (editButton) editButton.textContent = '编辑';
-    if (saveButton) {
-      saveButton.style.display = 'none';
-      saveButton.disabled = true;
-    }
     
     this.updateSaveButton();
   }

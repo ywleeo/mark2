@@ -194,6 +194,19 @@ class FileTreeManager {
   getActiveFilePath() {
     return this.activeFilePath;
   }
+
+  clearFileTree() {
+    this.currentFolderPath = null;
+    this.fileTree = null;
+    this.activeFilePath = null;
+    this.expandedFolders.clear();
+    
+    // 清空DOM中的文件树内容
+    const fileTreeContainer = document.getElementById('fileTree');
+    if (fileTreeContainer) {
+      fileTreeContainer.innerHTML = '';
+    }
+  }
 }
 
 module.exports = FileTreeManager;

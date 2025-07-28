@@ -186,65 +186,137 @@ class FileManager {
 
   async resolveDroppedFolder(data) {
     try {
-      const { entryName, entryFullPath, fileName } = data;
+      const { entryName, entryFullPath } = data;
+      console.log('拖拽数据:', { entryName, entryFullPath });
       
-      // 方法1：尝试通过进程的工作目录 + 相对路径
-      const cwd = process.cwd();
-      let possiblePaths = [
-        path.join(cwd, entryName),
-        path.join(cwd, entryFullPath),
-        path.join(cwd, entryFullPath.replace(/^\//, '')),
-      ];
-      
-      // 方法2：尝试通过用户目录相关路径
+      // 基于路径信息智能重建完整路径
       const homeDir = os.homedir();
-      const desktopDir = path.join(homeDir, 'Desktop');
-      const documentsDir = path.join(homeDir, 'Documents');
-      const downloadsDir = path.join(homeDir, 'Downloads');
+      const possiblePaths = [];
       
-      possiblePaths.push(
-        path.join(homeDir, entryName),
-        path.join(desktopDir, entryName),
-        path.join(documentsDir, entryName),
-        path.join(downloadsDir, entryName)
-      );
-      
-      // 方法3：搜索常见的项目目录
-      const commonProjectPaths = [
-        path.join(homeDir, 'Code'),
-        path.join(homeDir, 'Projects'),
-        path.join(homeDir, 'Workspace')
-      ];
-      
-      for (const basePath of commonProjectPaths) {
-        if (fs.existsSync(basePath)) {
-          const found = this.findFolderByName(basePath, entryName, 2);
-          if (found.length > 0) {
-            possiblePaths.push(...found);
+      if (entryFullPath) {
+        const cleanPath = entryFullPath.replace(/^\/+/, '');
+        console.log('清理后的路径:', cleanPath);
+        
+        // 策略1: 从当前工作目录开始递归查找匹配的路径结构
+        const found = this.findMatchingPath(process.cwd(), cleanPath);
+        if (found) {
+          console.log('找到匹配路径:', found);
+          possiblePaths.push(found);
+        }
+        
+        // 策略2: 在用户常用目录中查找
+        const commonDirs = [
+          path.join(homeDir, 'Desktop'),
+          path.join(homeDir, 'Documents'), 
+          path.join(homeDir, 'Code')
+        ];
+        
+        for (const baseDir of commonDirs) {
+          if (fs.existsSync(baseDir)) {
+            const found = this.findMatchingPath(baseDir, cleanPath);
+            if (found) {
+              possiblePaths.push(found);
+            }
           }
         }
       }
       
-      // 检查哪个路径存在且是文件夹
-      for (const possiblePath of possiblePaths) {
-        if (fs.existsSync(possiblePath)) {
-          const stats = fs.statSync(possiblePath);
+      // 检查找到的路径
+      for (const fullPath of possiblePaths) {
+        if (fs.existsSync(fullPath)) {
+          const stats = fs.statSync(fullPath);
+          
           if (stats.isDirectory()) {
-            const fileTree = this.buildFileTreeWithRoot(possiblePath);
+            const fileTree = this.buildFileTreeWithRoot(fullPath);
             return {
               success: true,
-              folderPath: possiblePath,
+              folderPath: fullPath,
               fileTree
+            };
+          } else if (stats.isFile() && (fullPath.endsWith('.md') || fullPath.endsWith('.markdown'))) {
+            const content = fs.readFileSync(fullPath, 'utf-8');
+            return {
+              success: true,
+              filePath: fullPath,
+              content,
+              fileName: path.basename(fullPath)
             };
           }
         }
       }
       
-      return { success: false, error: '未找到匹配的文件夹路径' };
+      return { 
+        success: false, 
+        error: `未找到文件或文件夹: ${entryName}` 
+      };
+      
     } catch (error) {
+      console.error('resolveDroppedFolder错误:', error);
       return { success: false, error: error.message };
     }
   }
+
+  // 在指定基础目录中查找匹配路径结构的方法
+  findMatchingPath(baseDir, targetPath, maxDepth = 4) {
+    const pathSegments = targetPath.split('/').filter(s => s.length > 0);
+    if (pathSegments.length === 0) return null;
+    
+    console.log(`在 ${baseDir} 中查找路径: ${pathSegments.join('/')}`);
+    
+    // 递归查找匹配的路径结构
+    return this.searchPathRecursively(baseDir, pathSegments, 0, maxDepth);
+  }
+
+  // 递归搜索路径结构
+  searchPathRecursively(currentDir, targetSegments, currentDepth, maxDepth) {
+    if (currentDepth >= maxDepth || targetSegments.length === 0) {
+      return null;
+    }
+    
+    try {
+      const items = fs.readdirSync(currentDir);
+      const targetSegment = targetSegments[0];
+      const remainingSegments = targetSegments.slice(1);
+      
+      // 直接匹配当前段
+      if (items.includes(targetSegment)) {
+        const fullPath = path.join(currentDir, targetSegment);
+        
+        if (remainingSegments.length === 0) {
+          // 找到完整路径
+          return fullPath;
+        } else {
+          // 继续在子目录中查找
+          const stats = fs.statSync(fullPath);
+          if (stats.isDirectory()) {
+            return this.searchPathRecursively(fullPath, remainingSegments, currentDepth + 1, maxDepth);
+          }
+        }
+      }
+      
+      // 如果直接匹配失败，在子目录中继续查找
+      for (const item of items) {
+        if (item.startsWith('.')) continue; // 跳过隐藏文件
+        
+        const itemPath = path.join(currentDir, item);
+        try {
+          const stats = fs.statSync(itemPath);
+          if (stats.isDirectory()) {
+            const result = this.searchPathRecursively(itemPath, targetSegments, currentDepth + 1, maxDepth);
+            if (result) return result;
+          }
+        } catch (error) {
+          // 跳过无法访问的目录
+          continue;
+        }
+      }
+    } catch (error) {
+      // 忽略权限错误
+    }
+    
+    return null;
+  }
+
 
   findFolderByName(basePath, targetName, maxDepth = 2, currentDepth = 0) {
     const results = [];
@@ -270,6 +342,11 @@ class FileManager {
           if (currentDepth < maxDepth - 1) {
             const subResults = this.findFolderByName(itemPath, targetName, maxDepth, currentDepth + 1);
             results.push(...subResults);
+          }
+        } else if (stats.isFile()) {
+          // 也搜索文件
+          if (item === targetName) {
+            results.push(itemPath);
           }
         }
       }

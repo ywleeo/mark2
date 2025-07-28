@@ -237,22 +237,25 @@ class UIManager {
       preview.innerHTML = '';
     }
     
-    // 重置编辑器
-    const editor = document.getElementById('editorContent');
-    if (editor) {
-      editor.value = '';
-      editor.style.display = 'none';
+    // 重置编辑器容器和textarea
+    const editorContent = document.getElementById('editorContent');
+    const editorTextarea = document.getElementById('editorTextarea');
+    const contentArea = document.querySelector('.content-area');
+    
+    if (editorContent) {
+      editorContent.style.display = 'none';
+    }
+    if (editorTextarea) {
+      editorTextarea.value = '';
+    }
+    if (contentArea) {
+      contentArea.style.display = 'block';
     }
     
     // 重置按钮状态
     const editButton = document.getElementById('edit-button');
-    const saveButton = document.getElementById('save-button');
     
     if (editButton) editButton.textContent = '编辑';
-    if (saveButton) {
-      saveButton.style.display = 'none';
-      saveButton.disabled = true;
-    }
   }
 
   getCurrentTheme() {
@@ -278,6 +281,17 @@ class UIManager {
     // 通知主进程更新菜单状态
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('set-sidebar-enabled', true);
+  }
+
+  disableSidebar() {
+    this.sidebarEnabled = false;
+    this.sidebarVisible = false;
+    this.updateSidebarVisibility();
+    this.eventManager.emit('sidebar-enabled', false);
+    
+    // 通知主进程更新菜单状态
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('set-sidebar-enabled', false);
   }
 
   showSettings() {

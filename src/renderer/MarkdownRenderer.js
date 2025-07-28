@@ -55,6 +55,9 @@ class MarkdownRenderer {
       // 手动应用代码高亮
       html = this.applyCodeHighlight(html);
       
+      // 隔离样式标签，防止样式冲突
+      html = this.sanitizeStyles(html);
+      
       // 应用关键词高亮
       if (this.keywordHighlightEnabled) {
         html = this.applyKeywordHighlight(html);
@@ -83,6 +86,9 @@ class MarkdownRenderer {
       return `${text}\n\n${equals}`;
     });
     
+    // 简单粗暴的解决方案：转义所有尖括号，防止HTML标签被执行
+    processed = processed.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
     return processed;
   }
 
@@ -100,6 +106,21 @@ class MarkdownRenderer {
       const highlighted = hljs.highlightAuto(code).value;
       return `<pre><code>${highlighted}</code></pre>`;
     });
+  }
+
+  sanitizeStyles(html) {
+    // 由于预处理阶段已经转义了所有尖括号，这里只需要基本的清理
+    // 主要工作已经在 preprocessMarkdown 中完成了
+    return html;
+  }
+
+  escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
   }
 
   applyKeywordHighlight(html) {
