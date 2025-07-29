@@ -21,20 +21,23 @@
                 themeCSS.href = 'styles/dark-theme.css';
             }
             
+            // 添加主题加载完成的样式类
+            function addThemeLoadedClass() {
+                if (document.body) {
+                    document.body.classList.add('theme-loaded');
+                }
+            }
+            
             // 监听CSS加载完成事件
-            themeCSS.addEventListener('load', function() {
-                document.body.classList.add('theme-loaded');
-            });
+            themeCSS.addEventListener('load', addThemeLoadedClass);
             
             // 如果CSS已经加载（缓存情况），立即显示
             if (themeCSS.sheet) {
-                document.body.classList.add('theme-loaded');
+                addThemeLoadedClass();
             }
             
             // 备用方案：最多等待100ms后强制显示，避免页面永远不显示
-            setTimeout(function() {
-                document.body.classList.add('theme-loaded');
-            }, 100);
+            setTimeout(addThemeLoadedClass, 100);
         })();
     </script>
 </head>
