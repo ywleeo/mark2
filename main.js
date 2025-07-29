@@ -96,15 +96,35 @@ app.on('open-file', async (event, filePath) => {
 
 
 app.on('window-all-closed', () => {
-  // 停止文件监听
-  if (fileWatcher) {
-    fileWatcher.stopWatching();
-  }
+  // 清理所有资源
+  cleanup();
   
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+app.on('before-quit', () => {
+  global.app.isQuiting = true;
+  cleanup();
+});
+
+// 清理函数
+function cleanup() {
+  // 停止文件监听
+  if (fileWatcher) {
+    try {
+      fileWatcher.stopWatching();
+    } catch (error) {
+      console.error('Error stopping file watcher:', error);
+    }
+  }
+  
+  // 清理其他资源
+  if (menuManager) {
+    // 如果有其他需要清理的资源，在这里添加
+  }
+}
 
 app.on('activate', async () => {
   if (!windowManager || !windowManager.getWindow()) {
