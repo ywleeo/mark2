@@ -110,6 +110,10 @@ class SearchManager {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
         event.preventDefault();
         this.showSearch();
+      } else if (event.key === 'Escape' && this.isSearchVisible) {
+        // 全局ESC键关闭搜索，以防搜索框失去焦点
+        event.preventDefault();
+        this.hideSearch();
       }
     });
   }

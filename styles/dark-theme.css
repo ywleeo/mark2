@@ -86,19 +86,12 @@ body {
 }
 
 #searchInput {
-    border-color: #555;
-    background-color: #3a3a3a;
+    background-color: transparent;
     color: #e0e0e0;
 }
 
-#searchInput:focus {
-    /* border-color: #1f6feb;
-    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25); */
-}
-
 .search-nav-btn {
-    /* border-color: #444; */
-    background: #21262d;
+    background: transparent;
     color: #c9d1d9;
 }
 

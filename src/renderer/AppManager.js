@@ -21,6 +21,9 @@ class AppManager {
     // 应用模式管理：'single-file' | 'folder'
     this.appMode = null;
     
+    // 初始化关键词高亮状态
+    this.initializeKeywordHighlight();
+    
     this.setupEventListeners();
     this.setupIPCListeners();
     this.setupDragAndDrop();
@@ -288,6 +291,18 @@ class AppManager {
     this.fileTreeManager.displayFileTree(folderPath, fileTree);
   }
 
+
+  initializeKeywordHighlight() {
+    // 从 localStorage 加载关键词高亮状态
+    const saved = localStorage.getItem('keywordHighlightEnabled');
+    const enabled = saved !== null ? saved === 'true' : true; // 默认启用
+    
+    this.markdownRenderer.setKeywordHighlight(enabled);
+    
+    // 通知主进程更新菜单状态
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('update-keyword-highlight-menu', enabled);
+  }
 
   toggleKeywordHighlight(enabled) {
     this.markdownRenderer.setKeywordHighlight(enabled);

@@ -1,5 +1,6 @@
 /**
- * 关键词高亮模块 - 独立的信息提取和高亮功能
+ * 关键词高亮模块 - 3分类高亮系统
+ * 支持数字类、名词类、热词类三大类关键词高亮
  * 输入 HTML 内容，返回高亮后的 HTML
  * 不依赖任何外部库和应用状态
  */
@@ -7,11 +8,11 @@
 class KeywordHighlighter {
     constructor(options = {}) {
         this.options = {
-            enableNumbers: true,
-            enableDates: true,
-            enableEntities: true,
-            enableKeywords: true,
-            enableCustomKeywords: true,
+            enableNumbers: true,        // 启用数字类高亮（包含货币、日期等）
+            enableDates: true,          // 启用日期高亮（作为数字类的补充）
+            enableEntities: true,       // 启用名词类高亮（人名、地名、公司名等）
+            enableHotwords: true,       // 启用热词类高亮（技术、金融、政治等热词）
+            enableCustomKeywords: true, // 启用自定义关键词
             minKeywordLength: 2,
             maxKeywordLength: 10,
             ...options
@@ -46,27 +47,33 @@ class KeywordHighlighter {
             // 提取纯文本内容进行数字分析
             const textContent = this.extractTextFromHtml(html);
             
-            // 为不同分类分配不同的高亮样式
+            // 3个主要分类的高亮样式映射
             const categoryStyleMap = {
-                'people': 'highlight-entity',        // 人名 - 绿色
-                'companies': 'highlight-keyword',    // 公司 - 橙色  
-                'products': 'highlight-keyword',     // 产品 - 橙色
-                'locations': 'highlight-entity',     // 地点 - 绿色
-                'ai_tech': 'highlight-pattern',      // AI科技 - 紫色
-                'finance': 'highlight-number',       // 金融 - 蓝色
-                'technology': 'highlight-pattern',   // 科技 - 紫色
-                'politics': 'highlight-date',        // 政治 - 粉色
-                'verbs': 'highlight-keyword',        // 动词 - 橙色
-                'results': 'highlight-date',         // 结果 - 粉色
-                'energy': 'highlight-entity',        // 能源 - 绿色
-                'medical': 'highlight-entity',       // 医疗 - 绿色
-                'currency': 'highlight-number',      // 货币 - 蓝色
-                'dates': 'highlight-date',           // 日期 - 粉色
-                'general': 'highlight-keyword'       // 通用 - 橙色
+                'numbers': 'highlight-number',     // 数字类 - 蓝色
+                'entities': 'highlight-entity',    // 名词类 - 绿色  
+                'hotwords': 'highlight-keyword'    // 热词类 - 橙色
             };
 
             // 按分类收集关键词并分配样式
             let allHighlights = [];
+            
+            // 优先添加动态提取的数字和日期（通常更长更具体）
+            if (this.options.enableNumbers) {
+                const numberKeywords = this.extractNumbers(textContent);
+                numberKeywords.forEach(keyword => {
+                    allHighlights.push({ word: keyword, class: 'highlight-number' });
+                });
+            }
+
+            if (this.options.enableDates) {
+                const dateKeywords = this.extractDates(textContent);
+                console.log('Extracted dates:', dateKeywords);
+                dateKeywords.forEach(keyword => {
+                    allHighlights.push({ word: keyword, class: 'highlight-number' }); // 日期也用数字样式
+                });
+            }
+            
+            // 然后添加静态关键词
             if (this.options.enableCustomKeywords) {
                 Object.entries(this.customKeywords).forEach(([categoryName, categoryList]) => {
                     if (Array.isArray(categoryList)) {
@@ -75,22 +82,6 @@ class KeywordHighlighter {
                             allHighlights.push({ word: keyword, class: styleClass });
                         });
                     }
-                });
-            }
-
-            // 提取数字相关内容
-            if (this.options.enableNumbers) {
-                const numberKeywords = this.extractNumbers(textContent);
-                numberKeywords.forEach(keyword => {
-                    allHighlights.push({ word: keyword, class: 'highlight-number' });
-                });
-            }
-
-            // 提取日期相关内容
-            if (this.options.enableDates) {
-                const dateKeywords = this.extractDates(textContent);
-                dateKeywords.forEach(keyword => {
-                    allHighlights.push({ word: keyword, class: 'highlight-date' });
                 });
             }
 
@@ -418,7 +409,7 @@ class KeywordHighlighter {
             /[￥$€£¥]\d+(?:[,\.]\d+)*/g, // 带符号货币：$100、￥200
             
             // 完整的计量单位（优先级高于万千百十亿，避免"千瓦"中的"千"被单独匹配）
-            /\d+(?:\.\d+)?(?:千瓦|兆瓦|吉瓦|瓦特|千瓦时|兆瓦时)/g, // 电力单位：340千瓦、1.5兆瓦
+            /\d+(?:\.\d+)?(?:千瓦|兆瓦|吉瓦|瓦特|千瓦时|兆瓦时|GW|MW|KW|TW)/g, // 电力单位：340千瓦、1.5兆瓦、570GW
             /\d+(?:\.\d+)?(?:毫米|厘米|分米|千米|公里|英寸|英尺|英里)/g, // 长度单位：15毫米、3.5千米
             /\d+(?:\.\d+)?(?:毫克|千克|公斤|吨|磅|盎司)/g, // 重量单位：500毫克、2.5千克
             /\d+(?:\.\d+)?(?:毫升|立方米|立方厘米|加仑)/g, // 体积单位：250毫升、1.5立方米
@@ -459,32 +450,55 @@ class KeywordHighlighter {
     }
 
     /**
-     * 提取时间日期信息
+     * 提取时间日期信息 - 支持更多日期格式
      */
     extractDates(text) {
         const patterns = [
-            // 具体日期：2024年8月24日、8月24日
-            /(\d{4}年\d{1,2}月\d{1,2}日)/g,
-            /(\d{1,2}月\d{1,2}日)/g,
-            // 日期格式：2024-01-01
-            /(\d{4}-\d{1,2}-\d{1,2})/g,
-            // 年月：2024年1月
-            /(\d{4}年\d{1,2}月)/g,
-            // 单独的月份需要更精确的匹配
-            /([1-9]|1[0-2])月(?![0-9])/g,
-            // 时间段：上午、下午、今天、明天、昨天
+            // 完整年月日格式：2025年5月28日、2025年12月1日、2025年05月05日
+            /(\d{4}年(?:1[0-2]|0[1-9]|[1-9])月(?:[12][0-9]|3[01]|0[1-9]|[1-9])日)/g,
+            
+            // 月日格式：7月23日、12月5日、05月05日
+            /((?:1[0-2]|0[1-9]|[1-9])月(?:[12][0-9]|3[01]|0[1-9]|[1-9])日)/g,
+            
+            // 年月格式：2025年8月、2025年12月、2025年05月
+            /(\d{4}年(?:1[0-2]|0[1-9]|[1-9])月)/g,
+            
+            // 数字日期格式：2025-1-15、2025-01-03、2024-12-31
+            /(\d{4}-(?:1[0-2]|0[1-9]|[1-9])-(?:[12][0-9]|3[01]|0[1-9]|[1-9]))/g,
+            
+            // 数字年月格式：2025-08、2025-1
+            /(\d{4}-(?:1[0-2]|0[1-9]|[1-9]))/g,
+            
+            // 单独月份：6月、12月、05月（避免误匹配其他数字）
+            /(?:^|[^0-9年])((?:1[0-2]|0[1-9]|[1-9])月)(?![0-9日])/g,
+            
+            // 时间段词汇
             /(上午|下午|晚上|今天|明天|昨天|本周|下周|上周|本月|下月|上月|今年|明年|去年)/g,
-            // 季度：第一季度、Q1
-            /(第[一二三四]季度|Q[1-4])/g,
-            // 具体时间：14:30、上午10点
-            /(\d{1,2}:\d{2}|\d{1,2}[点时])/g
+            
+            // 季度表示
+            /(第[一二三四]季度|Q[1-4]|[一二三四]季度)/g,
+            
+            // 具体时间：14:30、上午10点、下午3点半
+            /(\d{1,2}:\d{2}|\d{1,2}[点时](?:半|一刻|三刻)?)/g,
+            
+            // 年份单独出现：2025年、2024年
+            /(\d{4}年)(?![0-9月])/g
         ];
 
         const dates = [];
         patterns.forEach(pattern => {
             const matches = text.match(pattern);
             if (matches) {
-                dates.push(...matches);
+                // 对于月份单独匹配的情况，需要从捕获组中提取
+                if (pattern.source.includes('?:^|[^0-9年]')) {
+                    // 这是单独月份的正则，需要提取捕获组
+                    const fullMatches = [...text.matchAll(pattern)];
+                    fullMatches.forEach(match => {
+                        if (match[1]) dates.push(match[1]);
+                    });
+                } else {
+                    dates.push(...matches);
+                }
             }
         });
 
@@ -598,3 +612,7 @@ window.KeywordHighlighter = KeywordHighlighter;
 
 // 创建默认实例
 window.keywordHighlighter = new KeywordHighlighter();
+
+// 调试信息
+console.log('KeywordHighlighter loaded and initialized');
+console.log('Custom keywords loaded:', Object.keys(window.keywordHighlighter.customKeywords));

@@ -56,6 +56,14 @@
       "icon": "assets/icon.png",
       "minimumSystemVersion": "10.15.0"
     },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    },
     "dmg": {
       "title": "mark2",
       "icon": "assets/icon.png"

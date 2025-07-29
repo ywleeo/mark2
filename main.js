@@ -46,7 +46,8 @@ let fileToOpen = null;
 // 处理命令行参数
 if (process.argv.length > 1) {
   const potentialFile = process.argv[process.argv.length - 1];
-  if (potentialFile && !potentialFile.startsWith('-') && potentialFile.endsWith('.md')) {
+  if (potentialFile && !potentialFile.startsWith('-') && 
+      (potentialFile.endsWith('.md') || potentialFile.endsWith('.markdown'))) {
     fileToOpen = potentialFile;
   }
 }

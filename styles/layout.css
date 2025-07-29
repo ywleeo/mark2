@@ -237,31 +237,30 @@ body {
 
 /* 搜索栏布局 */
 .search-bar {
-    border-bottom-width: 1px;
-    border-bottom-style: solid;
     position: sticky;
-    top: 0;
+    top: 5px;
     z-index: 100;
+    margin: 5px;
+    padding: 3px;
+    border-radius: 20px;
 }
 
 .search-input-container {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
     max-width: 600px;
     margin: 0 auto;
 }
 
 #searchInput {
     flex: 1;
-    padding: 3px 12px;
+    padding: 3px 10px;
     border-style: none;
     font-size: 13px;
+    font-weight: 200;
+    letter-spacing: 1px;
     outline: none;
-}
-
-#searchInput:focus {
-    /* box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.25); */
 }
 
 .search-nav-btn {
@@ -551,14 +550,37 @@ body {
     font-size: 12px;
 }
 
+.setting-group {
+    position: relative;
+}
+
 .setting-group select {
     width: 100%;
-    padding: 6px 8px;
+    padding: 6px 24px 6px 8px;
     border-width: 1px;
     border-style: solid;
     border-radius: 4px;
     font-size: 12px;
     transition: all 0.15s;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.setting-group::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 36px;
+    transform: translateY(-50%) rotate(90deg);
+    pointer-events: none;
+    width: 12px;
+    height: 12px;
+    background-image: url('data:image/svg+xml;utf8,<svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 4L10 8L6 12" stroke="%23666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.8;
 }
 
 .setting-group select:focus {

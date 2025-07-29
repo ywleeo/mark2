@@ -124,6 +124,20 @@ class MarkdownRenderer {
   }
 
   applyKeywordHighlight(html) {
+    // 调试信息
+    console.log('applyKeywordHighlight called, enabled:', this.keywordHighlightEnabled);
+    console.log('window.keywordHighlighter available:', !!window.keywordHighlighter);
+    
+    // 使用新的 KeywordHighlighter 系统
+    if (window.keywordHighlighter) {
+      console.log('Using KeywordHighlighter system');
+      const result = window.keywordHighlighter.highlight(html);
+      console.log('Highlight result length:', result.length);
+      return result;
+    }
+    
+    // 降级处理：如果 KeywordHighlighter 不可用，使用简单的高亮
+    console.log('Using fallback highlighting');
     const keywords = [
       'TODO', 'FIXME', 'NOTE', 'IMPORTANT', 'WARNING', 'DEPRECATED',
       '重要', '注意', '警告', '待办', '修复', '已弃用'
@@ -134,7 +148,7 @@ class MarkdownRenderer {
     keywords.forEach(keyword => {
       const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
       highlightedHtml = highlightedHtml.replace(regex, 
-        `<span class="keyword-highlight">${keyword}</span>`);
+        `<mark class="highlight-keyword">${keyword}</mark>`);
     });
     
     return highlightedHtml;

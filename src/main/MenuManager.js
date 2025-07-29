@@ -85,6 +85,7 @@ class MenuManager {
             label: '关键词高亮',
             type: 'checkbox',
             checked: this.keywordHighlightEnabled,
+            accelerator: 'CmdOrCtrl+K',
             click: (menuItem) => this.toggleKeywordHighlight(menuItem.checked)
           },
           { type: 'separator' },

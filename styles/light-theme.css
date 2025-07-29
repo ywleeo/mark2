@@ -80,28 +80,20 @@ body {
 
 /* 搜索栏颜色 */
 .search-bar {
-    background-color: #f8f9fa;
-    border-bottom-color: #e9ecef;
+    background-color: #e5e5e5;
 }
 
 #searchInput {
-    border-color: #ddd;
-    background-color: white;
+    background-color: transparent;
     color: #333;
 }
 
-#searchInput:focus {
-    /* border-color: #0969da; */
-}
-
 .search-nav-btn {
-    border-color: #d1d9e0;
-    background: #f6f8fa;
+    background: transparent;
     color: #656d76;
 }
-
 .search-nav-btn:hover {
-    background: #f3f4f6;
+    background: #f9f9f9;
     border-color: #8c959f;
 }
 
