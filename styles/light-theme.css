@@ -91,7 +91,7 @@ body {
 }
 
 #searchInput:focus {
-    border-color: #0969da;
+    /* border-color: #0969da; */
 }
 
 .search-nav-btn {

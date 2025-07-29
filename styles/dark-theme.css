@@ -92,12 +92,12 @@ body {
 }
 
 #searchInput:focus {
-    border-color: #1f6feb;
-    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25);
+    /* border-color: #1f6feb;
+    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.25); */
 }
 
 .search-nav-btn {
-    border-color: #444;
+    /* border-color: #444; */
     background: #21262d;
     color: #c9d1d9;
 }

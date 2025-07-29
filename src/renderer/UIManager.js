@@ -150,7 +150,9 @@ class UIManager {
     
     const preview = document.getElementById('markdownContent');
     const editor = document.getElementById('editorContent');
+    const editorTextarea = document.getElementById('editorTextarea');
     
+    // 应用到预览区域
     if (preview) {
       preview.style.fontSize = settings.fontSize + 'px';
       preview.style.lineHeight = settings.lineHeight;
@@ -158,11 +160,20 @@ class UIManager {
       preview.style.fontFamily = settings.fontFamily;
     }
     
+    // 应用到编辑器容器
     if (editor) {
       editor.style.fontSize = settings.fontSize + 'px';
       editor.style.lineHeight = settings.lineHeight;
       editor.style.letterSpacing = settings.letterSpacing + 'px';
       editor.style.fontFamily = settings.fontFamily;
+    }
+    
+    // 应用到编辑器文本区域
+    if (editorTextarea) {
+      editorTextarea.style.fontSize = settings.fontSize + 'px';
+      editorTextarea.style.lineHeight = settings.lineHeight;
+      editorTextarea.style.letterSpacing = settings.letterSpacing + 'px';
+      editorTextarea.style.fontFamily = settings.fontFamily;
     }
   }
 
@@ -170,8 +181,8 @@ class UIManager {
     return {
       fontSize: parseInt(localStorage.getItem('fontSize')) || 16,
       lineHeight: localStorage.getItem('lineHeight') || '1.6',
-      letterSpacing: parseInt(localStorage.getItem('letterSpacing')) || 0,
-      fontFamily: localStorage.getItem('fontFamily') || 'system-ui, -apple-system, sans-serif'
+      letterSpacing: parseFloat(localStorage.getItem('letterSpacing')) || 0, // 使用 parseFloat 支持小数
+      fontFamily: localStorage.getItem('fontFamily') || '-apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Roboto\', sans-serif'
     };
   }
 
@@ -325,7 +336,7 @@ class UIManager {
     const fontSize = document.getElementById('fontSizeSelect')?.value || '16';
     const lineHeight = document.getElementById('lineHeightSelect')?.value || '1.6';
     const letterSpacing = document.getElementById('letterSpacingSelect')?.value || '0';
-    const fontFamily = document.getElementById('fontFamilySelect')?.value || 'system-ui, -apple-system, sans-serif';
+    const fontFamily = document.getElementById('fontFamilySelect')?.value || '-apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Roboto\', sans-serif';
 
     // 保存设置
     const settings = {

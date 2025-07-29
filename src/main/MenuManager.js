@@ -82,27 +82,6 @@ class MenuManager {
             ]
           },
           {
-            label: '段落样式',
-            submenu: [
-              {
-                label: '紧凑',
-                type: 'radio',
-                click: () => this.setParagraphStyle('compact')
-              },
-              {
-                label: '标准',
-                type: 'radio',
-                checked: true,
-                click: () => this.setParagraphStyle('standard')
-              },
-              {
-                label: '宽松',
-                type: 'radio',
-                click: () => this.setParagraphStyle('loose')
-              }
-            ]
-          },
-          {
             label: '关键词高亮',
             type: 'checkbox',
             checked: this.keywordHighlightEnabled,
@@ -202,10 +181,6 @@ class MenuManager {
     this.createMenu();
   }
 
-  setParagraphStyle(style) {
-    const mainWindow = this.windowManager.getWindow();
-    mainWindow.webContents.send('set-paragraph-style', style);
-  }
 
   toggleKeywordHighlight(enabled) {
     this.keywordHighlightEnabled = enabled;

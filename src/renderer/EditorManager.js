@@ -76,6 +76,11 @@ class EditorManager {
     
     const html = this.markdownRenderer.renderMarkdown(content);
     preview.innerHTML = html;
+    
+    // 恢复搜索高亮（如果搜索处于激活状态）
+    if (this.appManager && this.appManager.getSearchManager()) {
+      this.appManager.getSearchManager().reapplySearch();
+    }
   }
 
   setContent(content, filePath) {

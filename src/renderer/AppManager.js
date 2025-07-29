@@ -106,9 +106,6 @@ class AppManager {
       this.uiManager.switchTheme(theme);
     });
 
-    ipcRenderer.on('set-paragraph-style', (event, style) => {
-      this.setParagraphStyle(style);
-    });
 
     ipcRenderer.on('toggle-keyword-highlight', (event, enabled) => {
       this.toggleKeywordHighlight(enabled);
@@ -291,17 +288,6 @@ class AppManager {
     this.fileTreeManager.displayFileTree(folderPath, fileTree);
   }
 
-  setParagraphStyle(style) {
-    const settings = {
-      compact: { lineHeight: '1.4', fontSize: '14' },
-      standard: { lineHeight: '1.6', fontSize: '16' },
-      loose: { lineHeight: '1.8', fontSize: '18' }
-    };
-    
-    if (settings[style]) {
-      this.uiManager.saveSettings(settings[style]);
-    }
-  }
 
   toggleKeywordHighlight(enabled) {
     this.markdownRenderer.setKeywordHighlight(enabled);
