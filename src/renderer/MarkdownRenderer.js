@@ -8,12 +8,18 @@ class MarkdownRenderer {
   }
 
   setupMarked() {
-    // 配置 marked - 移除弃用的参数
+    // 配置 marked - 启用 GFM 扩展语法
     marked.setOptions({
       breaks: true,
-      gfm: true,
+      gfm: true,           // 启用 GitHub Flavored Markdown
       mangle: false,
       headerIds: false
+    });
+    
+    // 启用 GFM 扩展 (删除线、任务列表等)
+    marked.use({
+      gfm: true,
+      strikethrough: true  // 启用删除线支持
     });
     
     // 完全禁用 setext 标题，只允许 ATX 标题
@@ -124,20 +130,14 @@ class MarkdownRenderer {
   }
 
   applyKeywordHighlight(html) {
-    // 调试信息
-    console.log('applyKeywordHighlight called, enabled:', this.keywordHighlightEnabled);
-    console.log('window.keywordHighlighter available:', !!window.keywordHighlighter);
     
     // 使用新的 KeywordHighlighter 系统
     if (window.keywordHighlighter) {
-      console.log('Using KeywordHighlighter system');
       const result = window.keywordHighlighter.highlight(html);
-      console.log('Highlight result length:', result.length);
       return result;
     }
     
     // 降级处理：如果 KeywordHighlighter 不可用，使用简单的高亮
-    console.log('Using fallback highlighting');
     const keywords = [
       'TODO', 'FIXME', 'NOTE', 'IMPORTANT', 'WARNING', 'DEPRECATED',
       '重要', '注意', '警告', '待办', '修复', '已弃用'

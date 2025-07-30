@@ -67,7 +67,6 @@ class KeywordHighlighter {
 
             if (this.options.enableDates) {
                 const dateKeywords = this.extractDates(textContent);
-                console.log('Extracted dates:', dateKeywords);
                 dateKeywords.forEach(keyword => {
                     allHighlights.push({ word: keyword, class: 'highlight-number' }); // 日期也用数字样式
                 });
@@ -612,7 +611,3 @@ window.KeywordHighlighter = KeywordHighlighter;
 
 // 创建默认实例
 window.keywordHighlighter = new KeywordHighlighter();
-
-// 调试信息
-console.log('KeywordHighlighter loaded and initialized');
-console.log('Custom keywords loaded:', Object.keys(window.keywordHighlighter.customKeywords));

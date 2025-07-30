@@ -112,6 +112,11 @@
 
     // 同步尺寸
     function syncSize() {
+      // 检查关键元素是否存在
+      if (!output || !textarea) {
+        return;
+      }
+      
       // 使用计算后的样式来同步尺寸
       var computedStyle = window.getComputedStyle(textarea);
       output.style.width = textarea.clientWidth + 'px';
@@ -124,12 +129,21 @@
 
     // 同步滚动
     function syncScroll() {
+      // 检查关键元素是否存在
+      if (!output || !textarea) {
+        return;
+      }
       output.scrollTop = textarea.scrollTop;
       output.scrollLeft = textarea.scrollLeft;
     }
 
     // 更新高亮显示
     function update() {
+      // 检查关键元素是否存在
+      if (!output || !textarea) {
+        return;
+      }
+      
       var input = textarea.value;
       if (!parser || !input) {
         output.innerHTML = '';

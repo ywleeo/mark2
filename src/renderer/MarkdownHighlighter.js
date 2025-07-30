@@ -39,20 +39,23 @@ class MarkdownHighlighter {
         // 代码块 ``` (最高优先级)
         codeBlock: /```[\s\S]*?```/,
         
+        // 代码块标记符 ``` (单独匹配三个反引号)
+        codeBlockMark: /```/,
+        
+        // 删除线标记 ~~ (高优先级，避免被其他规则抢占)
+        strikethroughMark: /~~/,
+        
+        // 粗体标记 ** 或 __
+        boldMark: /\*\*|__/,
+        
         // 标题标记 # ## ### 等 (匹配标记本身)
         headingMark: /#{1,6}/,
         
         // 水平线 --- 或 ***
         horizontalRule: /-{3,}|\*{3,}|_{3,}/,
         
-        // 粗体标记 ** 或 __
-        boldMark: /\*\*|__/,
-        
         // 斜体标记 * 或 _ (简化版本)
         italicMark: /\*|_/,
-        
-        // 删除线标记 ~~
-        strikethroughMark: /~~/,
         
         // 行内代码标记 `
         inlineCodeMark: /`/,
@@ -66,8 +69,11 @@ class MarkdownHighlighter {
         // 引用标记 >
         blockquoteMark: />/,
         
-        // 列表标记 - * + 1.
-        listMark: /^[\s]*[-\*\+]|^[\s]*\d+\./,
+        // 有序列表标记 1. 2. 3. (数字加点)
+        orderedListMark: /\d+\./,
+        
+        // 无序列表标记 - * +
+        unorderedListMark: /[-\*\+]/,
         
         // HTML 标签
         htmlTag: /<\/?[a-zA-Z][^>]*>/,

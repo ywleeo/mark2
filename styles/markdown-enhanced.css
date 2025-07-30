@@ -9,7 +9,7 @@
     padding: 0 12px 1px 15px; /* 右侧留出呼吸空间 */
     border-bottom: none !important; /* 移除原有下划线 */
     position: relative;
-    background: linear-gradient(90deg, #bdffe950 0%, var(--h2-background-color, rgba(198, 255, 241, 0)) 100%) left bottom;
+    background: linear-gradient(90deg, #2fdfa450 0%, var(--h2-background-color, rgba(61 141 241 / 0%)) 100%) left bottom;
     background-size: 100% 40%; /* 覆盖文字下半部分 */
     background-repeat: no-repeat;
     background-position: bottom;
@@ -55,7 +55,11 @@
     background-color: var(--code-background-color, #f8fafc);
     position: relative;
 }
-
+/* 删除线样式 */
+.markdown-content del {
+    color: var(--delete-color, #f8717180);
+    font-style: italic;
+}
 /* 行内代码增强 */
 .markdown-content code {
     padding: 2px 6px;
@@ -128,10 +132,10 @@
 
 /* 列表项目符号自定义 */
 .markdown-content ul li::marker {
-    color: var(--list-marker-color, #6b7280);
+    color: #319227;
 }
 
 .markdown-content ol li::marker {
-    color: var(--list-marker-color, #6b7280);
+    color: #3674b5;
     font-weight: 600;
 }

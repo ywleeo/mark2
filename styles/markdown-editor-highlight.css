@@ -35,18 +35,22 @@
 }
 
 .ldt .strikethroughMark {
-    color: var(--md-strikethrough-color, #656d76);
+    color: #d05555; /* 红色测试 */
     font-weight: bold;
 }
 
 .ldt .inlineCodeMark {
-    color: var(--md-inline-code-color, #e36209);
+    color: #36c023;
     font-weight: bold;
 }
 
 .ldt .codeBlock {
-    color: var(--md-code-block-color, #24292f);
-    background-color: var(--md-code-block-bg, rgba(246, 248, 250, 0.5));
+    color: #3dc087;
+}
+
+.ldt .codeBlockMark {
+    color: #ff6600 !important; /* 橙色测试 */
+    font-weight: bold;
 }
 
 .ldt .linkMark {
@@ -64,8 +68,18 @@
     font-weight: bold;
 }
 
+.ldt .orderedListMark {
+    color: #0066cc; /* 蓝色测试 */
+    font-weight: bold;
+}
+
+.ldt .unorderedListMark {
+    color: #0066cc; /* 蓝色测试 */
+    font-weight: bold;
+}
+
 .ldt .listMark {
-    color: var(--md-list-color, #0550ae);
+    color: #0066cc; /* 蓝色测试 */
     font-weight: bold;
 }
 

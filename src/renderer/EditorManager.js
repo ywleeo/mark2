@@ -19,7 +19,13 @@ class EditorManager {
     // Markdown 语法高亮器
     this.markdownHighlighter = null;
     
+    // 窗口大小调整防抖定时器
+    this.resizeTimer = null;
+    // 窗口是否稳定的标志
+    this.isWindowStable = true;
+    
     this.setupEditor();
+    this.setupResizeHandler();
   }
 
   setupEditor() {
@@ -42,18 +48,83 @@ class EditorManager {
     });
   }
 
+  // 设置窗口大小调整处理
+  setupResizeHandler() {
+    window.addEventListener('resize', () => {
+      // 标记窗口不稳定
+      this.isWindowStable = false;
+      
+      // 清除之前的定时器
+      if (this.resizeTimer) {
+        clearTimeout(this.resizeTimer);
+      }
+      
+      // 设置新的定时器，窗口停止调整300ms后标记为稳定
+      this.resizeTimer = setTimeout(() => {
+        this.isWindowStable = true;
+        // 如果在编辑模式且语法高亮器存在，检查是否需要修复
+        this.checkAndFixHighlighterIfNeeded();
+      }, 300);
+    });
+  }
+
+  // 检查语法高亮器是否需要修复
+  checkAndFixHighlighterIfNeeded() {
+    if (!this.isEditMode || !this.markdownHighlighter || !this.markdownHighlighter.isReady()) {
+      return;
+    }
+    
+    // 检查ldt-output元素的尺寸
+    const ldtOutput = document.querySelector('.ldt-output');
+    if (ldtOutput) {
+      const rect = ldtOutput.getBoundingClientRect();
+      
+      // 如果ldt-output异常小（比如32x32），说明需要修复
+      if (rect.width < 100 || rect.height < 100) {
+        // 重新初始化语法高亮器，但不要修改滚动信息
+        // 因为previewScrollPosition和previewDimensions包含了从view模式传递过来的重要信息
+        this.markdownHighlighter.destroy();
+        this.markdownHighlighter = null;
+        
+        const editor = document.getElementById('editorTextarea');
+        setTimeout(() => {
+          this.initMarkdownHighlighter(editor);
+          // 立即恢复滚动位置，不等待语法高亮器
+          // 因为滚动位置恢复与语法高亮是独立的
+          setTimeout(() => {
+            this.restoreScrollPosition();
+          }, 100);
+        }, 50);
+      }
+    }
+  }
+
   // 初始化 Markdown 语法高亮器（在切换到编辑模式时调用）
   async initMarkdownHighlighter(editor) {
     if (this.markdownHighlighter) {
       return; // 已经初始化过了
     }
     
+    // 如果窗口不稳定，等待稳定后再初始化
+    if (!this.isWindowStable) {
+      setTimeout(() => {
+        this.initMarkdownHighlighter(editor);
+      }, 100);
+      return;
+    }
+    
     try {
       const MarkdownHighlighter = require('./MarkdownHighlighter');
       this.markdownHighlighter = new MarkdownHighlighter();
-      // 延迟初始化，确保编辑器已经显示
+      // 延迟初始化，确保编辑器已经显示且窗口稳定
       setTimeout(async () => {
-        await this.markdownHighlighter.init(editor);
+        // 再次检查窗口是否稳定
+        if (this.isWindowStable) {
+          await this.markdownHighlighter.init(editor);
+        } else {
+          // 如果不稳定，重置并等待下次
+          this.markdownHighlighter = null;
+        }
       }, 100);
     } catch (error) {
       console.warn('Markdown 语法高亮器初始化失败:', error);
@@ -87,9 +158,13 @@ class EditorManager {
       if (contentArea) contentArea.style.display = 'none';
       if (editButton) editButton.textContent = '预览';
       
-      // 恢复编辑器的滚动位置 - 延迟更长时间确保布局完成
+      // 恢复编辑器的滚动位置 - 延迟确保布局完成
       setTimeout(() => {
         this.restoreScrollPosition();
+        // 切换到编辑模式后也检查一下语法高亮器状态
+        setTimeout(() => {
+          this.checkAndFixHighlighterIfNeeded();
+        }, 200);
       }, 100);
     } else {
       // 切换到预览模式
@@ -279,6 +354,12 @@ class EditorManager {
       this.markdownHighlighter = null;
     }
     
+    // 清理resize定时器
+    if (this.resizeTimer) {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = null;
+    }
+    
     const editor = document.getElementById('editorTextarea');
     const editorContent = document.getElementById('editorContent');
     const preview = document.getElementById('markdownContent');
@@ -310,8 +391,6 @@ class EditorManager {
           scrollHeight: editor.scrollHeight,
           clientHeight: editor.clientHeight
         };
-        console.log('保存编辑器滚动位置:', this.editorScrollPosition);
-        console.log('保存编辑器尺寸:', this.editorDimensions);
       }
     } else {
       // 当前在预览模式，保存主容器滚动位置和尺寸
@@ -322,69 +401,44 @@ class EditorManager {
           scrollHeight: mainContent.scrollHeight,
           clientHeight: mainContent.clientHeight
         };
-        console.log('保存预览滚动位置:', this.previewScrollPosition);
-        console.log('保存预览尺寸:', this.previewDimensions);
       }
     }
   }
 
   // 恢复对应模式的滚动位置
   restoreScrollPosition() {
-    console.log('开始恢复滚动位置, 当前模式:', this.isEditMode ? '编辑' : '预览');
-    console.log('保存的位置 - 预览:', this.previewScrollPosition, '编辑:', this.editorScrollPosition);
-    
     if (this.isEditMode) {
       // 切换到编辑模式，恢复编辑器滚动位置
       const editor = document.getElementById('editorTextarea');
       if (editor) {
-        console.log('编辑器元素尺寸:', {
-          scrollHeight: editor.scrollHeight,
-          clientHeight: editor.clientHeight,
-          maxScroll: editor.scrollHeight - editor.clientHeight
-        });
-        
         // 先尝试直接使用比例计算
         const scrollRatio = this.calculateScrollRatio('preview');
         const editorMaxScroll = Math.max(0, editor.scrollHeight - editor.clientHeight);
         const targetScroll = scrollRatio * editorMaxScroll;
         
-        console.log('计算的目标滚动位置:', targetScroll);
-        
         // 如果目标位置为0但预览位置不为0，尝试简单的直接设置
         if (targetScroll === 0 && this.previewScrollPosition > 0) {
           // 简单策略：如果预览位置大于0，至少让编辑器也滚动一点
           editor.scrollTop = Math.min(this.previewScrollPosition, editorMaxScroll);
-          console.log('使用简单策略设置编辑器位置:', editor.scrollTop);
         } else {
           editor.scrollTop = targetScroll;
-          console.log('使用计算位置设置编辑器:', targetScroll);
         }
       }
     } else {
       // 切换到预览模式，恢复主容器滚动位置
       const mainContent = document.querySelector('.main-content');
       if (mainContent) {
-        console.log('主容器元素尺寸:', {
-          scrollHeight: mainContent.scrollHeight,
-          clientHeight: mainContent.clientHeight,
-          maxScroll: mainContent.scrollHeight - mainContent.clientHeight
-        });
-        
         // 先尝试直接使用比例计算
         const scrollRatio = this.calculateScrollRatio('editor');
         const previewMaxScroll = Math.max(0, mainContent.scrollHeight - mainContent.clientHeight);
         const targetScroll = scrollRatio * previewMaxScroll;
         
-        console.log('计算的目标滚动位置:', targetScroll);
-        
         // 如果目标位置为0但编辑器位置不为0，尝试简单的直接设置  
         if (targetScroll === 0 && this.editorScrollPosition > 0) {
           // 简单策略：如果编辑器位置大于0，至少让预览也滚动一点
           mainContent.scrollTop = Math.min(this.editorScrollPosition, previewMaxScroll);
-          console.log('使用简单策略设置预览位置:', mainContent.scrollTop);
         } else {
           mainContent.scrollTop = targetScroll;
-          console.log('使用计算位置设置预览:', targetScroll);
         }
       }
     }
@@ -395,24 +449,10 @@ class EditorManager {
     if (fromMode === 'preview') {
       const maxScroll = Math.max(0, this.previewDimensions.scrollHeight - this.previewDimensions.clientHeight);
       const ratio = maxScroll > 0 ? this.previewScrollPosition / maxScroll : 0;
-      console.log('预览模式计算比例 (使用保存的尺寸):', {
-        scrollPosition: this.previewScrollPosition,
-        scrollHeight: this.previewDimensions.scrollHeight,
-        clientHeight: this.previewDimensions.clientHeight,
-        maxScroll: maxScroll,
-        ratio: ratio
-      });
       return ratio;
     } else if (fromMode === 'editor') {
       const maxScroll = Math.max(0, this.editorDimensions.scrollHeight - this.editorDimensions.clientHeight);
       const ratio = maxScroll > 0 ? this.editorScrollPosition / maxScroll : 0;
-      console.log('编辑器模式计算比例 (使用保存的尺寸):', {
-        scrollPosition: this.editorScrollPosition,
-        scrollHeight: this.editorDimensions.scrollHeight,
-        clientHeight: this.editorDimensions.clientHeight,
-        maxScroll: maxScroll,
-        ratio: ratio
-      });
       return ratio;
     }
     return 0;
