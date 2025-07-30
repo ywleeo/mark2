@@ -8,6 +8,7 @@ class MenuManager {
     this.keywordHighlightEnabled = true;
     this.currentTheme = 'light';
     this.sidebarEnabled = false; // 新增：sidebar 是否启用状态
+    this.isEditMode = false; // 新增：是否处于编辑模式
   }
 
   createMenu() {
@@ -24,6 +25,13 @@ class MenuManager {
             label: '打开文件夹',
             accelerator: 'CmdOrCtrl+Shift+O',
             click: () => this.openFolder()
+          },
+          { type: 'separator' },
+          {
+            label: '导出 PDF',
+            accelerator: 'CmdOrCtrl+P',
+            enabled: !this.isEditMode,
+            click: () => this.exportPDF()
           },
           { type: 'separator' },
           {
@@ -180,6 +188,17 @@ class MenuManager {
     this.sidebarEnabled = enabled;
     // 重新创建菜单以更新启用状态
     this.createMenu();
+  }
+
+  setEditMode(isEditMode) {
+    this.isEditMode = isEditMode;
+    // 重新创建菜单以更新导出PDF的启用状态
+    this.createMenu();
+  }
+
+  exportPDF() {
+    const mainWindow = this.windowManager.getWindow();
+    mainWindow.webContents.send('export-pdf-request');
   }
 
 

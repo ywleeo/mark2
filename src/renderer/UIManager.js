@@ -283,9 +283,8 @@ class UIManager {
 
   enableSidebar() {
     this.sidebarEnabled = true;
-    // 启用时默认显示 sidebar，恢复之前保存的状态
-    const savedState = localStorage.getItem('sidebarVisible');
-    this.sidebarVisible = savedState !== 'false'; // 默认为 true，除非明确设置为 false
+    // 启用时强制显示 sidebar（打开文件夹时应该自动显示）
+    this.sidebarVisible = true;
     this.updateSidebarVisibility();
     this.eventManager.emit('sidebar-enabled', true);
     
