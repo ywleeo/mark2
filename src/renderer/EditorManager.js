@@ -220,6 +220,12 @@ class EditorManager {
     this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
     this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
     
+    // 清理旧的语法高亮器，避免内容缓存
+    if (this.markdownHighlighter) {
+      this.markdownHighlighter.destroy();
+      this.markdownHighlighter = null;
+    }
+    
     // 确保UI元素状态正确
     const editor = document.getElementById('editorTextarea');
     const editorContent = document.getElementById('editorContent');
