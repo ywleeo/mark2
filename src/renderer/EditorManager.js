@@ -138,6 +138,10 @@ class EditorManager {
     
     this.isEditMode = !this.isEditMode;
     
+    // 通知主进程编辑模式状态变化
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('set-edit-mode', this.isEditMode);
+    
     const editorContent = document.getElementById('editorContent');
     const contentArea = document.querySelector('.content-area');
     const editButton = document.getElementById('edit-button');
@@ -153,6 +157,9 @@ class EditorManager {
           
           // 初始化语法高亮器
           this.initMarkdownHighlighter(editor);
+          
+          // 直接在这里添加滚动修正
+          this.setupScrollFix(editor);
         }
       }
       if (contentArea) contentArea.style.display = 'none';
@@ -211,6 +218,10 @@ class EditorManager {
     
     // 重置编辑模式状态
     this.isEditMode = false;
+    
+    // 通知主进程编辑模式状态
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('set-edit-mode', this.isEditMode);
     
     // 重置滚动位置（新文件从顶部开始）
     this.previewScrollPosition = 0;
@@ -462,6 +473,25 @@ class EditorManager {
       return ratio;
     }
     return 0;
+  }
+
+  // 设置滚动修正机制
+  setupScrollFix(textarea) {
+    const scrollFix = 25;
+    if (!textarea) return;
+    
+    console.log('EditorManager: 设置滚动修正机制');
+    
+    textarea.addEventListener('scroll', () => {
+      const maxScroll = textarea.scrollHeight - textarea.clientHeight;
+      
+      
+      // 如果距离底部小于40px，就调整到距离底部40px的位置
+      if (maxScroll - textarea.scrollTop < scrollFix) {
+        console.log('EditorManager: 距离底部小于40px，调整位置');
+        textarea.scrollTop = maxScroll - scrollFix;
+      }
+    });
   }
 
   // 获取可滚动的父元素
