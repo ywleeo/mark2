@@ -30,7 +30,7 @@
     "招商银行", "平安银行", "蚂蚁集团", "滴滴出行", "育碧", "Ubisoft", "本田", "丰田",
     "广汽", "日产", "IBM", "Oracle", "Salesforce", "Adobe", "PayPal", "Visa", "MasterCard",
     "摩根大通", "高盛", "花旗集团", "瑞银", "德意志银行", "汇丰银行", "IMF", "SEC", "联合国",
-    "世界银行", "欧洲央行", "日本央行",
+    "世界银行", "欧洲央行", "日本央行", "LG",
 
     "GPT", "GPT-4", "GPT-5", "Llama", "Cybertruck", "Model Y", "Model 3", "Model S", "Model X",
     "HarmonyOS", "英雄联盟", "iPhone", "iPad", "MacBook", "Surface", "Windows", "Android",
@@ -41,6 +41,7 @@
     "百度云", "Redis", "MySQL", "PostgreSQL", "MongoDB", "Kubernetes", "Docker", "GitHub",
     "GitLab", "Jenkins", "Jira", "Blackwell", "ChatGPT", "Claude", "Gemini", "Copilot",
     "Midjourney", "Stable Diffusion", "MiniMax", "月之暗面", "智谱", "阶跃星辰", "Kimi", "软银", "星链",
+    "鸿蒙",
 
     "北京", "上海", "深圳", "广州", "杭州", "欧洲", "南京", "成都", "重庆", "武汉", "西安",
     "天津", "苏州", "宁波", "青岛", "大连", "厦门", "长沙", "郑州", "济南", "美国", "日本",

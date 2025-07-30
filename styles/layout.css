@@ -307,8 +307,9 @@ body {
 .editor-content {
     display: none;
     height: 100%;
-    padding: 20px;
+    padding: 2px;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 .editor-content.active {
@@ -361,10 +362,6 @@ body {
     resize: none;
     outline: none;
     box-sizing: border-box;
-}
-
-.editor-textarea:focus {
-    box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.25);
 }
 
 /* Markdown 内容布局 */

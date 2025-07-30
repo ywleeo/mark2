@@ -16,6 +16,9 @@ class EditorManager {
     this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
     this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
     
+    // Markdown 语法高亮器
+    this.markdownHighlighter = null;
+    
     this.setupEditor();
   }
 
@@ -39,6 +42,25 @@ class EditorManager {
     });
   }
 
+  // 初始化 Markdown 语法高亮器（在切换到编辑模式时调用）
+  async initMarkdownHighlighter(editor) {
+    if (this.markdownHighlighter) {
+      return; // 已经初始化过了
+    }
+    
+    try {
+      const MarkdownHighlighter = require('./MarkdownHighlighter');
+      this.markdownHighlighter = new MarkdownHighlighter();
+      // 延迟初始化，确保编辑器已经显示
+      setTimeout(async () => {
+        await this.markdownHighlighter.init(editor);
+      }, 100);
+    } catch (error) {
+      console.warn('Markdown 语法高亮器初始化失败:', error);
+      // 继续使用普通 textarea
+    }
+  }
+
   toggleEditMode() {
     // 保存当前模式的滚动位置
     this.saveCurrentScrollPosition();
@@ -57,6 +79,9 @@ class EditorManager {
         if (editor) {
           editor.value = this.originalContent;
           editor.focus();
+          
+          // 初始化语法高亮器
+          this.initMarkdownHighlighter(editor);
         }
       }
       if (contentArea) contentArea.style.display = 'none';
@@ -247,6 +272,12 @@ class EditorManager {
     // 重置尺寸信息
     this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
     this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
+    
+    // 清理语法高亮器
+    if (this.markdownHighlighter) {
+      this.markdownHighlighter.destroy();
+      this.markdownHighlighter = null;
+    }
     
     const editor = document.getElementById('editorTextarea');
     const editorContent = document.getElementById('editorContent');

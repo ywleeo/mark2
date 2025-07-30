@@ -1,0 +1,137 @@
+/* Markdown 增强视觉样式 - 可选的样式增强 */
+
+/* 二级标题 - 使用背景色块替代下划线 */
+.markdown-content h2 {
+    font-size: 24px !important;
+    display: inline-block;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    padding: 0 12px 1px 15px; /* 右侧留出呼吸空间 */
+    border-bottom: none !important; /* 移除原有下划线 */
+    position: relative;
+    background: linear-gradient(90deg, #bdffe950 0%, var(--h2-background-color, rgba(198, 255, 241, 0)) 100%) left bottom;
+    background-size: 100% 40%; /* 覆盖文字下半部分 */
+    background-repeat: no-repeat;
+    background-position: bottom;
+}
+
+/* 一级标题保持简洁的下划线风格 */
+.markdown-content h1 {
+    font-size: 28px !important;
+    border-bottom-width: 3px;
+    border-bottom-style: solid;
+    border-bottom-color: var(--h1-border-color, #e5e7eb);
+    padding-bottom: 10px;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+/* 三级标题添加左侧装饰线 */
+.markdown-content h3 {
+    font-size: 20px !important;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    padding-left: 12px;
+    border-left: 3px solid #608bdf;
+    position: relative;
+}
+
+/* 四级标题保持简洁 */
+.markdown-content h4 {
+    font-size: 18px !important;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    color: var(--h4-text-color, #374151);
+}
+
+/* 代码块增强 */
+.markdown-content pre {
+    padding: 16px;
+    border-radius: 8px; /* 增加圆角 */
+    overflow-x: auto;
+    border-left-width: 4px;
+    border-left-style: solid;
+    border-left-color: var(--code-accent-color, #10b981);
+    background-color: var(--code-background-color, #f8fafc);
+    position: relative;
+}
+
+/* 行内代码增强 */
+.markdown-content code {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    background-color: var(--inline-code-background, rgba(99, 102, 241, 0.1));
+    color: var(--inline-code-color, #6366f1);
+    font-size: 0.9em;
+}
+
+/* 引用块增强 */
+.markdown-content blockquote {
+    border-left-width: 4px;
+    border-left-style: solid;
+    border-left-color: var(--quote-accent-color, #f59e0b);
+    padding: 12px 20px;
+    margin: 20px 0;
+    font-style: italic;
+    background-color: var(--quote-background-color, rgba(245, 158, 11, 0.05));
+    border-radius: 0 4px 4px 0;
+}
+
+/* 链接增强 */
+.markdown-content a {
+    text-decoration: underline;
+    color: var(--link-color, #2563eb);
+    transition: color 0.2s ease;
+}
+
+.markdown-content a:hover {
+    color: var(--link-hover-color, #1d4ed8);
+}
+
+/* 表格增强 */
+.markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 20px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-content th {
+    background-color: var(--table-header-background, #f3f4f6);
+    font-weight: 600;
+    padding: 12px;
+    border: 1px solid var(--table-border-color, #d1d5db);
+}
+
+.markdown-content td {
+    padding: 10px 12px;
+    border: 1px solid var(--table-border-color, #d1d5db);
+}
+
+.markdown-content tr:nth-child(even) {
+    background-color: var(--table-stripe-background, #f9fafb);
+}
+
+/* 列表增强 */
+.markdown-content ul, .markdown-content ol {
+    padding-left: 28px;
+    margin: 12px 0;
+}
+
+.markdown-content li {
+    margin-bottom: 6px;
+    line-height: 1.6;
+}
+
+/* 列表项目符号自定义 */
+.markdown-content ul li::marker {
+    color: var(--list-marker-color, #6b7280);
+}
+
+.markdown-content ol li::marker {
+    color: var(--list-marker-color, #6b7280);
+    font-weight: 600;
+}

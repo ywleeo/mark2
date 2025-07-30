@@ -1,0 +1,82 @@
+/* Markdown 编辑器语法高亮样式 */
+
+/* LDT 基础样式 */
+.ldt {
+    position: relative;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.ldt textarea {
+    color: rgba(0, 0, 0, 0.01); /* 几乎透明但保留光标 */
+    background: transparent;
+    caret-color: var(--md-caret-color, #0969da); /* 显式设置光标颜色 */
+}
+
+.ldt .ldt-output {
+    color: var(--md-text-color, #24292f); /* 默认文字颜色 */
+}
+
+/* Markdown 语法元素高亮样式 - 标记符号着色 */
+.ldt .headingMark {
+    color: var(--md-heading-color, #0969da);
+    font-weight: 600;
+}
+
+.ldt .boldMark {
+    color: var(--md-bold-color, #cf222e);
+    font-weight: bold;
+}
+
+.ldt .italicMark {
+    color: var(--md-italic-color, #8250df);
+    font-weight: bold;
+}
+
+.ldt .strikethroughMark {
+    color: var(--md-strikethrough-color, #656d76);
+    font-weight: bold;
+}
+
+.ldt .inlineCodeMark {
+    color: var(--md-inline-code-color, #e36209);
+    font-weight: bold;
+}
+
+.ldt .codeBlock {
+    color: var(--md-code-block-color, #24292f);
+    background-color: var(--md-code-block-bg, rgba(246, 248, 250, 0.5));
+}
+
+.ldt .linkMark {
+    color: var(--md-link-color, #0969da);
+    font-weight: bold;
+}
+
+.ldt .imageMark {
+    color: var(--md-image-color, #1f883d);
+    font-weight: bold;
+}
+
+.ldt .blockquoteMark {
+    color: var(--md-blockquote-color, #656d76);
+    font-weight: bold;
+}
+
+.ldt .listMark {
+    color: var(--md-list-color, #0550ae);
+    font-weight: bold;
+}
+
+.ldt .horizontalRule {
+    color: #22cf7b;
+    font-weight: bold;
+}
+
+.ldt .htmlTag {
+    color: var(--md-html-tag-color, #e36209);
+    font-weight: bold;
+}
+
+/* 深色主题的语法高亮在主题文件的 CSS 变量中已定义，这里不需要重复 */

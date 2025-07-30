@@ -147,10 +147,6 @@ body {
     color: #333;
 }
 
-.editor-textarea:focus {
-    border-color: #0969da;
-}
-
 /* Markdown 内容颜色 */
 .markdown-content h1, .markdown-content h2, .markdown-content h3 {
     color: #2c3e50;
@@ -364,4 +360,48 @@ mark.highlight-pattern {
 
 .editor-textarea {
     scrollbar-color: #d1d5db #f1f3f4;
+}
+
+/* Markdown 增强样式颜色变量 - 浅色主题 */
+:root {
+    --h1-border-color: #3498db;
+    --h2-accent-color: #3b82f6;
+    --h2-background-color: rgba(59, 130, 246, 0.08);
+    --h3-accent-color: #6b7280;
+    --h4-text-color: #374151;
+    --code-accent-color: #10b981;
+    --code-background-color: #f8fafc;
+    --inline-code-background: rgba(99, 102, 241, 0.1);
+    --inline-code-color: #6366f1;
+    --quote-accent-color: #f59e0b;
+    --quote-background-color: rgba(245, 158, 11, 0.05);
+    --link-color: #2563eb;
+    --link-hover-color: #1d4ed8;
+    --table-header-background: #f3f4f6;
+    --table-border-color: #d1d5db;
+    --table-stripe-background: #f9fafb;
+    --list-marker-color: #6b7280;
+    
+    /* Markdown 编辑器高亮颜色变量 - 浅色主题 */
+    --md-text-color: #24292f;
+    --md-caret-color: #0969da;
+    --md-heading-color: #0969da;
+    --md-bold-color: #cf222e;
+    --md-italic-color: #8250df;
+    --md-strikethrough-color: #656d76;
+    --md-inline-code-color: #e36209;
+    --md-inline-code-bg: rgba(175, 184, 193, 0.2);
+    --md-code-block-color: #24292f;
+    --md-code-block-bg: #f6f8fa;
+    --md-code-block-border: #d1d9e0;
+    --md-link-color: #0969da;
+    --md-image-color: #1f883d;
+    --md-blockquote-color: #656d76;
+    --md-blockquote-border: #d1d9e0;
+    --md-list-color: #0550ae;
+    --md-hr-color: #d1d9e0;
+    --md-table-separator-color: #656d76;
+    --md-table-row-color: #24292f;
+    --md-html-tag-color: #e36209;
+    --md-escape-color: #cf222e;
 }
