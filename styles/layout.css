@@ -31,12 +31,43 @@ body {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
+    position: relative; /* 为拖拽手柄提供定位上下文 */
 }
 
 .sidebar.hidden {
     width: 0;
     overflow: hidden;
     border-right: none;
+}
+
+/* 侧边栏拖拽手柄 */
+.sidebar-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 10;
+    transition: background-color 0.2s ease;
+}
+
+.sidebar-resizer:hover {
+    background-color: rgba(59, 130, 246, 0.5);
+}
+
+.sidebar-resizer.dragging {
+    background-color: rgba(59, 130, 246, 0.8);
+}
+
+/* 拖拽时禁用宽度过渡 */
+.sidebar.resizing {
+    transition: none;
+}
+
+.sidebar.hidden .sidebar-resizer {
+    display: none;
 }
 
 .file-tree {
@@ -237,9 +268,22 @@ body {
 /* 自定义搜索功能已移除，使用浏览器原生搜索 */
 
 .welcome-message {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
     text-align: center;
     font-size: 12px;
-    margin-top: 100px;
+}
+
+.ascii-animation-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
 }
 
 .markdown-content {

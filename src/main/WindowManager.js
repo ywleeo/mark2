@@ -12,8 +12,8 @@ class WindowManager {
     const backgroundColor = await this.getBackgroundColor();
 
     this.mainWindow = new BrowserWindow({
-      width: 800,
-      height: 900,
+      width: 300,
+      height: 200,
       title: 'mark2',
       backgroundColor: backgroundColor,
       webPreferences: {
@@ -92,6 +92,22 @@ class WindowManager {
       } else {
         this.mainWindow.close();
       }
+    }
+  }
+
+  // 调整窗口大小到内容加载状态 (800x900)
+  resizeToContentLoaded() {
+    if (this.mainWindow) {
+      this.mainWindow.setSize(800, 900);
+      this.mainWindow.center();
+    }
+  }
+
+  // 调整窗口大小到初始状态 (300x200)
+  resizeToInitialState() {
+    if (this.mainWindow) {
+      this.mainWindow.setSize(300, 200);
+      this.mainWindow.center();
     }
   }
 }

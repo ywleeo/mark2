@@ -10,6 +10,7 @@ class UIManager {
   setupUI() {
     this.loadTheme();
     this.setupSidebar();
+    this.setupSidebarResizer();
     this.setupButtons();
     this.loadSettings();
   }
@@ -353,6 +354,88 @@ class UIManager {
     
     // 显示成功消息
     this.showMessage('设置已保存', 'success');
+  }
+
+  setupSidebarResizer() {
+    const resizer = document.getElementById('sidebarResizer');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (!resizer || !sidebar) {
+      return;
+    }
+
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    const minWidth = 200;
+    const maxWidth = 500;
+
+    // 加载保存的宽度
+    this.loadSidebarWidth();
+
+    const handleMouseDown = (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = sidebar.offsetWidth;
+      
+      resizer.classList.add('dragging');
+      sidebar.classList.add('resizing');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      
+      // 阻止文本选择
+      e.preventDefault();
+    };
+
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      
+      const deltaX = e.clientX - startX;
+      const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + deltaX));
+      
+      sidebar.style.width = newWidth + 'px';
+    };
+
+    const handleMouseUp = () => {
+      if (!isResizing) return;
+      
+      isResizing = false;
+      resizer.classList.remove('dragging');
+      sidebar.classList.remove('resizing');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      
+      // 保存新宽度
+      this.saveSidebarWidth(sidebar.offsetWidth);
+    };
+
+    // 绑定事件
+    resizer.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    // 清理函数（如果需要）
+    this.cleanupSidebarResizer = () => {
+      resizer.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }
+
+  saveSidebarWidth(width) {
+    localStorage.setItem('sidebarWidth', width.toString());
+  }
+
+  loadSidebarWidth() {
+    const savedWidth = localStorage.getItem('sidebarWidth');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (savedWidth && sidebar) {
+      const width = parseInt(savedWidth);
+      if (width >= 200 && width <= 500) {
+        sidebar.style.width = width + 'px';
+      }
+    }
   }
 }
 

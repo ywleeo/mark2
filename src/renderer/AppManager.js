@@ -4,6 +4,7 @@ const FileTreeManager = require('./FileTreeManager');
 const EditorManager = require('./EditorManager');
 const SearchManager = require('./SearchManager');
 const UIManager = require('./UIManager');
+const ASCIIAnimator = require('./ASCIIAnimator');
 
 class AppManager {
   constructor() {
@@ -13,6 +14,7 @@ class AppManager {
     this.editorManager = new EditorManager(this.markdownRenderer, this.eventManager, this);
     this.searchManager = new SearchManager();
     this.uiManager = new UIManager(this.eventManager);
+    this.asciiAnimator = new ASCIIAnimator();
     
     // 将editorManager和searchManager挂载到全局window对象
     window.editorManager = this.editorManager;
@@ -35,6 +37,7 @@ class AppManager {
     // 延迟设置键盘快捷键，确保DOM完全准备好
     setTimeout(() => {
       this.setupKeyboardShortcuts();
+      this.startASCIIAnimation();
     }, 100);
   }
 
@@ -275,6 +278,11 @@ class AppManager {
       markdownContent.style.display = 'block';
     }
     
+    // 停止动画并调整窗口大小到内容加载状态
+    this.stopASCIIAnimation();
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('resize-window-to-content-loaded');
+    
     // 更新编辑器内容
     this.editorManager.setContent(content, filePath);
     
@@ -297,6 +305,12 @@ class AppManager {
     // 保存当前文件夹路径并切换到文件夹模式
     this.currentFolderPath = folderPath;
     this.switchToFolderMode();
+    
+    // 停止动画并调整窗口大小到内容加载状态
+    this.stopASCIIAnimation();
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('resize-window-to-content-loaded');
+    
     this.fileTreeManager.displayFileTree(folderPath, fileTree);
   }
 
@@ -344,6 +358,15 @@ class AppManager {
     if (markdownContent) {
       markdownContent.style.display = 'none';
     }
+    
+    // 调整窗口大小到初始状态并重启动画
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('resize-window-to-initial-state');
+    
+    // 重新启动动画
+    setTimeout(() => {
+      this.startASCIIAnimation();
+    }, 200);
     
     // 重置各个管理器
     this.editorManager.resetToInitialState();
@@ -475,6 +498,19 @@ class AppManager {
 
   getCurrentMode() {
     return this.appMode;
+  }
+
+  startASCIIAnimation() {
+    const container = document.getElementById('asciiAnimationContainer');
+    console.log('startASCIIAnimation called, container:', container, 'appMode:', this.appMode);
+    if (container && this.appMode === null) {
+      console.log('Starting ASCII animation');
+      this.asciiAnimator.start(container);
+    }
+  }
+
+  stopASCIIAnimation() {
+    this.asciiAnimator.stop();
   }
 }
 

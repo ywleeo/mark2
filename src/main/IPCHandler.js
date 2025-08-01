@@ -116,6 +116,15 @@ class IPCHandler {
         this.menuManager.setSidebarEnabled(enabled);
       }
     });
+
+    // 窗口大小调整
+    ipcMain.on('resize-window-to-content-loaded', () => {
+      this.windowManager.resizeToContentLoaded();
+    });
+
+    ipcMain.on('resize-window-to-initial-state', () => {
+      this.windowManager.resizeToInitialState();
+    });
   }
 }
 
