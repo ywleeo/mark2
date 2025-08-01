@@ -1,0 +1,202 @@
+/* CodeMirror Markdown 编辑器样式 */
+
+/* ==================== 基础编辑器样式 ==================== */
+
+/* 编辑器整体 */
+.cm-editor {
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+}
+
+/* 文本行 */
+.cm-editor .cm-line {
+  word-wrap: break-word;
+  text-decoration: none;
+}
+
+/* 选择文本样式 */
+.cm-editor .cm-selectionBackground,
+.cm-editor .cm-content ::selection {
+  background-color: #e2e8f0;
+  text-decoration: none;
+}
+
+/* ==================== 滚动条样式 ==================== */
+
+.cm-editor .cm-scroller::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar-track {
+  background-color: #f1f3f4;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 4px;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: #a0aec0;
+}
+
+/* ==================== Markdown 语法高亮样式 ==================== */
+
+/* 标题 */
+.cm-editor .cm-header {
+  color: #478fb7;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.cm-editor .cm-header-1 {
+  font-size: 1.5em;
+  color: #478fb7;
+}
+
+.cm-editor .cm-header-2 {
+  font-size: 1.3em;
+  color: #478fb7;
+}
+
+.cm-editor .cm-header-3 {
+  font-size: 1.1em;
+  color: #478fb7;
+}
+
+/* 文本格式 */
+.cm-editor .cm-strong {
+  font-weight: bold;
+  color: #dc2626;
+}
+
+.cm-editor .cm-emphasis {
+  font-style: italic;
+  color: #059669;
+}
+
+.cm-editor .cm-strikethrough {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+/* 链接 */
+.cm-editor .cm-link {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.cm-editor .cm-url {
+  color: #7c3aed;
+}
+
+/* 代码 */
+.cm-editor .cm-code {
+  background-color: #f3f4f6;
+  color: #dc2626;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+
+/* 引用 */
+.cm-editor .cm-quote {
+  color: #6b7280;
+  font-style: italic;
+  border-left: 4px solid #d1d5db;
+  padding-left: 8px;
+}
+
+/* 列表 */
+.cm-editor .cm-list {
+  color: #059669;
+}
+
+/* 分割线 */
+.cm-editor .cm-hr {
+  color: #fbc971;
+  font-weight: bold;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* ==================== 搜索高亮样式 ==================== */
+
+/* 搜索匹配项高亮 */
+.cm-editor .search-highlight {
+  background-color: #fef3c7;
+  border-radius: 2px;
+}
+
+/* 当前搜索匹配项高亮 */
+.cm-editor .search-highlight.current {
+  background-color: #fbbf24;
+}
+
+/* 深色主题下的搜索高亮 */
+.codemirror-container[data-theme="dark"] .cm-editor .search-highlight {
+  background-color: #fffd78 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .search-highlight.current {
+  background-color: #e78c54 !important;
+}
+
+/* ==================== 深色主题样式 ==================== */
+
+/* 编辑器整体 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-editor {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  border-color: #404040 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-content {
+  color: #e0e0e0 !important;
+}
+
+/* 选择文本 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-selectionBackground,
+.codemirror-container[data-theme="dark"] .cm-content ::selection {
+  background-color: #404040 !important;
+}
+
+/* 滚动条 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-scroller::-webkit-scrollbar-track {
+  background-color: #1a1a1a !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: #555 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: #666 !important;
+}
+
+/* Markdown 元素 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-header {
+  color: #478fb7 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-strong {
+  color: #f87171 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-emphasis {
+  color: #34d399 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-code {
+  background-color: #2d2d2d !important;
+  color: #fbbf24 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-quote {
+  color: #999 !important;
+  border-left-color: #404040 !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-hr {
+  color: #fbc971 !important;
+}

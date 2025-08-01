@@ -79,41 +79,7 @@ body {
     scrollbar-color: #555 #1a1a1a;
 }
 
-/* 搜索栏颜色 */
-.search-bar {
-    background-color: #2d2d2d;
-    border-bottom-color: #404040;
-}
-
-#searchInput {
-    background-color: transparent;
-    color: #e0e0e0;
-}
-
-.search-nav-btn {
-    background: transparent;
-    color: #c9d1d9;
-}
-
-.search-nav-btn:hover {
-    background: #30363d;
-    border-color: #8b949e;
-}
-
-#searchCounter {
-    color: #ccc;
-}
-
-/* 搜索高亮颜色 */
-.search-highlight {
-    background-color: #ffd33d !important;
-    color: #1f2328 !important;
-}
-
-.search-highlight.current {
-    background-color: #fb8500 !important;
-    color: white !important;
-}
+/* 自定义搜索功能已移除，使用浏览器原生搜索 */
 
 .welcome-message {
     color: #888;

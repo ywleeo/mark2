@@ -45,7 +45,16 @@ class MenuManager {
           { label: '剪切', accelerator: 'CmdOrCtrl+X', role: 'cut' },
           { label: '复制', accelerator: 'CmdOrCtrl+C', role: 'copy' },
           { label: '粘贴', accelerator: 'CmdOrCtrl+V', role: 'paste' },
-          { label: '全选', accelerator: 'CmdOrCtrl+A', role: 'selectall' }
+          { label: '全选', accelerator: 'CmdOrCtrl+A', role: 'selectall' },
+          { type: 'separator' },
+          { 
+            label: '查找', 
+            accelerator: 'CmdOrCtrl+F', 
+            click: () => {
+              const mainWindow = this.windowManager.getWindow();
+              mainWindow.webContents.send('show-search-box');
+            }
+          }
         ]
       },
       {

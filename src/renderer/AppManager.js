@@ -14,6 +14,10 @@ class AppManager {
     this.searchManager = new SearchManager();
     this.uiManager = new UIManager(this.eventManager);
     
+    // 将editorManager和searchManager挂载到全局window对象
+    window.editorManager = this.editorManager;
+    window.searchManager = this.searchManager;
+    
     // 全局文件路径管理
     this.currentFilePath = null;
     this.currentFolderPath = null;
@@ -116,6 +120,10 @@ class AppManager {
 
     ipcRenderer.on('show-search', () => {
       this.searchManager.showSearch();
+    });
+
+    ipcRenderer.on('show-search-box', () => {
+      this.searchManager.show();
     });
 
     ipcRenderer.on('show-settings', () => {
@@ -279,9 +287,10 @@ class AppManager {
     }
     
     // 清除搜索状态
-    if (this.searchManager.isVisible()) {
-      this.searchManager.hideSearch();
-    }
+    // 移除自定义搜索功能
+    // if (this.searchManager.isVisible()) {
+    //   this.searchManager.hideSearch();
+    // }
   }
 
   displayFileTree(folderPath, fileTree) {
@@ -341,7 +350,7 @@ class AppManager {
     this.uiManager.resetToInitialState();
     this.uiManager.disableSidebar(); // 禁用侧边栏
     this.fileTreeManager.clearFileTree(); // 清空文件树
-    this.searchManager.hideSearch();
+    // this.searchManager.hideSearch(); // 移除自定义搜索功能
   }
 
   // 获取各个管理器的引用，供外部使用
@@ -361,9 +370,9 @@ class AppManager {
     return this.editorManager;
   }
 
-  getSearchManager() {
-    return this.searchManager;
-  }
+  // getSearchManager() {
+  //   return this.searchManager;
+  // } // 移除自定义搜索功能
 
   getUIManager() {
     return this.uiManager;
@@ -416,7 +425,7 @@ class AppManager {
       // Cmd+F 显示搜索
       if (event.metaKey && event.key === 'f') {
         event.preventDefault();
-        this.searchManager.showSearch();
+        this.searchManager.toggle();
       }
       
       // Cmd+B 切换侧边栏（只有在 sidebar 启用时才响应）

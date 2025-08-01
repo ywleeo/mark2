@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles/layout.css">
     <link rel="stylesheet" id="theme-css" href="styles/light-theme.css">
     <link rel="stylesheet" href="styles/markdown-enhanced.css">
-    <link rel="stylesheet" href="styles/markdown-editor-highlight.css">
+    <link rel="stylesheet" href="styles/codemirror-markdown.css">
     <style>
         /* 主题切换过渡效果 */
         body {
@@ -50,6 +50,12 @@
             <symbol id="dropdown-arrow" viewBox="0 0 16 16">
                 <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
             </symbol>
+            <symbol id="search-up" viewBox="0 0 16 16">
+                <path d="M12 11L8 7L4 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </symbol>
+            <symbol id="search-down" viewBox="0 0 16 16">
+                <path d="M4 5L8 9L12 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </symbol>
         </defs>
     </svg>
     
@@ -60,29 +66,26 @@
         </div>
     </div>
 
-    <div class="main-content">
-        <!-- 搜索栏 -->
-        <div class="search-bar" id="searchBar" style="display: none;">
-            <div class="search-input-container">
-                <input type="text" id="searchInput" placeholder="在当前文档中搜索..." autocomplete="off">
-                <span id="searchCounter">0/0</span>
-                <button id="searchPrevBtn" title="上一个" class="search-nav-btn">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 11L8 7L4 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-                <button id="searchNextBtn" title="下一个" class="search-nav-btn">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4 7L8 11L12 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-                <button id="searchCloseBtn" title="关闭" class="search-nav-btn">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 3L3 9M3 3L9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
+    <!-- 搜索框 -->
+    <div class="search-box" id="searchBox">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索..." />
+            <span class="search-results" id="searchResults"></span>
+            <button class="search-prev" id="searchPrev" title="上一个">
+                <svg width="14" height="14">
+                    <use href="#search-up"></use>
+                </svg>
+            </button>
+            <button class="search-next" id="searchNext" title="下一个">
+                <svg width="14" height="14">
+                    <use href="#search-down"></use>
+                </svg>
+            </button>
+            <button class="search-close" id="searchClose" title="关闭">×</button>
         </div>
+    </div>
+
+    <div class="main-content">
         
         <div class="content-area">
             <div class="welcome-message">
@@ -115,6 +118,7 @@
                 <label for="fontSizeSelect">字号大小</label>
                 <select id="fontSizeSelect">
                     <option value="12">12px</option>
+                    <option value="13">13px</option>
                     <option value="14">14px</option>
                     <option value="15">15px</option>
                     <option value="16" selected>16px</option>
@@ -174,8 +178,6 @@
             </div>
         </div>
     </div>
-
-    <script src="ldt-browser.js"></script>
     <script src="keyword-highlighter.js"></script>
     <script src="renderer.js"></script>
 </body>

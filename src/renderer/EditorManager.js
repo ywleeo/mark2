@@ -114,8 +114,8 @@ class EditorManager {
     }
     
     try {
-      const MarkdownHighlighter = require('./MarkdownHighlighter');
-      this.markdownHighlighter = new MarkdownHighlighter();
+      const CodeMirrorHighlighter = require('./CodeMirrorHighlighter');
+      this.markdownHighlighter = new CodeMirrorHighlighter();
       // 延迟初始化，确保编辑器已经显示且窗口稳定
       setTimeout(async () => {
         // 再次检查窗口是否稳定
@@ -127,7 +127,7 @@ class EditorManager {
         }
       }, 100);
     } catch (error) {
-      console.warn('Markdown 语法高亮器初始化失败:', error);
+      console.warn('CodeMirror 语法高亮器初始化失败:', error);
       // 继续使用普通 textarea
     }
   }
@@ -135,6 +135,11 @@ class EditorManager {
   toggleEditMode() {
     // 保存当前模式的滚动位置
     this.saveCurrentScrollPosition();
+    
+    // 重置搜索框状态
+    if (window.searchManager) {
+      window.searchManager.reset();
+    }
     
     this.isEditMode = !this.isEditMode;
     
@@ -158,8 +163,7 @@ class EditorManager {
           // 初始化语法高亮器
           this.initMarkdownHighlighter(editor);
           
-          // 直接在这里添加滚动修正
-          this.setupScrollFix(editor);
+          // CodeMirror 自己处理光标定位，不需要额外的滚动修正
         }
       }
       if (contentArea) contentArea.style.display = 'none';
@@ -205,10 +209,11 @@ class EditorManager {
     const html = this.markdownRenderer.renderMarkdown(content);
     preview.innerHTML = html;
     
+    // 移除自定义搜索功能
     // 恢复搜索高亮（如果搜索处于激活状态）
-    if (this.appManager && this.appManager.getSearchManager()) {
-      this.appManager.getSearchManager().reapplySearch();
-    }
+    // if (this.appManager && this.appManager.getSearchManager()) {
+    //   this.appManager.getSearchManager().reapplySearch();
+    // }
   }
 
   setContent(content, filePath) {
@@ -401,13 +406,23 @@ class EditorManager {
   saveCurrentScrollPosition() {
     if (this.isEditMode) {
       // 当前在编辑模式，保存编辑器滚动位置和尺寸
-      const editor = document.getElementById('editorTextarea');
-      if (editor) {
-        this.editorScrollPosition = editor.scrollTop;
+      if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+        const scrollInfo = this.markdownHighlighter.getScrollInfo();
+        this.editorScrollPosition = scrollInfo.top;
         this.editorDimensions = {
-          scrollHeight: editor.scrollHeight,
-          clientHeight: editor.clientHeight
+          scrollHeight: scrollInfo.height,
+          clientHeight: scrollInfo.clientHeight
         };
+      } else {
+        // 备用方案：使用原始textarea
+        const editor = document.getElementById('editorTextarea');
+        if (editor) {
+          this.editorScrollPosition = editor.scrollTop;
+          this.editorDimensions = {
+            scrollHeight: editor.scrollHeight,
+            clientHeight: editor.clientHeight
+          };
+        }
       }
     } else {
       // 当前在预览模式，保存主容器滚动位置和尺寸
@@ -426,19 +441,31 @@ class EditorManager {
   restoreScrollPosition() {
     if (this.isEditMode) {
       // 切换到编辑模式，恢复编辑器滚动位置
-      const editor = document.getElementById('editorTextarea');
-      if (editor) {
-        // 先尝试直接使用比例计算
+      if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+        // 使用CodeMirror的滚动方法
         const scrollRatio = this.calculateScrollRatio('preview');
-        const editorMaxScroll = Math.max(0, editor.scrollHeight - editor.clientHeight);
+        const scrollInfo = this.markdownHighlighter.getScrollInfo();
+        const editorMaxScroll = Math.max(0, scrollInfo.height - scrollInfo.clientHeight);
         const targetScroll = scrollRatio * editorMaxScroll;
-        
-        // 如果目标位置为0但预览位置不为0，尝试简单的直接设置
+
         if (targetScroll === 0 && this.previewScrollPosition > 0) {
-          // 简单策略：如果预览位置大于0，至少让编辑器也滚动一点
-          editor.scrollTop = Math.min(this.previewScrollPosition, editorMaxScroll);
+          this.markdownHighlighter.scrollTo(Math.min(this.previewScrollPosition, editorMaxScroll));
         } else {
-          editor.scrollTop = targetScroll;
+          this.markdownHighlighter.scrollTo(targetScroll);
+        }
+      } else {
+        // 备用方案：使用原始textarea
+        const editor = document.getElementById('editorTextarea');
+        if (editor) {
+          const scrollRatio = this.calculateScrollRatio('preview');
+          const editorMaxScroll = Math.max(0, editor.scrollHeight - editor.clientHeight);
+          const targetScroll = scrollRatio * editorMaxScroll;
+
+          if (targetScroll === 0 && this.previewScrollPosition > 0) {
+            editor.scrollTop = Math.min(this.previewScrollPosition, editorMaxScroll);
+          } else {
+            editor.scrollTop = targetScroll;
+          }
         }
       }
     } else {
@@ -475,24 +502,7 @@ class EditorManager {
     return 0;
   }
 
-  // 设置滚动修正机制
-  setupScrollFix(textarea) {
-    const scrollFix = 25;
-    if (!textarea) return;
-    
-    console.log('EditorManager: 设置滚动修正机制');
-    
-    textarea.addEventListener('scroll', () => {
-      const maxScroll = textarea.scrollHeight - textarea.clientHeight;
-      
-      
-      // 如果距离底部小于40px，就调整到距离底部40px的位置
-      if (maxScroll - textarea.scrollTop < scrollFix) {
-        console.log('EditorManager: 距离底部小于40px，调整位置');
-        textarea.scrollTop = maxScroll - scrollFix;
-      }
-    });
-  }
+  // CodeMirror 自己处理所有光标和滚动问题，不再需要手动修正
 
   // 获取可滚动的父元素
   getScrollableParent(element) {

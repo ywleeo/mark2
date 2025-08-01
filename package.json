@@ -21,7 +21,11 @@
     "electron-builder": "^24.0.0"
   },
   "dependencies": {
-    "@pygy/ldt-esm": "^0.0.7",
+    "@codemirror/lang-markdown": "^6.3.3",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.1",
+    "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
     "marked": "^5.0.0"
   },
@@ -54,7 +58,7 @@
           "arm64"
         ]
       },
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.icns",
       "minimumSystemVersion": "10.15.0"
     },
     "win": {

@@ -1,441 +1,361 @@
 class SearchManager {
   constructor() {
-    this.isSearchVisible = false;
+    this.searchBox = null;
+    this.searchInput = null;
+    this.resultInfo = null;
+    this.prevButton = null;
+    this.nextButton = null;
+    this.closeButton = null;
     this.currentMatches = [];
-    this.currentMatchIndex = -1;
-    this.lastSearchTerm = '';
-    // 初始化搜索相关的属性
-    this.searchResults = [];
-    this.currentResultIndex = -1;
-    this.currentSearchTerm = '';
-    this.setupSearchElements();
+    this.currentIndex = -1;
+    this.lastQuery = '';
+    this.isVisible = false;
+    this.editorView = null;
+    this.searchDecorations = null;
+    this.highlightEffect = null;
+    this.highlightField = null;
+    
+    this.initCodeMirrorSearch();
+    this.createSearchBox();
+    this.setupEventListeners();
   }
 
-  setupSearchElements() {
-    // 创建搜索栏HTML结构
-    this.createSearchBar();
-    this.attachSearchEvents();
+  initCodeMirrorSearch() {
+        // CodeMirror搜索API将由CodeMirrorHighlighter暴露到全局
+        // 这里不需要额外的初始化
+    }
+
+    createSearchBox() {
+    // 获取页面中已存在的搜索框元素
+    this.searchBox = document.getElementById('searchBox');
+    
+    // 获取元素引用
+    this.searchInput = document.getElementById('searchInput');
+    this.searchResults = document.getElementById('searchResults');
+    this.prevButton = document.getElementById('searchPrev');
+    this.nextButton = document.getElementById('searchNext');
+    this.closeButton = document.getElementById('searchClose');
   }
 
-  createSearchBar() {
-    const existingSearchBar = document.getElementById('searchBar');
-    if (existingSearchBar) return;
+  setupEventListeners() {
+    // 搜索输入事件
+    this.searchInput.addEventListener('input', (e) => {
+      this.search(e.target.value);
+    });
 
-    const searchBarHtml = `
-      <div id="searchBar" class="search-bar" style="display: none;">
-        <div class="search-container">
-          <input type="text" id="searchInput" placeholder="搜索..." />
-          <div class="search-controls">
-            <button id="searchPrevBtn" title="上一个">↑</button>
-            <button id="searchNextBtn" title="下一个">↓</button>
-            <span id="searchCounter">0/0</span>
-            <button id="searchCloseBtn" title="关闭">×</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.insertAdjacentHTML('beforeend', searchBarHtml);
-  }
-
-  attachSearchEvents() {
-    const searchInput = document.getElementById('searchInput');
-    const searchPrev = document.getElementById('searchPrevBtn');
-    const searchNext = document.getElementById('searchNextBtn');
-    const searchClose = document.getElementById('searchCloseBtn');
-
-    if (searchInput) {
-      // 移除 input 事件监听，只在用户完成输入后搜索
-      
-      searchInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          const searchTerm = event.target.value.trim();
-          
-          if (searchTerm) {
-            if (event.shiftKey) {
-              // Shift+Enter: 如果已有搜索结果则上一个，否则开始搜索
-              if (this.searchResults.length > 0) {
-                this.navigateToPrevious();
-              } else {
-                this.performSearch(searchTerm);
-              }
-            } else {
-              // Enter: 如果已有搜索结果则下一个，否则开始搜索
-              if (this.searchResults.length > 0 && this.currentSearchTerm === searchTerm) {
-                this.navigateToNext();
-              } else {
-                this.performSearch(searchTerm);
-              }
-            }
-          }
-        } else if (event.key === 'Escape') {
-          this.hideSearch();
+    // 键盘事件
+    this.searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (e.shiftKey) {
+          this.findPrevious();
+        } else {
+          this.findNext();
         }
-      });
-    }
-
-    if (searchPrev) {
-      searchPrev.addEventListener('click', () => {
-        const searchInput = document.getElementById('searchInput');
-        const searchTerm = searchInput ? searchInput.value.trim() : '';
-        
-        if (searchTerm && this.searchResults.length > 0) {
-          this.navigateToPrevious();
-        } else if (searchTerm) {
-          this.performSearch(searchTerm);
-        }
-      });
-    }
-
-    if (searchNext) {
-      searchNext.addEventListener('click', () => {
-        const searchInput = document.getElementById('searchInput');
-        const searchTerm = searchInput ? searchInput.value.trim() : '';
-        
-        if (searchTerm && this.searchResults.length > 0) {
-          this.navigateToNext();
-        } else if (searchTerm) {
-          this.performSearch(searchTerm);
-        }
-      });
-    }
-
-    if (searchClose) {
-      searchClose.addEventListener('click', () => this.hideSearch());
-    }
-
-    // 全局快捷键
-    document.addEventListener('keydown', (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-        event.preventDefault();
-        this.showSearch();
-      } else if (event.key === 'Escape' && this.isSearchVisible) {
-        // 全局ESC键关闭搜索，以防搜索框失去焦点
-        event.preventDefault();
-        this.hideSearch();
+      } else if (e.key === 'Escape') {
+        this.hide();
       }
     });
+
+    // 按钮事件
+    this.prevButton.addEventListener('click', () => this.findPrevious());
+    this.nextButton.addEventListener('click', () => this.findNext());
+    this.closeButton.addEventListener('click', () => this.hide());
   }
 
-  showSearch() {
-    const searchBar = document.getElementById('searchBar');
-    const searchInput = document.getElementById('searchInput');
+  show() {
+    this.searchBox.style.display = 'block';
+    this.isVisible = true;
+    this.searchInput.focus();
+    this.searchInput.select();
+  }
 
-    if (searchBar) {
-      searchBar.style.display = 'block';
-      this.isSearchVisible = true;
-    }
+  hide() {
+    this.searchBox.style.display = 'none';
+    this.isVisible = false;
+    this.clearHighlights();
+  }
 
-    if (searchInput) {
-      searchInput.focus();
-      searchInput.select();
+  // 重置搜索框状态
+  reset() {
+    this.hide();
+    this.searchInput.value = '';
+    this.currentMatches = [];
+    this.currentIndex = -1;
+    this.lastQuery = '';
+    this.updateResults(0, 0);
+  }
+
+  toggle() {
+    if (this.isVisible) {
+      this.hide();
+    } else {
+      this.show();
     }
   }
 
-  hideSearch() {
-    const searchBar = document.getElementById('searchBar');
-    const searchInput = document.getElementById('searchInput');
-
-    if (searchBar) {
-      searchBar.style.display = 'none';
-      this.isSearchVisible = false;
-    }
-
-    if (searchInput) {
-      searchInput.value = '';
-    }
-
-    // 清除搜索结果和状态
-    this.clearSearchResults();
-    this.currentSearchTerm = '';
-  }
-
-  performSearch(searchTerm) {
-    this.currentSearchTerm = searchTerm.trim();
+  search(query) {
+    this.clearHighlights();
     
-    if (!this.currentSearchTerm) {
-      this.clearSearchResults();
+    if (!query.trim()) {
+      this.updateResults(0, 0);
       return;
     }
 
     // 检查是否在编辑模式
-    const editorElement = document.getElementById('editorTextarea');
-    const isEditMode = editorElement && editorElement.offsetParent !== null;
-    
-    if (isEditMode) {
-      // 编辑模式：使用编辑器内的文本搜索
-      this.searchInEditor(editorElement);
+    if (this.isInEditMode()) {
+      this.searchInEditor(query);
     } else {
-      // 预览模式：使用DOM搜索
-      this.searchInPreview();
+      this.searchInPreview(query);
     }
   }
 
-  searchInPreview() {
-    // 清除之前的搜索
-    this.clearSearchResults();
-    
-    // 回到简单可靠的实现：使用DOM搜索但简化逻辑
-    const previewElement = document.getElementById('markdownContent');
-    if (!previewElement) return;
-    
-    // 搜索所有匹配项
-    this.searchResults = this.findTextInElement(previewElement, this.currentSearchTerm);
-    this.currentResultIndex = this.searchResults.length > 0 ? 0 : -1;
-    
-    // 高亮所有匹配项
-    this.highlightSearchResults();
-    
-    // 滚动到第一个结果
-    if (this.searchResults.length > 0) {
-      this.scrollToCurrentResult();
-    }
-    
-    this.updateSearchCounter();
+  // 检查是否在编辑模式
+  isInEditMode() {
+    const editorContent = document.getElementById('editorContent');
+    return editorContent && editorContent.style.display !== 'none';
   }
 
-  searchInEditor(editorElement) {
-    const text = editorElement.value;
-    const searchTerm = this.currentSearchTerm;
-    const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  // 在编辑器中搜索
+  searchInEditor(query) {
     
-    this.searchResults = [];
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      this.searchResults.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        text: match[0]
-      });
+    const editorManager = window.editorManager;
+    
+    if (!editorManager) {
+      console.log('editorManager 不存在');
+      return;
     }
     
-    this.currentResultIndex = this.searchResults.length > 0 ? 0 : -1;
-    this.updateSearchCounter();
-    
-    // 高亮第一个结果
-    if (this.searchResults.length > 0) {
-      this.highlightInEditor(editorElement);
+    if (!editorManager.markdownHighlighter) {
+      console.log('markdownHighlighter 不存在');
+      return;
     }
+
+    const highlighter = editorManager.markdownHighlighter;
+    
+    if (!highlighter.isReady()) {
+      console.log('highlighter 未就绪');
+      return;
+    }
+    
+    // 使用CodeMirrorHighlighter的搜索方法
+    const matches = highlighter.search(query, { caseSensitive: false });
+    
+    // 转换匹配结果格式，添加行号信息
+    this.currentMatches = matches.map(match => {
+      const line = this.getLineFromIndex(highlighter.editor.state.doc.toString(), match.from);
+      return {
+        from: match.from,
+        to: match.to,
+        line: line
+      };
+    });
+    
+    // 设置当前索引
+    if (this.currentMatches.length > 0) {
+      this.currentIndex = 0;
+    } else {
+      this.currentIndex = -1;
+    }
+
+    // 应用高亮，传入当前索引以区分当前匹配项
+    highlighter.highlightMatches(matches, this.currentIndex);
+    
+    this.updateResults(this.currentIndex + 1, this.currentMatches.length);
   }
 
-  findTextInElement(element, searchTerm) {
-    const results = [];
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
 
-    let node;
-    while (node = walker.nextNode()) {
+
+  // 在预览模式中搜索
+  searchInPreview(query) {
+    // 获取所有文本节点
+    const textNodes = this.getTextNodes(document.body);
+    this.currentMatches = [];
+    
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    textNodes.forEach(node => {
       const text = node.textContent;
-      const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      // 为每个节点创建新的正则表达式实例，避免全局状态污染
+      const regex = new RegExp(escapedQuery, 'gi');
       let match;
-
+      
       while ((match = regex.exec(text)) !== null) {
-        results.push({
+        this.currentMatches.push({
           node: node,
           start: match.index,
           end: match.index + match[0].length,
           text: match[0]
         });
       }
-    }
-
-    return results;
-  }
-
-  highlightSearchResults() {
-    // 按节点分组处理，避免同一节点多次替换的问题
-    const nodeGroups = new Map();
-    
-    // 将搜索结果按节点分组
-    this.searchResults.forEach((result, index) => {
-      const { node } = result;
-      if (!nodeGroups.has(node)) {
-        nodeGroups.set(node, []);
-      }
-      nodeGroups.get(node).push({ ...result, originalIndex: index });
     });
-    
-    // 对每个节点进行处理
-    nodeGroups.forEach((matches, node) => {
-      if (!node.parentNode) return;
-      
-      const text = node.textContent;
-      const fragment = document.createDocumentFragment();
-      let lastEnd = 0;
-      
-      // 按位置排序，从前往后处理
-      matches.sort((a, b) => a.start - b.start);
-      
-      matches.forEach(match => {
-        const { start, end, originalIndex } = match;
-        
-        // 添加匹配前的文本
-        if (start > lastEnd) {
-          fragment.appendChild(document.createTextNode(text.substring(lastEnd, start)));
-        }
-        
-        // 创建高亮元素
-        const highlightSpan = document.createElement('span');
-        highlightSpan.className = `search-highlight ${originalIndex === this.currentResultIndex ? 'current' : ''}`;
-        highlightSpan.textContent = text.substring(start, end);
-        highlightSpan.dataset.searchIndex = originalIndex;
-        fragment.appendChild(highlightSpan);
-        
-        lastEnd = end;
-      });
-      
-      // 添加最后剩余的文本
-      if (lastEnd < text.length) {
-        fragment.appendChild(document.createTextNode(text.substring(lastEnd)));
-      }
-      
-      // 替换原节点
-      node.parentNode.replaceChild(fragment, node);
-    });
-  }
 
-  scrollToCurrentResult() {
-    const highlight = document.querySelector(`[data-search-index="${this.currentResultIndex}"]`);
-    if (highlight) {
-      highlight.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center'
-      });
+    // 高亮所有匹配项
+    this.highlightMatches();
+    
+    // 跳转到第一个匹配项
+    if (this.currentMatches.length > 0) {
+      this.currentIndex = 0;
+      this.scrollToMatch(this.currentIndex);
+    } else {
+      this.currentIndex = -1;
     }
+    
+    this.updateResults(this.currentIndex + 1, this.currentMatches.length);
   }
 
+  // 根据字符索引获取行号
+  getLineFromIndex(content, index) {
+    return content.substring(0, index).split('\n').length - 1;
+  }
 
-  highlightInEditor(editorElement) {
-    // 在编辑器中高亮搜索结果
-    if (this.searchResults.length === 0) return;
+  // 滚动到编辑器中的匹配项
+  scrollToEditorMatch(index, onlyScroll = false) {
+    if (index < 0 || index >= this.currentMatches.length) {
+      return;
+    }
     
-    // 清除之前的选择
-    editorElement.setSelectionRange(0, 0);
+    const match = this.currentMatches[index];
+    const editorManager = window.editorManager;
     
-    // 高亮当前匹配项
-    if (this.currentResultIndex >= 0 && this.currentResultIndex < this.searchResults.length) {
-      const result = this.searchResults[this.currentResultIndex];
-      const textContent = editorElement.value;
+    if (editorManager && editorManager.markdownHighlighter) {
+      const highlighter = editorManager.markdownHighlighter;
       
-      let actualStart = 0;
-      let actualEnd = 0;
-      
-      // 需要计算实际在编辑器中的位置
-      let currentIndex = 0;
-      for (let i = 0; i < this.searchResults.length; i++) {
-        const searchResult = this.searchResults[i];
-        const searchIndex = textContent.indexOf(searchResult.text, currentIndex);
-        if (i === this.currentResultIndex) {
-          actualStart = searchIndex;
-          actualEnd = searchIndex + searchResult.text.length;
-          break;
-        }
-        currentIndex = searchIndex + searchResult.text.length;
-      }
-      
-      // 使用更简单的方法：搜索匹配的文本位置
-      const searchTerm = this.currentSearchTerm;
-      const regex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-      let match;
-      let matches = [];
-      
-      while ((match = regex.exec(textContent)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length
+      if (!onlyScroll) {
+        // 选中匹配的文本
+        highlighter.editor.dispatch({
+          selection: { anchor: match.from, head: match.to }
         });
+        // 聚焦编辑器
+        highlighter.focus();
       }
       
-      if (matches.length > 0 && this.currentResultIndex < matches.length) {
-        const currentMatch = matches[this.currentResultIndex];
-        editorElement.focus();
-        editorElement.setSelectionRange(currentMatch.start, currentMatch.end);
-        
-        // 滚动到选中位置
-        const lines = textContent.substring(0, currentMatch.start).split('\n');
-        const lineNumber = lines.length;
-        const lineHeight = 20; // 假定行高
-        const scrollTop = (lineNumber - 5) * lineHeight; // 留一些上下文
-        editorElement.scrollTop = Math.max(0, scrollTop);
+      // 滚动到匹配位置
+      highlighter.scrollToPosition(match.from);
+    }
+  }
+
+  getTextNodes(element) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: (node) => {
+          // 跳过搜索框内的文本节点
+          if (this.searchBox.contains(node)) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          // 跳过script和style标签
+          const parent = node.parentElement;
+          if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
       }
+    );
+    
+    let node;
+    while (node = walker.nextNode()) {
+      textNodes.push(node);
     }
+    
+    return textNodes;
   }
 
-  clearSearchResults() {
-    // 清除浏览器原生搜索的选中状态
-    if (window.getSelection) {
-      window.getSelection().removeAllRanges();
-    }
-
-    // 清除编辑器选择
-    const editorElement = document.getElementById('editorTextarea');
-    if (editorElement) {
-      editorElement.setSelectionRange(0, 0);
-    }
-
-    // 清除自定义高亮（如果有的话）
-    const highlights = document.querySelectorAll('.search-highlight');
-    highlights.forEach(highlight => {
-      const parent = highlight.parentNode;
-      parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
-      parent.normalize();
+  highlightMatches() {
+    this.currentMatches.forEach((match, index) => {
+      const span = document.createElement('span');
+      span.className = index === this.currentIndex ? 'search-highlight current' : 'search-highlight';
+      span.textContent = match.text;
+      
+      const range = document.createRange();
+      
+      // 验证节点长度，防止偏移量超出范围
+      const nodeLength = match.node.textContent ? match.node.textContent.length : 0;
+      const safeStart = Math.min(match.start, nodeLength);
+      const safeEnd = Math.min(match.end, nodeLength);
+      
+      // 确保start不大于end
+      const finalStart = Math.min(safeStart, safeEnd);
+      const finalEnd = Math.max(safeStart, safeEnd);
+      
+      range.setStart(match.node, finalStart);
+      range.setEnd(match.node, finalEnd);
+      
+      try {
+        range.deleteContents();
+        range.insertNode(span);
+      } catch (e) {
+        console.warn('Failed to highlight match:', e);
+      }
     });
-
-    this.searchResults = [];
-    this.currentResultIndex = -1;
-    this.updateSearchCounter();
   }
 
-  navigateToNext() {
-    if (this.searchResults.length === 0) return;
+  clearHighlights() {
+        if (this.isInEditMode()) {
+            // 清除编辑器高亮
+            const editorManager = window.editorManager;
+            if (editorManager && editorManager.markdownHighlighter) {
+                editorManager.markdownHighlighter.clearSearchHighlights();
+            }
+        } else {
+            // 清除预览模式的高亮
+            const highlights = document.querySelectorAll('.search-highlight');
+            highlights.forEach(highlight => {
+                const parent = highlight.parentNode;
+                parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
+                parent.normalize();
+            });
+        }
+    }
 
-    this.currentResultIndex = (this.currentResultIndex + 1) % this.searchResults.length;
+  findNext() {
+    if (this.currentMatches.length === 0) return;
     
-    // 检查是否在编辑模式
-    const editorElement = document.getElementById('editorTextarea');
-    const isEditMode = editorElement && editorElement.offsetParent !== null;
+    this.currentIndex = (this.currentIndex + 1) % this.currentMatches.length;
     
-    if (isEditMode) {
-      this.highlightInEditor(editorElement);
+    if (this.isInEditMode()) {
+      // 重新应用高亮以更新当前匹配项样式
+      const editorManager = window.editorManager;
+      if (editorManager && editorManager.markdownHighlighter) {
+        const matches = this.currentMatches.map(match => ({ from: match.from, to: match.to }));
+        editorManager.markdownHighlighter.highlightMatches(matches, this.currentIndex);
+      }
+      this.scrollToEditorMatch(this.currentIndex, true); // 只滚动，不选中
     } else {
-      // 预览模式：更新高亮并滚动
-      this.updateCurrentHighlight();
-      this.scrollToCurrentResult();
+      this.updateHighlightClasses();
+      this.scrollToMatch(this.currentIndex);
     }
     
-    this.updateSearchCounter();
+    this.updateResults(this.currentIndex + 1, this.currentMatches.length);
   }
 
-  navigateToPrevious() {
-    if (this.searchResults.length === 0) return;
-
-    this.currentResultIndex = this.currentResultIndex <= 0 ? 
-      this.searchResults.length - 1 : this.currentResultIndex - 1;
+  findPrevious() {
+    if (this.currentMatches.length === 0) return;
     
-    // 检查是否在编辑模式
-    const editorElement = document.getElementById('editorTextarea');
-    const isEditMode = editorElement && editorElement.offsetParent !== null;
+    this.currentIndex = this.currentIndex <= 0 ? this.currentMatches.length - 1 : this.currentIndex - 1;
     
-    if (isEditMode) {
-      this.highlightInEditor(editorElement);
+    if (this.isInEditMode()) {
+      // 重新应用高亮以更新当前匹配项样式
+      const editorManager = window.editorManager;
+      if (editorManager && editorManager.markdownHighlighter) {
+        const matches = this.currentMatches.map(match => ({ from: match.from, to: match.to }));
+        editorManager.markdownHighlighter.highlightMatches(matches, this.currentIndex);
+      }
+      this.scrollToEditorMatch(this.currentIndex, true); // 只滚动，不选中
     } else {
-      // 预览模式：更新高亮并滚动
-      this.updateCurrentHighlight();
-      this.scrollToCurrentResult();
+      this.updateHighlightClasses();
+      this.scrollToMatch(this.currentIndex);
     }
     
-    this.updateSearchCounter();
+    this.updateResults(this.currentIndex + 1, this.currentMatches.length);
   }
 
-  updateCurrentHighlight() {
+  updateHighlightClasses() {
     const highlights = document.querySelectorAll('.search-highlight');
     highlights.forEach((highlight, index) => {
-      if (parseInt(highlight.dataset.searchIndex) === this.currentResultIndex) {
+      if (index === this.currentIndex) {
         highlight.classList.add('current');
       } else {
         highlight.classList.remove('current');
@@ -443,55 +363,23 @@ class SearchManager {
     });
   }
 
-
-
-  updateSearchCounter() {
-    const counter = document.getElementById('searchCounter');
-    if (counter) {
-      if (!this.searchResults || this.searchResults.length === 0) {
-        counter.textContent = '0/0';
-      } else {
-        const currentIndex = Math.max(0, this.currentResultIndex);
-        counter.textContent = `${currentIndex + 1}/${this.searchResults.length}`;
-      }
+  scrollToMatch(index) {
+    if (index < 0 || index >= this.currentMatches.length) return;
+    
+    const highlights = document.querySelectorAll('.search-highlight');
+    if (highlights[index]) {
+      highlights[index].scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
     }
   }
 
-  isVisible() {
-    return this.isSearchVisible;
-  }
-
-  getCurrentSearchTerm() {
-    return this.currentSearchTerm;
-  }
-
-  getResultsCount() {
-    return this.searchResults.length;
-  }
-
-  // 重新应用搜索高亮（用于内容更新后恢复搜索状态）
-  reapplySearch() {
-    if (this.currentSearchTerm && this.isSearchVisible) {
-      // 延迟执行，确保DOM更新完成
-      setTimeout(() => {
-        // 保存当前的搜索索引
-        const savedIndex = this.currentResultIndex;
-        // 检查是否在编辑模式（如果是，则不需要重新应用预览模式的搜索）
-        const editorElement = document.getElementById('editorTextarea');
-        const isEditMode = editorElement && editorElement.offsetParent !== null;
-        
-        if (!isEditMode) {
-          // 只在预览模式下重新应用搜索
-          this.searchInPreview();
-          // 尝试恢复之前的索引位置
-          if (savedIndex >= 0 && savedIndex < this.searchResults.length) {
-            this.currentResultIndex = savedIndex;
-            this.updateCurrentHighlight();
-            this.scrollToCurrentResult();
-            this.updateSearchCounter();
-          }
-        }
-      }, 50); // 短暂延迟确保DOM渲染完成
+  updateResults(current, total) {
+    if (total === 0) {
+      this.searchResults.textContent = '无结果';
+    } else {
+      this.searchResults.textContent = `${current}/${total}`;
     }
   }
 }

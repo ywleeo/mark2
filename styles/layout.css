@@ -234,58 +234,7 @@ body {
 }
 
 
-/* 搜索栏布局 */
-.search-bar {
-    position: sticky;
-    top: 5px;
-    z-index: 100;
-    margin: 5px;
-    padding: 3px;
-    border-radius: 20px;
-}
-
-.search-input-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-#searchInput {
-    flex: 1;
-    padding: 3px 10px;
-    border-style: none;
-    font-size: 13px;
-    font-weight: 200;
-    letter-spacing: 1px;
-    outline: none;
-}
-
-.search-nav-btn {
-    width: 24px;
-    height: 24px;
-    border-style: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-
-#searchCounter {
-    font-size: 12px;
-    white-space: nowrap;
-    font-weight: 500;
-    letter-spacing: 1px;
-}
-
-/* 搜索高亮布局 */
-.search-highlight {
-    padding: 0 1px;
-    border-radius: 2px;
-}
+/* 自定义搜索功能已移除，使用浏览器原生搜索 */
 
 .welcome-message {
     text-align: center;
@@ -461,6 +410,106 @@ body {
     border-top-width: 1px;
     border-top-style: solid;
     margin: 20px 0;
+}
+
+/* 搜索框样式 */
+.search-box {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: none;
+  background: #333a;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: var(--font-family);
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  gap: 6px;
+}
+
+.search-input {
+  width: 200px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-size: 14px;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.search-results {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: center;
+}
+
+.search-prev,
+.search-next,
+.search-close {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-color);
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.search-prev:hover,
+.search-next:hover,
+.search-close:hover {
+  background: #5556;
+  border-radius: 50%;
+  color: white;
+}
+
+.search-prev:active,
+.search-next:active,
+.search-close:active {
+  transform: scale(0.95);
+}
+
+/* 搜索高亮样式 */
+.search-highlight {
+    background-color: #ffeb3b;
+    color: #000;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.search-highlight.current {
+    background-color: #ff9800;
+    color: #fff;
+}
+
+/* CodeMirror编辑器中的搜索高亮样式 */
+.cm-editor .search-highlight {
+    background-color: #ffeb3b;
+    color: #000;
+    border-radius: 2px;
+}
+
+.cm-editor .search-highlight.current {
+    background-color: #ff9800;
+    color: #fff;
 }
 
 /* 设置弹窗布局 */
