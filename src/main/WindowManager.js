@@ -98,8 +98,12 @@ class WindowManager {
   // 调整窗口大小到内容加载状态 (800x900)
   resizeToContentLoaded() {
     if (this.mainWindow) {
-      this.mainWindow.setSize(800, 900);
-      this.mainWindow.center();
+      const [currentWidth, currentHeight] = this.mainWindow.getSize();
+      // 只有当窗口还是初始大小时才进行调整
+      if (currentWidth <= 300 && currentHeight <= 200) {
+        this.mainWindow.setSize(800, 900);
+        this.mainWindow.center();
+      }
     }
   }
 

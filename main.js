@@ -34,12 +34,6 @@ async function createWindow() {
   menuManager.createMenu();
 }
 
-
-
-
-
-
-
 // 处理文件关联打开
 let fileToOpen = null;
 
