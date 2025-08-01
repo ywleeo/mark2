@@ -136,6 +136,11 @@ class AppManager {
     ipcRenderer.on('reset-to-initial-state', () => {
       this.resetToInitialState();
     });
+
+    // 监听 PDF 导出请求
+    ipcRenderer.on('export-pdf-request', () => {
+      this.exportToPDF();
+    });
   }
 
   setupDragAndDrop() {
@@ -500,6 +505,10 @@ class AppManager {
     return this.appMode;
   }
 
+  getMarkdownRenderer() {
+    return this.markdownRenderer;
+  }
+
   startASCIIAnimation() {
     const container = document.getElementById('asciiAnimationContainer');
     console.log('startASCIIAnimation called, container:', container, 'appMode:', this.appMode);
@@ -511,6 +520,44 @@ class AppManager {
 
   stopASCIIAnimation() {
     this.asciiAnimator.stop();
+  }
+
+  async exportToPDF() {
+    const { ipcRenderer } = require('electron');
+    
+    try {
+      // 检查是否有内容可以导出
+      const markdownContent = document.getElementById('markdownContent');
+      
+      if (!markdownContent || !markdownContent.innerHTML.trim()) {
+        this.uiManager.showMessage('没有内容可以导出，请先打开一个Markdown文件', 'error');
+        return;
+      }
+
+      // 生成默认文件名
+      let filename = 'document.pdf';
+      if (this.currentFilePath) {
+        const path = require('path');
+        const baseName = path.basename(this.currentFilePath, path.extname(this.currentFilePath));
+        filename = `${baseName}.pdf`;
+      }
+
+      // 直接使用当前页面的HTML，让主进程处理
+      const result = await ipcRenderer.invoke('export-pdf-simple', {
+        filename
+      });
+
+      if (result.success) {
+        this.uiManager.showMessage(`PDF 已成功导出到: ${result.filePath}`, 'success');
+      } else if (result.canceled) {
+        // 用户取消了保存对话框，不显示错误消息
+      } else {
+        this.uiManager.showMessage(`导出 PDF 失败: ${result.error || '未知错误'}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      this.uiManager.showMessage(`导出 PDF 失败: ${error.message}`, 'error');
+    }
   }
 }
 

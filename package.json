@@ -27,7 +27,8 @@
     "@codemirror/view": "^6.38.1",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
-    "marked": "^5.0.0"
+    "marked": "^5.0.0",
+    "puppeteer": "^24.15.0"
   },
   "build": {
     "appId": "com.mark2.app",
