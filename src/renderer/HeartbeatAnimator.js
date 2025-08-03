@@ -105,6 +105,11 @@ class HeartbeatAnimator {
   }
   
   resizeCanvas() {
+    // 检查container和canvas是否存在
+    if (!this.container || !this.canvas) {
+      return;
+    }
+    
     const rect = this.container.getBoundingClientRect();
     this.canvas.width = rect.width * window.devicePixelRatio;
     this.canvas.height = rect.height * window.devicePixelRatio;
