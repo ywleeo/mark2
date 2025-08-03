@@ -41,7 +41,6 @@ class FileWatcher {
         this.stopWatching();
       });
       
-      console.log('Started watching:', folderPath);
     } catch (error) {
       console.error('Error starting file watcher:', error);
       this.stopWatching();
@@ -64,7 +63,6 @@ class FileWatcher {
       }
       this.watcher = null;
       this.watchedPath = null;
-      console.log('Stopped folder watching');
     }
 
     // 关闭文件监听器
@@ -87,7 +85,6 @@ class FileWatcher {
       this.fileWatcher = fs.watch(filePath, (eventType, filename) => {
         // 只处理文件内容变化事件
         if (eventType === 'change') {
-          console.log('File content changed:', filePath);
           this.debouncedRefreshFile();
         }
       });

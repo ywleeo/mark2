@@ -269,6 +269,9 @@ class AppManager {
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
     
+    // 更新窗口标题
+    ipcRenderer.send('update-window-title', filePath);
+    
     // 更新编辑器内容
     this.editorManager.setContent(content, filePath);
     
@@ -348,6 +351,9 @@ class AppManager {
     // 调整窗口大小到初始状态并重启动画
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-initial-state');
+    
+    // 重置窗口标题
+    ipcRenderer.send('update-window-title', null);
     
     // 重新启动动画
     setTimeout(() => {

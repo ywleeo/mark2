@@ -144,6 +144,11 @@ class IPCHandler {
       this.windowManager.resizeToInitialState();
     });
 
+    // 更新窗口标题
+    ipcMain.on('update-window-title', (event, filePath) => {
+      this.windowManager.updateTitle(filePath);
+    });
+
     // 设置编辑模式状态
     ipcMain.on('set-edit-mode', (event, isEditMode) => {
       if (this.menuManager) {

@@ -14,7 +14,7 @@ class WindowManager {
     this.mainWindow = new BrowserWindow({
       width: 300,
       height: 200,
-      title: 'mark2',
+      title: 'MARK2',
       backgroundColor: backgroundColor,
       webPreferences: {
         nodeIntegration: true,
@@ -110,6 +110,18 @@ class WindowManager {
     if (this.mainWindow) {
       this.mainWindow.setSize(300, 200);
       this.mainWindow.center();
+    }
+  }
+
+  // 更新窗口标题
+  updateTitle(filePath = null) {
+    if (this.mainWindow) {
+      if (filePath) {
+        const fileName = path.basename(filePath);
+        this.mainWindow.setTitle(`MARK2 - ${fileName}`);
+      } else {
+        this.mainWindow.setTitle('MARK2');
+      }
     }
   }
 }
