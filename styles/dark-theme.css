@@ -378,3 +378,8 @@ mark.highlight-pattern {
     --md-html-tag-color: #ffa657;
     --md-escape-color: #f85149;
 }
+
+/* 列表 */
+.cm-editor .cm-list {
+  color: #4fdaaf!important;
+}

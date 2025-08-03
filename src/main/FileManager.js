@@ -187,7 +187,6 @@ class FileManager {
   async resolveDroppedFolder(data) {
     try {
       const { entryName, entryFullPath } = data;
-      console.log('拖拽数据:', { entryName, entryFullPath });
       
       // 基于路径信息智能重建完整路径
       const homeDir = os.homedir();
@@ -195,12 +194,10 @@ class FileManager {
       
       if (entryFullPath) {
         const cleanPath = entryFullPath.replace(/^\/+/, '');
-        console.log('清理后的路径:', cleanPath);
         
         // 策略1: 从当前工作目录开始递归查找匹配的路径结构
         const found = this.findMatchingPath(process.cwd(), cleanPath);
         if (found) {
-          console.log('找到匹配路径:', found);
           possiblePaths.push(found);
         }
         
@@ -261,7 +258,6 @@ class FileManager {
     const pathSegments = targetPath.split('/').filter(s => s.length > 0);
     if (pathSegments.length === 0) return null;
     
-    console.log(`在 ${baseDir} 中查找路径: ${pathSegments.join('/')}`);
     
     // 递归查找匹配的路径结构
     return this.searchPathRecursively(baseDir, pathSegments, 0, maxDepth);

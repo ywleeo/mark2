@@ -192,11 +192,9 @@ class IPCHandler {
           })();
         `);
 
-        console.log('当前主题:', currentTheme);
 
         // 根据当前主题读取对应的CSS文件
         const fs = require('fs').promises;
-        const path = require('path');
         
         let allStyles = '';
         const cssFiles = [

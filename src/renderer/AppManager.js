@@ -87,7 +87,7 @@ class AppManager {
 
   setupIPCListeners() {
     const { ipcRenderer } = require('electron');
-
+    
     // 监听主进程发送的文件打开事件
     ipcRenderer.on('file-opened', (event, data) => {
       this.displayMarkdown(data.content, data.filePath);
@@ -107,14 +107,13 @@ class AppManager {
     ipcRenderer.on('file-content-updated', (event, data) => {
       // 只有当更新的文件是当前正在显示的文件时才刷新
       if (data.filePath === this.currentFilePath) {
-        console.log('File content updated, refreshing:', data.filePath);
         // 更新编辑器内容（如果处于编辑模式，需要检查是否有未保存的更改）
         if (this.editorManager.hasUnsavedContent()) {
           // 如果有未保存的更改，显示警告提示用户
           this.uiManager.showMessage('文件已被外部修改，但您有未保存的更改', 'warning');
         } else {
-          // 没有未保存的更改，直接更新内容
-          this.editorManager.setContent(data.content, data.filePath, false); // false表示不触发保存状态更新
+          // 没有未保存的更改，直接更新内容，但保持当前编辑模式
+          this.editorManager.setContent(data.content, data.filePath, false, false); // 不重置保存状态，不重置编辑模式
           this.uiManager.showMessage('文件内容已自动更新', 'info');
         }
       }
@@ -158,12 +157,11 @@ class AppManager {
     ipcRenderer.on('export-pdf-request', () => {
       this.exportToPDF();
     });
+
   }
 
   setupDragAndDrop() {
-    const { ipcRenderer } = require('electron');
 
-    // 阻止默认的拖拽行为
     document.addEventListener('dragover', (event) => {
       event.preventDefault();
       event.dataTransfer.dropEffect = 'copy';
@@ -172,67 +170,33 @@ class AppManager {
     document.addEventListener('drop', async (event) => {
       event.preventDefault();
       
-      // 优先处理文件路径，而不是依赖 dataTransfer.files
-      const items = Array.from(event.dataTransfer.items);
+      const files = Array.from(event.dataTransfer.files);
       
-      if (items.length === 0) {
-        this.uiManager.showMessage('未检测到拖拽的文件或文件夹', 'error');
+      if (files.length === 0) {
+        this.uiManager.showMessage('未检测到拖拽的文件', 'error');
         return;
       }
       
-      const item = items[0];
-      
-      if (item.kind === 'file') {
-        const entry = item.webkitGetAsEntry();
+      try {
+        // 直接使用 webUtils.getPathForFile 获取真实文件路径
+        const { webUtils, ipcRenderer } = require('electron');
+        const file = files[0];
+        const realPath = webUtils.getPathForFile(file);
         
-        if (!entry) {
-          this.uiManager.showMessage('无法获取文件信息', 'error');
-          return;
-        }
         
-        if (entry.isDirectory) {
-          // 处理文件夹拖拽
-          try {
-            const result = await ipcRenderer.invoke('handle-dropped-folder', {
-              entryName: entry.name,
-              entryFullPath: entry.fullPath
-            });
-            
-            if (result.success) {
-              this.currentFolderPath = result.folderPath;
-              this.displayFileTree(result.folderPath, result.fileTree);
-            } else {
-              this.uiManager.showMessage('打开文件夹失败: ' + result.error, 'error');
-            }
-          } catch (error) {
-            this.uiManager.showMessage('处理文件夹时发生错误: ' + error.message, 'error');
-          }
-        } else {
-          // 处理文件拖拽
-          try {
-            const result = await ipcRenderer.invoke('handle-dropped-folder', {
-              entryName: entry.name,
-              entryFullPath: entry.fullPath
-            });
-            
-            if (result.success) {
-              // 判断返回的是文件还是文件夹
-              if (result.fileTree) {
-                // 是文件夹
-                this.currentFolderPath = result.folderPath;
-                this.displayFileTree(result.folderPath, result.fileTree);
-              } else if (result.content) {
-                // 是文件
-                this.currentFilePath = result.filePath;
-                this.displayMarkdown(result.content, result.filePath);
-              }
-            } else {
-              this.uiManager.showMessage('打开文件失败: ' + result.error, 'error');
-            }
-          } catch (error) {
-            this.uiManager.showMessage('处理文件时发生错误: ' + error.message, 'error');
-          }
+        // 使用真实路径调用处理逻辑
+        const result = await ipcRenderer.invoke('handle-drop-file', realPath);
+        
+        if (result.type === 'folder') {
+          this.currentFolderPath = result.folderPath;
+          this.displayFileTree(result.folderPath, result.fileTree);
+        } else if (result.type === 'file') {
+          this.currentFilePath = result.filePath;
+          this.displayMarkdown(result.content, result.filePath);
         }
+      } catch (error) {
+        console.error('拖拽处理错误:', error);
+        this.uiManager.showMessage('处理拖拽文件时发生错误: ' + error.message, 'error');
       }
     });
   }
@@ -528,9 +492,7 @@ class AppManager {
 
   startASCIIAnimation() {
     const container = document.getElementById('asciiAnimationContainer');
-    console.log('startASCIIAnimation called, container:', container, 'appMode:', this.appMode);
     if (container && this.appMode === null) {
-      console.log('Starting ASCII animation');
       this.asciiAnimator.start(container);
     }
   }
@@ -540,8 +502,6 @@ class AppManager {
   }
 
   async exportToPDF() {
-    const { ipcRenderer } = require('electron');
-    
     try {
       // 检查是否有内容可以导出
       const markdownContent = document.getElementById('markdownContent');
@@ -560,6 +520,7 @@ class AppManager {
       }
 
       // 直接使用当前页面的HTML，让主进程处理
+      const { ipcRenderer } = require('electron');
       const result = await ipcRenderer.invoke('export-pdf-simple', {
         filename
       });

@@ -19,10 +19,7 @@ class WindowManager {
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
-        enableRemoteModule: true,
-        spellcheck: false,
-        backgroundThrottling: false,
-        experimentalFeatures: false
+        spellcheck: false
       },
       icon: path.join(__dirname, '../../assets/icon.png')
     });
@@ -66,6 +63,7 @@ class WindowManager {
     this.mainWindow.on('closed', () => {
       this.mainWindow = null;
     });
+
   }
 
   getWindow() {

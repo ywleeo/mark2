@@ -121,12 +121,10 @@ class SearchManager {
     const editorManager = window.editorManager;
     
     if (!editorManager) {
-      console.log('editorManager 不存在');
       return;
     }
     
     if (!editorManager.markdownHighlighter) {
-      console.log('markdownHighlighter 不存在');
       return;
     }
 

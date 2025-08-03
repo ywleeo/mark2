@@ -6,6 +6,7 @@
 .cm-editor {
   border: 1px solid #e9ecef;
   border-radius: 4px;
+  font-size: 13px;
 }
 
 /* 文本行 */
@@ -109,7 +110,7 @@
 
 /* 列表 */
 .cm-editor .cm-list {
-  color: #059669;
+  color: #4fdaaf;
 }
 
 /* 分割线 */

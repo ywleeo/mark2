@@ -216,7 +216,7 @@ class EditorManager {
     // }
   }
 
-  setContent(content, filePath, resetSaveState = true) {
+  setContent(content, filePath, resetSaveState = true, resetEditMode = true) {
     this.originalContent = content;
     this.currentFilePath = filePath;
     
@@ -225,52 +225,72 @@ class EditorManager {
       this.hasUnsavedChanges = false;
     }
     
-    // 重置编辑模式状态
-    this.isEditMode = false;
+    // 只有在需要重置编辑模式时才重置（文件外部更新时保持当前编辑状态）
+    const wasInEditMode = this.isEditMode;
+    if (resetEditMode) {
+      this.isEditMode = false;
+    }
     
     // 通知主进程编辑模式状态
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('set-edit-mode', this.isEditMode);
     
-    // 重置滚动位置（新文件从顶部开始）
-    this.previewScrollPosition = 0;
-    this.editorScrollPosition = 0;
+    // 只有在重置编辑模式时才重置滚动位置和尺寸信息（新文件从顶部开始）
+    if (resetEditMode) {
+      this.previewScrollPosition = 0;
+      this.editorScrollPosition = 0;
+      this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
+      this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
+    }
     
-    // 重置尺寸信息
-    this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
-    this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
-    
-    // 清理旧的语法高亮器，避免内容缓存
-    if (this.markdownHighlighter) {
+    // 只有在重置编辑模式时才清理语法高亮器（避免正在编辑时被重置）
+    if (resetEditMode && this.markdownHighlighter) {
       this.markdownHighlighter.destroy();
       this.markdownHighlighter = null;
     }
     
-    // 确保UI元素状态正确
+    // 更新编辑器内容
     const editor = document.getElementById('editorTextarea');
-    const editorContent = document.getElementById('editorContent');
-    const contentArea = document.querySelector('.content-area');
-    const editButton = document.getElementById('edit-button');
-    
     if (editor) {
       editor.value = content;
-      editor.scrollTop = 0; // 重置编辑器滚动位置
+      if (resetEditMode) {
+        editor.scrollTop = 0; // 只有在重置编辑模式时才重置滚动位置
+      }
     }
     
-    // 确保编辑器容器隐藏，内容区域显示（预览模式）
-    if (editorContent) editorContent.style.display = 'none';
-    if (contentArea) contentArea.style.display = 'block';
-    if (editButton) editButton.textContent = '编辑';
+    // 只有在重置编辑模式时才强制切换UI状态
+    if (resetEditMode) {
+      const editorContent = document.getElementById('editorContent');
+      const contentArea = document.querySelector('.content-area');
+      const editButton = document.getElementById('edit-button');
+      
+      // 确保编辑器容器隐藏，内容区域显示（预览模式）
+      if (editorContent) editorContent.style.display = 'none';
+      if (contentArea) contentArea.style.display = 'block';
+      if (editButton) editButton.textContent = '编辑';
+    } else if (wasInEditMode) {
+      // 如果之前在编辑模式且不重置编辑模式，保持编辑模式UI状态
+      // 但需要确保编辑器中的内容是最新的
+      const editorContent = document.getElementById('editorContent');
+      const contentArea = document.querySelector('.content-area');
+      const editButton = document.getElementById('edit-button');
+      
+      if (editorContent) editorContent.style.display = 'block';
+      if (contentArea) contentArea.style.display = 'none';
+      if (editButton) editButton.textContent = '预览';
+    }
     
     this.updatePreview(content);
     
-    // 重置预览区域滚动位置
-    setTimeout(() => {
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) {
-        mainContent.scrollTop = 0;
-      }
-    }, 50);
+    // 只有在重置编辑模式时才重置预览区域滚动位置
+    if (resetEditMode) {
+      setTimeout(() => {
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+          mainContent.scrollTop = 0;
+        }
+      }, 50);
+    }
     
     this.updateSaveButton();
   }
