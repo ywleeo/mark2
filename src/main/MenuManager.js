@@ -113,11 +113,6 @@ class MenuManager {
           },
           { type: 'separator' },
           {
-            label: '重新加载',
-            accelerator: 'CmdOrCtrl+R',
-            click: () => this.reloadWindow()
-          },
-          {
             label: '开发者工具',
             accelerator: process.platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
             click: () => this.toggleDevTools()
@@ -215,11 +210,6 @@ class MenuManager {
     this.keywordHighlightEnabled = enabled;
     const mainWindow = this.windowManager.getWindow();
     mainWindow.webContents.send('toggle-keyword-highlight', enabled);
-  }
-
-  reloadWindow() {
-    const mainWindow = this.windowManager.getWindow();
-    mainWindow.reload();
   }
 
   showSettings() {

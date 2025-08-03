@@ -88,8 +88,12 @@ class UIManager {
     if (sidebar) {
       if (this.sidebarVisible) {
         sidebar.classList.remove('hidden');
+        // 恢复保存的宽度，或使用默认宽度
+        this.loadSidebarWidth();
       } else {
         sidebar.classList.add('hidden');
+        // 隐藏时清除内联样式，让 CSS 类生效
+        sidebar.style.width = '';
       }
     }
   }
@@ -300,6 +304,12 @@ class UIManager {
     this.updateSidebarVisibility();
     this.eventManager.emit('sidebar-enabled', false);
     
+    // 清除内联样式，确保隐藏生效
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.style.width = '';
+    }
+    
     // 通知主进程更新菜单状态
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('set-sidebar-enabled', false);
@@ -369,8 +379,7 @@ class UIManager {
     const minWidth = 200;
     const maxWidth = 500;
 
-    // 加载保存的宽度
-    this.loadSidebarWidth();
+    // 注意：不在这里加载宽度，而是在 updateSidebarVisibility 中按需加载
 
     const handleMouseDown = (e) => {
       isResizing = true;
@@ -429,7 +438,8 @@ class UIManager {
     const savedWidth = localStorage.getItem('sidebarWidth');
     const sidebar = document.getElementById('sidebar');
     
-    if (savedWidth && sidebar) {
+    // 只有在 sidebar 可见时才设置宽度
+    if (savedWidth && sidebar && this.sidebarVisible) {
       const width = parseInt(savedWidth);
       if (width >= 200 && width <= 500) {
         sidebar.style.width = width + 'px';

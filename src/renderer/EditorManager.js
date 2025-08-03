@@ -216,10 +216,14 @@ class EditorManager {
     // }
   }
 
-  setContent(content, filePath) {
+  setContent(content, filePath, resetSaveState = true) {
     this.originalContent = content;
     this.currentFilePath = filePath;
-    this.hasUnsavedChanges = false;
+    
+    // 只有在需要重置保存状态时才重置
+    if (resetSaveState) {
+      this.hasUnsavedChanges = false;
+    }
     
     // 重置编辑模式状态
     this.isEditMode = false;

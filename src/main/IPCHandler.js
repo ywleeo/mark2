@@ -15,11 +15,19 @@ class IPCHandler {
     // 打开文件对话框
     ipcMain.handle('open-file-dialog', async (event, filePath) => {
       try {
+        let result;
         if (filePath) {
-          return await this.fileManager.readFile(filePath);
+          result = await this.fileManager.readFile(filePath);
         } else {
-          return await this.fileManager.openFileDialog();
+          result = await this.fileManager.openFileDialog();
         }
+        
+        // 如果成功打开文件，开始监听文件内容变化
+        if (result && result.filePath) {
+          this.fileWatcher.startFileWatching(result.filePath);
+        }
+        
+        return result;
       } catch (error) {
         console.error('Error in open-file-dialog:', error);
         throw error;
@@ -56,6 +64,9 @@ class IPCHandler {
         const result = await this.fileManager.handleDropFile(filePath);
         if (result.type === 'folder') {
           this.fileWatcher.startWatching(result.folderPath);
+        } else if (result.type === 'file' && result.filePath) {
+          // 拖拽单个文件时也开始监听
+          this.fileWatcher.startFileWatching(result.filePath);
         }
         return result;
       } catch (error) {
@@ -69,7 +80,13 @@ class IPCHandler {
       try {
         const result = await this.fileManager.resolveDroppedFolder(data);
         if (result.success) {
-          this.fileWatcher.startWatching(result.folderPath);
+          if (result.folderPath) {
+            // 文件夹监听
+            this.fileWatcher.startWatching(result.folderPath);
+          } else if (result.filePath) {
+            // 文件监听
+            this.fileWatcher.startFileWatching(result.filePath);
+          }
         }
         return result;
       } catch (error) {

@@ -16,6 +16,7 @@ build/
 .DS_Store
 Thumbs.db
 CLAUDE.md
+MISTAKES.md
 
 # 编辑器配置
 .vscode/

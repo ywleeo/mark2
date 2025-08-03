@@ -103,6 +103,23 @@ class AppManager {
       this.fileTreeManager.updateFileTree(data.folderPath, data.fileTree);
     });
 
+    // 监听文件内容更新事件
+    ipcRenderer.on('file-content-updated', (event, data) => {
+      // 只有当更新的文件是当前正在显示的文件时才刷新
+      if (data.filePath === this.currentFilePath) {
+        console.log('File content updated, refreshing:', data.filePath);
+        // 更新编辑器内容（如果处于编辑模式，需要检查是否有未保存的更改）
+        if (this.editorManager.hasUnsavedContent()) {
+          // 如果有未保存的更改，显示警告提示用户
+          this.uiManager.showMessage('文件已被外部修改，但您有未保存的更改', 'warning');
+        } else {
+          // 没有未保存的更改，直接更新内容
+          this.editorManager.setContent(data.content, data.filePath, false); // false表示不触发保存状态更新
+          this.uiManager.showMessage('文件内容已自动更新', 'info');
+        }
+      }
+    });
+
     // 监听菜单事件
     ipcRenderer.on('toggle-sidebar', () => {
       this.uiManager.toggleSidebar();
