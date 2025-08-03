@@ -95,7 +95,6 @@ class FileWatcher {
         this.stopFileWatching();
       });
       
-      console.log('Started watching file:', filePath);
     } catch (error) {
       console.error('Error starting file watcher:', error);
       this.stopFileWatching();

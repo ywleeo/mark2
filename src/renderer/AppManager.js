@@ -4,7 +4,7 @@ const FileTreeManager = require('./FileTreeManager');
 const EditorManager = require('./EditorManager');
 const SearchManager = require('./SearchManager');
 const UIManager = require('./UIManager');
-const ASCIIAnimator = require('./ASCIIAnimator');
+const HeartbeatAnimator = require('./HeartbeatAnimator');
 
 class AppManager {
   constructor() {
@@ -14,7 +14,7 @@ class AppManager {
     this.editorManager = new EditorManager(this.markdownRenderer, this.eventManager, this);
     this.searchManager = new SearchManager();
     this.uiManager = new UIManager(this.eventManager);
-    this.asciiAnimator = new ASCIIAnimator();
+    this.heartbeatAnimator = new HeartbeatAnimator();
     
     // 将editorManager和searchManager挂载到全局window对象
     window.editorManager = this.editorManager;
@@ -37,7 +37,7 @@ class AppManager {
     // 延迟设置键盘快捷键，确保DOM完全准备好
     setTimeout(() => {
       this.setupKeyboardShortcuts();
-      this.startASCIIAnimation();
+      this.startHeartbeatAnimation();
     }, 100);
   }
 
@@ -265,7 +265,7 @@ class AppManager {
     }
     
     // 停止动画并调整窗口大小到内容加载状态
-    this.stopASCIIAnimation();
+    this.stopHeartbeatAnimation();
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
     
@@ -296,7 +296,7 @@ class AppManager {
     this.switchToFolderMode();
     
     // 停止动画并调整窗口大小到内容加载状态
-    this.stopASCIIAnimation();
+    this.stopTypeShuffleAnimation();
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
     
@@ -355,9 +355,10 @@ class AppManager {
     // 重置窗口标题
     ipcRenderer.send('update-window-title', null);
     
-    // 重新启动动画
+    // 先停止当前动画，然后重新启动动画
+    this.stopHeartbeatAnimation();
     setTimeout(() => {
-      this.startASCIIAnimation();
+      this.startHeartbeatAnimation();
     }, 200);
     
     // 重置各个管理器
@@ -496,15 +497,16 @@ class AppManager {
     return this.markdownRenderer;
   }
 
-  startASCIIAnimation() {
-    const container = document.getElementById('asciiAnimationContainer');
-    if (container && this.appMode === null) {
-      this.asciiAnimator.start(container);
+  startHeartbeatAnimation() {
+    const container = document.querySelector('.content-area');
+    if (container) {
+      this.heartbeatAnimator.stop();
+      this.heartbeatAnimator.start(container);
     }
   }
 
-  stopASCIIAnimation() {
-    this.asciiAnimator.stop();
+  stopHeartbeatAnimation() {
+    this.heartbeatAnimator.stop();
   }
 
   async exportToPDF() {
