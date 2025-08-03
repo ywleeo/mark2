@@ -296,7 +296,7 @@ class AppManager {
     this.switchToFolderMode();
     
     // 停止动画并调整窗口大小到内容加载状态
-    this.stopTypeShuffleAnimation();
+    this.stopHeartbeatAnimation();
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
     
