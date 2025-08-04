@@ -248,8 +248,9 @@ class AppManager {
     // 保存当前文件路径
     this.currentFilePath = filePath;
     
-    // 如果不是从文件夹模式打开的文件，则切换到单文件模式
+    // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
     if (!fromFolderMode) {
+      this.fileTreeManager.addFile(filePath, content);
       this.switchToSingleFileMode();
     }
     
@@ -278,10 +279,8 @@ class AppManager {
     // 更新文件名显示
     this.uiManager.updateFileNameDisplay(filePath);
     
-    // 更新文件树中的活动文件（只在文件夹模式下）
-    if (this.appMode === 'folder') {
-      this.fileTreeManager.updateActiveFile(filePath);
-    }
+    // 更新文件树中的活动文件
+    this.fileTreeManager.updateActiveFile(filePath);
     
     // 清除搜索状态
     // 移除自定义搜索功能
@@ -475,11 +474,9 @@ class AppManager {
   // 模式管理方法
   switchToSingleFileMode() {
     this.appMode = 'single-file';
-    this.currentFolderPath = null;
     
-    // 隐藏侧边栏并清空文件树
-    this.uiManager.disableSidebar();
-    this.fileTreeManager.clearFileTree();
+    // 启用侧边栏（现在单文件也显示在侧边栏中）
+    this.uiManager.enableSidebar();
   }
 
   switchToFolderMode() {

@@ -4,6 +4,14 @@
 body {
     background-color: #f5f5f5;
     color: #333;
+    
+    /* CSS变量定义 */
+    --bg-color: #ffffff;
+    --text-color: #333;
+    --text-secondary: #666;
+    --border-color: #e9ecef;
+    --hover-bg-color: #f8f9fa;
+    --active-bg-color: #e9ecef;
 }
 
 /* 侧边栏颜色 */

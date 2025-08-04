@@ -5,6 +5,14 @@ body {
     background-color: #1a1a1a;
     color: #e0e0e0;
     font-weight: 100;
+    
+    /* CSS变量定义 */
+    --bg-color: #2d2d2d;
+    --text-color: #e0e0e0;
+    --text-secondary: #b0b0b0;
+    --border-color: #404040;
+    --hover-bg-color: #3a3a3a;
+    --active-bg-color: #404040;
 }
 
 /* 侧边栏颜色 */
