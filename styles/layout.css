@@ -258,6 +258,7 @@ body {
     box-sizing: border-box;
     width: 100%;
     height: 100%;
+    overflow: auto;
     /* 确保内容可以选择和复制 */
     user-select: text;
     -webkit-user-select: text;
