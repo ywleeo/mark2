@@ -20,6 +20,11 @@ class AppManager {
     window.editorManager = this.editorManager;
     window.searchManager = this.searchManager;
     
+    // Tab 系统管理
+    this.tabs = [];
+    this.activeTabId = null;
+    this.nextTabId = 1;
+    
     // 全局文件路径管理
     this.currentFilePath = null;
     this.currentFolderPath = null;
@@ -42,9 +47,55 @@ class AppManager {
   }
 
   setupEventListeners() {
-    // 文件选择事件
-    this.eventManager.on('file-selected', async (filePath) => {
-      await this.openFileFromPath(filePath, true); // 标记为从文件夹模式打开
+    // 文件选择事件（单击）
+    this.eventManager.on('file-selected', async (filePath, forceNewTab = false) => {
+      await this.openFileFromPath(filePath, true, forceNewTab); // 标记为从文件夹模式打开
+    });
+
+    // 文件双击事件（添加到Files区域）
+    this.eventManager.on('file-double-clicked', async (filePath) => {
+      // 获取文件内容
+      const result = await require('electron').ipcRenderer.invoke('open-file-dialog', filePath);
+      if (result) {
+        // 将文件添加到Files区域
+        this.fileTreeManager.addFile(result.filePath, result.content);
+        
+        // 检查是否已经有这个文件的tab
+        const existingTab = this.findTabByPath(result.filePath);
+        if (existingTab) {
+          // 如果已存在tab，将其归属改为file
+          existingTab.belongsTo = 'file';
+          existingTab.content = result.content;
+          this.setActiveTab(existingTab.id);
+        } else {
+          // 如果没有tab，创建一个归属于file的tab
+          this.createTab(result.filePath, result.content, null, 'file');
+        }
+        
+        // 更新编辑器内容
+        this.editorManager.setContent(result.content, result.filePath);
+        
+        // 更新显示
+        this.uiManager.updateFileNameDisplay(result.filePath);
+        this.fileTreeManager.updateActiveFile(result.filePath);
+        
+        // 窗口标题现在是静态的，不需要更新
+        
+        // 隐藏欢迎信息，显示markdown内容
+        const welcomeMessage = document.querySelector('.welcome-message');
+        const markdownContent = document.querySelector('.markdown-content');
+        
+        if (welcomeMessage) {
+          welcomeMessage.style.display = 'none';
+        }
+        if (markdownContent) {
+          markdownContent.style.display = 'block';
+        }
+        
+        // 停止动画并调整窗口大小到内容加载状态
+        this.stopHeartbeatAnimation();
+        ipcRenderer.send('resize-window-to-content-loaded');
+      }
     });
 
     // 编辑模式切换事件
@@ -192,7 +243,8 @@ class AppManager {
           this.displayFileTree(result.folderPath, result.fileTree);
         } else if (result.type === 'file') {
           this.currentFilePath = result.filePath;
-          this.displayMarkdown(result.content, result.filePath);
+          // 拖拽文件始终创建新tab
+          this.displayMarkdown(result.content, result.filePath, false, true);
         }
       } catch (error) {
         console.error('拖拽处理错误:', error);
@@ -230,23 +282,23 @@ class AppManager {
     }
   }
 
-  async openFileFromPath(filePath, fromFolderMode = false) {
+  async openFileFromPath(filePath, fromFolderMode = false, forceNewTab = false) {
     try {
       const { ipcRenderer } = require('electron');
       const result = await ipcRenderer.invoke('open-file-dialog', filePath);
       
       if (result) {
         this.currentFilePath = result.filePath;
-        this.displayMarkdown(result.content, result.filePath, fromFolderMode);
+        this.displayMarkdown(result.content, result.filePath, fromFolderMode, forceNewTab);
       }
     } catch (error) {
       this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
     }
   }
 
-  displayMarkdown(content, filePath, fromFolderMode = false) {
-    // 保存当前文件路径
-    this.currentFilePath = filePath;
+  displayMarkdown(content, filePath, fromFolderMode = false, forceNewTab = false, fromDoubleClick = false) {
+    // 使用Tab系统打开文件
+    this.openFileInTab(filePath, content, forceNewTab, fromDoubleClick);
     
     // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
     if (!fromFolderMode) {
@@ -269,18 +321,6 @@ class AppManager {
     this.stopHeartbeatAnimation();
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
-    
-    // 更新窗口标题
-    ipcRenderer.send('update-window-title', filePath);
-    
-    // 更新编辑器内容
-    this.editorManager.setContent(content, filePath);
-    
-    // 更新文件名显示
-    this.uiManager.updateFileNameDisplay(filePath);
-    
-    // 更新文件树中的活动文件
-    this.fileTreeManager.updateActiveFile(filePath);
     
     // 清除搜索状态
     // 移除自定义搜索功能
@@ -336,6 +376,11 @@ class AppManager {
     this.currentFilePath = null;
     this.currentFolderPath = null;
     
+    // 重置Tab系统
+    this.tabs = [];
+    this.activeTabId = null;
+    this.updateTabBar();
+    
     // 显示欢迎信息，隐藏markdown内容
     const welcomeMessage = document.querySelector('.welcome-message');
     const markdownContent = document.querySelector('.markdown-content');
@@ -351,8 +396,7 @@ class AppManager {
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-initial-state');
     
-    // 重置窗口标题
-    ipcRenderer.send('update-window-title', null);
+    // 窗口标题现在是静态的，不需要重置
     
     // 先停止当前动画，然后重新启动动画
     this.stopHeartbeatAnimation();
@@ -541,6 +585,274 @@ class AppManager {
       console.error('Error exporting PDF:', error);
       this.uiManager.showMessage(`导出 PDF 失败: ${error.message}`, 'error');
     }
+  }
+
+  // Tab 管理方法
+  createTab(filePath, content, title = null, belongsTo = 'folder') {
+    const path = require('path');
+    const fileName = title || path.basename(filePath);
+    
+    const tab = {
+      id: this.nextTabId++,
+      title: fileName,
+      filePath: filePath,
+      content: content,
+      isActive: false,
+      isModified: false,
+      belongsTo: belongsTo // 'file' 或 'folder'
+    };
+    
+    this.tabs.push(tab);
+    this.setActiveTab(tab.id);
+    this.updateTabBar();
+    
+    // 新tab自动滚动到可见位置
+    setTimeout(() => {
+      this.scrollTabIntoView(tab.id);
+    }, 0);
+    
+    return tab;
+  }
+
+  setActiveTab(tabId) {
+    // 取消所有tab的活动状态
+    this.tabs.forEach(tab => tab.isActive = false);
+    
+    // 设置指定tab为活动状态
+    const activeTab = this.tabs.find(tab => tab.id === tabId);
+    if (activeTab) {
+      activeTab.isActive = true;
+      this.activeTabId = tabId;
+      this.currentFilePath = activeTab.filePath;
+      
+      // 更新编辑器内容
+      this.editorManager.setContent(activeTab.content, activeTab.filePath);
+      
+      // 更新文件名显示
+      this.uiManager.updateFileNameDisplay(activeTab.filePath);
+      
+      // 更新文件树中的活动文件
+      this.fileTreeManager.updateActiveFile(activeTab.filePath);
+      
+      // 窗口标题现在是静态的，不需要更新
+      
+      // 只更新tab的活动状态，不重建整个DOM
+      this.updateTabActiveState();
+      
+      // 确保活动tab在可见区域
+      setTimeout(() => {
+        this.scrollTabIntoView(tabId);
+      }, 0);
+    }
+  }
+
+  updateTabActiveState() {
+    const tabBar = document.getElementById('tabBar');
+    if (!tabBar) return;
+    
+    // 更新所有tab的活动状态CSS类
+    const tabElements = tabBar.querySelectorAll('.tab-item');
+    tabElements.forEach(tabElement => {
+      const tabId = parseInt(tabElement.dataset.tabId);
+      const isActive = this.tabs.find(tab => tab.id === tabId)?.isActive || false;
+      tabElement.classList.toggle('active', isActive);
+    });
+  }
+
+  updateTabTitle(tabId, newTitle) {
+    const tabBar = document.getElementById('tabBar');
+    if (!tabBar) return;
+    
+    const tabElement = tabBar.querySelector(`[data-tab-id="${tabId}"]`);
+    if (tabElement) {
+      const titleElement = tabElement.querySelector('.tab-title');
+      if (titleElement) {
+        titleElement.textContent = newTitle;
+      }
+    }
+  }
+
+  closeTab(tabId) {
+    const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
+    if (tabIndex === -1) return;
+    
+    const tab = this.tabs[tabIndex];
+    
+    // 如果tab归属于file，从文件树中删除对应的文件节点
+    if (tab.belongsTo === 'file') {
+      this.fileTreeManager.removeFile(tab.filePath);
+    }
+    
+    // 如果关闭的是活动tab
+    if (tab.isActive) {
+      // 如果有其他tab，切换到相邻的tab
+      if (this.tabs.length > 1) {
+        // 优先切换到右边的tab，如果没有就切换到左边的
+        const nextIndex = tabIndex < this.tabs.length - 1 ? tabIndex + 1 : tabIndex - 1;
+        this.setActiveTab(this.tabs[nextIndex].id);
+      } else {
+        // 如果这是最后一个tab，重置到初始状态
+        this.activeTabId = null;
+        this.currentFilePath = null;
+        this.resetToInitialState();
+      }
+    }
+    
+    // 移除tab
+    this.tabs.splice(tabIndex, 1);
+    
+    this.updateTabBar();
+  }
+
+
+  updateTabBar() {
+    const tabBar = document.getElementById('tabBar');
+    if (!tabBar) return;
+    
+    if (this.tabs.length === 0) {
+      tabBar.style.display = 'none';
+      return;
+    }
+    
+    tabBar.style.display = 'flex';
+    tabBar.innerHTML = '';
+    
+    this.tabs.forEach(tab => {
+      const tabElement = document.createElement('div');
+      tabElement.className = `tab-item ${tab.isActive ? 'active' : ''}`;
+      tabElement.dataset.tabId = tab.id;
+      
+      const tabTitle = document.createElement('span');
+      tabTitle.className = 'tab-title';
+      tabTitle.textContent = tab.title;
+      if (tab.isModified) {
+        tabTitle.textContent += ' •';
+      }
+      
+      const closeButton = document.createElement('button');
+      closeButton.className = 'tab-close';
+      closeButton.innerHTML = '×';
+      closeButton.onclick = (e) => {
+        e.stopPropagation();
+        this.closeTab(tab.id);
+      };
+      
+      tabElement.appendChild(tabTitle);
+      tabElement.appendChild(closeButton);
+      
+      tabElement.onclick = () => {
+        this.setActiveTab(tab.id);
+      };
+      
+      tabBar.appendChild(tabElement);
+    });
+    
+    // 更新滚动提示状态
+    setTimeout(() => {
+      this.updateTabBarScrollHints(tabBar);
+    }, 0);
+  }
+
+
+  updateTabBarScrollHints(tabBar) {
+    const canScrollLeft = tabBar.scrollLeft > 0;
+    const canScrollRight = tabBar.scrollLeft < (tabBar.scrollWidth - tabBar.clientWidth);
+    const hasOverflow = tabBar.scrollWidth > tabBar.clientWidth;
+    
+    // 获取main-content容器来管理阴影
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent && hasOverflow) {
+      mainContent.classList.toggle('tab-scroll-left', canScrollLeft);
+      mainContent.classList.toggle('tab-scroll-right', canScrollRight);
+    } else if (mainContent) {
+      mainContent.classList.remove('tab-scroll-left', 'tab-scroll-right');
+    }
+  }
+
+  scrollTabIntoView(tabId) {
+    const tabBar = document.getElementById('tabBar');
+    if (!tabBar) return;
+    
+    const tabElement = tabBar.querySelector(`[data-tab-id="${tabId}"]`);
+    if (!tabElement) return;
+    
+    const tabBarRect = tabBar.getBoundingClientRect();
+    const tabRect = tabElement.getBoundingClientRect();
+    
+    // 计算tab相对于tabBar的位置
+    const tabLeft = tabElement.offsetLeft;
+    const tabRight = tabLeft + tabElement.offsetWidth;
+    const scrollLeft = tabBar.scrollLeft;
+    const scrollRight = scrollLeft + tabBar.clientWidth;
+    
+    // 如果tab在可见区域之外，滚动到合适位置
+    if (tabLeft < scrollLeft) {
+      // tab在左侧不可见，滚动到左边
+      tabBar.scrollTo({
+        left: tabLeft - 20, // 留一点边距
+        behavior: 'smooth'
+      });
+    } else if (tabRight > scrollRight) {
+      // tab在右侧不可见，滚动到右边
+      tabBar.scrollTo({
+        left: tabRight - tabBar.clientWidth + 20, // 留一点边距
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  findTabByPath(filePath) {
+    return this.tabs.find(tab => tab.filePath === filePath);
+  }
+
+  openFileInTab(filePath, content, forceNewTab = false, fromDoubleClick = false) {
+    // 检查是否已经存在相同文件的tab
+    const existingTab = this.findTabByPath(filePath);
+    if (existingTab && !forceNewTab) {
+      // 如果已存在，切换到该tab并更新内容
+      existingTab.content = content;
+      this.setActiveTab(existingTab.id);
+      return existingTab;
+    }
+    
+    // 如果强制新建tab，直接创建
+    if (forceNewTab) {
+      return this.createTab(filePath, content);
+    }
+    
+    // 寻找归属于folder的tab来更新
+    const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
+    if (folderTab) {
+      // 在folder tab中打开文件
+      folderTab.filePath = filePath;
+      folderTab.content = content;
+      folderTab.title = require('path').basename(filePath);
+      folderTab.isModified = false;
+      this.currentFilePath = filePath;
+      
+      // 如果是双击操作，将tab归属改为file
+      if (fromDoubleClick) {
+        folderTab.belongsTo = 'file';
+      }
+      
+      this.setActiveTab(folderTab.id);
+      
+      // 更新编辑器内容
+      this.editorManager.setContent(content, filePath);
+      
+      // 更新显示
+      this.uiManager.updateFileNameDisplay(filePath);
+      this.fileTreeManager.updateActiveFile(filePath);
+      
+      // 窗口标题现在是静态的，不需要更新
+      
+      // 只更新tab标题，不重建整个DOM
+      this.updateTabTitle(folderTab.id, folderTab.title);
+      return folderTab;
+    }
+    
+    // 没有folder tab，创建一个新的
+    return this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder');
   }
 }
 

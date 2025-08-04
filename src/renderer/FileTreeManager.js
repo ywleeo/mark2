@@ -6,6 +6,7 @@ class FileTreeManager {
     this.expandedFolders = new Set();
     this.activeFilePath = null;
     this.activeItemType = null; // 'file' 或 'folder'
+    this.clickTimer = null; // 用于防抖双击和单击冲突
     
     // 初始化根节点展开状态
     this.initializeRootExpansion();
@@ -31,6 +32,19 @@ class FileTreeManager {
     });
     
     this.refreshSidebarTree();
+  }
+
+  // 从文件树中删除文件
+  removeFile(filePath) {
+    if (this.openFiles.has(filePath)) {
+      this.openFiles.delete(filePath);
+      // 如果删除的是当前活动文件，清除活动状态
+      if (this.activeFilePath === filePath && this.activeItemType === 'file') {
+        this.activeFilePath = null;
+        this.activeItemType = null;
+      }
+      this.refreshSidebarTree();
+    }
   }
 
   // 添加文件夹到文件树
@@ -242,6 +256,7 @@ class FileTreeManager {
     
     // 移除旧的事件监听器
     fileTreeContainer.removeEventListener('click', this.handleFileTreeClick);
+    fileTreeContainer.removeEventListener('dblclick', this.handleFileTreeDoubleClick);
     fileTreeContainer.removeEventListener('contextmenu', this.handleFileTreeContextMenu);
     
     // 添加新的事件监听器
@@ -265,11 +280,36 @@ class FileTreeManager {
         const path = fileItem.dataset.path;
         const type = fileItem.dataset.type;
         
-        // 激活文件
+        // 立即更新选中状态和渲染内容
         this.setActiveItem(path, type === 'file' ? 'file' : 'subfolder-file');
+        this.eventManager.emit('file-selected', path, false);
         
-        // 发出文件选择事件
-        this.eventManager.emit('file-selected', path);
+        // 设置双击检测定时器
+        if (this.clickTimer) {
+          clearTimeout(this.clickTimer);
+        }
+        
+        this.clickTimer = setTimeout(() => {
+          this.clickTimer = null;
+        }, 300); // 双击检测窗口
+      }
+    };
+    
+    // 双击事件处理器
+    this.handleFileTreeDoubleClick = (event) => {
+      const fileItem = event.target.closest('.file-item');
+      
+      if (fileItem) {
+        // 清除单击计时器
+        if (this.clickTimer) {
+          clearTimeout(this.clickTimer);
+          this.clickTimer = null;
+        }
+        
+        const path = fileItem.dataset.path;
+        
+        // 双击时发出事件，将文件添加到Files区域
+        this.eventManager.emit('file-double-clicked', path);
       }
     };
     
@@ -298,6 +338,7 @@ class FileTreeManager {
     };
     
     fileTreeContainer.addEventListener('click', this.handleFileTreeClick);
+    fileTreeContainer.addEventListener('dblclick', this.handleFileTreeDoubleClick);
     fileTreeContainer.addEventListener('contextmenu', this.handleFileTreeContextMenu);
   }
 
@@ -305,7 +346,24 @@ class FileTreeManager {
   setActiveItem(path, type) {
     this.activeFilePath = path;
     this.activeItemType = type;
-    this.refreshSidebarTree();
+    this.updateActiveItemHighlight();
+  }
+
+  updateActiveItemHighlight() {
+    const fileTreeContainer = document.getElementById('fileTree');
+    if (!fileTreeContainer) return;
+    
+    // 移除所有现有的active类
+    const allItems = fileTreeContainer.querySelectorAll('.tree-item');
+    allItems.forEach(item => item.classList.remove('active'));
+    
+    // 为当前活动项添加active类
+    if (this.activeFilePath) {
+      const activeItem = fileTreeContainer.querySelector(`[data-path="${this.activeFilePath}"]`);
+      if (activeItem) {
+        activeItem.classList.add('active');
+      }
+    }
   }
 
   // 显示右键菜单

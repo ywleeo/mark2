@@ -113,15 +113,10 @@ class WindowManager {
     }
   }
 
-  // 更新窗口标题
+  // 更新窗口标题 - 现在只显示静态标题
   updateTitle(filePath = null) {
     if (this.mainWindow) {
-      if (filePath) {
-        const fileName = path.basename(filePath);
-        this.mainWindow.setTitle(`MARK2 - ${fileName}`);
-      } else {
-        this.mainWindow.setTitle('MARK2');
-      }
+      this.mainWindow.setTitle('MARK2');
     }
   }
 }

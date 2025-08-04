@@ -246,9 +246,129 @@ body {
 /* 主内容区布局 */
 .main-content {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: hidden;
     position: relative;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tab栏样式 */
+.tab-bar {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    padding: 0 8px;
+    gap: 0;
+    position: relative;
+    white-space: nowrap;
+    /* 隐藏滚动条但保持滚动功能 */
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.tab-bar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+/* Tab栏滚动提示阴影 - 使用独立容器避免跟随滚动 */
+.main-content::before,
+.main-content::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 32px; /* tab-bar的高度 */
+    width: 20px;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.main-content::before {
+    left: 0; /* 对应tab-bar的padding-left */
+    background: linear-gradient(90deg, var(--tab-scroll-gradient-start) 0%, transparent 100%);
+}
+
+.main-content::after {
+    right: 0; /* 贴右边 */
+    background: linear-gradient(270deg, var(--tab-scroll-gradient-start) 0%, transparent 100%);
+}
+
+.main-content.tab-scroll-left::before {
+    opacity: 1;
+}
+
+.main-content.tab-scroll-right::after {
+    opacity: 1;
+}
+
+.tab-item {
+    display: flex;
+    align-items: center;
+    min-width: 120px;
+    max-width: 200px;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    font-size: 12px;
+    position: relative;
+    border-width: 1px 1px 0 1px;
+    border-style: solid;
+    margin-right: 1px;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+.tab-item:hover {
+    opacity: 0.8;
+}
+
+.tab-item.active {
+    border-bottom: none;
+    z-index: 1;
+}
+
+.tab-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+    line-height: 1;
+}
+
+.tab-close {
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    margin-left: 4px;
+    border-radius: 2px;
+    opacity: 0.6;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.tab-close:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.tab-item:not(:hover) .tab-close {
+    opacity: 0.4;
 }
 
 .content-area {
@@ -257,8 +377,8 @@ body {
     line-height: 1.6;
     box-sizing: border-box;
     width: 100%;
-    height: 100%;
-    overflow: auto;
+    flex: 1;
+    overflow-y: auto;
     /* 确保内容可以选择和复制 */
     user-select: text;
     -webkit-user-select: text;

@@ -12,6 +12,7 @@ body {
     --border-color: #e9ecef;
     --hover-bg-color: #f8f9fa;
     --active-bg-color: #e9ecef;
+    --tab-scroll-gradient-start: rgba(248, 249, 250, 0.9);
 }
 
 /* 侧边栏颜色 */
@@ -84,6 +85,41 @@ body {
 .main-content {
     background-color: white;
     scrollbar-color: #d1d5db #f1f3f4;
+}
+
+/* Tab栏颜色 */
+.tab-bar {
+    background-color: #f8f9fa;
+    border-bottom-color: #e9ecef;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+}
+
+.tab-item {
+    background-color: #f1f3f4;
+    border-color: #dee2e6;
+    color: #495057;
+}
+
+.tab-item:hover {
+    background-color: #e9ecef;
+}
+
+.tab-item.active {
+    background-color: white;
+    color: #212529;
+    border-bottom-color: white;
+}
+
+.tab-close {
+    color: #6c757d;
+}
+
+.tab-close:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
 }
 
 /* 自定义搜索功能已移除，使用浏览器原生搜索 */
