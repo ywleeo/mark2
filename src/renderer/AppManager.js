@@ -724,6 +724,7 @@ class AppManager {
 
   updateTabBar() {
     const tabBar = document.getElementById('tabBar');
+    const tabList = document.getElementById('tabList');
     if (!tabBar) return;
     
     if (this.tabs.length === 0) {
@@ -732,7 +733,14 @@ class AppManager {
     }
     
     tabBar.style.display = 'flex';
-    tabBar.innerHTML = '';
+    
+    // 清空tab-list容器（如果存在）
+    if (tabList) {
+      tabList.innerHTML = '';
+    } else {
+      // 如果没有tab-list容器，清空整个tabBar（可能是在标题栏初始化之前）
+      tabBar.innerHTML = '';
+    }
     
     this.tabs.forEach(tab => {
       const tabElement = document.createElement('div');
@@ -761,7 +769,9 @@ class AppManager {
         this.setActiveTab(tab.id);
       };
       
-      tabBar.appendChild(tabElement);
+      // 添加到tab-list容器（如果存在）或直接添加到tabBar
+      const container = tabList || tabBar;
+      container.appendChild(tabElement);
     });
     
     // 更新滚动提示状态
@@ -772,9 +782,13 @@ class AppManager {
 
 
   updateTabBarScrollHints(tabBar) {
-    const canScrollLeft = tabBar.scrollLeft > 0;
-    const canScrollRight = tabBar.scrollLeft < (tabBar.scrollWidth - tabBar.clientWidth);
-    const hasOverflow = tabBar.scrollWidth > tabBar.clientWidth;
+    // 使用tabList作为滚动容器（如果存在）
+    const tabList = document.getElementById('tabList');
+    const scrollContainer = tabList || tabBar;
+    
+    const canScrollLeft = scrollContainer.scrollLeft > 0;
+    const canScrollRight = scrollContainer.scrollLeft < (scrollContainer.scrollWidth - scrollContainer.clientWidth);
+    const hasOverflow = scrollContainer.scrollWidth > scrollContainer.clientWidth;
     
     // 获取main-content容器来管理阴影
     const mainContent = document.querySelector('.main-content');
@@ -788,31 +802,37 @@ class AppManager {
 
   scrollTabIntoView(tabId) {
     const tabBar = document.getElementById('tabBar');
+    const tabList = document.getElementById('tabList');
     if (!tabBar) return;
     
-    const tabElement = tabBar.querySelector(`[data-tab-id="${tabId}"]`);
+    // 查找tab元素（可能在tab-list中或直接在tabBar中）
+    const container = tabList || tabBar;
+    const tabElement = container.querySelector(`[data-tab-id="${tabId}"]`);
     if (!tabElement) return;
     
     const tabBarRect = tabBar.getBoundingClientRect();
     const tabRect = tabElement.getBoundingClientRect();
     
-    // 计算tab相对于tabBar的位置
+    // 使用scrolling容器进行滚动（tab-list或tabBar）
+    const scrollContainer = tabList || tabBar;
+    
+    // 计算tab相对于scroll容器的位置
     const tabLeft = tabElement.offsetLeft;
     const tabRight = tabLeft + tabElement.offsetWidth;
-    const scrollLeft = tabBar.scrollLeft;
-    const scrollRight = scrollLeft + tabBar.clientWidth;
+    const scrollLeft = scrollContainer.scrollLeft;
+    const scrollRight = scrollLeft + scrollContainer.clientWidth;
     
     // 如果tab在可见区域之外，滚动到合适位置
     if (tabLeft < scrollLeft) {
       // tab在左侧不可见，滚动到左边
-      tabBar.scrollTo({
+      scrollContainer.scrollTo({
         left: tabLeft - 20, // 留一点边距
         behavior: 'smooth'
       });
     } else if (tabRight > scrollRight) {
       // tab在右侧不可见，滚动到右边
-      tabBar.scrollTo({
-        left: tabRight - tabBar.clientWidth + 20, // 留一点边距
+      scrollContainer.scrollTo({
+        left: tabRight - scrollContainer.clientWidth + 20, // 留一点边距
         behavior: 'smooth'
       });
     }

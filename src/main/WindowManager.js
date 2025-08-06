@@ -11,9 +11,12 @@ class WindowManager {
     // 读取保存的主题设置来确定窗口背景色
     const backgroundColor = await this.getBackgroundColor();
 
-    this.mainWindow = new BrowserWindow({
-      width: 300,
-      height: 200,
+    // 根据平台配置不同的标题栏样式
+    const windowOptions = {
+      width: 800,
+      height: 600,
+      minWidth: 600,
+      minHeight: 400,
       title: 'MARK2',
       backgroundColor: backgroundColor,
       webPreferences: {
@@ -22,7 +25,18 @@ class WindowManager {
         spellcheck: false
       },
       icon: path.join(__dirname, '../../assets/icon.png')
-    });
+    };
+
+    if (process.platform === 'darwin') {
+      // macOS: 隐藏标题栏但保留交通灯按钮
+      windowOptions.titleBarStyle = 'hidden';
+      windowOptions.trafficLightPosition = { x: 12, y: 12 };
+    } else {
+      // Windows/Linux: 无边框窗口
+      windowOptions.frame = false;
+    }
+
+    this.mainWindow = new BrowserWindow(windowOptions);
 
     this.mainWindow.loadFile('index.html');
 
@@ -93,23 +107,23 @@ class WindowManager {
     }
   }
 
-  // 调整窗口大小到内容加载状态 (800x900)
+  // 调整窗口大小到内容加载状态
   resizeToContentLoaded() {
     if (this.mainWindow) {
-      const [currentWidth, currentHeight] = this.mainWindow.getSize();
-      // 只有当窗口还是初始大小时才进行调整
-      if (currentWidth <= 300 && currentHeight <= 200) {
-        this.mainWindow.setSize(800, 900);
-        this.mainWindow.center();
-      }
+      // 窗口已经在合适的大小，无需调整位置
+      // 移除 center() 调用，保持用户设置的窗口位置
     }
   }
 
-  // 调整窗口大小到初始状态 (300x200)
+  // 调整窗口大小到初始状态
   resizeToInitialState() {
     if (this.mainWindow) {
-      this.mainWindow.setSize(300, 200);
-      this.mainWindow.center();
+      const [currentWidth, currentHeight] = this.mainWindow.getSize();
+      // 只有在尺寸不同时才调整大小和居中
+      if (currentWidth !== 800 || currentHeight !== 600) {
+        this.mainWindow.setSize(800, 600);
+        this.mainWindow.center();
+      }
     }
   }
 
@@ -118,6 +132,33 @@ class WindowManager {
     if (this.mainWindow) {
       this.mainWindow.setTitle('MARK2');
     }
+  }
+
+  // 窗口控制方法
+  minimizeWindow() {
+    if (this.mainWindow) {
+      this.mainWindow.minimize();
+    }
+  }
+
+  maximizeWindow() {
+    if (this.mainWindow) {
+      if (this.mainWindow.isMaximized()) {
+        this.mainWindow.unmaximize();
+      } else {
+        this.mainWindow.maximize();
+      }
+    }
+  }
+
+  closeWindow() {
+    if (this.mainWindow) {
+      this.mainWindow.close();
+    }
+  }
+
+  isMaximized() {
+    return this.mainWindow ? this.mainWindow.isMaximized() : false;
   }
 }
 

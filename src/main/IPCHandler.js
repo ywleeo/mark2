@@ -108,6 +108,26 @@ class IPCHandler {
       }
     });
 
+    // 窗口控制 - 最小化
+    ipcMain.on('minimize-window', () => {
+      this.windowManager.minimizeWindow();
+    });
+
+    // 窗口控制 - 最大化/还原
+    ipcMain.on('maximize-window', () => {
+      this.windowManager.maximizeWindow();
+    });
+
+    // 窗口控制 - 关闭
+    ipcMain.on('window-close', () => {
+      this.windowManager.closeWindow();
+    });
+
+    // 获取窗口最大化状态
+    ipcMain.handle('is-window-maximized', () => {
+      return this.windowManager.isMaximized();
+    });
+
     // 保存主题设置
     ipcMain.handle('save-theme-settings', async (event, theme) => {
       try {

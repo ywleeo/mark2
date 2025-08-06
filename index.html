@@ -44,6 +44,13 @@
     </script>
 </head>
 <body>
+    <!-- 自定义标题栏 - 只显示左侧与侧边栏融合的部分 -->
+    <div class="custom-titlebar" id="customTitlebar">
+        <div class="titlebar-sidebar-area">
+            <!-- macOS交通灯按钮区域 -->
+        </div>
+    </div>
+
     <!-- SVG 图标定义 -->
     <svg style="display: none;" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -87,8 +94,9 @@
     </div>
 
     <div class="main-content">
-        <!-- Tab栏 -->
+        <!-- Tab栏 - 现在包含窗口控制按钮 -->
         <div class="tab-bar" id="tabBar" style="display: none;">
+            <!-- Windows/Linux 窗口控制按钮将通过JS动态添加 -->
         </div>
         
         <div class="content-area">

@@ -5,6 +5,9 @@ let appManager;
 
 // DOM 加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
+  // 初始化自定义标题栏
+  initCustomTitlebar();
+  
   appManager = new AppManager();
   
   // 加载保存的设置
@@ -20,3 +23,15 @@ function loadInitialSettings() {
 }
 
 // 所有功能已模块化，由AppManager统一管理
+
+// 自定义标题栏初始化
+function initCustomTitlebar() {
+  // 检测平台并设置CSS类
+  const { ipcRenderer } = require('electron');
+  const platform = require('os').platform();
+  
+  // 为body添加平台特定的CSS类
+  document.body.classList.add(`platform-${platform}`);
+}
+
+

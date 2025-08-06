@@ -5,6 +5,45 @@
     --tree-indent: 0;           /* 每层缩进距离 */
     --tree-root-indent: 14px;      /* 根目录缩进 */
     --tree-line-offset: 20px;       /* 竖线对齐偏移（相对于容器左边距） */
+    --titlebar-height: 28px;       /* 自定义标题栏高度 */
+}
+
+/* 自定义标题栏样式 - 简化版 */
+.custom-titlebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 260px; /* 与侧边栏宽度相同 */
+    height: var(--titlebar-height);
+    z-index: 1001; /* 确保在tab栏之上 */
+    /* 允许拖拽窗口 */
+    -webkit-app-region: drag;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.titlebar-sidebar-area {
+    width: calc(100% - 1px); /* 减去边框宽度避免溢出 */
+    height: 100%;
+    /* 与文件树颜色一致，通过主题变量控制 */
+    background: var(--sidebar-bg-color);
+    /* macOS 交通灯按钮区域 */
+    padding-left: 70px; /* 为macOS交通灯按钮预留空间 */
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    transition: opacity 0.2s ease;
+}
+
+/* 鼠标悬停时提示这是拖拽区域 */
+.titlebar-sidebar-area:hover {
+    opacity: 0.8;
+}
+
+/* Windows/Linux 平台调整左侧标题栏 */
+body.platform-win32 .titlebar-sidebar-area,
+body.platform-linux .titlebar-sidebar-area {
+    padding-left: 12px; /* 减少左边距 */
 }
 
 body {
@@ -20,7 +59,7 @@ body {
 /* 侧边栏布局 */
 .sidebar {
     width: 260px; /* 增加宽度以更好地容纳深层级文件 */
-    padding: 0;
+    padding: var(--titlebar-height) 0 0 0; /* 顶部留出标题栏空间 */
     box-sizing: border-box;
     overflow-y: auto;
     border-right-width: 1px;
@@ -43,10 +82,10 @@ body {
 /* 侧边栏拖拽手柄 */
 .sidebar-resizer {
     position: absolute;
-    top: 0;
+    top: var(--titlebar-height); /* 从标题栏下方开始 */
     right: 0;
     width: 4px;
-    height: 100%;
+    height: calc(100% - var(--titlebar-height)); /* 减去标题栏高度 */
     cursor: col-resize;
     background: transparent;
     z-index: 10;
@@ -251,38 +290,83 @@ body {
     min-width: 0;
     display: flex;
     flex-direction: column;
+    /* Tab栏现在作为主内容区的顶部，不需要额外间距 */
 }
 
-/* Tab栏样式 */
+/* Tab栏样式 - 现在作为顶部栏 */
 .tab-bar {
     display: flex;
     align-items: center;
-    min-height: 32px;
-    border-bottom-width: 1px;
-    border-bottom-style: solid;
-    overflow-x: scroll;
-    overflow-y: hidden;
+    min-height: var(--titlebar-height);
+    border-bottom-style: none;
     flex-shrink: 0;
-    padding: 0 8px;
-    gap: 0;
+    padding: 0 2px 0 2px;
     position: relative;
-    white-space: nowrap;
+    overflow-x: auto;
     /* 隐藏滚动条但保持滚动功能 */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
+    /* 允许拖拽窗口 */
+    -webkit-app-region: drag;
 }
 
 .tab-bar::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
 }
 
+
+/* Windows/Linux 窗口控制按钮 */
+.window-controls {
+    display: none; /* 默认隐藏，只在Windows/Linux显示 */
+    flex-shrink: 0;
+    height: 100%;
+    padding-right: 8px;
+    /* 禁用拖拽 */
+    -webkit-app-region: no-drag;
+}
+
+.window-control {
+    width: 46px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease;
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+.window-control:hover {
+    background: var(--hover-bg-color);
+    opacity: 1;
+}
+
+.window-control.close:hover {
+    background: #e53e3e;
+    color: white;
+}
+
+.window-control svg {
+    pointer-events: none;
+}
+
+/* Windows/Linux 平台显示窗口控制按钮 */
+body.platform-win32 .window-controls,
+body.platform-linux .window-controls {
+    display: flex;
+}
+
+
 /* Tab栏滚动提示阴影 - 使用独立容器避免跟随滚动 */
 .main-content::before,
 .main-content::after {
     content: '';
     position: absolute;
-    top: 0;
-    height: 32px; /* tab-bar的高度 */
+    top: 2px; /* 稍微往下调整，避免覆盖边框 */
+    height: calc(var(--titlebar-height) - 2px); /* 减去上下边距 */
     width: 20px;
     pointer-events: none;
     z-index: 10;
@@ -291,13 +375,18 @@ body {
 }
 
 .main-content::before {
-    left: 0; /* 对应tab-bar的padding-left */
+    left: 0;
     background: linear-gradient(90deg, var(--tab-scroll-gradient-start) 0%, transparent 100%);
 }
 
 .main-content::after {
-    right: 0; /* 贴右边 */
+    right: 146px; /* 为Windows控制按钮预留空间（3*46px + 8px padding） */
     background: linear-gradient(270deg, var(--tab-scroll-gradient-start) 0%, transparent 100%);
+}
+
+/* macOS 平台调整右侧阴影位置 */
+body.platform-darwin .main-content::after {
+    right: 0; /* macOS没有控制按钮 */
 }
 
 .main-content.tab-scroll-left::before {
@@ -313,7 +402,7 @@ body {
     align-items: center;
     min-width: 120px;
     max-width: 200px;
-    height: 30px;
+    height: calc(var(--titlebar-height) - 2px);
     padding: 0 8px;
     border-radius: 4px 4px 0 0;
     cursor: pointer;
@@ -321,9 +410,11 @@ body {
     position: relative;
     border-width: 1px 1px 0 1px;
     border-style: solid;
-    margin-right: 1px;
+    margin-right: -1px;
     flex-shrink: 0;
     transition: all 0.15s ease;
+    /* 禁用拖拽 */
+    -webkit-app-region: no-drag;
 }
 
 .tab-item:hover {

@@ -13,6 +13,9 @@ body {
     --hover-bg-color: #f8f9fa;
     --active-bg-color: #e9ecef;
     --tab-scroll-gradient-start: rgba(248, 249, 250, 0.9);
+    /* 自定义标题栏变量 */
+    --sidebar-bg-color: #f8f9fa;
+    --main-bg-color: #ffffff;
 }
 
 /* 侧边栏颜色 */
