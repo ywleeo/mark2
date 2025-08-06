@@ -4,7 +4,6 @@ const FileTreeManager = require('./FileTreeManager');
 const EditorManager = require('./EditorManager');
 const SearchManager = require('./SearchManager');
 const UIManager = require('./UIManager');
-const HeartbeatAnimator = require('./HeartbeatAnimator');
 
 class AppManager {
   constructor() {
@@ -14,7 +13,6 @@ class AppManager {
     this.editorManager = new EditorManager(this.markdownRenderer, this.eventManager, this);
     this.searchManager = new SearchManager();
     this.uiManager = new UIManager(this.eventManager);
-    this.heartbeatAnimator = new HeartbeatAnimator();
     
     // 将editorManager和searchManager挂载到全局window对象
     window.editorManager = this.editorManager;
@@ -45,7 +43,8 @@ class AppManager {
     // 延迟设置键盘快捷键，确保DOM完全准备好
     setTimeout(() => {
       this.setupKeyboardShortcuts();
-      this.startHeartbeatAnimation();
+      // 确保标题栏拖拽区域生效
+      this.ensureTitleBarDragArea();
     }, 100);
   }
 
@@ -96,7 +95,6 @@ class AppManager {
         }
         
         // 停止动画并调整窗口大小到内容加载状态
-        this.stopHeartbeatAnimation();
         const { ipcRenderer } = require('electron');
         ipcRenderer.send('resize-window-to-content-loaded');
       }
@@ -139,14 +137,6 @@ class AppManager {
       this.uiManager.enableSidebar();
     });
     
-    // 文件关闭事件（从Files区域右键关闭时，同时关闭对应的标签页）
-    this.eventManager.on('file-closed', (filePath) => {
-      // 查找对应的标签页
-      const tab = this.tabs.find(tab => tab.filePath === filePath && tab.belongsTo === 'file');
-      if (tab) {
-        this.closeTab(tab.id, true); // 标记为从文件节点触发的关闭
-      }
-    });
   }
 
   setupIPCListeners() {
@@ -256,8 +246,14 @@ class AppManager {
           this.displayFileTree(result.folderPath, result.fileTree);
         } else if (result.type === 'file') {
           this.currentFilePath = result.filePath;
-          // 拖拽文件始终创建新tab
-          this.displayMarkdown(result.content, result.filePath, false, true);
+          // 检查文件是否已打开，如果已打开则激活现有tab
+          const existingTab = this.tabs.find(tab => tab.filePath === result.filePath);
+          if (existingTab) {
+            this.setActiveTab(existingTab.id);
+          } else {
+            // 文件未打开，创建新tab
+            this.displayMarkdown(result.content, result.filePath, false, true);
+          }
         }
       } catch (error) {
         console.error('拖拽处理错误:', error);
@@ -330,7 +326,6 @@ class AppManager {
     }
     
     // 停止动画并调整窗口大小到内容加载状态
-    this.stopHeartbeatAnimation();
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
     
@@ -346,7 +341,6 @@ class AppManager {
     this.currentFolderPath = folderPath;
     
     // 停止动画并调整窗口大小到内容加载状态
-    this.stopHeartbeatAnimation();
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('resize-window-to-content-loaded');
     
@@ -410,9 +404,7 @@ class AppManager {
     // 窗口标题现在是静态的，不需要重置
     
     // 先停止当前动画，然后重新启动动画
-    this.stopHeartbeatAnimation();
     setTimeout(() => {
-      this.startHeartbeatAnimation();
     }, 200);
     
     // 重置各个管理器
@@ -549,17 +541,6 @@ class AppManager {
     return this.markdownRenderer;
   }
 
-  startHeartbeatAnimation() {
-    const container = document.querySelector('.content-area');
-    if (container) {
-      this.heartbeatAnimator.stop();
-      this.heartbeatAnimator.start(container);
-    }
-  }
-
-  stopHeartbeatAnimation() {
-    this.heartbeatAnimator.stop();
-  }
 
   async exportToPDF() {
     try {
@@ -687,38 +668,26 @@ class AppManager {
   }
 
   closeTab(tabId, fromFileNode = false) {
+    console.log('closeTab called with:', { tabId, fromFileNode });
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
-    if (tabIndex === -1) return;
+    if (tabIndex === -1) {
+      console.log('Tab not found:', tabId);
+      return;
+    }
     
     const tab = this.tabs[tabIndex];
+    console.log('Found tab:', { id: tab.id, filePath: tab.filePath, belongsTo: tab.belongsTo });
     
-    // 关闭搜索框（如果打开的话）
-    this.searchManager.hide();
-    
-    // 如果tab归属于file，且不是由文件节点触发的关闭，从文件树中删除对应的文件节点
-    if (tab.belongsTo === 'file' && !fromFileNode) {
-      this.fileTreeManager.removeFile(tab.filePath);
+    // 如果tab有文件路径，使用统一关闭函数（同步删除文件树节点和关闭tab）
+    if (tab.filePath) {
+      console.log('Calling closeFileCompletely for:', tab.filePath);
+      this.closeFileCompletely(tab.filePath);
+      return;
     }
     
-    // 如果关闭的是活动tab
-    if (tab.isActive) {
-      // 如果有其他tab，切换到相邻的tab
-      if (this.tabs.length > 1) {
-        // 优先切换到右边的tab，如果没有就切换到左边的
-        const nextIndex = tabIndex < this.tabs.length - 1 ? tabIndex + 1 : tabIndex - 1;
-        this.setActiveTab(this.tabs[nextIndex].id);
-      } else {
-        // 如果这是最后一个tab，重置到初始状态
-        this.activeTabId = null;
-        this.currentFilePath = null;
-        this.resetToInitialState();
-      }
-    }
-    
-    // 移除tab
-    this.tabs.splice(tabIndex, 1);
-    
-    this.updateTabBar();
+    // 对于没有文件路径的tab，直接关闭
+    console.log('Calling closeTabDirectly for tab without filePath:', tabId);
+    this.closeTabDirectly(tabId);
   }
 
 
@@ -777,6 +746,8 @@ class AppManager {
     // 更新滚动提示状态
     setTimeout(() => {
       this.updateTabBarScrollHints(tabBar);
+      // 重新创建拖拽覆盖层确保title区域可拖拽
+      this.ensureTitleBarDragArea();
     }, 0);
   }
 
@@ -890,6 +861,93 @@ class AppManager {
     
     // 没有folder tab，创建一个新的
     return this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder');
+  }
+
+  // 统一关闭文件：同时删除file节点和关闭对应tab
+  closeFileCompletely(filePath) {
+    console.log('closeFileCompletely called with:', filePath);
+    console.log('Current tabs:', this.tabs.map(t => ({ id: t.id, filePath: t.filePath, belongsTo: t.belongsTo })));
+    
+    // 1. 删除file节点（不发出事件避免递归）
+    console.log('Removing file from tree:', filePath);
+    this.fileTreeManager.removeFile(filePath, false);
+    
+    // 2. 关闭对应的tab（关闭所有匹配文件路径的tab，不管belongsTo属性）
+    // 使用while循环避免在遍历过程中修改数组导致的问题
+    let tabToClose;
+    while ((tabToClose = this.tabs.find(tab => tab.filePath === filePath))) {
+      console.log('Closing tab:', { id: tabToClose.id, filePath: tabToClose.filePath, belongsTo: tabToClose.belongsTo });
+      this.closeTabDirectly(tabToClose.id);
+    }
+    console.log('closeFileCompletely finished');
+  }
+
+  // 直接关闭tab，不触发其他逻辑
+  closeTabDirectly(tabId) {
+    const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
+    if (tabIndex === -1) return;
+    
+    const tab = this.tabs[tabIndex];
+    
+    // 关闭搜索框（如果打开的话）
+    this.searchManager.hide();
+    
+    // 如果关闭的是活动tab，需要切换到其他tab
+    if (tab.isActive) {
+      if (this.tabs.length > 1) {
+        const nextIndex = tabIndex < this.tabs.length - 1 ? tabIndex + 1 : tabIndex - 1;
+        this.setActiveTab(this.tabs[nextIndex].id);
+      } else {
+        this.activeTabId = null;
+        this.currentFilePath = null;
+        this.resetToInitialState();
+      }
+    }
+    
+    // 移除tab
+    this.tabs.splice(tabIndex, 1);
+    this.updateTabBar();
+  }
+
+  // 确保拖拽区域不被tab覆盖
+  ensureTitleBarDragArea() {
+    // 移除之前创建的覆盖层（如果存在）
+    const existingOverlay = document.getElementById('titlebar-drag-overlay');
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
+    
+    // 判断是否有打开的文件（有tab或有内容）
+    const hasContent = this.tabs.length > 0 || this.currentFilePath;
+    
+    // 根据状态决定拖拽区域宽度
+    let dragWidth;
+    if (hasContent) {
+      // 有内容时，只覆盖sidebar区域
+      const sidebar = document.getElementById('sidebar');
+      dragWidth = sidebar ? sidebar.offsetWidth : 260;
+    } else {
+      // 初始状态时，覆盖整个窗口宽度
+      dragWidth = window.innerWidth;
+    }
+    
+    // 创建透明的拖拽覆盖层
+    const dragOverlay = document.createElement('div');
+    dragOverlay.id = 'titlebar-drag-overlay';
+    dragOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: ${dragWidth}px;
+      height: var(--titlebar-height);
+      z-index: 1002;
+      -webkit-app-region: drag;
+      pointer-events: auto;
+      background: transparent;
+    `;
+    
+    // 添加到页面最前层
+    document.body.appendChild(dragOverlay);
   }
 }
 

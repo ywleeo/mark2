@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCustomTitlebar();
   
   appManager = new AppManager();
+  window.appManager = appManager; // 挂载到全局便于其他模块访问
   
   // 加载保存的设置
   loadInitialSettings();

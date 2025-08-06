@@ -415,6 +415,11 @@ class UIManager {
       
       // 保存新宽度
       this.saveSidebarWidth(sidebar.offsetWidth);
+      
+      // 更新拖拽覆盖层大小
+      if (window.appManager && typeof window.appManager.ensureTitleBarDragArea === 'function') {
+        window.appManager.ensureTitleBarDragArea();
+      }
     };
 
     // 绑定事件

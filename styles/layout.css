@@ -8,43 +8,7 @@
     --titlebar-height: 28px;       /* 自定义标题栏高度 */
 }
 
-/* 自定义标题栏样式 - 简化版 */
-.custom-titlebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 260px; /* 与侧边栏宽度相同 */
-    height: var(--titlebar-height);
-    z-index: 1001; /* 确保在tab栏之上 */
-    /* 允许拖拽窗口 */
-    -webkit-app-region: drag;
-    user-select: none;
-    -webkit-user-select: none;
-}
-
-.titlebar-sidebar-area {
-    width: calc(100% - 1px); /* 减去边框宽度避免溢出 */
-    height: 100%;
-    /* 与文件树颜色一致，通过主题变量控制 */
-    background: var(--sidebar-bg-color);
-    /* macOS 交通灯按钮区域 */
-    padding-left: 70px; /* 为macOS交通灯按钮预留空间 */
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    transition: opacity 0.2s ease;
-}
-
-/* 鼠标悬停时提示这是拖拽区域 */
-.titlebar-sidebar-area:hover {
-    opacity: 0.8;
-}
-
-/* Windows/Linux 平台调整左侧标题栏 */
-body.platform-win32 .titlebar-sidebar-area,
-body.platform-linux .titlebar-sidebar-area {
-    padding-left: 12px; /* 减少左边距 */
-}
+/* 标题栏样式已删除 - 使用透明覆盖层统一处理拖拽 */
 
 body {
     margin: 0;
@@ -59,7 +23,7 @@ body {
 /* 侧边栏布局 */
 .sidebar {
     width: 260px; /* 增加宽度以更好地容纳深层级文件 */
-    padding: var(--titlebar-height) 0 0 0; /* 顶部留出标题栏空间 */
+    padding-top: 40px; /* 文件树占满整个sidebar区域 */
     box-sizing: border-box;
     overflow-y: auto;
     border-right-width: 1px;
@@ -82,10 +46,10 @@ body {
 /* 侧边栏拖拽手柄 */
 .sidebar-resizer {
     position: absolute;
-    top: var(--titlebar-height); /* 从标题栏下方开始 */
+    top: 0; 
     right: 0;
     width: 4px;
-    height: calc(100% - var(--titlebar-height)); /* 减去标题栏高度 */
+    height: 100%; 
     cursor: col-resize;
     background: transparent;
     z-index: 10;
@@ -116,7 +80,7 @@ body {
 
 .empty-state {
     text-align: center;
-    padding: 32px 16px;
+    padding: 60px 24px;
 }
 
 .empty-state p {
@@ -936,19 +900,8 @@ body.platform-darwin .main-content::after {
     backdrop-filter: blur(10px);
     border: 2px dashed white;
     text-align: center;
-    animation: pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes pulse {
-    0%, 100% {
-        transform: translate(-50%, -50%) scale(1);
-        opacity: 0.9;
-    }
-    50% {
-        transform: translate(-50%, -50%) scale(1.05);
-        opacity: 1;
-    }
-}
 
 /* 关键词高亮布局 */
 mark[class*="highlight-"] {

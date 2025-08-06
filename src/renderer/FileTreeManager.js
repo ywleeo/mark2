@@ -42,7 +42,7 @@ class FileTreeManager {
   }
 
   // 从文件树中删除文件
-  removeFile(filePath) {
+  removeFile(filePath, emitEvent = false) {
     if (this.openFiles.has(filePath)) {
       this.openFiles.delete(filePath);
       // 如果删除的是当前活动文件，清除活动状态
@@ -51,6 +51,11 @@ class FileTreeManager {
         this.activeItemType = null;
       }
       this.refreshSidebarTree();
+      
+      // 只在明确要求时发出事件
+      if (emitEvent) {
+        this.eventManager.emit('file-closed', filePath);
+      }
     }
   }
 
@@ -436,18 +441,14 @@ class FileTreeManager {
 
   // 关闭文件
   closeFile(filePath) {
-    this.openFiles.delete(filePath);
-    
-    // 如果关闭的是当前活动文件，清除活动状态
-    if (this.activeFilePath === filePath && this.activeItemType === 'file') {
-      this.activeFilePath = null;
-      this.activeItemType = null;
+    console.log('FileTreeManager.closeFile called with:', filePath);
+    // 右键关闭文件时，直接调用AppManager的统一关闭函数
+    if (window.appManager) {
+      console.log('Calling appManager.closeFileCompletely');
+      window.appManager.closeFileCompletely(filePath);
+    } else {
+      console.log('window.appManager not found!');
     }
-    
-    this.refreshSidebarTree();
-    
-    // 发出文件关闭事件
-    this.eventManager.emit('file-closed', filePath);
   }
 
   // 关闭文件夹
