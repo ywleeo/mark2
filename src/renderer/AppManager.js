@@ -35,6 +35,9 @@ class AppManager {
     // 初始化关键词高亮状态
     this.initializeKeywordHighlight();
     
+    // 确保侧边栏始终启用（因为现在无论如何都会有标签页内容）
+    this.uiManager.enableSidebar();
+    
     this.setupEventListeners();
     this.setupIPCListeners();
     this.setupDragAndDrop();
@@ -94,6 +97,7 @@ class AppManager {
         
         // 停止动画并调整窗口大小到内容加载状态
         this.stopHeartbeatAnimation();
+        const { ipcRenderer } = require('electron');
         ipcRenderer.send('resize-window-to-content-loaded');
       }
     });
@@ -133,6 +137,15 @@ class AppManager {
     // 文件树加载完成事件
     this.eventManager.on('file-tree-loaded', () => {
       this.uiManager.enableSidebar();
+    });
+    
+    // 文件关闭事件（从Files区域右键关闭时，同时关闭对应的标签页）
+    this.eventManager.on('file-closed', (filePath) => {
+      // 查找对应的标签页
+      const tab = this.tabs.find(tab => tab.filePath === filePath && tab.belongsTo === 'file');
+      if (tab) {
+        this.closeTab(tab.id, true); // 标记为从文件节点触发的关闭
+      }
     });
   }
 
@@ -303,7 +316,6 @@ class AppManager {
     // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
     if (!fromFolderMode) {
       this.fileTreeManager.addFile(filePath, content);
-      this.switchToSingleFileMode();
     }
     
     // 隐藏欢迎信息，显示markdown内容
@@ -330,9 +342,8 @@ class AppManager {
   }
 
   displayFileTree(folderPath, fileTree) {
-    // 保存当前文件夹路径并切换到文件夹模式
+    // 保存当前文件夹路径
     this.currentFolderPath = folderPath;
-    this.switchToFolderMode();
     
     // 停止动画并调整窗口大小到内容加载状态
     this.stopHeartbeatAnimation();
@@ -407,7 +418,6 @@ class AppManager {
     // 重置各个管理器
     this.editorManager.resetToInitialState();
     this.uiManager.resetToInitialState();
-    this.uiManager.disableSidebar(); // 禁用侧边栏
     this.fileTreeManager.clearFileTree(); // 清空文件树
     // this.searchManager.hideSearch(); // 移除自定义搜索功能
   }
@@ -468,11 +478,18 @@ class AppManager {
         this.editorManager.saveFile();
       }
       
-      // Cmd+W 关闭窗口（通过主进程处理）
+      // Cmd+W 关闭当前标签页，如果没有标签页则关闭窗口
       if (event.metaKey && event.key === 'w') {
         event.preventDefault();
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.send('close-window');
+        
+        // 如果有活动的标签页，关闭当前标签页
+        if (this.activeTabId && this.tabs.length > 0) {
+          this.closeTab(this.activeTabId);
+        } else {
+          // 如果没有标签页，关闭整个窗口
+          const { ipcRenderer } = require('electron');
+          ipcRenderer.send('close-window');
+        }
       }
       
       // Cmd+E 切换编辑模式
@@ -518,16 +535,10 @@ class AppManager {
   // 模式管理方法
   switchToSingleFileMode() {
     this.appMode = 'single-file';
-    
-    // 启用侧边栏（现在单文件也显示在侧边栏中）
-    this.uiManager.enableSidebar();
   }
 
   switchToFolderMode() {
     this.appMode = 'folder';
-    
-    // 启用侧边栏
-    this.uiManager.enableSidebar();
   }
 
   getCurrentMode() {
@@ -615,6 +626,9 @@ class AppManager {
   }
 
   setActiveTab(tabId) {
+    // 关闭搜索框（如果打开的话）
+    this.searchManager.hide();
+    
     // 取消所有tab的活动状态
     this.tabs.forEach(tab => tab.isActive = false);
     
@@ -672,14 +686,17 @@ class AppManager {
     }
   }
 
-  closeTab(tabId) {
+  closeTab(tabId, fromFileNode = false) {
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) return;
     
     const tab = this.tabs[tabIndex];
     
-    // 如果tab归属于file，从文件树中删除对应的文件节点
-    if (tab.belongsTo === 'file') {
+    // 关闭搜索框（如果打开的话）
+    this.searchManager.hide();
+    
+    // 如果tab归属于file，且不是由文件节点触发的关闭，从文件树中删除对应的文件节点
+    if (tab.belongsTo === 'file' && !fromFileNode) {
       this.fileTreeManager.removeFile(tab.filePath);
     }
     

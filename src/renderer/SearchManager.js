@@ -63,6 +63,14 @@ class SearchManager {
   }
 
   show() {
+    // 重置搜索状态（清空输入框、结果等）
+    this.searchInput.value = '';
+    this.currentMatches = [];
+    this.currentIndex = -1;
+    this.lastQuery = '';
+    this.updateResults(0, 0);
+    this.clearHighlights();
+    
     this.searchBox.style.display = 'block';
     this.isVisible = true;
     this.searchInput.focus();
