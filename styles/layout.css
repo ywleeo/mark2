@@ -223,7 +223,7 @@ body {
     border-bottom-width: 1px;
     border-bottom-style: solid;
     margin-bottom: 4px;
-    padding: 10px 5px 10px 15px;
+    padding: 8px 5px 8px 15px;
 }
 
 .folder-item.root-folder .name {
@@ -581,7 +581,7 @@ body {
 /* 搜索框样式 */
 .search-box {
   position: fixed;
-  top: 10px;
+  top: 40px;
   right: 10px;
   z-index: 1000;
   display: none;

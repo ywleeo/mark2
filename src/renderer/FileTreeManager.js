@@ -15,6 +15,13 @@ class FileTreeManager {
     this.restoreExpandedState();
   }
 
+  // HTML转义函数，防止中文字符在HTML中出现问题
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // 简化的配置（不再需要复杂的配置）
   getTreeConfig() {
     return {};
@@ -119,7 +126,7 @@ class FileTreeManager {
                 <path d="M10 2V5H13" stroke="currentColor" stroke-width="1" fill="none"/>
               </svg>
             </div>
-            <span class="name">${fileInfo.name}</span>
+            <span class="name">${this.escapeHtml(fileInfo.name)}</span>
           </div>
         `;
       }
@@ -177,12 +184,12 @@ class FileTreeManager {
                 <path class="folder-tab" d="M6 4L7.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
               </svg>
             </div>
-            <span class="name">${folderInfo.name}</span>
+            <span class="name">${this.escapeHtml(folderInfo.name)}</span>
           </div>`;
         
         // 文件夹内容
-        if (isFolderExpanded && folderInfo.fileTree) {
-          html += `<div class="folder-children expanded">${this.buildFileTreeHtml(folderInfo.fileTree, 2)}</div>`;
+        if (isFolderExpanded && folderInfo.fileTree && folderInfo.fileTree[0] && folderInfo.fileTree[0].children) {
+          html += `<div class="folder-children expanded">${this.buildFileTreeHtml(folderInfo.fileTree[0].children, 2)}</div>`;
         }
       }
       html += '</div>';
@@ -222,7 +229,7 @@ class FileTreeManager {
                 <path class="folder-tab" d="M6 4L7.5 5.5" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
               </svg>
             </div>
-            <span class="name">${item.name}</span>
+            <span class="name">${this.escapeHtml(item.name)}</span>
           </div>`;
         
         if (childrenHtml) {
@@ -241,7 +248,7 @@ class FileTreeManager {
                 <path d="M10 2V5H13" stroke="currentColor" stroke-width="1" fill="none"/>
               </svg>
             </div>
-            <span class="name">${item.name}</span>
+            <span class="name">${this.escapeHtml(item.name)}</span>
           </div>
         `;
       }
@@ -359,10 +366,13 @@ class FileTreeManager {
     
     // 为当前活动项添加active类
     if (this.activeFilePath) {
-      const activeItem = fileTreeContainer.querySelector(`[data-path="${this.activeFilePath}"]`);
-      if (activeItem) {
-        activeItem.classList.add('active');
-      }
+      // 遍历所有元素，避免CSS选择器中文字符问题
+      const allItems = fileTreeContainer.querySelectorAll('[data-path]');
+      allItems.forEach(item => {
+        if (item.dataset.path === this.activeFilePath) {
+          item.classList.add('active');
+        }
+      });
     }
   }
 
