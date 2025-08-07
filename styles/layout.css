@@ -444,24 +444,6 @@ body.platform-darwin .main-content::after {
 
 /* 自定义搜索功能已移除，使用浏览器原生搜索 */
 
-.welcome-message {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    width: 100%;
-    text-align: center;
-    font-size: 12px;
-}
-
-.ascii-animation-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    width: 100%;
-}
 
 .markdown-content {
     display: none;

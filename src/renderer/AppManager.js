@@ -83,13 +83,9 @@ class AppManager {
         
         // 窗口标题现在是静态的，不需要更新
         
-        // 隐藏欢迎信息，显示markdown内容
-        const welcomeMessage = document.querySelector('.welcome-message');
+        // 显示markdown内容
         const markdownContent = document.querySelector('.markdown-content');
         
-        if (welcomeMessage) {
-          welcomeMessage.style.display = 'none';
-        }
         if (markdownContent) {
           markdownContent.style.display = 'block';
         }
@@ -314,13 +310,9 @@ class AppManager {
       this.fileTreeManager.addFile(filePath, content);
     }
     
-    // 隐藏欢迎信息，显示markdown内容
-    const welcomeMessage = document.querySelector('.welcome-message');
+    // 显示markdown内容
     const markdownContent = document.querySelector('.markdown-content');
     
-    if (welcomeMessage) {
-      welcomeMessage.style.display = 'none';
-    }
     if (markdownContent) {
       markdownContent.style.display = 'block';
     }
@@ -386,13 +378,9 @@ class AppManager {
     this.activeTabId = null;
     this.updateTabBar();
     
-    // 显示欢迎信息，隐藏markdown内容
-    const welcomeMessage = document.querySelector('.welcome-message');
+    // 隐藏markdown内容
     const markdownContent = document.querySelector('.markdown-content');
     
-    if (welcomeMessage) {
-      welcomeMessage.style.display = 'block';
-    }
     if (markdownContent) {
       markdownContent.style.display = 'none';
     }
@@ -412,6 +400,9 @@ class AppManager {
     this.uiManager.resetToInitialState();
     this.fileTreeManager.clearFileTree(); // 清空文件树
     // this.searchManager.hideSearch(); // 移除自定义搜索功能
+    
+    // 重新绘制热区到整个窗口宽度
+    this.ensureTitleBarDragArea();
   }
 
   // 获取各个管理器的引用，供外部使用
@@ -917,17 +908,20 @@ class AppManager {
       existingOverlay.remove();
     }
     
-    // 判断是否有打开的文件（有tab或有内容）
-    const hasContent = this.tabs.length > 0 || this.currentFilePath;
+    // 判断右边是否有markdown内容显示
+    const markdownContent = document.querySelector('.markdown-content');
+    const hasMarkdownContent = markdownContent && 
+                               markdownContent.style.display !== 'none' && 
+                               markdownContent.innerHTML.trim();
     
     // 根据状态决定拖拽区域宽度
     let dragWidth;
-    if (hasContent) {
-      // 有内容时，只覆盖sidebar区域
+    if (hasMarkdownContent) {
+      // 有markdown内容时，只覆盖sidebar区域
       const sidebar = document.getElementById('sidebar');
       dragWidth = sidebar ? sidebar.offsetWidth : 260;
     } else {
-      // 初始状态时，覆盖整个窗口宽度
+      // 没有markdown内容时，热区贯穿整个窗口宽度
       dragWidth = window.innerWidth;
     }
     

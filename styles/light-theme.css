@@ -127,9 +127,6 @@ body {
 
 /* 自定义搜索功能已移除，使用浏览器原生搜索 */
 
-.welcome-message {
-    color: #7f8c8d;
-}
 
 /* 编辑器颜色 */
 .editor-toolbar {

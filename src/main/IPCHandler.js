@@ -280,7 +280,7 @@ class IPCHandler {
               background: ${currentTheme === 'dark' ? '#1a1a1a' : 'white'};
             }
             
-            .sidebar, .search-bar, .welcome-message {
+            .sidebar, .search-bar {
               display: none !important;
             }
             
