@@ -905,15 +905,13 @@ mark[class*="highlight-"] {
     font-weight: 400;
     z-index: 10000;
     opacity: 0;
-    transform: translateX(100px);
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease;
     max-width: 300px;
     word-wrap: break-word;
 }
 
 .message.show {
     opacity: 1;
-    transform: translateX(0);
 }
 
 /* 滚动条布局 */

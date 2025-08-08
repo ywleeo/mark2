@@ -10,6 +10,7 @@ class FileWatcher {
     this.updateTimeout = null; // 防抖定时器
     this.fileWatcher = null; // 单个文件监听器
     this.watchedFile = null; // 当前监听的文件路径
+    this.lastFileContent = null; // 上次读取的文件内容，用于去重
   }
 
   startWatching(folderPath) {
@@ -82,6 +83,9 @@ class FileWatcher {
 
     try {
       this.watchedFile = filePath;
+      // 初始化文件内容缓存
+      this.lastFileContent = fs.readFileSync(filePath, 'utf-8');
+      
       this.fileWatcher = fs.watch(filePath, (eventType, filename) => {
         // 只处理文件内容变化事件
         if (eventType === 'change') {
@@ -111,6 +115,7 @@ class FileWatcher {
       }
       this.fileWatcher = null;
       this.watchedFile = null;
+      this.lastFileContent = null;
       console.log('Stopped file watching');
     }
   }
@@ -122,11 +127,11 @@ class FileWatcher {
       clearTimeout(this.updateTimeout);
     }
     
-    // 设置新的定时器，300ms 后执行更新
+    // 设置新的定时器，500ms 后执行更新（增加延迟以合并多次事件）
     this.updateTimeout = setTimeout(() => {
       this.refreshFile();
       this.updateTimeout = null;
-    }, 300);
+    }, 500);
   }
 
   // 刷新文件内容并通知渲染进程
@@ -142,6 +147,16 @@ class FileWatcher {
     
     try {
       const content = fs.readFileSync(this.watchedFile, 'utf-8');
+      
+      // 检查内容是否真的有变化
+      if (this.lastFileContent === content) {
+        console.log('File content unchanged, skipping update');
+        return;
+      }
+      
+      // 更新缓存的内容
+      this.lastFileContent = content;
+      
       const mainWindow = this.windowManager.getWindow();
       
       if (mainWindow && !mainWindow.isDestroyed()) {

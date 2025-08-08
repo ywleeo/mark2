@@ -84,6 +84,9 @@ class FileTreeManager {
     const fileTreeContainer = document.getElementById('fileTree');
     if (!fileTreeContainer) return;
     
+    // 确保根节点始终展开
+    this.ensureRootNodesExpanded();
+    
     fileTreeContainer.innerHTML = this.buildSidebarTreeHtml();
     this.attachFileTreeEvents();
     
@@ -293,8 +296,9 @@ class FileTreeManager {
         const type = fileItem.dataset.type;
         
         // 立即更新选中状态和渲染内容
-        this.setActiveItem(path, type === 'file' ? 'file' : 'subfolder-file');
-        this.eventManager.emit('file-selected', path, false);
+        const fileType = type === 'file' ? 'file' : 'subfolder-file';
+        this.setActiveItem(path, fileType);
+        this.eventManager.emit('file-selected', path, false, fileType);
         
         // 设置双击检测定时器
         if (this.clickTimer) {
@@ -527,6 +531,12 @@ class FileTreeManager {
     this.expandedFolders.add('__folders_root__');
   }
 
+  // 确保根节点始终展开（用于防止被意外关闭）
+  ensureRootNodesExpanded() {
+    this.expandedFolders.add('__files_root__');
+    this.expandedFolders.add('__folders_root__');
+  }
+
   saveExpandedState() {
     // 保存展开状态到本地存储
     const key = 'filetree-expanded-state';
@@ -576,11 +586,8 @@ class FileTreeManager {
     // 恢复根节点展开状态
     this.initializeRootExpansion();
     
-    // 清空DOM中的文件树内容
-    const fileTreeContainer = document.getElementById('fileTree');
-    if (fileTreeContainer) {
-      fileTreeContainer.innerHTML = '';
-    }
+    // 刷新sidebar树，保持Files和Folders节点显示
+    this.refreshSidebarTree();
   }
 }
 

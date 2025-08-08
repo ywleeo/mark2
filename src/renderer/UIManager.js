@@ -215,6 +215,16 @@ class UIManager {
     messageElement.className = `message ${type}`;
     messageElement.textContent = message;
     
+    // 计算垂直位置，避免重叠
+    const existingMessages = document.querySelectorAll('.message');
+    let topOffset = 20;
+    existingMessages.forEach(msg => {
+      if (msg.offsetParent) { // 只计算可见的消息
+        topOffset += msg.offsetHeight + 10;
+      }
+    });
+    messageElement.style.top = topOffset + 'px';
+    
     // 添加到页面
     document.body.appendChild(messageElement);
     
