@@ -1,7 +1,7 @@
 {
   "name": "MARK2",
   "productName": "MARK2",
-  "version": "1.1.6",
+  "version": "1.1.9",
   "description": "一个基于 Electron 的 Markdown 阅读器",
   "main": "main.js",
   "scripts": {

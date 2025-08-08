@@ -468,6 +468,11 @@ class FileTreeManager {
     
     this.refreshSidebarTree();
     
+    // 保存状态
+    if (window.appManager) {
+      window.appManager.saveAppState();
+    }
+    
     // 发出文件夹关闭事件
     this.eventManager.emit('folder-closed', folderPath);
   }

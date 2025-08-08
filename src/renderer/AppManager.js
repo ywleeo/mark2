@@ -48,6 +48,8 @@ class AppManager {
       this.setupKeyboardShortcuts();
       // 确保标题栏拖拽区域生效
       this.ensureTitleBarDragArea();
+      // 恢复应用状态
+      this.restoreAppState();
     }, 100);
   }
 
@@ -340,6 +342,9 @@ class AppManager {
     ipcRenderer.send('resize-window-to-content-loaded');
     
     this.fileTreeManager.displayFileTree(folderPath, fileTree);
+    
+    // 保存状态
+    this.saveAppState();
   }
 
 
@@ -406,6 +411,9 @@ class AppManager {
     
     // 重新绘制热区到整个窗口宽度
     this.ensureTitleBarDragArea();
+    
+    // 清除保存的状态
+    localStorage.removeItem('mark2-app-state');
   }
 
   // 获取各个管理器的引用，供外部使用
@@ -586,6 +594,9 @@ class AppManager {
       this.scrollTabIntoView(tab.id);
     }, 0);
     
+    // 保存状态
+    this.saveAppState();
+    
     return tab;
   }
 
@@ -621,6 +632,9 @@ class AppManager {
       setTimeout(() => {
         this.scrollTabIntoView(tabId);
       }, 0);
+      
+      // 保存状态
+      this.saveAppState();
     }
   }
 
@@ -893,6 +907,9 @@ class AppManager {
     // 移除tab
     this.tabs.splice(tabIndex, 1);
     this.updateTabBar();
+    
+    // 保存状态
+    this.saveAppState();
   }
 
   // 确保拖拽区域不被tab覆盖
@@ -937,6 +954,94 @@ class AppManager {
     
     // 添加到页面最前层
     document.body.appendChild(dragOverlay);
+  }
+
+  // 状态保持功能
+  saveAppState() {
+    const state = {
+      tabs: this.tabs.map(tab => ({
+        id: tab.id,
+        title: tab.title,
+        filePath: tab.filePath,
+        content: tab.content,
+        isActive: tab.isActive,
+        isModified: tab.isModified,
+        belongsTo: tab.belongsTo
+      })),
+      activeTabId: this.activeTabId,
+      nextTabId: this.nextTabId,
+      currentFilePath: this.currentFilePath,
+      currentFolderPath: this.currentFolderPath,
+      appMode: this.appMode,
+      // 保存文件树状态
+      openFiles: Array.from(this.fileTreeManager.openFiles.entries()),
+      openFolders: Array.from(this.fileTreeManager.openFolders.entries())
+    };
+    
+    localStorage.setItem('mark2-app-state', JSON.stringify(state));
+  }
+
+  restoreAppState() {
+    const saved = localStorage.getItem('mark2-app-state');
+    if (!saved) return false;
+    
+    try {
+      const state = JSON.parse(saved);
+      
+      // 恢复基本状态
+      this.currentFilePath = state.currentFilePath || null;
+      this.currentFolderPath = state.currentFolderPath || null;
+      this.appMode = state.appMode || null;
+      this.nextTabId = state.nextTabId || 1;
+      
+      // 恢复文件树状态
+      if (state.openFiles) {
+        state.openFiles.forEach(([filePath, fileInfo]) => {
+          this.fileTreeManager.openFiles.set(filePath, fileInfo);
+        });
+      }
+      
+      if (state.openFolders) {
+        state.openFolders.forEach(([folderPath, folderInfo]) => {
+          this.fileTreeManager.openFolders.set(folderPath, folderInfo);
+        });
+      }
+      
+      // 恢复tabs
+      if (state.tabs && state.tabs.length > 0) {
+        this.tabs = state.tabs;
+        this.activeTabId = state.activeTabId;
+        
+        // 更新tab显示
+        this.updateTabBar();
+        
+        // 激活之前的活动tab
+        if (this.activeTabId) {
+          const activeTab = this.tabs.find(tab => tab.id === this.activeTabId);
+          if (activeTab) {
+            // 恢复编辑器内容
+            this.editorManager.setContent(activeTab.content, activeTab.filePath);
+            this.uiManager.updateFileNameDisplay(activeTab.filePath);
+            this.fileTreeManager.updateActiveFile(activeTab.filePath);
+            
+            // 显示markdown内容
+            const markdownContent = document.querySelector('.markdown-content');
+            if (markdownContent) {
+              markdownContent.style.display = 'block';
+            }
+          }
+        }
+      }
+      
+      // 刷新文件树显示
+      this.fileTreeManager.refreshSidebarTree();
+      
+      return true;
+    } catch (error) {
+      console.error('恢复应用状态失败:', error);
+      localStorage.removeItem('mark2-app-state');
+      return false;
+    }
   }
 }
 
