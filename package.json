@@ -27,8 +27,7 @@
     "@codemirror/view": "^6.38.1",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
-    "marked": "^5.0.0",
-    "puppeteer": "^24.15.0"
+    "marked": "^5.0.0"
   },
   "build": {
     "appId": "com.mark2.app",
@@ -36,11 +35,37 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "main.js",
+      "renderer.js",
+      "index.html",
+      "src/**/*",
+      "styles/**/*",
+      "assets/icon.*",
+      "node_modules/**/*",
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/*.md",
+      "!node_modules/**/README*",
+      "!node_modules/**/CHANGELOG*",
+      "!node_modules/**/LICENSE*",
+      "!node_modules/**/*.d.ts",
+      "!node_modules/**/.bin/**",
+      "!**/*.map"
+    ],
+    "extraFiles": [],
+    "asarUnpack": [],
+    "compression": "maximum",
+    "removePackageKeywords": true,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "fileAssociations": [
       {
         "ext": "md",
         "name": "Markdown Document",
-        "description": "Markdown Document",
+        "description": "Markdown Document", 
         "role": "Editor"
       },
       {
@@ -52,22 +77,18 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "target": {
-        "target": "dmg",
-        "arch": [
-          "x64",
-          "arm64"
-        ]
-      },
+      "target": "dmg",
       "icon": "assets/icon.icns",
-      "minimumSystemVersion": "10.13.0"
+      "minimumSystemVersion": "10.13.0",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.png"
     },
     "linux": {
-      "target": "AppImage",
+      "target": "AppImage", 
       "category": "Utility"
     },
     "dmg": {

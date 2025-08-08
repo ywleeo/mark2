@@ -4,7 +4,6 @@
 .markdown-content h2 {
     font-size: 24px !important;
     display: inline-block;
-    margin-top: 30px;
     margin-bottom: 15px;
     padding: 0 12px 1px 15px; /* 右侧留出呼吸空间 */
     border-bottom: none !important; /* 移除原有下划线 */
@@ -22,14 +21,12 @@
     border-bottom-style: solid;
     border-bottom-color: var(--h1-border-color, #e5e7eb);
     padding-bottom: 10px;
-    margin-top: 30px;
     margin-bottom: 15px;
 }
 
 /* 三级标题添加左侧装饰线 */
 .markdown-content h3 {
     font-size: 20px !important;
-    margin-top: 30px;
     margin-bottom: 15px;
     padding-left: 12px;
     border-left: 3px solid #608bdf;
@@ -39,7 +36,6 @@
 /* 四级标题保持简洁 */
 .markdown-content h4 {
     font-size: 18px !important;
-    margin-top: 24px;
     margin-bottom: 12px;
     color: var(--h4-text-color, #374151);
 }

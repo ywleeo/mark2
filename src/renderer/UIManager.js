@@ -12,6 +12,7 @@ class UIManager {
     this.setupSidebar();
     this.setupSidebarResizer();
     this.setupButtons();
+    this.setupExternalLinks();
     this.loadSettings();
   }
 
@@ -460,6 +461,29 @@ class UIManager {
         sidebar.style.width = width + 'px';
       }
     }
+  }
+
+  // 设置外链在系统浏览器中打开
+  setupExternalLinks() {
+    // 使用事件委托监听所有外链点击
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      
+      // 检查是否为外链
+      if (target.tagName === 'A' && target.classList.contains('external-link')) {
+        event.preventDefault(); // 阻止默认行为
+        
+        const url = target.getAttribute('data-external-url') || target.href;
+        if (url) {
+          // 使用 Electron 的 shell.openExternal 在系统浏览器中打开
+          const { shell } = require('electron');
+          shell.openExternal(url).catch(error => {
+            console.error('Failed to open external link:', error);
+            this.showMessage(`无法打开链接: ${url}`, 'error');
+          });
+        }
+      }
+    });
   }
 }
 

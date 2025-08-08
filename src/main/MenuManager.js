@@ -28,7 +28,7 @@ class MenuManager {
           },
           { type: 'separator' },
           {
-            label: '导出 PDF',
+            label: '导出 HTML',
             accelerator: 'CmdOrCtrl+P',
             enabled: !this.isEditMode,
             click: () => this.exportPDF()

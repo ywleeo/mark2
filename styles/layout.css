@@ -427,7 +427,7 @@ body.platform-darwin .main-content::after {
 }
 
 .content-area {
-    padding: 40px;
+    padding: 20px 30px;
     margin: 0 auto;
     line-height: 1.6;
     box-sizing: border-box;
@@ -517,7 +517,7 @@ body.platform-darwin .main-content::after {
 
 /* Markdown 内容布局 */
 .markdown-content h1, .markdown-content h2, .markdown-content h3 {
-    margin-top: 30px;
+    margin-top: 10px;
     margin-bottom: 15px;
 }
 

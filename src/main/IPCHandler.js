@@ -182,17 +182,7 @@ class IPCHandler {
       try {
         const mainWindow = this.windowManager.getWindow();
         
-        // 显示保存对话框
-        const result = await dialog.showSaveDialog(mainWindow, {
-          defaultPath: options.filename || 'document.pdf',
-          filters: [
-            { name: 'PDF Files', extensions: ['pdf'] }
-          ]
-        });
-
-        if (result.canceled) {
-          return { success: false, canceled: true };
-        }
+        // 直接导出HTML，不需要保存对话框
 
         // 获取Markdown内容和当前主题
         const { markdownHTML, currentFilePath, currentTheme } = await mainWindow.webContents.executeJavaScript(`
@@ -261,7 +251,7 @@ class IPCHandler {
             
             body {
               margin: 0;
-              padding: 20px;
+              padding: 0;
               background: ${currentTheme === 'dark' ? '#1a1a1a' : 'white'} !important;
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
               font-size: 14px;
@@ -276,7 +266,6 @@ class IPCHandler {
             
             /* 分页时确保背景色延续 */
             @page {
-              margin: 0;
               background: ${currentTheme === 'dark' ? '#1a1a1a' : 'white'};
             }
             
@@ -284,7 +273,7 @@ class IPCHandler {
               display: none !important;
             }
             
-            .main-content, .content-area, .markdown-content {
+            .main-content, .content-area {
               display: block !important;
               max-width: none !important;
               width: 100% !important;
@@ -292,6 +281,16 @@ class IPCHandler {
               overflow: visible !important;
               margin: 0 !important;
               padding: 0 !important;
+            }
+            
+            .markdown-content {
+              display: block !important;
+              max-width: none !important;
+              width: 100% !important;
+              height: auto !important;
+              overflow: visible !important;
+              margin: 0 !important;
+              padding: 20px !important;
             }
             
             /* PDF分页优化 */
@@ -363,42 +362,23 @@ class IPCHandler {
         </html>
         `;
 
-        // 使用puppeteer转换
-        const puppeteer = require('puppeteer');
+        // 使用系统默认浏览器打开并提示打印
+        const { shell } = require('electron');
+        const os = require('os');
+        const tmpHtmlPath = path.join(os.tmpdir(), `mark2-export-${Date.now()}.html`);
         
-        const browser = await puppeteer.launch({
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        // 保存临时HTML文件
+        await fs.writeFile(tmpHtmlPath, htmlWithInlineCSS);
         
-        const page = await browser.newPage();
-        
-        await page.setContent(htmlWithInlineCSS, {
-          waitUntil: 'domcontentloaded'
-        });
-        
-        const pdfBuffer = await page.pdf({
-          format: 'A4',
-          printBackground: true,
-          margin: {
-            top: '0mm',
-            right: '0mm',
-            bottom: '0mm',
-            left: '0mm'
-          }
-        });
-        
-        await browser.close();
-        
-        // 保存文件
-        await fs.writeFile(result.filePath, pdfBuffer);
+        // 用系统默认浏览器打开
+        await shell.openPath(tmpHtmlPath);
         
         return { 
           success: true, 
-          filePath: result.filePath 
+          message: '已在默认浏览器中打开HTML文件'
         };
       } catch (error) {
-        console.error('Error exporting PDF:', error);
+        console.error('Error exporting HTML:', error);
         return { 
           success: false, 
           error: error.message 

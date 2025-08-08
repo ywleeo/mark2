@@ -546,30 +546,18 @@ class AppManager {
         return;
       }
 
-      // 生成默认文件名
-      let filename = 'document.pdf';
-      if (this.currentFilePath) {
-        const path = require('path');
-        const baseName = path.basename(this.currentFilePath, path.extname(this.currentFilePath));
-        filename = `${baseName}.pdf`;
-      }
-
-      // 直接使用当前页面的HTML，让主进程处理
+      // 直接导出HTML到浏览器
       const { ipcRenderer } = require('electron');
-      const result = await ipcRenderer.invoke('export-pdf-simple', {
-        filename
-      });
+      const result = await ipcRenderer.invoke('export-pdf-simple', {});
 
       if (result.success) {
-        this.uiManager.showMessage(`PDF 已成功导出到: ${result.filePath}`, 'success');
-      } else if (result.canceled) {
-        // 用户取消了保存对话框，不显示错误消息
+        this.uiManager.showMessage(result.message || 'HTML文件已在浏览器中打开', 'success');
       } else {
-        this.uiManager.showMessage(`导出 PDF 失败: ${result.error || '未知错误'}`, 'error');
+        this.uiManager.showMessage(`导出 HTML 失败: ${result.error || '未知错误'}`, 'error');
       }
     } catch (error) {
-      console.error('Error exporting PDF:', error);
-      this.uiManager.showMessage(`导出 PDF 失败: ${error.message}`, 'error');
+      console.error('Error exporting HTML:', error);
+      this.uiManager.showMessage(`导出 HTML 失败: ${error.message}`, 'error');
     }
   }
 

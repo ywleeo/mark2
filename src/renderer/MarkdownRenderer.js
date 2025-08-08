@@ -15,6 +15,26 @@ class MarkdownRenderer {
       mangle: false,
       headerIds: false
     });
+
+    // 自定义链接渲染器，让外链在系统浏览器中打开
+    const renderer = new marked.Renderer();
+    const originalLinkRenderer = renderer.link.bind(renderer);
+    
+    renderer.link = function(href, title, text) {
+      // 判断是否为外链（包含协议的完整URL）
+      const isExternalLink = /^https?:\/\//.test(href);
+      
+      if (isExternalLink) {
+        // 外链添加特殊类名和数据属性
+        const titleAttr = title ? ` title="${title}"` : '';
+        return `<a href="${href}" class="external-link" data-external-url="${href}"${titleAttr}>${text}</a>`;
+      } else {
+        // 内部链接使用默认渲染
+        return originalLinkRenderer(href, title, text);
+      }
+    };
+    
+    marked.setOptions({ renderer });
     
     // 启用 GFM 扩展 (删除线、任务列表等)
     marked.use({
