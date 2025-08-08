@@ -53,7 +53,6 @@ class WindowManager {
       const settings = await SettingsManager.getThemeSettings();
       return settings.theme === 'dark' ? '#1a1a1a' : '#ffffff';
     } catch (error) {
-      console.log('Failed to read theme settings, using default light theme');
       return '#ffffff';
     }
   }

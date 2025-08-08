@@ -116,7 +116,6 @@ class FileWatcher {
       this.fileWatcher = null;
       this.watchedFile = null;
       this.lastFileContent = null;
-      console.log('Stopped file watching');
     }
   }
 
@@ -140,7 +139,6 @@ class FileWatcher {
     
     // 重新验证文件是否仍然存在
     if (!fs.existsSync(this.watchedFile)) {
-      console.log('Watched file no longer exists, stopping watcher:', this.watchedFile);
       this.stopFileWatching();
       return;
     }
@@ -150,7 +148,6 @@ class FileWatcher {
       
       // 检查内容是否真的有变化
       if (this.lastFileContent === content) {
-        console.log('File content unchanged, skipping update');
         return;
       }
       
@@ -164,7 +161,6 @@ class FileWatcher {
           filePath: this.watchedFile,
           content
         });
-        console.log('File content refreshed:', this.watchedFile);
       }
     } catch (error) {
       console.error('Error refreshing file content:', error);
@@ -194,7 +190,6 @@ class FileWatcher {
     
     // 重新验证路径是否仍然存在
     if (!fs.existsSync(this.watchedPath)) {
-      console.log('Watched path no longer exists, stopping watcher:', this.watchedPath);
       this.stopWatching();
       return;
     }

@@ -90,7 +90,6 @@ class CodeMirrorHighlighter {
     // 监听主题变化
     this.setupThemeListener();
     
-    console.log('CodeMirror 6 编辑器初始化完成');
   }
   
   // 暴露搜索API到全局
@@ -449,7 +448,6 @@ class CodeMirrorHighlighter {
     this.textarea = null;
     this.ready = false;
     
-    console.log('CodeMirror 6 编辑器已销毁');
   }
   
   // 设置主题监听器
@@ -461,7 +459,6 @@ class CodeMirrorHighlighter {
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
-          console.log('检测到主题CSS变化:', mutation.target.href);
           // 延迟一点时间让CSS加载完成
           setTimeout(() => {
             this.updateTheme();
@@ -497,7 +494,6 @@ class CodeMirrorHighlighter {
           this.highlightCompartment.reconfigure(newHighlight)
         ]
       });
-      console.log('CodeMirror 主题和高亮样式已快速更新');
     } catch (error) {
       console.warn('CodeMirror 主题更新失败:', error);
     }

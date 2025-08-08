@@ -445,10 +445,8 @@ class FileTreeManager {
 
   // 关闭文件
   closeFile(filePath) {
-    console.log('FileTreeManager.closeFile called with:', filePath);
     // 右键关闭文件时，直接调用AppManager的统一关闭函数
     if (window.appManager) {
-      console.log('Calling appManager.closeFileCompletely');
       window.appManager.closeFileCompletely(filePath);
     } else {
       console.log('window.appManager not found!');

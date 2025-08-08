@@ -305,7 +305,6 @@ class AppManager {
   }
 
   displayMarkdown(content, filePath, fromFolderMode = false, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
-    console.log('displayMarkdown called:', { filePath: filePath, fromFolderMode, forceNewTab, fromDoubleClick, fileType });
     // 使用Tab系统打开文件
     this.openFileInTab(filePath, content, forceNewTab, fromDoubleClick, fileType);
     
@@ -589,7 +588,6 @@ class AppManager {
       belongsTo: belongsTo // 'file' 或 'folder'
     };
     
-    console.log('createTab:', { filePath: filePath, belongsTo: belongsTo, tabId: tab.id });
     
     this.tabs.push(tab);
     this.setActiveTab(tab.id);
@@ -665,25 +663,20 @@ class AppManager {
   }
 
   closeTab(tabId, fromFileNode = false) {
-    console.log('closeTab called with:', { tabId, fromFileNode });
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) {
-      console.log('Tab not found:', tabId);
       return;
     }
     
     const tab = this.tabs[tabIndex];
-    console.log('Found tab:', { id: tab.id, filePath: tab.filePath, belongsTo: tab.belongsTo });
     
     // 如果tab有文件路径，使用统一关闭函数（同步删除文件树节点和关闭tab）
     if (tab.filePath) {
-      console.log('Calling closeFileCompletely for:', tab.filePath);
       this.closeFileCompletely(tab.filePath);
       return;
     }
     
     // 对于没有文件路径的tab，直接关闭
-    console.log('Calling closeTabDirectly for tab without filePath:', tabId);
     this.closeTabDirectly(tabId);
   }
 
@@ -822,15 +815,12 @@ class AppManager {
     // 如果强制新建tab，直接创建
     if (forceNewTab) {
       const belongsTo = fileType === 'file' ? 'file' : 'folder';
-      console.log('forceNewTab: creating with belongsTo =', belongsTo);
       return this.createTab(filePath, content, null, belongsTo);
     }
     
     // 步骤2: 判断其来自file还是folder
-    console.log('openFileInTab: fileType =', fileType);
     if (fileType === 'file') {
       // 步骤3: 如果是file就打开新的tab显示file
-      console.log('Creating tab for FILE node');
       return this.createTab(filePath, content, null, 'file');
     } else {
       // 步骤4: 如果是folder就看tab上哪个tab是folder，替换folder的那个tab显示当前内容
@@ -869,21 +859,16 @@ class AppManager {
 
   // 统一关闭文件：同时删除file节点和关闭对应tab
   closeFileCompletely(filePath) {
-    console.log('closeFileCompletely called with:', filePath);
-    console.log('Current tabs:', this.tabs.map(t => ({ id: t.id, filePath: t.filePath, belongsTo: t.belongsTo })));
     
     // 1. 删除file节点（不发出事件避免递归）
-    console.log('Removing file from tree:', filePath);
     this.fileTreeManager.removeFile(filePath, false);
     
     // 2. 关闭对应的tab（关闭所有匹配文件路径的tab，不管belongsTo属性）
     // 使用while循环避免在遍历过程中修改数组导致的问题
     let tabToClose;
     while ((tabToClose = this.tabs.find(tab => tab.filePath === filePath))) {
-      console.log('Closing tab:', { id: tabToClose.id, filePath: tabToClose.filePath, belongsTo: tabToClose.belongsTo });
       this.closeTabDirectly(tabToClose.id);
     }
-    console.log('closeFileCompletely finished');
   }
 
   // 直接关闭tab，不触发其他逻辑

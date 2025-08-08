@@ -139,7 +139,6 @@ class SearchManager {
     const highlighter = editorManager.markdownHighlighter;
     
     if (!highlighter.isReady()) {
-      console.log('highlighter 未就绪');
       return;
     }
     
