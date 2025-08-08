@@ -926,6 +926,18 @@ class AppManager {
     
     const tab = this.tabs[tabIndex];
     
+    // 如果是新建的未保存文件（filePath为null），需要清理对应的Files节点
+    if (!tab.filePath) {
+      // 查找并删除对应的临时文件节点
+      for (const [key, fileInfo] of this.fileTreeManager.openFiles.entries()) {
+        if (fileInfo.isNewFile) {
+          this.fileTreeManager.openFiles.delete(key);
+          break;
+        }
+      }
+      this.fileTreeManager.refreshSidebarTree();
+    }
+    
     // 关闭搜索框（如果打开的话）
     this.searchManager.hide();
     
@@ -965,6 +977,14 @@ class AppManager {
     if (existingOverlay) {
       existingOverlay.remove();
     }
+    const existingLeftOverlay = document.getElementById('titlebar-drag-overlay-left');
+    if (existingLeftOverlay) {
+      existingLeftOverlay.remove();
+    }
+    const existingRightOverlay = document.getElementById('titlebar-drag-overlay-right');
+    if (existingRightOverlay) {
+      existingRightOverlay.remove();
+    }
     
     // 判断右边是否有markdown内容显示
     const markdownContent = document.querySelector('.markdown-content');
@@ -972,34 +992,95 @@ class AppManager {
                                markdownContent.style.display !== 'none' && 
                                markdownContent.innerHTML.trim();
     
-    // 根据状态决定拖拽区域宽度
+    // 获取tab栏的位置信息，避免覆盖tab区域
+    const tabBar = document.getElementById('tabBar');
+    const tabBarRect = tabBar ? tabBar.getBoundingClientRect() : null;
+    
+    // 根据状态决定拖拽区域宽度和位置
     let dragWidth;
+    let dragLeft = 0;
+    
     if (hasMarkdownContent) {
-      // 有markdown内容时，只覆盖sidebar区域
+      // 有markdown内容时，只覆盖sidebar区域，但要避开tab区域
       const sidebar = document.getElementById('sidebar');
-      dragWidth = sidebar ? sidebar.offsetWidth : 260;
+      const sidebarWidth = sidebar ? sidebar.offsetWidth : 260;
+      
+      if (tabBarRect && tabBar.style.display !== 'none') {
+        // 如果有tab栏显示，拖拽区域只覆盖tab栏左侧的空白部分
+        dragWidth = Math.max(0, tabBarRect.left - dragLeft);
+      } else {
+        // 没有tab栏时覆盖整个sidebar
+        dragWidth = sidebarWidth;
+      }
     } else {
-      // 没有markdown内容时，热区贯穿整个窗口宽度
-      dragWidth = window.innerWidth;
+      // 没有markdown内容时，热区贯穿整个窗口宽度，但仍要避开tab区域
+      if (tabBarRect && tabBar.style.display !== 'none') {
+        // 创建两个拖拽区域：tab栏左侧和右侧
+        const leftWidth = Math.max(0, tabBarRect.left - dragLeft);
+        const rightLeft = tabBarRect.right;
+        const rightWidth = Math.max(0, window.innerWidth - rightLeft);
+        
+        // 创建左侧拖拽区域
+        if (leftWidth > 0) {
+          const leftDragOverlay = document.createElement('div');
+          leftDragOverlay.id = 'titlebar-drag-overlay-left';
+          leftDragOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: ${dragLeft}px;
+            width: ${leftWidth}px;
+            height: var(--titlebar-height);
+            z-index: 1002;
+            -webkit-app-region: drag;
+            pointer-events: auto;
+            background: transparent;
+          `;
+          document.body.appendChild(leftDragOverlay);
+        }
+        
+        // 创建右侧拖拽区域
+        if (rightWidth > 0) {
+          const rightDragOverlay = document.createElement('div');
+          rightDragOverlay.id = 'titlebar-drag-overlay-right';
+          rightDragOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: ${rightLeft}px;
+            width: ${rightWidth}px;
+            height: var(--titlebar-height);
+            z-index: 1002;
+            -webkit-app-region: drag;
+            pointer-events: auto;
+            background: transparent;
+          `;
+          document.body.appendChild(rightDragOverlay);
+        }
+        return; // 已经创建了分段的拖拽区域，直接返回
+      } else {
+        // 没有tab栏时覆盖整个窗口宽度
+        dragWidth = window.innerWidth;
+      }
     }
     
-    // 创建透明的拖拽覆盖层
-    const dragOverlay = document.createElement('div');
-    dragOverlay.id = 'titlebar-drag-overlay';
-    dragOverlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: ${dragWidth}px;
-      height: var(--titlebar-height);
-      z-index: 1002;
-      -webkit-app-region: drag;
-      pointer-events: auto;
-      background: transparent;
-    `;
-    
-    // 添加到页面最前层
-    document.body.appendChild(dragOverlay);
+    // 只在dragWidth > 0时创建拖拽区域
+    if (dragWidth > 0) {
+      const dragOverlay = document.createElement('div');
+      dragOverlay.id = 'titlebar-drag-overlay';
+      dragOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: ${dragLeft}px;
+        width: ${dragWidth}px;
+        height: var(--titlebar-height);
+        z-index: 1002;
+        -webkit-app-region: drag;
+        pointer-events: auto;
+        background: transparent;
+      `;
+      
+      // 添加到页面最前层
+      document.body.appendChild(dragOverlay);
+    }
   }
 
   // 状态保持功能
@@ -1082,11 +1163,38 @@ class AppManager {
       // 刷新文件树显示
       this.fileTreeManager.refreshSidebarTree();
       
+      // 重新启动文件监听 - 解决状态恢复后监听失效的问题
+      this.restartFileWatching();
+      
       return true;
     } catch (error) {
       console.error('恢复应用状态失败:', error);
       localStorage.removeItem('mark2-app-state');
       return false;
+    }
+  }
+
+  // 重新启动文件监听 - 用于状态恢复后重新建立监听
+  restartFileWatching() {
+    // 对所有打开的文件夹重新启动监听
+    for (const [folderPath] of this.fileTreeManager.openFolders) {
+      try {
+        // 通过IPC请求主进程重新开始监听这个文件夹
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.invoke('restart-folder-watching', folderPath);
+      } catch (error) {
+        console.error('重新启动文件夹监听失败:', folderPath, error);
+      }
+    }
+
+    // 对当前打开的文件重新启动监听
+    if (this.currentFilePath) {
+      try {
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.invoke('restart-file-watching', this.currentFilePath);
+      } catch (error) {
+        console.error('重新启动文件监听失败:', this.currentFilePath, error);
+      }
     }
   }
 }

@@ -201,6 +201,34 @@ class IPCHandler {
       }
     });
 
+    // 重新启动文件夹监听 - 用于状态恢复后重新建立监听
+    ipcMain.handle('restart-folder-watching', async (event, folderPath) => {
+      try {
+        if (folderPath && require('fs').existsSync(folderPath)) {
+          this.fileWatcher.startWatching(folderPath);
+          return { success: true };
+        }
+        return { success: false, error: '文件夹不存在' };
+      } catch (error) {
+        console.error('重新启动文件夹监听失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 重新启动文件监听 - 用于状态恢复后重新建立监听
+    ipcMain.handle('restart-file-watching', async (event, filePath) => {
+      try {
+        if (filePath && require('fs').existsSync(filePath)) {
+          this.fileWatcher.startFileWatching(filePath);
+          return { success: true };
+        }
+        return { success: false, error: '文件不存在' };
+      } catch (error) {
+        console.error('重新启动文件监听失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
 
     // 超级简单的PDF导出 - 直接转换HTML
     ipcMain.handle('export-pdf-simple', async (event, options) => {

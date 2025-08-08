@@ -39,6 +39,8 @@
       "main.js",
       "renderer.js",
       "index.html",
+      "keyword-highlighter.js",
+      "keywords.json",
       "src/**/*",
       "styles/**/*",
       "assets/icon.*",
