@@ -260,11 +260,11 @@ body {
 /* Tab栏样式 - 现在作为顶部栏 */
 .tab-bar {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     min-height: var(--titlebar-height);
     border-bottom-style: none;
     flex-shrink: 0;
-    padding: 0 2px 0 2px;
+    padding: 3px 2px 3px 2px;
     position: relative;
     overflow-x: auto;
     /* 隐藏滚动条但保持滚动功能 */
@@ -330,7 +330,7 @@ body.platform-linux .window-controls {
     content: '';
     position: absolute;
     top: 2px; /* 稍微往下调整，避免覆盖边框 */
-    height: calc(var(--titlebar-height) - 2px); /* 减去上下边距 */
+    height: calc(var(--titlebar-height) + 4px); /* 减去上下边距 */
     width: 20px;
     pointer-events: none;
     z-index: 10;
@@ -372,6 +372,7 @@ body.platform-darwin .main-content::after {
     cursor: pointer;
     font-size: 12px;
     position: relative;
+    top: 3px;
     border-width: 1px 1px 0 1px;
     border-style: solid;
     margin-right: -1px;

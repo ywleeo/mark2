@@ -454,12 +454,21 @@ class UIManager {
     const savedWidth = localStorage.getItem('sidebarWidth');
     const sidebar = document.getElementById('sidebar');
     
-    // 只有在 sidebar 可见时才设置宽度
-    if (savedWidth && sidebar && this.sidebarVisible) {
+    // 恢复sidebar宽度（无论是否可见都要恢复，以便显示时使用正确宽度）
+    if (savedWidth && sidebar) {
       const width = parseInt(savedWidth);
+      console.log('恢复sidebar宽度:', width, '当前offsetWidth:', sidebar.offsetWidth, 'sidebarVisible:', this.sidebarVisible);
       if (width >= 200 && width <= 500) {
         sidebar.style.width = width + 'px';
+        console.log('设置sidebar宽度后 offsetWidth:', sidebar.offsetWidth);
+        // 如果sidebar当前可见，重新绘制拖拽热区
+        if (this.sidebarVisible && window.appManager && typeof window.appManager.ensureTitleBarDragArea === 'function') {
+          console.log('触发热区重新绘制');
+          window.appManager.ensureTitleBarDragArea();
+        }
       }
+    } else {
+      console.log('loadSidebarWidth 跳过:', {savedWidth, hasSidebar: !!sidebar});
     }
   }
 

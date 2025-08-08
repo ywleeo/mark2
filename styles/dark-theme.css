@@ -109,6 +109,7 @@ body {
 
 .tab-item:hover {
     background-color: #4a4a4a;
+    color: #e0e0e0;
 }
 
 .tab-item.active {

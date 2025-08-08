@@ -46,9 +46,7 @@ class AppManager {
     // 延迟设置键盘快捷键，确保DOM完全准备好
     setTimeout(() => {
       this.setupKeyboardShortcuts();
-      // 确保标题栏拖拽区域生效
-      this.ensureTitleBarDragArea();
-      // 恢复应用状态
+      // 恢复应用状态，热区绘制会在sidebar准备好后自动触发
       this.restoreAppState();
     }, 100);
   }
@@ -1003,11 +1001,14 @@ class AppManager {
     if (hasMarkdownContent) {
       // 有markdown内容时，只覆盖sidebar区域，但要避开tab区域
       const sidebar = document.getElementById('sidebar');
-      const sidebarWidth = sidebar ? sidebar.offsetWidth : 260;
+      if (!sidebar) return; // 没有sidebar就不绘制热区
+      // 使用CSS样式宽度而不是offsetWidth，避免布局限制影响
+      const sidebarWidth = sidebar.style.width ? parseInt(sidebar.style.width) : sidebar.offsetWidth;
+      console.log('热区绘制 - 使用宽度:', sidebarWidth, 'CSS样式宽度:', sidebar.style.width, '实际offsetWidth:', sidebar.offsetWidth);
       
       if (tabBarRect && tabBar.style.display !== 'none') {
-        // 如果有tab栏显示，拖拽区域只覆盖tab栏左侧的空白部分
-        dragWidth = Math.max(0, tabBarRect.left - dragLeft);
+        // 如果有tab栏显示，拖拽区域应该覆盖sidebar的设计宽度，而不是tab栏的实际位置
+        dragWidth = sidebarWidth;
       } else {
         // 没有tab栏时覆盖整个sidebar
         dragWidth = sidebarWidth;
@@ -1015,8 +1016,9 @@ class AppManager {
     } else {
       // 没有markdown内容时，热区贯穿整个窗口宽度，但仍要避开tab区域
       if (tabBarRect && tabBar.style.display !== 'none') {
-        // 创建两个拖拽区域：tab栏左侧和右侧
-        const leftWidth = Math.max(0, tabBarRect.left - dragLeft);
+        // 创建两个拖拽区域：sidebar宽度的左侧区域和tab栏右侧区域
+        const sidebar = document.getElementById('sidebar');
+        const leftWidth = sidebar && sidebar.style.width ? parseInt(sidebar.style.width) : (sidebar ? sidebar.offsetWidth : 260);
         const rightLeft = tabBarRect.right;
         const rightWidth = Math.max(0, window.innerWidth - rightLeft);
         
@@ -1165,6 +1167,9 @@ class AppManager {
       
       // 重新启动文件监听 - 解决状态恢复后监听失效的问题
       this.restartFileWatching();
+      
+      // 确保sidebar宽度正确恢复并触发热区绘制
+      this.uiManager.loadSidebarWidth();
       
       return true;
     } catch (error) {
