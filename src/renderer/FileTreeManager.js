@@ -28,7 +28,51 @@ class FileTreeManager {
   }
 
   // 添加文件到文件树
-  addFile(filePath, content) {
+  addFile(filePath, content, fileName = null) {
+    if (filePath) {
+      const path = require('path');
+      const actualFileName = fileName || path.basename(filePath);
+      
+      this.openFiles.set(filePath, {
+        name: actualFileName,
+        path: filePath,
+        content: content
+      });
+    } else {
+      // 处理新文件的情况（filePath 为 null）
+      const newFileName = fileName || 'Untitled.md';
+      // 使用特殊的临时标识符作为键
+      const tempKey = `__new_file_${Date.now()}`;
+      
+      this.openFiles.set(tempKey, {
+        name: newFileName,
+        path: null,
+        content: content,
+        isNewFile: true,
+        tempKey: tempKey
+      });
+    }
+    
+    this.refreshSidebarTree();
+  }
+
+  // 更新新文件信息（保存后）
+  updateNewFileInfo(filePath, content) {
+    // 找到需要更新的新文件条目
+    let tempKeyToDelete = null;
+    for (const [key, fileInfo] of this.openFiles.entries()) {
+      if (fileInfo.isNewFile) {
+        tempKeyToDelete = key;
+        break;
+      }
+    }
+    
+    // 删除临时条目
+    if (tempKeyToDelete) {
+      this.openFiles.delete(tempKeyToDelete);
+    }
+    
+    // 添加真实的文件条目
     const path = require('path');
     const fileName = path.basename(filePath);
     

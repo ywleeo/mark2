@@ -17,6 +17,12 @@ class MenuManager {
         label: '文件',
         submenu: [
           {
+            label: '新建文件',
+            accelerator: 'CmdOrCtrl+N',
+            click: () => this.createNewFile()
+          },
+          { type: 'separator' },
+          {
             label: '打开文件',
             accelerator: 'CmdOrCtrl+O',
             click: () => this.openFile()
@@ -142,6 +148,11 @@ class MenuManager {
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
     return menu;
+  }
+
+  createNewFile() {
+    const mainWindow = this.windowManager.getWindow();
+    mainWindow.webContents.send('create-new-file');
   }
 
   async openFile() {

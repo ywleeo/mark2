@@ -100,6 +100,11 @@ class MarkdownRenderer {
     // 将可能被误判为 setext 标题的模式转换为安全格式
     let processed = content;
     
+    // 确保文件末尾有换行符，防止标题在文件末尾时渲染报错
+    if (processed && !processed.endsWith('\n')) {
+      processed += '\n';
+    }
+    
     // 匹配 文本\n--- 的模式，将其转换为 文本\n\n---
     // 这样可以避免 marked.js 将前面的文本识别为标题
     processed = processed.replace(/^(.+)\n(-{3,})$/gm, (match, text, dashes) => {

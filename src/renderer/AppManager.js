@@ -208,6 +208,11 @@ class AppManager {
       this.resetToInitialState();
     });
 
+    // 监听新建文件请求
+    ipcRenderer.on('create-new-file', () => {
+      this.createNewFile();
+    });
+
     // 监听 PDF 导出请求
     ipcRenderer.on('export-pdf-request', () => {
       this.exportToPDF();
@@ -276,6 +281,40 @@ class AppManager {
       console.error('AppManager: Error in openFile:', error);
       this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
     }
+  }
+
+  createNewFile() {
+    // 创建一个新的空白文件，并进入编辑模式
+    const newFileContent = '';
+    const newFileName = 'Untitled.md';
+    
+    // 创建新tab，标记为file类型
+    const newTab = this.createTab(null, newFileContent, newFileName, 'file');
+    
+    // 将文件添加到Files区域，使用临时文件名
+    this.fileTreeManager.addFile(null, newFileContent, newFileName);
+    
+    // 设置当前文件路径为null，表示这是新文件
+    this.currentFilePath = null;
+    
+    // 更新编辑器内容并切换到编辑模式
+    this.editorManager.setContent(newFileContent, null);
+    this.uiManager.updateFileNameDisplay(newFileName);
+    
+    // 显示markdown内容区域
+    const markdownContent = document.querySelector('.markdown-content');
+    if (markdownContent) {
+      markdownContent.style.display = 'block';
+    }
+    
+    // 强制进入编辑模式
+    if (!this.editorManager.isInEditMode()) {
+      this.editorManager.toggleEditMode();
+    }
+    
+    // 调整窗口大小
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('resize-window-to-content-loaded');
   }
 
   async openFolder() {
@@ -457,6 +496,13 @@ class AppManager {
       if (event.metaKey && event.shiftKey && event.key === 'O') {
         event.preventDefault();
         this.openFolder();
+        return;
+      }
+      
+      // Cmd+N 新建文件
+      if (event.metaKey && event.key === 'n') {
+        event.preventDefault();
+        this.createNewFile();
         return;
       }
       

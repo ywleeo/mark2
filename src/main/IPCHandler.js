@@ -58,6 +58,31 @@ class IPCHandler {
       }
     });
 
+    // 显示保存对话框
+    ipcMain.handle('show-save-dialog', async () => {
+      try {
+        return await this.fileManager.showSaveDialog();
+      } catch (error) {
+        console.error('Error in show-save-dialog:', error);
+        throw error;
+      }
+    });
+
+    // 保存新文件
+    ipcMain.handle('save-new-file', async (event, filePath, content) => {
+      try {
+        const result = await this.fileManager.saveNewFile(filePath, content);
+        // 新文件保存成功后也开始监听
+        if (result.success && result.filePath) {
+          this.fileWatcher.startFileWatching(result.filePath);
+        }
+        return result;
+      } catch (error) {
+        console.error('Error in save-new-file:', error);
+        throw error;
+      }
+    });
+
     // 处理拖拽文件
     ipcMain.handle('handle-drop-file', async (event, filePath) => {
       try {

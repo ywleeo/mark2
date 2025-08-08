@@ -54,6 +54,22 @@ class FileManager {
     }
   }
 
+  async showSaveDialog() {
+    const mainWindow = this.windowManager.getWindow();
+    const result = await dialog.showSaveDialog(mainWindow, {
+      filters: [
+        { name: 'Markdown Files', extensions: ['md', 'markdown'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      defaultPath: 'Untitled.md'
+    });
+
+    if (!result.canceled && result.filePath) {
+      return { filePath: result.filePath };
+    }
+    return null;
+  }
+
   async saveFile(filePath, content) {
     try {
       if (!filePath) {
@@ -84,6 +100,38 @@ class FileManager {
     } catch (error) {
       console.error('保存文件时发生错误:', error);
       throw new Error('无法保存文件: ' + error.message);
+    }
+  }
+
+  async saveNewFile(filePath, content) {
+    try {
+      if (!filePath) {
+        throw new Error('文件路径为空');
+      }
+
+      // 确保目录存在
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // 写入文件
+      fs.writeFileSync(filePath, content, 'utf-8');
+
+      // 验证写入是否成功
+      const savedContent = fs.readFileSync(filePath, 'utf-8');
+      if (savedContent !== content) {
+        throw new Error('文件保存验证失败：写入内容与预期不符');
+      }
+
+      return { 
+        success: true, 
+        filePath: filePath,
+        content: content
+      };
+    } catch (error) {
+      console.error('保存新文件时发生错误:', error);
+      throw new Error('无法保存新文件: ' + error.message);
     }
   }
 

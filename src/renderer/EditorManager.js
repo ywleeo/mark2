@@ -307,7 +307,7 @@ class EditorManager {
     // 使用全局文件路径
     const currentPath = this.appManager ? this.appManager.getCurrentFilePath() : this.currentFilePath;
     
-    if (!currentPath || !this.hasUnsavedChanges) {
+    if (!this.hasUnsavedChanges) {
       return;
     }
     
@@ -318,22 +318,72 @@ class EditorManager {
     
     try {
       const { ipcRenderer } = require('electron');
-      await ipcRenderer.invoke('save-file', currentPath, content);
       
-      this.originalContent = content;
-      this.hasUnsavedChanges = false;
-      this.updateSaveButton();
-      
-      // 更新预览
-      if (!this.isEditMode) {
-        this.updatePreview(content);
-      }
-      
-      this.eventManager.emit('file-saved', currentPath);
-      
-      // 使用统一的消息提示样式
-      if (this.appManager && this.appManager.getUIManager()) {
-        this.appManager.getUIManager().showMessage('文件保存成功', 'success');
+      if (!currentPath) {
+        // 新文件，需要保存对话框
+        const saveResult = await ipcRenderer.invoke('show-save-dialog');
+        if (!saveResult) {
+          return; // 用户取消了保存
+        }
+        
+        // 保存新文件
+        const result = await ipcRenderer.invoke('save-new-file', saveResult.filePath, content);
+        if (result.success) {
+          // 更新文件路径
+          this.currentFilePath = result.filePath;
+          if (this.appManager) {
+            this.appManager.currentFilePath = result.filePath;
+            
+            // 更新当前活动的tab
+            const activeTab = this.appManager.tabs.find(tab => tab.id === this.appManager.activeTabId);
+            if (activeTab) {
+              activeTab.filePath = result.filePath;
+              const path = require('path');
+              activeTab.title = path.basename(result.filePath);
+              this.appManager.updateTabTitle(activeTab.id, activeTab.title);
+            }
+            
+            // 更新文件树中的文件信息
+            this.appManager.fileTreeManager.updateNewFileInfo(result.filePath, content);
+            
+            // 更新界面显示
+            this.appManager.uiManager.updateFileNameDisplay(result.filePath);
+          }
+          
+          this.originalContent = content;
+          this.hasUnsavedChanges = false;
+          this.updateSaveButton();
+          
+          // 更新预览
+          if (!this.isEditMode) {
+            this.updatePreview(content);
+          }
+          
+          this.eventManager.emit('file-saved', result.filePath);
+          
+          if (this.appManager && this.appManager.getUIManager()) {
+            this.appManager.getUIManager().showMessage('文件保存成功', 'success');
+          }
+        }
+      } else {
+        // 已存在的文件
+        await ipcRenderer.invoke('save-file', currentPath, content);
+        
+        this.originalContent = content;
+        this.hasUnsavedChanges = false;
+        this.updateSaveButton();
+        
+        // 更新预览
+        if (!this.isEditMode) {
+          this.updatePreview(content);
+        }
+        
+        this.eventManager.emit('file-saved', currentPath);
+        
+        // 使用统一的消息提示样式
+        if (this.appManager && this.appManager.getUIManager()) {
+          this.appManager.getUIManager().showMessage('文件保存成功', 'success');
+        }
       }
     } catch (error) {
       console.error('保存文件失败:', error);
