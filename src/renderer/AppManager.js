@@ -948,11 +948,18 @@ class AppManager {
     // 1. 删除file节点（不发出事件避免递归）
     this.fileTreeManager.removeFile(filePath, false);
     
-    // 2. 关闭对应的tab（关闭所有匹配文件路径的tab，不管belongsTo属性）
-    // 使用while循环避免在遍历过程中修改数组导致的问题
+    // 2. 关闭对应的tab
+    // 处理普通文件：匹配 tab.filePath === filePath
     let tabToClose;
     while ((tabToClose = this.tabs.find(tab => tab.filePath === filePath))) {
       this.closeTabDirectly(tabToClose.id);
+    }
+    
+    // 3. 处理 untitled 新建文件：如果 filePath 是临时键，找到对应的空 filePath tab
+    if (filePath && filePath.startsWith('__new_file_')) {
+      while ((tabToClose = this.tabs.find(tab => tab.filePath === null && tab.belongsTo === 'file'))) {
+        this.closeTabDirectly(tabToClose.id);
+      }
     }
   }
 
