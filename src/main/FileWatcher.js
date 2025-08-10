@@ -7,10 +7,10 @@ class FileWatcher {
     this.fileManager = fileManager;
     this.watcher = null;
     this.watchedPath = null;
-    this.updateTimeout = null; // 防抖定时器
     this.fileWatcher = null; // 单个文件监听器
     this.watchedFile = null; // 当前监听的文件路径
     this.lastFileContent = null; // 上次读取的文件内容，用于去重
+    this.isUpdating = false; // 防止重复更新
   }
 
   startWatching(folderPath) {
@@ -31,7 +31,7 @@ class FileWatcher {
           // 'rename' 事件表示文件/文件夹的创建、删除、重命名
           // 'change' 事件只表示文件内容修改，不需要刷新文件树
           if (eventType === 'rename') {
-            this.debouncedUpdateFileTree();
+            this.updateFileTree();
           }
         }
       });
@@ -49,11 +49,8 @@ class FileWatcher {
   }
 
   stopWatching() {
-    // 清理防抖定时器
-    if (this.updateTimeout) {
-      clearTimeout(this.updateTimeout);
-      this.updateTimeout = null;
-    }
+    // 重置更新状态
+    this.isUpdating = false;
     
     // 关闭文件夹监听器
     if (this.watcher) {
@@ -89,7 +86,7 @@ class FileWatcher {
       this.fileWatcher = fs.watch(filePath, (eventType, filename) => {
         // 只处理文件内容变化事件
         if (eventType === 'change') {
-          this.debouncedRefreshFile();
+          this.refreshFile();
         }
       });
       
@@ -119,22 +116,12 @@ class FileWatcher {
     }
   }
 
-  // 防抖处理的文件刷新
-  debouncedRefreshFile() {
-    // 清除之前的定时器
-    if (this.updateTimeout) {
-      clearTimeout(this.updateTimeout);
-    }
-    
-    // 设置新的定时器，500ms 后执行更新（增加延迟以合并多次事件）
-    this.updateTimeout = setTimeout(() => {
-      this.refreshFile();
-      this.updateTimeout = null;
-    }, 500);
-  }
-
   // 刷新文件内容并通知渲染进程
   refreshFile() {
+    // 防止重复更新
+    if (this.isUpdating) {
+      return;
+    }
     if (!this.watchedFile) return;
     
     // 重新验证文件是否仍然存在
@@ -143,11 +130,14 @@ class FileWatcher {
       return;
     }
     
+    this.isUpdating = true;
+    
     try {
       const content = fs.readFileSync(this.watchedFile, 'utf-8');
       
       // 检查内容是否真的有变化
       if (this.lastFileContent === content) {
+        this.isUpdating = false;
         return;
       }
       
@@ -168,24 +158,16 @@ class FileWatcher {
       if (error.code === 'ENOENT' || error.code === 'EACCES') {
         this.stopFileWatching();
       }
+    } finally {
+      this.isUpdating = false;
     }
-  }
-
-  // 防抖处理的文件树更新
-  debouncedUpdateFileTree() {
-    // 清除之前的定时器
-    if (this.updateTimeout) {
-      clearTimeout(this.updateTimeout);
-    }
-    
-    // 设置新的定时器，300ms 后执行更新
-    this.updateTimeout = setTimeout(() => {
-      this.updateFileTree();
-      this.updateTimeout = null;
-    }, 300);
   }
 
   updateFileTree() {
+    // 防止重复更新
+    if (this.isUpdating) {
+      return;
+    }
     if (!this.watchedPath) return;
     
     // 重新验证路径是否仍然存在
@@ -193,6 +175,8 @@ class FileWatcher {
       this.stopWatching();
       return;
     }
+    
+    this.isUpdating = true;
     
     try {
       const fileTree = this.fileManager.buildFileTreeWithRoot(this.watchedPath);
@@ -210,6 +194,8 @@ class FileWatcher {
       if (error.code === 'ENOENT' || error.code === 'EACCES') {
         this.stopWatching();
       }
+    } finally {
+      this.isUpdating = false;
     }
   }
 

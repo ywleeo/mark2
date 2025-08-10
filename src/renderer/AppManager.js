@@ -45,11 +45,11 @@ class AppManager {
     this.fileTreeManager.refreshSidebarTree();
     
     // 延迟设置键盘快捷键，确保DOM完全准备好
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       this.setupKeyboardShortcuts();
       // 恢复应用状态，热区绘制会在sidebar准备好后通过事件自动触发
       this.restoreAppState();
-    }, 100);
+    });
   }
 
   setupEventListeners() {
@@ -445,9 +445,7 @@ class AppManager {
     
     // 窗口标题现在是静态的，不需要重置
     
-    // 先停止当前动画，然后重新启动动画
-    setTimeout(() => {
-    }, 200);
+    // 重置准备完成
     
     // 重置各个管理器
     this.editorManager.resetToInitialState();
@@ -643,9 +641,9 @@ class AppManager {
     this.updateTabBar();
     
     // 新tab自动滚动到可见位置
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       this.scrollTabIntoView(tab.id);
-    }, 0);
+    });
     
     // 保存状态
     this.saveAppState();
@@ -682,9 +680,9 @@ class AppManager {
       this.updateTabActiveState();
       
       // 确保活动tab在可见区域
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         this.scrollTabIntoView(tabId);
-      }, 0);
+      });
       
       // 保存状态
       this.saveAppState();
@@ -789,11 +787,11 @@ class AppManager {
     });
     
     // 更新滚动提示状态
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       this.updateTabBarScrollHints(tabBar);
       // 重新创建拖拽覆盖层确保title区域可拖拽
       this.ensureTitleBarDragArea();
-    }, 0);
+    });
   }
 
 
@@ -972,6 +970,9 @@ class AppManager {
     // 移除tab
     this.tabs.splice(tabIndex, 1);
     this.updateTabBar();
+    
+    // 重新绘制拖拽热区
+    this.ensureTitleBarDragArea();
     
     // 保存状态
     this.saveAppState();

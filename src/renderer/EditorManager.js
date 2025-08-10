@@ -46,21 +46,28 @@ class EditorManager {
 
   // 设置窗口大小调整处理
   setupResizeHandler() {
+    let isProcessing = false;
+    
     window.addEventListener('resize', () => {
       // 标记窗口不稳定
       this.isWindowStable = false;
       
+      // 防止重复处理
+      if (isProcessing) return;
+      isProcessing = true;
+      
       // 清除之前的定时器
       if (this.resizeTimer) {
-        clearTimeout(this.resizeTimer);
+        cancelAnimationFrame(this.resizeTimer);
       }
       
-      // 设置新的定时器，窗口停止调整300ms后标记为稳定
-      this.resizeTimer = setTimeout(() => {
+      // 使用 requestAnimationFrame 确保在下一帧处理
+      this.resizeTimer = requestAnimationFrame(() => {
         this.isWindowStable = true;
+        isProcessing = false;
         // 如果在编辑模式且语法高亮器存在，检查是否需要修复
         this.checkAndFixHighlighterIfNeeded();
-      }, 300);
+      });
     });
   }
 
@@ -83,17 +90,17 @@ class EditorManager {
         this.markdownHighlighter = null;
         
         const editor = document.getElementById('editorTextarea');
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           this.initMarkdownHighlighter(editor);
           // 立即恢复滚动位置，不等待语法高亮器
           // 因为滚动位置恢复与语法高亮是独立的
-          setTimeout(() => {
+          requestAnimationFrame(() => {
             this.restoreScrollPosition();
             
             // 重新添加滚动监听器
             this.setupCodeMirrorScrollListener();
-          }, 100);
-        }, 50);
+          });
+        });
       }
     }
   }
@@ -106,9 +113,9 @@ class EditorManager {
     
     // 如果窗口不稳定，等待稳定后再初始化
     if (!this.isWindowStable) {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         this.initMarkdownHighlighter(editor);
-      }, 100);
+      });
       return;
     }
     
@@ -116,7 +123,7 @@ class EditorManager {
       const CodeMirrorHighlighter = require('./CodeMirrorHighlighter');
       this.markdownHighlighter = new CodeMirrorHighlighter();
       // 延迟初始化，确保编辑器已经显示且窗口稳定
-      setTimeout(async () => {
+      requestAnimationFrame(async () => {
         // 再次检查窗口是否稳定
         if (this.isWindowStable) {
           await this.markdownHighlighter.init(editor);
@@ -453,7 +460,7 @@ class EditorManager {
     
     // 清理resize定时器
     if (this.resizeTimer) {
-      clearTimeout(this.resizeTimer);
+      cancelAnimationFrame(this.resizeTimer);
       this.resizeTimer = null;
     }
     

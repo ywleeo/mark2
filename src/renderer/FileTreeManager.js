@@ -6,7 +6,6 @@ class FileTreeManager {
     this.expandedFolders = new Set();
     this.activeFilePath = null;
     this.activeItemType = null; // 'file' 或 'folder'
-    this.clickTimer = null; // 用于防抖双击和单击冲突
     
     // 初始化根节点展开状态
     this.initializeRootExpansion();
@@ -342,16 +341,8 @@ class FileTreeManager {
         // 立即更新选中状态和渲染内容
         const fileType = type === 'file' ? 'file' : 'subfolder-file';
         this.setActiveItem(path, fileType);
+        // 单击：立即在view区域显示文件
         this.eventManager.emit('file-selected', path, false, fileType);
-        
-        // 设置双击检测定时器
-        if (this.clickTimer) {
-          clearTimeout(this.clickTimer);
-        }
-        
-        this.clickTimer = setTimeout(() => {
-          this.clickTimer = null;
-        }, 300); // 双击检测窗口
       }
     };
     
@@ -360,15 +351,9 @@ class FileTreeManager {
       const fileItem = event.target.closest('.file-item');
       
       if (fileItem) {
-        // 清除单击计时器
-        if (this.clickTimer) {
-          clearTimeout(this.clickTimer);
-          this.clickTimer = null;
-        }
-        
         const path = fileItem.dataset.path;
         
-        // 双击时发出事件，将文件添加到Files区域
+        // 双击：添加文件到Files区域（单击已经显示在view了）
         this.eventManager.emit('file-double-clicked', path);
       }
     };
@@ -482,9 +467,9 @@ class FileTreeManager {
       }
     };
     
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       document.addEventListener('click', closeMenu);
-    }, 0);
+    });
   }
 
   // 关闭文件

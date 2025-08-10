@@ -230,18 +230,25 @@ class UIManager {
     document.body.appendChild(messageElement);
     
     // 显示动画
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       messageElement.classList.add('show');
-    }, 10);
+    });
     
     // 自动隐藏
     setTimeout(() => {
       messageElement.classList.remove('show');
-      setTimeout(() => {
+      // 监听过渡结束事件，而不是固定时间
+      const handleTransitionEnd = () => {
         if (messageElement.parentNode) {
           messageElement.parentNode.removeChild(messageElement);
         }
-      }, 300);
+        messageElement.removeEventListener('transitionend', handleTransitionEnd);
+      };
+      messageElement.addEventListener('transitionend', handleTransitionEnd);
+      // 降级处理，万一transitionend不触发
+      setTimeout(() => {
+        handleTransitionEnd();
+      }, 400);
     }, 3000);
   }
 
