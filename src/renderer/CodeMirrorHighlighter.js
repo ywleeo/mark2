@@ -11,6 +11,9 @@ const { syntaxHighlighting, HighlightStyle, defaultHighlightStyle } = require('@
 const { tags } = require('@lezer/highlight');
 const { SearchCursor } = require('@codemirror/search');
 const { Decoration } = require('@codemirror/view');
+const { keymap } = require('@codemirror/view');
+const { indentWithTab } = require('@codemirror/commands');
+const { indentUnit } = require('@codemirror/language');
 
 class CodeMirrorHighlighter {
   constructor() {
@@ -60,6 +63,10 @@ class CodeMirrorHighlighter {
         EditorView.lineWrapping,
         // Markdown语言支持
         markdown(),
+        // 设置Tab为4个空格
+        indentUnit.of("    "),
+        // Tab键缩进支持
+        keymap.of([indentWithTab]),
         // 先应用自定义高亮样式，再应用默认样式
         this.highlightCompartment.of([
           syntaxHighlighting(this.getCustomHighlightStyle()),
