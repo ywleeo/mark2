@@ -23,9 +23,9 @@ body {
 /* 侧边栏布局 */
 .sidebar {
     width: 260px; /* 增加宽度以更好地容纳深层级文件 */
-    padding-top: 40px; /* 文件树占满整个sidebar区域 */
+    padding-top: 40px; /* 为窗口标题栏留出空间 */
     box-sizing: border-box;
-    overflow-y: auto;
+    overflow-y: hidden; /* 移除sidebar的滚动，让file-tree单独滚动 */
     border-right-width: 1px;
     border-right-style: solid;
     transition: width 0.3s ease;
@@ -35,6 +35,8 @@ body {
     -moz-user-select: none;
     -ms-user-select: none;
     position: relative; /* 为拖拽手柄提供定位上下文 */
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar.hidden {
@@ -76,6 +78,7 @@ body {
 .file-tree {
     flex: 1;
     overflow-y: auto;
+    min-height: 0; /* 确保flex子元素可以正确收缩和滚动 */
 }
 
 .empty-state {

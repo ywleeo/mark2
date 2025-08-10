@@ -30,6 +30,9 @@ class AppManager {
     // 应用模式管理：'single-file' | 'folder'
     this.appMode = null;
     
+    // 状态恢复标志，防止重复调用
+    this.isRestoringState = false;
+    
     // 初始化关键词高亮状态
     this.initializeKeywordHighlight();
     
@@ -48,6 +51,7 @@ class AppManager {
     requestAnimationFrame(() => {
       this.setupKeyboardShortcuts();
       // 恢复应用状态，热区绘制会在sidebar准备好后通过事件自动触发
+      console.log('[DEBUG] 构造函数中尝试恢复状态');
       this.restoreAppState();
     });
   }
@@ -102,7 +106,10 @@ class AppManager {
 
     // 编辑模式切换事件
     this.eventManager.on('toggle-edit-mode', () => {
-      this.editorManager.toggleEditMode();
+      // 只有在有激活的tab时才允许切换编辑模式
+      if (this.activeTabId) {
+        this.editorManager.toggleEditMode();
+      }
     });
 
     // 保存文件事件
@@ -187,7 +194,10 @@ class AppManager {
     });
 
     ipcRenderer.on('toggle-edit-mode', () => {
-      this.editorManager.toggleEditMode();
+      // 只有在有激活的tab时才允许切换编辑模式
+      if (this.activeTabId) {
+        this.editorManager.toggleEditMode();
+      }
     });
 
     ipcRenderer.on('switch-theme', (event, theme) => {
@@ -223,6 +233,12 @@ class AppManager {
     // 监听 PDF 导出请求
     ipcRenderer.on('export-pdf-request', () => {
       this.exportToPDF();
+    });
+
+    // 监听状态恢复请求（窗口重新显示时）
+    ipcRenderer.on('restore-app-state', () => {
+      console.log('[DEBUG] 收到窗口重新显示的状态恢复请求');
+      this.restoreAppState();
     });
 
   }
@@ -422,6 +438,12 @@ class AppManager {
   }
 
   resetToInitialState() {
+    console.log('[DEBUG] resetToInitialState 被调用');
+    console.log('[DEBUG] 重置前的状态:', {
+      tabs: this.tabs.length,
+      openFiles: this.fileTreeManager.openFiles.size,
+      openFolders: this.fileTreeManager.openFolders.size
+    });
     // 重置应用模式和状态
     this.appMode = null;
     this.currentFilePath = null;
@@ -450,14 +472,15 @@ class AppManager {
     // 重置各个管理器
     this.editorManager.resetToInitialState();
     this.uiManager.resetToInitialState();
-    this.fileTreeManager.clearFileTree(); // 清空文件树
+    // 修复：不清除文件树数据，只隐藏内容显示
+    // this.fileTreeManager.clearFileTree(); 
     // this.searchManager.hideSearch(); // 移除自定义搜索功能
     
     // 重新绘制热区到整个窗口宽度
     this.ensureTitleBarDragArea();
     
-    // 清除保存的状态
-    localStorage.removeItem('mark2-app-state');
+    // 修复：窗口关闭时不清除保存的状态，这样重新激活窗口时可以恢复文件树
+    // localStorage.removeItem('mark2-app-state');
   }
 
   // 获取各个管理器的引用，供外部使用
@@ -540,7 +563,10 @@ class AppManager {
       // Cmd+E 切换编辑模式
       if (event.metaKey && event.key === 'e') {
         event.preventDefault();
-        this.editorManager.toggleEditMode();
+        // 只有在有激活的tab时才允许切换编辑模式
+        if (this.activeTabId) {
+          this.editorManager.toggleEditMode();
+        }
       }
       
       // Cmd+F 显示搜索
@@ -723,13 +749,19 @@ class AppManager {
     
     const tab = this.tabs[tabIndex];
     
-    // 如果tab有文件路径，使用统一关闭函数（同步删除文件树节点和关闭tab）
-    if (tab.filePath) {
+    // 如果是从文件节点发起的关闭，才删除文件节点；否则只关闭tab
+    if (fromFileNode && tab.filePath) {
       this.closeFileCompletely(tab.filePath);
       return;
     }
     
-    // 对于没有文件路径的tab，直接关闭
+    // 修复：关闭tab时，如果该tab属于'file'类型，需要删除对应的Files节点
+    if (tab.belongsTo === 'file' && tab.filePath) {
+      // 删除Files节点，但不递归调用closeTab避免死循环
+      this.fileTreeManager.removeFile(tab.filePath, false);
+    }
+    
+    // 关闭tab本身
     this.closeTabDirectly(tabId);
   }
 
@@ -1097,6 +1129,7 @@ class AppManager {
 
   // 状态保持功能
   saveAppState() {
+    console.log('[DEBUG] saveAppState 被调用');
     const state = {
       tabs: this.tabs.map(tab => ({
         id: tab.id,
@@ -1118,11 +1151,29 @@ class AppManager {
     };
     
     localStorage.setItem('mark2-app-state', JSON.stringify(state));
+    console.log('[DEBUG] 状态已保存到 localStorage:', {
+      tabs: state.tabs.length,
+      openFiles: state.openFiles ? state.openFiles.length : 0,
+      openFolders: state.openFolders ? state.openFolders.length : 0
+    });
   }
 
   restoreAppState() {
+    console.log('[DEBUG] restoreAppState 被调用');
+    
+    // 防止重复调用导致状态混乱
+    if (this.isRestoringState) {
+      console.log('[DEBUG] 正在恢复状态中，跳过重复调用');
+      return false;
+    }
+    
     const saved = localStorage.getItem('mark2-app-state');
-    if (!saved) return false;
+    console.log('[DEBUG] localStorage 中的状态:', saved ? '存在' : '不存在');
+    if (!saved) {
+      return false;
+    }
+    
+    this.isRestoringState = true;
     
     try {
       const state = JSON.parse(saved);
@@ -1172,8 +1223,16 @@ class AppManager {
         }
       }
       
+      // 恢复文件树展开状态
+      this.fileTreeManager.restoreExpandedState();
+      
       // 刷新文件树显示
       this.fileTreeManager.refreshSidebarTree();
+      console.log('[DEBUG] 状态恢复完成:', {
+        tabs: this.tabs.length,
+        openFiles: this.fileTreeManager.openFiles.size,
+        openFolders: this.fileTreeManager.openFolders.size
+      });
       
       // 重新启动文件监听 - 解决状态恢复后监听失效的问题
       this.restartFileWatching();
@@ -1181,10 +1240,13 @@ class AppManager {
       // 确保sidebar宽度正确恢复并触发热区绘制
       this.uiManager.loadSidebarWidth();
       
+      this.isRestoringState = false; // 恢复完成，重置标志
       return true;
     } catch (error) {
-      console.error('恢复应用状态失败:', error);
-      localStorage.removeItem('mark2-app-state');
+      console.error('[DEBUG] 恢复应用状态失败:', error);
+      console.log('[DEBUG] 保留状态数据，不清除 localStorage');
+      // localStorage.removeItem('mark2-app-state'); // 修复：即使恢复失败也不清除状态
+      this.isRestoringState = false; // 即使失败也要重置标志
       return false;
     }
   }

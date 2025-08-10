@@ -61,15 +61,20 @@ class WindowManager {
     // 监听窗口关闭事件
     this.mainWindow.on('close', (event) => {
       if (process.platform === 'darwin' && !global.app.isQuiting) {
+        console.log('[DEBUG] 窗口关闭，隐藏窗口但保持状态');
         event.preventDefault();
-        this.mainWindow.webContents.send('reset-to-initial-state');
+        // 修复：不发送 reset-to-initial-state，保持状态以便重新打开时恢复
+        // this.mainWindow.webContents.send('reset-to-initial-state');
         this.mainWindow.hide();
       }
     });
 
     // 监听窗口显示事件
     this.mainWindow.on('show', () => {
+      console.log('[DEBUG] 窗口显示事件触发，发送状态恢复请求');
       this.mainWindow.focus();
+      // 窗口重新显示时，通知渲染进程恢复状态
+      this.mainWindow.webContents.send('restore-app-state');
     });
 
     // 监听窗口销毁事件
@@ -98,7 +103,8 @@ class WindowManager {
   hideWindow() {
     if (this.mainWindow) {
       if (process.platform === 'darwin') {
-        this.mainWindow.webContents.send('reset-to-initial-state');
+        // 修复：不发送 reset-to-initial-state，保持状态
+        // this.mainWindow.webContents.send('reset-to-initial-state');
         this.mainWindow.hide();
       } else {
         this.mainWindow.close();
