@@ -1,10 +1,17 @@
 const AppManager = require('./src/renderer/AppManager');
+const { initDebugLogger, getDebugLogger, destroyDebugLogger } = require('./src/utils/DebugLogger');
 
 // 初始化应用管理器
 let appManager;
 
 // DOM 加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
+  // 首先初始化Debug Logger，确保所有console输出都被捕获
+  const debugLogger = initDebugLogger();
+  window.debugLogger = debugLogger; // 挂载到全局便于访问
+  
+  console.log('=== MARK2 应用启动 ===');
+  
   // 初始化自定义标题栏
   initCustomTitlebar();
   
@@ -13,6 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // 加载保存的设置
   loadInitialSettings();
+  
+  console.log('应用初始化完成');
+});
+
+// 页面卸载时清理DebugLogger
+window.addEventListener('beforeunload', () => {
+  console.log('=== MARK2 应用关闭 ===');
+  destroyDebugLogger();
 });
 
 function loadInitialSettings() {

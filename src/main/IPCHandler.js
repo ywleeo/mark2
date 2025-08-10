@@ -1,6 +1,7 @@
 const { ipcMain, dialog } = require('electron');
 const SettingsManager = require('./SettingsManager');
 const path = require('path');
+const fs = require('fs');
 
 class IPCHandler {
   constructor(windowManager, fileManager, fileWatcher, menuManager) {
@@ -436,6 +437,44 @@ class IPCHandler {
           success: false, 
           error: error.message 
         };
+      }
+    });
+
+    // Debug日志处理器
+    ipcMain.handle('clear-debug-log', async () => {
+      try {
+        const debugLogPath = path.join(__dirname, '../../debug.log');
+        await fs.promises.writeFile(debugLogPath, '');
+        return { success: true };
+      } catch (error) {
+        console.error('清空debug日志失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('append-debug-log', async (event, content) => {
+      try {
+        const debugLogPath = path.join(__dirname, '../../debug.log');
+        await fs.promises.appendFile(debugLogPath, content);
+        return { success: true };
+      } catch (error) {
+        console.error('写入debug日志失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('read-debug-log', async () => {
+      try {
+        const debugLogPath = path.join(__dirname, '../../debug.log');
+        const content = await fs.promises.readFile(debugLogPath, 'utf8');
+        return { success: true, content };
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          // 文件不存在，返回空内容
+          return { success: true, content: '' };
+        }
+        console.error('读取debug日志失败:', error);
+        return { success: false, error: error.message };
       }
     });
   }
