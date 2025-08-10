@@ -8,13 +8,8 @@ class EditorManager {
     this.originalContent = '';
     this.hasUnsavedChanges = false;
     
-    // 滚动位置记录
-    this.previewScrollPosition = 0;
-    this.editorScrollPosition = 0;
-    
-    // 保存切换前的容器尺寸信息
-    this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
-    this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
+    // 滚动位置比例记录（用比例在两个模式间同步滚动位置）
+    this.scrollRatio = 0; // 当前滚动位置的比例（0-1）
     
     // Markdown 语法高亮器
     this.markdownHighlighter = null;
@@ -26,6 +21,7 @@ class EditorManager {
     
     this.setupEditor();
     this.setupResizeHandler();
+    this.setupPreviewScrollListener();
   }
 
   setupEditor() {
@@ -82,7 +78,7 @@ class EditorManager {
       // 如果ldt-output异常小（比如32x32），说明需要修复
       if (rect.width < 100 || rect.height < 100) {
         // 重新初始化语法高亮器，但不要修改滚动信息
-        // 因为previewScrollPosition和previewDimensions包含了从view模式传递过来的重要信息
+        // 因为scrollRatio包含了从view模式传递过来的重要信息
         this.markdownHighlighter.destroy();
         this.markdownHighlighter = null;
         
@@ -93,6 +89,9 @@ class EditorManager {
           // 因为滚动位置恢复与语法高亮是独立的
           setTimeout(() => {
             this.restoreScrollPosition();
+            
+            // 重新添加滚动监听器
+            this.setupCodeMirrorScrollListener();
           }, 100);
         }, 50);
       }
@@ -121,6 +120,20 @@ class EditorManager {
         // 再次检查窗口是否稳定
         if (this.isWindowStable) {
           await this.markdownHighlighter.init(editor);
+          
+          // 添加滚动监听器，实时更新编辑器滚动位置
+          this.setupCodeMirrorScrollListener();
+          
+          // 如果有待执行的滚动恢复回调，执行它
+          if (this.pendingScrollRestore) {
+            // 确保 CodeMirror 完全初始化后再执行滚动恢复，使用 requestAnimationFrame 确保渲染完成
+            requestAnimationFrame(() => {
+              if (this.pendingScrollRestore) {
+                this.pendingScrollRestore();
+                this.pendingScrollRestore = null;
+              }
+            });
+          }
         } else {
           // 如果不稳定，重置并等待下次
           this.markdownHighlighter = null;
@@ -163,20 +176,18 @@ class EditorManager {
           // 初始化语法高亮器
           this.initMarkdownHighlighter(editor);
           
+          // 等待 CodeMirror 内容加载完成后恢复滚动位置
+          this.waitForCodeMirrorContent(() => {
+            this.restoreScrollPositionWithCallback();
+          });
+          
           // CodeMirror 自己处理光标定位，不需要额外的滚动修正
         }
       }
       if (contentArea) contentArea.style.display = 'none';
       if (editButton) editButton.textContent = '预览';
       
-      // 恢复编辑器的滚动位置 - 延迟确保布局完成
-      setTimeout(() => {
-        this.restoreScrollPosition();
-        // 切换到编辑模式后也检查一下语法高亮器状态
-        setTimeout(() => {
-          this.checkAndFixHighlighterIfNeeded();
-        }, 200);
-      }, 100);
+      // 滚动位置恢复已移到 waitForCodeMirrorContent 中处理
     } else {
       // 切换到预览模式
       if (editorContent) {
@@ -191,10 +202,8 @@ class EditorManager {
       if (contentArea) contentArea.style.display = 'block';
       if (editButton) editButton.textContent = '编辑';
       
-      // 恢复预览的滚动位置 - 延迟更长时间确保布局完成
-      setTimeout(() => {
-        this.restoreScrollPosition();
-      }, 100);
+      // 使用回调方式恢复预览滚动位置
+      this.restorePreviewScrollPositionWithCallback();
     }
     
     this.eventManager.emit('edit-mode-changed', this.isEditMode);
@@ -237,10 +246,7 @@ class EditorManager {
     
     // 只有在重置编辑模式时才重置滚动位置和尺寸信息（新文件从顶部开始）
     if (resetEditMode) {
-      this.previewScrollPosition = 0;
-      this.editorScrollPosition = 0;
-      this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
-      this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
+      this.scrollRatio = 0;
     }
     
     // 只有在重置编辑模式时才清理语法高亮器（避免正在编辑时被重置）
@@ -285,9 +291,9 @@ class EditorManager {
     // 只有在重置编辑模式时才重置预览区域滚动位置
     if (resetEditMode) {
       setTimeout(() => {
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent) {
-          mainContent.scrollTop = 0;
+        const contentArea = document.querySelector('.content-area');
+        if (contentArea) {
+          contentArea.scrollTop = 0;
         }
       }, 50);
     }
@@ -436,13 +442,8 @@ class EditorManager {
     this.originalContent = '';
     this.hasUnsavedChanges = false;
     
-    // 重置滚动位置
-    this.previewScrollPosition = 0;
-    this.editorScrollPosition = 0;
-    
-    // 重置尺寸信息
-    this.previewDimensions = { scrollHeight: 0, clientHeight: 0 };
-    this.editorDimensions = { scrollHeight: 0, clientHeight: 0 };
+    // 重置滚动比例
+    this.scrollRatio = 0;
     
     // 清理语法高亮器
     if (this.markdownHighlighter) {
@@ -455,6 +456,16 @@ class EditorManager {
       clearTimeout(this.resizeTimer);
       this.resizeTimer = null;
     }
+    
+    // 清理预览滚动监听器
+    if (this.removePreviewScrollListener) {
+      this.removePreviewScrollListener();
+      this.removePreviewScrollListener = null;
+    }
+    
+    // 清理待执行回调
+    this.pendingScrollRestore = null;
+    this.onCodeMirrorReady = null;
     
     const editor = document.getElementById('editorTextarea');
     const editorContent = document.getElementById('editorContent');
@@ -476,107 +487,176 @@ class EditorManager {
     this.updateSaveButton();
   }
 
-  // 保存当前模式的滚动位置和尺寸信息
+  // 保存当前模式的滚动比例
   saveCurrentScrollPosition() {
     if (this.isEditMode) {
-      // 当前在编辑模式，保存编辑器滚动位置和尺寸
+      // 当前在编辑模式，获取当前滚动比例
       if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
         const scrollInfo = this.markdownHighlighter.getScrollInfo();
-        this.editorScrollPosition = scrollInfo.top;
-        this.editorDimensions = {
-          scrollHeight: scrollInfo.height,
-          clientHeight: scrollInfo.clientHeight
-        };
+        const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+        this.scrollRatio = scrollInfo.top / maxScroll;
       } else {
         // 备用方案：使用原始textarea
         const editor = document.getElementById('editorTextarea');
         if (editor) {
-          this.editorScrollPosition = editor.scrollTop;
-          this.editorDimensions = {
-            scrollHeight: editor.scrollHeight,
-            clientHeight: editor.clientHeight
-          };
+          const maxScroll = Math.max(1, editor.scrollHeight - editor.clientHeight);
+          this.scrollRatio = editor.scrollTop / maxScroll;
         }
       }
     } else {
-      // 当前在预览模式，保存主容器滚动位置和尺寸
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) {
-        this.previewScrollPosition = mainContent.scrollTop;
-        this.previewDimensions = {
-          scrollHeight: mainContent.scrollHeight,
-          clientHeight: mainContent.clientHeight
-        };
+      // 当前在预览模式，获取当前滚动比例
+      const contentArea = document.querySelector('.content-area');
+      if (contentArea) {
+        const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
+        this.scrollRatio = contentArea.scrollTop / maxScroll;
       }
     }
   }
 
-  // 恢复对应模式的滚动位置
-  restoreScrollPosition() {
-    if (this.isEditMode) {
-      // 切换到编辑模式，恢复编辑器滚动位置
-      if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-        // 使用CodeMirror的滚动方法
-        const scrollRatio = this.calculateScrollRatio('preview');
-        const scrollInfo = this.markdownHighlighter.getScrollInfo();
-        const editorMaxScroll = Math.max(0, scrollInfo.height - scrollInfo.clientHeight);
-        const targetScroll = scrollRatio * editorMaxScroll;
 
-        if (targetScroll === 0 && this.previewScrollPosition > 0) {
-          this.markdownHighlighter.scrollTo(Math.min(this.previewScrollPosition, editorMaxScroll));
-        } else {
-          this.markdownHighlighter.scrollTo(targetScroll);
-        }
-      } else {
-        // 备用方案：使用原始textarea
-        const editor = document.getElementById('editorTextarea');
-        if (editor) {
-          const scrollRatio = this.calculateScrollRatio('preview');
-          const editorMaxScroll = Math.max(0, editor.scrollHeight - editor.clientHeight);
-          const targetScroll = scrollRatio * editorMaxScroll;
-
-          if (targetScroll === 0 && this.previewScrollPosition > 0) {
-            editor.scrollTop = Math.min(this.previewScrollPosition, editorMaxScroll);
-          } else {
-            editor.scrollTop = targetScroll;
-          }
-        }
-      }
+  // 使用回调方式恢复编辑器滚动位置
+  restoreScrollPositionWithCallback(callback) {
+    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+      this.restoreEditorScrollPosition();
+      if (callback) callback();
     } else {
-      // 切换到预览模式，恢复主容器滚动位置
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) {
-        // 先尝试直接使用比例计算
-        const scrollRatio = this.calculateScrollRatio('editor');
-        const previewMaxScroll = Math.max(0, mainContent.scrollHeight - mainContent.clientHeight);
-        const targetScroll = scrollRatio * previewMaxScroll;
-        
-        // 如果目标位置为0但编辑器位置不为0，尝试简单的直接设置  
-        if (targetScroll === 0 && this.editorScrollPosition > 0) {
-          // 简单策略：如果编辑器位置大于0，至少让预览也滚动一点
-          mainContent.scrollTop = Math.min(this.editorScrollPosition, previewMaxScroll);
-        } else {
-          mainContent.scrollTop = targetScroll;
-        }
-      }
+      // 设置待执行回调，等待 CodeMirror 初始化完成
+      this.pendingScrollRestore = () => {
+        this.restoreEditorScrollPosition();
+        if (callback) callback();
+      };
     }
   }
 
-  // 计算滚动比例 - 使用保存的尺寸信息
-  calculateScrollRatio(fromMode) {
-    if (fromMode === 'preview') {
-      const maxScroll = Math.max(0, this.previewDimensions.scrollHeight - this.previewDimensions.clientHeight);
-      const ratio = maxScroll > 0 ? this.previewScrollPosition / maxScroll : 0;
-      return ratio;
-    } else if (fromMode === 'editor') {
-      const maxScroll = Math.max(0, this.editorDimensions.scrollHeight - this.editorDimensions.clientHeight);
-      const ratio = maxScroll > 0 ? this.editorScrollPosition / maxScroll : 0;
-      return ratio;
+  // 恢复编辑器滚动位置的具体实现
+  restoreEditorScrollPosition() {
+    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+      const scrollInfo = this.markdownHighlighter.getScrollInfo();
+      const editorMaxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+      const targetScroll = this.scrollRatio * editorMaxScroll;
+      this.markdownHighlighter.scrollTo(targetScroll);
     }
-    return 0;
   }
+
+  // 使用回调方式恢复预览滚动位置
+  restorePreviewScrollPositionWithCallback() {
+    const contentArea = document.querySelector('.content-area');
+    if (!contentArea) return;
+
+    // 使用 ResizeObserver 监听内容变化
+    const observer = new ResizeObserver(() => {
+      const previewMaxScroll = Math.max(0, contentArea.scrollHeight - contentArea.clientHeight);
+      
+      if (previewMaxScroll > 0) {
+        observer.disconnect();
+        this.restorePreviewScrollPosition(contentArea);
+      }
+    });
+    
+    observer.observe(contentArea);
+    
+    // 立即尝试一次
+    const previewMaxScroll = Math.max(0, contentArea.scrollHeight - contentArea.clientHeight);
+    if (previewMaxScroll > 0) {
+      observer.disconnect();
+      this.restorePreviewScrollPosition(contentArea);
+    }
+  }
+
+  // 恢复预览滚动位置的具体实现
+  restorePreviewScrollPosition(contentArea) {
+    const previewMaxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
+    const targetScroll = this.scrollRatio * previewMaxScroll;
+    contentArea.scrollTop = targetScroll;
+  }
+
 
   // CodeMirror 自己处理所有光标和滚动问题，不再需要手动修正
+
+  // 设置预览模式滚动监听器
+  setupPreviewScrollListener() {
+    const contentArea = document.querySelector('.content-area');
+    
+    if (contentArea) {
+      const handlePreviewScroll = () => {
+        if (!this.isEditMode) {
+          const scrollTop = contentArea.scrollTop;
+          const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
+          this.scrollRatio = scrollTop / maxScroll;
+        }
+      };
+      
+      contentArea.addEventListener('scroll', handlePreviewScroll, { passive: true });
+      
+      // 保存移除函数
+      this.removePreviewScrollListener = () => {
+        contentArea.removeEventListener('scroll', handlePreviewScroll);
+      };
+    } else {
+      // 使用回调方式等待 DOM 准备好
+      const observer = new MutationObserver(() => {
+        const contentArea = document.querySelector('.content-area');
+        if (contentArea) {
+          observer.disconnect();
+          this.setupPreviewScrollListener();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  // 设置 CodeMirror 滚动监听器
+  setupCodeMirrorScrollListener() {
+    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+      this.markdownHighlighter.onScroll((scrollInfo) => {
+        const scrollTop = scrollInfo.top;
+        const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+        this.scrollRatio = scrollTop / maxScroll;
+      });
+      
+      // 执行回调，通知 CodeMirror 设置完成
+      if (this.onCodeMirrorReady) {
+        // 使用 requestAnimationFrame 确保 CodeMirror 完全准备好
+        requestAnimationFrame(() => {
+          if (this.onCodeMirrorReady) {
+            this.onCodeMirrorReady();
+            this.onCodeMirrorReady = null;
+          }
+        });
+      }
+    } else {
+      // 设置回调，当 CodeMirror 准备好时调用
+      this.onCodeMirrorReady = () => {
+        this.setupCodeMirrorScrollListener();
+      };
+    }
+  }
+
+  // 等待 CodeMirror 内容加载完成
+  waitForCodeMirrorContent(callback) {
+    
+    const checkContentLoaded = () => {
+      // 检查 CodeMirror 是否已初始化并且内容已加载
+      if (!this.markdownHighlighter || !this.markdownHighlighter.isReady()) {
+        setTimeout(checkContentLoaded, 50);
+        return;
+      }
+      
+      const scrollInfo = this.markdownHighlighter.getScrollInfo();
+      const hasContent = scrollInfo.height > scrollInfo.clientHeight;
+      
+      if (hasContent) {
+        requestAnimationFrame(() => {
+          callback();
+        });
+      } else {
+        setTimeout(checkContentLoaded, 50);
+      }
+    };
+    
+    // 立即开始检查
+    checkContentLoaded();
+  }
 
   // 获取可滚动的父元素
   getScrollableParent(element) {

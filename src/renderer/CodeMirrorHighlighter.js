@@ -23,6 +23,10 @@ class CodeMirrorHighlighter {
     this.searchCompartment = new Compartment(); // 创建搜索compartment
     this.searchDecorations = [];
     
+    // 滚动监听相关
+    this.scrollListeners = [];
+    this.lastScrollTop = 0;
+    
     // 暴露CodeMirror搜索API到全局
     this.exposeSearchAPI();
   }
@@ -85,6 +89,9 @@ class CodeMirrorHighlighter {
     setTimeout(() => {
       this.editor.focus();
       this.ready = true;
+      
+      // 设置滚动监听器
+      this.setupScrollListener();
     }, 100);
     
     // 监听主题变化
@@ -397,6 +404,64 @@ class CodeMirrorHighlighter {
     scrollDOM.scrollLeft = Math.max(0, left);
   }
   
+  // 设置滚动监听器
+  setupScrollListener() {
+    if (!this.editor) return;
+    
+    const scrollDOM = this.editor.scrollDOM;
+    
+    const handleScroll = (event) => {
+      const currentScrollTop = scrollDOM.scrollTop;
+      
+      // 只有滚动位置真正变化时才通知监听器
+      if (currentScrollTop !== this.lastScrollTop) {
+        this.lastScrollTop = currentScrollTop;
+        
+        // 调用所有注册的滚动监听器
+        this.scrollListeners.forEach(listener => {
+          try {
+            listener({
+              top: currentScrollTop,
+              left: scrollDOM.scrollLeft,
+              height: scrollDOM.scrollHeight,
+              clientHeight: scrollDOM.clientHeight
+            });
+          } catch (error) {
+            console.warn('滚动监听器执行失败:', error);
+          }
+        });
+      }
+    };
+    
+    // 添加滚动事件监听器
+    scrollDOM.addEventListener('scroll', handleScroll);
+    
+    // 保存移除函数以便销毁时清理
+    this.removeScrollListener = () => {
+      scrollDOM.removeEventListener('scroll', handleScroll);
+    };
+  }
+  
+  // 添加滚动监听器
+  onScroll(callback) {
+    if (typeof callback === 'function') {
+      this.scrollListeners.push(callback);
+    }
+  }
+  
+  // 移除滚动监听器
+  offScroll(callback) {
+    const index = this.scrollListeners.indexOf(callback);
+    if (index > -1) {
+      this.scrollListeners.splice(index, 1);
+    }
+  }
+  
+  // 清除所有滚动监听器
+  clearScrollListeners() {
+    this.scrollListeners = [];
+  }
+  
   // 获取滚动容器（用于EditorManager的滚动同步）
   getScrollContainer() {
     return this.editor ? this.editor.scrollDOM : null;
@@ -428,6 +493,13 @@ class CodeMirrorHighlighter {
       this.themeObserver.disconnect();
       this.themeObserver = null;
     }
+    
+    // 清理滚动监听器
+    if (this.removeScrollListener) {
+      this.removeScrollListener();
+      this.removeScrollListener = null;
+    }
+    this.clearScrollListeners();
     
     if (this.editor) {
       this.editor.destroy();
