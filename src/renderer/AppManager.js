@@ -33,20 +33,21 @@ class AppManager {
     // 初始化关键词高亮状态
     this.initializeKeywordHighlight();
     
+    // 先设置事件监听器，确保sidebar-enabled事件能被监听到
+    this.setupEventListeners();
+    this.setupIPCListeners();
+    this.setupDragAndDrop();
+    
     // 确保侧边栏始终启用（因为现在无论如何都会有标签页内容）
     this.uiManager.enableSidebar();
     
     // 初始化显示 sidebar 的 Files 和 Folders 节点
     this.fileTreeManager.refreshSidebarTree();
     
-    this.setupEventListeners();
-    this.setupIPCListeners();
-    this.setupDragAndDrop();
-    
     // 延迟设置键盘快捷键，确保DOM完全准备好
     setTimeout(() => {
       this.setupKeyboardShortcuts();
-      // 恢复应用状态，热区绘制会在sidebar准备好后自动触发
+      // 恢复应用状态，热区绘制会在sidebar准备好后通过事件自动触发
       this.restoreAppState();
     }, 100);
   }
@@ -134,6 +135,14 @@ class AppManager {
     // 文件树加载完成事件
     this.eventManager.on('file-tree-loaded', () => {
       this.uiManager.enableSidebar();
+    });
+
+    // sidebar启用后绘制热区
+    this.eventManager.on('sidebar-enabled', (enabled) => {
+      if (enabled) {
+        // sidebar启用后，确保热区正确绘制
+        this.ensureTitleBarDragArea();
+      }
     });
     
   }
