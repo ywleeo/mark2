@@ -172,8 +172,12 @@ class SearchManager {
 
   // 在预览模式中搜索
   searchInPreview(query) {
+    // 只在内容区域搜索，不包括sidebar等
+    const contentArea = document.getElementById('markdownContent');
+    if (!contentArea) return;
+    
     // 获取所有文本节点
-    const textNodes = this.getTextNodes(document.body);
+    const textNodes = this.getTextNodes(contentArea);
     this.currentMatches = [];
     
     const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -246,10 +250,6 @@ class SearchManager {
       NodeFilter.SHOW_TEXT,
       {
         acceptNode: (node) => {
-          // 跳过搜索框内的文本节点
-          if (this.searchBox.contains(node)) {
-            return NodeFilter.FILTER_REJECT;
-          }
           // 跳过script和style标签
           const parent = node.parentElement;
           if (parent && (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE')) {
@@ -269,26 +269,29 @@ class SearchManager {
   }
 
   highlightMatches() {
-    this.currentMatches.forEach((match, index) => {
+    // 按照文本位置从后往前排序，避免DOM修改影响后续操作
+    const sortedMatches = [...this.currentMatches].sort((a, b) => {
+      if (a.node !== b.node) {
+        // 不同节点，按DOM顺序比较
+        return a.node.compareDocumentPosition(b.node) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1;
+      }
+      // 同一节点内，按位置从后往前
+      return b.start - a.start;
+    });
+    
+    sortedMatches.forEach((match, index) => {
+      // 找到原始索引以确定是否为当前匹配项
+      const originalIndex = this.currentMatches.indexOf(match);
+      
       const span = document.createElement('span');
-      span.className = index === this.currentIndex ? 'search-highlight current' : 'search-highlight';
+      span.className = originalIndex === this.currentIndex ? 'search-highlight current' : 'search-highlight';
       span.textContent = match.text;
       
       const range = document.createRange();
       
-      // 验证节点长度，防止偏移量超出范围
-      const nodeLength = match.node.textContent ? match.node.textContent.length : 0;
-      const safeStart = Math.min(match.start, nodeLength);
-      const safeEnd = Math.min(match.end, nodeLength);
-      
-      // 确保start不大于end
-      const finalStart = Math.min(safeStart, safeEnd);
-      const finalEnd = Math.max(safeStart, safeEnd);
-      
-      range.setStart(match.node, finalStart);
-      range.setEnd(match.node, finalEnd);
-      
       try {
+        range.setStart(match.node, match.start);
+        range.setEnd(match.node, match.end);
         range.deleteContents();
         range.insertNode(span);
       } catch (e) {
