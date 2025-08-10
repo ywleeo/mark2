@@ -369,15 +369,15 @@ class FileTreeManager {
         const path = folderItem.dataset.path;
         const type = folderItem.dataset.type;
         
-        if (type === 'folder') {
-          this.showContextMenu(event, path, 'folder');
+        if (type === 'folder' || type === 'subfolder') {
+          this.showContextMenu(event, path, type);
         }
       } else if (fileItem) {
         const path = fileItem.dataset.path;
         const type = fileItem.dataset.type;
         
-        if (type === 'file') {
-          this.showContextMenu(event, path, 'file');
+        if (type === 'file' || type === 'subfolder-file') {
+          this.showContextMenu(event, path, type);
         }
       }
     };
@@ -430,15 +430,37 @@ class FileTreeManager {
     menu.style.zIndex = 10000;
 
     if (type === 'file') {
+      // Files 区域下的文件：保留关闭功能
       menu.innerHTML = `
+        <div class="context-menu-item" data-action="reveal-file" data-path="${path}">
+          路径访问
+        </div>
         <div class="context-menu-item" data-action="close-file" data-path="${path}">
           关闭文件
         </div>
       `;
     } else if (type === 'folder') {
+      // Folders 区域下的文件夹：保留关闭功能
       menu.innerHTML = `
+        <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
+          路径访问
+        </div>
         <div class="context-menu-item" data-action="close-folder" data-path="${path}">
           关闭文件夹
+        </div>
+      `;
+    } else if (type === 'subfolder-file') {
+      // 文件树中的文件：只有路径访问功能
+      menu.innerHTML = `
+        <div class="context-menu-item" data-action="reveal-file" data-path="${path}">
+          路径访问
+        </div>
+      `;
+    } else if (type === 'subfolder') {
+      // 文件树中的文件夹：只有路径访问功能
+      menu.innerHTML = `
+        <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
+          路径访问
         </div>
       `;
     }
@@ -454,6 +476,10 @@ class FileTreeManager {
         this.closeFile(itemPath);
       } else if (action === 'close-folder') {
         this.closeFolder(itemPath);
+      } else if (action === 'reveal-file') {
+        this.revealFile(itemPath);
+      } else if (action === 'reveal-folder') {
+        this.revealFolder(itemPath);
       }
       
       menu.remove();
@@ -504,6 +530,20 @@ class FileTreeManager {
     
     // 发出文件夹关闭事件
     this.eventManager.emit('folder-closed', folderPath);
+  }
+
+  // 在文件管理器中显示文件
+  revealFile(filePath) {
+    // 通过 IPC 调用主进程的 shell.showItemInFolder
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.invoke('reveal-in-finder', filePath);
+  }
+
+  // 在文件管理器中显示文件夹
+  revealFolder(folderPath) {
+    // 通过 IPC 调用主进程的 shell.openPath
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.invoke('reveal-in-finder', folderPath);
   }
   
   toggleFolder(folderPath) {

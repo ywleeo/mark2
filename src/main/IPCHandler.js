@@ -1,4 +1,4 @@
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, shell } = require('electron');
 const SettingsManager = require('./SettingsManager');
 const path = require('path');
 const fs = require('fs');
@@ -474,6 +474,36 @@ class IPCHandler {
           return { success: true, content: '' };
         }
         console.error('读取debug日志失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 在文件管理器中显示文件或文件夹
+    ipcMain.handle('reveal-in-finder', async (event, filePath) => {
+      try {
+        if (!filePath) {
+          return { success: false, error: '文件路径为空' };
+        }
+
+        // 检查路径是否存在
+        if (!fs.existsSync(filePath)) {
+          return { success: false, error: '文件或文件夹不存在' };
+        }
+
+        // 判断是文件还是文件夹
+        const stats = fs.statSync(filePath);
+        
+        if (stats.isFile()) {
+          // 如果是文件，使用 showItemInFolder 在文件管理器中选中该文件
+          await shell.showItemInFolder(filePath);
+        } else if (stats.isDirectory()) {
+          // 如果是文件夹，使用 openPath 打开该文件夹
+          await shell.openPath(filePath);
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('Error revealing in finder:', error);
         return { success: false, error: error.message };
       }
     });
