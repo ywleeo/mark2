@@ -267,7 +267,7 @@ body {
     min-height: var(--titlebar-height);
     border-bottom-style: none;
     flex-shrink: 0;
-    padding: 3px 2px 3px 2px;
+    padding: 3px 8px 3px 2px;
     position: relative;
     overflow-x: auto;
     /* 隐藏滚动条但保持滚动功能 */
@@ -351,9 +351,14 @@ body.platform-linux .window-controls {
     background: linear-gradient(270deg, var(--tab-scroll-gradient-start) 0%, transparent 100%);
 }
 
-/* macOS 平台调整右侧阴影位置 */
+/* macOS 平台调整右侧阴影位置并为系统按钮预留空间 */
 body.platform-darwin .main-content::after {
-    right: 0; /* macOS没有控制按钮 */
+    right: 0; /* macOS系统按钮预留空间 */
+}
+
+/* 当 sidebar 隐藏时，tab 栏需要为 macOS 系统按钮预留空间 */
+body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
+    margin-left: 80px;
 }
 
 .main-content.tab-scroll-left::before {
