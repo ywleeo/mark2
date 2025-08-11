@@ -296,31 +296,6 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
-/* 关键词高亮颜色 - 深色主题 */
-mark.highlight-number {
-    background-color: #1e293b !important;
-    color: #7dd3fc !important;
-}
-
-mark.highlight-date {
-    background-color: #2d1b2e !important;
-    color: #f0abfc !important;
-}
-
-mark.highlight-entity {
-    background-color: #1e2d1e !important;
-    color: #6ee7b7 !important;
-}
-
-mark.highlight-keyword {
-    background-color: #2d1f1a !important;
-    color: #fdba74 !important;
-}
-
-mark.highlight-pattern {
-    background-color: #1e1b3a !important;
-    color: #a78bfa !important;
-}
 
 /* 消息提示颜色 - 深色主题 */
 .message {
