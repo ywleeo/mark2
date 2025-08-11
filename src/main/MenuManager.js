@@ -268,27 +268,19 @@ class MenuManager {
     }
     
     // 添加插件管理选项
-    toolsSubmenu.push({
-      label: '插件目录',
-      submenu: [
-        {
-          label: '打开用户插件目录',
-          click: () => this.openPluginDirectory('user')
-        },
-        {
-          label: '打开内置插件目录',
-          click: () => this.openPluginDirectory('builtin')
-        },
-        { type: 'separator' },
-        {
-          label: '刷新插件列表',
-          click: () => this.refreshPlugins()
-        }
-      ]
-    });
+    toolsSubmenu.push(
+      {
+        label: '插件目录',
+        click: () => this.openPluginDirectory('user')
+      },
+      {
+        label: '刷新插件列表',
+        click: () => this.refreshPlugins()
+      }
+    );
     
     // 如果没有任何工具/插件，只显示插件管理
-    if (toolsSubmenu.length === 2) { // 只有分隔线和插件目录
+    if (toolsSubmenu.length === 3) { // 只有分隔线、插件目录和刷新插件
       toolsSubmenu.splice(0, 1); // 移除分隔线
     }
     
@@ -332,14 +324,13 @@ class MenuManager {
 
   async openPluginDirectory(type = 'user') {
     try {
-      const { ipcMain } = require('electron');
       const mainWindow = this.windowManager.getWindow();
       const result = await mainWindow.webContents.executeJavaScript(`
         require('electron').ipcRenderer.invoke('open-plugin-directory', '${type}')
       `);
       
       if (result.success) {
-        console.log(`[菜单管理器] 已打开${type === 'user' ? '用户' : '内置'}插件目录: ${result.path}`);
+        console.log(`[菜单管理器] 已打开插件目录: ${result.path}`);
       }
     } catch (error) {
       console.error('打开插件目录失败:', error);
