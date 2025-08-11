@@ -244,6 +244,11 @@ class AppManager {
       this.togglePlugin(data.pluginId, data.enabled);
     });
 
+    // 监听刷新插件事件
+    ipcRenderer.on('refresh-plugins', () => {
+      this.refreshPlugins();
+    });
+
   }
 
   setupDragAndDrop() {
@@ -503,6 +508,27 @@ class AppManager {
       console.log(`插件 ${plugin.name} 已${enabled ? '启用' : '禁用'}`);
     } catch (error) {
       console.error(`切换插件 ${pluginId} 失败:`, error);
+    }
+  }
+
+  async refreshPlugins() {
+    if (!window.pluginManager) {
+      console.warn('插件管理器未初始化');
+      return;
+    }
+
+    try {
+      console.log('[AppManager] 开始刷新插件列表...');
+      
+      // 刷新插件管理器
+      await window.pluginManager.refreshPlugins();
+      
+      // 重新加载插件状态
+      await this.loadPluginStates();
+      
+      console.log('[AppManager] 插件列表刷新完成');
+    } catch (error) {
+      console.error('刷新插件失败:', error);
     }
   }
 

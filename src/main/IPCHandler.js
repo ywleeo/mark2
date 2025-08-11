@@ -1,4 +1,4 @@
-const { ipcMain, dialog, shell } = require('electron');
+const { ipcMain, dialog, shell, app } = require('electron');
 const SettingsManager = require('./SettingsManager');
 const path = require('path');
 const fs = require('fs');
@@ -529,6 +529,61 @@ class IPCHandler {
     ipcMain.on('update-plugin-menu-states', (event, plugins) => {
       if (this.menuManager) {
         this.menuManager.updatePluginStates(plugins);
+      }
+    });
+
+    // 获取插件目录信息
+    ipcMain.handle('get-plugin-directories', async () => {
+      try {
+        const userDataPath = app.getPath('userData');
+        const builtinPath = path.join(__dirname, '../../plugins');
+        const userPath = path.join(userDataPath, 'plugins');
+        
+        return {
+          builtin: builtinPath,
+          user: userPath
+        };
+      } catch (error) {
+        console.error('Error getting plugin directories:', error);
+        return { builtin: '', user: '' };
+      }
+    });
+
+    // 打开插件目录
+    ipcMain.handle('open-plugin-directory', async (event, type = 'user') => {
+      try {
+        let targetDir;
+        
+        if (type === 'user') {
+          // 直接在主进程中计算用户插件目录
+          const userDataPath = app.getPath('userData');
+          targetDir = path.join(userDataPath, 'plugins');
+          
+          // 确保目录存在
+          if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+            console.log(`[IPCHandler] 创建用户插件目录: ${targetDir}`);
+          }
+        } else {
+          // 内置插件目录
+          targetDir = path.join(__dirname, '../../plugins');
+        }
+        
+        await shell.openPath(targetDir);
+        return { success: true, path: targetDir };
+      } catch (error) {
+        console.error('Error opening plugin directory:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 获取用户数据目录路径
+    ipcMain.on('get-user-data-path', (event) => {
+      try {
+        event.returnValue = app.getPath('userData');
+      } catch (error) {
+        console.error('Error getting user data path:', error);
+        event.returnValue = null;
       }
     });
   }

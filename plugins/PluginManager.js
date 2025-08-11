@@ -11,8 +11,48 @@ class PluginManager {
     constructor() {
         this.plugins = new Map(); // 存储已加载的插件
         this.eventListeners = new Map(); // 存储事件监听器
-        this.pluginDirectory = path.join(__dirname); // 插件目录
+        this.builtinPluginDirectory = path.join(__dirname); // 内置插件目录
+        this.userPluginDirectory = null; // 用户插件目录，在init时设置
         this.initialized = false;
+    }
+
+    /**
+     * 获取用户插件目录
+     */
+    getUserPluginDirectory() {
+        if (this.userPluginDirectory) {
+            return this.userPluginDirectory;
+        }
+
+        try {
+            // 尝试从主进程获取用户数据目录
+            let userDataPath;
+            
+            if (process.type === 'browser') {
+                // 主进程
+                const { app } = require('electron');
+                userDataPath = app.getPath('userData');
+            } else {
+                // 渲染进程，通过IPC获取
+                const { ipcRenderer } = require('electron');
+                const os = require('os');
+                // 使用同步方式获取，如果失败则使用默认路径
+                try {
+                    userDataPath = ipcRenderer.sendSync('get-user-data-path');
+                } catch (error) {
+                    // 回退到默认路径
+                    userDataPath = path.join(os.homedir(), '.mark2');
+                }
+            }
+            
+            this.userPluginDirectory = path.join(userDataPath, 'plugins');
+        } catch (error) {
+            console.warn('[插件管理器] 无法获取用户数据目录:', error);
+            // 使用当前目录作为回退
+            this.userPluginDirectory = path.join(process.cwd(), 'user-plugins');
+        }
+        
+        return this.userPluginDirectory;
     }
 
     /**
@@ -34,30 +74,63 @@ class PluginManager {
     }
 
     /**
+     * 确保用户插件目录存在
+     */
+    ensureUserPluginDirectory() {
+        try {
+            if (!fs.existsSync(this.userPluginDirectory)) {
+                fs.mkdirSync(this.userPluginDirectory, { recursive: true });
+                console.log(`[插件管理器] 创建用户插件目录: ${this.userPluginDirectory}`);
+            }
+        } catch (error) {
+            console.warn('[插件管理器] 创建用户插件目录失败:', error);
+        }
+    }
+
+    /**
      * 加载所有插件
      */
     async loadAllPlugins() {
+        // 确保用户插件目录存在
+        this.ensureUserPluginDirectory();
+        
+        // 加载内置插件
+        await this.loadPluginsFromDirectory(this.builtinPluginDirectory, 'builtin');
+        
+        // 加载用户插件
+        await this.loadPluginsFromDirectory(this.userPluginDirectory, 'user');
+    }
+
+    /**
+     * 从指定目录加载插件
+     */
+    async loadPluginsFromDirectory(directory, source = 'unknown') {
         try {
-            // 读取插件目录
-            const items = fs.readdirSync(this.pluginDirectory, { withFileTypes: true });
+            if (!fs.existsSync(directory)) {
+                return;
+            }
+
+            const items = fs.readdirSync(directory, { withFileTypes: true });
             
             for (const item of items) {
                 if (item.isDirectory() && !item.name.startsWith('.')) {
-                    await this.loadPlugin(item.name);
+                    await this.loadPlugin(item.name, directory, source);
                 }
             }
         } catch (error) {
-            console.warn('[插件管理器] 加载插件失败:', error);
+            console.warn(`[插件管理器] 从目录 ${directory} 加载插件失败:`, error);
         }
     }
 
     /**
      * 加载单个插件
      * @param {string} pluginName - 插件名称（目录名）
+     * @param {string} pluginDirectory - 插件所在目录
+     * @param {string} source - 插件来源（builtin/user）
      */
-    async loadPlugin(pluginName) {
+    async loadPlugin(pluginName, pluginDirectory = this.builtinPluginDirectory, source = 'builtin') {
         try {
-            const pluginPath = path.join(this.pluginDirectory, pluginName);
+            const pluginPath = path.join(pluginDirectory, pluginName);
             
             // 检查插件目录是否存在
             if (!fs.existsSync(pluginPath)) {
@@ -88,6 +161,8 @@ class PluginManager {
             // 创建插件实例
             const pluginInstance = new PluginClass({
                 id: pluginName,
+                source: source,
+                pluginPath: pluginPath,
                 ...pluginConfig
             });
 
@@ -254,6 +329,56 @@ class PluginManager {
                 listeners.splice(index, 1);
             }
         }
+    }
+
+    /**
+     * 获取插件目录信息
+     */
+    getPluginDirectories() {
+        return {
+            builtin: this.builtinPluginDirectory,
+            user: this.userPluginDirectory
+        };
+    }
+
+    /**
+     * 刷新插件列表（重新扫描并加载插件）
+     */
+    async refreshPlugins() {
+        console.log('[插件管理器] 刷新插件列表...');
+        
+        // 保存当前插件状态
+        const pluginStates = new Map();
+        for (const [pluginId, plugin] of this.plugins) {
+            pluginStates.set(pluginId, plugin.enabled);
+        }
+        
+        // 清理现有插件
+        for (const [pluginId, plugin] of this.plugins) {
+            try {
+                await plugin.destroy();
+            } catch (error) {
+                console.warn(`[插件管理器] 销毁插件 ${pluginId} 失败:`, error);
+            }
+        }
+        this.plugins.clear();
+        
+        // 重新加载所有插件
+        await this.loadAllPlugins();
+        
+        // 恢复插件状态
+        for (const [pluginId, enabled] of pluginStates) {
+            const plugin = this.plugins.get(pluginId);
+            if (plugin) {
+                if (enabled) {
+                    plugin.enable();
+                } else {
+                    plugin.disable();
+                }
+            }
+        }
+        
+        console.log('[插件管理器] 插件列表刷新完成');
     }
 
     /**

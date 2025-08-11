@@ -11,6 +11,8 @@ class BasePlugin {
         this.enabled = pluginConfig.enabled !== false; // 默认启用
         this.shortcuts = pluginConfig.shortcuts || [];
         this.config = pluginConfig.config || {};
+        this.source = pluginConfig.source || 'unknown'; // 插件来源：builtin/user
+        this.pluginPath = pluginConfig.pluginPath || ''; // 插件路径
         this.initialized = false;
         
         // 提供平台 API 访问
