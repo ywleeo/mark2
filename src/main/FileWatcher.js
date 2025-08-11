@@ -11,6 +11,7 @@ class FileWatcher {
     this.watchedFile = null; // 当前监听的文件路径
     this.lastFileContent = null; // 上次读取的文件内容，用于去重
     this.isUpdating = false; // 防止重复更新
+    this.updateTimeout = null; // 防抖定时器
   }
 
   startWatching(folderPath) {
@@ -27,11 +28,19 @@ class FileWatcher {
       this.watchedPath = folderPath;
       this.watcher = fs.watch(folderPath, { recursive: true }, (eventType, filename) => {
         if (filename && !filename.startsWith('.')) {
+          console.log(`FileWatcher: 文件变化检测到 - 事件类型: ${eventType}, 文件名: ${filename}`);
           // 只有在文件/文件夹结构发生变化时才刷新文件树
           // 'rename' 事件表示文件/文件夹的创建、删除、重命名
           // 'change' 事件只表示文件内容修改，不需要刷新文件树
           if (eventType === 'rename') {
-            this.updateFileTree();
+            // 使用 setTimeout 来防抖，避免短时间内多次触发
+            if (this.updateTimeout) {
+              clearTimeout(this.updateTimeout);
+            }
+            this.updateTimeout = setTimeout(() => {
+              console.log('FileWatcher: 执行文件树更新');
+              this.updateFileTree();
+            }, 200); // 200ms 防抖
           }
         }
       });
@@ -51,6 +60,12 @@ class FileWatcher {
   stopWatching() {
     // 重置更新状态
     this.isUpdating = false;
+    
+    // 清理防抖定时器
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+    }
     
     // 关闭文件夹监听器
     if (this.watcher) {
