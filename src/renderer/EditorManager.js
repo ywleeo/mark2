@@ -222,7 +222,8 @@ class EditorManager {
       return;
     }
     
-    const html = this.markdownRenderer.renderMarkdown(content);
+    // 使用异步渲染：立即显示基础内容，然后异步应用关键词高亮
+    const html = this.markdownRenderer.renderMarkdown(content, preview);
     preview.innerHTML = html;
     
     // 移除自定义搜索功能

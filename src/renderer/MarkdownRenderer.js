@@ -4,6 +4,7 @@ const hljs = require('highlight.js');
 class MarkdownRenderer {
   constructor() {
     this.setupMarked();
+    this.currentHighlightTask = null; // 当前的高亮任务ID
   }
 
   setupMarked() {
@@ -67,7 +68,7 @@ class MarkdownRenderer {
     });
   }
 
-  renderMarkdown(content) {
+  renderMarkdown(content, targetElement = null) {
     if (!content) return '';
     
     try {
@@ -83,7 +84,42 @@ class MarkdownRenderer {
       // 隔离样式标签，防止样式冲突
       html = this.sanitizeStyles(html);
       
-      // 应用关键词高亮（通过插件系统）
+      // 如果提供了目标元素，启用异步关键词高亮
+      if (targetElement) {
+        // 取消之前的高亮任务
+        if (this.currentHighlightTask) {
+          cancelAnimationFrame(this.currentHighlightTask);
+          this.currentHighlightTask = null;
+        }
+        
+        // 为当前内容添加标记，用于验证任务有效性
+        const contentId = Date.now() + Math.random();
+        targetElement.dataset.contentId = contentId;
+        
+        // 创建新的异步高亮任务
+        this.currentHighlightTask = requestAnimationFrame(() => {
+          try {
+            // 检查任务是否还有效（元素存在且内容ID匹配）
+            if (targetElement.isConnected && targetElement.dataset.contentId === String(contentId)) {
+              const enhancedHtml = this.applyKeywordHighlight(html);
+              if (enhancedHtml !== html) {
+                targetElement.innerHTML = enhancedHtml;
+                // 保持内容ID，表示高亮已完成
+                targetElement.dataset.contentId = contentId;
+              }
+            }
+          } catch (error) {
+            console.warn('异步关键词高亮失败:', error);
+          } finally {
+            this.currentHighlightTask = null;
+          }
+        });
+        
+        // 立即返回基础版本
+        return html;
+      }
+      
+      // 兼容性：如果没有提供目标元素，保持同步行为
       html = this.applyKeywordHighlight(html);
       
       return html;
