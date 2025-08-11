@@ -156,13 +156,19 @@ class MarkdownRenderer {
 
   applyKeywordHighlight(html) {
     
-    // 使用新的 KeywordHighlighter 系统
+    // 优先使用插件系统处理
+    if (window.pluginManager && window.pluginManager.initialized) {
+      const result = window.pluginManager.processMarkdown(html);
+      return result;
+    }
+    
+    // 回退到原有的 KeywordHighlighter 系统
     if (window.keywordHighlighter) {
       const result = window.keywordHighlighter.highlight(html);
       return result;
     }
     
-    // 降级处理：如果 KeywordHighlighter 不可用，使用简单的高亮
+    // 最后的降级处理：使用简单的关键词高亮
     const keywords = [
       'TODO', 'FIXME', 'NOTE', 'IMPORTANT', 'WARNING', 'DEPRECATED',
       '重要', '注意', '警告', '待办', '修复', '已弃用'

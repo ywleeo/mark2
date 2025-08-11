@@ -4,6 +4,7 @@ const FileTreeManager = require('./FileTreeManager');
 const EditorManager = require('./EditorManager');
 const SearchManager = require('./SearchManager');
 const UIManager = require('./UIManager');
+const PluginIntegration = require('./PluginIntegration');
 
 class AppManager {
   constructor() {
@@ -35,6 +36,9 @@ class AppManager {
     
     // 初始化关键词高亮状态
     this.initializeKeywordHighlight();
+    
+    // 初始化插件系统
+    this.initializePluginSystem();
     
     // 先设置事件监听器，确保sidebar-enabled事件能被监听到
     this.setupEventListeners();
@@ -420,6 +424,23 @@ class AppManager {
     // 通知主进程更新菜单状态
     const { ipcRenderer } = require('electron');
     ipcRenderer.send('update-keyword-highlight-menu', enabled);
+  }
+
+  /**
+   * 初始化插件系统
+   */
+  async initializePluginSystem() {
+    try {
+      // 延迟初始化插件系统，确保其他组件都已准备好
+      setTimeout(async () => {
+        if (window.pluginIntegration) {
+          await window.pluginIntegration.init();
+          console.log('[AppManager] 插件系统初始化完成');
+        }
+      }, 100);
+    } catch (error) {
+      console.warn('[AppManager] 插件系统初始化失败:', error);
+    }
   }
 
   toggleKeywordHighlight(enabled) {

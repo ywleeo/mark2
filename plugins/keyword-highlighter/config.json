@@ -1,0 +1,81 @@
+{
+  "name": "关键词高亮",
+  "version": "1.0.0",
+  "description": "智能关键词高亮插件，支持多种内容类型的高亮显示",
+  "enabled": true,
+  "config": {
+    "highlightTypes": {
+      "numbers": {
+        "enabled": true,
+        "themes": {
+          "light": {
+            "backgroundColor": "#dbeafe",
+            "textColor": "#1e40af"
+          },
+          "dark": {
+            "backgroundColor": "#1e293b", 
+            "textColor": "#7dd3fc"
+          }
+        },
+        "includePercentage": true,
+        "includeCurrency": true,
+        "includeUnits": true
+      },
+      "dates": {
+        "enabled": true,
+        "themes": {
+          "light": {
+            "backgroundColor": "#fce7f3",
+            "textColor": "#be185d"
+          },
+          "dark": {
+            "backgroundColor": "#2d1b2e",
+            "textColor": "#f0abfc"
+          }
+        },
+        "includeRelative": true,
+        "includeAbsolute": true
+      },
+      "entities": {
+        "enabled": true,
+        "themes": {
+          "light": {
+            "backgroundColor": "#dcfce7",
+            "textColor": "#166534"
+          },
+          "dark": {
+            "backgroundColor": "#1e2d1e",
+            "textColor": "#6ee7b7"
+          }
+        },
+        "includeCompanies": true,
+        "includePeople": true,
+        "includePlaces": true
+      },
+      "hotwords": {
+        "enabled": true,
+        "themes": {
+          "light": {
+            "backgroundColor": "#ffecd6",
+            "textColor": "#ce5f31"
+          },
+          "dark": {
+            "backgroundColor": "#2d1f1a",
+            "textColor": "#fdba74"
+          }
+        },
+        "includeTech": true,
+        "includeFinance": true,
+        "includePolitics": true
+      }
+    },
+    "general": {
+      "minKeywordLength": 2,
+      "maxKeywordLength": 15,
+      "caseSensitive": false,
+      "borderRadius": "2px",
+      "padding": "1px 2px",
+      "fontWeight": "normal"
+    }
+  }
+}
