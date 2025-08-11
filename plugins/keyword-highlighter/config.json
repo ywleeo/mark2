@@ -3,6 +3,12 @@
   "version": "1.0.0",
   "description": "智能关键词高亮插件，支持多种内容类型的高亮显示",
   "enabled": true,
+  "shortcuts": [
+    {
+      "accelerator": "CmdOrCtrl+K",
+      "description": "切换关键词高亮"
+    }
+  ],
   "config": {
     "highlightTypes": {
       "numbers": {

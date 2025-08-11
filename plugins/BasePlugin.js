@@ -9,6 +9,7 @@ class BasePlugin {
         this.name = pluginConfig.name || 'Unknown Plugin';
         this.version = pluginConfig.version || '1.0.0';
         this.enabled = pluginConfig.enabled !== false; // 默认启用
+        this.shortcuts = pluginConfig.shortcuts || [];
         this.config = pluginConfig.config || {};
         this.initialized = false;
         

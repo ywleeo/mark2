@@ -121,10 +121,6 @@ class IPCHandler {
       }
     });
 
-    // 更新关键词高亮菜单状态
-    ipcMain.on('update-keyword-highlight-menu', (event, enabled) => {
-      this.menuManager.updateKeywordHighlightMenu(enabled);
-    });
 
     // 关闭窗口
     ipcMain.on('close-window', () => {
@@ -505,6 +501,34 @@ class IPCHandler {
       } catch (error) {
         console.error('Error revealing in finder:', error);
         return { success: false, error: error.message };
+      }
+    });
+
+
+    // 保存插件设置
+    ipcMain.handle('save-plugin-settings', async (event, pluginId, enabled) => {
+      try {
+        return await SettingsManager.savePluginSettings(pluginId, enabled);
+      } catch (error) {
+        console.error('Error saving plugin settings:', error);
+        throw error;
+      }
+    });
+
+    // 获取插件设置
+    ipcMain.handle('get-plugin-settings', async () => {
+      try {
+        return await SettingsManager.getPluginSettings();
+      } catch (error) {
+        console.error('Error getting plugin settings:', error);
+        return {};
+      }
+    });
+
+    // 更新插件状态到菜单
+    ipcMain.on('update-plugin-menu-states', (event, plugins) => {
+      if (this.menuManager) {
+        this.menuManager.updatePluginStates(plugins);
       }
     });
   }

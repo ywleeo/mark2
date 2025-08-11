@@ -34,9 +34,6 @@ class AppManager {
     // 状态恢复标志，防止重复调用
     this.isRestoringState = false;
     
-    // 初始化关键词高亮状态
-    this.initializeKeywordHighlight();
-    
     // 初始化插件系统
     this.initializePluginSystem();
     
@@ -209,9 +206,6 @@ class AppManager {
     });
 
 
-    ipcRenderer.on('toggle-keyword-highlight', (event, enabled) => {
-      this.toggleKeywordHighlight(enabled);
-    });
 
     ipcRenderer.on('show-search', () => {
       this.searchManager.showSearch();
@@ -243,6 +237,11 @@ class AppManager {
     ipcRenderer.on('restore-app-state', () => {
       console.log('[DEBUG] 收到窗口重新显示的状态恢复请求');
       this.restoreAppState();
+    });
+
+    // 监听插件切换事件
+    ipcRenderer.on('toggle-plugin', (event, data) => {
+      this.togglePlugin(data.pluginId, data.enabled);
     });
 
   }
@@ -414,17 +413,6 @@ class AppManager {
   }
 
 
-  initializeKeywordHighlight() {
-    // 从 localStorage 加载关键词高亮状态
-    const saved = localStorage.getItem('keywordHighlightEnabled');
-    const enabled = saved !== null ? saved === 'true' : true; // 默认启用
-    
-    this.markdownRenderer.setKeywordHighlight(enabled);
-    
-    // 通知主进程更新菜单状态
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('update-keyword-highlight-menu', enabled);
-  }
 
   /**
    * 初始化插件系统
@@ -436,6 +424,9 @@ class AppManager {
         if (window.pluginIntegration) {
           await window.pluginIntegration.init();
           console.log('[AppManager] 插件系统初始化完成');
+          
+          // 插件系统初始化完成后，加载插件状态
+          await this.loadPluginStates();
         }
       }, 100);
     } catch (error) {
@@ -443,18 +434,75 @@ class AppManager {
     }
   }
 
-  toggleKeywordHighlight(enabled) {
-    this.markdownRenderer.setKeywordHighlight(enabled);
-    localStorage.setItem('keywordHighlightEnabled', enabled.toString());
-    
-    // 通知主进程更新菜单状态
+  async loadPluginStates() {
+    if (!window.pluginManager) return;
+
     const { ipcRenderer } = require('electron');
-    ipcRenderer.send('update-keyword-highlight-menu', enabled);
     
-    // 重新渲染当前内容
-    const currentContent = this.editorManager.getCurrentContent();
-    if (currentContent) {
-      this.editorManager.updatePreview(currentContent);
+    try {
+      // 获取保存的插件设置
+      const pluginSettings = await ipcRenderer.invoke('get-plugin-settings');
+      
+      // 为每个插件应用保存的状态
+      const allPlugins = window.pluginManager.getAllPlugins();
+      for (const plugin of allPlugins) {
+        const savedState = pluginSettings[plugin.id];
+        if (savedState !== undefined) {
+          if (savedState) {
+            plugin.enable();
+          } else {
+            plugin.disable();
+          }
+        }
+      }
+      
+      // 通知主进程更新菜单状态
+      ipcRenderer.send('update-plugin-menu-states', allPlugins.map(plugin => ({
+        id: plugin.id,
+        name: plugin.name,
+        enabled: plugin.isActive(),
+        shortcuts: plugin.shortcuts || []
+      })));
+      
+    } catch (error) {
+      console.error('加载插件状态失败:', error);
+    }
+  }
+
+
+  async togglePlugin(pluginId, enabled) {
+    if (!window.pluginManager) {
+      console.warn('插件管理器未初始化');
+      return;
+    }
+
+    const plugin = window.pluginManager.getPlugin(pluginId);
+    if (!plugin) {
+      console.warn(`插件 ${pluginId} 不存在`);
+      return;
+    }
+
+    try {
+      // 保存插件设置
+      const { ipcRenderer } = require('electron');
+      await ipcRenderer.invoke('save-plugin-settings', pluginId, enabled);
+
+      // 切换插件状态
+      if (enabled) {
+        plugin.enable();
+      } else {
+        plugin.disable();
+      }
+
+      // 重新渲染当前内容
+      const currentContent = this.editorManager.getCurrentContent();
+      if (currentContent) {
+        this.editorManager.updatePreview(currentContent);
+      }
+
+      console.log(`插件 ${plugin.name} 已${enabled ? '启用' : '禁用'}`);
+    } catch (error) {
+      console.error(`切换插件 ${pluginId} 失败:`, error);
     }
   }
 

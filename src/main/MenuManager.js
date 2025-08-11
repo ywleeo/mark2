@@ -5,10 +5,26 @@ class MenuManager {
     this.windowManager = windowManager;
     this.fileManager = fileManager;
     this.fileWatcher = fileWatcher;
-    this.keywordHighlightEnabled = true;
     this.currentTheme = 'light';
     this.sidebarEnabled = false; // 新增：sidebar 是否启用状态
     this.isEditMode = false; // 新增：是否处于编辑模式
+    this.pluginStates = new Map(); // 插件启用状态
+    
+    // 初始化设置
+    this.initializeSettings();
+  }
+
+  async initializeSettings() {
+    const SettingsManager = require('./SettingsManager');
+    
+    try {
+      // 加载主题设置
+      const themeSettings = await SettingsManager.getThemeSettings();
+      this.currentTheme = themeSettings.theme || 'light';
+      
+    } catch (error) {
+      console.error('初始化菜单设置失败:', error);
+    }
   }
 
   createMenu() {
@@ -104,13 +120,6 @@ class MenuManager {
               }
             ]
           },
-          {
-            label: '关键词高亮',
-            type: 'checkbox',
-            checked: this.keywordHighlightEnabled,
-            accelerator: 'CmdOrCtrl+K',
-            click: (menuItem) => this.toggleKeywordHighlight(menuItem.checked)
-          },
           { type: 'separator' },
           {
             label: '显示设置',
@@ -124,6 +133,10 @@ class MenuManager {
             click: () => this.toggleDevTools()
           }
         ]
+      },
+      {
+        label: '工具',
+        submenu: this.createToolsSubmenu()
       }
     ];
 
@@ -217,11 +230,6 @@ class MenuManager {
   }
 
 
-  toggleKeywordHighlight(enabled) {
-    this.keywordHighlightEnabled = enabled;
-    const mainWindow = this.windowManager.getWindow();
-    mainWindow.webContents.send('toggle-keyword-highlight', enabled);
-  }
 
   showSettings() {
     const mainWindow = this.windowManager.getWindow();
@@ -233,10 +241,71 @@ class MenuManager {
     mainWindow.webContents.toggleDevTools();
   }
 
-  updateKeywordHighlightMenu(enabled) {
-    this.keywordHighlightEnabled = enabled;
-    // 重新创建菜单以更新复选框状态
+
+  createToolsSubmenu() {
+    const toolsSubmenu = [];
+    
+    // 添加所有插件（包括关键词高亮）
+    for (const [pluginId, pluginInfo] of this.pluginStates) {
+      const menuItem = {
+        label: pluginInfo.name || pluginId,
+        type: 'checkbox',
+        checked: pluginInfo.enabled,
+        click: (menuItem) => this.togglePlugin(pluginId, menuItem.checked)
+      };
+      
+      // 如果插件有快捷键配置，添加快捷键
+      if (pluginInfo.shortcuts && pluginInfo.shortcuts.length > 0) {
+        menuItem.accelerator = pluginInfo.shortcuts[0].accelerator;
+      }
+      
+      toolsSubmenu.push(menuItem);
+    }
+    
+    // 如果没有任何工具/插件，显示提示信息
+    if (toolsSubmenu.length === 0) {
+      toolsSubmenu.push({
+        label: '暂无可用工具',
+        enabled: false
+      });
+    }
+    
+    return toolsSubmenu;
+  }
+
+  updatePluginStates(plugins) {
+    this.pluginStates.clear();
+    
+    for (const plugin of plugins) {
+      this.pluginStates.set(plugin.id, {
+        name: plugin.name,
+        enabled: plugin.enabled,
+        shortcuts: plugin.shortcuts || []
+      });
+    }
+    
+    // 重新创建菜单以更新插件状态
     this.createMenu();
+  }
+
+  async togglePlugin(pluginId, enabled) {
+    // 更新本地状态
+    const pluginInfo = this.pluginStates.get(pluginId);
+    if (pluginInfo) {
+      pluginInfo.enabled = enabled;
+    }
+    
+    // 保存设置到本地存储
+    const SettingsManager = require('./SettingsManager');
+    try {
+      await SettingsManager.savePluginSettings(pluginId, enabled);
+    } catch (error) {
+      console.error('保存插件设置失败:', error);
+    }
+    
+    // 通知渲染进程更新插件状态
+    const mainWindow = this.windowManager.getWindow();
+    mainWindow.webContents.send('toggle-plugin', { pluginId, enabled });
   }
 }
 

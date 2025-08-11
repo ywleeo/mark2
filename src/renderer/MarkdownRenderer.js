@@ -3,7 +3,6 @@ const hljs = require('highlight.js');
 
 class MarkdownRenderer {
   constructor() {
-    this.keywordHighlightEnabled = true;
     this.setupMarked();
   }
 
@@ -84,10 +83,8 @@ class MarkdownRenderer {
       // 隔离样式标签，防止样式冲突
       html = this.sanitizeStyles(html);
       
-      // 应用关键词高亮
-      if (this.keywordHighlightEnabled) {
-        html = this.applyKeywordHighlight(html);
-      }
+      // 应用关键词高亮（通过插件系统）
+      html = this.applyKeywordHighlight(html);
       
       return html;
     } catch (error) {
@@ -155,43 +152,15 @@ class MarkdownRenderer {
   }
 
   applyKeywordHighlight(html) {
-    
-    // 优先使用插件系统处理
+    // 完全通过插件系统处理
     if (window.pluginManager && window.pluginManager.initialized) {
-      const result = window.pluginManager.processMarkdown(html);
-      return result;
+      return window.pluginManager.processMarkdown(html);
     }
     
-    // 回退到原有的 KeywordHighlighter 系统
-    if (window.keywordHighlighter) {
-      const result = window.keywordHighlighter.highlight(html);
-      return result;
-    }
-    
-    // 最后的降级处理：使用简单的关键词高亮
-    const keywords = [
-      'TODO', 'FIXME', 'NOTE', 'IMPORTANT', 'WARNING', 'DEPRECATED',
-      '重要', '注意', '警告', '待办', '修复', '已弃用'
-    ];
-    
-    let highlightedHtml = html;
-    
-    keywords.forEach(keyword => {
-      const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
-      highlightedHtml = highlightedHtml.replace(regex, 
-        `<mark class="highlight-keyword">${keyword}</mark>`);
-    });
-    
-    return highlightedHtml;
+    // 如果插件系统未初始化，直接返回原始HTML
+    return html;
   }
 
-  setKeywordHighlight(enabled) {
-    this.keywordHighlightEnabled = enabled;
-  }
-
-  isKeywordHighlightEnabled() {
-    return this.keywordHighlightEnabled;
-  }
 }
 
 module.exports = MarkdownRenderer;
