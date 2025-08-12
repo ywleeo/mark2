@@ -130,9 +130,8 @@ class AppManager {
 
     // 主题变化事件
     this.eventManager.on('theme-changed', (theme) => {
-      this.markdownRenderer.setKeywordHighlight(
-        localStorage.getItem('keywordHighlightEnabled') !== 'false'
-      );
+      // 主题变化时，插件系统会自动重新渲染样式
+      // 无需手动调用关键词高亮设置
     });
 
     // 侧边栏切换事件
@@ -184,7 +183,7 @@ class AppManager {
         } else {
           // 没有未保存的更改，直接更新内容，但保持当前编辑模式
           this.editorManager.setContent(data.content, data.filePath, false, false); // 不重置保存状态，不重置编辑模式
-          this.uiManager.showMessage('文件内容已自动更新', 'info');
+          // this.uiManager.showMessage('文件内容已自动更新', 'info');
         }
       }
     });

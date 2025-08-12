@@ -1,0 +1,52 @@
+{
+  "name": "Todo List",
+  "version": "1.0.0",
+  "description": "交互式 Markdown 任务列表插件，支持点击切换完成状态并自动保存",
+  "enabled": true,
+  "config": {
+    "general": {
+      "autoSave": true,
+      "enableAnimation": true,
+      "showProgress": true
+    },
+    "styles": {
+      "light": {
+        "checkboxColor": "#10b981",
+        "checkboxBackground": "#ffffff",
+        "checkboxBorder": "#cbd5e0",
+        "checkboxHoverBorder": "#10b981",
+        "checkboxCheckedBackground": "#10b981",
+        "checkboxCheckedBorder": "#10b981",
+        "checkmarkColor": "#ffffff",
+        "checkmarkSize": "12px",
+        "checkmarkSymbol": "✓",
+        "checkmarkPosition": { "left": "0", "top": "-1px" },
+        "completedTextColor": "#6b7280",
+        "hoverBackground": "#f3f4f6"
+      },
+      "dark": {
+        "checkboxColor": "#34d399",
+        "checkboxBackground": "#2d3748",
+        "checkboxBorder": "#4a5568",
+        "checkboxHoverBorder": "#34d399",
+        "checkboxCheckedBackground": "#2d3748",
+        "checkboxCheckedBorder": "#34d399",
+        "checkmarkColor": "#ffffff",
+        "checkmarkSize": "12px",
+        "checkmarkSymbol": "✓",
+        "checkmarkPosition": { "left": "0", "top": "-1px" },
+        "completedTextColor": "#9ca3af",
+        "hoverBackground": "#374151"
+      }
+    },
+    "animation": {
+      "duration": "200ms",
+      "easing": "ease-in-out"
+    },
+    "checkbox": {
+      "size": "16px",
+      "borderRadius": "3px",
+      "borderWidth": "2px"
+    }
+  }
+}
