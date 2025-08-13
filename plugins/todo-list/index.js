@@ -377,6 +377,8 @@ class TodoListPlugin extends BasePlugin {
             newChecked = checkbox.checked;
         }
         
+        this.api.log(this.name, `处理 checkbox 点击: 行 ${lineNumber}, 新状态: ${newChecked}`);
+        
         try {
             // 获取当前文件信息
             const fileInfo = this.getCurrentFileInfo();
@@ -390,11 +392,13 @@ class TodoListPlugin extends BasePlugin {
             const success = await this.updateTaskState(fileInfo, lineNumber, newChecked);
             
             if (success) {
+                this.api.log(this.name, `任务状态更新成功: 行 ${lineNumber}, 新状态: ${newChecked}`);
                 // 确保checkbox状态正确
                 checkbox.checked = newChecked;
                 // 立即更新UI
                 this.updateTaskUI(checkbox, newChecked);
             } else {
+                this.api.warn(this.name, `任务状态更新失败: 行 ${lineNumber}, 尝试状态: ${newChecked}`);
                 // 如果更新失败，恢复checkbox状态
                 checkbox.checked = !newChecked;
             }
@@ -431,7 +435,10 @@ class TodoListPlugin extends BasePlugin {
             
             const newLine = line.replace(regex, `$1${checked ? 'x' : ' '}$2`);
             
+            this.api.log(this.name, `行内容更新: "${line}" → "${newLine}"`);
+            
             if (newLine === line) {
+                this.api.warn(this.name, '行内容没有变化，跳过更新');
                 return false;
             }
             
@@ -441,6 +448,7 @@ class TodoListPlugin extends BasePlugin {
             // 更新文件内容
             await this.updateFileContent(newContent);
             
+            this.api.log(this.name, `文件内容更新完成: 行 ${lineNumber}`);
             return true;
             
         } catch (error) {
@@ -465,6 +473,10 @@ class TodoListPlugin extends BasePlugin {
                 
                 // 更新 EditorManager 的状态
                 if (window.editorManager) {
+                    // 同步更新 originalContent，确保编辑模式切换时内容一致
+                    window.editorManager.originalContent = newContent;
+                    this.api.log(this.name, 'EditorManager.originalContent 已同步更新');
+                    
                     // 标记为有未保存的更改
                     window.editorManager.hasUnsavedChanges = true;
                     window.editorManager.updateSaveButton();

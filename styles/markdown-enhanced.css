@@ -8,7 +8,7 @@
     padding: 0 12px 1px 15px; /* 右侧留出呼吸空间 */
     border-bottom: none !important; /* 移除原有下划线 */
     position: relative;
-    background: linear-gradient(90deg, #2fdfa450 0%, var(--h2-background-color, rgba(61 141 241 / 0%)) 100%) left bottom;
+    background: linear-gradient(90deg, #61a2ff78 0%, var(--h2-background-color, rgba(61 141 241 / 0%)) 100%) left bottom;
     background-size: 100% 40%; /* 覆盖文字下半部分 */
     background-repeat: no-repeat;
     background-position: bottom;

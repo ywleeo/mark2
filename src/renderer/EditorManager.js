@@ -152,7 +152,7 @@ class EditorManager {
     }
   }
 
-  toggleEditMode() {
+  async toggleEditMode() {
     // 保存当前模式的滚动位置
     this.saveCurrentScrollPosition();
     
@@ -177,10 +177,44 @@ class EditorManager {
         editorContent.style.display = 'block';
         const editor = document.getElementById('editorTextarea');
         if (editor) {
-          editor.value = this.originalContent;
+          console.log('[EditorManager] 切换到编辑模式:', {
+            editorValue: editor.value ? editor.value.substring(0, 100) + '...' : '(空)',
+            originalContent: this.originalContent ? this.originalContent.substring(0, 100) + '...' : '(空)',
+            hasUnsavedChanges: this.hasUnsavedChanges,
+            needsUpdate: !editor.value || editor.value !== this.originalContent
+          });
+          
+          // 强制从磁盘重新读取文件内容，确保编辑器显示最新版本
+          if (this.currentFilePath) {
+            console.log('[EditorManager] 强制从磁盘重新读取文件:', this.currentFilePath);
+            
+            const { ipcRenderer } = require('electron');
+            try {
+              const result = await ipcRenderer.invoke('open-file-dialog', this.currentFilePath);
+              if (result && result.content) {
+                this.originalContent = result.content;
+                editor.value = result.content;
+                console.log('[EditorManager] 成功从磁盘重新加载文件内容');
+              } else {
+                console.log('[EditorManager] 磁盘读取失败，使用缓存的 originalContent');
+                editor.value = this.originalContent;
+              }
+            } catch (error) {
+              console.error('[EditorManager] 读取文件失败:', error);
+              editor.value = this.originalContent;
+            }
+          } else {
+            console.log('[EditorManager] 无文件路径，使用缓存的 originalContent');
+            editor.value = this.originalContent;
+          }
           editor.focus();
           
-          // 初始化语法高亮器
+          // 强制重新初始化语法高亮器，确保使用最新内容
+          if (this.markdownHighlighter) {
+            console.log('[EditorManager] 销毁现有的 CodeMirror 实例');
+            this.markdownHighlighter.destroy();
+            this.markdownHighlighter = null;
+          }
           this.initMarkdownHighlighter(editor);
           
           // 等待 CodeMirror 内容加载完成后恢复滚动位置
