@@ -700,6 +700,15 @@ class AppManager {
         event.preventDefault();
         this.uiManager.showSettings();
       }
+      
+      // ESC 关闭设置对话框
+      if (event.key === 'Escape') {
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal && settingsModal.style.display === 'flex') {
+          event.preventDefault();
+          this.uiManager.closeSettings();
+        }
+      }
     });
   }
 
