@@ -1133,35 +1133,45 @@ class AppManager {
       existingRightOverlay.remove();
     }
     
-    // 1. 始终绘制 sidebar 热区
+    // 检查 sidebar 状态
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return; // 没有sidebar就不绘制任何热区
     
-    // 如果sidebar还没有完全渲染，延迟调用
-    const sidebarWidth = sidebar.offsetWidth;
-    if (sidebarWidth < 200) {
-      // sidebar还在动画中或还没渲染完毕，延迟重试
-      setTimeout(() => {
-        this.ensureTitleBarDragArea();
-      }, 100);
-      return;
-    }
+    // 检查 sidebar 是否可见
+    const isSidebarVisible = this.uiManager && this.uiManager.isSidebarVisible() && 
+                             !sidebar.classList.contains('hidden');
     
-    if (sidebarWidth > 0) {
-      const leftDragOverlay = document.createElement('div');
-      leftDragOverlay.id = 'titlebar-drag-overlay-left';
-      leftDragOverlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: ${sidebarWidth}px;
-        height: var(--titlebar-height);
-        z-index: 1002;
-        -webkit-app-region: drag;
-        pointer-events: auto;
-        background: transparent;
-      `;
-      document.body.appendChild(leftDragOverlay);
+    let sidebarWidth = 0;
+    
+    // 1. 只有当 sidebar 可见时才绘制左侧热区
+    if (isSidebarVisible) {
+      sidebarWidth = sidebar.offsetWidth;
+      
+      // 如果sidebar还没有完全渲染，延迟调用
+      if (sidebarWidth < 200) {
+        // sidebar还在动画中或还没渲染完毕，延迟重试
+        setTimeout(() => {
+          this.ensureTitleBarDragArea();
+        }, 100);
+        return;
+      }
+      
+      if (sidebarWidth > 0) {
+        const leftDragOverlay = document.createElement('div');
+        leftDragOverlay.id = 'titlebar-drag-overlay-left';
+        leftDragOverlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: ${sidebarWidth}px;
+          height: var(--titlebar-height);
+          z-index: 1002;
+          -webkit-app-region: drag;
+          pointer-events: auto;
+          background: transparent;
+        `;
+        document.body.appendChild(leftDragOverlay);
+      }
     }
     
     // 2. 只有当没有 tab 时，才绘制右侧热区

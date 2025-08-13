@@ -92,10 +92,18 @@ class UIManager {
         sidebar.classList.remove('hidden');
         // 恢复保存的宽度，或使用默认宽度
         this.loadSidebarWidth();
+        
+        // 显示 sidebar 时重新绘制热区
+        if (window.appManager && typeof window.appManager.ensureTitleBarDragArea === 'function') {
+          window.appManager.ensureTitleBarDragArea();
+        }
       } else {
         sidebar.classList.add('hidden');
         // 隐藏时清除内联样式，让 CSS 类生效
         sidebar.style.width = '';
+        
+        // 隐藏 sidebar 时销毁热区
+        this.clearTitleBarDragAreas();
       }
     }
   }
@@ -498,6 +506,23 @@ class UIManager {
         }
       }
     });
+  }
+
+  // 清理所有标题栏拖拽热区
+  clearTitleBarDragAreas() {
+    // 移除所有拖拽覆盖层
+    const existingOverlay = document.getElementById('titlebar-drag-overlay');
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
+    const existingLeftOverlay = document.getElementById('titlebar-drag-overlay-left');
+    if (existingLeftOverlay) {
+      existingLeftOverlay.remove();
+    }
+    const existingRightOverlay = document.getElementById('titlebar-drag-overlay-right');
+    if (existingRightOverlay) {
+      existingRightOverlay.remove();
+    }
   }
 }
 
