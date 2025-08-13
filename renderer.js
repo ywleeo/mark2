@@ -31,11 +31,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 function loadInitialSettings() {
-  // 从localStorage恢复关键词高亮设置
-  const keywordHighlightEnabled = localStorage.getItem('keywordHighlightEnabled') !== 'false';
-  if (appManager) {
-    appManager.getMarkdownRenderer().setKeywordHighlight(keywordHighlightEnabled);
-  }
+  // 关键词高亮功能现在通过插件系统管理，无需单独设置
 }
 
 // 所有功能已模块化，由AppManager统一管理

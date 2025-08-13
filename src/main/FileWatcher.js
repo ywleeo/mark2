@@ -28,7 +28,6 @@ class FileWatcher {
       this.watchedPath = folderPath;
       this.watcher = fs.watch(folderPath, { recursive: true }, (eventType, filename) => {
         if (filename && !filename.startsWith('.')) {
-          console.log(`FileWatcher: 文件变化检测到 - 事件类型: ${eventType}, 文件名: ${filename}`);
           // 只有在文件/文件夹结构发生变化时才刷新文件树
           // 'rename' 事件表示文件/文件夹的创建、删除、重命名
           // 'change' 事件只表示文件内容修改，不需要刷新文件树

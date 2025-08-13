@@ -58,7 +58,6 @@
 }
 /* 行内代码增强 */
 .markdown-content code {
-    display: block;
     padding: 2px;
     border-radius: 4px;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;

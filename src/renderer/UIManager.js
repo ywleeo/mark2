@@ -92,23 +92,10 @@ class UIManager {
         sidebar.classList.remove('hidden');
         // 恢复保存的宽度，或使用默认宽度
         this.loadSidebarWidth();
-        console.log('[DEBUG] Sidebar 显示 - tab栏样式检查:', {
-          platform: process.platform,
-          sidebarHidden: false,
-          tabBarPaddingRight: tabBar ? getComputedStyle(tabBar).paddingRight : 'N/A'
-        });
       } else {
         sidebar.classList.add('hidden');
         // 隐藏时清除内联样式，让 CSS 类生效
         sidebar.style.width = '';
-        console.log('[DEBUG] Sidebar 隐藏 - tab栏样式检查:', {
-          platform: process.platform,
-          sidebarHidden: true,
-          tabBarPaddingLeft: tabBar ? getComputedStyle(tabBar).paddingLeft : 'N/A',
-          tabBarPaddingRight: tabBar ? getComputedStyle(tabBar).paddingRight : 'N/A',
-          bodyClasses: document.body.className,
-          sidebarClasses: sidebar.className
-        });
       }
     }
   }

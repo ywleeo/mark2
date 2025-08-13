@@ -52,7 +52,6 @@ class AppManager {
     requestAnimationFrame(() => {
       this.setupKeyboardShortcuts();
       // 恢复应用状态，热区绘制会在sidebar准备好后通过事件自动触发
-      console.log('[DEBUG] 构造函数中尝试恢复状态');
       this.restoreAppState();
     });
   }
@@ -234,7 +233,6 @@ class AppManager {
 
     // 监听状态恢复请求（窗口重新显示时）
     ipcRenderer.on('restore-app-state', () => {
-      console.log('[DEBUG] 收到窗口重新显示的状态恢复请求');
       this.restoreAppState();
     });
 
@@ -452,12 +450,26 @@ class AppManager {
       for (const plugin of allPlugins) {
         const savedState = pluginSettings[plugin.id];
         if (savedState !== undefined) {
+          // 有保存的状态，使用保存的状态
           if (savedState) {
             plugin.enable();
           } else {
             plugin.disable();
           }
+        } else {
+          // 没有保存的状态，使用插件的默认启用状态
+          if (plugin.enabled) {
+            plugin.enable();
+          } else {
+            plugin.disable();
+          }
         }
+      }
+      
+      // 重新渲染当前内容，确保启用的插件生效
+      const currentContent = this.editorManager.getCurrentContent();
+      if (currentContent) {
+        this.editorManager.updatePreview(currentContent);
       }
       
       // 通知主进程更新菜单状态
@@ -532,12 +544,6 @@ class AppManager {
   }
 
   resetToInitialState() {
-    console.log('[DEBUG] resetToInitialState 被调用');
-    console.log('[DEBUG] 重置前的状态:', {
-      tabs: this.tabs.length,
-      openFiles: this.fileTreeManager.openFiles.size,
-      openFolders: this.fileTreeManager.openFolders.size
-    });
     // 重置应用模式和状态
     this.appMode = null;
     this.currentFilePath = null;
@@ -1127,110 +1133,64 @@ class AppManager {
       existingRightOverlay.remove();
     }
     
-    // 判断右边是否有markdown内容显示
-    const markdownContent = document.querySelector('.markdown-content');
-    const hasMarkdownContent = markdownContent && 
-                               markdownContent.style.display !== 'none' && 
-                               markdownContent.innerHTML.trim();
+    // 1. 始终绘制 sidebar 热区
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return; // 没有sidebar就不绘制任何热区
     
-    // 获取tab栏的位置信息，避免覆盖tab区域
-    const tabBar = document.getElementById('tabBar');
-    const tabBarRect = tabBar ? tabBar.getBoundingClientRect() : null;
-    
-    // 根据状态决定拖拽区域宽度和位置
-    let dragWidth;
-    let dragLeft = 0;
-    
-    if (hasMarkdownContent) {
-      // 有markdown内容时，只覆盖sidebar区域，但要避开tab区域
-      const sidebar = document.getElementById('sidebar');
-      if (!sidebar) return; // 没有sidebar就不绘制热区
-      // 使用CSS样式宽度而不是offsetWidth，避免布局限制影响
-      const sidebarWidth = sidebar.style.width ? parseInt(sidebar.style.width) : sidebar.offsetWidth;
-      console.log('热区绘制 - 使用宽度:', sidebarWidth, 'CSS样式宽度:', sidebar.style.width, '实际offsetWidth:', sidebar.offsetWidth);
-      
-      if (tabBarRect && tabBar.style.display !== 'none') {
-        // 如果有tab栏显示，拖拽区域应该覆盖sidebar的设计宽度，而不是tab栏的实际位置
-        dragWidth = sidebarWidth;
-      } else {
-        // 没有tab栏时覆盖整个sidebar
-        dragWidth = sidebarWidth;
-      }
-    } else {
-      // 没有markdown内容时，热区贯穿整个窗口宽度，但仍要避开tab区域
-      if (tabBarRect && tabBar.style.display !== 'none') {
-        // 创建两个拖拽区域：sidebar宽度的左侧区域和tab栏右侧区域
-        const sidebar = document.getElementById('sidebar');
-        const leftWidth = sidebar && sidebar.style.width ? parseInt(sidebar.style.width) : (sidebar ? sidebar.offsetWidth : 260);
-        const rightLeft = tabBarRect.right;
-        const rightWidth = Math.max(0, window.innerWidth - rightLeft);
-        
-        // 创建左侧拖拽区域
-        if (leftWidth > 0) {
-          const leftDragOverlay = document.createElement('div');
-          leftDragOverlay.id = 'titlebar-drag-overlay-left';
-          leftDragOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: ${dragLeft}px;
-            width: ${leftWidth}px;
-            height: var(--titlebar-height);
-            z-index: 1002;
-            -webkit-app-region: drag;
-            pointer-events: auto;
-            background: transparent;
-          `;
-          document.body.appendChild(leftDragOverlay);
-        }
-        
-        // 创建右侧拖拽区域
-        if (rightWidth > 0) {
-          const rightDragOverlay = document.createElement('div');
-          rightDragOverlay.id = 'titlebar-drag-overlay-right';
-          rightDragOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: ${rightLeft}px;
-            width: ${rightWidth}px;
-            height: var(--titlebar-height);
-            z-index: 1002;
-            -webkit-app-region: drag;
-            pointer-events: auto;
-            background: transparent;
-          `;
-          document.body.appendChild(rightDragOverlay);
-        }
-        return; // 已经创建了分段的拖拽区域，直接返回
-      } else {
-        // 没有tab栏时覆盖整个窗口宽度
-        dragWidth = window.innerWidth;
-      }
+    // 如果sidebar还没有完全渲染，延迟调用
+    const sidebarWidth = sidebar.offsetWidth;
+    if (sidebarWidth < 200) {
+      // sidebar还在动画中或还没渲染完毕，延迟重试
+      setTimeout(() => {
+        this.ensureTitleBarDragArea();
+      }, 100);
+      return;
     }
     
-    // 只在dragWidth > 0时创建拖拽区域
-    if (dragWidth > 0) {
-      const dragOverlay = document.createElement('div');
-      dragOverlay.id = 'titlebar-drag-overlay';
-      dragOverlay.style.cssText = `
+    if (sidebarWidth > 0) {
+      const leftDragOverlay = document.createElement('div');
+      leftDragOverlay.id = 'titlebar-drag-overlay-left';
+      leftDragOverlay.style.cssText = `
         position: fixed;
         top: 0;
-        left: ${dragLeft}px;
-        width: ${dragWidth}px;
+        left: 0;
+        width: ${sidebarWidth}px;
         height: var(--titlebar-height);
         z-index: 1002;
         -webkit-app-region: drag;
         pointer-events: auto;
         background: transparent;
       `;
-      
-      // 添加到页面最前层
-      document.body.appendChild(dragOverlay);
+      document.body.appendChild(leftDragOverlay);
+    }
+    
+    // 2. 只有当没有 tab 时，才绘制右侧热区
+    const tabBar = document.getElementById('tabBar');
+    const hasNoTabs = !tabBar || tabBar.style.display === 'none' || this.tabs.length === 0;
+    
+    if (hasNoTabs) {
+      const rightWidth = Math.max(0, window.innerWidth - sidebarWidth);
+      if (rightWidth > 0) {
+        const rightDragOverlay = document.createElement('div');
+        rightDragOverlay.id = 'titlebar-drag-overlay-right';
+        rightDragOverlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: ${sidebarWidth}px;
+          width: ${rightWidth}px;
+          height: var(--titlebar-height);
+          z-index: 1002;
+          -webkit-app-region: drag;
+          pointer-events: auto;
+          background: transparent;
+        `;
+        document.body.appendChild(rightDragOverlay);
+      }
     }
   }
 
   // 状态保持功能
   saveAppState() {
-    console.log('[DEBUG] saveAppState 被调用');
     const state = {
       tabs: this.tabs.map(tab => ({
         id: tab.id,
@@ -1252,24 +1212,16 @@ class AppManager {
     };
     
     localStorage.setItem('mark2-app-state', JSON.stringify(state));
-    console.log('[DEBUG] 状态已保存到 localStorage:', {
-      tabs: state.tabs.length,
-      openFiles: state.openFiles ? state.openFiles.length : 0,
-      openFolders: state.openFolders ? state.openFolders.length : 0
-    });
   }
 
   restoreAppState() {
-    console.log('[DEBUG] restoreAppState 被调用');
     
     // 防止重复调用导致状态混乱
     if (this.isRestoringState) {
-      console.log('[DEBUG] 正在恢复状态中，跳过重复调用');
       return false;
     }
     
     const saved = localStorage.getItem('mark2-app-state');
-    console.log('[DEBUG] localStorage 中的状态:', saved ? '存在' : '不存在');
     if (!saved) {
       return false;
     }
@@ -1329,11 +1281,6 @@ class AppManager {
       
       // 刷新文件树显示
       this.fileTreeManager.refreshSidebarTree();
-      console.log('[DEBUG] 状态恢复完成:', {
-        tabs: this.tabs.length,
-        openFiles: this.fileTreeManager.openFiles.size,
-        openFolders: this.fileTreeManager.openFolders.size
-      });
       
       // 重新启动文件监听 - 解决状态恢复后监听失效的问题
       this.restartFileWatching();
@@ -1341,11 +1288,14 @@ class AppManager {
       // 确保sidebar宽度正确恢复并触发热区绘制
       this.uiManager.loadSidebarWidth();
       
+      // 确保在状态完全恢复后，拖拽热区能正确考虑tab的存在
+      requestAnimationFrame(() => {
+        this.ensureTitleBarDragArea();
+      });
+      
       this.isRestoringState = false; // 恢复完成，重置标志
       return true;
     } catch (error) {
-      console.error('[DEBUG] 恢复应用状态失败:', error);
-      console.log('[DEBUG] 保留状态数据，不清除 localStorage');
       // localStorage.removeItem('mark2-app-state'); // 修复：即使恢复失败也不清除状态
       this.isRestoringState = false; // 即使失败也要重置标志
       return false;
