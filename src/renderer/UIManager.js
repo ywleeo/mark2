@@ -93,10 +93,8 @@ class UIManager {
         // 恢复保存的宽度，或使用默认宽度
         this.loadSidebarWidth();
         
-        // 显示 sidebar 时重新绘制热区
-        if (window.appManager && typeof window.appManager.ensureTitleBarDragArea === 'function') {
-          window.appManager.ensureTitleBarDragArea();
-        }
+        // 显示 sidebar 时监控尺寸变化直到稳定
+        this.monitorSidebarSizeAndRedrawHotArea();
       } else {
         sidebar.classList.add('hidden');
         // 隐藏时清除内联样式，让 CSS 类生效
@@ -475,9 +473,10 @@ class UIManager {
       const width = parseInt(savedWidth);
       if (width >= 200 && width <= 500) {
         sidebar.style.width = width + 'px';
-        // 如果sidebar当前可见，重新绘制拖拽热区
+        // 如果sidebar当前可见，使用监控机制重新绘制拖拽热区
         if (this.sidebarVisible && window.appManager && typeof window.appManager.ensureTitleBarDragArea === 'function') {
-          window.appManager.ensureTitleBarDragArea();
+          // 不直接调用，而是使用监控机制确保尺寸稳定
+          this.monitorSidebarSizeAndRedrawHotArea();
         }
       }
     } else {
@@ -523,6 +522,53 @@ class UIManager {
     if (existingRightOverlay) {
       existingRightOverlay.remove();
     }
+  }
+
+  // 监控 sidebar 尺寸变化并在稳定后重绘热区
+  monitorSidebarSizeAndRedrawHotArea() {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || !window.appManager || typeof window.appManager.ensureTitleBarDragArea !== 'function') {
+      return;
+    }
+
+    let lastWidth = 0;
+    let stableCount = 0;
+    const requiredStableFrames = 3; // 需要连续3帧尺寸不变才认为稳定
+    const maxAttempts = 30; // 最多尝试30次，避免无限循环
+    let attempts = 0;
+
+    const checkSize = () => {
+      attempts++;
+      const currentWidth = sidebar.offsetWidth;
+      
+      console.log(`[UIManager] 监控 sidebar 尺寸: ${currentWidth}px (第${attempts}次检查)`);
+      
+      if (currentWidth === lastWidth && currentWidth >= 200) {
+        stableCount++;
+        if (stableCount >= requiredStableFrames) {
+          // 尺寸已稳定，绘制热区
+          console.log(`[UIManager] sidebar 尺寸稳定在 ${currentWidth}px，绘制热区`);
+          window.appManager.ensureTitleBarDragArea();
+          return;
+        }
+      } else {
+        stableCount = 0; // 重置稳定计数
+      }
+      
+      lastWidth = currentWidth;
+      
+      // 如果还没稳定且没有超过最大尝试次数，继续监控
+      if (attempts < maxAttempts) {
+        requestAnimationFrame(checkSize);
+      } else {
+        // 超过最大尝试次数，强制绘制热区
+        console.log(`[UIManager] sidebar 尺寸监控超时，强制绘制热区 (当前宽度: ${currentWidth}px)`);
+        window.appManager.ensureTitleBarDragArea();
+      }
+    };
+
+    // 开始监控
+    requestAnimationFrame(checkSize);
   }
 }
 
