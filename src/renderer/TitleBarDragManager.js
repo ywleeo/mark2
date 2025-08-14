@@ -135,10 +135,10 @@ class TitleBarDragManager {
     // 更新右侧热区
     this.createOrUpdateOverlay('right', regions.right);
 
-    console.log(`[TitleBarDragManager] 热区已更新:`, {
-      左侧热区: regions.left.show ? `${regions.left.width}px` : '无',
-      右侧热区: regions.right.show ? `${regions.right.width}px` : '无'
-    });
+    // console.log(`[TitleBarDragManager] 热区已更新:`, {
+    //   左侧热区: regions.left.show ? `${regions.left.width}px` : '无',
+    //   右侧热区: regions.right.show ? `${regions.right.width}px` : '无'
+    // });
   }
 
   // 主要的更新方法
@@ -192,7 +192,7 @@ class TitleBarDragManager {
       }
 
       const currentWidth = sidebar.offsetWidth;
-      console.log(`[TitleBarDragManager] 监控sidebar尺寸: ${currentWidth}px (第${this.monitoringAttempts}次检查)`);
+      // console.log(`[TitleBarDragManager] 监控sidebar尺寸: ${currentWidth}px (第${this.monitoringAttempts}次检查)`);
 
       if (currentWidth === lastWidth && currentWidth >= 200) {
         stableCount++;

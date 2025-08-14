@@ -6,9 +6,15 @@ const SearchManager = require('./SearchManager');
 const UIManager = require('./UIManager');
 const PluginIntegration = require('./PluginIntegration');
 const TitleBarDragManager = require('./TitleBarDragManager');
+const TabManager = require('./TabManager');
+const ShortcutManager = require('./ShortcutManager');
+const IPCManager = require('./IPCManager');
+const StateManager = require('./StateManager');
+const DragDropManager = require('./DragDropManager');
 
 class AppManager {
   constructor() {
+    // 初始化核心管理器
     this.eventManager = new EventManager();
     this.markdownRenderer = new MarkdownRenderer();
     this.fileTreeManager = new FileTreeManager(this.eventManager);
@@ -17,99 +23,59 @@ class AppManager {
     this.uiManager = new UIManager(this.eventManager);
     this.titleBarDragManager = new TitleBarDragManager(this.eventManager);
     
-    // 将editorManager和searchManager挂载到全局window对象
+    // 初始化新的专门管理器
+    this.tabManager = new TabManager(
+      this.eventManager, this.editorManager, this.uiManager, 
+      this.fileTreeManager, this.searchManager, this.titleBarDragManager
+    );
+    this.stateManager = new StateManager(
+      this.eventManager, this.tabManager, this.fileTreeManager,
+      this.uiManager, this.editorManager, this.titleBarDragManager
+    );
+    this.dragDropManager = new DragDropManager(
+      this.eventManager, this.uiManager, this.fileTreeManager,
+      this.tabManager, this.stateManager
+    );
+    this.ipcManager = new IPCManager(
+      this.eventManager, this, this.editorManager, this.uiManager,
+      this.fileTreeManager, this.searchManager, this.tabManager
+    );
+    this.shortcutManager = new ShortcutManager(
+      this.eventManager, this, this.editorManager, this.uiManager,
+      this.searchManager, this.tabManager
+    );
+    
+    // 将核心管理器挂载到全局window对象
     window.editorManager = this.editorManager;
     window.searchManager = this.searchManager;
     
-    // Tab 系统管理
-    this.tabs = [];
-    this.activeTabId = null;
-    this.nextTabId = 1;
-    
-    // 全局文件路径管理
-    this.currentFilePath = null;
-    this.currentFolderPath = null;
-    
-    // 应用模式管理：'single-file' | 'folder'
-    this.appMode = null;
-    
-    // 状态恢复标志，防止重复调用
-    this.isRestoringState = false;
-    
+    // 初始化应用
+    this.initialize();
+  }
+
+  async initialize() {
     // 初始化插件系统
-    this.initializePluginSystem();
+    await this.initializePluginSystem();
     
-    // 先设置事件监听器，确保sidebar-enabled事件能被监听到
-    this.setupEventListeners();
-    this.setupIPCListeners();
-    this.setupDragAndDrop();
+    // 设置基础事件监听
+    this.setupBasicEventListeners();
     
-    // 确保侧边栏始终启用（因为现在无论如何都会有标签页内容）
+    // 确保侧边栏始终启用
     this.uiManager.enableSidebar();
     
     // 初始化显示 sidebar 的 Files 和 Folders 节点
     this.fileTreeManager.refreshSidebarTree();
     
-    // 延迟设置键盘快捷键，确保DOM完全准备好
+    // 延迟恢复应用状态，确保DOM完全准备好
     requestAnimationFrame(() => {
-      this.setupKeyboardShortcuts();
-      // 恢复应用状态，热区绘制会在sidebar准备好后通过事件自动触发
-      this.restoreAppState();
+      this.stateManager.restoreAppState();
     });
   }
 
-  setupEventListeners() {
-    // 文件选择事件（单击）
-    this.eventManager.on('file-selected', async (filePath, forceNewTab = false, fileType = 'subfolder-file') => {
-      await this.openFileFromPath(filePath, true, forceNewTab, fileType); // 标记为从文件夹模式打开，传递文件类型
-    });
-
-    // 文件双击事件（添加到Files区域）
-    this.eventManager.on('file-double-clicked', async (filePath) => {
-      // 获取文件内容
-      const result = await require('electron').ipcRenderer.invoke('open-file-dialog', filePath);
-      if (result) {
-        // 将文件添加到Files区域
-        this.fileTreeManager.addFile(result.filePath, result.content);
-        
-        // 检查是否已经有这个文件的tab
-        const existingTab = this.findTabByPath(result.filePath);
-        if (existingTab) {
-          // 如果已存在tab，将其归属改为file
-          existingTab.belongsTo = 'file';
-          existingTab.content = result.content;
-          this.setActiveTab(existingTab.id);
-        } else {
-          // 如果没有tab，创建一个归属于file的tab
-          this.createTab(result.filePath, result.content, null, 'file');
-        }
-        
-        // 更新编辑器内容
-        this.editorManager.setContent(result.content, result.filePath);
-        
-        // 更新显示
-        this.uiManager.updateFileNameDisplay(result.filePath);
-        this.fileTreeManager.updateActiveFile(result.filePath);
-        
-        // 窗口标题现在是静态的，不需要更新
-        
-        // 显示markdown内容
-        const markdownContent = document.querySelector('.markdown-content');
-        
-        if (markdownContent) {
-          markdownContent.style.display = 'block';
-        }
-        
-        // 停止动画并调整窗口大小到内容加载状态
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.send('resize-window-to-content-loaded');
-      }
-    });
-
+  setupBasicEventListeners() {
     // 编辑模式切换事件
     this.eventManager.on('toggle-edit-mode', () => {
-      // 只有在有激活的tab时才允许切换编辑模式
-      if (this.activeTabId) {
+      if (this.tabManager.activeTabId) {
         this.editorManager.toggleEditMode();
       }
     });
@@ -129,17 +95,6 @@ class AppManager {
       this.openFolder();
     });
 
-    // 主题变化事件
-    this.eventManager.on('theme-changed', (theme) => {
-      // 主题变化时，插件系统会自动重新渲染样式
-      // 无需手动调用关键词高亮设置
-    });
-
-    // 侧边栏切换事件
-    this.eventManager.on('sidebar-toggled', (visible) => {
-      // 可以在这里添加侧边栏切换的额外逻辑
-    });
-
     // 文件树加载完成事件
     this.eventManager.on('file-tree-loaded', () => {
       this.uiManager.enableSidebar();
@@ -151,170 +106,6 @@ class AppManager {
         this.titleBarDragManager.updateDragRegions();
       }
     });
-    
-  }
-
-  setupIPCListeners() {
-    const { ipcRenderer } = require('electron');
-    
-    // 监听主进程发送的文件打开事件
-    ipcRenderer.on('file-opened', (event, data) => {
-      this.displayMarkdown(data.content, data.filePath, false, false, false, 'file');
-    });
-
-    // 监听主进程发送的文件夹打开事件
-    ipcRenderer.on('folder-opened', (event, data) => {
-      this.displayFileTree(data.folderPath, data.fileTree);
-    });
-
-    // 监听文件树更新事件
-    ipcRenderer.on('file-tree-updated', (event, data) => {
-      this.fileTreeManager.updateFileTree(data.folderPath, data.fileTree);
-    });
-
-    // 监听文件内容更新事件
-    ipcRenderer.on('file-content-updated', (event, data) => {
-      // 只有当更新的文件是当前正在显示的文件时才刷新
-      if (data.filePath === this.currentFilePath) {
-        // 更新编辑器内容（如果处于编辑模式，需要检查是否有未保存的更改）
-        if (this.editorManager.hasUnsavedContent()) {
-          // 如果有未保存的更改，显示警告提示用户
-          this.uiManager.showMessage('文件已被外部修改，但您有未保存的更改', 'warning');
-        } else {
-          // 没有未保存的更改，直接更新内容，但保持当前编辑模式
-          this.editorManager.setContent(data.content, data.filePath, false, false); // 不重置保存状态，不重置编辑模式
-          // this.uiManager.showMessage('文件内容已自动更新', 'info');
-        }
-      }
-    });
-
-    // 监听文件监听开始事件
-    ipcRenderer.on('file-watch-started', (event, data) => {
-      console.log('开始监听文件:', data.filePath);
-      // 更新UI状态，显示文件正在被监听
-      this.updateFileWatchStatus(data.filePath, true);
-    });
-
-    // 监听文件监听停止事件
-    ipcRenderer.on('file-watch-stopped', (event, data) => {
-      console.log('停止监听文件:', data.filePath);
-      // 更新UI状态，显示文件不再被监听
-      this.updateFileWatchStatus(data.filePath, false);
-    });
-
-    // 监听监听器错误事件
-    ipcRenderer.on('watcher-error', (event, data) => {
-      console.error('监听器错误:', data);
-      this.handleWatcherError(data);
-    });
-
-    // 监听菜单事件
-    ipcRenderer.on('toggle-sidebar', () => {
-      this.uiManager.toggleSidebar();
-    });
-
-    ipcRenderer.on('toggle-edit-mode', () => {
-      // 只有在有激活的tab时才允许切换编辑模式
-      if (this.activeTabId) {
-        this.editorManager.toggleEditMode();
-      }
-    });
-
-    ipcRenderer.on('switch-theme', (event, theme) => {
-      this.uiManager.switchTheme(theme);
-    });
-
-
-
-    ipcRenderer.on('show-search', () => {
-      this.searchManager.showSearch();
-    });
-
-    ipcRenderer.on('show-search-box', () => {
-      this.searchManager.show();
-    });
-
-    ipcRenderer.on('show-settings', () => {
-      this.uiManager.showSettings();
-    });
-
-    ipcRenderer.on('reset-to-initial-state', () => {
-      this.resetToInitialState();
-    });
-
-    // 监听新建文件请求
-    ipcRenderer.on('create-new-file', () => {
-      this.createNewFile();
-    });
-
-    // 监听 PDF 导出请求
-    ipcRenderer.on('export-pdf-request', () => {
-      this.exportToPDF();
-    });
-
-    // 监听状态恢复请求（窗口重新显示时）
-    ipcRenderer.on('restore-app-state', () => {
-      this.restoreAppState();
-    });
-
-    // 监听插件切换事件
-    ipcRenderer.on('toggle-plugin', (event, data) => {
-      this.togglePlugin(data.pluginId, data.enabled);
-    });
-
-    // 监听刷新插件事件
-    ipcRenderer.on('refresh-plugins', () => {
-      this.refreshPlugins();
-    });
-
-  }
-
-  setupDragAndDrop() {
-
-    document.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
-    });
-
-    document.addEventListener('drop', async (event) => {
-      event.preventDefault();
-      
-      const files = Array.from(event.dataTransfer.files);
-      
-      if (files.length === 0) {
-        this.uiManager.showMessage('未检测到拖拽的文件', 'error');
-        return;
-      }
-      
-      try {
-        // 直接使用 webUtils.getPathForFile 获取真实文件路径
-        const { webUtils, ipcRenderer } = require('electron');
-        const file = files[0];
-        const realPath = webUtils.getPathForFile(file);
-        
-        
-        // 使用真实路径调用处理逻辑
-        const result = await ipcRenderer.invoke('handle-drop-file', realPath);
-        
-        if (result.type === 'folder') {
-          this.currentFolderPath = result.folderPath;
-          this.displayFileTree(result.folderPath, result.fileTree);
-        } else if (result.type === 'file') {
-          this.currentFilePath = result.filePath;
-          // 检查文件是否已打开，如果已打开则激活现有tab
-          const existingTab = this.tabs.find(tab => tab.filePath === result.filePath);
-          if (existingTab) {
-            this.setActiveTab(existingTab.id);
-          } else {
-            // 文件未打开，创建新tab，标记为来自file节点
-            this.displayMarkdown(result.content, result.filePath, false, true, false, 'file');
-          }
-        }
-      } catch (error) {
-        console.error('拖拽处理错误:', error);
-        this.uiManager.showMessage('处理拖拽文件时发生错误: ' + error.message, 'error');
-      }
-    });
   }
 
   async openFile() {
@@ -323,47 +114,23 @@ class AppManager {
       const result = await ipcRenderer.invoke('open-file-dialog');
       
       if (result) {
-        this.currentFilePath = result.filePath;
-        this.displayMarkdown(result.content, result.filePath, false, false, false, 'file');
+        this.stateManager.setCurrentFilePath(result.filePath);
+        this.tabManager.openFileInTab(result.filePath, result.content, false, false, 'file');
+        this.fileTreeManager.addFile(result.filePath, result.content);
+        
+        // 显示markdown内容
+        const markdownContent = document.querySelector('.markdown-content');
+        if (markdownContent) {
+          markdownContent.style.display = 'block';
+        }
+        
+        // 调整窗口大小
+        ipcRenderer.send('resize-window-to-content-loaded');
       }
     } catch (error) {
       console.error('AppManager: Error in openFile:', error);
       this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
     }
-  }
-
-  createNewFile() {
-    // 创建一个新的空白文件，并进入编辑模式
-    const newFileContent = '';
-    const newFileName = 'Untitled.md';
-    
-    // 创建新tab，标记为file类型
-    const newTab = this.createTab(null, newFileContent, newFileName, 'file');
-    
-    // 将文件添加到Files区域，使用临时文件名
-    this.fileTreeManager.addFile(null, newFileContent, newFileName);
-    
-    // 设置当前文件路径为null，表示这是新文件
-    this.currentFilePath = null;
-    
-    // 更新编辑器内容并切换到编辑模式
-    this.editorManager.setContent(newFileContent, null);
-    this.uiManager.updateFileNameDisplay(newFileName);
-    
-    // 显示markdown内容区域
-    const markdownContent = document.querySelector('.markdown-content');
-    if (markdownContent) {
-      markdownContent.style.display = 'block';
-    }
-    
-    // 强制进入编辑模式
-    if (!this.editorManager.isInEditMode()) {
-      this.editorManager.toggleEditMode();
-    }
-    
-    // 调整窗口大小
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('resize-window-to-content-loaded');
   }
 
   async openFolder() {
@@ -372,74 +139,17 @@ class AppManager {
       const result = await ipcRenderer.invoke('open-folder-dialog');
       
       if (result) {
-        this.currentFolderPath = result.folderPath;
-        this.displayFileTree(result.folderPath, result.fileTree);
+        this.stateManager.setCurrentFolderPath(result.folderPath);
+        this.fileTreeManager.displayFileTree(result.folderPath, result.fileTree);
+        
+        // 调整窗口大小
+        ipcRenderer.send('resize-window-to-content-loaded');
       }
     } catch (error) {
       this.uiManager.showMessage('打开文件夹失败: ' + error.message, 'error');
     }
   }
 
-  async openFileFromPath(filePath, fromFolderMode = false, forceNewTab = false, fileType = 'subfolder-file') {
-    try {
-      const { ipcRenderer } = require('electron');
-      const result = await ipcRenderer.invoke('open-file-dialog', filePath);
-      
-      if (result) {
-        this.currentFilePath = result.filePath;
-        this.displayMarkdown(result.content, result.filePath, fromFolderMode, forceNewTab, false, fileType);
-      }
-    } catch (error) {
-      this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
-    }
-  }
-
-  displayMarkdown(content, filePath, fromFolderMode = false, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
-    // 使用Tab系统打开文件
-    this.openFileInTab(filePath, content, forceNewTab, fromDoubleClick, fileType);
-    
-    // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
-    if (!fromFolderMode) {
-      this.fileTreeManager.addFile(filePath, content);
-    }
-    
-    // 显示markdown内容
-    const markdownContent = document.querySelector('.markdown-content');
-    
-    if (markdownContent) {
-      markdownContent.style.display = 'block';
-    }
-    
-    // 停止动画并调整窗口大小到内容加载状态
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('resize-window-to-content-loaded');
-    
-    // 清除搜索状态
-    // 移除自定义搜索功能
-    // if (this.searchManager.isVisible()) {
-    //   this.searchManager.hideSearch();
-    // }
-  }
-
-  displayFileTree(folderPath, fileTree) {
-    // 保存当前文件夹路径
-    this.currentFolderPath = folderPath;
-    
-    // 停止动画并调整窗口大小到内容加载状态
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('resize-window-to-content-loaded');
-    
-    this.fileTreeManager.displayFileTree(folderPath, fileTree);
-    
-    // 保存状态
-    this.saveAppState();
-  }
-
-
-
-  /**
-   * 初始化插件系统
-   */
   async initializePluginSystem() {
     try {
       // 延迟初始化插件系统，确保其他组件都已准备好
@@ -449,161 +159,12 @@ class AppManager {
           console.log('[AppManager] 插件系统初始化完成');
           
           // 插件系统初始化完成后，加载插件状态
-          await this.loadPluginStates();
+          await this.stateManager.loadPluginStates();
         }
       }, 100);
     } catch (error) {
       console.warn('[AppManager] 插件系统初始化失败:', error);
     }
-  }
-
-  async loadPluginStates() {
-    if (!window.pluginManager) return;
-
-    const { ipcRenderer } = require('electron');
-    
-    try {
-      // 获取保存的插件设置
-      const pluginSettings = await ipcRenderer.invoke('get-plugin-settings');
-      
-      // 为每个插件应用保存的状态
-      const allPlugins = window.pluginManager.getAllPlugins();
-      for (const plugin of allPlugins) {
-        const savedState = pluginSettings[plugin.id];
-        if (savedState !== undefined) {
-          // 有保存的状态，使用保存的状态
-          if (savedState) {
-            plugin.enable();
-          } else {
-            plugin.disable();
-          }
-        } else {
-          // 没有保存的状态，使用插件的默认启用状态
-          if (plugin.enabled) {
-            plugin.enable();
-          } else {
-            plugin.disable();
-          }
-        }
-      }
-      
-      // 重新渲染当前内容，确保启用的插件生效
-      const currentContent = this.editorManager.getCurrentContent();
-      if (currentContent) {
-        this.editorManager.updatePreview(currentContent);
-      }
-      
-      // 通知主进程更新菜单状态
-      ipcRenderer.send('update-plugin-menu-states', allPlugins.map(plugin => ({
-        id: plugin.id,
-        name: plugin.name,
-        enabled: plugin.isActive(),
-        shortcuts: plugin.shortcuts || []
-      })));
-      
-    } catch (error) {
-      console.error('加载插件状态失败:', error);
-    }
-  }
-
-
-  async togglePlugin(pluginId, enabled) {
-    if (!window.pluginManager) {
-      console.warn('插件管理器未初始化');
-      return;
-    }
-
-    const plugin = window.pluginManager.getPlugin(pluginId);
-    if (!plugin) {
-      console.warn(`插件 ${pluginId} 不存在`);
-      return;
-    }
-
-    try {
-      // 保存插件设置
-      const { ipcRenderer } = require('electron');
-      await ipcRenderer.invoke('save-plugin-settings', pluginId, enabled);
-
-      // 切换插件状态
-      if (enabled) {
-        plugin.enable();
-      } else {
-        plugin.disable();
-      }
-
-      // 重新渲染当前内容
-      const currentContent = this.editorManager.getCurrentContent();
-      if (currentContent) {
-        this.editorManager.updatePreview(currentContent);
-      }
-
-      console.log(`插件 ${plugin.name} 已${enabled ? '启用' : '禁用'}`);
-    } catch (error) {
-      console.error(`切换插件 ${pluginId} 失败:`, error);
-    }
-  }
-
-  async refreshPlugins() {
-    if (!window.pluginManager) {
-      console.warn('插件管理器未初始化');
-      return;
-    }
-
-    try {
-      console.log('[AppManager] 开始刷新插件列表...');
-      
-      // 刷新插件管理器
-      await window.pluginManager.refreshPlugins();
-      
-      // 重新加载插件状态
-      await this.loadPluginStates();
-      
-      console.log('[AppManager] 插件列表刷新完成');
-    } catch (error) {
-      console.error('刷新插件失败:', error);
-    }
-  }
-
-  resetToInitialState() {
-    // 重置应用模式和状态
-    this.appMode = null;
-    this.currentFilePath = null;
-    this.currentFolderPath = null;
-    
-    // 重置Tab系统
-    this.tabs = [];
-    this.activeTabId = null;
-    this.updateTabBar();
-    
-    // 隐藏markdown内容
-    const markdownContent = document.querySelector('.markdown-content');
-    
-    if (markdownContent) {
-      markdownContent.style.display = 'none';
-    }
-    
-    // 调整窗口大小到初始状态并重启动画
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('resize-window-to-initial-state');
-    
-    // 窗口标题现在是静态的，不需要重置
-    
-    // 重置准备完成
-    
-    // 重置各个管理器
-    this.editorManager.resetToInitialState();
-    this.uiManager.resetToInitialState();
-    // 修复：不清除文件树数据，只隐藏内容显示
-    // this.fileTreeManager.clearFileTree(); 
-    // this.searchManager.hideSearch(); // 移除自定义搜索功能
-    
-    // 重置时清理所有热区
-    if (this.titleBarDragManager) {
-      this.titleBarDragManager.clearAllRegions();
-    }
-    
-    // 修复：窗口关闭时不清除保存的状态，这样重新激活窗口时可以恢复文件树
-    // localStorage.removeItem('mark2-app-state');
   }
 
   // 获取各个管理器的引用，供外部使用
@@ -623,715 +184,90 @@ class AppManager {
     return this.editorManager;
   }
 
-  // getSearchManager() {
-  //   return this.searchManager;
-  // } // 移除自定义搜索功能
-
   getUIManager() {
     return this.uiManager;
   }
 
+  getTabManager() {
+    return this.tabManager;
+  }
+
+  getStateManager() {
+    return this.stateManager;
+  }
+
+  getShortcutManager() {
+    return this.shortcutManager;
+  }
+
+  getIPCManager() {
+    return this.ipcManager;
+  }
+
+  getDragDropManager() {
+    return this.dragDropManager;
+  }
+
   // 获取当前文件路径的方法
   getCurrentFilePath() {
-    return this.currentFilePath;
+    return this.stateManager.currentFilePath;
   }
   
   getCurrentFolderPath() {
-    return this.currentFolderPath;
-  }
-
-  setupKeyboardShortcuts() {
-    // 全局键盘快捷键监听
-    document.addEventListener('keydown', (event) => {
-      // Cmd+Shift+O 打开文件夹 (必须放在前面，更具体的条件)
-      if (event.metaKey && event.shiftKey && event.key === 'O') {
-        event.preventDefault();
-        this.openFolder();
-        return;
-      }
-      
-      // Cmd+N 新建文件
-      if (event.metaKey && event.key === 'n') {
-        event.preventDefault();
-        this.createNewFile();
-        return;
-      }
-      
-      // Cmd+O 打开文件
-      if (event.metaKey && event.key === 'o' && !event.shiftKey) {
-        event.preventDefault();
-        this.openFile();
-      }
-      
-      // Cmd+S 保存文件
-      if (event.metaKey && event.key === 's') {
-        event.preventDefault();
-        this.editorManager.saveFile();
-      }
-      
-      // Cmd+W 关闭当前标签页，如果没有标签页则关闭窗口
-      if (event.metaKey && event.key === 'w') {
-        event.preventDefault();
-        
-        // 如果有活动的标签页，关闭当前标签页
-        if (this.activeTabId && this.tabs.length > 0) {
-          this.closeTab(this.activeTabId);
-        } else {
-          // 如果没有标签页，关闭整个窗口
-          const { ipcRenderer } = require('electron');
-          ipcRenderer.send('close-window');
-        }
-      }
-      
-      // Cmd+E 切换编辑模式
-      if (event.metaKey && event.key === 'e') {
-        event.preventDefault();
-        // 只有在有激活的tab时才允许切换编辑模式
-        if (this.activeTabId) {
-          this.editorManager.toggleEditMode();
-        }
-      }
-      
-      // Cmd+F 显示搜索
-      if (event.metaKey && event.key === 'f') {
-        event.preventDefault();
-        this.searchManager.toggle();
-      }
-      
-      // Cmd+B 切换侧边栏（只有在 sidebar 启用时才响应）
-      if (event.metaKey && event.key === 'b') {
-        event.preventDefault();
-        if (this.uiManager.isSidebarEnabled()) {
-          this.uiManager.toggleSidebar();
-        }
-      }
-      
-      // Cmd+Shift+L 切换到浅色主题
-      if (event.metaKey && event.shiftKey && event.key === 'l') {
-        event.preventDefault();
-        this.uiManager.switchTheme('light');
-      }
-      
-      // Cmd+Shift+D 切换到深色主题
-      if (event.metaKey && event.shiftKey && event.key === 'd') {
-        event.preventDefault();
-        this.uiManager.switchTheme('dark');
-      }
-      
-      // Cmd+, 显示设置
-      if (event.metaKey && event.key === ',') {
-        event.preventDefault();
-        this.uiManager.showSettings();
-      }
-      
-      // ESC 关闭设置对话框
-      if (event.key === 'Escape') {
-        const settingsModal = document.getElementById('settingsModal');
-        if (settingsModal && settingsModal.style.display === 'flex') {
-          event.preventDefault();
-          this.uiManager.closeSettings();
-        }
-      }
-    });
+    return this.stateManager.currentFolderPath;
   }
 
   // 模式管理方法
   switchToSingleFileMode() {
-    this.appMode = 'single-file';
+    this.stateManager.setAppMode('single-file');
   }
 
   switchToFolderMode() {
-    this.appMode = 'folder';
+    this.stateManager.setAppMode('folder');
   }
 
   getCurrentMode() {
-    return this.appMode;
+    return this.stateManager.appMode;
   }
 
-  getMarkdownRenderer() {
-    return this.markdownRenderer;
-  }
-
-
-  async exportToPDF() {
-    try {
-      // 检查是否有内容可以导出
-      const markdownContent = document.getElementById('markdownContent');
-      
-      if (!markdownContent || !markdownContent.innerHTML.trim()) {
-        this.uiManager.showMessage('没有内容可以导出，请先打开一个Markdown文件', 'error');
-        return;
+  // 应用状态信息
+  getAppInfo() {
+    return {
+      version: '2.0.0',
+      tabCount: this.tabManager.tabs.length,
+      activeTabId: this.tabManager.activeTabId,
+      currentMode: this.getCurrentMode(),
+      hasStateData: this.stateManager.getStateInfo().hasStateData,
+      managersLoaded: {
+        eventManager: !!this.eventManager,
+        tabManager: !!this.tabManager,
+        stateManager: !!this.stateManager,
+        dragDropManager: !!this.dragDropManager,
+        ipcManager: !!this.ipcManager,
+        shortcutManager: !!this.shortcutManager
       }
-
-      // 直接导出HTML到浏览器
-      const { ipcRenderer } = require('electron');
-      const result = await ipcRenderer.invoke('export-pdf-simple', {});
-
-      if (result.success) {
-        this.uiManager.showMessage(result.message || 'HTML文件已在浏览器中打开', 'success');
-      } else {
-        this.uiManager.showMessage(`导出 HTML 失败: ${result.error || '未知错误'}`, 'error');
-      }
-    } catch (error) {
-      console.error('Error exporting HTML:', error);
-      this.uiManager.showMessage(`导出 HTML 失败: ${error.message}`, 'error');
-    }
-  }
-
-  // Tab 管理方法
-  createTab(filePath, content, title = null, belongsTo = 'folder') {
-    const path = require('path');
-    const fileName = title || path.basename(filePath);
-    
-    const tab = {
-      id: this.nextTabId++,
-      title: fileName,
-      filePath: filePath,
-      content: content,
-      isActive: false,
-      isModified: false,
-      belongsTo: belongsTo // 'file' 或 'folder'
     };
-    
-    
-    this.tabs.push(tab);
-    this.setActiveTab(tab.id);
-    this.updateTabBar();
-    
-    // 新tab自动滚动到可见位置
-    requestAnimationFrame(() => {
-      this.scrollTabIntoView(tab.id);
-    });
-    
-    // 保存状态
-    this.saveAppState();
-    
-    return tab;
   }
 
-  setActiveTab(tabId) {
-    // 关闭搜索框（如果打开的话）
-    this.searchManager.hide();
-    
-    // 取消所有tab的活动状态
-    this.tabs.forEach(tab => tab.isActive = false);
-    
-    // 设置指定tab为活动状态
-    const activeTab = this.tabs.find(tab => tab.id === tabId);
-    if (activeTab) {
-      activeTab.isActive = true;
-      this.activeTabId = tabId;
-      this.currentFilePath = activeTab.filePath;
-      
-      // 更新编辑器内容
-      this.editorManager.setContent(activeTab.content, activeTab.filePath);
-      
-      // 更新文件名显示
-      this.uiManager.updateFileNameDisplay(activeTab.filePath);
-      
-      // 更新文件树中的活动文件
-      this.fileTreeManager.updateActiveFile(activeTab.filePath);
-      
-      // 窗口标题现在是静态的，不需要更新
-      
-      // 只更新tab的活动状态，不重建整个DOM
-      this.updateTabActiveState();
-      
-      // 确保活动tab在可见区域
-      requestAnimationFrame(() => {
-        this.scrollTabIntoView(tabId);
-      });
-      
-      // 保存状态
-      this.saveAppState();
-    }
-  }
-
-  updateTabActiveState() {
-    const tabBar = document.getElementById('tabBar');
-    if (!tabBar) return;
-    
-    // 更新所有tab的活动状态CSS类
-    const tabElements = tabBar.querySelectorAll('.tab-item');
-    tabElements.forEach(tabElement => {
-      const tabId = parseInt(tabElement.dataset.tabId);
-      const isActive = this.tabs.find(tab => tab.id === tabId)?.isActive || false;
-      tabElement.classList.toggle('active', isActive);
-    });
-  }
-
-  updateTabTitle(tabId, newTitle) {
-    const tabBar = document.getElementById('tabBar');
-    if (!tabBar) return;
-    
-    const tabElement = tabBar.querySelector(`[data-tab-id="${tabId}"]`);
-    if (tabElement) {
-      const titleElement = tabElement.querySelector('.tab-title');
-      if (titleElement) {
-        titleElement.textContent = newTitle;
-      }
-    }
-  }
-
-  closeTab(tabId, fromFileNode = false) {
-    const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
-    if (tabIndex === -1) {
-      return;
+  // 清理方法
+  cleanup() {
+    // 移除所有事件监听器
+    if (this.ipcManager) {
+      this.ipcManager.removeAllListeners();
     }
     
-    const tab = this.tabs[tabIndex];
-    
-    // 如果是从文件节点发起的关闭，才删除文件节点；否则只关闭tab
-    if (fromFileNode && tab.filePath) {
-      this.closeFileCompletely(tab.filePath);
-      return;
+    // 清理拖拽管理器
+    if (this.dragDropManager) {
+      this.dragDropManager.cleanup();
     }
     
-    // 修复：关闭tab时，如果该tab属于'file'类型，需要删除对应的Files节点
-    if (tab.belongsTo === 'file' && tab.filePath) {
-      // 删除Files节点，但不递归调用closeTab避免死循环
-      this.fileTreeManager.removeFile(tab.filePath, false);
+    // 清理状态管理器
+    if (this.stateManager) {
+      // 保存最后状态
+      this.stateManager.saveAppState();
     }
     
-    // 关闭tab本身
-    this.closeTabDirectly(tabId);
-  }
-
-
-  updateTabBar() {
-    const tabBar = document.getElementById('tabBar');
-    const tabList = document.getElementById('tabList');
-    if (!tabBar) return;
-    
-    if (this.tabs.length === 0) {
-      tabBar.style.display = 'none';
-      return;
-    }
-    
-    tabBar.style.display = 'flex';
-    
-    // 清空tab-list容器（如果存在）
-    if (tabList) {
-      tabList.innerHTML = '';
-    } else {
-      // 如果没有tab-list容器，清空整个tabBar（可能是在标题栏初始化之前）
-      tabBar.innerHTML = '';
-    }
-    
-    this.tabs.forEach(tab => {
-      const tabElement = document.createElement('div');
-      tabElement.className = `tab-item ${tab.isActive ? 'active' : ''}`;
-      tabElement.dataset.tabId = tab.id;
-      
-      const tabTitle = document.createElement('span');
-      tabTitle.className = 'tab-title';
-      tabTitle.textContent = tab.title;
-      if (tab.isModified) {
-        tabTitle.textContent += ' •';
-      }
-      
-      const closeButton = document.createElement('button');
-      closeButton.className = 'tab-close';
-      closeButton.innerHTML = '×';
-      closeButton.onclick = (e) => {
-        e.stopPropagation();
-        this.closeTab(tab.id);
-      };
-      
-      tabElement.appendChild(tabTitle);
-      tabElement.appendChild(closeButton);
-      
-      tabElement.onclick = () => {
-        this.setActiveTab(tab.id);
-      };
-      
-      // 添加到tab-list容器（如果存在）或直接添加到tabBar
-      const container = tabList || tabBar;
-      container.appendChild(tabElement);
-    });
-    
-    // 更新滚动提示状态
-    requestAnimationFrame(() => {
-      this.updateTabBarScrollHints(tabBar);
-      // Tab变化后更新热区
-      if (this.titleBarDragManager) {
-        // 使用setTimeout确保DOM更新完成
-        setTimeout(() => {
-          this.titleBarDragManager.updateDragRegions();
-        }, 0);
-      }
-    });
-  }
-
-
-  updateTabBarScrollHints(tabBar) {
-    // 使用tabList作为滚动容器（如果存在）
-    const tabList = document.getElementById('tabList');
-    const scrollContainer = tabList || tabBar;
-    
-    const canScrollLeft = scrollContainer.scrollLeft > 0;
-    const canScrollRight = scrollContainer.scrollLeft < (scrollContainer.scrollWidth - scrollContainer.clientWidth);
-    const hasOverflow = scrollContainer.scrollWidth > scrollContainer.clientWidth;
-    
-    // 获取main-content容器来管理阴影
-    const mainContent = document.querySelector('.main-content');
-    if (mainContent && hasOverflow) {
-      mainContent.classList.toggle('tab-scroll-left', canScrollLeft);
-      mainContent.classList.toggle('tab-scroll-right', canScrollRight);
-    } else if (mainContent) {
-      mainContent.classList.remove('tab-scroll-left', 'tab-scroll-right');
-    }
-  }
-
-  scrollTabIntoView(tabId) {
-    const tabBar = document.getElementById('tabBar');
-    const tabList = document.getElementById('tabList');
-    if (!tabBar) return;
-    
-    // 查找tab元素（可能在tab-list中或直接在tabBar中）
-    const container = tabList || tabBar;
-    const tabElement = container.querySelector(`[data-tab-id="${tabId}"]`);
-    if (!tabElement) return;
-    
-    const tabBarRect = tabBar.getBoundingClientRect();
-    const tabRect = tabElement.getBoundingClientRect();
-    
-    // 使用scrolling容器进行滚动（tab-list或tabBar）
-    const scrollContainer = tabList || tabBar;
-    
-    // 计算tab相对于scroll容器的位置
-    const tabLeft = tabElement.offsetLeft;
-    const tabRight = tabLeft + tabElement.offsetWidth;
-    const scrollLeft = scrollContainer.scrollLeft;
-    const scrollRight = scrollLeft + scrollContainer.clientWidth;
-    
-    // 如果tab在可见区域之外，滚动到合适位置
-    if (tabLeft < scrollLeft) {
-      // tab在左侧不可见，滚动到左边
-      scrollContainer.scrollTo({
-        left: tabLeft - 20, // 留一点边距
-        behavior: 'smooth'
-      });
-    } else if (tabRight > scrollRight) {
-      // tab在右侧不可见，滚动到右边
-      scrollContainer.scrollTo({
-        left: tabRight - scrollContainer.clientWidth + 20, // 留一点边距
-        behavior: 'smooth'
-      });
-    }
-  }
-
-  findTabByPath(filePath) {
-    return this.tabs.find(tab => tab.filePath === filePath);
-  }
-
-  openFileInTab(filePath, content, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
-    // 步骤1: 先判断打开的tab有没有和此文件相同path和名字，相同就focus到已经打开的tab
-    const existingTab = this.findTabByPath(filePath);
-    if (existingTab && !forceNewTab) {
-      existingTab.content = content;
-      this.setActiveTab(existingTab.id);
-      return existingTab;
-    }
-    
-    // 如果强制新建tab，直接创建
-    if (forceNewTab) {
-      const belongsTo = fileType === 'file' ? 'file' : 'folder';
-      return this.createTab(filePath, content, null, belongsTo);
-    }
-    
-    // 步骤2: 判断其来自file还是folder
-    if (fileType === 'file') {
-      // 步骤3: 如果是file就打开新的tab显示file
-      return this.createTab(filePath, content, null, 'file');
-    } else {
-      // 步骤4: 如果是folder就看tab上哪个tab是folder，替换folder的那个tab显示当前内容
-      const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
-      if (folderTab) {
-        // 替换folder的tab显示当前内容
-        folderTab.filePath = filePath;
-        folderTab.content = content;
-        folderTab.title = require('path').basename(filePath);
-        folderTab.isModified = false;
-        this.currentFilePath = filePath;
-        
-        // 如果是双击操作，将tab归属改为file
-        if (fromDoubleClick) {
-          folderTab.belongsTo = 'file';
-        }
-        
-        this.setActiveTab(folderTab.id);
-        
-        // 更新编辑器内容
-        this.editorManager.setContent(content, filePath);
-        
-        // 更新显示
-        this.uiManager.updateFileNameDisplay(filePath);
-        this.fileTreeManager.updateActiveFile(filePath);
-        
-        // 只更新tab标题，不重建整个DOM
-        this.updateTabTitle(folderTab.id, folderTab.title);
-        return folderTab;
-      } else {
-        // 步骤5: 如果没有folder的tab就打开一个新的tab
-        return this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder');
-      }
-    }
-  }
-
-  // 统一关闭文件：同时删除file节点和关闭对应tab
-  closeFileCompletely(filePath) {
-    
-    // 1. 删除file节点（不发出事件避免递归）
-    this.fileTreeManager.removeFile(filePath, false);
-    
-    // 2. 关闭对应的tab
-    // 处理普通文件：匹配 tab.filePath === filePath
-    let tabToClose;
-    while ((tabToClose = this.tabs.find(tab => tab.filePath === filePath))) {
-      this.closeTabDirectly(tabToClose.id);
-    }
-    
-    // 3. 处理 untitled 新建文件：如果 filePath 是临时键，找到对应的空 filePath tab
-    if (filePath && filePath.startsWith('__new_file_')) {
-      while ((tabToClose = this.tabs.find(tab => tab.filePath === null && tab.belongsTo === 'file'))) {
-        this.closeTabDirectly(tabToClose.id);
-      }
-    }
-  }
-
-  // 直接关闭tab，不触发其他逻辑
-  closeTabDirectly(tabId) {
-    const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
-    if (tabIndex === -1) return;
-    
-    const tab = this.tabs[tabIndex];
-    
-    // 如果是新建的未保存文件（filePath为null），需要清理对应的Files节点
-    if (!tab.filePath) {
-      // 查找并删除对应的临时文件节点
-      for (const [key, fileInfo] of this.fileTreeManager.openFiles.entries()) {
-        if (fileInfo.isNewFile) {
-          this.fileTreeManager.openFiles.delete(key);
-          break;
-        }
-      }
-      this.fileTreeManager.refreshSidebarTree();
-    }
-    
-    // 关闭搜索框（如果打开的话）
-    this.searchManager.hide();
-    
-    // 如果关闭的是活动tab，需要切换到其他tab
-    if (tab.isActive) {
-      if (this.tabs.length > 1) {
-        const nextIndex = tabIndex < this.tabs.length - 1 ? tabIndex + 1 : tabIndex - 1;
-        this.setActiveTab(this.tabs[nextIndex].id);
-      } else {
-        // 关闭最后一个tab时，只重置必要状态，保持sidebar显示
-        this.activeTabId = null;
-        this.currentFilePath = null;
-        
-        // 隐藏markdown内容
-        const markdownContent = document.querySelector('.markdown-content');
-        if (markdownContent) {
-          markdownContent.style.display = 'none';
-        }
-        
-        // 重置编辑器状态，但不清空文件树
-        this.editorManager.resetToInitialState();
-      }
-    }
-    
-    // 移除tab
-    this.tabs.splice(tabIndex, 1);
-    this.updateTabBar();
-    
-    // Tab变化后更新热区
-    if (this.titleBarDragManager) {
-      this.titleBarDragManager.updateDragRegions();
-    }
-    
-    // 保存状态
-    this.saveAppState();
-  }
-
-  // 拖拽热区管理已移至TitleBarDragManager
-
-  // 状态保持功能
-  saveAppState() {
-    const state = {
-      tabs: this.tabs.map(tab => ({
-        id: tab.id,
-        title: tab.title,
-        filePath: tab.filePath,
-        content: tab.content,
-        isActive: tab.isActive,
-        isModified: tab.isModified,
-        belongsTo: tab.belongsTo
-      })),
-      activeTabId: this.activeTabId,
-      nextTabId: this.nextTabId,
-      currentFilePath: this.currentFilePath,
-      currentFolderPath: this.currentFolderPath,
-      appMode: this.appMode,
-      // 保存文件树状态
-      openFiles: Array.from(this.fileTreeManager.openFiles.entries()),
-      openFolders: Array.from(this.fileTreeManager.openFolders.entries())
-    };
-    
-    localStorage.setItem('mark2-app-state', JSON.stringify(state));
-  }
-
-  restoreAppState() {
-    
-    // 防止重复调用导致状态混乱
-    if (this.isRestoringState) {
-      return false;
-    }
-    
-    const saved = localStorage.getItem('mark2-app-state');
-    if (!saved) {
-      return false;
-    }
-    
-    this.isRestoringState = true;
-    
-    try {
-      const state = JSON.parse(saved);
-      
-      // 恢复基本状态
-      this.currentFilePath = state.currentFilePath || null;
-      this.currentFolderPath = state.currentFolderPath || null;
-      this.appMode = state.appMode || null;
-      this.nextTabId = state.nextTabId || 1;
-      
-      // 恢复文件树状态
-      if (state.openFiles) {
-        state.openFiles.forEach(([filePath, fileInfo]) => {
-          this.fileTreeManager.openFiles.set(filePath, fileInfo);
-        });
-      }
-      
-      if (state.openFolders) {
-        state.openFolders.forEach(([folderPath, folderInfo]) => {
-          this.fileTreeManager.openFolders.set(folderPath, folderInfo);
-        });
-      }
-      
-      // 恢复tabs
-      if (state.tabs && state.tabs.length > 0) {
-        this.tabs = state.tabs;
-        this.activeTabId = state.activeTabId;
-        
-        // 更新tab显示
-        this.updateTabBar();
-        
-        // 激活之前的活动tab
-        if (this.activeTabId) {
-          const activeTab = this.tabs.find(tab => tab.id === this.activeTabId);
-          if (activeTab) {
-            // 恢复编辑器内容
-            this.editorManager.setContent(activeTab.content, activeTab.filePath);
-            this.uiManager.updateFileNameDisplay(activeTab.filePath);
-            this.fileTreeManager.updateActiveFile(activeTab.filePath);
-            
-            // 显示markdown内容
-            const markdownContent = document.querySelector('.markdown-content');
-            if (markdownContent) {
-              markdownContent.style.display = 'block';
-            }
-          }
-        }
-      }
-      
-      // 恢复文件树展开状态
-      this.fileTreeManager.restoreExpandedState();
-      
-      // 刷新文件树显示
-      this.fileTreeManager.refreshSidebarTree();
-      
-      // 重新启动文件监听 - 解决状态恢复后监听失效的问题
-      this.restartFileWatching();
-      
-      // 确保sidebar宽度正确恢复并触发热区绘制
-      this.uiManager.loadSidebarWidth();
-      
-      // 状态恢复后更新热区
-      if (this.titleBarDragManager) {
-        requestAnimationFrame(() => {
-          this.titleBarDragManager.updateDragRegions();
-        });
-      }
-      
-      this.isRestoringState = false; // 恢复完成，重置标志
-      return true;
-    } catch (error) {
-      // localStorage.removeItem('mark2-app-state'); // 修复：即使恢复失败也不清除状态
-      this.isRestoringState = false; // 即使失败也要重置标志
-      return false;
-    }
-  }
-
-  // 重新启动文件监听 - 用于状态恢复后重新建立监听
-  restartFileWatching() {
-    // 对所有打开的文件夹重新启动监听
-    for (const [folderPath] of this.fileTreeManager.openFolders) {
-      try {
-        // 通过IPC请求主进程重新开始监听这个文件夹
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.invoke('restart-folder-watching', folderPath);
-      } catch (error) {
-        console.error('重新启动文件夹监听失败:', folderPath, error);
-      }
-    }
-
-    // 对当前打开的文件重新启动监听
-    if (this.currentFilePath) {
-      try {
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.invoke('restart-file-watching', this.currentFilePath);
-      } catch (error) {
-        console.error('重新启动文件监听失败:', this.currentFilePath, error);
-      }
-    }
-  }
-
-  // 更新文件监听状态
-  updateFileWatchStatus(filePath, isWatching) {
-    // 这里可以添加UI指示器显示文件监听状态
-    // 例如在tab上显示监听图标，或在状态栏显示信息
-    console.log(`文件监听状态更新: ${filePath} -> ${isWatching ? '监听中' : '已停止'}`);
-    
-    // 如果需要，可以在这里更新相关的UI状态
-    // 例如：在文件树中显示监听状态，或在编辑器中显示指示器
-  }
-
-  // 处理监听器错误
-  handleWatcherError(errorData) {
-    const { type, error, userMessage } = errorData;
-    
-    // 显示用户友好的错误信息
-    this.uiManager.showMessage(userMessage, 'warning');
-    
-    // 根据错误类型进行相应处理
-    if (type === 'file') {
-      // 文件监听错误：更新文件监听状态
-      this.updateFileWatchStatus(error.path, false);
-      
-      // 如果是当前正在编辑的文件，提示用户
-      if (error.path === this.currentFilePath) {
-        this.uiManager.showMessage('当前文件的自动更新监听已停止', 'info');
-      }
-    } else if (type === 'folder') {
-      // 文件夹监听错误：可能需要刷新文件树或提示用户重新选择文件夹
-      if (error.code === 'ENOENT') {
-        this.uiManager.showMessage('监听的文件夹已被删除，文件树将不再自动更新', 'warning');
-      }
-    }
-    
-    // 记录错误到本地日志（如果需要的话）
-    console.error('监听器错误详情:', error);
+    console.log('[AppManager] 清理完成');
   }
 }
 

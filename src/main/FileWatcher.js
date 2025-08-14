@@ -31,7 +31,7 @@ class FileWatcher {
       this.watchedPath = folderPath;
       this.watcher = fs.watch(folderPath, { recursive: true }, (eventType, filename) => {
         if (filename && !filename.startsWith('.')) {
-          console.log(`FileWatcher: 检测到事件 ${eventType} 文件: ${filename}`);
+          // console.log(`FileWatcher: 检测到事件 ${eventType} 文件: ${filename}`);
           
           // 检查是否需要更新文件树
           const needsTreeUpdate = this.shouldUpdateFileTree(eventType, filename);
@@ -336,7 +336,7 @@ class FileWatcher {
     this.updateTimeout = setTimeout(() => {
       // 执行更新前记录当前的待处理事件数量
       const eventCount = this.pendingEvents.size;
-      console.log(`FileWatcher: 执行文件树更新，处理了 ${eventCount} 个事件`);
+      // console.log(`FileWatcher: 执行文件树更新，处理了 ${eventCount} 个事件`);
       
       // 清空待处理事件列表
       this.pendingEvents.clear();
