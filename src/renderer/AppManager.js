@@ -5,6 +5,7 @@ const EditorManager = require('./EditorManager');
 const SearchManager = require('./SearchManager');
 const UIManager = require('./UIManager');
 const PluginIntegration = require('./PluginIntegration');
+const TitleBarDragManager = require('./TitleBarDragManager');
 
 class AppManager {
   constructor() {
@@ -14,6 +15,7 @@ class AppManager {
     this.editorManager = new EditorManager(this.markdownRenderer, this.eventManager, this);
     this.searchManager = new SearchManager();
     this.uiManager = new UIManager(this.eventManager);
+    this.titleBarDragManager = new TitleBarDragManager(this.eventManager);
     
     // 将editorManager和searchManager挂载到全局window对象
     window.editorManager = this.editorManager;
@@ -143,11 +145,10 @@ class AppManager {
       this.uiManager.enableSidebar();
     });
 
-    // sidebar启用后绘制热区
+    // sidebar启用后，通知TitleBarDragManager更新热区
     this.eventManager.on('sidebar-enabled', (enabled) => {
-      if (enabled) {
-        // sidebar启用后，确保热区正确绘制
-        this.ensureTitleBarDragArea();
+      if (enabled && this.titleBarDragManager) {
+        this.titleBarDragManager.updateDragRegions();
       }
     });
     
@@ -596,8 +597,10 @@ class AppManager {
     // this.fileTreeManager.clearFileTree(); 
     // this.searchManager.hideSearch(); // 移除自定义搜索功能
     
-    // 重新绘制热区到整个窗口宽度
-    this.ensureTitleBarDragArea();
+    // 重置时清理所有热区
+    if (this.titleBarDragManager) {
+      this.titleBarDragManager.clearAllRegions();
+    }
     
     // 修复：窗口关闭时不清除保存的状态，这样重新激活窗口时可以恢复文件树
     // localStorage.removeItem('mark2-app-state');
@@ -950,8 +953,13 @@ class AppManager {
     // 更新滚动提示状态
     requestAnimationFrame(() => {
       this.updateTabBarScrollHints(tabBar);
-      // 重新创建拖拽覆盖层确保title区域可拖拽
-      this.ensureTitleBarDragArea();
+      // Tab变化后更新热区
+      if (this.titleBarDragManager) {
+        // 使用setTimeout确保DOM更新完成
+        setTimeout(() => {
+          this.titleBarDragManager.updateDragRegions();
+        }, 0);
+      }
     });
   }
 
@@ -1139,94 +1147,16 @@ class AppManager {
     this.tabs.splice(tabIndex, 1);
     this.updateTabBar();
     
-    // 重新绘制拖拽热区
-    this.ensureTitleBarDragArea();
+    // Tab变化后更新热区
+    if (this.titleBarDragManager) {
+      this.titleBarDragManager.updateDragRegions();
+    }
     
     // 保存状态
     this.saveAppState();
   }
 
-  // 确保拖拽区域不被tab覆盖
-  ensureTitleBarDragArea() {
-    // 移除之前创建的覆盖层（如果存在）
-    const existingOverlay = document.getElementById('titlebar-drag-overlay');
-    if (existingOverlay) {
-      existingOverlay.remove();
-    }
-    const existingLeftOverlay = document.getElementById('titlebar-drag-overlay-left');
-    if (existingLeftOverlay) {
-      existingLeftOverlay.remove();
-    }
-    const existingRightOverlay = document.getElementById('titlebar-drag-overlay-right');
-    if (existingRightOverlay) {
-      existingRightOverlay.remove();
-    }
-    
-    // 检查 sidebar 状态
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return; // 没有sidebar就不绘制任何热区
-    
-    // 检查 sidebar 是否可见
-    const isSidebarVisible = this.uiManager && this.uiManager.isSidebarVisible() && 
-                             !sidebar.classList.contains('hidden');
-    
-    let sidebarWidth = 0;
-    
-    // 1. 只有当 sidebar 可见时才绘制左侧热区
-    if (isSidebarVisible) {
-      sidebarWidth = sidebar.offsetWidth;
-      
-      // 如果sidebar还没有完全渲染，延迟调用
-      if (sidebarWidth < 200) {
-        // sidebar还在动画中或还没渲染完毕，延迟重试
-        setTimeout(() => {
-          this.ensureTitleBarDragArea();
-        }, 100);
-        return;
-      }
-      
-      if (sidebarWidth > 0) {
-        const leftDragOverlay = document.createElement('div');
-        leftDragOverlay.id = 'titlebar-drag-overlay-left';
-        leftDragOverlay.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: ${sidebarWidth}px;
-          height: var(--titlebar-height);
-          z-index: 1002;
-          -webkit-app-region: drag;
-          pointer-events: auto;
-          background: transparent;
-        `;
-        document.body.appendChild(leftDragOverlay);
-      }
-    }
-    
-    // 2. 只有当没有 tab 时，才绘制右侧热区
-    const tabBar = document.getElementById('tabBar');
-    const hasNoTabs = !tabBar || tabBar.style.display === 'none' || this.tabs.length === 0;
-    
-    if (hasNoTabs) {
-      const rightWidth = Math.max(0, window.innerWidth - sidebarWidth);
-      if (rightWidth > 0) {
-        const rightDragOverlay = document.createElement('div');
-        rightDragOverlay.id = 'titlebar-drag-overlay-right';
-        rightDragOverlay.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: ${sidebarWidth}px;
-          width: ${rightWidth}px;
-          height: var(--titlebar-height);
-          z-index: 1002;
-          -webkit-app-region: drag;
-          pointer-events: auto;
-          background: transparent;
-        `;
-        document.body.appendChild(rightDragOverlay);
-      }
-    }
-  }
+  // 拖拽热区管理已移至TitleBarDragManager
 
   // 状态保持功能
   saveAppState() {
@@ -1327,10 +1257,12 @@ class AppManager {
       // 确保sidebar宽度正确恢复并触发热区绘制
       this.uiManager.loadSidebarWidth();
       
-      // 确保在状态完全恢复后，拖拽热区能正确考虑tab的存在
-      requestAnimationFrame(() => {
-        this.ensureTitleBarDragArea();
-      });
+      // 状态恢复后更新热区
+      if (this.titleBarDragManager) {
+        requestAnimationFrame(() => {
+          this.titleBarDragManager.updateDragRegions();
+        });
+      }
       
       this.isRestoringState = false; // 恢复完成，重置标志
       return true;
