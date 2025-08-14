@@ -187,6 +187,26 @@ class AppManager {
       }
     });
 
+    // 监听文件监听开始事件
+    ipcRenderer.on('file-watch-started', (event, data) => {
+      console.log('开始监听文件:', data.filePath);
+      // 更新UI状态，显示文件正在被监听
+      this.updateFileWatchStatus(data.filePath, true);
+    });
+
+    // 监听文件监听停止事件
+    ipcRenderer.on('file-watch-stopped', (event, data) => {
+      console.log('停止监听文件:', data.filePath);
+      // 更新UI状态，显示文件不再被监听
+      this.updateFileWatchStatus(data.filePath, false);
+    });
+
+    // 监听监听器错误事件
+    ipcRenderer.on('watcher-error', (event, data) => {
+      console.error('监听器错误:', data);
+      this.handleWatcherError(data);
+    });
+
     // 监听菜单事件
     ipcRenderer.on('toggle-sidebar', () => {
       this.uiManager.toggleSidebar();
@@ -1343,6 +1363,43 @@ class AppManager {
         console.error('重新启动文件监听失败:', this.currentFilePath, error);
       }
     }
+  }
+
+  // 更新文件监听状态
+  updateFileWatchStatus(filePath, isWatching) {
+    // 这里可以添加UI指示器显示文件监听状态
+    // 例如在tab上显示监听图标，或在状态栏显示信息
+    console.log(`文件监听状态更新: ${filePath} -> ${isWatching ? '监听中' : '已停止'}`);
+    
+    // 如果需要，可以在这里更新相关的UI状态
+    // 例如：在文件树中显示监听状态，或在编辑器中显示指示器
+  }
+
+  // 处理监听器错误
+  handleWatcherError(errorData) {
+    const { type, error, userMessage } = errorData;
+    
+    // 显示用户友好的错误信息
+    this.uiManager.showMessage(userMessage, 'warning');
+    
+    // 根据错误类型进行相应处理
+    if (type === 'file') {
+      // 文件监听错误：更新文件监听状态
+      this.updateFileWatchStatus(error.path, false);
+      
+      // 如果是当前正在编辑的文件，提示用户
+      if (error.path === this.currentFilePath) {
+        this.uiManager.showMessage('当前文件的自动更新监听已停止', 'info');
+      }
+    } else if (type === 'folder') {
+      // 文件夹监听错误：可能需要刷新文件树或提示用户重新选择文件夹
+      if (error.code === 'ENOENT') {
+        this.uiManager.showMessage('监听的文件夹已被删除，文件树将不再自动更新', 'warning');
+      }
+    }
+    
+    // 记录错误到本地日志（如果需要的话）
+    console.error('监听器错误详情:', error);
   }
 }
 
