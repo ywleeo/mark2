@@ -5,6 +5,7 @@ const SettingsManager = require('./SettingsManager');
 class WindowManager {
   constructor() {
     this.mainWindow = null;
+    this.isInitialStartup = true; // 标志位：区分初始启动和窗口重新激活
   }
 
   async createWindow() {
@@ -71,8 +72,11 @@ class WindowManager {
     // 监听窗口显示事件
     this.mainWindow.on('show', () => {
       this.mainWindow.focus();
-      // 窗口重新显示时，通知渲染进程恢复状态
-      this.mainWindow.webContents.send('restore-app-state');
+      // 只在初次启动时恢复状态，避免窗口激活时重复触发
+      if (this.isInitialStartup) {
+        this.mainWindow.webContents.send('restore-app-state');
+        this.isInitialStartup = false;
+      }
     });
 
     // 监听窗口销毁事件
