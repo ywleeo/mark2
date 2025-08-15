@@ -1,6 +1,7 @@
 const { app } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 
 // 设置固定的用户数据目录，确保localStorage持久化
 const userDataPath = path.join(os.homedir(), '.mark2');
@@ -43,36 +44,95 @@ async function createWindow() {
 let fileToOpen = null;
 
 // 处理命令行参数
-if (process.argv.length > 1) {
-  const potentialFile = process.argv[process.argv.length - 1];
-  if (potentialFile && !potentialFile.startsWith('-') && 
-      (potentialFile.endsWith('.md') || potentialFile.endsWith('.markdown'))) {
-    fileToOpen = potentialFile;
+function parseCommandLineArgs() {
+  // 跳过 electron 可执行文件路径和脚本路径
+  const args = process.argv.slice(2);
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    // 跳过标志参数
+    if (arg.startsWith('-')) {
+      continue;
+    }
+    
+    // 检查是否是文件路径
+    try {
+      const absolutePath = path.isAbsolute(arg) ? arg : path.resolve(arg);
+      
+      // 检查文件是否存在
+      if (fs.existsSync(absolutePath)) {
+        const stats = fs.statSync(absolutePath);
+        
+        // 如果是文件且是 markdown 文件
+        if (stats.isFile()) {
+          const ext = path.extname(absolutePath).toLowerCase();
+          if (ext === '.md' || ext === '.markdown') {
+            console.log(`Found markdown file to open: ${absolutePath}`);
+            return absolutePath;
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing argument "${arg}":`, error.message);
+    }
   }
+  
+  return null;
 }
+
+fileToOpen = parseCommandLineArgs();
+
+// 保存启动时要打开的文件，等待渲染进程就绪后处理
+let pendingFileToOpen = null;
 
 app.whenReady().then(async () => {
   await createWindow();
   
-  // 如果有文件需要打开，延迟打开以确保窗口已完全加载
+  // 如果有文件需要打开，保存起来等待渲染进程就绪
   if (fileToOpen) {
+    pendingFileToOpen = fileToOpen;
+    console.log(`Pending file to open: ${fileToOpen}`);
+  }
+});
+
+// 监听渲染进程准备就绪的信号
+const { ipcMain } = require('electron');
+ipcMain.on('renderer-ready', async () => {
+  console.log('Renderer process is ready');
+  
+  // 如果有待打开的文件，现在打开它
+  if (pendingFileToOpen) {
+    console.log(`Opening pending file: ${pendingFileToOpen}`);
     setTimeout(async () => {
       try {
-        const result = await fileManager.readFile(fileToOpen);
+        const result = await fileManager.readFile(pendingFileToOpen);
         const mainWindow = windowManager.getWindow();
         if (mainWindow) {
           mainWindow.webContents.send('file-opened', result);
+          console.log('Pending file successfully opened');
+          pendingFileToOpen = null; // 清空待处理文件
         }
       } catch (error) {
-        console.error('Error opening file from command line:', error);
+        console.error('Error opening pending file:', error.message);
+        // 发送错误信息到渲染进程
+        const mainWindow = windowManager.getWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send('file-open-error', {
+            error: error.message,
+            filePath: pendingFileToOpen
+          });
+        }
+        pendingFileToOpen = null; // 清空待处理文件
       }
-    }, 500);
+    }, 100); // 减少延迟，因为渲染进程已经准备好了
   }
 });
 
 // 处理 macOS 的文件关联打开
 app.on('open-file', async (event, filePath) => {
   event.preventDefault();
+  console.log(`Opening file from file association: ${filePath}`);
   
   if (windowManager && windowManager.getWindow()) {
     // 窗口已存在，直接打开文件
@@ -82,9 +142,18 @@ app.on('open-file', async (event, filePath) => {
       if (mainWindow) {
         windowManager.showWindow();
         mainWindow.webContents.send('file-opened', result);
+        console.log('File successfully opened from file association');
       }
     } catch (error) {
-      console.error('Error opening file from file association:', error);
+      console.error('Error opening file from file association:', error.message);
+      // 发送错误信息到渲染进程
+      const mainWindow = windowManager.getWindow();
+      if (mainWindow) {
+        mainWindow.webContents.send('file-open-error', {
+          error: error.message,
+          filePath: filePath
+        });
+      }
     }
   } else {
     // 窗口不存在，记录文件路径，等窗口创建后打开

@@ -233,6 +233,14 @@ class EditorManager {
       // 切换到预览模式
       if (editorContent) {
         editorContent.style.display = 'none';
+        // 自动保存文件（如果有未保存的更改且有有效文件路径）
+        const currentPath = this.appManager ? this.appManager.getCurrentFilePath() : this.currentFilePath;
+        if (this.hasUnsavedChanges && currentPath) {
+          // 只对已存在的文件进行自动保存，避免对新文件弹出保存对话框
+          this.saveFile().catch(error => {
+            console.warn('自动保存失败:', error);
+          });
+        }
         // 更新预览内容
         const editor = document.getElementById('editorTextarea');
         if (editor) {

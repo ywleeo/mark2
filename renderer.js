@@ -22,6 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
   loadInitialSettings();
   
   console.log('应用初始化完成');
+  
+  // 通知主进程渲染进程已准备就绪
+  setTimeout(() => {
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('renderer-ready');
+    console.log('渲染进程准备就绪信号已发送');
+  }, 100); // 稍微延迟确保所有初始化完成
 });
 
 // 页面卸载时清理DebugLogger
