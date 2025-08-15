@@ -27,7 +27,8 @@
     "@codemirror/view": "^6.38.1",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
-    "marked": "^5.0.0"
+    "marked": "^5.0.0",
+    "sharp": "^0.34.3"
   },
   "build": {
     "appId": "com.mark2.app",
@@ -66,7 +67,7 @@
       {
         "ext": "md",
         "name": "Markdown Document",
-        "description": "Markdown Document", 
+        "description": "Markdown Document",
         "role": "Editor"
       },
       {
@@ -89,7 +90,7 @@
       "icon": "assets/icon.png"
     },
     "linux": {
-      "target": "AppImage", 
+      "target": "AppImage",
       "category": "Utility"
     },
     "dmg": {
