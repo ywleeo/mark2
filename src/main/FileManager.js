@@ -400,6 +400,116 @@ class FileManager {
     
     return results;
   }
+
+  // 删除文件
+  async deleteFile(filePath) {
+    try {
+      if (!filePath) {
+        throw new Error('文件路径为空');
+      }
+
+      // 检查文件是否存在
+      if (!fs.existsSync(filePath)) {
+        throw new Error('文件不存在: ' + filePath);
+      }
+
+      // 检查是否是文件
+      const stats = fs.statSync(filePath);
+      if (!stats.isFile()) {
+        throw new Error('指定路径不是文件: ' + filePath);
+      }
+
+      // 安全检查：防止删除系统重要文件
+      const normalizedPath = path.normalize(filePath);
+      const systemPaths = ['/System', '/usr', '/bin', '/sbin', '/etc'];
+      if (process.platform === 'win32') {
+        systemPaths.push('C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)');
+      }
+      
+      for (const sysPath of systemPaths) {
+        if (normalizedPath.startsWith(sysPath)) {
+          throw new Error('不允许删除系统文件');
+        }
+      }
+
+      // 检查删除权限
+      try {
+        fs.accessSync(path.dirname(filePath), fs.constants.W_OK);
+      } catch (permError) {
+        throw new Error('没有删除权限: ' + filePath);
+      }
+
+      // 删除文件
+      fs.unlinkSync(filePath);
+
+      // 验证删除是否成功
+      if (fs.existsSync(filePath)) {
+        throw new Error('文件删除失败，文件仍然存在');
+      }
+
+      console.log('文件删除成功:', filePath);
+      return { success: true, filePath };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('删除文件时发生错误:', errorMessage, error);
+      throw new Error('无法删除文件: ' + errorMessage);
+    }
+  }
+
+  // 删除文件夹
+  async deleteFolder(folderPath) {
+    try {
+      if (!folderPath) {
+        throw new Error('文件夹路径为空');
+      }
+
+      // 检查文件夹是否存在
+      if (!fs.existsSync(folderPath)) {
+        throw new Error('文件夹不存在: ' + folderPath);
+      }
+
+      // 检查是否是文件夹
+      const stats = fs.statSync(folderPath);
+      if (!stats.isDirectory()) {
+        throw new Error('指定路径不是文件夹: ' + folderPath);
+      }
+
+      // 安全检查：防止删除系统重要目录
+      const normalizedPath = path.normalize(folderPath);
+      const systemPaths = ['/System', '/usr', '/bin', '/sbin', '/etc', '/Applications'];
+      if (process.platform === 'win32') {
+        systemPaths.push('C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)');
+      }
+      
+      for (const sysPath of systemPaths) {
+        if (normalizedPath.startsWith(sysPath)) {
+          throw new Error('不允许删除系统目录');
+        }
+      }
+
+      // 检查删除权限
+      try {
+        fs.accessSync(path.dirname(folderPath), fs.constants.W_OK);
+      } catch (permError) {
+        throw new Error('没有删除权限: ' + folderPath);
+      }
+
+      // 递归删除文件夹及其内容
+      fs.rmSync(folderPath, { recursive: true, force: true });
+
+      // 验证删除是否成功
+      if (fs.existsSync(folderPath)) {
+        throw new Error('文件夹删除失败，文件夹仍然存在');
+      }
+
+      console.log('文件夹删除成功:', folderPath);
+      return { success: true, folderPath };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('删除文件夹时发生错误:', errorMessage, error);
+      throw new Error('无法删除文件夹: ' + errorMessage);
+    }
+  }
 }
 
 module.exports = FileManager;

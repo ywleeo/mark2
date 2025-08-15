@@ -586,6 +586,46 @@ class IPCHandler {
         event.returnValue = null;
       }
     });
+
+    // 删除文件
+    ipcMain.handle('delete-file', async (event, filePath) => {
+      try {
+        return await this.fileManager.deleteFile(filePath);
+      } catch (error) {
+        console.error('Error in delete-file:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 删除文件夹
+    ipcMain.handle('delete-folder', async (event, folderPath) => {
+      try {
+        return await this.fileManager.deleteFolder(folderPath);
+      } catch (error) {
+        console.error('Error in delete-folder:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 重新构建文件树（用于删除后刷新）
+    ipcMain.handle('rebuild-file-tree', async (event, folderPath) => {
+      try {
+        if (!folderPath) {
+          return { success: false, error: '文件夹路径为空' };
+        }
+        
+        const fs = require('fs');
+        if (!fs.existsSync(folderPath)) {
+          return { success: false, error: '文件夹不存在' };
+        }
+        
+        const fileTree = this.fileManager.buildFileTreeWithRoot(folderPath);
+        return { success: true, fileTree };
+      } catch (error) {
+        console.error('Error rebuilding file tree:', error);
+        return { success: false, error: error.message };
+      }
+    });
   }
 }
 

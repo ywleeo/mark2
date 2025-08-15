@@ -430,7 +430,7 @@ class FileTreeManager {
     menu.style.zIndex = 10000;
 
     if (type === 'file') {
-      // Files 区域下的文件：保留关闭功能
+      // Files 区域下的文件：路径访问、关闭文件、删除文件
       menu.innerHTML = `
         <div class="context-menu-item" data-action="reveal-file" data-path="${path}">
           路径访问
@@ -438,9 +438,13 @@ class FileTreeManager {
         <div class="context-menu-item" data-action="close-file" data-path="${path}">
           关闭文件
         </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item delete-item" data-action="delete-file" data-path="${path}">
+          删除文件
+        </div>
       `;
     } else if (type === 'folder') {
-      // Folders 区域下的文件夹：保留关闭功能
+      // Folders 区域下的文件夹：路径访问、关闭文件夹、删除文件夹
       menu.innerHTML = `
         <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
           路径访问
@@ -448,19 +452,31 @@ class FileTreeManager {
         <div class="context-menu-item" data-action="close-folder" data-path="${path}">
           关闭文件夹
         </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item delete-item" data-action="delete-folder" data-path="${path}">
+          删除文件夹
+        </div>
       `;
     } else if (type === 'subfolder-file') {
-      // 文件树中的文件：只有路径访问功能
+      // 文件树中的文件：路径访问、删除文件
       menu.innerHTML = `
         <div class="context-menu-item" data-action="reveal-file" data-path="${path}">
           路径访问
         </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item delete-item" data-action="delete-file" data-path="${path}">
+          删除文件
+        </div>
       `;
     } else if (type === 'subfolder') {
-      // 文件树中的文件夹：只有路径访问功能
+      // 文件树中的文件夹：路径访问、删除文件夹
       menu.innerHTML = `
         <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
           路径访问
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item delete-item" data-action="delete-folder" data-path="${path}">
+          删除文件夹
         </div>
       `;
     }
@@ -480,6 +496,10 @@ class FileTreeManager {
         this.revealFile(itemPath);
       } else if (action === 'reveal-folder') {
         this.revealFolder(itemPath);
+      } else if (action === 'delete-file') {
+        this.deleteFileWithConfirm(itemPath);
+      } else if (action === 'delete-folder') {
+        this.deleteFolderWithConfirm(itemPath);
       }
       
       menu.remove();
@@ -659,6 +679,147 @@ class FileTreeManager {
     this.initializeRootExpansion();
     
     // 刷新sidebar树，保持Files和Folders节点显示
+    this.refreshSidebarTree();
+  }
+
+  // 删除文件（带确认对话框）
+  async deleteFileWithConfirm(filePath) {
+    const path = require('path');
+    const fileName = path.basename(filePath);
+    
+    const confirmed = confirm(`确定要删除文件 "${fileName}" 吗？\n\n此操作不可撤销。`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('delete-file', filePath);
+      
+      if (result.success) {
+        // 删除成功，从界面中移除文件
+        this.handleFileDeleted(filePath);
+        
+        // 显示成功消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`文件 "${fileName}" 删除成功`, 'success');
+        }
+      } else {
+        // 显示错误消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`删除文件失败: ${result.error}`, 'error');
+        } else {
+          alert(`删除文件失败: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('删除文件时发生错误:', error);
+      if (window.uiManager) {
+        window.uiManager.showMessage(`删除文件失败: ${error.message}`, 'error');
+      } else {
+        alert(`删除文件失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 删除文件夹（带确认对话框）
+  async deleteFolderWithConfirm(folderPath) {
+    const path = require('path');
+    const folderName = path.basename(folderPath);
+    
+    const confirmed = confirm(`确定要删除文件夹 "${folderName}" 及其所有内容吗？\n\n此操作不可撤销。`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('delete-folder', folderPath);
+      
+      if (result.success) {
+        // 删除成功，从界面中移除文件夹
+        this.handleFolderDeleted(folderPath);
+        
+        // 显示成功消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`文件夹 "${folderName}" 删除成功`, 'success');
+        }
+      } else {
+        // 显示错误消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`删除文件夹失败: ${result.error}`, 'error');
+        } else {
+          alert(`删除文件夹失败: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('删除文件夹时发生错误:', error);
+      if (window.uiManager) {
+        window.uiManager.showMessage(`删除文件夹失败: ${error.message}`, 'error');
+      } else {
+        alert(`删除文件夹失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 处理文件删除后的界面更新
+  handleFileDeleted(filePath) {
+    // 1. 从Files区域移除文件
+    this.removeFile(filePath, false);
+    
+    // 2. 如果当前打开了这个文件，关闭相关标签
+    if (window.appManager) {
+      window.appManager.closeFileCompletely(filePath);
+    }
+    
+    // 3. 刷新文件树，移除被删除的文件
+    this.refreshFileTreeAfterDeletion();
+  }
+
+  // 处理文件夹删除后的界面更新
+  handleFolderDeleted(folderPath) {
+    // 1. 从Folders区域移除文件夹
+    this.openFolders.delete(folderPath);
+    
+    // 2. 清理相关的展开状态
+    this.expandedFolders.delete(folderPath);
+    
+    // 3. 如果删除的是当前活动文件夹，清除活动状态
+    if (this.activeFilePath === folderPath && this.activeItemType === 'folder') {
+      this.activeFilePath = null;
+      this.activeItemType = null;
+    }
+    
+    // 4. 关闭该文件夹下的所有打开文件
+    if (window.appManager) {
+      window.appManager.closeFilesInFolder(folderPath);
+    }
+    
+    // 5. 刷新界面
+    this.refreshSidebarTree();
+    
+    // 6. 保存状态
+    if (window.appManager) {
+      window.appManager.saveAppState();
+    }
+  }
+
+  // 删除文件后刷新文件树（移除不存在的文件）
+  async refreshFileTreeAfterDeletion() {
+    // 通过IPC重新构建文件树，自动过滤掉不存在的文件
+    for (const [folderPath, folderInfo] of this.openFolders) {
+      try {
+        const { ipcRenderer } = require('electron');
+        // 通过IPC重新获取文件树
+        const result = await ipcRenderer.invoke('rebuild-file-tree', folderPath);
+        if (result && result.success && result.fileTree) {
+          folderInfo.fileTree = result.fileTree;
+        }
+      } catch (error) {
+        console.error('刷新文件树时发生错误:', error);
+      }
+    }
+    
     this.refreshSidebarTree();
   }
 }

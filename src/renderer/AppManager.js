@@ -249,6 +249,39 @@ class AppManager {
     };
   }
 
+  // 文件管理方法（代理到TabManager）
+  closeFileCompletely(filePath) {
+    if (this.tabManager && this.tabManager.closeFileCompletely) {
+      return this.tabManager.closeFileCompletely(filePath);
+    }
+  }
+
+  // 关闭文件夹下的所有文件
+  closeFilesInFolder(folderPath) {
+    if (this.tabManager && this.tabManager.tabs) {
+      const path = require('path');
+      // 找到所有在指定文件夹下的文件并关闭
+      const tabsToClose = [];
+      for (const [tabId, tab] of this.tabManager.tabs) {
+        if (tab.filePath && tab.filePath.startsWith(folderPath + path.sep)) {
+          tabsToClose.push(tabId);
+        }
+      }
+      
+      // 关闭找到的所有标签页
+      tabsToClose.forEach(tabId => {
+        this.tabManager.closeTab(tabId);
+      });
+    }
+  }
+
+  // 保存应用状态（代理到StateManager）
+  saveAppState() {
+    if (this.stateManager) {
+      return this.stateManager.saveAppState();
+    }
+  }
+
   // 清理方法
   cleanup() {
     // 移除所有事件监听器

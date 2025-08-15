@@ -987,6 +987,7 @@ mark[class*="highlight-"] {
     color: var(--text-color);
     display: flex;
     align-items: center;
+    font-weight: 400;
 }
 
 .context-menu-item:hover {
@@ -995,4 +996,19 @@ mark[class*="highlight-"] {
 
 .context-menu-item:active {
     background-color: var(--active-bg-color);
+}
+
+.context-menu-separator {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 4px 0;
+}
+
+.context-menu-item.delete-item {
+    color: #ff858f;
+}
+
+.context-menu-item.delete-item:hover {
+    background-color: rgba(255, 71, 87, 0.1);
+    color: #ffa8a8;
 }
