@@ -76,6 +76,17 @@ class WindowManager {
       if (this.isInitialStartup) {
         this.mainWindow.webContents.send('restore-app-state');
         this.isInitialStartup = false;
+      } else {
+        // 非初次启动时，窗口显示时触发内容刷新
+        this.triggerContentRefresh();
+      }
+    });
+
+    // 监听窗口获得焦点事件
+    this.mainWindow.on('focus', () => {
+      // 窗口获得焦点时触发内容刷新（用于替代持续监听）
+      if (!this.isInitialStartup) {
+        this.triggerContentRefresh();
       }
     });
 
@@ -84,6 +95,15 @@ class WindowManager {
       this.mainWindow = null;
     });
 
+  }
+
+  // 触发内容刷新（窗口激活时使用）
+  triggerContentRefresh() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      console.log('WindowManager: 窗口激活，触发内容刷新');
+      // 通知渲染进程进行内容刷新检查
+      this.mainWindow.webContents.send('window-activated-refresh');
+    }
   }
 
   getWindow() {

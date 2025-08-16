@@ -228,6 +228,25 @@ class IPCHandler {
       }
     });
 
+    // 按需刷新内容 - 窗口激活时使用
+    ipcMain.handle('refresh-content-on-demand', async () => {
+      try {
+        console.log('IPCHandler: 执行按需内容刷新...');
+        
+        // 检查并刷新所有跟踪的内容
+        const hasChanges = this.fileWatcher.checkAndRefreshAll();
+        
+        return { 
+          success: true, 
+          hasChanges,
+          message: hasChanges ? '检测到内容变化' : '无内容变化'
+        };
+      } catch (error) {
+        console.error('按需刷新失败:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
 
     // 超级简单的PDF导出 - 直接转换HTML
     ipcMain.handle('export-pdf-simple', async (event, options) => {

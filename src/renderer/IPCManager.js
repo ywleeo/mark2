@@ -31,6 +31,9 @@ class IPCManager {
     
     // 系统电源事件相关
     this.setupPowerEventListeners(ipcRenderer);
+    
+    // 窗口激活刷新相关
+    this.setupWindowActivationListeners(ipcRenderer);
   }
 
   setupFileOperationListeners(ipcRenderer) {
@@ -143,22 +146,25 @@ class IPCManager {
   }
 
   setupPowerEventListeners(ipcRenderer) {
-    // 监听系统休眠事件
+    // 保留基本的系统事件监听（简化版本）
     ipcRenderer.on('system-suspend', () => {
       console.log('接收到系统休眠信号');
-      this.handleSystemSuspend();
+      // 简化处理：只保存状态，不做复杂的监听暂停
+      this.eventManager.emit('save-app-state');
     });
 
-    // 监听系统唤醒事件
     ipcRenderer.on('system-resume', () => {
       console.log('接收到系统唤醒信号');
-      this.handleSystemResume();
+      // 简化处理：依赖窗口激活事件来刷新内容
+      console.log('系统唤醒后，等待窗口激活事件来刷新内容');
     });
+  }
 
-    // 监听 IPC 连接恢复事件
-    ipcRenderer.on('ipc-connection-restored', () => {
-      console.log('IPC 连接已恢复');
-      this.handleIPCConnectionRestored();
+  setupWindowActivationListeners(ipcRenderer) {
+    // 监听窗口激活刷新事件
+    ipcRenderer.on('window-activated-refresh', async () => {
+      console.log('接收到窗口激活刷新信号');
+      await this.handleWindowActivatedRefresh();
     });
   }
 
@@ -363,135 +369,25 @@ class IPCManager {
     return await ipcRenderer.invoke(channel, data);
   }
 
-  // 系统电源事件处理方法
-  handleSystemSuspend() {
-    console.log('系统即将休眠，保存当前状态...');
-    
-    // 保存应用状态
-    this.eventManager.emit('save-app-state');
-    
-    // 停止所有活跃的文件监听（避免休眠时的错误）
-    this.pauseFileWatching();
-    
-    // 记录休眠时间
-    localStorage.setItem('system-suspend-time', Date.now().toString());
-  }
-
-  handleSystemResume() {
-    console.log('系统已唤醒，准备恢复连接...');
-    
-    // 获取休眠时间
-    const suspendTime = localStorage.getItem('system-suspend-time');
-    if (suspendTime) {
-      const suspendDuration = Date.now() - parseInt(suspendTime);
-      console.log(`系统休眠时长: ${Math.round(suspendDuration / 1000)}秒`);
-      localStorage.removeItem('system-suspend-time');
-    }
-    
-    // 等待 IPC 连接恢复后再执行操作
-    this.waitingForIPCRestore = true;
-  }
-
-  handleIPCConnectionRestored() {
-    console.log('IPC 连接已恢复，重建应用状态...');
-    
-    if (this.waitingForIPCRestore) {
-      this.waitingForIPCRestore = false;
-      
-      // 延迟一点时间确保主进程完全就绪
-      setTimeout(() => {
-        this.restoreAfterSystemResume();
-      }, 500);
-    }
-  }
-
-  async restoreAfterSystemResume() {
-    console.log('开始恢复系统唤醒后的应用状态...');
+  // 窗口激活刷新处理方法
+  async handleWindowActivatedRefresh() {
+    console.log('处理窗口激活刷新请求...');
     
     try {
-      // 1. 恢复文件监听
-      await this.restoreFileWatching();
+      // 调用主进程的按需刷新方法
+      const result = await this.invokeMain('refresh-content-on-demand');
       
-      // 2. 测试 IPC 连接
-      await this.testIPCConnection();
-      
-      // 3. 刷新当前内容（如果有的话）
-      this.refreshCurrentContent();
-      
-      console.log('系统唤醒后的应用状态恢复完成');
-    } catch (error) {
-      console.error('恢复应用状态失败:', error);
-      // 显示用户友好的错误信息
-      this.uiManager?.showMessage('系统唤醒后恢复连接失败，建议重启应用', 'warning');
-    }
-  }
-
-  pauseFileWatching() {
-    console.log('暂停文件监听...');
-    // 记录当前监听的文件和文件夹
-    const currentTab = this.tabManager?.getActiveTab();
-    if (currentTab?.filePath) {
-      localStorage.setItem('paused-file-watching', currentTab.filePath);
-    }
-    
-    const currentFolder = this.fileTreeManager?.getCurrentFolderPath();
-    if (currentFolder) {
-      localStorage.setItem('paused-folder-watching', currentFolder);
-    }
-  }
-
-  async restoreFileWatching() {
-    console.log('恢复文件监听...');
-    
-    try {
-      // 恢复文件监听
-      const pausedFile = localStorage.getItem('paused-file-watching');
-      if (pausedFile) {
-        await this.invokeMain('restart-file-watching', pausedFile);
-        localStorage.removeItem('paused-file-watching');
-        console.log(`文件监听已恢复: ${pausedFile}`);
-      }
-      
-      // 恢复文件夹监听
-      const pausedFolder = localStorage.getItem('paused-folder-watching');
-      if (pausedFolder) {
-        await this.invokeMain('restart-folder-watching', pausedFolder);
-        localStorage.removeItem('paused-folder-watching');
-        console.log(`文件夹监听已恢复: ${pausedFolder}`);
-      }
-    } catch (error) {
-      console.error('恢复文件监听失败:', error);
-    }
-  }
-
-  async testIPCConnection() {
-    console.log('测试 IPC 连接...');
-    
-    try {
-      // 通过一个简单的 IPC 调用测试连接
-      const result = await this.invokeMain('get-theme-settings');
-      console.log('IPC 连接测试成功');
-      return true;
-    } catch (error) {
-      console.error('IPC 连接测试失败:', error);
-      throw error;
-    }
-  }
-
-  refreshCurrentContent() {
-    console.log('刷新当前内容...');
-    
-    try {
-      // 如果有当前活跃的内容，重新渲染
-      const currentTab = this.tabManager?.getActiveTab();
-      if (currentTab?.content) {
-        // 重新处理插件渲染
-        if (window.pluginManager) {
-          window.pluginManager.processAllPlugins(currentTab.content);
+      if (result.success) {
+        if (result.hasChanges) {
+          console.log('窗口激活检测到内容变化:', result.message);
+        } else {
+          console.log('窗口激活检查完成，无内容变化');
         }
+      } else {
+        console.warn('窗口激活刷新失败:', result.error);
       }
     } catch (error) {
-      console.error('刷新当前内容失败:', error);
+      console.error('窗口激活刷新出错:', error);
     }
   }
 
@@ -505,7 +401,8 @@ class IPCManager {
       'show-search-box', 'show-settings', 'reset-to-initial-state',
       'create-new-file', 'export-pdf-request', 'restore-app-state',
       'toggle-plugin', 'refresh-plugins',
-      'system-suspend', 'system-resume', 'ipc-connection-restored'
+      'system-suspend', 'system-resume',
+      'window-activated-refresh'
     ];
     
     channels.forEach(channel => {
