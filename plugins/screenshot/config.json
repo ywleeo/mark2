@@ -1,0 +1,22 @@
+{
+  "name": "screenshot",
+  "displayName": "截图插件",
+  "version": "1.0.0",
+  "description": "支持完整页面截图并保存到剪切板",
+  "author": "mark2-team",
+  "enabled": true,
+  "main": "index.js",
+  "shortcuts": [
+    {
+      "accelerator": "CmdOrCtrl+Shift+C",
+      "description": "截图",
+      "action": "takeScreenshot"
+    }
+  ],
+  "configuration": {
+    "maxSegmentHeight": 1000,
+    "overlapPixels": 20,
+    "outputFormat": "png",
+    "compressionQuality": 90
+  }
+}

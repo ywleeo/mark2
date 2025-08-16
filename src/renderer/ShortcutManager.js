@@ -81,6 +81,7 @@ class ShortcutManager {
         this.handleShowSettings();
       }
       
+      
       // ESC 关闭设置对话框
       if (event.key === 'Escape') {
         this.handleEscapeKey();
@@ -139,6 +140,7 @@ class ShortcutManager {
   handleShowSettings() {
     this.uiManager.showSettings();
   }
+
 
   handleEscapeKey() {
     const settingsModal = document.getElementById('settingsModal');

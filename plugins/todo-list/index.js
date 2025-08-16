@@ -51,7 +51,6 @@ class TodoListPlugin extends BasePlugin {
             'todo-list-item': {
                 position: 'relative',
                 cursor: 'pointer',
-                padding: '4px 0',
                 borderRadius: '4px',
                 transition: `all ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`,
                 marginLeft: '0'

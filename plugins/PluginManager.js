@@ -66,6 +66,9 @@ class PluginManager {
         // 加载所有插件
         await this.loadAllPlugins();
         
+        // 注册所有插件的快捷键
+        this.registerPluginShortcuts();
+        
         this.initialized = true;
         console.log('[插件管理器] 初始化完成');
         
@@ -379,6 +382,97 @@ class PluginManager {
         }
         
         console.log('[插件管理器] 插件列表刷新完成');
+    }
+
+    /**
+     * 注册所有插件的快捷键
+     */
+    registerPluginShortcuts() {
+        console.log('[插件管理器] 注册插件快捷键...');
+        
+        // 监听全局键盘事件
+        document.addEventListener('keydown', (event) => {
+            this.handleShortcutEvent(event);
+        });
+        
+        console.log('[插件管理器] 快捷键注册完成');
+    }
+
+    /**
+     * 处理快捷键事件
+     */
+    handleShortcutEvent(event) {
+        // 遍历所有插件，检查快捷键匹配
+        for (const [pluginId, plugin] of this.plugins) {
+            if (!plugin.isActive()) continue;
+            
+            const shortcuts = plugin.shortcuts || [];
+            for (const shortcut of shortcuts) {
+                if (this.matchShortcut(event, shortcut.accelerator)) {
+                    event.preventDefault();
+                    console.log(`[插件管理器] 触发插件 ${pluginId} 的快捷键: ${shortcut.accelerator}`);
+                    
+                    // 调用插件的对应方法
+                    const actionMethod = shortcut.action || 'executeShortcut';
+                    if (typeof plugin[actionMethod] === 'function') {
+                        plugin[actionMethod](shortcut);
+                    } else {
+                        console.warn(`[插件管理器] 插件 ${pluginId} 没有方法 ${actionMethod}`);
+                    }
+                    return; // 只处理第一个匹配的快捷键
+                }
+            }
+        }
+    }
+
+    /**
+     * 检查快捷键是否匹配
+     */
+    matchShortcut(event, accelerator) {
+        // 解析加速器字符串 (如 "CmdOrCtrl+Shift+C")
+        const parts = accelerator.split('+');
+        let expectedCtrl = false;
+        let expectedMeta = false;
+        let expectedShift = false;
+        let expectedAlt = false;
+        let expectedKey = '';
+
+        for (const part of parts) {
+            switch (part.toLowerCase()) {
+                case 'cmdorctrl':
+                    if (process.platform === 'darwin') {
+                        expectedMeta = true;
+                    } else {
+                        expectedCtrl = true;
+                    }
+                    break;
+                case 'cmd':
+                case 'meta':
+                    expectedMeta = true;
+                    break;
+                case 'ctrl':
+                    expectedCtrl = true;
+                    break;
+                case 'shift':
+                    expectedShift = true;
+                    break;
+                case 'alt':
+                    expectedAlt = true;
+                    break;
+                default:
+                    expectedKey = part.toLowerCase();
+                    break;
+            }
+        }
+
+        // 检查修饰键
+        if (event.ctrlKey !== expectedCtrl) return false;
+        if (event.metaKey !== expectedMeta) return false;
+        if (event.shiftKey !== expectedShift) return false;
+        if (event.altKey !== expectedAlt) return false;
+
+        // 检查主键
+        return event.key.toLowerCase() === expectedKey;
     }
 
     /**

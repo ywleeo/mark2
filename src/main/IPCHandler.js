@@ -1,5 +1,6 @@
 const { ipcMain, dialog, shell, app } = require('electron');
 const SettingsManager = require('./SettingsManager');
+const ScreenshotHandler = require('./ScreenshotHandler');
 const path = require('path');
 const fs = require('fs');
 
@@ -9,6 +10,7 @@ class IPCHandler {
     this.fileManager = fileManager;
     this.fileWatcher = fileWatcher;
     this.menuManager = menuManager;
+    this.screenshotHandler = new ScreenshotHandler();
     this.setupIPCHandlers();
   }
 
@@ -624,6 +626,40 @@ class IPCHandler {
       } catch (error) {
         console.error('Error rebuilding file tree:', error);
         return { success: false, error: error.message };
+      }
+    });
+
+    // 截图相关的 IPC 处理器
+    ipcMain.handle('capture-screenshot', async (event, options) => {
+      try {
+        if (options.type === 'visible') {
+          return await this.screenshotHandler.captureVisibleArea();
+        } else if (options.type === 'segment') {
+          return await this.screenshotHandler.captureSegment(options);
+        } else {
+          throw new Error(`未知的截图类型: ${options.type}`);
+        }
+      } catch (error) {
+        console.error('Error in capture-screenshot:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('stitch-screenshots', async (event, options) => {
+      try {
+        return await this.screenshotHandler.stitchScreenshots(options);
+      } catch (error) {
+        console.error('Error in stitch-screenshots:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle('get-screenshot-info', async () => {
+      try {
+        return this.screenshotHandler.getLastScreenshotInfo();
+      } catch (error) {
+        console.error('Error getting screenshot info:', error);
+        return null;
       }
     });
   }

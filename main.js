@@ -1,4 +1,4 @@
-const { app } = require('electron');
+const { app, powerMonitor } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -94,6 +94,9 @@ app.whenReady().then(async () => {
     pendingFileToOpen = fileToOpen;
     console.log(`Pending file to open: ${fileToOpen}`);
   }
+  
+  // 设置系统电源事件监听
+  setupPowerMonitoring();
 });
 
 // 监听渲染进程准备就绪的信号
@@ -176,6 +179,78 @@ app.on('before-quit', () => {
   global.app.isQuiting = true;
   cleanup();
 });
+
+// 系统电源事件监听设置
+function setupPowerMonitoring() {
+  console.log('设置系统电源事件监听...');
+  
+  // 监听系统休眠事件
+  powerMonitor.on('suspend', () => {
+    console.log('系统即将休眠');
+    // 通知渲染进程系统即将休眠
+    const mainWindow = windowManager?.getWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('system-suspend');
+    }
+  });
+  
+  // 监听系统唤醒事件
+  powerMonitor.on('resume', () => {
+    console.log('系统从休眠中唤醒');
+    // 通知渲染进程系统已唤醒，需要重建 IPC 连接
+    const mainWindow = windowManager?.getWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send('system-resume');
+    }
+    
+    // 重新初始化 IPC 处理器
+    setTimeout(() => {
+      reinitializeIPCConnection();
+    }, 1000); // 延迟1秒确保系统完全唤醒
+  });
+  
+  // 监听锁屏事件
+  powerMonitor.on('lock-screen', () => {
+    console.log('系统锁屏');
+  });
+  
+  // 监听解锁事件
+  powerMonitor.on('unlock-screen', () => {
+    console.log('系统解锁');
+  });
+  
+  console.log('系统电源事件监听设置完成');
+}
+
+// 重新初始化 IPC 连接
+function reinitializeIPCConnection() {
+  console.log('正在重新初始化 IPC 连接...');
+  
+  try {
+    // 重新创建 IPC 处理器（这会重新注册所有的 IPC 处理函数）
+    if (windowManager && fileManager && fileWatcher && menuManager) {
+      // 销毁旧的处理器
+      if (ipcHandler) {
+        // IPCHandler 没有显式的销毁方法，但重新创建会覆盖旧的处理器
+        console.log('销毁旧的 IPC 处理器...');
+      }
+      
+      // 创建新的处理器
+      ipcHandler = new IPCHandler(windowManager, fileManager, fileWatcher, menuManager);
+      console.log('IPC 连接重新初始化完成');
+      
+      // 通知渲染进程 IPC 连接已恢复
+      const mainWindow = windowManager.getWindow();
+      if (mainWindow) {
+        mainWindow.webContents.send('ipc-connection-restored');
+      }
+    } else {
+      console.error('无法重新初始化 IPC：管理器实例不存在');
+    }
+  } catch (error) {
+    console.error('重新初始化 IPC 连接失败:', error);
+  }
+}
 
 // 清理函数
 function cleanup() {
