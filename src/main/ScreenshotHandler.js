@@ -1,11 +1,13 @@
-const { BrowserWindow, clipboard, nativeImage } = require('electron');
+const { BrowserWindow, clipboard, nativeImage, app } = require('electron');
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 class ScreenshotHandler {
   constructor() {
     this.lastScreenshotBuffer = null;
+    this.tempFiles = new Set(); // 跟踪临时文件用于清理
   }
 
   /**
@@ -155,8 +157,7 @@ class ScreenshotHandler {
       // 转换为 Buffer
       const buffer = image.toPNG();
       
-      // 保存单个段的调试图片
-      await this.saveSegmentToTest(buffer, options.segmentIndex);
+      // 段截图完成
       
       return { 
         success: true, 
@@ -616,25 +617,44 @@ class ScreenshotHandler {
   }
 
   /**
-   * 保存图片到剪切板
+   * 保存图片到剪切板（支持多种保存模式）
    */
-  async saveToClipboard(buffer) {
+  async saveToClipboard(buffer, saveMode = 'dual') {
     try {
-      console.log('保存图片到剪切板...');
+      console.log(`保存图片到剪切板（模式: ${saveMode}）...`);
       
-      // 创建 NativeImage
-      const image = nativeImage.createFromBuffer(buffer);
+      let tempFilePath = null;
       
-      // 保存到剪切板
-      clipboard.writeImage(image);
+      // 根据保存模式决定操作
+      if (saveMode === 'clipboard' || saveMode === 'dual') {
+        // 保存图像数据到剪切板（用于应用内粘贴）
+        const image = nativeImage.createFromBuffer(buffer);
+        clipboard.writeImage(image);
+        console.log('图像数据已保存到剪切板');
+      }
+      
+      if (saveMode === 'file' || saveMode === 'dual') {
+        // 保存临时文件并复制文件路径（用于文件管理器粘贴）
+        tempFilePath = await this.saveToTempFile(buffer);
+        
+        // 将文件路径也保存到剪切板（某些应用可以识别）
+        await this.copyFileToClipboard(tempFilePath);
+        console.log(`临时文件已保存: ${tempFilePath}`);
+      }
       
       // 缓存最后一次截图
       this.lastScreenshotBuffer = buffer;
       
-      // 同时保存到test/目录进行调试
-      await this.saveToTestDirectory(buffer);
+      const modeDescription = {
+        'clipboard': '剪切板模式',
+        'file': '文件模式',
+        'dual': '双重保存模式'
+      };
       
-      console.log('图片已保存到剪切板');
+      console.log(`图片保存完成（${modeDescription[saveMode]}）`);
+      if (tempFilePath) {
+        console.log(`临时文件位置: ${tempFilePath}`);
+      }
       
     } catch (error) {
       console.error('保存到剪切板失败:', error);
@@ -643,39 +663,189 @@ class ScreenshotHandler {
   }
 
   /**
-   * 保存图片到test/目录用于调试
+   * 保存图片到临时文件
    */
-  async saveToTestDirectory(buffer) {
+  async saveToTempFile(buffer, cleanupHours = 24) {
     try {
-      const path = require('path');
-      const timestamp = new Date().toISOString().replace(/[:.-]/g, '');
-      const filename = `screenshot_final_${timestamp}.png`;
-      const filepath = path.join(__dirname, '../../test', filename);
+      // 清理旧的临时文件
+      await this.cleanupOldTempFiles(cleanupHours);
       
-      await fs.promises.writeFile(filepath, buffer);
-      console.log(`最终拼接图片已保存到: ${filepath}`);
+      // 生成临时文件路径
+      const timestamp = new Date().toISOString().replace(/[:.-]/g, '');
+      const filename = `mark2_screenshot_${timestamp}.png`;
+      const tempDir = os.tmpdir();
+      const tempFilePath = path.join(tempDir, filename);
+      
+      // 保存文件
+      await fs.promises.writeFile(tempFilePath, buffer);
+      
+      // 记录临时文件用于后续清理
+      this.tempFiles.add(tempFilePath);
+      
+      console.log(`截图已保存到临时文件: ${tempFilePath}`);
+      return tempFilePath;
       
     } catch (error) {
-      console.warn('保存调试图片失败:', error.message);
-      // 不抛出错误，因为这只是调试功能
+      console.error('保存临时文件失败:', error);
+      throw error;
     }
   }
 
   /**
-   * 保存单个段的图片到test/目录用于调试
+   * 复制文件到剪切板（平台特定实现）
    */
-  async saveSegmentToTest(buffer, segmentIndex) {
+  async copyFileToClipboard(filePath) {
     try {
-      const path = require('path');
-      const timestamp = new Date().toISOString().replace(/[:.-]/g, '');
-      const filename = `segment_${segmentIndex + 1}_${timestamp}.png`;
-      const filepath = path.join(__dirname, '../../test', filename);
+      const platform = process.platform;
       
-      await fs.promises.writeFile(filepath, buffer);
-      console.log(`段 ${segmentIndex + 1} 图片已保存到: ${filepath}`);
+      if (platform === 'darwin') {
+        // macOS: 使用 AppleScript 复制文件
+        await this.copyFileToClipboardMacOS(filePath);
+      } else if (platform === 'win32') {
+        // Windows: 使用 PowerShell 复制文件
+        await this.copyFileToClipboardWindows(filePath);
+      } else {
+        // Linux: 添加文件路径到文本剪切板作为备选方案
+        clipboard.writeText(filePath);
+        console.log('Linux: 文件路径已复制到文本剪切板');
+      }
       
     } catch (error) {
-      console.warn(`保存段 ${segmentIndex + 1} 调试图片失败:`, error.message);
+      console.warn('复制文件到剪切板失败:', error.message);
+      // 不抛出错误，因为图像数据已经成功保存到剪切板
+    }
+  }
+
+  /**
+   * macOS: 使用 AppleScript 复制文件到剪切板
+   */
+  async copyFileToClipboardMacOS(filePath) {
+    const { exec } = require('child_process');
+    
+    return new Promise((resolve, reject) => {
+      const script = `
+        tell application "Finder"
+          set the clipboard to (POSIX file "${filePath}")
+        end tell
+      `;
+      
+      exec(`osascript -e '${script}'`, (error, stdout, stderr) => {
+        if (error) {
+          console.warn('AppleScript 复制文件失败:', error.message);
+          resolve(); // 不拒绝，因为这是备选功能
+        } else {
+          console.log('macOS: 文件已复制到剪切板');
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Windows: 使用 PowerShell 复制文件到剪切板
+   */
+  async copyFileToClipboardWindows(filePath) {
+    const { exec } = require('child_process');
+    
+    return new Promise((resolve, reject) => {
+      const script = `
+        Add-Type -AssemblyName System.Windows.Forms
+        $file = Get-Item "${filePath}"
+        [System.Windows.Forms.Clipboard]::SetFileDropList([string[]]@($file.FullName))
+      `;
+      
+      exec(`powershell -Command "${script}"`, (error, stdout, stderr) => {
+        if (error) {
+          console.warn('PowerShell 复制文件失败:', error.message);
+          resolve(); // 不拒绝，因为这是备选功能
+        } else {
+          console.log('Windows: 文件已复制到剪切板');
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * 清理旧的临时文件
+   */
+  async cleanupOldTempFiles(cleanupHours = 24) {
+    try {
+      const maxAge = cleanupHours * 60 * 60 * 1000; // 转换为毫秒
+      const now = Date.now();
+      const toDelete = [];
+      
+      console.log(`清理超过 ${cleanupHours} 小时的临时文件...`);
+      
+      for (const filePath of this.tempFiles) {
+        try {
+          const stats = await fs.promises.stat(filePath);
+          const age = now - stats.mtime.getTime();
+          
+          if (age > maxAge) {
+            toDelete.push(filePath);
+          }
+        } catch (error) {
+          // 文件已不存在，从记录中移除
+          toDelete.push(filePath);
+        }
+      }
+      
+      // 删除过期文件
+      for (const filePath of toDelete) {
+        try {
+          await fs.promises.unlink(filePath);
+          console.log(`已删除过期临时文件: ${filePath}`);
+        } catch (error) {
+          console.warn(`删除临时文件失败: ${filePath}`, error.message);
+        }
+        this.tempFiles.delete(filePath);
+      }
+      
+      // 额外清理：删除系统临时目录中所有过期的 mark2 截图文件
+      await this.cleanupSystemTempFiles(cleanupHours);
+      
+      console.log(`临时文件清理完成，删除了 ${toDelete.length} 个文件`);
+      
+    } catch (error) {
+      console.warn('清理临时文件失败:', error.message);
+    }
+  }
+
+  /**
+   * 清理系统临时目录中的 mark2 截图文件
+   */
+  async cleanupSystemTempFiles(cleanupHours = 24) {
+    try {
+      const tempDir = os.tmpdir();
+      const files = await fs.promises.readdir(tempDir);
+      const maxAge = cleanupHours * 60 * 60 * 1000; // 转换为毫秒
+      const now = Date.now();
+      let deletedCount = 0;
+      
+      for (const file of files) {
+        if (file.startsWith('mark2_screenshot_')) {
+          const filePath = path.join(tempDir, file);
+          try {
+            const stats = await fs.promises.stat(filePath);
+            const age = now - stats.mtime.getTime();
+            
+            if (age > maxAge) {
+              await fs.promises.unlink(filePath);
+              console.log(`已删除系统临时截图文件: ${file}`);
+              deletedCount++;
+            }
+          } catch (error) {
+            // 忽略单个文件错误
+          }
+        }
+      }
+      
+      if (deletedCount > 0) {
+        console.log(`系统临时目录清理完成，删除了 ${deletedCount} 个截图文件`);
+      }
+    } catch (error) {
+      console.warn('清理系统临时文件失败:', error.message);
     }
   }
 
@@ -689,15 +859,28 @@ class ScreenshotHandler {
 
     return {
       size: this.lastScreenshotBuffer.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      tempFilesCount: this.tempFiles.size
     };
   }
 
   /**
    * 清理缓存
    */
-  cleanup() {
+  async cleanup() {
     this.lastScreenshotBuffer = null;
+    
+    // 清理所有临时文件
+    for (const filePath of this.tempFiles) {
+      try {
+        await fs.promises.unlink(filePath);
+        console.log(`已删除临时文件: ${filePath}`);
+      } catch (error) {
+        console.warn(`删除临时文件失败: ${filePath}`, error.message);
+      }
+    }
+    this.tempFiles.clear();
+    
     console.log('ScreenshotHandler 缓存已清理');
   }
 }

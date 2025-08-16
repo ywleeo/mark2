@@ -17,6 +17,31 @@
     "maxSegmentHeight": 1000,
     "overlapPixels": 20,
     "outputFormat": "png",
-    "compressionQuality": 90
-  }
+    "compressionQuality": 90,
+    "saveMode": "dual",
+    "tempFileCleanupHours": 24
+  },
+  "settings": [
+    {
+      "key": "saveMode",
+      "type": "select",
+      "label": "保存模式",
+      "description": "选择截图保存方式",
+      "default": "dual",
+      "options": [
+        { "value": "clipboard", "label": "仅剪切板（图像数据）" },
+        { "value": "file", "label": "仅临时文件" },
+        { "value": "dual", "label": "双重保存（推荐）" }
+      ]
+    },
+    {
+      "key": "tempFileCleanupHours",
+      "type": "number",
+      "label": "临时文件清理时间（小时）",
+      "description": "超过此时间的临时截图文件将被自动删除",
+      "default": 24,
+      "min": 1,
+      "max": 168
+    }
+  ]
 }
