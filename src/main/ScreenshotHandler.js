@@ -241,22 +241,22 @@ class ScreenshotHandler {
           // 后续段需要处理重叠
           let overlapPixels = this.calculateOptimalOverlap(segment.height, config.overlapPixels || 20);
           
-          // 对于最后一段，如果滚动位置不准确，需要重新计算Y位置
+          // 对于最后一段，需要特殊处理重叠计算，因为它是滚动到底部截取的
           if (segment.isLastSegment && segment.actualScrollY !== undefined) {
             const expectedScrollY = segment.y;
             const actualScrollY = segment.actualScrollY;
             const scrollDiff = expectedScrollY - actualScrollY;
             
-            if (Math.abs(scrollDiff) > 50) { // 滚动误差超过50px
-              console.log(`最后段滚动偏差: 期望=${expectedScrollY}, 实际=${actualScrollY}, 差值=${scrollDiff}px`);
-              
-              // 重新计算最后一段在画布中的Y位置
-              // 如果实际滚动更靠前(scrollDiff > 0)，说明内容向上偏移了，需要上移
-              const adjustedY = Math.round(currentY - scrollDiff);
-              console.log(`调整最后段Y位置: ${currentY} -> ${adjustedY} (滚动偏差=${scrollDiff}px)`);
-              
-              // 重新设置合成位置
-              currentY = adjustedY;
+            console.log(`最后段滚动偏差: 期望=${expectedScrollY}, 实际=${actualScrollY}, 差值=${scrollDiff}px`);
+            
+            // 对于最后一段，应该减少重叠像素，让它更靠上拼接
+            // 因为最后一段是从底部滚动位置截取的，需要调整重叠计算
+            if (Math.abs(scrollDiff) > 10) { // 降低阈值，更敏感地处理偏差
+              // 计算调整后的重叠像素数
+              // 如果实际滚动位置更靠上（actualScrollY < expectedScrollY），需要减少重叠
+              const adjustedOverlap = Math.max(0, overlapPixels - Math.abs(scrollDiff));
+              console.log(`最后段重叠调整: 原始=${overlapPixels}px -> 调整=${adjustedOverlap}px (偏差=${scrollDiff}px)`);
+              overlapPixels = adjustedOverlap;
             }
           }
           
