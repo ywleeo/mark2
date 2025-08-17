@@ -238,30 +238,73 @@ class ScreenshotHandler {
           });
           currentY = firstImageInfo.height;
         } else {
-          // 后续段需要处理重叠
-          let overlapPixels = this.calculateOptimalOverlap(segment.height, config.overlapPixels || 20);
-          
-          // 对于最后一段，需要特殊处理重叠计算，因为它是滚动到底部截取的
-          if (segment.isLastSegment && segment.actualScrollY !== undefined) {
-            const expectedScrollY = segment.y;
-            const actualScrollY = segment.actualScrollY;
-            const scrollDiff = expectedScrollY - actualScrollY;
-            
-            console.log(`最后段滚动偏差: 期望=${expectedScrollY}, 实际=${actualScrollY}, 差值=${scrollDiff}px`);
-            
-            // 对于最后一段，应该减少重叠像素，让它更靠上拼接
-            // 因为最后一段是从底部滚动位置截取的，需要调整重叠计算
-            if (Math.abs(scrollDiff) > 10) { // 降低阈值，更敏感地处理偏差
-              // 计算调整后的重叠像素数
-              // 如果实际滚动位置更靠上（actualScrollY < expectedScrollY），需要减少重叠
-              const adjustedOverlap = Math.max(0, overlapPixels - Math.abs(scrollDiff));
-              console.log(`最后段重叠调整: 原始=${overlapPixels}px -> 调整=${adjustedOverlap}px (偏差=${scrollDiff}px)`);
-              overlapPixels = adjustedOverlap;
-            }
-          }
-          
           // 获取当前段图片信息
           const imageInfo = await sharp(buffer).metadata();
+          
+          // 对于最后一段，使用稳健的处理方式：只截取真正需要的内容
+          if (segment.isLastSegment) {
+            const remainingContentHeight = segment.remainingContentHeight || segment.height;
+            console.log(`最后段特殊处理: 剩余内容=${remainingContentHeight}px, 图片高度=${imageInfo.height}px`);
+            
+            // 计算需要从图片底部截取多少内容
+            const neededHeight = Math.min(remainingContentHeight, imageInfo.height);
+            const cropFromTop = imageInfo.height - neededHeight;
+            
+            console.log(`最后段精确裁剪: 从顶部裁掉 ${cropFromTop}px，保留底部 ${neededHeight}px`);
+            
+            let processedBuffer = buffer;
+            
+            // 直接裁剪图片，不使用重叠逻辑
+            if (cropFromTop > 0) {
+              processedBuffer = await sharp(buffer)
+                .extract({
+                  left: 0,
+                  top: cropFromTop,
+                  width: imageInfo.width,
+                  height: neededHeight
+                })
+                .png()
+                .toBuffer();
+            }
+            
+            // 计算缩放比例
+            const scaleX = actualCanvasWidth / imageInfo.width;
+            
+            // 处理宽度缩放
+            if (imageInfo.width !== actualCanvasWidth) {
+              const targetHeight = Math.round(neededHeight * scaleX);
+              processedBuffer = await sharp(processedBuffer)
+                .resize(actualCanvasWidth, targetHeight, {
+                  fit: 'fill'
+                })
+                .png()
+                .toBuffer();
+                
+              console.log(`最后段缩放到: ${actualCanvasWidth}x${targetHeight}`);
+              
+              composite.push({
+                input: processedBuffer,
+                top: currentY,
+                left: 0
+              });
+              
+              currentY += targetHeight;
+            } else {
+              composite.push({
+                input: processedBuffer,
+                top: currentY,
+                left: 0
+              });
+              
+              currentY += neededHeight;
+            }
+            
+            // 跳过后续的通用处理逻辑
+            continue;
+          }
+          
+          // 后续段需要处理重叠
+          let overlapPixels = this.calculateOptimalOverlap(segment.height, config.overlapPixels || 20);
           
           // 计算缩放比例（如果需要）
           const scaleX = actualCanvasWidth / imageInfo.width;
@@ -428,7 +471,15 @@ class ScreenshotHandler {
       const finalResult = await this.mergeBatchResults(intermediateResults, totalWidth);
       
       if (finalResult.success) {
-        await this.saveToClipboard(finalResult.buffer);
+        // 获取最终图片的尺寸信息用于滚动条移除
+        const finalImageInfo = await sharp(finalResult.buffer).metadata();
+        const finalImageWidth = finalImageInfo.width;
+        const finalImageHeight = finalImageInfo.height;
+        
+        // 移除右侧滚动条（固定裁剪20px）
+        const finalImageWithoutScrollbar = await this.removeScrollbar(finalResult.buffer, finalImageWidth, finalImageHeight);
+        
+        await this.saveToClipboard(finalImageWithoutScrollbar);
         console.log('分批拼接完成');
         return { success: true };
       } else {
@@ -448,6 +499,13 @@ class ScreenshotHandler {
     try {
       const composite = [];
       let currentY = 0;
+      let actualCanvasWidth = totalWidth;
+      
+      // 首先获取第一个段的实际尺寸来确定画布尺寸
+      const firstBuffer = Buffer.from(batch[0].buffer, 'base64');
+      const firstImageInfo = await sharp(firstBuffer).metadata();
+      actualCanvasWidth = firstImageInfo.width;
+      console.log(`批次处理: 根据第一段确定画布宽度: ${totalWidth} -> ${actualCanvasWidth}`);
       
       for (let i = 0; i < batch.length; i++) {
         const segment = batch[i];
@@ -460,35 +518,65 @@ class ScreenshotHandler {
             top: 0,
             left: 0
           });
-          currentY = segment.height;
+          currentY = firstImageInfo.height;
         } else {
           // 处理重叠
           const overlapPixels = this.calculateOptimalOverlap(segment.height, config.overlapPixels || 20);
-          const actualHeight = segment.height - overlapPixels;
+          
+          // 获取当前段图片信息
+          const imageInfo = await sharp(buffer).metadata();
+          
+          // 计算缩放比例（如果需要）
+          const scaleX = actualCanvasWidth / imageInfo.width;
+          const actualOverlapPixels = Math.round(overlapPixels * (imageInfo.height / segment.height));
+          const actualHeight = imageInfo.height - actualOverlapPixels;
+          
+          console.log(`批次段 ${i + 1} 处理参数: 原图=${imageInfo.width}x${imageInfo.height}, 缩放=${scaleX.toFixed(2)}, 重叠=${actualOverlapPixels}px, 有效高度=${actualHeight}px`);
           
           if (actualHeight > 5) {
-            // 获取原图尺寸以确保裁剪参数正确
-            const imageInfo = await sharp(buffer).metadata();
-            const cropWidth = Math.min(imageInfo.width, totalWidth);
-            const cropHeight = Math.min(actualHeight, imageInfo.height - overlapPixels);
+            let processedBuffer = buffer;
             
-            const croppedBuffer = await sharp(buffer)
-              .extract({
-                left: 0,
-                top: overlapPixels,
-                width: cropWidth,
-                height: cropHeight
-              })
-              .png()
-              .toBuffer();
-
-            composite.push({
-              input: croppedBuffer,
-              top: currentY,
-              left: 0
-            });
-
-            currentY += actualHeight;
+            // 如果需要裁剪重叠部分
+            if (actualOverlapPixels > 0) {
+              processedBuffer = await sharp(buffer)
+                .extract({
+                  left: 0,
+                  top: actualOverlapPixels,
+                  width: imageInfo.width,
+                  height: actualHeight
+                })
+                .png()
+                .toBuffer();
+            }
+            
+            // 如果宽度不匹配，进行缩放
+            if (imageInfo.width !== actualCanvasWidth) {
+              const targetHeight = Math.round(actualHeight * scaleX);
+              processedBuffer = await sharp(processedBuffer)
+                .resize(actualCanvasWidth, targetHeight, {
+                  fit: 'fill'
+                })
+                .png()
+                .toBuffer();
+                
+              console.log(`批次段 ${i + 1} 缩放到: ${actualCanvasWidth}x${targetHeight}`);
+              
+              composite.push({
+                input: processedBuffer,
+                top: currentY,
+                left: 0
+              });
+              
+              currentY += targetHeight;
+            } else {
+              composite.push({
+                input: processedBuffer,
+                top: currentY,
+                left: 0
+              });
+              
+              currentY += actualHeight;
+            }
           }
         }
       }
@@ -496,7 +584,7 @@ class ScreenshotHandler {
       // 创建批次结果
       const batchCanvas = sharp({
         create: {
-          width: totalWidth,
+          width: actualCanvasWidth,
           height: currentY,
           channels: 4,
           background: { r: 255, g: 255, b: 255, alpha: 1 }
@@ -512,6 +600,7 @@ class ScreenshotHandler {
       };
       
     } catch (error) {
+      console.error('批次处理失败详情:', error.message);
       return { success: false, error: error.message };
     }
   }
@@ -525,24 +614,60 @@ class ScreenshotHandler {
         return { success: true, buffer: intermediateResults[0].buffer };
       }
       
+      // 获取第一个批次的实际宽度
+      const firstBatchInfo = await sharp(intermediateResults[0].buffer).metadata();
+      const actualCanvasWidth = firstBatchInfo.width;
+      console.log(`批次合并: 根据第一批次确定画布宽度: ${totalWidth} -> ${actualCanvasWidth}`);
+      
       const totalHeight = intermediateResults.reduce((sum, result) => sum + result.height, 0);
       
       const composite = [];
       let currentY = 0;
       
-      for (const result of intermediateResults) {
-        composite.push({
-          input: result.buffer,
-          top: currentY,
-          left: 0
-        });
-        currentY += result.height;
+      for (let i = 0; i < intermediateResults.length; i++) {
+        const result = intermediateResults[i];
+        const batchInfo = await sharp(result.buffer).metadata();
+        
+        console.log(`合并批次 ${i + 1}: 尺寸=${batchInfo.width}x${batchInfo.height}, 位置=(0,${currentY})`);
+        
+        let processedBuffer = result.buffer;
+        
+        // 如果批次宽度不匹配，进行缩放
+        if (batchInfo.width !== actualCanvasWidth) {
+          const scaleX = actualCanvasWidth / batchInfo.width;
+          const targetHeight = Math.round(batchInfo.height * scaleX);
+          
+          processedBuffer = await sharp(result.buffer)
+            .resize(actualCanvasWidth, targetHeight, {
+              fit: 'fill'
+            })
+            .png()
+            .toBuffer();
+            
+          console.log(`批次 ${i + 1} 缩放到: ${actualCanvasWidth}x${targetHeight}`);
+          
+          composite.push({
+            input: processedBuffer,
+            top: currentY,
+            left: 0
+          });
+          
+          currentY += targetHeight;
+        } else {
+          composite.push({
+            input: processedBuffer,
+            top: currentY,
+            left: 0
+          });
+          
+          currentY += result.height;
+        }
       }
       
       const finalCanvas = sharp({
         create: {
-          width: totalWidth,
-          height: totalHeight,
+          width: actualCanvasWidth,
+          height: currentY,
           channels: 4,
           background: { r: 255, g: 255, b: 255, alpha: 1 }
         }
@@ -553,6 +678,7 @@ class ScreenshotHandler {
       return { success: true, buffer: finalBuffer };
       
     } catch (error) {
+      console.error('批次合并失败详情:', error.message);
       return { success: false, error: error.message };
     }
   }

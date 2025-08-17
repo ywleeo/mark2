@@ -301,6 +301,12 @@ class ScreenshotManager {
         const remainingHeight = totalHeight - currentY;
         const actualSegmentHeight = Math.min(segmentHeight, remainingHeight);
         const isLastSegment = remainingHeight <= segmentHeight;
+        
+        // 如果剩余内容很少（<100px），合并到前一段，避免产生微小的最后段
+        if (remainingHeight < 100 && currentY > 0) {
+          console.log(`剩余内容过少(${remainingHeight}px)，跳过单独的最后段，扩展前一段覆盖`);
+          break;
+        }
 
         console.log(`截图段 ${segmentIndex + 1}: Y=${currentY}, 高度=${actualSegmentHeight}, 剩余=${remainingHeight}px, 最后段=${isLastSegment}`);
 
@@ -308,10 +314,17 @@ class ScreenshotManager {
         const scrollStartTime = Date.now();
         let targetScrollY = currentY;
         
-        // 对于最后一段，滚动到文档底部以确保完整显示
+        // 对于最后一段，使用稳健的方案：只截取真正需要的内容
         if (isLastSegment) {
+          // 计算前面已经截取的内容高度（减去重叠）
+          const previousCoveredHeight = currentY;
+          const remainingContentHeight = totalHeight - previousCoveredHeight;
+          
+          console.log(`最后一段：剩余内容 ${remainingContentHeight}px，总高度 ${totalHeight}px，已覆盖 ${previousCoveredHeight}px`);
+          
+          // 直接滚动到文档底部，然后在拼接时只使用需要的部分
           targetScrollY = Math.max(0, totalHeight - viewportHeight);
-          console.log(`最后一段：调整滚动目标从 ${currentY} 到 ${targetScrollY}`);
+          console.log(`最后一段：滚动到底部 ${targetScrollY}，后续拼接时只截取剩余的 ${remainingContentHeight}px`);
         }
         
         contentElement.scrollTop = targetScrollY;
@@ -331,13 +344,17 @@ class ScreenshotManager {
         // 截图当前段
         const captureStartTime = Date.now();
         const actualScrollY = contentElement.scrollTop;
+        // 计算剩余内容高度（用于最后一段的精确拼接）
+        const remainingContentHeight = isLastSegment ? totalHeight - currentY : actualSegmentHeight;
+        
         const segmentResult = await ipcRenderer.invoke('capture-screenshot', {
           type: 'segment',
           segmentIndex,
           y: currentY,
           actualScrollY: actualScrollY,
           height: actualSegmentHeight,
-          isLastSegment: isLastSegment
+          isLastSegment: isLastSegment,
+          remainingContentHeight: remainingContentHeight
         });
         const captureDuration = Date.now() - captureStartTime;
 
