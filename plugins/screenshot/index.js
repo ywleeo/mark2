@@ -69,6 +69,9 @@ class ScreenshotPlugin extends BasePlugin {
       
       const startTime = Date.now();
       
+      // 预处理失效的图片
+      await this.preprocessBrokenImages(element);
+      
       // 获取元素信息
       const rect = element.getBoundingClientRect();
       const scrollWidth = element.scrollWidth;
@@ -99,7 +102,13 @@ class ScreenshotPlugin extends BasePlugin {
           if (node.tagName === 'SCRIPT') return false;
           if (node.classList && node.classList.contains('screenshot-notification')) return false;
           return true;
-        }
+        },
+        // 添加图片跳过配置
+        skipFonts: false,
+        skipDefaultFonts: false,
+        includeQueryParams: true,
+        useCORS: true,
+        allowTaint: true
       };
 
       console.log('开始调用 html-to-image.toPng...');
@@ -135,9 +144,118 @@ class ScreenshotPlugin extends BasePlugin {
       console.error('html-to-image 截图失败:', error);
       return {
         success: false,
-        error: error.message
+        error: error.message || '截图过程中发生未知错误'
       };
     }
+  }
+
+  // 预处理失效的图片
+  async preprocessBrokenImages(element) {
+    console.log('=== 开始预处理失效图片 ===');
+    
+    const images = element.querySelectorAll('img');
+    console.log(`找到 ${images.length} 张图片需要检查`);
+    
+    const checkPromises = Array.from(images).map(img => this.checkAndFixImage(img));
+    const results = await Promise.allSettled(checkPromises);
+    
+    let fixedCount = 0;
+    let failedCount = 0;
+    
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value) {
+        fixedCount++;
+      } else {
+        failedCount++;
+        console.warn(`图片 ${index + 1} 处理失败:`, result.reason);
+      }
+    });
+    
+    console.log(`图片预处理完成: ${fixedCount} 张图片已处理, ${failedCount} 张图片处理失败`);
+  }
+
+  // 检查并修复单张图片
+  async checkAndFixImage(img) {
+    return new Promise((resolve) => {
+      const originalSrc = img.src;
+      const originalOnError = img.onerror;
+      const originalOnLoad = img.onload;
+      
+      // 如果图片已经加载成功，不需要处理
+      if (img.complete && img.naturalWidth > 0) {
+        console.log('图片已正常加载:', originalSrc);
+        resolve(true);
+        return;
+      }
+      
+      console.log('检查图片:', originalSrc);
+      
+      // 设置超时定时器
+      const timeout = setTimeout(() => {
+        console.log('图片加载超时，替换为占位符:', originalSrc);
+        this.replaceWithPlaceholder(img, originalSrc);
+        resolve(true);
+      }, 3000); // 3秒超时
+      
+      // 图片加载成功
+      img.onload = () => {
+        clearTimeout(timeout);
+        console.log('图片加载成功:', originalSrc);
+        // 恢复原始事件处理器
+        img.onload = originalOnLoad;
+        img.onerror = originalOnError;
+        resolve(true);
+      };
+      
+      // 图片加载失败
+      img.onerror = () => {
+        clearTimeout(timeout);
+        console.log('图片加载失败，替换为占位符:', originalSrc);
+        this.replaceWithPlaceholder(img, originalSrc);
+        // 恢复原始事件处理器
+        img.onload = originalOnLoad;
+        img.onerror = originalOnError;
+        resolve(true);
+      };
+      
+      // 尝试重新加载图片（添加时间戳避免缓存）
+      if (originalSrc && !originalSrc.includes('data:')) {
+        const separator = originalSrc.includes('?') ? '&' : '?';
+        img.src = `${originalSrc}${separator}_t=${Date.now()}`;
+      } else {
+        // 如果是 data URL 或空 src，直接触发错误处理
+        setTimeout(() => img.onerror && img.onerror(), 100);
+      }
+    });
+  }
+
+  // 替换为占位符图片
+  replaceWithPlaceholder(img, originalSrc) {
+    // 创建一个简单的 SVG 占位符
+    const width = img.width || img.getAttribute('width') || 200;
+    const height = img.height || img.getAttribute('height') || 150;
+    
+    const placeholderSvg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f0f0f0" stroke="#ccc" stroke-width="2"/>
+        <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="#666" font-family="Arial, sans-serif" font-size="14">
+          图片加载失败
+        </text>
+      </svg>
+    `;
+    
+    const blob = new Blob([placeholderSvg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    
+    // 替换图片源
+    img.src = url;
+    img.alt = `[图片加载失败: ${originalSrc}]`;
+    
+    // 添加标记，便于清理
+    img.setAttribute('data-placeholder', 'true');
+    img.setAttribute('data-original-src', originalSrc);
+    
+    console.log('已替换为占位符:', originalSrc);
   }
 
   // 保存到剪切板和临时文件
