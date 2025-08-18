@@ -9,12 +9,12 @@ class ScreenshotPlugin extends BasePlugin {
 
   async init() {
     await super.init();
-    console.log('ScreenshotPlugin 正在初始化...');
-    console.log('ScreenshotPlugin 初始化完成');
+    // console.log('ScreenshotPlugin 正在初始化...');
+    // console.log('ScreenshotPlugin 初始化完成');
   }
 
   async destroy() {
-    console.log('ScreenshotPlugin 正在销毁...');
+    // console.log('ScreenshotPlugin 正在销毁...');
     await super.destroy();
   }
 

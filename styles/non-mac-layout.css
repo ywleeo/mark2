@@ -1,0 +1,55 @@
+/* Windows/Linux 布局样式 */
+
+/* Windows/Linux: 使用系统标题栏，不需要预留交通灯空间 */
+.app-container {
+  /* Windows/Linux 有系统标题栏，不需要额外 padding */
+  padding-top: 0;
+}
+
+.sidebar {
+  /* Windows/Linux: 不需要为交通灯按钮预留空间 */
+  padding-top: 0;
+}
+
+/* Windows/Linux: 不需要标题栏拖拽热区 */
+.titlebar-drag-overlay {
+  display: none !important;
+}
+
+/* Windows/Linux 交通灯按钮区域不需要 */
+.traffic-lights-area {
+  display: none !important;
+}
+
+/* 当侧边栏隐藏时，tab-bar 需要调整 margin-left */
+body.sidebar-hidden .tab-bar {
+  margin-left: 0;
+}
+
+/* 覆盖 layout.css 中针对 macOS 的 80px 左边距规则 */
+body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
+  margin-left: 0 !important;
+}
+
+/* Windows/Linux 特有的标题栏样式调整 */
+body {
+  /* 确保内容从窗口顶部开始 */
+  margin-top: 0;
+}
+
+/* 内容区域调整 */
+.content-area {
+  /* Windows/Linux 不需要为隐藏标题栏留空间 */
+  top: 0;
+}
+
+/* 侧边栏在 Windows/Linux 下的调整 */
+.sidebar .file-tree {
+  /* 文件树从顶部开始 */
+  padding-top: 10px;
+}
+
+/* Windows/Linux 下的窗口控制按钮样式（如果需要自定义） */
+.window-controls {
+  display: none; /* 使用系统自带的控制按钮 */
+}

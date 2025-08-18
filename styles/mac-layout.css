@@ -1,0 +1,52 @@
+/* macOS 特定布局样式 */
+
+/* macOS: 隐藏标题栏，使用 trafficLightPosition 控制交通灯位置 */
+.app-container {
+  /* macOS 使用隐藏标题栏，侧边栏需要为交通灯按钮预留空间 */
+  padding-top: 0;
+}
+
+.sidebar {
+  /* macOS: 为交通灯按钮预留 padding-top */
+  padding-top: 36px;
+}
+
+/* macOS 标题栏拖拽热区 */
+.titlebar-drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: transparent;
+  z-index: 9999;
+  -webkit-app-region: drag;
+  pointer-events: auto;
+}
+
+.titlebar-drag-overlay.sidebar-visible {
+  /* 侧边栏显示时，热区从侧边栏宽度开始 */
+  left: 250px;
+}
+
+.titlebar-drag-overlay.sidebar-hidden {
+  /* 侧边栏隐藏时，热区从 0 开始 */
+  left: 0;
+}
+
+/* 当侧边栏隐藏时，tab-bar 需要 margin-left 调整 */
+body.sidebar-hidden .tab-bar {
+  margin-left: 0;
+}
+
+/* macOS 交通灯按钮区域 */
+.traffic-lights-area {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 36px;
+  background: transparent;
+  z-index: 10000;
+  -webkit-app-region: no-drag;
+}

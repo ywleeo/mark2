@@ -484,7 +484,7 @@ class UIManager {
         // 热区更新现在由TitleBarDragManager处理
       }
     } else {
-      console.log('loadSidebarWidth 跳过:', {savedWidth, hasSidebar: !!sidebar});
+      // console.log('loadSidebarWidth 跳过:', {savedWidth, hasSidebar: !!sidebar});
     }
   }
 

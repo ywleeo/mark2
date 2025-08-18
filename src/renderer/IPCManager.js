@@ -61,13 +61,13 @@ class IPCManager {
   setupFileWatchingListeners(ipcRenderer) {
     // 监听文件监听开始事件
     ipcRenderer.on('file-watch-started', (event, data) => {
-      console.log('开始监听文件:', data.filePath);
+      // console.log('开始监听文件:', data.filePath);
       this.updateFileWatchStatus(data.filePath, true);
     });
 
     // 监听文件监听停止事件
     ipcRenderer.on('file-watch-stopped', (event, data) => {
-      console.log('停止监听文件:', data.filePath);
+      // console.log('停止监听文件:', data.filePath);
       this.updateFileWatchStatus(data.filePath, false);
     });
 

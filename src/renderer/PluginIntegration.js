@@ -38,7 +38,7 @@ class PluginIntegration {
             this.integrateWithExistingSystems();
             
             this.initialized = true;
-            console.log('[插件系统] 初始化完成');
+            // console.log('[插件系统] 初始化完成');
             
         } catch (error) {
             console.error('[插件系统] 初始化失败:', error);

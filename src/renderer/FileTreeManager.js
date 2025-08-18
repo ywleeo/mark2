@@ -524,7 +524,7 @@ class FileTreeManager {
     if (window.appManager) {
       window.appManager.closeFileCompletely(filePath);
     } else {
-      console.log('window.appManager not found!');
+      // console.log('window.appManager not found!');
     }
   }
 

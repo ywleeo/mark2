@@ -6,6 +6,12 @@ class WindowManager {
   constructor() {
     this.mainWindow = null;
     this.isInitialStartup = true; // 标志位：区分初始启动和窗口重新激活
+    
+    // 平台检测和调试变量
+    this.isMac = process.platform === 'darwin';
+    // 调试变量：允许在 mac 上测试非 mac 样式
+    this.forceNonMacLayout = process.env.FORCE_NON_MAC_LAYOUT === 'true';
+    this.useMacLayout = this.isMac && !this.forceNonMacLayout;
   }
 
   async createWindow() {
@@ -37,13 +43,14 @@ class WindowManager {
       windowOptions.y = windowState.y;
     }
 
-    if (process.platform === 'darwin') {
+    if (this.useMacLayout) {
       // macOS: 隐藏标题栏但保留交通灯按钮
       windowOptions.titleBarStyle = 'hidden';
       windowOptions.trafficLightPosition = { x: 12, y: 12 };
     } else {
-      // Windows/Linux: 无边框窗口
-      windowOptions.frame = false;
+      // Windows/Linux: 使用常规标题栏
+      windowOptions.titleBarStyle = 'default';
+      windowOptions.frame = true;
     }
 
     this.mainWindow = new BrowserWindow(windowOptions);
@@ -54,6 +61,15 @@ class WindowManager {
     }
 
     this.mainWindow.loadFile('index.html');
+
+    // 页面加载完成后发送平台信息
+    this.mainWindow.webContents.once('dom-ready', () => {
+      this.mainWindow.webContents.send('platform-layout-info', {
+        useMacLayout: this.useMacLayout,
+        platform: process.platform,
+        forceNonMacLayout: this.forceNonMacLayout
+      });
+    });
 
     if (process.env.NODE_ENV === 'development') {
       this.mainWindow.webContents.openDevTools();
@@ -78,7 +94,7 @@ class WindowManager {
       // 保存窗口状态
       this.saveWindowState();
       
-      if (process.platform === 'darwin' && !global.app.isQuiting) {
+      if (this.useMacLayout && !global.app.isQuiting) {
         event.preventDefault();
         // 修复：不发送 reset-to-initial-state，保持状态以便重新打开时恢复
         // this.mainWindow.webContents.send('reset-to-initial-state');
@@ -158,7 +174,7 @@ class WindowManager {
 
   hideWindow() {
     if (this.mainWindow) {
-      if (process.platform === 'darwin') {
+      if (this.useMacLayout) {
         // 修复：不发送 reset-to-initial-state，保持状态
         // this.mainWindow.webContents.send('reset-to-initial-state');
         this.mainWindow.hide();

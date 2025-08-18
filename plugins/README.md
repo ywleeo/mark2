@@ -178,7 +178,7 @@ class MyPlugin extends BasePlugin {
         // 注册样式
         this.api.addCSSBatch(this.styleConfig);
         
-        this.api.log(this.name, '插件初始化完成');
+        // this.api.log(this.name, '插件初始化完成');
     }
     
     processMarkdown(html) {
@@ -224,7 +224,7 @@ class EmailHighlighterPlugin extends BasePlugin {
     async init() {
         await super.init();
         this.api.addCSSBatch(this.styleConfig);
-        this.api.log(this.name, '邮箱高亮插件初始化完成');
+        // this.api.log(this.name, '邮箱高亮插件初始化完成');
     }
     
     processMarkdown(html) {

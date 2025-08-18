@@ -156,7 +156,7 @@ class AppManager {
       setTimeout(async () => {
         if (window.pluginIntegration) {
           await window.pluginIntegration.init();
-          console.log('[AppManager] 插件系统初始化完成');
+          // console.log('[AppManager] 插件系统初始化完成');
           
           // 插件系统初始化完成后，加载插件状态
           await this.stateManager.loadPluginStates();
@@ -300,7 +300,7 @@ class AppManager {
       this.stateManager.saveAppState();
     }
     
-    console.log('[AppManager] 清理完成');
+    // console.log('[AppManager] 清理完成');
   }
 }
 

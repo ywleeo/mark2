@@ -26,7 +26,7 @@ class BasePlugin {
     async init() {
         if (this.initialized) return;
         
-        console.log(`[插件] ${this.name} 正在初始化...`);
+        // console.log(`[插件] ${this.name} 正在初始化...`);
         this.initialized = true;
         
         // 触发初始化事件
@@ -40,7 +40,7 @@ class BasePlugin {
     async destroy() {
         if (!this.initialized) return;
         
-        console.log(`[插件] ${this.name} 正在销毁...`);
+        // console.log(`[插件] ${this.name} 正在销毁...`);
         this.initialized = false;
         
         // 触发销毁事件

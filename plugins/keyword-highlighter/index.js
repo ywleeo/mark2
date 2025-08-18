@@ -52,11 +52,11 @@ class KeywordHighlighterPlugin extends BasePlugin {
         // 监听主题变化
         this.setupThemeListener();
         
-        this.api.log(this.name, '插件初始化完成', {
-            patterns: Object.keys(this.patterns).length,
-            keywords: Object.keys(this.customKeywords).length,
-            enabledTypes: this.getEnabledTypes().length
-        });
+        // this.api.log(this.name, '插件初始化完成', {
+        //     patterns: Object.keys(this.patterns).length,
+        //     keywords: Object.keys(this.customKeywords).length,
+        //     enabledTypes: this.getEnabledTypes().length
+        // });
     }
 
     /**
@@ -89,7 +89,7 @@ class KeywordHighlighterPlugin extends BasePlugin {
         // 使用平台 API 注册样式
         this.api.addCSSBatch(this.styleConfig);
         
-        this.api.log(this.name, `动态样式已生成 (${currentTheme} 主题)`, Object.keys(this.styleConfig));
+        // this.api.log(this.name, `动态样式已生成 (${currentTheme} 主题)`, Object.keys(this.styleConfig));
     }
 
     /**
@@ -155,7 +155,7 @@ class KeywordHighlighterPlugin extends BasePlugin {
             if (fs.existsSync(keywordFilePath)) {
                 const content = fs.readFileSync(keywordFilePath, 'utf-8');
                 this.customKeywords = JSON.parse(content);
-                this.api.log(this.name, `加载关键词库: ${Object.keys(this.customKeywords).length} 个分类`);
+                // this.api.log(this.name, `加载关键词库: ${Object.keys(this.customKeywords).length} 个分类`);
             }
         } catch (error) {
             this.api.warn(this.name, '加载关键词失败:', error);

@@ -31,7 +31,7 @@ class TodoListPlugin extends BasePlugin {
         // 设置点击事件监听器
         this.setupEventListeners();
         
-        this.api.log(this.name, 'Todo List 插件初始化完成');
+        // this.api.log(this.name, 'Todo List 插件初始化完成');
     }
 
     /**
@@ -117,7 +117,7 @@ class TodoListPlugin extends BasePlugin {
         // 应用样式
         this.api.addCSSBatch(this.styleConfig);
         
-        this.api.log(this.name, `样式已生成 (${theme} 主题)`);
+        // this.api.log(this.name, `样式已生成 (${theme} 主题)`);
     }
 
     /**

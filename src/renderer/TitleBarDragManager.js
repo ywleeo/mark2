@@ -214,7 +214,7 @@ class TitleBarDragManager {
         requestAnimationFrame(checkSize);
       } else {
         // 超过最大尝试次数，强制更新热区
-        console.log(`[TitleBarDragManager] sidebar尺寸监控超时，强制更新热区 (当前宽度: ${currentWidth}px)`);
+        // console.log(`[TitleBarDragManager] sidebar尺寸监控超时，强制更新热区 (当前宽度: ${currentWidth}px)`);
         this.isMonitoring = false;
         this.updateDragRegions();
       }

@@ -61,7 +61,7 @@ class PluginManager {
     async init() {
         if (this.initialized) return;
 
-        console.log('[插件管理器] 正在初始化...');
+        // console.log('[插件管理器] 正在初始化...');
         
         // 加载所有插件
         await this.loadAllPlugins();
@@ -70,7 +70,7 @@ class PluginManager {
         this.registerPluginShortcuts();
         
         this.initialized = true;
-        console.log('[插件管理器] 初始化完成');
+        // console.log('[插件管理器] 初始化完成');
         
         // 触发插件管理器初始化事件
         this.emit('pluginManager:initialized');
@@ -83,7 +83,7 @@ class PluginManager {
         try {
             if (!fs.existsSync(this.userPluginDirectory)) {
                 fs.mkdirSync(this.userPluginDirectory, { recursive: true });
-                console.log(`[插件管理器] 创建用户插件目录: ${this.userPluginDirectory}`);
+                // console.log(`[插件管理器] 创建用户插件目录: ${this.userPluginDirectory}`);
             }
         } catch (error) {
             console.warn('[插件管理器] 创建用户插件目录失败:', error);
@@ -184,7 +184,7 @@ class PluginManager {
             // 存储插件
             this.plugins.set(pluginName, pluginInstance);
             
-            console.log(`[插件管理器] 插件 ${pluginInstance.name} 加载成功`);
+            // console.log(`[插件管理器] 插件 ${pluginInstance.name} 加载成功`);
             
             // 触发插件加载事件
             this.emit('plugin:loaded', { plugin: pluginInstance });
@@ -209,7 +209,7 @@ class PluginManager {
             // 从插件列表中移除
             this.plugins.delete(pluginName);
             
-            console.log(`[插件管理器] 插件 ${plugin.name} 卸载成功`);
+            // console.log(`[插件管理器] 插件 ${plugin.name} 卸载成功`);
             
             // 触发插件卸载事件
             this.emit('plugin:unloaded', { plugin });
@@ -348,7 +348,7 @@ class PluginManager {
      * 刷新插件列表（重新扫描并加载插件）
      */
     async refreshPlugins() {
-        console.log('[插件管理器] 刷新插件列表...');
+        // console.log('[插件管理器] 刷新插件列表...');
         
         // 保存当前插件状态
         const pluginStates = new Map();
@@ -381,21 +381,21 @@ class PluginManager {
             }
         }
         
-        console.log('[插件管理器] 插件列表刷新完成');
+        // console.log('[插件管理器] 插件列表刷新完成');
     }
 
     /**
      * 注册所有插件的快捷键
      */
     registerPluginShortcuts() {
-        console.log('[插件管理器] 注册插件快捷键...');
+        // console.log('[插件管理器] 注册插件快捷键...');
         
         // 监听全局键盘事件
         document.addEventListener('keydown', (event) => {
             this.handleShortcutEvent(event);
         });
         
-        console.log('[插件管理器] 快捷键注册完成');
+        // console.log('[插件管理器] 快捷键注册完成');
     }
 
     /**
@@ -410,7 +410,7 @@ class PluginManager {
             for (const shortcut of shortcuts) {
                 if (this.matchShortcut(event, shortcut.accelerator)) {
                     event.preventDefault();
-                    console.log(`[插件管理器] 触发插件 ${pluginId} 的快捷键: ${shortcut.accelerator}`);
+                    // console.log(`[插件管理器] 触发插件 ${pluginId} 的快捷键: ${shortcut.accelerator}`);
                     
                     // 调用插件的对应方法
                     const actionMethod = shortcut.action || 'executeShortcut';
@@ -481,7 +481,7 @@ class PluginManager {
     async destroy() {
         if (!this.initialized) return;
 
-        console.log('[插件管理器] 正在销毁...');
+        // console.log('[插件管理器] 正在销毁...');
         
         // 销毁所有插件
         for (const [pluginName, plugin] of this.plugins) {
@@ -497,7 +497,7 @@ class PluginManager {
         this.eventListeners.clear();
         this.initialized = false;
         
-        console.log('[插件管理器] 销毁完成');
+        // console.log('[插件管理器] 销毁完成');
     }
 }
 
