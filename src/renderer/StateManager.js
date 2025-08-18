@@ -25,7 +25,7 @@ class StateManager {
     });
     this.eventManager.on('tab-closed', () => this.saveAppState());
     this.eventManager.on('save-app-state', () => this.saveAppState());
-    this.eventManager.on('restore-app-state', () => this.restoreAppState());
+    this.eventManager.on('restore-app-state', async () => await this.restoreAppState());
     
     // 监听插件刷新事件
     this.eventManager.on('plugins-refreshed', () => this.loadPluginStates());
@@ -57,7 +57,7 @@ class StateManager {
   }
 
   // 从 localStorage 恢复应用状态
-  restoreAppState() {
+  async restoreAppState() {
     // 防止重复调用导致状态混乱
     if (this.isRestoringState) {
       return false;
@@ -104,14 +104,12 @@ class StateManager {
         // 更新tab显示
         this.tabManager.updateTabBar();
         
-        // 激活之前的活动tab
+        // 激活之前的活动tab（使用setActiveTab确保从磁盘重新读取）
         if (this.tabManager.activeTabId) {
           const activeTab = this.tabManager.tabs.find(tab => tab.id === this.tabManager.activeTabId);
           if (activeTab) {
-            // 恢复编辑器内容
-            this.editorManager.setContent(activeTab.content, activeTab.filePath);
-            this.uiManager.updateFileNameDisplay(activeTab.filePath);
-            this.fileTreeManager.updateActiveFile(activeTab.filePath);
+            // 使用setActiveTab方法，它会从磁盘重新读取文件内容
+            await this.tabManager.setActiveTab(activeTab.id);
             
             // 显示markdown内容
             const markdownContent = document.querySelector('.markdown-content');
@@ -236,10 +234,10 @@ class StateManager {
   }
 
   // 导入应用状态（用于恢复备份）
-  importAppState(stateData) {
+  async importAppState(stateData) {
     try {
       localStorage.setItem('mark2-app-state', JSON.stringify(stateData));
-      return this.restoreAppState();
+      return await this.restoreAppState();
     } catch (error) {
       console.error('导入应用状态失败:', error);
       return false;

@@ -67,8 +67,8 @@ class AppManager {
     this.fileTreeManager.refreshSidebarTree();
     
     // 延迟恢复应用状态，确保DOM完全准备好
-    requestAnimationFrame(() => {
-      this.stateManager.restoreAppState();
+    requestAnimationFrame(async () => {
+      await this.stateManager.restoreAppState();
     });
   }
 
