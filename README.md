@@ -2,7 +2,8 @@
 
 一个基于 Electron 的现代化 Markdown 阅读器和编辑器，提供双栏界面、实时预览和强大的插件系统。
 
-![MARK2 Logo](assets/icon.png)
+![demo](assets/demo.png)
+
 
 ## ✨ 特性
 
