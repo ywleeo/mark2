@@ -258,6 +258,18 @@ class UIManager {
     }, 3000);
   }
 
+  clearMessage() {
+    // 清除所有消息提示
+    const messages = document.querySelectorAll('.message');
+    messages.forEach(message => {
+      message.classList.remove('show');
+      // 立即移除元素
+      if (message.parentNode) {
+        message.parentNode.removeChild(message);
+      }
+    });
+  }
+
   updateFileNameDisplay(filePath) {
     if (filePath) {
       const fileName = filePath.split('/').pop() || filePath.split('\\').pop();
