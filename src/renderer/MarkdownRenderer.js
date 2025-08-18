@@ -101,7 +101,9 @@ class MarkdownRenderer {
           try {
             // 检查任务是否还有效（元素存在且内容ID匹配）
             if (targetElement.isConnected && targetElement.dataset.contentId === String(contentId)) {
-              const enhancedHtml = this.applyKeywordHighlight(html);
+              let enhancedHtml = this.applyKeywordHighlight(html);
+              // 解码HTML实体
+              enhancedHtml = this.decodeHtmlEntities(enhancedHtml);
               if (enhancedHtml !== html) {
                 targetElement.innerHTML = enhancedHtml;
                 // 保持内容ID，表示高亮已完成
@@ -115,12 +117,15 @@ class MarkdownRenderer {
           }
         });
         
-        // 立即返回基础版本
-        return html;
+        // 立即返回基础版本（先解码HTML实体）
+        return this.decodeHtmlEntities(html);
       }
       
       // 兼容性：如果没有提供目标元素，保持同步行为
       html = this.applyKeywordHighlight(html);
+      
+      // 解码HTML实体，确保尖括号等字符正确显示
+      html = this.decodeHtmlEntities(html);
       
       return html;
     } catch (error) {
@@ -158,18 +163,34 @@ class MarkdownRenderer {
 
   applyCodeHighlight(html) {
     // 手动处理代码块高亮
-    return html.replace(/<pre><code class="language-(\w+)">(.*?)<\/code><\/pre>/gs, (match, lang, code) => {
+    let result = html;
+    
+    // 处理有语言指定的代码块
+    result = result.replace(/<pre><code class="language-(\w+)">(.*?)<\/code><\/pre>/gs, (match, lang, code) => {
+      // 先解码HTML实体，再进行语法高亮
+      const decodedCode = this.decodeHtmlEntities(code);
+      
       if (lang && hljs.getLanguage(lang)) {
         try {
-          const highlighted = hljs.highlight(code, { language: lang }).value;
+          const highlighted = hljs.highlight(decodedCode, { language: lang }).value;
           return `<pre><code class="language-${lang}">${highlighted}</code></pre>`;
         } catch (err) {
           console.error('Highlight.js error:', err);
         }
       }
-      const highlighted = hljs.highlightAuto(code).value;
+      const highlighted = hljs.highlightAuto(decodedCode).value;
+      return `<pre><code class="language-${lang}">${highlighted}</code></pre>`;
+    });
+    
+    // 处理没有语言指定的代码块
+    result = result.replace(/<pre><code(?![^>]*class="language-)>(.*?)<\/code><\/pre>/gs, (match, code) => {
+      // 先解码HTML实体，再进行语法高亮
+      const decodedCode = this.decodeHtmlEntities(code);
+      const highlighted = hljs.highlightAuto(decodedCode).value;
       return `<pre><code>${highlighted}</code></pre>`;
     });
+    
+    return result;
   }
 
   sanitizeStyles(html) {
@@ -185,6 +206,17 @@ class MarkdownRenderer {
          .replace(/>/g, "&gt;")
          .replace(/"/g, "&quot;")
          .replace(/'/g, "&#039;");
+  }
+
+  decodeHtmlEntities(html) {
+    // 解码常见的HTML实体，注意顺序：&amp; 必须最后解码
+    return html
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")  // 单引号的命名实体
+      .replace(/&#39;/g, "'")   // 单引号的数字实体
+      .replace(/&amp;/g, '&');
   }
 
   applyKeywordHighlight(html) {

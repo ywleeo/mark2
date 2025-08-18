@@ -330,6 +330,38 @@ class KeywordHighlighterPlugin extends BasePlugin {
         this.api.log(this.name, `添加自定义模式到 ${category}`);
     }
 
+    /**
+     * 处理快捷键事件
+     */
+    executeShortcut(shortcut) {
+        if (shortcut.accelerator === 'CmdOrCtrl+K') {
+            this.toggleKeywordHighlight();
+        }
+    }
+
+    /**
+     * 切换关键词高亮功能
+     */
+    toggleKeywordHighlight() {
+        const currentState = localStorage.getItem('keywordHighlight') !== 'false';
+        const newState = !currentState;
+        
+        localStorage.setItem('keywordHighlight', newState.toString());
+        
+        this.api.log(this.name, `关键词高亮已${newState ? '启用' : '禁用'}`);
+        
+        // 触发内容重新渲染
+        this.emit('keyword-highlight:toggled', { enabled: newState });
+        
+        // 通知EditorManager更新预览内容
+        if (window.editorManager) {
+            const currentContent = window.editorManager.getCurrentContent();
+            if (currentContent) {
+                window.editorManager.updatePreview(currentContent);
+            }
+        }
+    }
+
     async destroy() {
         // 清理主题监听器
         if (this.themeObserver) {

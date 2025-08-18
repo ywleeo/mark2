@@ -156,14 +156,14 @@ class IPCManager {
     ipcRenderer.on('system-resume', () => {
       console.log('接收到系统唤醒信号');
       // 简化处理：依赖窗口激活事件来刷新内容
-      console.log('系统唤醒后，等待窗口激活事件来刷新内容');
+      // console.log('系统唤醒后，等待窗口激活事件来刷新内容');
     });
   }
 
   setupWindowActivationListeners(ipcRenderer) {
     // 监听窗口激活刷新事件
     ipcRenderer.on('window-activated-refresh', async () => {
-      console.log('接收到窗口激活刷新信号');
+      // console.log('接收到窗口激活刷新信号');
       await this.handleWindowActivatedRefresh();
     });
   }
@@ -371,7 +371,7 @@ class IPCManager {
 
   // 窗口激活刷新处理方法
   async handleWindowActivatedRefresh() {
-    console.log('处理窗口激活刷新请求...');
+    // console.log('处理窗口激活刷新请求...');
     
     try {
       // 调用主进程的按需刷新方法
@@ -379,9 +379,9 @@ class IPCManager {
       
       if (result.success) {
         if (result.hasChanges) {
-          console.log('窗口激活检测到内容变化:', result.message);
+          // console.log('窗口激活检测到内容变化:', result.message);
         } else {
-          console.log('窗口激活检查完成，无内容变化');
+          // console.log('窗口激活检查完成，无内容变化');
         }
       } else {
         console.warn('窗口激活刷新失败:', result.error);

@@ -11,11 +11,14 @@ class WindowManager {
   async createWindow() {
     // 读取保存的主题设置来确定窗口背景色
     const backgroundColor = await this.getBackgroundColor();
+    
+    // 读取保存的窗口状态
+    const windowState = await SettingsManager.getWindowState();
 
     // 根据平台配置不同的标题栏样式
     const windowOptions = {
-      width: 800,
-      height: 600,
+      width: windowState.width,
+      height: windowState.height,
       minWidth: 600,
       minHeight: 400,
       title: 'MARK2',
@@ -28,6 +31,12 @@ class WindowManager {
       icon: path.join(__dirname, '../../assets/icon.png')
     };
 
+    // 如果有保存的坐标位置，设置窗口位置
+    if (windowState.x !== undefined && windowState.y !== undefined) {
+      windowOptions.x = windowState.x;
+      windowOptions.y = windowState.y;
+    }
+
     if (process.platform === 'darwin') {
       // macOS: 隐藏标题栏但保留交通灯按钮
       windowOptions.titleBarStyle = 'hidden';
@@ -38,6 +47,11 @@ class WindowManager {
     }
 
     this.mainWindow = new BrowserWindow(windowOptions);
+
+    // 如果窗口之前是最大化状态，恢复最大化
+    if (windowState.isMaximized) {
+      this.mainWindow.maximize();
+    }
 
     this.mainWindow.loadFile('index.html');
 
@@ -61,6 +75,9 @@ class WindowManager {
   setupWindowEvents() {
     // 监听窗口关闭事件
     this.mainWindow.on('close', (event) => {
+      // 保存窗口状态
+      this.saveWindowState();
+      
       if (process.platform === 'darwin' && !global.app.isQuiting) {
         event.preventDefault();
         // 修复：不发送 reset-to-initial-state，保持状态以便重新打开时恢复
@@ -95,12 +112,29 @@ class WindowManager {
       this.mainWindow = null;
     });
 
+    // 监听窗口状态变化事件，自动保存窗口状态
+    this.mainWindow.on('moved', () => {
+      this.saveWindowState();
+    });
+
+    this.mainWindow.on('resized', () => {
+      this.saveWindowState();
+    });
+
+    this.mainWindow.on('maximize', () => {
+      this.saveWindowState();
+    });
+
+    this.mainWindow.on('unmaximize', () => {
+      this.saveWindowState();
+    });
+
   }
 
   // 触发内容刷新（窗口激活时使用）
   triggerContentRefresh() {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      console.log('WindowManager: 窗口激活，触发内容刷新');
+      // console.log('WindowManager: 窗口激活，触发内容刷新');
       // 通知渲染进程进行内容刷新检查
       this.mainWindow.webContents.send('window-activated-refresh');
     }
@@ -186,6 +220,28 @@ class WindowManager {
 
   isMaximized() {
     return this.mainWindow ? this.mainWindow.isMaximized() : false;
+  }
+
+  // 保存窗口状态
+  async saveWindowState() {
+    if (!this.mainWindow) return;
+
+    try {
+      const bounds = this.mainWindow.getBounds();
+      const isMaximized = this.mainWindow.isMaximized();
+
+      const windowState = {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        isMaximized: isMaximized
+      };
+
+      await SettingsManager.saveWindowState(windowState);
+    } catch (error) {
+      console.error('保存窗口状态失败:', error);
+    }
   }
 }
 

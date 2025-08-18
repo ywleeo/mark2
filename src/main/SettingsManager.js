@@ -18,14 +18,28 @@ class SettingsManager {
       return { 
         theme: 'light',
         keywordHighlight: true,
-        plugins: {}
+        plugins: {},
+        window: {
+          x: undefined,
+          y: undefined,
+          width: 800,
+          height: 600,
+          isMaximized: false
+        }
       }; // 默认设置
     } catch (error) {
       console.error('读取设置失败:', error);
       return { 
         theme: 'light',
         keywordHighlight: true,
-        plugins: {}
+        plugins: {},
+        window: {
+          x: undefined,
+          y: undefined,
+          width: 800,
+          height: 600,
+          isMaximized: false
+        }
       };
     }
   }
@@ -102,6 +116,48 @@ class SettingsManager {
     } catch (error) {
       console.error('读取插件设置失败:', error);
       return {};
+    }
+  }
+
+  static async getWindowState() {
+    try {
+      const settings = await this.getAllSettings();
+      return settings.window || {
+        x: undefined,
+        y: undefined,
+        width: 800,
+        height: 600,
+        isMaximized: false
+      };
+    } catch (error) {
+      console.error('读取窗口状态失败:', error);
+      return {
+        x: undefined,
+        y: undefined,
+        width: 800,
+        height: 600,
+        isMaximized: false
+      };
+    }
+  }
+
+  static async saveWindowState(windowState) {
+    try {
+      const settings = await this.getAllSettings();
+      settings.window = {
+        x: windowState.x,
+        y: windowState.y,
+        width: windowState.width,
+        height: windowState.height,
+        isMaximized: windowState.isMaximized
+      };
+      
+      const settingsPath = this.getSettingsPath();
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+      return { success: true };
+    } catch (error) {
+      console.error('保存窗口状态失败:', error);
+      throw new Error('无法保存窗口状态: ' + error.message);
     }
   }
 }
