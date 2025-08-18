@@ -7,10 +7,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "npm run prebuild && electron-builder",
-    "prebuild": "npx @electron/rebuild -o sharp",
-    "rebuild": "npx @electron/rebuild",
-    "postinstall": "npx @electron/rebuild"
+    "build": "electron-builder"
   },
   "keywords": [
     "electron",
@@ -22,7 +19,7 @@
   "devDependencies": {
     "electron": "^37.2.3",
     "electron-builder": "^24.0.0",
-    "@electron/rebuild": "^3.6.0"
+    "html-to-image": "^1.11.13"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.3",
@@ -31,8 +28,7 @@
     "@codemirror/view": "^6.38.1",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
-    "marked": "^5.0.0",
-    "sharp": "^0.34.3"
+    "marked": "^5.0.0"
   },
   "build": {
     "appId": "com.mark2.app",
@@ -60,10 +56,7 @@
       "!**/*.map"
     ],
     "extraFiles": [],
-    "asarUnpack": [
-      "**/node_modules/sharp/**/*",
-      "**/node_modules/@img/**/*"
-    ],
+    "asarUnpack": [],
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
     "compression": "maximum",
@@ -91,7 +84,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64", "x64"]
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.icns",

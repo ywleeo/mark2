@@ -1,44 +1,27 @@
 const BasePlugin = require('../BasePlugin');
+const { toPng, toJpeg, toBlob } = require('html-to-image');
 
 class ScreenshotPlugin extends BasePlugin {
   constructor(pluginConfig = {}) {
     super(pluginConfig);
     this.name = pluginConfig.displayName || '截图插件';
-    this.screenshotManager = null;
   }
 
   async init() {
     await super.init();
     console.log('ScreenshotPlugin 正在初始化...');
-    
-    // 初始化截图管理器
-    this.screenshotManager = new ScreenshotManager();
-    
-    // 加载配置
-    if (this.config.configuration) {
-      this.screenshotManager.updateConfig(this.config.configuration);
-    }
-    
     console.log('ScreenshotPlugin 初始化完成');
   }
 
   async destroy() {
     console.log('ScreenshotPlugin 正在销毁...');
-    
-    // 清理资源
-    if (this.screenshotManager) {
-      this.screenshotManager.cleanup();
-      this.screenshotManager = null;
-    }
-    
     await super.destroy();
   }
 
-  // 快捷键通过插件管理器统一处理
-
+  // 主要截图方法
   async takeScreenshot() {
     try {
-      console.log('=== 截图功能触发 ===');
+      console.log('=== html-to-image 截图功能触发 ===');
       console.log('插件状态:', { 
         enabled: this.enabled, 
         initialized: this.initialized,
@@ -60,15 +43,18 @@ class ScreenshotPlugin extends BasePlugin {
         return;
       }
 
-      // 执行截图（不显示进度条，避免被截入图片）
-      const result = await this.screenshotManager.captureFullPage(activeContent);
+      // 显示进度提示
+      this.showNotification('正在截图...', 'info');
+
+      // 使用 html-to-image 进行截图
+      const result = await this.captureWithHtmlToImage(activeContent);
       
       if (result.success) {
-        this.showNotification('截图已保存到剪切板', 'success');
-        console.log('截图成功完成');
+        this.showNotification('截图已保存 (可在文件夹中 Cmd+V 粘贴)', 'success');
+        console.log('html-to-image 截图成功完成，文件路径:', result.filePath);
       } else {
         this.showNotification(`截图失败: ${result.error}`, 'error');
-        console.error('截图失败:', result.error);
+        console.error('html-to-image 截图失败:', result.error);
       }
     } catch (error) {
       console.error('截图过程出错:', error);
@@ -76,8 +62,116 @@ class ScreenshotPlugin extends BasePlugin {
     }
   }
 
+  // 使用 html-to-image 进行截图
+  async captureWithHtmlToImage(element) {
+    try {
+      console.log('=== 开始 html-to-image 截图 ===');
+      
+      const startTime = Date.now();
+      
+      // 获取元素信息
+      const rect = element.getBoundingClientRect();
+      const scrollWidth = element.scrollWidth;
+      const scrollHeight = element.scrollHeight;
+      
+      console.log('元素信息:', {
+        visible: { width: rect.width, height: rect.height },
+        scroll: { width: scrollWidth, height: scrollHeight }
+      });
+
+      // 动态获取背景色
+      const backgroundColor = this.getElementBackgroundColor(element);
+      console.log('检测到的背景色:', backgroundColor);
+
+      // 配置截图选项
+      const options = {
+        quality: this.config.configuration?.quality || 0.95,
+        pixelRatio: this.config.configuration?.pixelRatio || 2,
+        backgroundColor: backgroundColor,
+        width: scrollWidth,
+        height: scrollHeight,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        },
+        filter: (node) => {
+          // 过滤掉不需要的元素
+          if (node.tagName === 'SCRIPT') return false;
+          if (node.classList && node.classList.contains('screenshot-notification')) return false;
+          return true;
+        }
+      };
+
+      console.log('开始调用 html-to-image.toPng...');
+      
+      // 生成截图
+      const dataUrl = await toPng(element, options);
+      
+      const duration = Date.now() - startTime;
+      console.log(`html-to-image 截图完成，耗时: ${duration}ms`);
+      
+      if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+        throw new Error('生成的截图数据无效');
+      }
+      
+      // 转换为 Blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      
+      console.log(`截图文件大小: ${Math.round(blob.size / 1024)}KB`);
+      
+      // 同时保存到剪切板和临时文件
+      const clipboardResult = await this.saveToClipboardAndFile(blob);
+      
+      return {
+        success: clipboardResult.success,
+        duration: duration,
+        size: blob.size,
+        filePath: clipboardResult.filePath,
+        error: clipboardResult.error
+      };
+      
+    } catch (error) {
+      console.error('html-to-image 截图失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // 保存到剪切板和临时文件
+  async saveToClipboardAndFile(blob) {
+    try {
+      const { ipcRenderer } = require('electron');
+      const arrayBuffer = await blob.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      // 通过 IPC 同时保存到剪切板和文件
+      const result = await ipcRenderer.invoke('save-screenshot-dual', {
+        buffer: buffer.toString('base64'),
+        format: 'png'
+      });
+      
+      if (result.success) {
+        console.log('截图已保存到剪切板和临时文件:', result.filePath);
+        return { 
+          success: true, 
+          filePath: result.filePath 
+        };
+      } else {
+        console.error('截图保存失败:', result.error);
+        return { success: false, error: result.error };
+      }
+      
+    } catch (error) {
+      console.error('保存截图失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // 获取活动内容区域
   getActiveContent() {
-    // 获取当前激活的内容区域，使用包含 padding 的容器
     const contentArea = document.querySelector('.content-area');
     const previewArea = document.querySelector('.preview-area');
     const editorArea = document.querySelector('.editor-area');
@@ -90,9 +184,9 @@ class ScreenshotPlugin extends BasePlugin {
       markdownContent: !!markdownContent
     });
 
-    // 优先使用包含 padding 的外层容器，这样可以保留视觉边距
+    // 优先使用包含 padding 的外层容器
     if (contentArea && contentArea.style.display !== 'none') {
-      console.log('使用 content-area 作为截图区域（包含 padding）');
+      console.log('使用 content-area 作为截图区域');
       return contentArea;
     } else if (previewArea && previewArea.style.display !== 'none') {
       console.log('使用 preview-area 作为截图区域');
@@ -102,7 +196,7 @@ class ScreenshotPlugin extends BasePlugin {
       return editorArea;
     }
     
-    // 回退到 markdownContent（但这样会丢失 padding）
+    // 回退到 markdownContent
     if (markdownContent && markdownContent.offsetHeight > 0) {
       console.log('回退使用 markdownContent 作为截图区域');
       return markdownContent;
@@ -111,75 +205,61 @@ class ScreenshotPlugin extends BasePlugin {
     return null;
   }
 
-  showProgress(message) {
-    // 显示进度指示器
-    const progressEl = document.createElement('div');
-    progressEl.id = 'screenshot-progress';
-    progressEl.innerHTML = `
-      <div class="progress-overlay">
-        <div class="progress-content">
-          <div class="spinner"></div>
-          <div class="progress-message">${message}</div>
-        </div>
-      </div>
-    `;
-    progressEl.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `;
+  // 动态获取元素的背景色
+  getElementBackgroundColor(element) {
+    // 尝试从多个层级获取背景色
+    let currentElement = element;
+    let backgroundColor = 'transparent';
     
-    // 添加样式
-    const style = document.createElement('style');
-    style.textContent = `
-      .progress-content {
-        background: var(--bg-color, #fff);
-        padding: 20px;
-        border-radius: 8px;
-        text-align: center;
-        color: var(--text-color, #333);
+    // 向上遍历 DOM 树查找有效的背景色
+    while (currentElement && currentElement !== document.body) {
+      const computedStyle = window.getComputedStyle(currentElement);
+      const bgColor = computedStyle.backgroundColor;
+      
+      console.log(`检查元素 ${currentElement.className || currentElement.tagName} 的背景色:`, bgColor);
+      
+      // 如果找到非透明的背景色
+      if (bgColor && bgColor !== 'transparent' && bgColor !== 'rgba(0, 0, 0, 0)') {
+        backgroundColor = bgColor;
+        console.log('找到有效背景色:', bgColor);
+        break;
       }
       
-      .spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #007acc;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 10px;
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      .progress-message {
-        font-size: 14px;
-      }
-    `;
-    
-    document.head.appendChild(style);
-    document.body.appendChild(progressEl);
-  }
-
-  hideProgress() {
-    const progressEl = document.getElementById('screenshot-progress');
-    if (progressEl) {
-      progressEl.remove();
+      currentElement = currentElement.parentElement;
     }
+    
+    // 如果没有找到，检查 body 的背景色
+    if (backgroundColor === 'transparent') {
+      const bodyStyle = window.getComputedStyle(document.body);
+      const bodyBgColor = bodyStyle.backgroundColor;
+      
+      if (bodyBgColor && bodyBgColor !== 'transparent' && bodyBgColor !== 'rgba(0, 0, 0, 0)') {
+        backgroundColor = bodyBgColor;
+        console.log('使用 body 的背景色:', bodyBgColor);
+      } else {
+        // 检查 html 元素的背景色
+        const htmlStyle = window.getComputedStyle(document.documentElement);
+        const htmlBgColor = htmlStyle.backgroundColor;
+        
+        if (htmlBgColor && htmlBgColor !== 'transparent' && htmlBgColor !== 'rgba(0, 0, 0, 0)') {
+          backgroundColor = htmlBgColor;
+          console.log('使用 html 的背景色:', htmlBgColor);
+        } else {
+          // 根据当前主题设置默认背景色
+          const isDarkTheme = document.body.classList.contains('dark-theme') || 
+                             document.documentElement.getAttribute('data-theme') === 'dark';
+          backgroundColor = isDarkTheme ? '#1e1e1e' : '#ffffff';
+          console.log('使用主题默认背景色:', backgroundColor);
+        }
+      }
+    }
+    
+    return backgroundColor;
   }
 
+
+  // 显示通知
   showNotification(message, type = 'info') {
-    // 显示通知
     const notification = document.createElement('div');
     notification.className = `screenshot-notification ${type}`;
     notification.textContent = message;
@@ -209,301 +289,6 @@ class ScreenshotPlugin extends BasePlugin {
   updateConfig(newConfig) {
     super.updateConfig(newConfig);
     console.log('Screenshot plugin config updated:', newConfig);
-    if (this.screenshotManager) {
-      this.screenshotManager.updateConfig(newConfig);
-    }
-  }
-}
-
-// 截图管理器类
-class ScreenshotManager {
-  constructor() {
-    this.config = {
-      maxSegmentHeight: 1000,
-      overlapPixels: 20,
-      outputFormat: 'png',
-      compressionQuality: 90
-    };
-  }
-
-  updateConfig(newConfig) {
-    this.config = { ...this.config, ...newConfig };
-  }
-
-  async captureFullPage(contentElement) {
-    try {
-      console.log('开始全页截图...');
-
-      // 获取内容的完整高度和当前可视区域
-      const totalHeight = contentElement.scrollHeight;
-      const viewportHeight = contentElement.clientHeight;
-      const totalWidth = contentElement.scrollWidth;
-
-      console.log(`内容尺寸: ${totalWidth}x${totalHeight}, 可视区域: ${contentElement.clientWidth}x${viewportHeight}`);
-
-      // 检查图片尺寸是否过大
-      const estimatedSize = totalWidth * totalHeight * 4; // 4字节每像素（RGBA）
-      const maxSize = 100 * 1024 * 1024; // 100MB限制
-      
-      if (estimatedSize > maxSize) {
-        console.warn(`图片尺寸过大 (${Math.round(estimatedSize/1024/1024)}MB)，将使用较小的段进行截图`);
-        // 减小段高度以降低内存使用
-        this.config.maxSegmentHeight = Math.min(this.config.maxSegmentHeight, 500);
-      }
-
-      // 如果内容完全在可视区域内，直接截图
-      if (totalHeight <= viewportHeight) {
-        return await this.captureVisibleArea();
-      }
-
-      // 需要分段截图
-      return await this.captureSegments(contentElement, totalHeight, viewportHeight);
-
-    } catch (error) {
-      console.error('截图失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  async captureVisibleArea() {
-    const { ipcRenderer } = require('electron');
-    
-    try {
-      const result = await ipcRenderer.invoke('capture-screenshot', {
-        type: 'visible',
-        segments: []
-      });
-      
-      return result;
-    } catch (error) {
-      throw new Error(`可视区域截图失败: ${error.message}`);
-    }
-  }
-
-  async captureSegments(contentElement, totalHeight, viewportHeight) {
-    const { ipcRenderer } = require('electron');
-    const segments = [];
-    const segmentHeight = Math.min(this.config.maxSegmentHeight, viewportHeight);
-    const overlapPixels = this.config.overlapPixels;
-
-    // 保存原始滚动位置
-    const originalScrollTop = contentElement.scrollTop;
-    
-    console.log(`开始分段截图: 总高度=${totalHeight}, 可视高度=${viewportHeight}, 段高度=${segmentHeight}, 重叠=${overlapPixels}px`);
-
-    try {
-      let currentY = 0;
-      let segmentIndex = 0;
-      const startTime = Date.now();
-
-      while (currentY < totalHeight) {
-        // 计算当前段的实际高度
-        const remainingHeight = totalHeight - currentY;
-        const actualSegmentHeight = Math.min(segmentHeight, remainingHeight);
-        const isLastSegment = remainingHeight <= segmentHeight;
-        
-        // 如果剩余内容很少（<100px），合并到前一段，避免产生微小的最后段
-        if (remainingHeight < 100 && currentY > 0) {
-          console.log(`剩余内容过少(${remainingHeight}px)，跳过单独的最后段，扩展前一段覆盖`);
-          break;
-        }
-
-        console.log(`截图段 ${segmentIndex + 1}: Y=${currentY}, 高度=${actualSegmentHeight}, 剩余=${remainingHeight}px, 最后段=${isLastSegment}`);
-
-        // 滚动到目标位置
-        const scrollStartTime = Date.now();
-        let targetScrollY = currentY;
-        
-        // 对于最后一段，使用稳健的方案：只截取真正需要的内容
-        if (isLastSegment) {
-          // 计算前面已经截取的内容高度（减去重叠）
-          const previousCoveredHeight = currentY;
-          const remainingContentHeight = totalHeight - previousCoveredHeight;
-          
-          console.log(`最后一段：剩余内容 ${remainingContentHeight}px，总高度 ${totalHeight}px，已覆盖 ${previousCoveredHeight}px`);
-          
-          // 直接滚动到文档底部，然后在拼接时只使用需要的部分
-          targetScrollY = Math.max(0, totalHeight - viewportHeight);
-          console.log(`最后一段：滚动到底部 ${targetScrollY}，后续拼接时只截取剩余的 ${remainingContentHeight}px`);
-        }
-        
-        contentElement.scrollTop = targetScrollY;
-
-        // 等待滚动稳定
-        await this.waitForScrollStable(contentElement, targetScrollY);
-        
-        // 额外等待渲染完成，确保内容更新
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const scrollDuration = Date.now() - scrollStartTime;
-        
-        if (scrollDuration > 100) {
-          console.warn(`段 ${segmentIndex + 1} 滚动耗时较长: ${scrollDuration}ms`);
-        }
-
-        // 截图当前段
-        const captureStartTime = Date.now();
-        const actualScrollY = contentElement.scrollTop;
-        // 计算剩余内容高度（用于最后一段的精确拼接）
-        const remainingContentHeight = isLastSegment ? totalHeight - currentY : actualSegmentHeight;
-        
-        const segmentResult = await ipcRenderer.invoke('capture-screenshot', {
-          type: 'segment',
-          segmentIndex,
-          y: currentY,
-          actualScrollY: actualScrollY,
-          height: actualSegmentHeight,
-          isLastSegment: isLastSegment,
-          remainingContentHeight: remainingContentHeight
-        });
-        const captureDuration = Date.now() - captureStartTime;
-
-        if (!segmentResult.success) {
-          const errorMsg = `段 ${segmentIndex + 1} 截图失败: ${segmentResult.error}`;
-          console.error(errorMsg);
-          throw new Error(errorMsg);
-        }
-
-        console.log(`段 ${segmentIndex + 1} 截图完成，耗时: ${captureDuration}ms, 数据大小: ${Math.round(segmentResult.buffer.length * 0.75 / 1024)}KB`);
-
-        segments.push({
-          index: segmentIndex,
-          y: currentY,
-          actualScrollY: actualScrollY,
-          height: actualSegmentHeight,
-          isLastSegment: isLastSegment,
-          buffer: segmentResult.buffer
-        });
-
-        // 计算下一段的起始位置（考虑重叠）
-        const prevCurrentY = currentY;
-        currentY += actualSegmentHeight;
-        if (currentY < totalHeight) {
-          currentY = Math.max(currentY - overlapPixels, prevCurrentY + 1); // 确保有进度
-        }
-
-        segmentIndex++;
-
-        // 更新进度
-        const progress = Math.min(Math.round((currentY / totalHeight) * 100), 100);
-        this.updateProgress(`正在截图... ${progress}% (${segmentIndex}/${Math.ceil(totalHeight / segmentHeight)})`);
-        
-        // 添加短暂延迟，避免过快的操作导致问题
-        if (segmentIndex % 5 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-
-      const captureTime = Date.now() - startTime;
-      console.log(`所有段截图完成，总耗时: ${captureTime}ms, 共 ${segments.length} 个段`);
-
-      // 恢复原始滚动位置
-      contentElement.scrollTop = originalScrollTop;
-
-      // 发送所有段到主进程进行拼接
-      console.log('开始图片拼接...');
-      this.updateProgress('正在拼接图片...');
-      
-      const stitchStartTime = Date.now();
-      const result = await ipcRenderer.invoke('stitch-screenshots', {
-        segments,
-        totalHeight,
-        totalWidth: contentElement.scrollWidth,
-        config: this.config
-      });
-      const stitchTime = Date.now() - stitchStartTime;
-      
-      if (result.success) {
-        console.log(`图片拼接完成，耗时: ${stitchTime}ms`);
-        if (result.warning) {
-          console.warn(`拼接警告: ${result.warning}`);
-        }
-      } else {
-        console.error(`图片拼接失败: ${result.error}`);
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error('分段截图过程中出现错误:', error);
-      // 恢复原始滚动位置
-      contentElement.scrollTop = originalScrollTop;
-      
-      // 如果已经有一些段截图成功，尝试拼接已有的段
-      if (segments.length > 0) {
-        console.log(`尝试使用已截图的 ${segments.length} 个段进行拼接`);
-        try {
-          const partialResult = await ipcRenderer.invoke('stitch-screenshots', {
-            segments,
-            totalHeight: segments[segments.length - 1].y + segments[segments.length - 1].height,
-            totalWidth: contentElement.scrollWidth,
-            config: this.config
-          });
-          
-          if (partialResult.success) {
-            console.log('部分拼接成功');
-            return { 
-              success: true, 
-              warning: `只完成了部分截图 (${segments.length} 段)，可能不完整`
-            };
-          }
-        } catch (partialError) {
-          console.error('部分拼接也失败:', partialError);
-        }
-      }
-      
-      throw error;
-    }
-  }
-
-  async waitForScrollStable(element, targetScrollTop) {
-    return new Promise((resolve) => {
-      let stableCount = 0;
-      let attempts = 0;
-      const maxAttempts = 30; // 减少等待时间，最多0.5秒
-      const tolerance = 5; // 增加容忍度到5像素
-      
-      const checkStable = () => {
-        attempts++;
-        const currentScroll = element.scrollTop;
-        const diff = Math.abs(currentScroll - targetScrollTop);
-        
-        if (diff <= tolerance) {
-          stableCount++;
-          if (stableCount >= 2) { // 减少稳定检查次数
-            console.log(`滚动稳定在Y=${currentScroll}，目标=${targetScrollTop}，误差=${diff}px`);
-            resolve();
-            return;
-          }
-        } else {
-          stableCount = 0;
-        }
-        
-        // 超时保护 - 使用当前位置而不是等待完美对齐
-        if (attempts >= maxAttempts) {
-          console.warn(`滚动等待超时，使用当前位置=${currentScroll}，目标=${targetScrollTop}，误差=${diff}px`);
-          // 即使超时也继续处理，这样可以避免因为小误差而失败
-          resolve();
-          return;
-        }
-        
-        requestAnimationFrame(checkStable);
-      };
-      
-      checkStable();
-    });
-  }
-
-  updateProgress(message) {
-    const progressMessage = document.querySelector('.progress-message');
-    if (progressMessage) {
-      progressMessage.textContent = message;
-    }
-  }
-
-  cleanup() {
-    // 清理资源
-    console.log('ScreenshotManager cleanup');
   }
 }
 
