@@ -50,7 +50,6 @@ class TodoListPlugin extends BasePlugin {
         this.styleConfig = {
             'todo-list-item': {
                 position: 'relative',
-                cursor: 'pointer',
                 borderRadius: '4px',
                 transition: `all ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`,
                 marginLeft: '0'
@@ -135,13 +134,13 @@ class TodoListPlugin extends BasePlugin {
      * 设置事件监听器
      */
     setupEventListeners() {
-        // 使用事件委托处理点击
+        // 使用事件委托处理点击，只响应 checkbox 的直接点击
         this.clickHandler = (event) => {
-            // 检查是否直接点击了 checkbox
+            // 只处理直接点击 checkbox 的情况
             const isCheckbox = event.target.tagName === 'INPUT' && event.target.type === 'checkbox';
             const hasDataTodoLine = event.target.hasAttribute && event.target.hasAttribute('data-todo-line');
             
-            // 首先检查直接点击的是否是 checkbox
+            // 只有直接点击了带有 data-todo-line 属性的 checkbox 才处理
             if (isCheckbox && hasDataTodoLine) {
                 // 不阻止默认行为，让checkbox正常切换
                 // 使用setTimeout确保checkbox状态已经更新
@@ -151,19 +150,7 @@ class TodoListPlugin extends BasePlugin {
                 return;
             }
             
-            // 如果不是直接点击 checkbox，检查是否点击了包含 checkbox 的 li 元素或文字
-            const parentLi = event.target.closest('li.todo-list-item');
-            const checkboxInLi = parentLi ? parentLi.querySelector('input[type="checkbox"][data-todo-line]') : null;
-            
-            // 只有当点击的不是checkbox本身时，才处理li点击
-            if (checkboxInLi && !isCheckbox) {
-                event.preventDefault();
-                // 切换checkbox状态并处理
-                const newState = !checkboxInLi.checked;
-                checkboxInLi.checked = newState;
-                this.handleCheckboxClick(checkboxInLi, newState);
-                return;
-            }
+            // 其他所有点击都不处理，让用户可以正常选中文字或执行其他操作
         };
         
         document.addEventListener('click', this.clickHandler, true);
@@ -287,6 +274,9 @@ class TodoListPlugin extends BasePlugin {
                     // 添加行号标识
                     checkbox.setAttribute('data-todo-line', lineInfo.lineNumber);
                     checkbox.setAttribute('data-todo-original', lineInfo.originalText);
+                    
+                    // 移除 disabled 属性，使 checkbox 可以被点击
+                    checkbox.removeAttribute('disabled');
                     
                     // 添加样式类
                     li.classList.add('todo-list-item');
