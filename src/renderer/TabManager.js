@@ -33,9 +33,9 @@ class TabManager {
         if (existingTab) {
           existingTab.belongsTo = 'file';
           existingTab.content = result.content;
-          this.setActiveTab(existingTab.id);
+          await this.setActiveTab(existingTab.id);
         } else {
-          this.createTab(result.filePath, result.content, null, 'file');
+          await this.createTab(result.filePath, result.content, null, 'file');
         }
         
         // 更新编辑器内容
@@ -62,7 +62,7 @@ class TabManager {
       const result = await ipcRenderer.invoke('open-file-dialog', filePath);
       
       if (result) {
-        this.openFileInTab(result.filePath, result.content, forceNewTab, false, fileType);
+        await this.openFileInTab(result.filePath, result.content, forceNewTab, false, fileType);
         
         // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
         if (!fromFolderMode) {
@@ -84,7 +84,7 @@ class TabManager {
     }
   }
 
-  createTab(filePath, content, title = null, belongsTo = 'folder') {
+  async createTab(filePath, content, title = null, belongsTo = 'folder') {
     const path = require('path');
     const fileName = title || path.basename(filePath);
     
@@ -99,7 +99,7 @@ class TabManager {
     };
     
     this.tabs.push(tab);
-    this.setActiveTab(tab.id);
+    await this.setActiveTab(tab.id);
     this.updateTabBar();
     
     // 新tab自动滚动到可见位置
@@ -111,7 +111,7 @@ class TabManager {
     return tab;
   }
 
-  setActiveTab(tabId) {
+  async setActiveTab(tabId) {
     // 关闭搜索框（如果打开的话）
     this.searchManager.hide();
     
@@ -123,6 +123,21 @@ class TabManager {
     if (activeTab) {
       activeTab.isActive = true;
       this.activeTabId = tabId;
+      
+      // 如果文件存在，从磁盘重新读取最新内容
+      if (activeTab.filePath) {
+        try {
+          const { ipcRenderer } = require('electron');
+          const result = await ipcRenderer.invoke('open-file-dialog', activeTab.filePath);
+          if (result && result.content !== undefined) {
+            // 更新tab中的内容缓存
+            activeTab.content = result.content;
+          }
+        } catch (error) {
+          console.log('[TabManager] 重新读取文件失败:', error.message);
+          // 如果读取失败，继续使用缓存的内容
+        }
+      }
       
       // 更新编辑器内容
       this.editorManager.setContent(activeTab.content, activeTab.filePath);
@@ -172,7 +187,7 @@ class TabManager {
     }
   }
 
-  closeTab(tabId, fromFileNode = false) {
+  async closeTab(tabId, fromFileNode = false) {
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) return;
     
@@ -180,7 +195,7 @@ class TabManager {
     
     // 如果是从文件节点发起的关闭，才删除文件节点；否则只关闭tab
     if (fromFileNode && tab.filePath) {
-      this.closeFileCompletely(tab.filePath);
+      await this.closeFileCompletely(tab.filePath);
       return;
     }
     
@@ -189,28 +204,28 @@ class TabManager {
       this.fileTreeManager.removeFile(tab.filePath, false);
     }
     
-    this.closeTabDirectly(tabId);
+    await this.closeTabDirectly(tabId);
   }
 
-  closeFileCompletely(filePath) {
+  async closeFileCompletely(filePath) {
     // 1. 删除file节点（不发出事件避免递归）
     this.fileTreeManager.removeFile(filePath, false);
     
     // 2. 关闭对应的tab
     let tabToClose;
     while ((tabToClose = this.tabs.find(tab => tab.filePath === filePath))) {
-      this.closeTabDirectly(tabToClose.id);
+      await this.closeTabDirectly(tabToClose.id);
     }
     
     // 3. 处理 untitled 新建文件
     if (filePath && filePath.startsWith('__new_file_')) {
       while ((tabToClose = this.tabs.find(tab => tab.filePath === null && tab.belongsTo === 'file'))) {
-        this.closeTabDirectly(tabToClose.id);
+        await this.closeTabDirectly(tabToClose.id);
       }
     }
   }
 
-  closeTabDirectly(tabId) {
+  async closeTabDirectly(tabId) {
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) return;
     
@@ -234,7 +249,7 @@ class TabManager {
     if (tab.isActive) {
       if (this.tabs.length > 1) {
         const nextIndex = tabIndex < this.tabs.length - 1 ? tabIndex + 1 : tabIndex - 1;
-        this.setActiveTab(this.tabs[nextIndex].id);
+        await this.setActiveTab(this.tabs[nextIndex].id);
       } else {
         // 关闭最后一个tab时，只重置必要状态，保持sidebar显示
         this.activeTabId = null;
@@ -296,16 +311,16 @@ class TabManager {
       const closeButton = document.createElement('button');
       closeButton.className = 'tab-close';
       closeButton.innerHTML = '×';
-      closeButton.onclick = (e) => {
+      closeButton.onclick = async (e) => {
         e.stopPropagation();
-        this.closeTab(tab.id);
+        await this.closeTab(tab.id);
       };
       
       tabElement.appendChild(tabTitle);
       tabElement.appendChild(closeButton);
       
-      tabElement.onclick = () => {
-        this.setActiveTab(tab.id);
+      tabElement.onclick = async () => {
+        await this.setActiveTab(tab.id);
       };
       
       const container = tabList || tabBar;
@@ -373,24 +388,24 @@ class TabManager {
     return this.tabs.find(tab => tab.filePath === filePath);
   }
 
-  openFileInTab(filePath, content, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
+  async openFileInTab(filePath, content, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
     // 先判断打开的tab有没有和此文件相同path和名字，相同就focus到已经打开的tab
     const existingTab = this.findTabByPath(filePath);
     if (existingTab && !forceNewTab) {
       existingTab.content = content;
-      this.setActiveTab(existingTab.id);
+      await this.setActiveTab(existingTab.id);
       return existingTab;
     }
     
     // 如果强制新建tab，直接创建
     if (forceNewTab) {
       const belongsTo = fileType === 'file' ? 'file' : 'folder';
-      return this.createTab(filePath, content, null, belongsTo);
+      return await this.createTab(filePath, content, null, belongsTo);
     }
     
     // 判断其来自file还是folder
     if (fileType === 'file') {
-      return this.createTab(filePath, content, null, 'file');
+      return await this.createTab(filePath, content, null, 'file');
     } else {
       // 如果是folder就看tab上哪个tab是folder，替换folder的那个tab显示当前内容
       const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
@@ -405,24 +420,24 @@ class TabManager {
           folderTab.belongsTo = 'file';
         }
         
-        this.setActiveTab(folderTab.id);
+        await this.setActiveTab(folderTab.id);
         this.editorManager.setContent(content, filePath);
         this.uiManager.updateFileNameDisplay(filePath);
         this.fileTreeManager.updateActiveFile(filePath);
         this.updateTabTitle(folderTab.id, folderTab.title);
         return folderTab;
       } else {
-        return this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder');
+        return await this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder');
       }
     }
   }
 
-  createNewFileTab() {
+  async createNewFileTab() {
     const newFileContent = '';
     const newFileName = 'Untitled.md';
     
     // 创建新tab，标记为file类型
-    const newTab = this.createTab(null, newFileContent, newFileName, 'file');
+    const newTab = await this.createTab(null, newFileContent, newFileName, 'file');
     
     // 将文件添加到Files区域，使用临时文件名
     this.fileTreeManager.addFile(null, newFileContent, newFileName);
