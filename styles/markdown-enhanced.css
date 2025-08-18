@@ -143,13 +143,25 @@
     line-height: 1.6;
 }
 
+.markdown-content li span{
+    background-color: #557ed32e;
+    padding: 3px;
+    border-radius: 3px;
+}
+
+.markdown-content li ol, 
+.markdown-content li ul,
+.markdown-content li blockquote{
+    margin-left: 20px;
+}
+
 /* 列表项目符号自定义 */
 .markdown-content ul li::marker {
     color: #319227;
 }
 
 .markdown-content ol li::marker {
-    color: #3674b5;
+    color: #36b5a8;
     font-weight: 600;
 }
 

@@ -314,11 +314,11 @@ class CodeMirrorHighlighter {
         isDark = localStorage.getItem('theme') === 'dark';
       }
       
-      console.log('主题检测:', {
-        'themeCSS.href': themeCSS ? themeCSS.href : 'not found',
-        'localStorage.theme': localStorage.getItem('theme'),
-        'isDark': isDark
-      });
+      // console.log('主题检测:', {
+      //   'themeCSS.href': themeCSS ? themeCSS.href : 'not found',
+      //   'localStorage.theme': localStorage.getItem('theme'),
+      //   'isDark': isDark
+      // });
       
       return {
         fontSize: settings.fontSize || 14,

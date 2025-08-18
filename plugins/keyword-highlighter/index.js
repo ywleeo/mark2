@@ -348,7 +348,7 @@ class KeywordHighlighterPlugin extends BasePlugin {
         
         localStorage.setItem('keywordHighlight', newState.toString());
         
-        this.api.log(this.name, `关键词高亮已${newState ? '启用' : '禁用'}`);
+        // this.api.log(this.name, `关键词高亮已${newState ? '启用' : '禁用'}`);
         
         // 触发内容重新渲染
         this.emit('keyword-highlight:toggled', { enabled: newState });
