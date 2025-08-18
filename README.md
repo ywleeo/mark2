@@ -25,9 +25,9 @@
 ## 🚀 快速开始
 
 ### 系统要求
-- **macOS**: 10.13+ (支持 Intel 和 Apple Silicon)
-- **Windows**: Windows 10+
-- **Linux**: Ubuntu 18.04+
+- **macOS**: 10.13+ (支持 Intel 和 Apple Silicon，自动适配 macOS 样式)
+- **Windows**: Windows 10+ (自动适配 Windows 样式)
+- **Linux**: Ubuntu 18.04+ (自动适配 Linux 样式)
 
 ### 安装方式
 
@@ -66,6 +66,9 @@ npm run dev
 # 直接打开文件
 npm start README.md
 npm start /path/to/file.md
+
+# 在 macOS 上测试 Windows/Linux 样式
+FORCE_NON_MAC_LAYOUT=true npm run dev
 ```
 
 ### 键盘快捷键
@@ -122,6 +125,7 @@ class MyPlugin extends BasePlugin {
 - **构建**: electron-builder, @electron/rebuild
 - **图像处理**: html-to-image (前端截图库)
 - **Markdown**: marked.js, highlight.js
+- **平台适配**: 自动检测平台并应用对应的 UI 样式
 
 ### 项目结构
 ```
@@ -139,6 +143,11 @@ mark2/
 │       └── UIManager.js
 ├── plugins/                # 插件系统
 ├── styles/                 # 样式文件
+│   ├── layout.css          # 基础布局样式
+│   ├── mac-layout.css      # macOS 专用样式
+│   ├── non-mac-layout.css  # Windows/Linux 样式
+│   ├── light-theme.css     # 浅色主题
+│   └── dark-theme.css      # 深色主题
 └── test/                   # 测试文件
 ```
 
@@ -220,6 +229,16 @@ npm update electron-builder @electron/rebuild
 - macOS: 确保在 Finder 中使用 `Cmd+V` 粘贴
 - 临时文件位置: 系统临时目录（24小时自动清理）
 - 权限问题: 确保应用有文件写入权限
+
+#### 5. UI 布局显示异常
+应用会自动检测平台并应用对应样式：
+- **macOS**: 隐藏标题栏，为交通灯按钮预留空间
+- **Windows/Linux**: 使用系统标题栏，紧凑布局
+
+如果在 macOS 上需要测试其他平台样式：
+```bash
+FORCE_NON_MAC_LAYOUT=true npm run dev
+```
 
 ### 获取帮助
 - 查看 `debug.log` 文件获取详细错误信息

@@ -117,6 +117,9 @@ cat debug.log
 
 # 如果需要更详细的调试信息，可以设置环境变量
 DEBUG=* npm run dev
+
+# 测试非 Mac 样式（在 macOS 上测试 Windows/Linux 布局）
+FORCE_NON_MAC_LAYOUT=true npm run dev
 ```
 
 **重要**: 所有的 console.log、console.error 等输出都会自动保存到 `debug.log` 文件中，可以直接读取该文件来查看历史日志和错误信息。
@@ -171,6 +174,30 @@ DEBUG=* npm run dev
 - 使用模块化架构，主进程和渲染进程分别组织在 src/main 和 src/renderer 目录
 - 支持 Intel (x64) 和 Apple Silicon (arm64) 架构打包
 - 文件关联支持 .md 和 .markdown 文件类型
+
+### Platform-Adaptive Layout System（平台自适应布局系统）
+应用支持自动检测平台并应用对应的布局样式：
+
+**macOS 样式**：
+- 隐藏系统标题栏，使用 Electron 的 `trafficLightPosition` 控制交通灯位置
+- 侧边栏顶部预留 36px 空间给交通灯按钮
+- 包含透明的标题栏拖拽热区，支持窗口拖拽
+- 侧边栏隐藏时，tab-bar 左边距 80px（为交通灯按钮预留空间）
+
+**Windows/Linux 样式**：
+- 使用系统原生标题栏
+- 侧边栏从窗口顶部开始，无额外预留空间
+- 隐藏标题栏拖拽热区和交通灯按钮区域
+- 侧边栏隐藏时，tab-bar 左边距为 0
+
+**自动切换逻辑**：
+- 平台检测：`process.platform === 'darwin'` 判断是否为 macOS
+- 样式文件：macOS 加载 `styles/mac-layout.css`，其他平台加载 `styles/non-mac-layout.css`
+- CSS 类：自动给 `body` 添加 `mac-layout` 或 `non-mac-layout` 类
+
+**调试功能**：
+- 在 macOS 上可通过 `FORCE_NON_MAC_LAYOUT=true npm run dev` 强制使用 Windows/Linux 样式进行测试
+- 自动添加 `debug-non-mac-layout` CSS 类用于调试标识
 
 ### File Operations
 - 文件读写通过 Electron 的 fs 模块在主进程中处理
