@@ -15,7 +15,6 @@ build/
 # 系统文件
 .DS_Store
 Thumbs.db
-CLAUDE.md
 MISTAKES.md
 TODO.md
 

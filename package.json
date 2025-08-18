@@ -18,8 +18,7 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^37.2.3",
-    "electron-builder": "^24.0.0",
-    "html-to-image": "^1.11.13"
+    "electron-builder": "^24.0.0"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.3",
@@ -28,6 +27,7 @@
     "@codemirror/view": "^6.38.1",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
+    "html-to-image": "^1.11.13",
     "marked": "^5.0.0"
   },
   "build": {
