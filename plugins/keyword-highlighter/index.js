@@ -119,7 +119,7 @@ class KeywordHighlighterPlugin extends BasePlugin {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
                     // 延迟一点时间让CSS加载完成
                     setTimeout(() => {
-                        this.api.log(this.name, '主题已切换，重新生成样式');
+                        // this.api.log(this.name, '主题已切换，重新生成样式');
                         this.generateDynamicStyles();
                     }, 100);
                 }

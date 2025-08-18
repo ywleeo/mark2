@@ -81,9 +81,12 @@ class PluginManager {
      */
     ensureUserPluginDirectory() {
         try {
-            if (!fs.existsSync(this.userPluginDirectory)) {
-                fs.mkdirSync(this.userPluginDirectory, { recursive: true });
-                // console.log(`[插件管理器] 创建用户插件目录: ${this.userPluginDirectory}`);
+            // 确保已初始化用户插件目录路径
+            const userDir = this.getUserPluginDirectory();
+            
+            if (!fs.existsSync(userDir)) {
+                fs.mkdirSync(userDir, { recursive: true });
+                // console.log(`[插件管理器] 创建用户插件目录: ${userDir}`);
             }
         } catch (error) {
             console.warn('[插件管理器] 创建用户插件目录失败:', error);

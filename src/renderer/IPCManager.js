@@ -322,7 +322,7 @@ class IPCManager {
 
   // 文件监听状态管理
   updateFileWatchStatus(filePath, isWatching) {
-    console.log(`文件监听状态更新: ${filePath} -> ${isWatching ? '监听中' : '已停止'}`);
+    // console.log(`文件监听状态更新: ${filePath} -> ${isWatching ? '监听中' : '已停止'}`);
     this.eventManager.emit('file-watch-status-changed', { filePath, isWatching });
   }
 

@@ -198,7 +198,7 @@ class TitleBarDragManager {
         stableCount++;
         if (stableCount >= requiredStableFrames) {
           // 尺寸已稳定，更新热区
-          console.log(`[TitleBarDragManager] sidebar尺寸稳定在 ${currentWidth}px，更新热区`);
+          // console.log(`[TitleBarDragManager] sidebar尺寸稳定在 ${currentWidth}px，更新热区`);
           this.isMonitoring = false;
           this.updateDragRegions();
           return;

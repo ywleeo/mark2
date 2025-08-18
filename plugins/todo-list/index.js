@@ -183,7 +183,7 @@ class TodoListPlugin extends BasePlugin {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
                     setTimeout(() => {
-                        this.api.log(this.name, '主题已切换，重新生成样式');
+                        // this.api.log(this.name, '主题已切换，重新生成样式');
                         this.generateStyles();
                     }, 100);
                 }

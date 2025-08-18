@@ -155,8 +155,22 @@ class MarkdownRenderer {
       return `${text}\n\n${equals}`;
     });
     
-    // 简单粗暴的解决方案：转义所有尖括号，防止HTML标签被执行
+    // 转义HTML标签，但保护Markdown语法
+    // 先保护引用块语法（行首的 > ，包括嵌套的 >> >>> 等）
+    const blockquoteMarkers = [];
+    processed = processed.replace(/^([ \t]*)(>+)(\s|$)/gm, (match, indent, markers, space) => {
+      const placeholder = `__BLOCKQUOTE_${blockquoteMarkers.length}__`;
+      blockquoteMarkers.push({ placeholder, original: markers });
+      return `${indent}${placeholder}${space}`;
+    });
+    
+    // 转义其他尖括号
     processed = processed.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
+    // 恢复引用块标记
+    blockquoteMarkers.forEach(({ placeholder, original }) => {
+      processed = processed.replace(placeholder, original);
+    });
     
     return processed;
   }

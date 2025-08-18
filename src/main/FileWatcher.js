@@ -22,7 +22,7 @@ class FileWatcher {
     this.watchedPath = folderPath;
     // 建立初始文件树快照
     this.createFileTreeSnapshot();
-    console.log(`FileWatcher: 开始跟踪文件夹: ${folderPath}`);
+    // console.log(`FileWatcher: 开始跟踪文件夹: ${folderPath}`);
   }
 
   // 停止跟踪
@@ -30,7 +30,7 @@ class FileWatcher {
     this.watchedPath = null;
     this.lastFileTreeHash = null;
     this.stopFileWatching();
-    console.log('FileWatcher: 已停止文件夹跟踪');
+    // console.log('FileWatcher: 已停止文件夹跟踪');
   }
 
   // 开始跟踪单个文件（不使用持续监听）
@@ -49,7 +49,7 @@ class FileWatcher {
       // 初始化文件内容缓存
       this.lastFileContent = fs.readFileSync(filePath, 'utf-8');
       
-      console.log(`FileWatcher: 开始跟踪文件: ${filePath}`);
+      // console.log(`FileWatcher: 开始跟踪文件: ${filePath}`);
       
       // 通知渲染进程新的文件监听已开始
       const mainWindow = this.windowManager.getWindow();
@@ -80,7 +80,7 @@ class FileWatcher {
           filePath: previousWatchedFile
         });
       }
-      console.log(`FileWatcher: 已停止文件跟踪: ${previousWatchedFile}`);
+      // console.log(`FileWatcher: 已停止文件跟踪: ${previousWatchedFile}`);
     }
   }
 
@@ -114,7 +114,7 @@ class FileWatcher {
         });
       }
       
-      console.log(`FileWatcher: 检测到文件内容变化: ${this.watchedFile}`);
+      // console.log(`FileWatcher: 检测到文件内容变化: ${this.watchedFile}`);
       return true; // 有变化
     } catch (error) {
       console.error('Error checking file content:', error);
@@ -216,7 +216,7 @@ class FileWatcher {
     try {
       const fileTree = this.fileManager.buildFileTreeWithRoot(this.watchedPath);
       this.lastFileTreeHash = this.calculateFileTreeHash(fileTree);
-      console.log(`FileWatcher: 建立文件树快照，哈希值: ${this.lastFileTreeHash}`);
+      // console.log(`FileWatcher: 建立文件树快照，哈希值: ${this.lastFileTreeHash}`);
     } catch (error) {
       console.error('Error creating file tree snapshot:', error);
     }

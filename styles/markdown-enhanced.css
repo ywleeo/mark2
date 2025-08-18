@@ -70,12 +70,29 @@
 .markdown-content blockquote {
     border-left-width: 4px;
     border-left-style: solid;
-    border-left-color: var(--quote-accent-color, #f59e0b);
+    border-left-color: var(--quote-accent-color, #a2fb24);
     padding: 12px 20px;
     margin: 20px 0;
     font-style: italic;
     background-color: var(--quote-background-color, rgba(245, 158, 11, 0.05));
     border-radius: 0 4px 4px 0;
+}
+
+/* 嵌套引用块 */
+.markdown-content blockquote blockquote {
+    margin: 10px 0;
+    padding: 8px 16px;
+    border-left-width: 3px;
+    opacity: 0.8;
+    background-color: var(--quote-background-color, rgba(245, 158, 11, 0.03));
+}
+
+.markdown-content blockquote blockquote blockquote {
+    margin: 5px 0;
+    padding: 6px 12px;
+    border-left-width: 2px;
+    opacity: 0.6;
+    background-color: var(--quote-background-color, rgba(245, 158, 11, 0.02));
 }
 
 /* 链接增强 */
