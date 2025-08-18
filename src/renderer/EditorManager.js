@@ -313,6 +313,11 @@ class EditorManager {
         editor.scrollTop = 0; // 只有在重置编辑模式时才重置滚动位置
       }
     }
+
+    // 如果当前在编辑模式且不重置编辑模式，更新CodeMirror内容
+    if (wasInEditMode && !resetEditMode && this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+      this.markdownHighlighter.setValue(content);
+    }
     
     // 只有在重置编辑模式时才强制切换UI状态
     if (resetEditMode) {
