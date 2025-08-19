@@ -143,7 +143,7 @@
     line-height: 1.6;
 }
 
-.markdown-content li p > span{
+.markdown-content li > span{
     background-color: #557ed32e;
     padding: 3px;
     border-radius: 3px;

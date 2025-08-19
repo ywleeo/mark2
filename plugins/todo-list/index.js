@@ -55,7 +55,8 @@ class TodoListPlugin extends BasePlugin {
                 marginLeft: '0'
             },
             'todo-list-item:hover': {
-                backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6')
+                borderLeft: '2px solid rgba(115, 119, 193, 0.25)',
+                // backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6')
             },
             'todo-list-checkbox': {
                 cursor: 'pointer',
@@ -100,6 +101,27 @@ class TodoListPlugin extends BasePlugin {
             'todo-list-text': {
                 transition: `all ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`
             },
+            'todo-collapsible': {
+                cursor: 'pointer',
+                userSelect: 'none',
+                borderRadius: '3px',
+                padding: '2px 4px',
+                display: 'inline-block',
+                position: 'relative'
+            },
+            'todo-collapsible:hover': {
+                backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6'),
+                boxShadow: `0 1px 3px ${isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.1)'}`
+            },
+            // 只有可收缩的文本才显示箭头
+            'todo-collapsible::after': {
+                content: '"▼"',
+                fontSize: '10px',
+                marginLeft: '6px',
+                color: themeConfig.checkboxColor || (isDark ? '#34d399' : '#10b981'),
+                transition: `transform ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`,
+                display: 'inline-block'
+            },
             'todo-list-completed': {
                 textDecoration: 'line-through',
                 color: themeConfig.completedTextColor || (isDark ? '#9ca3af' : '#6b7280'),
@@ -110,6 +132,26 @@ class TodoListPlugin extends BasePlugin {
                 color: themeConfig.checkboxColor || (isDark ? '#34d399' : '#10b981'),
                 fontWeight: 'bold',
                 marginBottom: '8px'
+            },
+            // 内容容器样式
+            'todo-content-container': {
+                display: 'inline'
+            },
+            // 收缩状态样式
+            'todo-collapsed': {
+                overflow: 'hidden'
+            },
+            // 收缩时隐藏内容容器
+            'todo-collapsed .todo-content-container': {
+                display: 'none !important'
+            },
+            // 收缩时箭头旋转
+            'todo-collapsed .todo-collapsible::after': {
+                transform: 'rotate(-90deg)'
+            },
+            // 确保文本始终可见
+            'todo-collapsed .todo-list-text': {
+                display: 'inline-block !important'
             }
         };
         
@@ -136,7 +178,7 @@ class TodoListPlugin extends BasePlugin {
     setupEventListeners() {
         // 使用事件委托处理点击，只响应 checkbox 的直接点击
         this.clickHandler = (event) => {
-            // 只处理直接点击 checkbox 的情况
+            // 处理直接点击 checkbox 的情况
             const isCheckbox = event.target.tagName === 'INPUT' && event.target.type === 'checkbox';
             const hasDataTodoLine = event.target.hasAttribute && event.target.hasAttribute('data-todo-line');
             
@@ -147,6 +189,17 @@ class TodoListPlugin extends BasePlugin {
                 setTimeout(() => {
                     this.handleCheckboxClick(event.target, event.target.checked);
                 }, 0);
+                return;
+            }
+            
+            // 处理点击 todo 文本进行收缩/展开 - 只有可收缩的文本才响应
+            const isTodoCollapsible = event.target.classList && 
+                event.target.classList.contains('todo-list-text') && 
+                event.target.classList.contains('todo-collapsible');
+            if (isTodoCollapsible) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.handleTextClick(event.target);
                 return;
             }
             
@@ -365,16 +418,59 @@ class TodoListPlugin extends BasePlugin {
         li.classList.add('todo-list-item');
         checkbox.classList.add('todo-list-checkbox');
         
-        // 为文本添加样式类
+        // 重新构造 HTML 结构
         const textNode = this.getTaskTextNode(li);
         if (textNode) {
-            const span = document.createElement('span');
-            span.classList.add('todo-list-text');
+            // 创建文本 span
+            const textSpan = document.createElement('span');
+            textSpan.classList.add('todo-list-text');
             if (checkbox.checked) {
-                span.classList.add('todo-list-completed');
+                textSpan.classList.add('todo-list-completed');
             }
-            span.textContent = textNode.textContent;
-            textNode.parentNode.replaceChild(span, textNode);
+            textSpan.textContent = textNode.textContent;
+            
+            // 收集真正的额外内容（子列表、段落、代码块等，但排除包含当前任务的主要内容）
+            const childNodes = Array.from(li.childNodes);
+            const additionalContent = [];
+            
+            childNodes.forEach(node => {
+                // 跳过包含checkbox的元素（通常是p标签包含checkbox和文本）
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    const hasCheckbox = node.querySelector && node.querySelector('input[type="checkbox"]');
+                    if (!hasCheckbox) {
+                        // 这是真正的额外内容（子列表、段落、代码块等）
+                        additionalContent.push(node.cloneNode(true));
+                    }
+                } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
+                    // 保留有意义的文本节点
+                    additionalContent.push(node.cloneNode(true));
+                }
+            });
+            
+            // 检查是否有真正的额外内容
+            const hasAdditionalContent = additionalContent.length > 0;
+            
+            // 清空 li 并重新构建结构
+            li.innerHTML = '';
+            
+            // checkbox + span 的结构
+            li.appendChild(checkbox);
+            li.appendChild(textSpan);
+            
+            // 如果有额外内容，创建容器并添加展开功能
+            if (hasAdditionalContent) {
+                textSpan.classList.add('todo-collapsible');
+                textSpan.title = '点击收缩/展开内容';
+                
+                const contentContainer = document.createElement('div');
+                contentContainer.classList.add('todo-content-container');
+                
+                additionalContent.forEach(node => {
+                    contentContainer.appendChild(node);
+                });
+                
+                li.appendChild(contentContainer);
+            }
         }
     }
 
@@ -580,6 +676,34 @@ class TodoListPlugin extends BasePlugin {
             this.api.warn(this.name, '更新编辑器内容失败:', error);
             throw error;
         }
+    }
+
+    /**
+     * 处理文本点击（收缩/展开功能）
+     */
+    handleTextClick(textSpan) {
+        const listItem = textSpan.closest('li');
+        if (!listItem) return;
+        
+        // 切换收缩状态
+        const isCollapsed = listItem.classList.contains('todo-collapsed');
+        
+        if (isCollapsed) {
+            // 展开：移除收缩类
+            listItem.classList.remove('todo-collapsed');
+            textSpan.title = '点击收缩内容';
+        } else {
+            // 收缩：添加收缩类
+            listItem.classList.add('todo-collapsed');
+            textSpan.title = '点击展开内容';
+        }
+        
+        // 添加切换动画效果（如果启用）
+        if (this.config.general?.enableAnimation) {
+            listItem.style.transition = 'all 200ms ease-in-out';
+        }
+        
+        // this.api.log(this.name, `Todo 项${isCollapsed ? '展开' : '收缩'}: ${textSpan.textContent}`);
     }
 
     /**
