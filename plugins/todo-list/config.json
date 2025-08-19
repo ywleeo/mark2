@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "交互式 Markdown 任务列表插件，支持点击切换完成状态并自动保存",
   "enabled": true,
+  "priority": 100,
   "config": {
     "general": {
       "autoSave": true,

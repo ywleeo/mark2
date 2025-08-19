@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "智能关键词高亮插件，支持多种内容类型的高亮显示",
   "enabled": true,
+  "priority": 50,
   "shortcuts": [
     {
       "accelerator": "CmdOrCtrl+K",

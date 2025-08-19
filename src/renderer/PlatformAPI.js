@@ -60,20 +60,23 @@ class PlatformAPI {
      * @returns {string} - 替换后的 HTML
      */
     replaceInHTML(html, searchText, replacement) {
-        // 创建临时 DOM 来安全处理
+        // 创建临时DOM容器
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = html;
         
-        // 遍历文本节点进行替换
-        this.replaceInTextNodes(tempDiv, searchText, replacement);
+        // 安全地替换文本节点
+        this.safeReplaceTextNodes(tempDiv, searchText, replacement);
         
         return tempDiv.innerHTML;
     }
 
     /**
-     * 在文本节点中替换内容
+     * 安全的文本节点替换方法
+     * 确保不破坏任何HTML结构
      */
-    replaceInTextNodes(element, searchText, replacement) {
+    safeReplaceTextNodes(element, searchText, replacement) {
+        // 收集所有文本节点
+        const textNodes = [];
         const walker = document.createTreeWalker(
             element,
             NodeFilter.SHOW_TEXT,
@@ -81,31 +84,186 @@ class PlatformAPI {
             false
         );
         
-        const textNodes = [];
         let node;
         while (node = walker.nextNode()) {
-            textNodes.push(node);
+            // 跳过已经在mark标签内的文本
+            if (!this.isInsideMarkTag(node)) {
+                textNodes.push(node);
+            }
         }
         
+        // 对每个文本节点进行替换
         textNodes.forEach(textNode => {
-            if (textNode.parentElement.tagName !== 'MARK') { // 避免重复高亮
-                const text = textNode.textContent;
-                if (text.includes(searchText)) {
-                    const newHTML = text.replace(
-                        new RegExp(this.escapeRegex(searchText), 'gi'),
-                        replacement
-                    );
-                    if (newHTML !== text) {
-                        const tempSpan = document.createElement('span');
-                        tempSpan.innerHTML = newHTML;
-                        while (tempSpan.firstChild) {
-                            textNode.parentNode.insertBefore(tempSpan.firstChild, textNode);
-                        }
-                        textNode.remove();
+            const text = textNode.textContent;
+            if (text.includes(searchText)) {
+                // 使用分割+重建的方法，避免innerHTML破坏结构
+                this.replaceTextNodeContent(textNode, searchText, replacement);
+            }
+        });
+    }
+    
+    /**
+     * 检查节点是否在mark标签内
+     */
+    isInsideMarkTag(node) {
+        let parent = node.parentElement;
+        while (parent) {
+            if (parent.tagName === 'MARK') {
+                return true;
+            }
+            parent = parent.parentElement;
+        }
+        return false;
+    }
+    
+    /**
+     * 替换文本节点内容，保持父元素结构不变
+     */
+    replaceTextNodeContent(textNode, searchText, replacement) {
+        const text = textNode.textContent;
+        const regex = new RegExp(this.escapeRegex(searchText), 'gi');
+        
+        // 如果没有匹配，直接返回
+        if (!regex.test(text)) {
+            return;
+        }
+        
+        // 重置regex
+        regex.lastIndex = 0;
+        
+        // 分割文本
+        const parts = text.split(regex);
+        const matches = text.match(regex) || [];
+        
+        // 关键修复：检查父元素是否只有这一个文本节点
+        const parentElement = textNode.parentElement;
+        const isOnlyChild = parentElement && parentElement.childNodes.length === 1 && parentElement.childNodes[0] === textNode;
+        
+        if (isOnlyChild) {
+            // 如果是唯一子节点，直接设置父元素的innerHTML
+            const newHTML = text.replace(regex, replacement);
+            parentElement.innerHTML = newHTML;
+        } else {
+            // 如果不是唯一子节点，创建文档片段进行替换
+            const fragment = document.createDocumentFragment();
+            
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i]) {
+                    fragment.appendChild(document.createTextNode(parts[i]));
+                }
+                
+                if (i < matches.length) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = replacement;
+                    while (tempDiv.firstChild) {
+                        fragment.appendChild(tempDiv.firstChild);
                     }
                 }
             }
+            
+            textNode.parentNode.replaceChild(fragment, textNode);
+        }
+    }
+
+    /**
+     * 结构感知的文本替换算法（已弃用）
+     * 确保不破坏 HTML 标签结构
+     */
+    structureAwareReplace(html, searchText, replacement) {
+        // 解析 HTML 为文本片段和标签片段
+        const segments = this.parseHTMLSegments(html);
+        
+        // 只在文本片段中进行替换
+        const processedSegments = segments.map(segment => {
+            if (segment.type === 'text' && !segment.insideTag) {
+                return {
+                    ...segment,
+                    content: segment.content.replace(
+                        new RegExp(this.escapeRegex(searchText), 'gi'),
+                        replacement
+                    )
+                };
+            }
+            return segment;
         });
+        
+        // 重新组装 HTML
+        return processedSegments.map(segment => segment.content).join('');
+    }
+
+    /**
+     * 解析 HTML 为结构化片段
+     * 将 HTML 分解为文本和标签片段，并标记是否在标签内部
+     */
+    parseHTMLSegments(html) {
+        const segments = [];
+        let current = '';
+        let inTag = false;
+        let inMarkTag = false; // 是否在已有的 mark 标签内
+        let markDepth = 0;
+        
+        for (let i = 0; i < html.length; i++) {
+            const char = html[i];
+            const remaining = html.slice(i);
+            
+            if (char === '<') {
+                // 遇到标签开始
+                if (current.length > 0) {
+                    segments.push({
+                        type: 'text',
+                        content: current,
+                        insideTag: inMarkTag
+                    });
+                    current = '';
+                }
+                
+                inTag = true;
+                current = char;
+                
+                // 检查是否是 mark 标签
+                if (remaining.toLowerCase().startsWith('<mark')) {
+                    inMarkTag = true;
+                    markDepth++;
+                } else if (remaining.toLowerCase().startsWith('</mark')) {
+                    markDepth--;
+                    if (markDepth <= 0) {
+                        inMarkTag = false;
+                        markDepth = 0;
+                    }
+                }
+            } else if (char === '>' && inTag) {
+                // 标签结束
+                current += char;
+                segments.push({
+                    type: 'tag',
+                    content: current,
+                    insideTag: false
+                });
+                current = '';
+                inTag = false;
+            } else {
+                current += char;
+            }
+        }
+        
+        // 处理最后的内容
+        if (current.length > 0) {
+            segments.push({
+                type: inTag ? 'tag' : 'text',
+                content: current,
+                insideTag: inMarkTag
+            });
+        }
+        
+        return segments;
+    }
+
+    /**
+     * 在文本节点中替换内容（已弃用，保留兼容性）
+     */
+    replaceInTextNodes(element, searchText, replacement) {
+        // 已替换为 structureAwareReplace，保留此方法以防有其他依赖
+        console.warn('replaceInTextNodes 方法已弃用，请使用 structureAwareReplace');
     }
 
     /**

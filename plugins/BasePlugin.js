@@ -9,6 +9,7 @@ class BasePlugin {
         this.name = pluginConfig.name || 'Unknown Plugin';
         this.version = pluginConfig.version || '1.0.0';
         this.enabled = pluginConfig.enabled !== false; // 默认启用
+        this.priority = pluginConfig.priority || 50; // 插件优先级
         this.shortcuts = pluginConfig.shortcuts || [];
         this.config = pluginConfig.config || {};
         this.source = pluginConfig.source || 'unknown'; // 插件来源：builtin/user

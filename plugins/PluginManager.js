@@ -247,10 +247,18 @@ class PluginManager {
     }
 
     /**
-     * 获取启用的插件
+     * 获取启用的插件（按优先级排序）
      */
     getEnabledPlugins() {
-        return this.getAllPlugins().filter(plugin => plugin.isActive());
+        return this.getAllPlugins()
+            .filter(plugin => plugin.isActive())
+            .sort((a, b) => {
+                // 获取优先级，可能在config内部或顶层，默认为50
+                const priorityA = a.priority || a.config?.priority || 50;
+                const priorityB = b.priority || b.config?.priority || 50;
+                // 高优先级在前（降序）
+                return priorityB - priorityA;
+            });
     }
 
     /**
