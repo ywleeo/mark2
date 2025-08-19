@@ -260,45 +260,122 @@ class TodoListPlugin extends BasePlugin {
         const lines = originalContent.split('\n');
         const taskLineMap = this.buildTaskLineMap(lines);
         
-        // 找到所有任务列表项
+        // 如果启用了排序功能，对任务列表进行排序
+        if (this.config.general?.sortTasks) {
+            this.sortTaskLists(tempDiv, taskLineMap);
+        } else {
+            // 原有的增强逻辑：按原始顺序处理
+            this.enhanceTaskListsOriginalOrder(tempDiv, taskLineMap);
+        }
+        
+        return tempDiv.innerHTML;
+    }
+
+    /**
+     * 按原始顺序增强任务列表（原有逻辑）
+     */
+    enhanceTaskListsOriginalOrder(tempDiv, taskLineMap) {
         const listItems = tempDiv.querySelectorAll('li');
         let taskIndex = 0;
         
         listItems.forEach((li) => {
             const checkbox = li.querySelector('input[type="checkbox"]');
             if (checkbox) {
-                // 这是一个任务列表项
                 const lineInfo = taskLineMap[taskIndex];
                 
                 if (lineInfo) {
-                    // 添加行号标识
-                    checkbox.setAttribute('data-todo-line', lineInfo.lineNumber);
-                    checkbox.setAttribute('data-todo-original', lineInfo.originalText);
-                    
-                    // 移除 disabled 属性，使 checkbox 可以被点击
-                    checkbox.removeAttribute('disabled');
-                    
-                    // 添加样式类
-                    li.classList.add('todo-list-item');
-                    checkbox.classList.add('todo-list-checkbox');
-                    
-                    // 为文本添加样式类
-                    const textNode = this.getTaskTextNode(li);
-                    if (textNode) {
-                        const span = document.createElement('span');
-                        span.classList.add('todo-list-text');
-                        if (checkbox.checked) {
-                            span.classList.add('todo-list-completed');
-                        }
-                        span.textContent = textNode.textContent;
-                        textNode.parentNode.replaceChild(span, textNode);
-                    }
+                    this.enhanceTaskItem(li, checkbox, lineInfo);
                 }
                 taskIndex++;
             }
         });
+    }
+
+    /**
+     * 对任务列表进行排序：未完成的在前，已完成的在后
+     */
+    sortTaskLists(tempDiv, taskLineMap) {
+        // 找到所有包含任务的列表
+        const lists = tempDiv.querySelectorAll('ul, ol');
+        let globalTaskIndex = 0; // 全局任务索引，对应 taskLineMap 的索引
         
-        return tempDiv.innerHTML;
+        lists.forEach(list => {
+            const taskItems = [];
+            const nonTaskItems = [];
+            
+            // 分离任务项和非任务项，同时记录全局索引
+            Array.from(list.children).forEach(li => {
+                const checkbox = li.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    taskItems.push({
+                        element: li,
+                        checkbox: checkbox,
+                        checked: checkbox.checked,
+                        globalIndex: globalTaskIndex  // 保存全局索引，用于映射到正确的行号
+                    });
+                    globalTaskIndex++;
+                } else {
+                    nonTaskItems.push(li);
+                }
+            });
+            
+            if (taskItems.length > 0) {
+                // 对任务项排序：未完成的在前，已完成的在后
+                taskItems.sort((a, b) => {
+                    if (a.checked === b.checked) {
+                        // 同一状态内保持原有顺序（使用全局索引）
+                        return a.globalIndex - b.globalIndex;
+                    }
+                    // 未完成的（false）排在前面，已完成的（true）排在后面
+                    return a.checked ? 1 : -1;
+                });
+                
+                // 清空列表
+                list.innerHTML = '';
+                
+                // 按排序后的顺序添加任务项，使用全局索引来获取正确的行号映射
+                taskItems.forEach(item => {
+                    const lineInfo = taskLineMap[item.globalIndex];  // 使用全局索引
+                    if (lineInfo) {
+                        this.enhanceTaskItem(item.element, item.checkbox, lineInfo);
+                    }
+                    list.appendChild(item.element);
+                });
+                
+                // 添加非任务项到列表末尾
+                nonTaskItems.forEach(item => {
+                    list.appendChild(item);
+                });
+            }
+        });
+    }
+
+    /**
+     * 增强单个任务项
+     */
+    enhanceTaskItem(li, checkbox, lineInfo) {
+        // 添加行号标识
+        checkbox.setAttribute('data-todo-line', lineInfo.lineNumber);
+        checkbox.setAttribute('data-todo-original', lineInfo.originalText);
+        
+        // 移除 disabled 属性，使 checkbox 可以被点击
+        checkbox.removeAttribute('disabled');
+        
+        // 添加样式类
+        li.classList.add('todo-list-item');
+        checkbox.classList.add('todo-list-checkbox');
+        
+        // 为文本添加样式类
+        const textNode = this.getTaskTextNode(li);
+        if (textNode) {
+            const span = document.createElement('span');
+            span.classList.add('todo-list-text');
+            if (checkbox.checked) {
+                span.classList.add('todo-list-completed');
+            }
+            span.textContent = textNode.textContent;
+            textNode.parentNode.replaceChild(span, textNode);
+        }
     }
 
     /**
