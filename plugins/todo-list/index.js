@@ -52,11 +52,39 @@ class TodoListPlugin extends BasePlugin {
                 position: 'relative',
                 borderRadius: '4px',
                 transition: `all ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`,
-                marginLeft: '0'
+                marginLeft: '0',
+                borderLeft: '2px solid transparent',
+                listStyleType: 'none'
+            },
+            // 隐藏todo项的原生marker
+            'todo-list-item::marker': {
+                display: 'none !important'
             },
             'todo-list-item:hover': {
                 borderLeft: '2px solid rgba(115, 119, 193, 0.25)',
                 // backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6')
+            },
+            // 默认显示圆点（普通todo项）
+            'todo-list-item::after': {
+                content: '"●"',
+                position: 'absolute',
+                left: '-15px',
+                top: '10px',
+                fontSize: '8px',
+                color: themeConfig.checkboxColor || (isDark ? '#34d399' : '#10b981'),
+                lineHeight: '1'
+            },
+            // 有折叠内容的显示三角形（覆盖圆点）
+            'todo-list-item.has-collapsible::after': {
+                content: '"▼" !important',
+                fontSize: '12px !important',
+                top: '12px !important',
+                color: '#ffb650',
+                transition: `transform ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`
+            },
+            // 收缩时旋转三角形
+            'todo-list-item.todo-collapsed::after': {
+                transform: 'rotate(-90deg)'
             },
             'todo-list-checkbox': {
                 cursor: 'pointer',
@@ -113,15 +141,6 @@ class TodoListPlugin extends BasePlugin {
                 backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6'),
                 boxShadow: `0 1px 3px ${isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.1)'}`
             },
-            // 只有可收缩的文本才显示箭头
-            'todo-collapsible::after': {
-                content: '"▼"',
-                fontSize: '10px',
-                marginLeft: '6px',
-                color: themeConfig.checkboxColor || (isDark ? '#34d399' : '#10b981'),
-                transition: `transform ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`,
-                display: 'inline-block'
-            },
             'todo-list-completed': {
                 textDecoration: 'line-through',
                 color: themeConfig.completedTextColor || (isDark ? '#9ca3af' : '#6b7280'),
@@ -139,15 +158,11 @@ class TodoListPlugin extends BasePlugin {
             },
             // 收缩状态样式
             'todo-collapsed': {
-                overflow: 'hidden'
+                overflow: 'visible'
             },
             // 收缩时隐藏内容容器
             'todo-collapsed .todo-content-container': {
                 display: 'none !important'
-            },
-            // 收缩时箭头旋转
-            'todo-collapsed .todo-collapsible::after': {
-                transform: 'rotate(-90deg)'
             },
             // 确保文本始终可见
             'todo-collapsed .todo-list-text': {
@@ -459,6 +474,8 @@ class TodoListPlugin extends BasePlugin {
             
             // 如果有额外内容，创建容器并添加展开功能
             if (hasAdditionalContent) {
+                // 给li添加has-collapsible类，用于显示三角形
+                li.classList.add('has-collapsible');
                 textSpan.classList.add('todo-collapsible');
                 textSpan.title = '点击收缩/展开内容';
                 
