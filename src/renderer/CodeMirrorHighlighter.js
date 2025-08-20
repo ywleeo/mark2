@@ -63,8 +63,10 @@ class CodeMirrorHighlighter {
         EditorView.lineWrapping,
         // Markdown语言支持
         markdown(),
-        // 设置Tab为4个空格
-        indentUnit.of("    "),
+        // 设置Tab大小为8个字符宽度
+        EditorState.tabSize.of(8),
+        // 设置Tab为真正的Tab字符
+        indentUnit.of("\t"),
         // Tab键缩进支持
         keymap.of([indentWithTab]),
         // 先应用自定义高亮样式，再应用默认样式
