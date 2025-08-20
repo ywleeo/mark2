@@ -69,6 +69,9 @@ npm start /path/to/file.md            # 绝对路径启动并打开文件
 npm start --dev file.md               # 忽略标志参数，打开文件
 npm start file1.md file2.md           # 多文件参数（选择第一个有效文件）
 
+# 依赖管理
+npm run check-deps    # 检查并自动安装缺失的核心依赖
+
 # 打包构建
 npm run build         # 完整构建：electron-builder（生成 .dmg/.exe/.AppImage）
 ```
@@ -203,6 +206,7 @@ FORCE_NON_MAC_LAYOUT=true npm run dev
 - 文件读写通过 Electron 的 fs 模块在主进程中处理
 - 文件树递归构建，自动跳过隐藏文件
 - 支持文件变化的实时监听和界面更新
+- 右键文件夹创建文件支持智能重名处理：当文件名重复时自动添加序号（如 `untitled(1).md`, `untitled(2).md`）
 
 ### UI State Management
 - 编辑模式通过 CSS 类切换显示/隐藏不同内容区域
@@ -372,6 +376,7 @@ plugins/
 
 ### 新增核心模块
 - `src/utils/DebugLogger.js`: 全局日志系统
+- `src/main/ScreenshotHandler.js`: 主进程截图处理器
 - `src/renderer/PlatformAPI.js`: 插件平台 API
 - `src/renderer/PluginIntegration.js`: 插件集成管理
 - `src/renderer/CodeMirrorHighlighter.js`: 代码镜像高亮集成
