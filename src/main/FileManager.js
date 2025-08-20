@@ -510,6 +510,64 @@ class FileManager {
       throw new Error('无法删除文件夹: ' + errorMessage);
     }
   }
+
+  // 在指定文件夹中创建新文件
+  async createFileInFolder(folderPath, fileName) {
+    try {
+      if (!folderPath) {
+        throw new Error('文件夹路径为空');
+      }
+
+      if (!fileName) {
+        throw new Error('文件名为空');
+      }
+
+      // 检查文件夹是否存在
+      if (!fs.existsSync(folderPath)) {
+        throw new Error('文件夹不存在: ' + folderPath);
+      }
+
+      // 检查是否是文件夹
+      const stats = fs.statSync(folderPath);
+      if (!stats.isDirectory()) {
+        throw new Error('指定路径不是文件夹: ' + folderPath);
+      }
+
+      // 确保文件名有 .md 扩展名
+      if (!fileName.endsWith('.md') && !fileName.endsWith('.markdown')) {
+        fileName = fileName + '.md';
+      }
+
+      // 生成完整的文件路径
+      const filePath = path.join(folderPath, fileName);
+
+      // 检查文件是否已存在
+      if (fs.existsSync(filePath)) {
+        throw new Error('文件已存在: ' + fileName);
+      }
+
+      // 创建空的 Markdown 文件
+      const content = '';
+      fs.writeFileSync(filePath, content, 'utf-8');
+
+      // 验证文件创建是否成功
+      if (!fs.existsSync(filePath)) {
+        throw new Error('文件创建失败');
+      }
+
+      console.log('文件创建成功:', filePath);
+      return { 
+        success: true, 
+        filePath: filePath,
+        content: content,
+        fileName: fileName
+      };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('创建文件时发生错误:', errorMessage, error);
+      return { success: false, error: errorMessage };
+    }
+  }
 }
 
 module.exports = FileManager;

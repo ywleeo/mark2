@@ -106,6 +106,29 @@ class AppManager {
         this.titleBarDragManager.updateDragRegions();
       }
     });
+
+    // 文件创建并打开事件
+    this.eventManager.on('file-created-and-open', async (filePath, content) => {
+      // 添加文件到文件树
+      this.fileTreeManager.addFile(filePath, content);
+      
+      // 设置当前文件路径
+      this.stateManager.setCurrentFilePath(filePath);
+      
+      // 在标签页中打开文件（forceNewTab=true创建新标签）
+      await this.tabManager.openFileInTab(filePath, content, true, false, 'file');
+      
+      // 显示markdown内容区域
+      const markdownContent = document.querySelector('.markdown-content');
+      if (markdownContent) {
+        markdownContent.style.display = 'block';
+      }
+      
+      // 打开文件后稍等一下再进入编辑模式，确保标签页完全加载
+      setTimeout(() => {
+        this.editorManager.setEditMode(true);
+      }, 100);
+    });
   }
 
   async openFile() {

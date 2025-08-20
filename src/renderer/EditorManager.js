@@ -152,6 +152,16 @@ class EditorManager {
     }
   }
 
+  // 设置编辑模式（不切换，直接设置）
+  async setEditMode(editMode) {
+    if (this.isEditMode === editMode) {
+      return; // 已经是目标模式，无需变化
+    }
+    
+    // 直接调用 toggleEditMode，因为它已经有完整的逻辑
+    await this.toggleEditMode();
+  }
+
   async toggleEditMode() {
     // 保存当前模式的滚动位置
     this.saveCurrentScrollPosition();

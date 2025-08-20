@@ -733,6 +733,16 @@ class IPCHandler {
         return { success: false, error: error.message };
       }
     });
+
+    // 在指定文件夹中创建新文件
+    ipcMain.handle('create-file-in-folder', async (event, folderPath, fileName) => {
+      try {
+        return await this.fileManager.createFileInFolder(folderPath, fileName);
+      } catch (error) {
+        console.error('Error in create-file-in-folder:', error);
+        return { success: false, error: error.message };
+      }
+    });
   }
 
   // 清理过期的临时截图文件

@@ -444,8 +444,12 @@ class FileTreeManager {
         </div>
       `;
     } else if (type === 'folder') {
-      // Folders 区域下的文件夹：路径访问、关闭文件夹、删除文件夹
+      // Folders 区域下的文件夹：新建文件、路径访问、关闭文件夹、删除文件夹
       menu.innerHTML = `
+        <div class="context-menu-item" data-action="create-file" data-path="${path}">
+          新建文件
+        </div>
+        <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
           路径访问
         </div>
@@ -469,8 +473,12 @@ class FileTreeManager {
         </div>
       `;
     } else if (type === 'subfolder') {
-      // 文件树中的文件夹：路径访问、删除文件夹
+      // 文件树中的文件夹：新建文件、路径访问、删除文件夹
       menu.innerHTML = `
+        <div class="context-menu-item" data-action="create-file" data-path="${path}">
+          新建文件
+        </div>
+        <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
           路径访问
         </div>
@@ -488,7 +496,9 @@ class FileTreeManager {
       const action = e.target.dataset.action;
       const itemPath = e.target.dataset.path;
       
-      if (action === 'close-file') {
+      if (action === 'create-file') {
+        this.createFileInFolder(itemPath);
+      } else if (action === 'close-file') {
         this.closeFile(itemPath);
       } else if (action === 'close-folder') {
         this.closeFolder(itemPath);
@@ -821,6 +831,190 @@ class FileTreeManager {
     }
     
     this.refreshSidebarTree();
+  }
+
+  // 在文件夹中创建新文件
+  async createFileInFolder(folderPath) {
+    const fileName = await this.showFileNameInputDialog();
+    
+    if (!fileName || fileName.trim() === '') {
+      return; // 用户取消或输入为空
+    }
+    
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('create-file-in-folder', folderPath, fileName.trim());
+      
+      if (result.success) {
+        // 刷新文件树以显示新文件
+        await this.refreshFileTreeAfterDeletion();
+        
+        // 自动打开新创建的文件并进入编辑模式
+        this.eventManager.emit('file-created-and-open', result.filePath, result.content);
+        
+        // 显示成功消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`文件 "${result.fileName}" 创建成功`, 'success');
+        }
+      } else {
+        // 显示错误消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`创建文件失败: ${result.error}`, 'error');
+        } else {
+          alert(`创建文件失败: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('创建文件时发生错误:', error);
+      if (window.uiManager) {
+        window.uiManager.showMessage(`创建文件失败: ${error.message}`, 'error');
+      } else {
+        alert(`创建文件失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 显示文件名输入对话框
+  showFileNameInputDialog() {
+    return new Promise((resolve) => {
+      // 创建对话框遮罩
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10001;
+      `;
+
+      // 创建对话框
+      const dialog = document.createElement('div');
+      dialog.style.cssText = `
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        min-width: 300px;
+      `;
+
+      // 创建标题
+      const title = document.createElement('h3');
+      title.textContent = '新建文件';
+      title.style.cssText = `
+        margin: 0 0 15px 0;
+        color: var(--text-color);
+        font-size: 16px;
+      `;
+
+      // 创建输入框
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'untitled.md';
+      input.style.cssText = `
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-color);
+        color: var(--text-color);
+        box-sizing: border-box;
+        margin-bottom: 15px;
+      `;
+
+      // 创建按钮容器
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = `
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      `;
+
+      // 创建确定按钮
+      const confirmButton = document.createElement('button');
+      confirmButton.textContent = '确定';
+      confirmButton.style.cssText = `
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        background: #007acc;
+        color: white;
+        cursor: pointer;
+      `;
+
+      // 创建取消按钮
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = '取消';
+      cancelButton.style.cssText = `
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        background: var(--bg-color);
+        color: var(--text-color);
+        cursor: pointer;
+      `;
+
+      // 组装对话框
+      dialog.appendChild(title);
+      dialog.appendChild(input);
+      buttonContainer.appendChild(cancelButton);
+      buttonContainer.appendChild(confirmButton);
+      dialog.appendChild(buttonContainer);
+      overlay.appendChild(dialog);
+
+      // 事件处理
+      const cleanup = () => {
+        if (overlay && overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      };
+
+      confirmButton.addEventListener('click', () => {
+        const fileName = input.value.trim();
+        cleanup();
+        resolve(fileName);
+      });
+
+      cancelButton.addEventListener('click', () => {
+        cleanup();
+        resolve(null);
+      });
+
+      // ESC 键取消
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          resolve(null);
+          document.removeEventListener('keydown', handleKeyDown);
+        } else if (e.key === 'Enter') {
+          const fileName = input.value.trim();
+          cleanup();
+          resolve(fileName);
+          document.removeEventListener('keydown', handleKeyDown);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      // 显示对话框
+      document.body.appendChild(overlay);
+      
+      // 自动选中文件名（不包括扩展名）
+      setTimeout(() => {
+        input.focus();
+        const dotIndex = input.value.lastIndexOf('.');
+        if (dotIndex > 0) {
+          input.setSelectionRange(0, dotIndex);
+        } else {
+          input.select();
+        }
+      }, 100);
+    });
   }
 }
 
