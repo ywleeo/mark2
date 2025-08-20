@@ -392,7 +392,7 @@ class TodoListPlugin extends BasePlugin {
         
         nestedTodoItems.forEach((li, index) => {
             const checkbox = li.querySelector('input[type="checkbox"]');
-            this.api.log(this.name, `处理嵌套任务 ${index}: checkbox=${!!checkbox}`);
+            // this.api.log(this.name, `处理嵌套任务 ${index}: checkbox=${!!checkbox}`);
             
             if (checkbox) {
                 // 尝试匹配文件中对应的嵌套任务

@@ -46,11 +46,48 @@ class KeywordHighlighterPlugin extends BasePlugin {
         this.keywordManagerUI = null;
     }
 
+    /**
+     * 获取关键词文件路径
+     * 优先使用用户数据目录，确保在打包应用中也能正常写入
+     */
+    getKeywordFilePath() {
+        try {
+            // 方法1: 通过 PluginManager 获取用户数据目录
+            if (window.pluginManager && window.pluginManager.getUserPluginDirectory) {
+                const userDataDir = window.pluginManager.getUserPluginDirectory();
+                const keywordDir = path.join(userDataDir, 'keyword-highlighter');
+                
+                // 确保目录存在
+                if (!fs.existsSync(keywordDir)) {
+                    fs.mkdirSync(keywordDir, { recursive: true });
+                }
+                
+                const keywordFilePath = path.join(keywordDir, 'keywords.json');
+                
+                // 如果用户目录没有关键词文件，从内置目录复制初始数据
+                if (!fs.existsSync(keywordFilePath)) {
+                    const builtinKeywordPath = path.join(__dirname, 'keywords.json');
+                    if (fs.existsSync(builtinKeywordPath)) {
+                        fs.copyFileSync(builtinKeywordPath, keywordFilePath);
+                        this.api.log(this.name, `已从内置目录复制关键词文件到用户目录: ${keywordFilePath}`);
+                    }
+                }
+                
+                return keywordFilePath;
+            }
+        } catch (error) {
+            this.api.warn(this.name, '无法获取用户数据目录，使用内置目录:', error);
+        }
+        
+        // 方法2: 回退到插件安装目录（只适用于开发环境）
+        return path.join(__dirname, 'keywords.json');
+    }
+
     async init() {
         await super.init();
         
-        // 初始化关键词管理器
-        const keywordFilePath = path.join(__dirname, 'keywords.json');
+        // 初始化关键词管理器 - 使用用户数据目录而不是插件安装目录
+        const keywordFilePath = this.getKeywordFilePath();
         this.keywordManager = new KeywordManager(keywordFilePath);
         this.keywordManagerUI = new KeywordManagerUI(this.keywordManager, this.api);
         
