@@ -539,14 +539,14 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 }
 
 .markdown-content h1 {
-    font-size: 28px !important;
+    font-size: 26px !important;
     border-bottom-width: 3px;
     border-bottom-style: solid;
     padding-bottom: 10px;
 }
 
 .markdown-content h2 {
-    font-size: 24px !important;
+    font-size: 22px !important;
     border-bottom-width: 2px;
     border-bottom-style: solid;
     padding-bottom: 8px;

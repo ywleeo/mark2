@@ -538,12 +538,23 @@ class FileManager {
         fileName = fileName + '.md';
       }
 
-      // 生成完整的文件路径
-      const filePath = path.join(folderPath, fileName);
+      // 生成唯一的文件名（如果存在重复则添加序号）
+      let finalFileName = fileName;
+      let filePath = path.join(folderPath, finalFileName);
+      let counter = 1;
 
-      // 检查文件是否已存在
-      if (fs.existsSync(filePath)) {
-        throw new Error('文件已存在: ' + fileName);
+      // 如果文件已存在，添加序号直到找到不重复的文件名
+      while (fs.existsSync(filePath)) {
+        const nameWithoutExt = fileName.replace(/\.(md|markdown)$/i, '');
+        const ext = fileName.match(/\.(md|markdown)$/i)?.[0] || '.md';
+        finalFileName = `${nameWithoutExt}(${counter})${ext}`;
+        filePath = path.join(folderPath, finalFileName);
+        counter++;
+        
+        // 防止无限循环
+        if (counter > 1000) {
+          throw new Error('无法生成唯一文件名，请检查文件夹');
+        }
       }
 
       // 创建空的 Markdown 文件
@@ -560,7 +571,7 @@ class FileManager {
         success: true, 
         filePath: filePath,
         content: content,
-        fileName: fileName
+        fileName: finalFileName
       };
     } catch (error) {
       const errorMessage = error.message || error.toString() || '未知错误';
