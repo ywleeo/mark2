@@ -134,7 +134,7 @@
 
 /* 列表增强 */
 .markdown-content ul, .markdown-content ol {
-    padding-left: 28px;
+    padding-left: 15px;
     margin: 12px 0;
 }
 
@@ -153,7 +153,7 @@
 .markdown-content li ul,
 .markdown-content li blockquote,
 .markdown-content li pre{
-    margin-left: 20px;
+    margin-left: 15px;
 }
 
 /* 列表项目符号自定义 */
