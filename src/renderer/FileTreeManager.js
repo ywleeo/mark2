@@ -12,6 +12,19 @@ class FileTreeManager {
     
     // 恢复保存的展开状态
     this.restoreExpandedState();
+    
+    // 监听主题变化事件
+    this.eventManager.on('theme-changed', (theme) => {
+      this.onThemeChanged(theme);
+    });
+  }
+
+  // 主题变化处理
+  onThemeChanged(theme) {
+    // 如果当前有显示的sidebar右键菜单，移除它
+    // 下次右键时会使用新主题样式创建
+    const existingMenus = document.querySelectorAll('.sidebar-context-menu');
+    existingMenus.forEach(menu => menu.remove());
   }
 
   // HTML转义函数，防止中文字符在HTML中出现问题
@@ -416,18 +429,16 @@ class FileTreeManager {
 
   // 显示右键菜单
   showContextMenu(event, path, type) {
-    // 移除已存在的菜单
-    const existingMenu = document.querySelector('.context-menu');
+    // 移除已存在的sidebar右键菜单
+    const existingMenu = document.querySelector('.sidebar-context-menu');
     if (existingMenu) {
       existingMenu.remove();
     }
 
     const menu = document.createElement('div');
-    menu.className = 'context-menu';
-    menu.style.position = 'fixed';
+    menu.className = 'sidebar-context-menu';
     menu.style.left = event.clientX + 'px';
     menu.style.top = event.clientY + 'px';
-    menu.style.zIndex = 10000;
 
     if (type === 'file') {
       // Files 区域下的文件：路径访问、关闭文件、删除文件
@@ -879,85 +890,36 @@ class FileTreeManager {
     return new Promise((resolve) => {
       // 创建对话框遮罩
       const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10001;
-      `;
+      overlay.className = 'file-dialog-overlay';
 
       // 创建对话框
       const dialog = document.createElement('div');
-      dialog.style.cssText = `
-        background: var(--bg-color);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        min-width: 300px;
-      `;
+      dialog.className = 'file-dialog';
 
       // 创建标题
       const title = document.createElement('h3');
       title.textContent = '新建文件';
-      title.style.cssText = `
-        margin: 0 0 15px 0;
-        color: var(--text-color);
-        font-size: 16px;
-      `;
+      title.className = 'file-dialog-title';
 
       // 创建输入框
       const input = document.createElement('input');
       input.type = 'text';
       input.value = 'untitled.md';
-      input.style.cssText = `
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        background: var(--bg-color);
-        color: var(--text-color);
-        box-sizing: border-box;
-        margin-bottom: 15px;
-      `;
+      input.className = 'file-dialog-input';
 
       // 创建按钮容器
       const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = `
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-      `;
+      buttonContainer.className = 'file-dialog-buttons';
 
       // 创建确定按钮
       const confirmButton = document.createElement('button');
       confirmButton.textContent = '确定';
-      confirmButton.style.cssText = `
-        padding: 8px 16px;
-        border: none;
-        border-radius: 4px;
-        background: #007acc;
-        color: white;
-        cursor: pointer;
-      `;
+      confirmButton.className = 'file-dialog-button confirm';
 
       // 创建取消按钮
       const cancelButton = document.createElement('button');
       cancelButton.textContent = '取消';
-      cancelButton.style.cssText = `
-        padding: 8px 16px;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        background: var(--bg-color);
-        color: var(--text-color);
-        cursor: pointer;
-      `;
+      cancelButton.className = 'file-dialog-button cancel';
 
       // 组装对话框
       dialog.appendChild(title);

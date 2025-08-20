@@ -774,7 +774,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 
 .settings-header h3 {
     margin: 0;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
 }
 
@@ -867,7 +867,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
     padding: 8px 16px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     transition: all 0.2s ease;
     border-width: 1px;
@@ -975,7 +975,21 @@ mark[class*="highlight-"] {
     scrollbar-width: thin;
 }
 
-/* 右键菜单样式 */
+/* 右键菜单样式 - sidebar专用，使用主题变量 */
+.sidebar-context-menu {
+    position: fixed;
+    min-width: 120px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    padding: 4px 0;
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* 原有的context-menu样式保持不变，给其他可能用到的地方 */
 .context-menu {
     position: fixed;
     min-width: 120px;
@@ -986,6 +1000,7 @@ mark[class*="highlight-"] {
     z-index: 10000;
     padding: 4px 0;
     font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 .context-menu-item {
@@ -1019,4 +1034,69 @@ mark[class*="highlight-"] {
 .context-menu-item.delete-item:hover {
     background-color: rgba(255, 71, 87, 0.1);
     color: #ffa8a8;
+}
+
+/* 新建文件对话框样式 */
+.file-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+}
+
+.file-dialog {
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 300px;
+}
+
+.file-dialog-title {
+    margin: 0 0 15px 0;
+    color: var(--text-color);
+    font-size: 14px;
+}
+
+.file-dialog-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    box-sizing: border-box;
+    margin-bottom: 15px;
+}
+
+.file-dialog-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.file-dialog-button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.file-dialog-button.confirm {
+    border: none;
+    background: #007acc;
+    color: white;
+}
+
+.file-dialog-button.cancel {
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
 }
