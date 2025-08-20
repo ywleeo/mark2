@@ -384,7 +384,7 @@ class TodoListPlugin extends BasePlugin {
         // 查找所有嵌套的 todo 项（在其他 li 内部的 li）
         const nestedTodoItems = tempDiv.querySelectorAll('li li');
         
-        this.api.log(this.name, `找到 ${nestedTodoItems.length} 个嵌套任务`);
+        // this.api.log(this.name, `找到 ${nestedTodoItems.length} 个嵌套任务`);
         
         // 获取所有嵌套任务的信息
         const nestedTasksFromFile = taskLineMap.filter(task => task.isNested);
@@ -412,7 +412,7 @@ class TodoListPlugin extends BasePlugin {
                     };
                 }
                 
-                this.api.log(this.name, `增强嵌套任务: ${lineInfo.text}, 行号: ${lineInfo.lineNumber}`);
+                // this.api.log(this.name, `增强嵌套任务: ${lineInfo.text}, 行号: ${lineInfo.lineNumber}`);
                 this.enhanceTaskItem(li, checkbox, lineInfo, lineInfo.lineNumber < 0);
             }
         });
@@ -571,7 +571,7 @@ class TodoListPlugin extends BasePlugin {
                 if (lineInfo.collapsed) {
                     li.classList.add('todo-collapsed');
                     textSpan.title = '点击展开内容';
-                    this.api.log(this.name, `已恢复收缩状态: 行${lineInfo.lineNumber}`);
+                    // this.api.log(this.name, `已恢复收缩状态: 行${lineInfo.lineNumber}`);
                 }
             }
         }
@@ -658,7 +658,7 @@ class TodoListPlugin extends BasePlugin {
         
         // 嵌套任务不需要更新文件
         if (isNestedTask) {
-            this.api.log(this.name, `嵌套任务状态更新: ${newChecked}`);
+            // this.api.log(this.name, `嵌套任务状态更新: ${newChecked}`);
             return;
         }
         

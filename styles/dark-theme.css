@@ -103,7 +103,9 @@ body {
 
 .tab-item {
     background-color: #3a3a3a;
-    border-color: #555;
+    border-top-color: #48a966;
+    border-right-color: #222222;
+    border-left-color: #222222;
     color: #b0b0b0;
 }
 

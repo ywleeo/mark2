@@ -2,11 +2,11 @@
 
 /* 基础颜色 */
 body {
-    background-color: #f5f5f5;
+    background-color: #ecebeb;
     color: #333;
     
     /* CSS变量定义 */
-    --bg-color: #ffffff;
+    --bg-color: #ecebeb;
     --text-color: #333;
     --text-secondary: #666;
     --border-color: #e9ecef;
@@ -101,13 +101,15 @@ body {
 }
 
 .tab-item {
-    background-color: #f1f3f4;
-    border-color: #dee2e6;
+    background-color: #eeeeee;
+    border-top-color: #f45ab9;
+    border-right-color: #ffffff;
+    border-left-color: #ffffff;
     color: #495057;
 }
 
 .tab-item:hover {
-    background-color: #e9ecef;
+    background-color: #f4f4f4;
     color: #212529;
 }
 
