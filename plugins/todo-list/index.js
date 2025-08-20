@@ -199,10 +199,13 @@ class TodoListPlugin extends BasePlugin {
             
             // 只有直接点击了带有 data-todo-line 属性的 checkbox 才处理
             if (isCheckbox && hasDataTodoLine) {
+                // 检查是否为嵌套任务
+                const isNestedTask = event.target.hasAttribute('data-nested-task');
+                
                 // 不阻止默认行为，让checkbox正常切换
                 // 使用setTimeout确保checkbox状态已经更新
                 setTimeout(() => {
-                    this.handleCheckboxClick(event.target, event.target.checked);
+                    this.handleCheckboxClick(event.target, event.target.checked, isNestedTask);
                 }, 0);
                 return;
             }
@@ -336,6 +339,9 @@ class TodoListPlugin extends BasePlugin {
             this.enhanceTaskListsOriginalOrder(tempDiv, taskLineMap);
         }
         
+        // 无论是否排序，都需要处理嵌套任务
+        this.enhanceNestedTasks(tempDiv, taskLineMap);
+        
         return tempDiv.innerHTML;
     }
 
@@ -343,18 +349,71 @@ class TodoListPlugin extends BasePlugin {
      * 按原始顺序增强任务列表（原有逻辑）
      */
     enhanceTaskListsOriginalOrder(tempDiv, taskLineMap) {
-        const listItems = tempDiv.querySelectorAll('li');
+        // 处理顶级任务项
+        this.enhanceTopLevelTasks(tempDiv, taskLineMap);
+    }
+    
+    /**
+     * 增强顶级任务项（对应文件中的 todo 行）
+     */
+    enhanceTopLevelTasks(tempDiv, taskLineMap) {
+        // 只选择顶级列表中的 li 元素，排除嵌套列表
+        const topLevelLists = tempDiv.querySelectorAll('ul, ol');
         let taskIndex = 0;
         
-        listItems.forEach((li) => {
-            const checkbox = li.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                const lineInfo = taskLineMap[taskIndex];
-                
-                if (lineInfo) {
-                    this.enhanceTaskItem(li, checkbox, lineInfo);
+        topLevelLists.forEach(list => {
+            // 获取该列表的直接子元素（顶级任务）
+            Array.from(list.children).forEach(li => {
+                const checkbox = li.querySelector(':scope > input[type="checkbox"], :scope > p > input[type="checkbox"]');
+                if (checkbox) {
+                    const lineInfo = taskLineMap[taskIndex];
+                    
+                    if (lineInfo) {
+                        this.enhanceTaskItem(li, checkbox, lineInfo);
+                    }
+                    taskIndex++;
                 }
-                taskIndex++;
+            });
+        });
+    }
+    
+    /**
+     * 增强嵌套的子任务项
+     */
+    enhanceNestedTasks(tempDiv, taskLineMap) {
+        // 查找所有嵌套的 todo 项（在其他 li 内部的 li）
+        const nestedTodoItems = tempDiv.querySelectorAll('li li');
+        
+        this.api.log(this.name, `找到 ${nestedTodoItems.length} 个嵌套任务`);
+        
+        // 获取所有嵌套任务的信息
+        const nestedTasksFromFile = taskLineMap.filter(task => task.isNested);
+        let nestedTaskIndex = 0;
+        
+        nestedTodoItems.forEach((li, index) => {
+            const checkbox = li.querySelector('input[type="checkbox"]');
+            this.api.log(this.name, `处理嵌套任务 ${index}: checkbox=${!!checkbox}`);
+            
+            if (checkbox) {
+                // 尝试匹配文件中对应的嵌套任务
+                let lineInfo = null;
+                if (nestedTaskIndex < nestedTasksFromFile.length) {
+                    lineInfo = nestedTasksFromFile[nestedTaskIndex];
+                    nestedTaskIndex++;
+                } else {
+                    // 如果没有对应的文件行，创建伪造的 lineInfo（只用于样式）
+                    lineInfo = {
+                        lineNumber: -1000 - index,
+                        originalText: li.textContent.trim(),
+                        checked: checkbox.checked,
+                        text: li.textContent.replace(/^\s*[\[\]x ]*\s*/, '').trim(),
+                        collapsed: false,
+                        isNested: true
+                    };
+                }
+                
+                this.api.log(this.name, `增强嵌套任务: ${lineInfo.text}, 行号: ${lineInfo.lineNumber}`);
+                this.enhanceTaskItem(li, checkbox, lineInfo, lineInfo.lineNumber < 0);
             }
         });
     }
@@ -421,10 +480,15 @@ class TodoListPlugin extends BasePlugin {
     /**
      * 增强单个任务项
      */
-    enhanceTaskItem(li, checkbox, lineInfo) {
+    enhanceTaskItem(li, checkbox, lineInfo, isNestedTask = false) {
         // 添加行号标识
         checkbox.setAttribute('data-todo-line', lineInfo.lineNumber);
         checkbox.setAttribute('data-todo-original', lineInfo.originalText);
+        
+        // 标记是否为嵌套任务
+        if (isNestedTask) {
+            checkbox.setAttribute('data-nested-task', 'true');
+        }
         
         // 移除 disabled 属性，使 checkbox 可以被点击
         checkbox.removeAttribute('disabled');
@@ -449,16 +513,31 @@ class TodoListPlugin extends BasePlugin {
             const additionalContent = [];
             
             childNodes.forEach(node => {
-                // 跳过包含checkbox的元素（通常是p标签包含checkbox和文本）
                 if (node.nodeType === Node.ELEMENT_NODE) {
-                    const hasCheckbox = node.querySelector && node.querySelector('input[type="checkbox"]');
-                    if (!hasCheckbox) {
-                        // 这是真正的额外内容（子列表、段落、代码块等）
+                    // 跳过直接的 checkbox 元素
+                    if (node.tagName === 'INPUT' && node.type === 'checkbox') {
+                        return;
+                    }
+                    
+                    // 跳过包含当前 checkbox 的段落或容器元素
+                    const hasCurrentCheckbox = node.querySelector && node.querySelector(`input[data-todo-line="${lineInfo.lineNumber}"]`);
+                    if (hasCurrentCheckbox) {
+                        return;
+                    }
+                    
+                    // 跳过只包含任务文本的纯文本段落
+                    if (node.tagName === 'P' && node.textContent.trim() === lineInfo.text.trim()) {
+                        return;
+                    }
+                    
+                    // 这是真正的额外内容（子列表、段落、代码块等）
+                    additionalContent.push(node.cloneNode(true));
+                } else if (node.nodeType === Node.TEXT_NODE) {
+                    const trimmed = node.textContent.trim();
+                    // 只保留不等于任务文本的有意义文本节点
+                    if (trimmed !== '' && trimmed !== lineInfo.text.trim()) {
                         additionalContent.push(node.cloneNode(true));
                     }
-                } else if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
-                    // 保留有意义的文本节点
-                    additionalContent.push(node.cloneNode(true));
                 }
             });
             
@@ -487,26 +566,51 @@ class TodoListPlugin extends BasePlugin {
                 });
                 
                 li.appendChild(contentContainer);
+                
+                // 恢复保存的收缩状态（从文件中解析得到）
+                if (lineInfo.collapsed) {
+                    li.classList.add('todo-collapsed');
+                    textSpan.title = '点击展开内容';
+                    this.api.log(this.name, `已恢复收缩状态: 行${lineInfo.lineNumber}`);
+                }
             }
         }
     }
 
     /**
-     * 构建任务行映射表
+     * 构建任务行映射表（包括嵌套任务）
      */
     buildTaskLineMap(lines) {
         const taskLines = [];
         
         lines.forEach((line, index) => {
             const trimmed = line.trim();
-            // 匹配任务列表语法：- [ ] 或 - [x] 或 * [ ] 或 * [x]
+            // 匹配任务列表语法：- [ ] 或 - [x] 或 * [ ] 或 * [x]，可能包含收缩标记
+            // 支持缩进的嵌套任务
             const taskMatch = trimmed.match(/^[-*]\s*\[([ x])\]\s*(.*)$/);
             if (taskMatch) {
+                let text = taskMatch[2];
+                let collapsed = false;
+                
+                // 检查是否有收缩标记注释
+                const collapsedMatch = text.match(/^(.*?)\s*<!--\s*collapsed\s*-->$/);
+                if (collapsedMatch) {
+                    text = collapsedMatch[1].trim();
+                    collapsed = true;
+                }
+                
+                // 计算缩进级别
+                const indent = line.length - line.trimLeft().length;
+                const isNested = indent > 0;
+                
                 taskLines.push({
                     lineNumber: index,
                     originalText: line,
                     checked: taskMatch[1] === 'x',
-                    text: taskMatch[2]
+                    text: text,
+                    collapsed: collapsed,
+                    isNested: isNested,
+                    indent: indent
                 });
             }
         });
@@ -543,7 +647,21 @@ class TodoListPlugin extends BasePlugin {
     /**
      * 处理复选框点击
      */
-    async handleCheckboxClick(checkbox, newChecked = null) {
+    async handleCheckboxClick(checkbox, newChecked = null, isNestedTask = false) {
+        // 如果没有传入新状态，使用checkbox当前状态
+        if (newChecked === null) {
+            newChecked = checkbox.checked;
+        }
+        
+        // 立即更新UI
+        this.updateTaskUI(checkbox, newChecked);
+        
+        // 嵌套任务不需要更新文件
+        if (isNestedTask) {
+            this.api.log(this.name, `嵌套任务状态更新: ${newChecked}`);
+            return;
+        }
+        
         const lineNumber = parseInt(checkbox.getAttribute('data-todo-line'));
         
         if (isNaN(lineNumber)) {
@@ -551,12 +669,7 @@ class TodoListPlugin extends BasePlugin {
             return;
         }
         
-        // 如果没有传入新状态，使用checkbox当前状态
-        if (newChecked === null) {
-            newChecked = checkbox.checked;
-        }
-        
-        // this.api.log(this.name, `处理 checkbox 点击: 行 ${lineNumber}, 新状态: ${newChecked}`);
+        this.api.log(this.name, `处理 checkbox 点击: 行 ${lineNumber}, 新状态: ${newChecked}`);
         
         try {
             // 获取当前文件信息
@@ -571,21 +684,21 @@ class TodoListPlugin extends BasePlugin {
             const success = await this.updateTaskState(fileInfo, lineNumber, newChecked);
             
             if (success) {
-                // this.api.log(this.name, `任务状态更新成功: 行 ${lineNumber}, 新状态: ${newChecked}`);
+                this.api.log(this.name, `任务状态更新成功: 行 ${lineNumber}, 新状态: ${newChecked}`);
                 // 确保checkbox状态正确
                 checkbox.checked = newChecked;
-                // 立即更新UI
-                this.updateTaskUI(checkbox, newChecked);
             } else {
                 this.api.warn(this.name, `任务状态更新失败: 行 ${lineNumber}, 尝试状态: ${newChecked}`);
                 // 如果更新失败，恢复checkbox状态
                 checkbox.checked = !newChecked;
+                this.updateTaskUI(checkbox, !newChecked);
             }
             
         } catch (error) {
             this.api.warn(this.name, '更新任务状态失败:', error);
             // 恢复checkbox状态
             checkbox.checked = !newChecked;
+            this.updateTaskUI(checkbox, !newChecked);
         }
     }
 
@@ -715,12 +828,15 @@ class TodoListPlugin extends BasePlugin {
             textSpan.title = '点击展开内容';
         }
         
+        // 保存收缩状态到文件
+        this.saveCollapseStateToFile(listItem, !isCollapsed);
+        
         // 添加切换动画效果（如果启用）
         if (this.config.general?.enableAnimation) {
             listItem.style.transition = 'all 200ms ease-in-out';
         }
         
-        // this.api.log(this.name, `Todo 项${isCollapsed ? '展开' : '收缩'}: ${textSpan.textContent}`);
+        this.api.log(this.name, `Todo 项${isCollapsed ? '展开' : '收缩'}: ${textSpan.textContent}`);
     }
 
     /**
@@ -775,6 +891,86 @@ class TodoListPlugin extends BasePlugin {
         }
         
         return tempDiv.innerHTML;
+    }
+
+    /**
+     * 保存收缩状态到文件
+     */
+    async saveCollapseStateToFile(listItem, isCollapsed) {
+        try {
+            const checkbox = listItem.querySelector('input[type="checkbox"][data-todo-line]');
+            if (!checkbox) {
+                this.api.log(this.name, '保存状态失败: 找不到checkbox');
+                return;
+            }
+            
+            const lineNumber = parseInt(checkbox.getAttribute('data-todo-line'));
+            const fileInfo = this.getCurrentFileInfo();
+            
+            if (!fileInfo || isNaN(lineNumber)) {
+                this.api.log(this.name, `保存状态失败: fileInfo=${!!fileInfo}, lineNumber=${lineNumber}`);
+                return;
+            }
+            
+            // 更新文件内容
+            const success = await this.updateCollapseStateInFile(fileInfo, lineNumber, isCollapsed);
+            
+            if (success) {
+                this.api.log(this.name, `收缩状态已保存到文件: ${fileInfo.path}:${lineNumber} = ${isCollapsed}`);
+            } else {
+                this.api.warn(this.name, `保存收缩状态失败: ${fileInfo.path}:${lineNumber}`);
+            }
+            
+        } catch (error) {
+            this.api.warn(this.name, '保存收缩状态失败:', error);
+        }
+    }
+
+    /**
+     * 更新文件中的收缩状态标记
+     */
+    async updateCollapseStateInFile(fileInfo, lineNumber, isCollapsed) {
+        try {
+            const lines = fileInfo.content.split('\n');
+            
+            if (lineNumber >= lines.length) {
+                this.api.warn(this.name, '行号超出范围:', lineNumber);
+                return false;
+            }
+            
+            let line = lines[lineNumber];
+            const collapsedCommentPattern = /\s*<!--\s*collapsed\s*-->$/;
+            
+            if (isCollapsed) {
+                // 添加收缩标记：如果没有则添加
+                if (!collapsedCommentPattern.test(line)) {
+                    line = line.replace(/\s*$/, '') + ' <!-- collapsed -->';
+                }
+            } else {
+                // 移除收缩标记
+                line = line.replace(collapsedCommentPattern, '');
+            }
+            
+            this.api.log(this.name, `行内容更新: "${lines[lineNumber]}" → "${line}"`);
+            
+            if (line === lines[lineNumber]) {
+                this.api.warn(this.name, '行内容没有变化，跳过更新');
+                return false;
+            }
+            
+            lines[lineNumber] = line;
+            const newContent = lines.join('\n');
+            
+            // 更新文件内容
+            await this.updateFileContent(newContent);
+            
+            this.api.log(this.name, `收缩状态标记已更新: 行 ${lineNumber}`);
+            return true;
+            
+        } catch (error) {
+            this.api.warn(this.name, '更新文件收缩状态失败:', error);
+            return false;
+        }
     }
 
     /**
