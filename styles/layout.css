@@ -448,6 +448,10 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
     -webkit-user-select: text;
     -moz-user-select: text;
     -ms-user-select: text;
+    /* 长英文字符换行 */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 
@@ -461,6 +465,10 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
     -webkit-user-select: text;
     -moz-user-select: text;
     -ms-user-select: text;
+    /* 长英文字符换行 */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 /* 编辑器布局 */
