@@ -569,7 +569,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 }
 
 .markdown-content p {
-    margin-bottom: 15px;
+    margin: 5px 0;
     text-align: justify;
 }
 

@@ -42,7 +42,7 @@
 
 /* 代码块增强 */
 .markdown-content pre {
-    padding: 16px;
+    padding: 12px;
     border-radius: 8px; /* 增加圆角 */
     overflow-x: auto;
     border-left-width: 4px;
@@ -68,11 +68,11 @@
 
 /* 引用块增强 */
 .markdown-content blockquote {
-    border-left-width: 4px;
-    border-left-style: solid;
+    border-left-width: 2px;
+    border-left-style: double;
     border-left-color: var(--quote-accent-color, #a2fb24);
-    padding: 2px 20px;
-    margin: 20px 0;
+    padding: 2px 15px;
+    margin: 12px 0;
     font-style: italic;
     background-color: var(--quote-background-color, rgba(245, 158, 11, 0.05));
     border-radius: 0 4px 4px 0;
@@ -135,7 +135,7 @@
 /* 列表增强 */
 .markdown-content ul, .markdown-content ol {
     padding-left: 15px;
-    margin: 12px 0;
+    margin-left: 15px;
 }
 
 .markdown-content li {
@@ -153,7 +153,7 @@
 .markdown-content li ul,
 .markdown-content li blockquote,
 .markdown-content li pre{
-    margin-left: 15px;
+    margin: 10px 0 10px 15px;
 }
 
 /* 列表项目符号自定义 */

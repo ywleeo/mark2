@@ -916,7 +916,7 @@ class TodoListPlugin extends BasePlugin {
             const success = await this.updateCollapseStateInFile(fileInfo, lineNumber, isCollapsed);
             
             if (success) {
-                this.api.log(this.name, `收缩状态已保存到文件: ${fileInfo.path}:${lineNumber} = ${isCollapsed}`);
+                // this.api.log(this.name, `收缩状态已保存到文件: ${fileInfo.path}:${lineNumber} = ${isCollapsed}`);
             } else {
                 this.api.warn(this.name, `保存收缩状态失败: ${fileInfo.path}:${lineNumber}`);
             }
@@ -951,7 +951,7 @@ class TodoListPlugin extends BasePlugin {
                 line = line.replace(collapsedCommentPattern, '');
             }
             
-            this.api.log(this.name, `行内容更新: "${lines[lineNumber]}" → "${line}"`);
+            // this.api.log(this.name, `行内容更新: "${lines[lineNumber]}" → "${line}"`);
             
             if (line === lines[lineNumber]) {
                 this.api.warn(this.name, '行内容没有变化，跳过更新');
@@ -964,7 +964,7 @@ class TodoListPlugin extends BasePlugin {
             // 更新文件内容
             await this.updateFileContent(newContent);
             
-            this.api.log(this.name, `收缩状态标记已更新: 行 ${lineNumber}`);
+            // this.api.log(this.name, `收缩状态标记已更新: 行 ${lineNumber}`);
             return true;
             
         } catch (error) {
