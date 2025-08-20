@@ -5,9 +5,10 @@
   "description": "一个基于 Electron 的 Markdown 阅读器",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
-    "build": "electron-builder"
+    "start": "npm run check-deps && electron .",
+    "dev": "npm run check-deps && electron . --dev",
+    "build": "npm run check-deps && electron-builder",
+    "check-deps": "node -e \"try { require('electron') } catch(e) { console.log('Installing dependencies...'); require('child_process').execSync('npm install', {stdio: 'inherit'}); }\""
   },
   "keywords": [
     "electron",
