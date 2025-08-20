@@ -1,0 +1,382 @@
+/* 平台UI组件样式 - 右键菜单和模态窗口 */
+
+/* ============ 右键菜单样式 ============ */
+.context-menu {
+    position: fixed;
+    background: var(--menu-background);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+    z-index: 10000;
+    min-width: 150px;
+    padding: 4px 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.context-menu .menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-color);
+    user-select: none;
+    transition: background-color 0.15s ease;
+}
+
+.context-menu .menu-item:hover {
+    background-color: var(--hover-background);
+}
+
+.context-menu .menu-separator {
+    height: 1px;
+    background: var(--separator-color);
+    margin: 4px 0;
+}
+
+/* ============ 模态窗口样式 ============ */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--overlay-background);
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-window {
+    background: var(--modal-background);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px var(--modal-shadow);
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+}
+
+.modal-header {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--header-background);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--title-color);
+    font-weight: 600;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--close-button-color);
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.modal-close-btn:hover {
+    background-color: var(--close-button-hover);
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    max-height: calc(90vh - 120px);
+    background: var(--modal-background);
+    color: var(--text-color);
+}
+
+/* ============ 模态窗口内容样式 ============ */
+.modal-body input,
+.modal-body select,
+.modal-body textarea {
+    background-color: var(--input-background);
+    border: 1px solid var(--input-border);
+    color: var(--input-text);
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 14px;
+    transition: border-color 0.15s ease;
+}
+
+.modal-body input:focus,
+.modal-body select:focus,
+.modal-body textarea:focus {
+    outline: none;
+    border-color: var(--button-primary);
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.modal-body button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+}
+
+.modal-body button.btn-primary,
+.modal-body button[id*="confirm"],
+.modal-body button[id*="move"] {
+    background-color: var(--button-primary);
+    border-color: var(--button-primary);
+    color: #ffffff;
+}
+
+.modal-body button.btn-primary:hover,
+.modal-body button[id*="confirm"]:hover,
+.modal-body button[id*="move"]:hover {
+    background-color: var(--button-primary-hover);
+    border-color: var(--button-primary-hover);
+}
+
+.modal-body button.btn-secondary,
+.modal-body button[id*="cancel"],
+.modal-body button:not([id*="confirm"]):not([id*="move"]):not(.btn-primary) {
+    background-color: var(--button-secondary);
+    border-color: var(--button-secondary-border);
+    color: var(--button-secondary-text);
+}
+
+.modal-body button.btn-secondary:hover,
+.modal-body button[id*="cancel"]:hover,
+.modal-body button:not([id*="confirm"]):not([id*="move"]):not(.btn-primary):hover {
+    background-color: var(--button-secondary-hover);
+    border-color: var(--button-secondary-border-hover);
+}
+
+.modal-body button.btn-danger,
+.modal-body button[id*="delete"] {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #ffffff;
+}
+
+.modal-body button.btn-danger:hover,
+.modal-body button[id*="delete"]:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
+/* ============ 表格样式 ============ */
+.modal-body table {
+    border-collapse: collapse;
+    border-color: var(--table-border);
+}
+
+.modal-body th {
+    background-color: var(--table-header-bg);
+    border-color: var(--table-border);
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.modal-body tr{
+    line-height: 0.5;
+}
+
+.modal-body td {
+    padding: 12px 16px;
+    border-color: var(--table-border);
+    color: var(--text-color);
+}
+
+/* ============ 文本样式 ============ */
+.modal-body label {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.modal-body p {
+    color: var(--text-color);
+    line-height: 1.5;
+}
+
+/* ============ 消息提示样式 ============ */
+.message-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+    z-index: 30000;
+    max-width: 300px;
+    font-size: 14px;
+    color: white;
+    font-weight: 500;
+}
+
+.message-toast.success {
+    background-color: #28a745;
+}
+
+.message-toast.error {
+    background-color: #dc3545;
+}
+
+.message-toast.warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.message-toast.info {
+    background-color: #17a2b8;
+}
+
+/* ============ 关键词管理专用样式 ============ */
+.keyword-dialog {
+    min-width: 300px;
+}
+
+.keyword-form-group {
+    margin-bottom: 16px;
+}
+
+.keyword-form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.keyword-form-input {
+    width: 300px;
+    padding: 8px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-background);
+    color: var(--input-text);
+    font-size: 14px;
+}
+
+.keyword-form-group {
+    position: relative;
+}
+
+.keyword-form-select {
+    width: 100px;
+    padding: 6px 24px 6px 8px;
+    border: 1px solid var(--select-border);
+    border-radius: 4px;
+    background-color: var(--select-background);
+    color: var(--select-text);
+    font-size: 12px;
+    transition: all 0.15s;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.keyword-form-group.has-select::after {
+    content: '';
+    position: absolute;
+    left: 80px;
+    top: calc(100% - 17px);
+    transform: translateY(-50%) rotate(90deg);
+    pointer-events: none;
+    width: 12px;
+    height: 12px;
+    background-image: var(--select-arrow);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.8;
+}
+
+.keyword-form-select:focus {
+    outline: none;
+    border-color: var(--select-focus-border);
+    box-shadow: var(--select-focus-shadow);
+}
+
+.keyword-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.keyword-move-dialog {
+    min-width: 350px;
+}
+
+.keyword-move-message {
+    margin-bottom: 20px;
+    line-height: 1.5;
+    color: var(--text-color);
+}
+
+.keyword-delete-dialog {
+    min-width: 300px;
+}
+
+.keyword-delete-list {
+    margin-bottom: 20px;
+    padding-left: 20px;
+    color: var(--text-color);
+}
+
+.keyword-delete-warning {
+    margin-bottom: 20px;
+    color: #dc3545;
+    font-weight: 500;
+}
+
+.keyword-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.keyword-stats-header {
+    background: var(--table-header-bg);
+    font-weight: 600;
+}
+
+.keyword-stats-header th {
+    padding: 8px;
+    text-align: left;
+    border: 1px solid var(--table-border);
+    color: var(--text-color);
+}
+
+.keyword-stats-row td {
+    padding: 8px;
+    border: 1px solid var(--table-border);
+    color: var(--text-color);
+}
+
+.keyword-stats-total {
+    background: var(--table-header-bg);
+    font-weight: bold;
+}
+
+.keyword-stats-help {
+    text-align: center;
+    color: var(--text-muted);
+    margin-top: 20px;
+}
+
+.keyword-stats-help p {
+    margin: 8px 0;
+    color: var(--text-muted);
+}

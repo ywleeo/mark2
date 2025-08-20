@@ -1,0 +1,47 @@
+/* 平台UI组件 - 浅色主题变量 */
+
+:root {
+    /* 右键菜单 */
+    --menu-background: #ffffff;
+    --border-color: #ddd;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --text-color: #333;
+    --hover-background: #f0f0f0;
+    --separator-color: #eee;
+    
+    /* 模态窗口 */
+    --overlay-background: rgba(0, 0, 0, 0.5);
+    --modal-background: #ffffff;
+    --modal-shadow: rgba(0, 0, 0, 0.15);
+    --header-background: #f9f9f9;
+    --title-color: #333;
+    --close-button-color: #999;
+    --close-button-hover: #f0f0f0;
+    
+    /* 输入框和按钮 */
+    --input-background: #ffffff;
+    --input-border: #ddd;
+    --input-text: #333;
+    --button-primary: #007bff;
+    --button-primary-hover: #0056b3;
+    --button-secondary: #ffffff;
+    --button-secondary-border: #ddd;
+    --button-secondary-border-hover: #bbb;
+    --button-secondary-text: #333;
+    --button-secondary-hover: #f8f9fa;
+    
+    /* 表格 */
+    --table-header-bg: #f8f9fa;
+    --table-border: #ddd;
+    
+    /* 辅助文本 */
+    --text-muted: #666;
+    
+    /* 下拉选择器 */
+    --select-border: #dee2e6;
+    --select-background: white;
+    --select-text: #495057;
+    --select-focus-border: #0969da;
+    --select-focus-shadow: 0 0 0 2px rgba(9, 105, 218, 0.25);
+    --select-arrow: url('data:image/svg+xml;utf8,<svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 4L10 8L6 12" stroke="%23666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+}

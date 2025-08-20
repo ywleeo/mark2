@@ -6,6 +6,8 @@
 const BasePlugin = require('../BasePlugin');
 const fs = require('fs');
 const path = require('path');
+const KeywordManager = require('./KeywordManager');
+const KeywordManagerUI = require('./KeywordManagerUI');
 
 class KeywordHighlighterPlugin extends BasePlugin {
     constructor(pluginConfig) {
@@ -38,10 +40,19 @@ class KeywordHighlighterPlugin extends BasePlugin {
         
         // 自定义关键词库
         this.customKeywords = {};
+        
+        // 关键词管理器
+        this.keywordManager = null;
+        this.keywordManagerUI = null;
     }
 
     async init() {
         await super.init();
+        
+        // 初始化关键词管理器
+        const keywordFilePath = path.join(__dirname, 'keywords.json');
+        this.keywordManager = new KeywordManager(keywordFilePath);
+        this.keywordManagerUI = new KeywordManagerUI(this.keywordManager, this.api);
         
         // 根据配置动态生成样式
         this.generateDynamicStyles();
@@ -51,6 +62,9 @@ class KeywordHighlighterPlugin extends BasePlugin {
         
         // 监听主题变化
         this.setupThemeListener();
+        
+        // 设置右键菜单
+        this.setupContextMenu();
         
         // this.api.log(this.name, '插件初始化完成', {
         //     patterns: Object.keys(this.patterns).length,
@@ -151,11 +165,10 @@ class KeywordHighlighterPlugin extends BasePlugin {
      */
     async loadCustomKeywords() {
         try {
-            const keywordFilePath = path.join(__dirname, 'keywords.json');
-            if (fs.existsSync(keywordFilePath)) {
-                const content = fs.readFileSync(keywordFilePath, 'utf-8');
-                this.customKeywords = JSON.parse(content);
-                // this.api.log(this.name, `加载关键词库: ${Object.keys(this.customKeywords).length} 个分类`);
+            // 使用关键词管理器加载数据
+            if (this.keywordManager) {
+                this.customKeywords = this.keywordManager.exportKeywords();
+                this.api.log(this.name, `加载关键词库: ${Object.keys(this.customKeywords).length} 个分类`);
             }
         } catch (error) {
             this.api.warn(this.name, '加载关键词失败:', error);
@@ -362,6 +375,131 @@ class KeywordHighlighterPlugin extends BasePlugin {
         }
     }
 
+    /**
+     * 设置右键菜单
+     */
+    setupContextMenu() {
+        this.api.log(this.name, '设置右键菜单事件监听');
+        
+        // 延迟一点时间等待DOM完全加载
+        setTimeout(() => {
+            const contentArea = document.getElementById('content-area');
+            if (!contentArea) {
+                this.api.warn(this.name, '找不到content-area元素，尝试监听document');
+                // 如果找不到content-area，监听整个文档
+                document.addEventListener('contextmenu', this.handleContextMenu.bind(this));
+                return;
+            }
+
+            this.api.log(this.name, '在content-area上设置右键菜单监听');
+            contentArea.addEventListener('contextmenu', this.handleContextMenu.bind(this));
+        }, 1000);
+    }
+
+    /**
+     * 处理右键菜单事件
+     */
+    handleContextMenu(e) {
+        const selectedText = this.api.getSelectedText();
+        this.api.log(this.name, '右键菜单触发，选中文本:', selectedText);
+        
+        if (selectedText && selectedText.length > 0) {
+            e.preventDefault();
+            this.showKeywordContextMenu(selectedText, { x: e.clientX, y: e.clientY });
+        }
+    }
+
+    /**
+     * 显示关键词相关的右键菜单
+     * @param {string} selectedText - 选中的文本
+     * @param {Object} position - 鼠标位置
+     */
+    showKeywordContextMenu(selectedText, position) {
+        const isHighlighted = this.keywordManager.isKeywordHighlighted(selectedText);
+        
+        const menuItems = [];
+
+        if (!isHighlighted) {
+            // 如果关键词未被高亮，显示添加选项
+            menuItems.push({
+                label: `添加关键词 "${selectedText}"`,
+                action: () => {
+                    this.keywordManagerUI.showAddKeywordDialog(selectedText);
+                }
+            });
+        } else {
+            // 如果关键词已被高亮，显示删除选项
+            menuItems.push({
+                label: `删除关键词 "${selectedText}"`,
+                action: () => {
+                    this.keywordManagerUI.showDeleteKeywordDialog(selectedText);
+                }
+            });
+        }
+
+        // 添加分隔线和其他选项
+        if (menuItems.length > 0) {
+            menuItems.push({ separator: true });
+        }
+
+        menuItems.push({
+            label: '管理关键词库',
+            action: () => {
+                this.showKeywordManagement();
+            }
+        });
+
+        this.api.createContextMenu(menuItems, position);
+    }
+
+    /**
+     * 显示关键词库管理界面
+     */
+    showKeywordManagement() {
+        const stats = this.keywordManager.getStatistics();
+        const categories = this.keywordManager.getCategories();
+        
+        let categoryStats = '';
+        categories.forEach(cat => {
+            categoryStats += `<tr class="keyword-stats-row">
+                <td>${this.keywordManagerUI.getCategoryDisplayName(cat)}</td>
+                <td>${stats[cat] || 0}</td>
+            </tr>`;
+        });
+
+        const content = `
+            <div class="keyword-dialog" style="min-width: 500px;">
+                <h4 style="margin-top: 0;">关键词库统计</h4>
+                <table class="keyword-stats-table">
+                    <thead>
+                        <tr class="keyword-stats-header">
+                            <th>分类</th>
+                            <th>数量</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${categoryStats}
+                        <tr class="keyword-stats-total">
+                            <td>总计</td>
+                            <td>${stats.total}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="keyword-stats-help">
+                    <p>选中文本并右键可快速添加或删除关键词</p>
+                    <p>关键词会在 Markdown 预览中自动高亮显示</p>
+                </div>
+            </div>
+        `;
+
+        this.api.createModal({
+            title: '关键词库管理',
+            content: content,
+            width: '600px'
+        });
+    }
+
     async destroy() {
         // 清理主题监听器
         if (this.themeObserver) {
@@ -371,6 +509,8 @@ class KeywordHighlighterPlugin extends BasePlugin {
         
         this.customKeywords = {};
         this.patterns = {};
+        this.keywordManager = null;
+        this.keywordManagerUI = null;
         await super.destroy();
     }
 }

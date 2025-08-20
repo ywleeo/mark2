@@ -19,6 +19,47 @@ class PlatformAPI {
             styleSheet.id = 'plugin-styles';
             document.head.appendChild(styleSheet);
         }
+        
+        // 加载平台UI样式
+        this.loadPlatformUIStyles();
+    }
+    
+    /**
+     * 加载平台UI样式
+     */
+    loadPlatformUIStyles() {
+        // 基础样式
+        if (!document.getElementById('platform-ui-base')) {
+            const baseLink = document.createElement('link');
+            baseLink.id = 'platform-ui-base';
+            baseLink.rel = 'stylesheet';
+            baseLink.href = 'styles/platform-ui.css';
+            document.head.appendChild(baseLink);
+        }
+        
+        // 主题样式
+        this.updatePlatformUITheme();
+    }
+    
+    /**
+     * 更新平台UI主题
+     */
+    updatePlatformUITheme() {
+        const isDark = this.isDarkTheme();
+        const themeId = 'platform-ui-theme';
+        
+        // 移除现有主题
+        const existingTheme = document.getElementById(themeId);
+        if (existingTheme) {
+            existingTheme.remove();
+        }
+        
+        // 添加新主题
+        const themeLink = document.createElement('link');
+        themeLink.id = themeId;
+        themeLink.rel = 'stylesheet';
+        themeLink.href = isDark ? 'styles/platform-ui-dark.css' : 'styles/platform-ui-light.css';
+        document.head.appendChild(themeLink);
     }
 
     /**
@@ -400,6 +441,174 @@ class PlatformAPI {
             window.pluginManager.on(eventName, handler);
         }
     }
+
+    /**
+     * 右键菜单相关API
+     */
+    
+    /**
+     * 获取当前选中的文本
+     * @returns {string} - 选中的文本
+     */
+    getSelectedText() {
+        const selection = window.getSelection();
+        return selection.toString().trim();
+    }
+
+    /**
+     * 创建右键菜单
+     * @param {Array} menuItems - 菜单项数组
+     * @param {Object} position - 菜单位置 {x, y}
+     * @returns {Element} - 菜单DOM元素
+     */
+    createContextMenu(menuItems, position) {
+        // 移除已存在的菜单
+        this.removeContextMenu();
+
+        // 确保主题样式是最新的
+        this.updatePlatformUITheme();
+
+        const menu = document.createElement('div');
+        menu.id = 'platform-context-menu';
+        menu.className = 'context-menu';
+        menu.style.left = `${position.x}px`;
+        menu.style.top = `${position.y}px`;
+
+        menuItems.forEach((item, index) => {
+            if (item.separator) {
+                const separator = document.createElement('div');
+                separator.className = 'menu-separator';
+                menu.appendChild(separator);
+            } else {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'menu-item';
+                menuItem.textContent = item.label;
+                
+                // 点击事件
+                if (item.action && typeof item.action === 'function') {
+                    menuItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        item.action();
+                        this.removeContextMenu();
+                    });
+                }
+                
+                menu.appendChild(menuItem);
+            }
+        });
+
+        document.body.appendChild(menu);
+        
+        // 点击其他地方时关闭菜单
+        setTimeout(() => {
+            document.addEventListener('click', this.removeContextMenu.bind(this));
+        }, 0);
+
+        return menu;
+    }
+
+    /**
+     * 移除右键菜单
+     */
+    removeContextMenu() {
+        const existingMenu = document.getElementById('platform-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+            document.removeEventListener('click', this.removeContextMenu.bind(this));
+        }
+    }
+
+    /**
+     * 创建模态窗口
+     * @param {Object} options - 窗口配置 {title, content, width, height}
+     * @returns {Element} - 模态窗口DOM元素
+     */
+    createModal(options = {}) {
+        const {
+            title = '提示',
+            content = '',
+            width = '400px',
+            height = 'auto',
+            onClose = null
+        } = options;
+
+        // 确保主题样式是最新的
+        this.updatePlatformUITheme();
+
+        // 创建遮罩层
+        const overlay = document.createElement('div');
+        overlay.id = 'platform-modal-overlay';
+        overlay.className = 'modal-overlay';
+
+        // 创建模态框
+        const modal = document.createElement('div');
+        modal.className = 'modal-window';
+        modal.style.width = width;
+        modal.style.height = height;
+
+        // 创建标题栏
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+
+        const titleElement = document.createElement('h3');
+        titleElement.textContent = title;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'modal-close-btn';
+        closeBtn.textContent = '×';
+
+        header.appendChild(titleElement);
+        header.appendChild(closeBtn);
+
+        // 创建内容区域
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+
+        if (typeof content === 'string') {
+            body.innerHTML = content;
+        } else if (content instanceof Element) {
+            body.appendChild(content);
+        }
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        overlay.appendChild(modal);
+
+        // 关闭事件
+        const closeModal = () => {
+            overlay.remove();
+            if (onClose && typeof onClose === 'function') {
+                onClose();
+            }
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeModal();
+            }
+        });
+
+        // 添加到页面
+        document.body.appendChild(overlay);
+
+        return { overlay, modal, body, close: closeModal };
+    }
+
+    /**
+     * 检测当前主题
+     */
+    isDarkTheme() {
+        // 方法1: 检查 CSS 文件
+        const themeCSS = document.getElementById('theme-css');
+        if (themeCSS && themeCSS.href) {
+            return themeCSS.href.includes('dark-theme.css');
+        }
+        
+        // 方法2: 检查 localStorage
+        return localStorage.getItem('theme') === 'dark';
+    }
+
 
     /**
      * 调试工具
