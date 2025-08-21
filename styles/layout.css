@@ -438,7 +438,6 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 .content-area {
     padding: 20px 30px;
     margin: 0 auto;
-    line-height: 1.6;
     box-sizing: border-box;
     width: 100%;
     flex: 1;
@@ -526,7 +525,6 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
     padding: 16px;
     font-family: auto;
     font-size: 14px;
-    line-height: 1.5;
     resize: none;
     outline: none;
     box-sizing: border-box;
@@ -534,8 +532,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 
 /* Markdown 内容布局 */
 .markdown-content h1, .markdown-content h2, .markdown-content h3 {
-    margin-top: 10px;
-    margin-bottom: 15px;
+    margin: 15px 0 15px 0;
 }
 
 .markdown-content h1 {
@@ -600,7 +597,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 }
 
 .markdown-content li {
-    margin-bottom: 8px;
+    margin: 8px 0;
 }
 
 /* 表格布局 */

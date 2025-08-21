@@ -27,7 +27,6 @@
 /* 三级标题添加左侧装饰线 */
 .markdown-content h3 {
     font-size: 20px !important;
-    margin-bottom: 15px;
     padding-left: 12px;
     border-left: 3px solid #608bdf;
     position: relative;
@@ -138,11 +137,6 @@
     margin-left: 15px;
 }
 
-.markdown-content li {
-    margin-bottom: 18px;
-    line-height: 1.6;
-}
-
 .markdown-content li > span{
     background-color: #557ed32e;
     padding: 3px;
@@ -153,7 +147,7 @@
 .markdown-content li ul,
 .markdown-content li blockquote,
 .markdown-content li pre{
-    margin: 10px 0 10px 15px;
+    margin: 0 0 0 5px;
 }
 
 /* 列表项目符号自定义 */
