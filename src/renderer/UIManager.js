@@ -488,27 +488,90 @@ class UIManager {
     }
   }
 
-  // 设置外链在系统浏览器中打开
+  // 设置外链在系统浏览器中打开，内部链接在应用内打开
   setupExternalLinks() {
-    // 使用事件委托监听所有外链点击
-    document.addEventListener('click', (event) => {
+    // 使用事件委托监听所有链接点击
+    document.addEventListener('click', async (event) => {
       const target = event.target;
       
-      // 检查是否为外链
-      if (target.tagName === 'A' && target.classList.contains('external-link')) {
-        event.preventDefault(); // 阻止默认行为
+      // 检查是否为链接元素
+      if (target.tagName === 'A') {
+        event.preventDefault(); // 阻止所有链接的默认行为
         
-        const url = target.getAttribute('data-external-url') || target.href;
-        if (url) {
-          // 使用 Electron 的 shell.openExternal 在系统浏览器中打开
-          const { shell } = require('electron');
-          shell.openExternal(url).catch(error => {
-            console.error('Failed to open external link:', error);
-            this.showMessage(`无法打开链接: ${url}`, 'error');
-          });
+        // 处理外部链接
+        if (target.classList.contains('external-link')) {
+          const url = target.getAttribute('data-external-url') || target.href;
+          if (url) {
+            // 使用 Electron 的 shell.openExternal 在系统浏览器中打开
+            const { shell } = require('electron');
+            shell.openExternal(url).catch(error => {
+              console.error('Failed to open external link:', error);
+              this.showMessage(`无法打开链接: ${url}`, 'error');
+            });
+          }
+        } else {
+          // 处理内部链接（相对路径）
+          const href = target.getAttribute('href');
+          if (href && !href.startsWith('http')) {
+            try {
+              // 获取当前文件的目录作为基础路径
+              const currentFilePath = this.getCurrentFilePath();
+              if (!currentFilePath) {
+                this.showMessage('无法确定当前文件路径', 'error');
+                return;
+              }
+              
+              // 解析相对路径为绝对路径
+              const path = require('path');
+              const currentDir = path.dirname(currentFilePath);
+              const targetPath = path.resolve(currentDir, href);
+              
+              // 检查文件是否存在
+              const fs = require('fs');
+              if (!fs.existsSync(targetPath)) {
+                this.showMessage(`文件不存在: ${href}`, 'error');
+                return;
+              }
+              
+              // 检查是否为支持的Markdown文件
+              const supportedExtensions = ['.md', '.markdown'];
+              const ext = path.extname(targetPath).toLowerCase();
+              if (!supportedExtensions.includes(ext)) {
+                this.showMessage(`不支持的文件类型: ${ext}`, 'error');
+                return;
+              }
+              
+              // 在应用内打开文件
+              const { ipcRenderer } = require('electron');
+              const result = await ipcRenderer.invoke('open-file-dialog', targetPath);
+              if (result && result.content !== null) {
+                // 触发文件打开事件
+                if (this.eventManager) {
+                  this.eventManager.emit('file-double-clicked', targetPath);
+                }
+              } else {
+                this.showMessage(`无法读取文件: ${href}`, 'error');
+              }
+            } catch (error) {
+              console.error('Error handling internal link:', error);
+              this.showMessage(`打开文件失败: ${href}`, 'error');
+            }
+          }
         }
       }
     });
+  }
+  
+  // 获取当前活动文件的路径
+  getCurrentFilePath() {
+    // 尝试从 TabManager 获取当前文件路径
+    if (window.app && window.app.tabManager) {
+      const activeTab = window.app.tabManager.getActiveTab();
+      if (activeTab && activeTab.filePath) {
+        return activeTab.filePath;
+      }
+    }
+    return null;
   }
 
   // 热区清理已移至TitleBarDragManager
