@@ -177,11 +177,11 @@
 
 /* Markdown 元素 - 深色主题 */
 .codemirror-container[data-theme="dark"] .cm-header {
-  color: #478fb7 !important;
+  color: #68b5df !important;
 }
 
 .codemirror-container[data-theme="dark"] .cm-strong {
-  color: #f87171 !important;
+  color: #ff7373 !important;
 }
 
 .codemirror-container[data-theme="dark"] .cm-emphasis {
@@ -190,7 +190,7 @@
 
 .codemirror-container[data-theme="dark"] .cm-code {
   background-color: #2d2d2d !important;
-  color: #fbbf24 !important;
+  color: #ffd466 !important;
 }
 
 .codemirror-container[data-theme="dark"] .cm-quote {

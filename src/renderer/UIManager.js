@@ -4,6 +4,7 @@ class UIManager {
     this.currentTheme = 'light';
     this.sidebarVisible = false;
     this.sidebarEnabled = false; // 新增：sidebar 是否启用
+    this.currentFilePath = null; // 新增：当前打开的文件路径
     this.setupUI();
   }
 
@@ -271,6 +272,9 @@ class UIManager {
   }
 
   updateFileNameDisplay(filePath) {
+    // 保存当前文件路径，用于链接解析
+    this.currentFilePath = filePath;
+    
     if (filePath) {
       const fileName = filePath.split('/').pop() || filePath.split('\\').pop();
       this.displayFileName(fileName);
@@ -516,6 +520,7 @@ class UIManager {
             try {
               // 获取当前文件的目录作为基础路径
               const currentFilePath = this.getCurrentFilePath();
+              
               if (!currentFilePath) {
                 this.showMessage('无法确定当前文件路径', 'error');
                 return;
@@ -564,14 +569,8 @@ class UIManager {
   
   // 获取当前活动文件的路径
   getCurrentFilePath() {
-    // 尝试从 TabManager 获取当前文件路径
-    if (window.app && window.app.tabManager) {
-      const activeTab = window.app.tabManager.getActiveTab();
-      if (activeTab && activeTab.filePath) {
-        return activeTab.filePath;
-      }
-    }
-    return null;
+    // 直接返回保存的当前文件路径
+    return this.currentFilePath;
   }
 
   // 热区清理已移至TitleBarDragManager
