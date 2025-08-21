@@ -113,8 +113,14 @@ class ScreenshotPlugin extends BasePlugin {
 
       console.log('开始调用 html-to-image.toPng...');
       
+      // 在截图前添加水印
+      const watermark = this.addWatermark(element);
+      
       // 生成截图
       const dataUrl = await toPng(element, options);
+      
+      // 立即移除水印
+      this.removeWatermark(watermark);
       
       const duration = Date.now() - startTime;
       console.log(`html-to-image 截图完成，耗时: ${duration}ms`);
@@ -407,6 +413,46 @@ class ScreenshotPlugin extends BasePlugin {
   updateConfig(newConfig) {
     super.updateConfig(newConfig);
     console.log('Screenshot plugin config updated:', newConfig);
+  }
+
+  // 添加水印元素
+  addWatermark(element) {
+    console.log('添加截图水印...');
+    
+    // 创建水印容器
+    const watermark = document.createElement('div');
+    watermark.className = 'screenshot-watermark';
+    watermark.style.cssText = `
+      margin-top: 10px;
+      padding: 3px 0;
+      text-align: right;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 10px;
+      font-style: italic;
+      letter-spacing: 1px;
+      color: #888888;
+      line-height: 1.4;
+      box-sizing: border-box;
+    `;
+    
+    // 创建水印文本
+    const watermarkText = document.createElement('span');
+    watermarkText.textContent = ' # <MARK2> #';
+    watermark.appendChild(watermarkText);
+    
+    // 将水印添加到内容元素的末尾
+    element.appendChild(watermark);
+    
+    console.log('水印已添加到截图区域');
+    return watermark;
+  }
+
+  // 移除水印元素
+  removeWatermark(watermark) {
+    if (watermark && watermark.parentElement) {
+      watermark.parentElement.removeChild(watermark);
+      console.log('水印已从截图区域移除');
+    }
   }
 }
 
