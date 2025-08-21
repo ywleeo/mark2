@@ -137,6 +137,15 @@ class MenuManager {
       {
         label: '工具',
         submenu: this.createToolsSubmenu()
+      },
+      {
+        label: '帮助',
+        submenu: [
+          {
+            label: '使用指南',
+            click: () => this.openHelpFile()
+          }
+        ]
       }
     ];
 
@@ -340,6 +349,16 @@ class MenuManager {
   refreshPlugins() {
     const mainWindow = this.windowManager.getWindow();
     mainWindow.webContents.send('refresh-plugins');
+  }
+
+  openHelpFile() {
+    const mainWindow = this.windowManager.getWindow();
+    mainWindow.webContents.send('open-help-file', 'help.md');
+  }
+
+  openDemoFile(filename) {
+    const mainWindow = this.windowManager.getWindow();
+    mainWindow.webContents.send('open-help-file', filename);
   }
 }
 

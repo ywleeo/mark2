@@ -45,6 +45,7 @@
       "styles/**/*",
       "assets/icon.*",
       "plugins/**/*",
+      "docs/**/*",
       "node_modules/**/*",
       "!node_modules/**/test/**",
       "!node_modules/**/tests/**",

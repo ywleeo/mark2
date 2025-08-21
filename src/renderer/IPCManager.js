@@ -114,6 +114,11 @@ class IPCManager {
     ipcRenderer.on('reset-to-initial-state', () => {
       this.resetToInitialState();
     });
+
+    // 打开帮助文件
+    ipcRenderer.on('open-help-file', async (event, filename) => {
+      await this.openHelpFile(filename);
+    });
   }
 
   setupAppStateListeners(ipcRenderer) {
@@ -234,6 +239,24 @@ class IPCManager {
     // 重置各个管理器
     this.editorManager.resetToInitialState();
     this.uiManager.resetToInitialState();
+  }
+
+  // 打开帮助文件
+  async openHelpFile(filename) {
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('open-help-file', filename);
+      
+      if (result.success) {
+        // 使用现有的文件显示方法打开帮助文件
+        this.displayMarkdown(result.content, result.filePath, false, true, false, 'help');
+      } else {
+        this.uiManager.showMessage(`无法打开帮助文件: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error opening help file:', error);
+      this.uiManager.showMessage(`打开帮助文件失败: ${error.message}`, 'error');
+    }
   }
 
   // PDF 导出
@@ -402,7 +425,7 @@ class IPCManager {
       'create-new-file', 'export-pdf-request', 'restore-app-state',
       'toggle-plugin', 'refresh-plugins',
       'system-suspend', 'system-resume',
-      'window-activated-refresh'
+      'window-activated-refresh', 'open-help-file'
     ];
     
     channels.forEach(channel => {

@@ -743,6 +743,31 @@ class IPCHandler {
         return { success: false, error: error.message };
       }
     });
+
+    // 打开帮助文件
+    ipcMain.handle('open-help-file', async (event, filename) => {
+      try {
+        const helpFilePath = path.join(__dirname, '../../docs', filename);
+        
+        // 检查文件是否存在
+        if (!fs.existsSync(helpFilePath)) {
+          return { success: false, error: '帮助文件不存在' };
+        }
+        
+        // 读取文件内容
+        const content = fs.readFileSync(helpFilePath, 'utf8');
+        
+        return {
+          success: true,
+          filePath: helpFilePath,
+          content: content,
+          filename: filename
+        };
+      } catch (error) {
+        console.error('Error opening help file:', error);
+        return { success: false, error: error.message };
+      }
+    });
   }
 
   // 清理过期的临时截图文件
