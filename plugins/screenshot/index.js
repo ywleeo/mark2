@@ -82,6 +82,8 @@ class ScreenshotPlugin extends BasePlugin {
         scroll: { width: scrollWidth, height: scrollHeight }
       });
 
+      // 不需要修改DOM样式，直接截图
+
       // 动态获取背景色
       const backgroundColor = this.getElementBackgroundColor(element);
       console.log('检测到的背景色:', backgroundColor);
@@ -113,14 +115,8 @@ class ScreenshotPlugin extends BasePlugin {
 
       console.log('开始调用 html-to-image.toPng...');
       
-      // 在截图前添加水印
-      const watermark = this.addWatermark(element);
-      
       // 生成截图
       const dataUrl = await toPng(element, options);
-      
-      // 立即移除水印
-      this.removeWatermark(watermark);
       
       const duration = Date.now() - startTime;
       console.log(`html-to-image 截图完成，耗时: ${duration}ms`);
@@ -129,8 +125,11 @@ class ScreenshotPlugin extends BasePlugin {
         throw new Error('生成的截图数据无效');
       }
       
+      // 在图片上添加水印
+      const watermarkedDataUrl = await this.addWatermarkToImage(dataUrl);
+      
       // 转换为 Blob
-      const response = await fetch(dataUrl);
+      const response = await fetch(watermarkedDataUrl);
       const blob = await response.blob();
       
       console.log(`截图文件大小: ${Math.round(blob.size / 1024)}KB`);
@@ -415,45 +414,48 @@ class ScreenshotPlugin extends BasePlugin {
     console.log('Screenshot plugin config updated:', newConfig);
   }
 
-  // 添加水印元素
-  addWatermark(element) {
-    console.log('添加截图水印...');
+  // 在图片上添加水印
+  async addWatermarkToImage(dataUrl) {
+    console.log('在图片上添加水印...');
     
-    // 创建水印容器
-    const watermark = document.createElement('div');
-    watermark.className = 'screenshot-watermark';
-    watermark.style.cssText = `
-      margin-top: 10px;
-      padding: 3px 0;
-      text-align: right;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      font-style: italic;
-      letter-spacing: 1px;
-      color: #888888;
-      line-height: 1.4;
-      box-sizing: border-box;
-    `;
-    
-    // 创建水印文本
-    const watermarkText = document.createElement('span');
-    watermarkText.textContent = ' # <MARK2> #';
-    watermark.appendChild(watermarkText);
-    
-    // 将水印添加到内容元素的末尾
-    element.appendChild(watermark);
-    
-    console.log('水印已添加到截图区域');
-    return watermark;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        // 创建 canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // 绘制原图
+        ctx.drawImage(img, 0, 0);
+        
+        // 设置水印样式
+        const watermarkText = ' # <MARK2> #';
+        const fontSize = Math.max(12, Math.min(img.width / 50, 16)); // 根据图片大小动态调整字体
+        
+        ctx.font = `italic ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+        ctx.fillStyle = 'rgba(136, 136, 136, 0.7)';
+        ctx.textAlign = 'left';
+        
+        // 计算水印位置（右下角，留边距）
+        const padding = 20;
+        const textWidth = ctx.measureText(watermarkText).width;
+        const x = img.width - textWidth - padding;
+        const y = img.height - padding;
+        
+        // 绘制水印
+        ctx.fillText(watermarkText, x, y);
+        
+        console.log('水印已添加到图片');
+        resolve(canvas.toDataURL('image/png'));
+      };
+      
+      img.src = dataUrl;
+    });
   }
 
-  // 移除水印元素
-  removeWatermark(watermark) {
-    if (watermark && watermark.parentElement) {
-      watermark.parentElement.removeChild(watermark);
-      console.log('水印已从截图区域移除');
-    }
-  }
 }
 
 module.exports = ScreenshotPlugin;
