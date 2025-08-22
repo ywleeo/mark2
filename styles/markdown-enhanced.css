@@ -133,7 +133,7 @@
 
 /* 列表增强 */
 .markdown-content ul, .markdown-content ol {
-    padding-left: 15px;
+    padding: 0;
     margin-left: 15px;
 }
 

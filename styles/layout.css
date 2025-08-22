@@ -566,7 +566,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 }
 
 .markdown-content p {
-    margin: 12px 0;
+    margin: 12px 8px;
     text-align: justify;
 }
 
@@ -598,6 +598,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 
 .markdown-content li {
     margin: 8px 0;
+    padding-left: 5px;
 }
 
 /* 表格布局 */
