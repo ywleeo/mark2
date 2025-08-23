@@ -88,6 +88,20 @@ class TabManager {
     const path = require('path');
     const fileName = title || path.basename(filePath);
     
+    // 获取文件时间戳
+    let fileTimestamp = null;
+    if (filePath) {
+      try {
+        const { ipcRenderer } = require('electron');
+        const timestampResult = await ipcRenderer.invoke('get-file-timestamp', filePath);
+        if (timestampResult.success) {
+          fileTimestamp = timestampResult.timestamp;
+        }
+      } catch (error) {
+        console.log('[TabManager] 获取文件时间戳失败:', error.message);
+      }
+    }
+    
     const tab = {
       id: this.nextTabId++,
       title: fileName,
@@ -95,7 +109,8 @@ class TabManager {
       content: content,
       isActive: false,
       isModified: false,
-      belongsTo: belongsTo // 'file' 或 'folder'
+      belongsTo: belongsTo, // 'file' 或 'folder'
+      fileTimestamp: fileTimestamp // 文件最后修改时间戳，用于判断是否需要刷新内容
     };
     
     this.tabs.push(tab);
@@ -124,23 +139,51 @@ class TabManager {
       activeTab.isActive = true;
       this.activeTabId = tabId;
       
-      // 如果文件存在，从磁盘重新读取最新内容
+      // 智能检查文件是否需要刷新（基于时间戳）
+      let needsRefresh = false;
       if (activeTab.filePath) {
         try {
           const { ipcRenderer } = require('electron');
-          const result = await ipcRenderer.invoke('open-file-dialog', activeTab.filePath);
-          if (result && result.content !== undefined) {
-            // 更新tab中的内容缓存
-            activeTab.content = result.content;
+          const timestampResult = await ipcRenderer.invoke('get-file-timestamp', activeTab.filePath);
+          
+          if (timestampResult.success) {
+            // 如果是第一次加载或文件时间戳发生变化，需要刷新
+            if (!activeTab.fileTimestamp || activeTab.fileTimestamp !== timestampResult.timestamp) {
+              needsRefresh = true;
+              
+              // 读取最新内容
+              const result = await ipcRenderer.invoke('open-file-dialog', activeTab.filePath);
+              if (result && result.content !== undefined) {
+                activeTab.content = result.content;
+                activeTab.fileTimestamp = timestampResult.timestamp;
+                console.log(`[TabManager] 文件已更新，刷新内容: ${activeTab.title}`);
+              }
+            } else {
+              console.log(`[TabManager] 文件未变化，保持当前内容: ${activeTab.title}`);
+            }
+          } else {
+            console.log('[TabManager] 获取文件时间戳失败:', timestampResult.error);
+            // 如果获取时间戳失败，保持原有行为（不刷新）
           }
         } catch (error) {
-          console.log('[TabManager] 重新读取文件失败:', error.message);
-          // 如果读取失败，继续使用缓存的内容
+          console.log('[TabManager] 检查文件变化失败:', error.message);
+          // 如果检查失败，继续使用缓存的内容
         }
+      } else {
+        // 新文件或无文件路径，不需要检查时间戳
+        needsRefresh = true;
       }
       
-      // 更新编辑器内容
-      this.editorManager.setContent(activeTab.content, activeTab.filePath);
+      // 总是要更新编辑器内容来显示当前tab的内容
+      // 如果内容被刷新了（needsRefresh=true），使用默认的重置行为
+      // 如果内容没有刷新（needsRefresh=false），保持编辑状态和滚动位置
+      if (needsRefresh) {
+        // 内容已刷新，正常设置内容（会重置编辑模式和滚动位置）
+        this.editorManager.setContent(activeTab.content, activeTab.filePath);
+      } else {
+        // 内容未刷新，保持编辑状态，只更新内容显示
+        this.editorManager.setContent(activeTab.content, activeTab.filePath, false, false);
+      }
       this.uiManager.updateFileNameDisplay(activeTab.filePath);
       this.fileTreeManager.updateActiveFile(activeTab.filePath);
       
@@ -414,6 +457,17 @@ class TabManager {
         folderTab.content = content;
         folderTab.title = require('path').basename(filePath);
         folderTab.isModified = false;
+        
+        // 更新文件时间戳
+        try {
+          const { ipcRenderer } = require('electron');
+          const timestampResult = await ipcRenderer.invoke('get-file-timestamp', filePath);
+          if (timestampResult.success) {
+            folderTab.fileTimestamp = timestampResult.timestamp;
+          }
+        } catch (error) {
+          console.log('[TabManager] 获取文件时间戳失败:', error.message);
+        }
         
         // 如果是双击操作，将tab归属改为file
         if (fromDoubleClick) {

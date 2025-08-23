@@ -768,6 +768,25 @@ class IPCHandler {
         return { success: false, error: error.message };
       }
     });
+
+    // 获取文件时间戳（用于判断文件是否被修改）
+    ipcMain.handle('get-file-timestamp', async (event, filePath) => {
+      try {
+        if (!filePath || !fs.existsSync(filePath)) {
+          return { success: false, error: '文件不存在' };
+        }
+        
+        const stats = fs.statSync(filePath);
+        return {
+          success: true,
+          timestamp: stats.mtime.getTime(),
+          mtime: stats.mtime
+        };
+      } catch (error) {
+        console.error('Error getting file timestamp:', error);
+        return { success: false, error: error.message };
+      }
+    });
   }
 
   // 清理过期的临时截图文件
