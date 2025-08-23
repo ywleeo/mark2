@@ -94,7 +94,51 @@ class FileTreeManager {
       content: content
     });
     
-    this.refreshSidebarTree();
+    // 检查新保存的文件是否在当前打开的任何文件夹中
+    const fileDirectory = path.dirname(filePath);
+    let shouldRefreshTree = false;
+    
+    for (const [folderPath] of this.openFolders) {
+      // 检查文件是否在当前文件夹或其子文件夹中
+      if (fileDirectory.startsWith(folderPath)) {
+        shouldRefreshTree = true;
+        break;
+      }
+    }
+    
+    // 如果文件在当前打开的文件夹中，刷新对应的文件树
+    if (shouldRefreshTree) {
+      console.log(`[FileTreeManager] 新文件保存在当前文件夹中，刷新文件树: ${filePath}`);
+      // 异步刷新文件夹树，然后刷新界面
+      this.refreshFolderTree(fileDirectory).then(() => {
+        this.refreshSidebarTree();
+      });
+    } else {
+      this.refreshSidebarTree();
+    }
+  }
+
+  // 刷新特定文件夹的文件树
+  async refreshFolderTree(targetDirectory) {
+    const { ipcRenderer } = require('electron');
+    
+    // 查找包含目标目录的文件夹
+    for (const [folderPath, folderInfo] of this.openFolders) {
+      if (targetDirectory.startsWith(folderPath)) {
+        try {
+          console.log(`[FileTreeManager] 刷新文件夹树: ${folderPath}`);
+          // 通过IPC重新获取文件树
+          const result = await ipcRenderer.invoke('rebuild-file-tree', folderPath);
+          if (result && result.success && result.fileTree) {
+            folderInfo.fileTree = result.fileTree;
+            console.log(`[FileTreeManager] 文件夹树刷新成功: ${folderPath}`);
+          }
+        } catch (error) {
+          console.error('刷新文件树时发生错误:', error);
+        }
+        break; // 只刷新第一个匹配的文件夹
+      }
+    }
   }
 
   // 从文件树中删除文件

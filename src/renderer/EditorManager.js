@@ -406,12 +406,22 @@ class EditorManager {
             this.appManager.currentFilePath = result.filePath;
             
             // 更新当前活动的tab
-            const activeTab = this.appManager.tabs.find(tab => tab.id === this.appManager.activeTabId);
+            const activeTab = this.appManager.tabManager.tabs.find(tab => tab.id === this.appManager.tabManager.activeTabId);
             if (activeTab) {
               activeTab.filePath = result.filePath;
               const path = require('path');
               activeTab.title = path.basename(result.filePath);
-              this.appManager.updateTabTitle(activeTab.id, activeTab.title);
+              this.appManager.tabManager.updateTabTitle(activeTab.id, activeTab.title);
+              
+              // 检查并关闭重复的tab（具有相同文件路径但不同ID的tab）
+              const duplicateTabs = this.appManager.tabManager.tabs.filter(tab => 
+                tab.filePath === result.filePath && tab.id !== activeTab.id
+              );
+              
+              for (const duplicateTab of duplicateTabs) {
+                console.log(`[EditorManager] 关闭重复的tab: ${duplicateTab.title} (ID: ${duplicateTab.id})`);
+                await this.appManager.tabManager.closeTab(duplicateTab.id);
+              }
             }
             
             // 更新文件树中的文件信息
