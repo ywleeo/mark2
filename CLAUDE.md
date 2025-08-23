@@ -152,12 +152,37 @@ FORCE_NON_MAC_LAYOUT=true npm run dev
 
 ## Key Dependencies
 
+### 核心依赖
 - **Electron**: 桌面应用框架 (v37.2.3)
-- **CodeMirror 6**: 现代代码编辑器，用于 Markdown 编辑功能 (v6.x)
 - **marked**: Markdown 解析和渲染库 (v5.0.0) 
 - **highlight.js**: 代码语法高亮 (v11.11.1)
 - **html-to-image**: 前端截图库，用于将 DOM 元素转换为图像 (v1.11.13)
 - **electron-builder**: 应用打包工具 (v24.0.0)
+
+### CodeMirror 6 编辑器系统
+- **codemirror**: 现代代码编辑器核心 (v6.0.2)
+- **@codemirror/lang-markdown**: Markdown 语法支持 (v6.3.3)
+- **@codemirror/lang-javascript**: JavaScript/TypeScript 语法高亮 (v6.2.4)
+- **@codemirror/lang-python**: Python 语法高亮 (v6.2.1)
+- **@codemirror/lang-java**: Java 语法高亮 (v6.0.2)
+- **@codemirror/lang-cpp**: C/C++ 语法高亮 (v6.0.3)
+- **@codemirror/lang-html**: HTML 语法高亮 (v6.4.9)
+- **@codemirror/lang-css**: CSS 语法高亮 (v6.3.1)
+- **@codemirror/lang-sql**: SQL 语法高亮 (v6.9.1)
+- **@codemirror/lang-json**: JSON 语法高亮 (v6.0.2)
+- **@codemirror/lang-xml**: XML 语法高亮 (v6.1.0)
+- **@codemirror/state**: 编辑器状态管理 (v6.5.2)
+- **@codemirror/view**: 编辑器视图组件 (v6.38.1)
+- **@codemirror/search**: 搜索功能 (v6.5.11)
+- **@codemirror/commands**: 编辑器命令 (v6.8.1)
+- **@codemirror/language**: 语言支持基础 (v6.11.3)
+- **@lezer/common**: 解析器通用库 (v1.2.3)
+
+### 自动依赖安装
+项目包含智能依赖检查机制 (`check-deps.js`)：
+- 启动时自动检测缺失的核心依赖
+- 自动安装指定版本的依赖包
+- 确保团队成员 pull 代码后能立即运行
 
 注意：项目使用 `contextIsolation: false, nodeIntegration: true` 配置，可以直接在渲染进程中使用 Node.js 和 Electron API。
 
