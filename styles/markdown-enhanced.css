@@ -60,7 +60,7 @@
     padding: 2px;
     border-radius: 4px;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-    background-color: var(--inline-code-background, rgba(99, 102, 241, 0.1));
+    /* background-color: var(--inline-code-background, rgba(99, 102, 241, 0.1)); */
     color: var(--inline-code-color, #6366f1);
     font-size: 0.9em;
 }
