@@ -15,6 +15,20 @@ const { keymap } = require('@codemirror/view');
 const { indentWithTab } = require('@codemirror/commands');
 const { indentUnit } = require('@codemirror/language');
 
+// 语言包导入 - 用于代码块语法高亮
+const { javascript } = require('@codemirror/lang-javascript');
+const { python } = require('@codemirror/lang-python');
+const { java } = require('@codemirror/lang-java');
+const { cpp } = require('@codemirror/lang-cpp');
+const { html } = require('@codemirror/lang-html');
+const { css } = require('@codemirror/lang-css');
+const { sql } = require('@codemirror/lang-sql');
+const { json } = require('@codemirror/lang-json');
+const { xml } = require('@codemirror/lang-xml');
+
+// highlight.js 用于备用高亮
+const hljs = require('highlight.js');
+
 class CodeMirrorHighlighter {
   constructor() {
     this.editor = null;
@@ -32,6 +46,9 @@ class CodeMirrorHighlighter {
     
     // 暴露CodeMirror搜索API到全局
     this.exposeSearchAPI();
+    
+    // 语言映射，用于代码块高亮
+    this.languageMap = this.initLanguageMap();
   }
 
   async init(textarea) {
@@ -61,9 +78,9 @@ class CodeMirrorHighlighter {
       extensions: [
         // 基本扩展
         EditorView.lineWrapping,
-        // Markdown语言支持
-        markdown(),
-        // 设置Tab大小为8个字符宽度
+        // 增强的 Markdown 语言支持（包含代码块高亮）
+        this.createEnhancedMarkdown(),
+        // 设置Tab大小为4个字符宽度
         EditorState.tabSize.of(4),
         // 设置Tab为真正的Tab字符
         indentUnit.of("\t"),
@@ -108,6 +125,71 @@ class CodeMirrorHighlighter {
     
   }
   
+  // 初始化语言映射
+  initLanguageMap() {
+    return {
+      javascript: javascript,
+      js: javascript,
+      typescript: javascript,
+      ts: javascript,
+      python: python,
+      py: python,
+      java: java,
+      cpp: cpp,
+      c: cpp,
+      'c++': cpp,
+      html: html,
+      css: css,
+      sql: sql,
+      json: json,
+      xml: xml,
+      // 添加更多语言别名
+      jsx: javascript,
+      tsx: javascript,
+      node: javascript,
+      php: javascript, // 目前用JS高亮代替
+      go: cpp, // 目前用C++高亮代替
+      rust: cpp, // 目前用C++高亮代替
+      ruby: python, // 目前用Python高亮代替
+      shell: cpp, // 目前用C++高亮代替
+      bash: cpp,
+      sh: cpp,
+      yaml: json, // 目前用JSON高亮代替
+      yml: json,
+      toml: json,
+      ini: json,
+      conf: json
+    };
+  }
+  
+  // 创建增强的 Markdown 扩展，支持代码块语法高亮
+  createEnhancedMarkdown() {
+    try {
+      // 使用基础 markdown 并添加代码块解析器
+      return markdown({
+        codeLanguages: (info) => {
+          // info 是代码块的语言标识（如 'javascript', 'python' 等）
+          const lang = info.toLowerCase();
+          
+          // 首先尝试使用 CodeMirror 语言包
+          if (this.languageMap[lang]) {
+            try {
+              return this.languageMap[lang]().language;
+            } catch (error) {
+              console.warn(`CodeMirror language pack for '${lang}' failed:`, error);
+            }
+          }
+          
+          // 备用方案：返回null，让 markdown 解析器使用默认处理
+          return null;
+        }
+      });
+    } catch (error) {
+      console.warn('创建增强 Markdown 解析器失败，使用基础版本:', error);
+      return markdown();
+    }
+  }
+
   // 暴露搜索API到全局
   exposeSearchAPI() {
     // 确保全局CodeMirror对象存在
@@ -205,48 +287,113 @@ class CodeMirrorHighlighter {
   getCustomHighlightStyle() {
     const settings = this.getUserSettings();
     
-    // 根据主题选择颜色
+    // 根据主题动态设置颜色
     const colors = settings.isDark ? {
-      heading: '#60a5fa',
-      strong: '#f87171',
+      // 深色主题 - 超亮配色
+      keyword: '#ff92d0',
+      string: '#ffff99',
+      comment: '#9aa3d6',
+      number: '#ddb3ff',
+      operator: '#ff92d0',
+      punctuation: '#ffffff',
+      variableName: '#b3f0ff',
+      propertyName: '#80ff9a',
+      function: '#80ff9a',
+      className: '#b3f0ff',
+      typeName: '#b3f0ff',
+      definition: '#80ff9a',
+      regexp: '#ffd699',
+      escape: '#ffd699',
+      special: '#ff92d0',
+      meta: '#b3bfeb',
+      tag: '#ff92d0',
+      attributeName: '#80ff9a',
+      attributeValue: '#ffff99',
+      bracket: '#ffffff',
+      // Markdown 元素
+      heading: '#68b5df',
+      strong: '#ff7373',
       emphasis: '#34d399',
       strikethrough: '#9ca3af',
       link: '#60a5fa',
       url: '#a78bfa',
-      monospace: '#fbbf24',
-      monospaceBg: '#2d2d2d',
-      quote: '#9ca3af',
-      list: '#79c0ff',
+      monospace: '#ffd466',
+      quote: '#999',
+      list: '#4fdaaf',
     } : {
-      heading: '#2563eb',
+      // 浅色主题 - GitHub 风格配色
+      keyword: '#d73a49',
+      string: '#032f62',
+      comment: '#6a737d',
+      number: '#005cc5',
+      operator: '#d73a49',
+      punctuation: '#24292e',
+      variableName: '#e36209',
+      propertyName: '#005cc5',
+      function: '#6f42c1',
+      className: '#6f42c1',
+      typeName: '#6f42c1',
+      definition: '#6f42c1',
+      regexp: '#032f62',
+      escape: '#e36209',
+      special: '#d73a49',
+      meta: '#6a737d',
+      tag: '#22863a',
+      attributeName: '#6f42c1',
+      attributeValue: '#032f62',
+      bracket: '#24292e',
+      // Markdown 元素
+      heading: '#478fb7',
       strong: '#dc2626',
       emphasis: '#059669',
       strikethrough: '#6b7280',
       link: '#2563eb',
       url: '#7c3aed',
       monospace: '#dc2626',
-      monospaceBg: '#f3f4f6',
       quote: '#6b7280',
-      list: '#059669',
+      list: '#4fdaaf',
     };
     
-    // 使用CSS类名标记，完全依赖CSS定义样式
+    // 使用内联样式而不是CSS类，确保主题切换生效
     return HighlightStyle.define([
-      { tag: tags.heading1, class: 'cm-header cm-header-1' },
-      { tag: tags.heading2, class: 'cm-header cm-header-2' },
-      { tag: tags.heading3, class: 'cm-header cm-header-3' },
-      { tag: tags.heading4, class: 'cm-header cm-header-4' },
-      { tag: tags.heading5, class: 'cm-header cm-header-5' },
-      { tag: tags.heading6, class: 'cm-header cm-header-6' },
-      { tag: tags.strong, class: 'cm-strong' },
-      { tag: tags.emphasis, class: 'cm-emphasis' },
-      { tag: tags.strikethrough, class: 'cm-strikethrough' },
-      { tag: tags.link, class: 'cm-link' },
-      { tag: tags.url, class: 'cm-url' },
-      { tag: tags.monospace, class: 'cm-code' },
-      { tag: tags.quote, class: 'cm-quote' },
-      { tag: tags.list, class: 'cm-list' },
-      { tag: tags.contentSeparator, class: 'cm-hr' },
+      // 代码语法高亮
+      { tag: tags.keyword, color: colors.keyword, fontWeight: 'bold' },
+      { tag: tags.string, color: colors.string },
+      { tag: tags.comment, color: colors.comment, fontStyle: 'italic' },
+      { tag: tags.number, color: colors.number },
+      { tag: tags.operator, color: colors.operator },
+      { tag: tags.punctuation, color: colors.punctuation },
+      { tag: tags.variableName, color: colors.variableName },
+      { tag: tags.propertyName, color: colors.propertyName },
+      { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: colors.function, fontWeight: 'bold' },
+      { tag: tags.className, color: colors.className, fontWeight: 'bold' },
+      { tag: tags.typeName, color: colors.typeName },
+      { tag: tags.definition(tags.variableName), color: colors.definition, fontWeight: 'bold' },
+      { tag: tags.regexp, color: colors.regexp },
+      { tag: tags.escape, color: colors.escape },
+      { tag: tags.special(tags.string), color: colors.special },
+      { tag: tags.meta, color: colors.meta },
+      { tag: tags.tagName, color: colors.tag },
+      { tag: tags.attributeName, color: colors.attributeName },
+      { tag: tags.attributeValue, color: colors.attributeValue },
+      { tag: [tags.bracket, tags.squareBracket, tags.brace, tags.angleBracket], color: colors.bracket },
+      
+      // Markdown 语法高亮
+      { tag: tags.heading1, color: colors.heading, fontWeight: 'bold', fontSize: '1.5em' },
+      { tag: tags.heading2, color: colors.heading, fontWeight: 'bold', fontSize: '1.3em' },
+      { tag: tags.heading3, color: colors.heading, fontWeight: 'bold', fontSize: '1.1em' },
+      { tag: tags.heading4, color: colors.heading, fontWeight: 'bold' },
+      { tag: tags.heading5, color: colors.heading, fontWeight: 'bold' },
+      { tag: tags.heading6, color: colors.heading, fontWeight: 'bold' },
+      { tag: tags.strong, color: colors.strong, fontWeight: 'bold' },
+      { tag: tags.emphasis, color: colors.emphasis, fontStyle: 'italic' },
+      { tag: tags.strikethrough, color: colors.strikethrough, textDecoration: 'line-through' },
+      { tag: tags.link, color: colors.link, textDecoration: 'underline' },
+      { tag: tags.url, color: colors.url },
+      { tag: tags.monospace, color: colors.monospace, backgroundColor: settings.isDark ? '#2d2d2d' : '#f3f4f6', padding: '2px 4px', borderRadius: '3px' },
+      { tag: tags.quote, color: colors.quote, fontStyle: 'italic' },
+      { tag: tags.list, color: colors.list },
+      { tag: tags.contentSeparator, color: colors.list, fontWeight: 'bold', opacity: '0.7' },
     ]);
   }
   

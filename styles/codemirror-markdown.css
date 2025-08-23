@@ -91,7 +91,7 @@
   color: #7c3aed;
 }
 
-/* 代码 */
+/* 行内代码 */
 .cm-editor .cm-code {
   background-color: #f3f4f6;
   color: #dc2626;
@@ -119,6 +119,122 @@
   font-weight: bold;
   text-align: center;
   opacity: 0.7;
+}
+
+/* ==================== 代码块语法高亮样式 ==================== */
+
+/* 代码块容器 */
+.cm-editor .cm-fenced-code,
+.cm-editor .cm-code-block {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  margin: 8px 0;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+/* 代码块语言标识 */
+.cm-editor .cm-code-info {
+  color: #6c757d;
+  font-size: 0.8em;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* CodeMirror 内置语法高亮token - 浅色主题 */
+.cm-editor .tok-keyword { 
+  color: #d73a49; /* 红色 - 关键字 */
+  font-weight: bold; 
+}
+
+.cm-editor .tok-string { 
+  color: #032f62; /* 深蓝色 - 字符串 */
+}
+
+.cm-editor .tok-comment { 
+  color: #6a737d; /* 灰色 - 注释 */
+  font-style: italic; 
+}
+
+.cm-editor .tok-number { 
+  color: #005cc5; /* 蓝色 - 数字 */
+}
+
+.cm-editor .tok-operator { 
+  color: #d73a49; /* 红色 - 操作符 */
+}
+
+.cm-editor .tok-punctuation { 
+  color: #24292e; /* 深灰色 - 标点符号 */
+}
+
+.cm-editor .tok-variableName { 
+  color: #e36209; /* 橙色 - 变量名 */
+}
+
+.cm-editor .tok-propertyName { 
+  color: #005cc5; /* 蓝色 - 属性名 */
+}
+
+.cm-editor .tok-function { 
+  color: #6f42c1; /* 紫色 - 函数名 */
+  font-weight: bold; 
+}
+
+.cm-editor .tok-className { 
+  color: #6f42c1; /* 紫色 - 类名 */
+  font-weight: bold; 
+}
+
+.cm-editor .tok-typeName { 
+  color: #6f42c1; /* 紫色 - 类型名 */
+}
+
+.cm-editor .tok-definition { 
+  color: #6f42c1; /* 紫色 - 定义 */
+  font-weight: bold; 
+}
+
+.cm-editor .tok-regexp { 
+  color: #032f62; /* 深蓝色 - 正则表达式 */
+}
+
+.cm-editor .tok-escape { 
+  color: #e36209; /* 橙色 - 转义字符 */
+}
+
+.cm-editor .tok-special { 
+  color: #d73a49; /* 红色 - 特殊字符 */
+}
+
+.cm-editor .tok-meta { 
+  color: #6a737d; /* 灰色 - 元数据 */
+}
+
+.cm-editor .tok-tag { 
+  color: #22863a; /* 绿色 - HTML标签 */
+}
+
+.cm-editor .tok-attributeName { 
+  color: #6f42c1; /* 紫色 - 属性名 */
+}
+
+.cm-editor .tok-attributeValue { 
+  color: #032f62; /* 深蓝色 - 属性值 */
+}
+
+.cm-editor .tok-angleBracket { 
+  color: #24292e; /* 深灰色 - 尖括号 */
+}
+
+.cm-editor .tok-bracket { 
+  color: #24292e; /* 深灰色 - 方括号 */
+}
+
+.cm-editor .tok-brace { 
+  color: #24292e; /* 深灰色 - 大括号 */
 }
 
 /* ==================== 搜索高亮样式 ==================== */
@@ -200,4 +316,129 @@
 
 .codemirror-container[data-theme="dark"] .cm-hr {
   color: #fbc971 !important;
+}
+
+/* ==================== 代码块深色主题样式 ==================== */
+
+/* 代码块容器 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-fenced-code,
+.codemirror-container[data-theme="dark"] .cm-code-block {
+  background-color: #2d2d2d !important;
+  border-color: #404040 !important;
+}
+
+/* 代码块语言标识 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-code-info {
+  color: #999 !important;
+}
+
+/* CodeMirror 语法高亮token - 深色主题（超高对比度配色） */
+.codemirror-container[data-theme="dark"] .tok-keyword { 
+  color: #ff92d0 !important; /* 更亮的粉色 - 关键字 */
+  font-weight: bold; 
+  text-shadow: 0 0 1px rgba(255, 146, 208, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-string { 
+  color: #ffff99 !important; /* 超亮黄色 - 字符串 */
+  text-shadow: 0 0 1px rgba(255, 255, 153, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-comment { 
+  color: #9aa3d6 !important; /* 更亮的蓝灰色 - 注释 */
+  font-style: italic; 
+}
+
+.codemirror-container[data-theme="dark"] .tok-number { 
+  color: #ddb3ff !important; /* 更亮的紫色 - 数字 */
+  text-shadow: 0 0 1px rgba(221, 179, 255, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-operator { 
+  color: #ff92d0 !important; /* 更亮的粉色 - 操作符 */
+  font-weight: bold;
+}
+
+.codemirror-container[data-theme="dark"] .tok-punctuation { 
+  color: #ffffff !important; /* 纯白色 - 标点符号 */
+}
+
+.codemirror-container[data-theme="dark"] .tok-variableName { 
+  color: #b3f0ff !important; /* 超亮青色 - 变量名 */
+  text-shadow: 0 0 1px rgba(179, 240, 255, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-propertyName { 
+  color: #80ff9a !important; /* 超亮绿色 - 属性名 */
+  text-shadow: 0 0 1px rgba(128, 255, 154, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-function { 
+  color: #80ff9a !important; /* 超亮绿色 - 函数名 */
+  font-weight: bold; 
+  text-shadow: 0 0 1px rgba(128, 255, 154, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-className { 
+  color: #b3f0ff !important; /* 超亮青色 - 类名 */
+  font-weight: bold; 
+  text-shadow: 0 0 1px rgba(179, 240, 255, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-typeName { 
+  color: #b3f0ff !important; /* 超亮青色 - 类型名 */
+  text-shadow: 0 0 1px rgba(179, 240, 255, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-definition { 
+  color: #80ff9a !important; /* 超亮绿色 - 定义 */
+  font-weight: bold; 
+  text-shadow: 0 0 1px rgba(128, 255, 154, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-regexp { 
+  color: #ffd699 !important; /* 超亮橙色 - 正则表达式 */
+  text-shadow: 0 0 1px rgba(255, 214, 153, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-escape { 
+  color: #ffd699 !important; /* 超亮橙色 - 转义字符 */
+  text-shadow: 0 0 1px rgba(255, 214, 153, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-special { 
+  color: #ff92d0 !important; /* 更亮的粉色 - 特殊字符 */
+  text-shadow: 0 0 1px rgba(255, 146, 208, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-meta { 
+  color: #b3bfeb !important; /* 更亮的蓝灰色 - 元数据 */
+}
+
+.codemirror-container[data-theme="dark"] .tok-tag { 
+  color: #ff92d0 !important; /* 更亮的粉色 - HTML标签 */
+  font-weight: bold;
+  text-shadow: 0 0 1px rgba(255, 146, 208, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-attributeName { 
+  color: #80ff9a !important; /* 超亮绿色 - 属性名 */
+  text-shadow: 0 0 1px rgba(128, 255, 154, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-attributeValue { 
+  color: #ffff99 !important; /* 超亮黄色 - 属性值 */
+  text-shadow: 0 0 1px rgba(255, 255, 153, 0.3);
+}
+
+.codemirror-container[data-theme="dark"] .tok-angleBracket { 
+  color: #ffffff !important; /* 纯白色 - 尖括号 */
+}
+
+.codemirror-container[data-theme="dark"] .tok-bracket { 
+  color: #ffffff !important; /* 纯白色 - 方括号 */
+}
+
+.codemirror-container[data-theme="dark"] .tok-brace { 
+  color: #ffffff !important; /* 纯白色 - 大括号 */
 }
