@@ -324,7 +324,7 @@ class CodeMirrorHighlighter {
       
       return {
         fontSize: settings.fontSize || 14,
-        fontFamily: settings.fontFamily || '-apple-system, "system-ui", "Segoe UI", Roboto, sans-serif',
+        fontFamily: settings.fontFamily || '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace',
         lineHeight: settings.lineHeight || 1.6,
         letterSpacing: settings.letterSpacing || 0,
         isDark: isDark
@@ -333,7 +333,7 @@ class CodeMirrorHighlighter {
       console.warn('获取设置失败，使用默认值:', error);
       return {
         fontSize: 14,
-        fontFamily: '-apple-system, "system-ui", "Segoe UI", Roboto, sans-serif',
+        fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace',
         lineHeight: 1.6,
         letterSpacing: 0,
         isDark: false
