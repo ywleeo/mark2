@@ -1,13 +1,16 @@
 {
-  "name": "MARK2",
-  "productName": "MARK2",
+  "name": "Mark2",
+  "productName": "Mark2",
   "version": "1.1.9",
   "description": "一个基于 Electron 的 Markdown 阅读器",
   "main": "main.js",
   "scripts": {
     "start": "node check-deps.js && electron .",
     "dev": "node check-deps.js && electron . --dev",
-    "build": "node check-deps.js && electron-builder",
+    "build": "node check-deps.js && node scripts/build-dmg.js",
+    "build:dmg": "node check-deps.js && node scripts/build-dmg.js",
+    "build:mas": "node check-deps.js && node scripts/build-mas.js",
+    "upload:mas": "node scripts/upload-mas.js",
     "check-deps": "node check-deps.js"
   },
   "keywords": [
@@ -44,14 +47,14 @@
     "marked": "^5.0.0"
   },
   "build": {
-    "appId": "com.mark2.app",
-    "productName": "MARK2",
+    "appId": "cc.altron.mark2",
+    "productName": "Mark2",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
-      "renderer.js",
+      "renderer.js", 
       "index.html",
       "src/**/*",
       "styles/**/*",
@@ -69,45 +72,44 @@
       "!node_modules/**/.bin/**",
       "!**/*.map"
     ],
-    "extraFiles": [],
-    "asarUnpack": [],
-    "nodeGypRebuild": false,
-    "buildDependenciesFromSource": false,
-    "compression": "maximum",
-    "removePackageKeywords": true,
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "fileAssociations": [
-      {
-        "ext": "md",
-        "name": "Markdown Document",
-        "description": "Markdown Document",
-        "role": "Editor"
-      },
-      {
-        "ext": "markdown",
-        "name": "Markdown Document",
-        "description": "Markdown Document",
-        "role": "Editor"
-      }
-    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
+          "arch": ["universal"]
         }
       ],
       "icon": "assets/icon.icns",
       "minimumSystemVersion": "10.13.0",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "identity": "${APPLE_IDENTITY}",
+      "extendInfo": {
+        "ElectronTeamID": "${APPLE_TEAM_ID}"
+      }
+    },
+    "mas": {
+      "type": "distribution",
+      "category": "public.app-category.productivity",
+      "identity": "${APPLE_IDENTITY}",
+      "provisioningProfile": "build/embedded.provisionprofile",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "extendInfo": {
+        "ElectronTeamID": "${APPLE_TEAM_ID}",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "pkg": {
+      "identity": "${APPLE_IDENTITY}"
+    },
+    "dmg": {
+      "title": "Mark2",
+      "icon": "assets/icon.icns"
     },
     "win": {
       "target": "nsis",
@@ -116,10 +118,6 @@
     "linux": {
       "target": "AppImage",
       "category": "Utility"
-    },
-    "dmg": {
-      "title": "MARK2",
-      "icon": "assets/icon.icns"
     }
   }
 }

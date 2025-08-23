@@ -47,6 +47,10 @@ cd mark2
 # 安装依赖
 npm install
 
+# 配置构建环境（首次构建需要）
+cp .env.example .env
+# 编辑 .env 文件，填入你的 Apple 开发者信息（如需打包 macOS 版本）
+
 # 开发模式运行
 npm run dev
 
@@ -186,12 +190,42 @@ FORCE_NON_MAC_LAYOUT=true npm run dev
 
 ## 📦 构建和发布
 
-### 构建配置
+### 构建环境配置
+
+首次构建前需要配置开发者信息：
+
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑 .env 文件，填入你的 Apple 开发者信息
+# APPLE_IDENTITY="Your Name (TEAM_ID)"
+# APPLE_TEAM_ID="YOUR_TEAM_ID"
+# APPLE_ID="your-apple-id@example.com"
+# APPLE_PASSWORD="your-app-specific-password"
+```
+
+**安全注意事项**：
+- `.env` 文件包含敏感信息，已添加到 `.gitignore` 中
+- 不要将真实的开发者身份信息提交到代码库
+- CI/CD 环境中可直接设置环境变量，无需 `.env` 文件
+- 支持在 `package.json` 和 `electron-builder.json` 中使用 `${APPLE_IDENTITY}` 和 `${APPLE_TEAM_ID}` 占位符
+
+### 构建命令
 项目支持多平台和多架构构建：
 
 ```bash
-# 构建所有平台
+# 通用构建（会自动读取 .env 配置）
 npm run build
+
+# DMG 分发版本（直接分发给用户）
+npm run build:dmg
+
+# Mac App Store 版本（提交到 App Store）
+npm run build:mas
+
+# 上传 Mac App Store 版本到 App Store Connect
+npm run upload:mas
 
 # 仅构建当前平台
 npx electron-builder --publish=never
@@ -199,9 +233,12 @@ npx electron-builder --publish=never
 
 ### 构建优化
 项目构建时会：
-1. 优化资源打包和压缩
-2. 确保跨平台兼容性
-3. 自动处理依赖关系
+1. 自动读取 `.env` 文件并设置环境变量
+2. 临时替换 `package.json` 和 `electron-builder.json`（如果存在）中的环境变量占位符
+3. 构建完成后自动恢复原始配置文件
+4. 优化资源打包和压缩
+5. 确保跨平台兼容性
+6. 自动处理依赖关系
 
 ## 🐛 问题排查
 
