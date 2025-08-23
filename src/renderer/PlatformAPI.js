@@ -156,6 +156,7 @@ class PlatformAPI {
         }
         return false;
     }
+
     
     /**
      * 替换文本节点内容，保持父元素结构不变

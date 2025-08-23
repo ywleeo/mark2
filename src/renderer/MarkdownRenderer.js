@@ -156,7 +156,25 @@ class MarkdownRenderer {
     });
     
     // 转义HTML标签，但保护Markdown语法
-    // 先保护引用块语法（行首的 > ，包括嵌套的 >> >>> 等）
+    // 先保护代码块内容（```...``` 和 `...`）
+    const codeBlocks = [];
+    const inlineCode = [];
+    
+    // 保护代码块
+    processed = processed.replace(/```[\s\S]*?```/g, (match) => {
+      const placeholder = `__CODEBLOCK_${codeBlocks.length}__`;
+      codeBlocks.push({ placeholder, original: match });
+      return placeholder;
+    });
+    
+    // 保护行内代码
+    processed = processed.replace(/`[^`\n]*`/g, (match) => {
+      const placeholder = `__INLINECODE_${inlineCode.length}__`;
+      inlineCode.push({ placeholder, original: match });
+      return placeholder;
+    });
+    
+    // 保护引用块语法（行首的 > ，包括嵌套的 >> >>> 等）
     const blockquoteMarkers = [];
     processed = processed.replace(/^([ \t]*)(>+)(\s|$)/gm, (match, indent, markers, space) => {
       const placeholder = `__BLOCKQUOTE_${blockquoteMarkers.length}__`;
@@ -169,6 +187,16 @@ class MarkdownRenderer {
     
     // 恢复引用块标记
     blockquoteMarkers.forEach(({ placeholder, original }) => {
+      processed = processed.replace(placeholder, original);
+    });
+    
+    // 恢复行内代码
+    inlineCode.forEach(({ placeholder, original }) => {
+      processed = processed.replace(placeholder, original);
+    });
+    
+    // 恢复代码块
+    codeBlocks.forEach(({ placeholder, original }) => {
       processed = processed.replace(placeholder, original);
     });
     
