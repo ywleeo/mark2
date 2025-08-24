@@ -107,13 +107,22 @@ class TodoListPlugin extends BasePlugin {
             'todo-list-text': {
                 transition: `all ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`
             },
-            'todo-collapsible': {
+            'todo-toggle-button': {
                 cursor: 'pointer',
                 userSelect: 'none',
-                borderRadius: '3px',
-                padding: '2px 4px',
-                display: 'inline-block',
-                position: 'relative'
+                marginLeft: '8px',
+                fontSize: '0.85em',
+                color: themeConfig.linkColor || (isDark ? '#60a5fa' : '#3b82f6'),
+                textDecoration: 'none',
+                display: 'inline',
+                fontStyle: 'italic',
+                opacity: '0.8',
+                transition: `all ${animationConfig.duration || '150ms'} ${animationConfig.easing || 'ease-in-out'}`
+            },
+            'todo-toggle-button:hover': {
+                color: themeConfig.linkHoverColor || (isDark ? '#93c5fd' : '#1d4ed8'),
+                textDecoration: 'underline',
+                opacity: '1'
             },
             'todo-list-completed': {
                 textDecoration: 'line-through',
@@ -186,14 +195,12 @@ class TodoListPlugin extends BasePlugin {
                 return;
             }
             
-            // 处理点击 todo 文本进行收缩/展开 - 只有可收缩的文本才响应
-            const isTodoCollapsible = event.target.classList && 
-                event.target.classList.contains('todo-list-text') && 
-                event.target.classList.contains('todo-collapsible');
-            if (isTodoCollapsible) {
+            // 处理点击 更多/收起 按钮进行收缩/展开
+            const isToggleButton = event.target.classList && event.target.classList.contains('todo-toggle-button');
+            if (isToggleButton) {
                 event.preventDefault();
                 event.stopPropagation();
-                this.handleTextClick(event.target);
+                this.handleToggleClick(event.target);
                 return;
             }
             
@@ -529,10 +536,17 @@ class TodoListPlugin extends BasePlugin {
             
             // 如果有额外内容，创建容器并添加展开功能
             if (hasAdditionalContent) {
-                // 给li添加has-collapsible类，用于显示三角形
+                // 给li添加has-collapsible类
                 li.classList.add('has-collapsible');
-                textSpan.classList.add('todo-collapsible');
-                textSpan.title = '点击收缩/展开内容';
+                
+                // 创建 更多/收起 按钮
+                const toggleButton = document.createElement('span');
+                toggleButton.classList.add('todo-toggle-button');
+                toggleButton.textContent = '更多...';
+                toggleButton.title = '点击展开内容';
+                
+                // 插入按钮到 textSpan 后面
+                textSpan.insertAdjacentElement('afterend', toggleButton);
                 
                 const contentContainer = document.createElement('div');
                 contentContainer.classList.add('todo-content-container');
@@ -546,8 +560,12 @@ class TodoListPlugin extends BasePlugin {
                 // 恢复保存的收缩状态（从文件中解析得到）
                 if (lineInfo.collapsed) {
                     li.classList.add('todo-collapsed');
-                    textSpan.title = '点击展开内容';
+                    toggleButton.textContent = '更多...';
+                    toggleButton.title = '点击展开内容';
                     // this.api.log(this.name, `已恢复收缩状态: 行${lineInfo.lineNumber}`);
+                } else {
+                    toggleButton.textContent = '收起';
+                    toggleButton.title = '点击收缩内容';
                 }
             }
         }
@@ -785,10 +803,10 @@ class TodoListPlugin extends BasePlugin {
     }
 
     /**
-     * 处理文本点击（收缩/展开功能）
+     * 处理切换按钮点击（收缩/展开功能）
      */
-    handleTextClick(textSpan) {
-        const listItem = textSpan.closest('li');
+    handleToggleClick(toggleButton) {
+        const listItem = toggleButton.closest('li');
         if (!listItem) return;
         
         // 切换收缩状态
@@ -797,11 +815,13 @@ class TodoListPlugin extends BasePlugin {
         if (isCollapsed) {
             // 展开：移除收缩类
             listItem.classList.remove('todo-collapsed');
-            textSpan.title = '点击收缩内容';
+            toggleButton.textContent = '收起';
+            toggleButton.title = '点击收缩内容';
         } else {
             // 收缩：添加收缩类
             listItem.classList.add('todo-collapsed');
-            textSpan.title = '点击展开内容';
+            toggleButton.textContent = '更多...';
+            toggleButton.title = '点击展开内容';
         }
         
         // 保存收缩状态到文件
@@ -812,7 +832,8 @@ class TodoListPlugin extends BasePlugin {
             listItem.style.transition = 'all 200ms ease-in-out';
         }
         
-        this.api.log(this.name, `Todo 项${isCollapsed ? '展开' : '收缩'}: ${textSpan.textContent}`);
+        const textSpan = listItem.querySelector('.todo-list-text');
+        this.api.log(this.name, `Todo 项${isCollapsed ? '展开' : '收缩'}: ${textSpan ? textSpan.textContent : 'unknown'}`);
     }
 
     /**
