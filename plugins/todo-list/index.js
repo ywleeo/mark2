@@ -51,39 +51,18 @@ class TodoListPlugin extends BasePlugin {
             'todo-list-item': {
                 position: 'relative',
                 borderRadius: '4px',
-                transition: `all ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`,
-                marginLeft: '0',
+                marginLeft: '-20px!important',
                 borderLeft: '2px solid transparent',
-                listStyleType: 'none'
+                listStyleType: 'none',
+                paddingLeft: '5px',
             },
             // 隐藏todo项的原生marker
             'todo-list-item::marker': {
                 display: 'none !important'
             },
             'todo-list-item:hover': {
-                borderLeft: '2px solid rgba(115, 119, 193, 0.25)',
-                // backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6')
-            },
-            // 默认显示圆点（普通todo项）
-            'todo-list-item::after': {
-                content: '"●"',
-                position: 'absolute',
-                left: '-10px',
-                top: '10px',
-                fontSize: '8px',
-                color: themeConfig.checkboxColor || (isDark ? '#34d399' : '#10b981'),
-                lineHeight: '1'
-            },
-            // 有折叠内容的显示三角形（覆盖圆点）
-            'todo-list-item.has-collapsible::after': {
-                content: '"▼" !important',
-                fontSize: '12px !important',
-                color: '#ffb650',
-                transition: `transform ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`
-            },
-            // 收缩时旋转三角形
-            'todo-list-item.todo-collapsed::after': {
-                transform: 'rotate(-90deg)'
+                borderLeft: '2px solid rgb(225, 105, 105)',
+                backgroundColor: themeConfig.hoverBackground || (isDark ? '#2b2424' : '#f3f4f6'),
             },
             'todo-list-checkbox': {
                 cursor: 'pointer',
@@ -136,10 +115,6 @@ class TodoListPlugin extends BasePlugin {
                 display: 'inline-block',
                 position: 'relative'
             },
-            'todo-collapsible:hover': {
-                backgroundColor: themeConfig.hoverBackground || (isDark ? '#374151' : '#f3f4f6'),
-                boxShadow: `0 1px 3px ${isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.1)'}`
-            },
             'todo-list-completed': {
                 textDecoration: 'line-through',
                 color: themeConfig.completedTextColor || (isDark ? '#9ca3af' : '#6b7280'),
@@ -153,7 +128,9 @@ class TodoListPlugin extends BasePlugin {
             },
             // 内容容器样式
             'todo-content-container': {
-                display: 'inline'
+                display: 'block',
+                marginLeft: '15px',
+                padding: '5px'
             },
             // 收缩状态样式
             'todo-collapsed': {

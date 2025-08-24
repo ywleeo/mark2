@@ -42,13 +42,16 @@
 /* 代码块增强 */
 .markdown-content pre {
     padding: 12px;
-    border-radius: 8px; /* 增加圆角 */
+    border-radius: 0 5px 5px 0; /* 增加圆角 */
     overflow-x: auto;
-    border-left-width: 4px;
+    border-left-width: 3px;
     border-left-style: solid;
     border-left-color: var(--code-accent-color, #10b981);
     background-color: var(--code-background-color, #f8fafc);
     position: relative;
+    white-space: pre-wrap; 
+    word-wrap: break-word; 
+    overflow-x: visible; 
 }
 /* 删除线样式 */
 .markdown-content del {
@@ -138,8 +141,6 @@
 }
 
 .markdown-content li > span{
-    background-color: #557ed32e;
-    padding: 3px;
     border-radius: 3px;
 }
 
@@ -173,4 +174,9 @@
 
 .markdown-content img:hover {
     transform: scale(1.02);
+}
+
+.todo-content-container ol,
+.todo-content-container ul{
+    margin-left: 30px!important;
 }
