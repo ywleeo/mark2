@@ -68,7 +68,7 @@ class TodoListPlugin extends BasePlugin {
             'todo-list-item::after': {
                 content: '"●"',
                 position: 'absolute',
-                left: '-15px',
+                left: '-10px',
                 top: '10px',
                 fontSize: '8px',
                 color: themeConfig.checkboxColor || (isDark ? '#34d399' : '#10b981'),
@@ -78,7 +78,6 @@ class TodoListPlugin extends BasePlugin {
             'todo-list-item.has-collapsible::after': {
                 content: '"▼" !important',
                 fontSize: '12px !important',
-                top: '12px !important',
                 color: '#ffb650',
                 transition: `transform ${animationConfig.duration || '200ms'} ${animationConfig.easing || 'ease-in-out'}`
             },

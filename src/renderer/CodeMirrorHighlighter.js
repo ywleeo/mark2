@@ -351,7 +351,7 @@ class CodeMirrorHighlighter {
       url: '#7c3aed',
       monospace: '#dc2626',
       quote: '#6b7280',
-      list: '#4fdaaf',
+      list: '#1f1f1f',
     };
     
     // 使用内联样式而不是CSS类，确保主题切换生效
