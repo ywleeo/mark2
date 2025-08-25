@@ -79,6 +79,7 @@ body {
     flex: 1;
     overflow-y: auto;
     min-height: 0; /* 确保flex子元素可以正确收缩和滚动 */
+    padding-bottom: 20px;
 }
 
 .empty-state {
@@ -99,7 +100,7 @@ body {
 .file-item {
     display: flex;
     align-items: center;
-    padding: 3px 16px 3px var(--tree-root-indent);
+    padding: 1px 16px 2px var(--tree-root-indent);
     margin: 1px 0;
     cursor: pointer;
     font-size: 12px;
@@ -143,7 +144,7 @@ body {
 .folder-item {
     display: flex;
     align-items: center;
-    padding: 3px 16px 3px var(--tree-root-indent);
+    padding: 1px 16px 1px var(--tree-root-indent);
     margin: 1px 0;
     cursor: pointer;
     font-size: 13px;
