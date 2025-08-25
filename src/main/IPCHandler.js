@@ -304,7 +304,7 @@ class IPCHandler {
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>PDF Export</title>
+          <title>HTML Export</title>
           <style>
             ${allStyles}
             
@@ -355,7 +355,7 @@ class IPCHandler {
             .markdown-content {
               display: block !important;
               max-width: none !important;
-              width: 100% !important;
+              width: auto !important;
               height: auto !important;
               overflow: visible !important;
               margin: 0 !important;

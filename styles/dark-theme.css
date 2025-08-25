@@ -508,3 +508,8 @@ code.hljs {
     color: #ffdcd7;
     background-color: #67060c;
 }
+
+.folder-item.root-folder .folder-icon svg path {
+    fill: currentColor;       /* 跟随当前图标颜色 */
+    fill-opacity: 0.9;       /* 适度透明，避免过重 */
+}
