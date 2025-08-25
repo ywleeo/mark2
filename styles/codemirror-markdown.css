@@ -463,7 +463,7 @@
 }
 
 .codemirror-container[data-theme="dark"] .cm-editor .ͼe {
-  color: #ff7878!important; 
+  color: #bdbdbd!important; 
   font-style: italic !important;
   font-weight: bold !important;
 }
@@ -492,8 +492,14 @@
   font-weight: bold !important;
 }
 
+.codemirror-container[data-theme="dark"] .cm-editor .ͼl {
+  color: #ffcc7e!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
 .codemirror-container[data-theme="dark"] .cm-editor .ͼf {
-  color: #d2d2d2!important; 
+  color: #ffb58b!important; 
   font-style: italic !important;
   font-weight: bold !important;
 }

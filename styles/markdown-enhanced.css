@@ -1,6 +1,36 @@
-/* Markdown 增强视觉样式 - 可选的样式增强 */
+/* Markdown 内容样式 - 统一管理所有 Markdown 相关样式 */
 
-/* 二级标题 - 使用背景色块替代下划线 */
+/* 基础段落和文本样式 */
+.markdown-content {
+    line-height: 1.6;
+    color: var(--text-color, #374151);
+}
+
+.markdown-content p {
+    margin: 12px 0;
+    text-align: justify;
+}
+
+.markdown-content hr {
+    border: none;
+    border-top-width: 1px;
+    border-top-style: solid;
+    border-top-color: var(--border-color, #e5e7eb);
+    margin: 20px 0;
+}
+
+/* 标题样式 - 统一管理所有标题 */
+/* 一级标题 - 简洁下划线风格 */
+.markdown-content h1 {
+    font-size: 28px !important;
+    margin: 15px 0;
+    border-bottom-width: 3px;
+    border-bottom-style: solid;
+    border-bottom-color: var(--h1-border-color, #e5e7eb);
+    padding-bottom: 10px;
+}
+
+/* 二级标题 - 背景色块风格 */
 .markdown-content h2 {
     font-size: 24px !important;
     display: inline-block;
@@ -14,14 +44,21 @@
     background-position: bottom;
 }
 
-/* 一级标题保持简洁的下划线风格 */
-.markdown-content h1 {
-    font-size: 28px !important;
-    border-bottom-width: 3px;
-    border-bottom-style: solid;
-    border-bottom-color: var(--h1-border-color, #e5e7eb);
-    padding-bottom: 10px;
-    margin-bottom: 15px;
+/* h4-h6 标题样式 */
+.markdown-content h4 {
+    font-size: 18px !important;
+    margin: 15px 0 12px 0;
+    color: var(--h4-text-color, #374151);
+}
+
+.markdown-content h5 {
+    font-size: 16px !important;
+    margin: 15px 0 12px 0;
+}
+
+.markdown-content h6 {
+    font-size: 14px !important;
+    margin: 15px 0 12px 0;
 }
 
 /* 三级标题添加左侧装饰线 */
@@ -32,49 +69,54 @@
     position: relative;
 }
 
-/* 四级标题保持简洁 */
-.markdown-content h4 {
-    font-size: 18px !important;
-    margin-bottom: 12px;
-    color: var(--h4-text-color, #374151);
+
+/* 代码样式 - 行内代码和代码块 */
+/* 行内代码 */
+.markdown-content code {
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    background-color: var(--inline-code-background, rgba(99, 102, 241, 0.1));
+    color: var(--inline-code-color, #6366f1);
+    font-size: 0.9em;
 }
 
-/* 代码块增强 */
+/* 代码块 */
 .markdown-content pre {
-    padding: 12px;
-    border-radius: 0 5px 5px 0; /* 增加圆角 */
+    padding: 15px;
+    border-radius: 0 5px 5px 0;
     overflow-x: auto;
     border-left-width: 3px;
     border-left-style: solid;
     border-left-color: var(--code-accent-color, #10b981);
     background-color: var(--code-background-color, #f8fafc);
-    position: relative;
-    white-space: pre-wrap; 
-    word-wrap: break-word; 
-    overflow-x: visible; 
+    margin: 15px 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
+
+/* 代码块内的行内代码不重复样式 */
+.markdown-content pre code {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+    border-radius: 0;
+}
+
 /* 删除线样式 */
 .markdown-content del {
     color: var(--delete-color, #f8717180);
     font-style: italic;
 }
-/* 行内代码增强 */
-.markdown-content code {
-    padding: 2px;
-    border-radius: 4px;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-    /* background-color: var(--inline-code-background, rgba(99, 102, 241, 0.1)); */
-    color: var(--inline-code-color, #6366f1);
-    font-size: 0.9em;
-}
 
-/* 引用块增强 */
+/* 引用块样式 */
 .markdown-content blockquote {
-    border-left-width: 2px;
-    border-left-style: double;
+    border-left-width: 4px;
+    border-left-style: solid;
     border-left-color: var(--quote-accent-color, #a2fb24);
-    padding: 2px 15px;
-    margin: 12px 0;
+    padding: 8px 20px;
+    margin: 20px 0;
     font-style: italic;
     background-color: var(--quote-background-color, rgba(245, 158, 11, 0.05));
     border-radius: 0 4px 4px 0;
@@ -97,47 +139,16 @@
     background-color: var(--quote-background-color, rgba(245, 158, 11, 0.02));
 }
 
-/* 链接增强 */
-.markdown-content a {
-    text-decoration: underline;
-    color: var(--link-color, #2563eb);
-    transition: color 0.2s ease;
-}
 
-.markdown-content a:hover {
-    color: var(--link-hover-color, #1d4ed8);
-}
 
-/* 表格增强 */
-.markdown-content table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 20px 0;
-    border-radius: 6px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.markdown-content th {
-    background-color: var(--table-header-background, #f3f4f6);
-    font-weight: 600;
-    padding: 12px;
-    border: 1px solid var(--table-border-color, #d1d5db);
-}
-
-.markdown-content td {
-    padding: 10px 12px;
-    border: 1px solid var(--table-border-color, #d1d5db);
-}
-
-.markdown-content tr:nth-child(even) {
-    background-color: var(--table-stripe-background, #f9fafb);
-}
-
-/* 列表增强 */
+/* 列表样式 - 基础布局 + 增强样式 */
 .markdown-content ul, .markdown-content ol {
     padding: 0;
     margin-left: 28px;
+}
+
+.markdown-content li {
+    margin: 3px 0;
 }
 
 .markdown-content li > span{
@@ -176,7 +187,45 @@
     transform: scale(1.02);
 }
 
+/* 表格样式 - 完整的表格样式定义 */
+.markdown-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 20px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-content th {
+    background-color: var(--table-header-background, #f3f4f6);
+    font-weight: 600;
+    padding: 12px;
+    border: 1px solid var(--table-border-color, #d1d5db);
+}
+
+.markdown-content td {
+    padding: 10px 12px;
+    border: 1px solid var(--table-border-color, #d1d5db);
+}
+
+.markdown-content tr:nth-child(even) {
+    background-color: var(--table-stripe-background, #f9fafb);
+}
+
+/* 链接样式 */
+.markdown-content a {
+    text-decoration: underline;
+    color: var(--link-color, #2563eb);
+    transition: color 0.2s ease;
+}
+
+.markdown-content a:hover {
+    color: var(--link-hover-color, #1d4ed8);
+}
+
+/* TODO 组件特殊样式 */
 .todo-content-container ol,
-.todo-content-container ul{
-    margin-left: 30px!important;
+.todo-content-container ul {
+    margin-left: 30px !important;
 }
