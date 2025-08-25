@@ -29,11 +29,12 @@ class IPCManager {
     // 插件系统相关
     this.setupPluginListeners(ipcRenderer);
     
-    // 系统电源事件相关
-    this.setupPowerEventListeners(ipcRenderer);
     
     // 窗口激活刷新相关
     this.setupWindowActivationListeners(ipcRenderer);
+    
+    // IPC 健康检查相关
+    this.setupIPCHealthCheckListeners(ipcRenderer);
   }
 
   setupFileOperationListeners(ipcRenderer) {
@@ -150,26 +151,20 @@ class IPCManager {
     });
   }
 
-  setupPowerEventListeners(ipcRenderer) {
-    // 保留基本的系统事件监听（简化版本）
-    ipcRenderer.on('system-suspend', () => {
-      console.log('接收到系统休眠信号');
-      // 简化处理：只保存状态，不做复杂的监听暂停
-      this.eventManager.emit('save-app-state');
-    });
-
-    ipcRenderer.on('system-resume', () => {
-      console.log('接收到系统唤醒信号');
-      // 简化处理：依赖窗口激活事件来刷新内容
-      // console.log('系统唤醒后，等待窗口激活事件来刷新内容');
-    });
-  }
 
   setupWindowActivationListeners(ipcRenderer) {
     // 监听窗口激活刷新事件
     ipcRenderer.on('window-activated-refresh', async () => {
       // console.log('接收到窗口激活刷新信号');
       await this.handleWindowActivatedRefresh();
+    });
+  }
+
+  setupIPCHealthCheckListeners(ipcRenderer) {
+    // 监听 IPC 健康检查请求
+    ipcRenderer.on('ipc-health-check', () => {
+      // 立即响应健康检查
+      ipcRenderer.send('ipc-health-response');
     });
   }
 
@@ -394,23 +389,15 @@ class IPCManager {
 
   // 窗口激活刷新处理方法
   async handleWindowActivatedRefresh() {
-    // console.log('处理窗口激活刷新请求...');
-    
     try {
       // 调用主进程的按需刷新方法
       const result = await this.invokeMain('refresh-content-on-demand');
       
-      if (result.success) {
-        if (result.hasChanges) {
-          // console.log('窗口激活检测到内容变化:', result.message);
-        } else {
-          // console.log('窗口激活检查完成，无内容变化');
-        }
-      } else {
-        console.warn('窗口激活刷新失败:', result.error);
+      if (!result.success) {
+        console.warn('IPCManager: 窗口激活刷新失败:', result.error);
       }
     } catch (error) {
-      console.error('窗口激活刷新出错:', error);
+      console.error('IPCManager: 窗口激活刷新出错:', error);
     }
   }
 
@@ -424,8 +411,8 @@ class IPCManager {
       'show-search-box', 'show-settings', 'reset-to-initial-state',
       'create-new-file', 'export-pdf-request', 'restore-app-state',
       'toggle-plugin', 'refresh-plugins',
-      'system-suspend', 'system-resume',
-      'window-activated-refresh', 'open-help-file'
+      'window-activated-refresh', 'open-help-file',
+      'ipc-health-check'
     ];
     
     channels.forEach(channel => {

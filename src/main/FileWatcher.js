@@ -153,10 +153,8 @@ class FileWatcher {
             fileTree
           });
         }
-        console.log('文件树已更新，哈希值:', currentHash);
         return true; // 有变化
       } else {
-        console.log('文件树无实际变化，跳过更新');
         return false; // 无变化
       }
     } catch (error) {

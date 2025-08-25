@@ -1,4 +1,4 @@
-const { app, powerMonitor } = require('electron');
+const { app } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -32,6 +32,9 @@ function initializeManagers() {
   fileWatcher = new FileWatcher(windowManager, fileManager);
   menuManager = new MenuManager(windowManager, fileManager, fileWatcher);
   ipcHandler = new IPCHandler(windowManager, fileManager, fileWatcher, menuManager);
+  
+  // 设置 WindowManager 的依赖引用，用于 IPC 健康检查
+  windowManager.setDependencies(ipcHandler, fileWatcher);
 }
 
 async function createWindow() {
@@ -95,8 +98,6 @@ app.whenReady().then(async () => {
     console.log(`Pending file to open: ${fileToOpen}`);
   }
   
-  // 设置基本的系统电源事件监听（简化版本）
-  setupBasicPowerMonitoring();
 });
 
 // 监听渲染进程准备就绪的信号
@@ -180,32 +181,6 @@ app.on('before-quit', () => {
   cleanup();
 });
 
-// 基本的系统电源事件监听设置（简化版本）
-function setupBasicPowerMonitoring() {
-  console.log('设置基本的系统电源事件监听...');
-  
-  // 监听系统休眠事件
-  powerMonitor.on('suspend', () => {
-    console.log('系统即将休眠');
-    // 简化处理：仅通知渲染进程保存状态
-    const mainWindow = windowManager?.getWindow();
-    if (mainWindow) {
-      mainWindow.webContents.send('system-suspend');
-    }
-  });
-  
-  // 监听系统唤醒事件
-  powerMonitor.on('resume', () => {
-    console.log('系统从休眠中唤醒');
-    // 简化处理：仅通知渲染进程，依赖窗口激活事件来刷新
-    const mainWindow = windowManager?.getWindow();
-    if (mainWindow) {
-      mainWindow.webContents.send('system-resume');
-    }
-  });
-  
-  console.log('基本的系统电源事件监听设置完成');
-}
 
 
 // 清理函数
