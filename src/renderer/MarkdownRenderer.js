@@ -8,12 +8,28 @@ class MarkdownRenderer {
   }
 
   setupMarked() {
-    // 配置 marked - 启用 GFM 扩展语法
+    // 配置 marked - 启用 GFM 扩展语法和代码高亮
     marked.setOptions({
       breaks: true,
       gfm: true,           // 启用 GitHub Flavored Markdown
       mangle: false,
-      headerIds: false
+      headerIds: false,
+      highlight: function(code, lang) {
+        // 让 highlight.js 直接处理代码高亮
+        if (lang && hljs.getLanguage(lang)) {
+          try {
+            return hljs.highlight(code, { language: lang }).value;
+          } catch (err) {
+            console.error('Highlight.js error:', err);
+          }
+        }
+        try {
+          return hljs.highlightAuto(code).value;
+        } catch (err) {
+          console.error('Highlight.js auto error:', err);
+          return code; // 出错时返回原始代码
+        }
+      }
     });
 
     // 自定义链接渲染器，让外链在系统浏览器中打开
@@ -75,11 +91,8 @@ class MarkdownRenderer {
       // 预处理 Markdown
       const preprocessed = this.preprocessMarkdown(content);
       
-      // 渲染为 HTML，手动处理代码高亮
+      // 渲染为 HTML（marked.js 会自动处理代码高亮）
       let html = marked(preprocessed);
-      
-      // 手动应用代码高亮
-      html = this.applyCodeHighlight(html);
       
       // 隔离样式标签，防止样式冲突
       html = this.sanitizeStyles(html);
@@ -102,8 +115,6 @@ class MarkdownRenderer {
             // 检查任务是否还有效（元素存在且内容ID匹配）
             if (targetElement.isConnected && targetElement.dataset.contentId === String(contentId)) {
               let enhancedHtml = this.applyKeywordHighlight(html);
-              // 解码HTML实体
-              enhancedHtml = this.decodeHtmlEntities(enhancedHtml);
               if (enhancedHtml !== html) {
                 targetElement.innerHTML = enhancedHtml;
                 // 保持内容ID，表示高亮已完成
@@ -117,15 +128,12 @@ class MarkdownRenderer {
           }
         });
         
-        // 立即返回基础版本（先解码HTML实体）
-        return this.decodeHtmlEntities(html);
+        // 立即返回基础版本
+        return html;
       }
       
       // 兼容性：如果没有提供目标元素，保持同步行为
       html = this.applyKeywordHighlight(html);
-      
-      // 解码HTML实体，确保尖括号等字符正确显示
-      html = this.decodeHtmlEntities(html);
       
       return html;
     } catch (error) {
@@ -155,91 +163,17 @@ class MarkdownRenderer {
       return `${text}\n\n${equals}`;
     });
     
-    // 转义HTML标签，但保护Markdown语法
-    // 先保护代码块内容（```...``` 和 `...`）
-    const codeBlocks = [];
-    const inlineCode = [];
-    
-    // 保护代码块
-    processed = processed.replace(/```[\s\S]*?```/g, (match) => {
-      const placeholder = `__CODEBLOCK_${codeBlocks.length}__`;
-      codeBlocks.push({ placeholder, original: match });
-      return placeholder;
-    });
-    
-    // 保护行内代码
-    processed = processed.replace(/`[^`\n]*`/g, (match) => {
-      const placeholder = `__INLINECODE_${inlineCode.length}__`;
-      inlineCode.push({ placeholder, original: match });
-      return placeholder;
-    });
-    
-    // 保护引用块语法（行首的 > ，包括嵌套的 >> >>> 等）
-    const blockquoteMarkers = [];
-    processed = processed.replace(/^([ \t]*)(>+)(\s|$)/gm, (match, indent, markers, space) => {
-      const placeholder = `__BLOCKQUOTE_${blockquoteMarkers.length}__`;
-      blockquoteMarkers.push({ placeholder, original: markers });
-      return `${indent}${placeholder}${space}`;
-    });
-    
-    // 转义其他尖括号
-    processed = processed.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    
-    // 恢复引用块标记
-    blockquoteMarkers.forEach(({ placeholder, original }) => {
-      processed = processed.replace(placeholder, original);
-    });
-    
-    // 恢复行内代码
-    inlineCode.forEach(({ placeholder, original }) => {
-      processed = processed.replace(placeholder, original);
-    });
-    
-    // 恢复代码块
-    codeBlocks.forEach(({ placeholder, original }) => {
-      processed = processed.replace(placeholder, original);
-    });
+    // 让 marked.js 自己处理HTML转义，我们只做最小化预处理
     
     return processed;
   }
 
-  applyCodeHighlight(html) {
-    // 手动处理代码块高亮
-    let result = html;
-    
-    // 处理有语言指定的代码块
-    result = result.replace(/<pre><code class="language-(\w+)">(.*?)<\/code><\/pre>/gs, (match, lang, code) => {
-      // 先解码HTML实体，再进行语法高亮
-      const decodedCode = this.decodeHtmlEntities(code);
-      
-      if (lang && hljs.getLanguage(lang)) {
-        try {
-          const highlighted = hljs.highlight(decodedCode, { language: lang }).value;
-          return `<pre><code class="language-${lang}">${highlighted}</code></pre>`;
-        } catch (err) {
-          console.error('Highlight.js error:', err);
-        }
-      }
-      const highlighted = hljs.highlightAuto(decodedCode).value;
-      return `<pre><code class="language-${lang}">${highlighted}</code></pre>`;
-    });
-    
-    // 处理没有语言指定的代码块
-    result = result.replace(/<pre><code(?![^>]*class="language-)>(.*?)<\/code><\/pre>/gs, (match, code) => {
-      // 先解码HTML实体，再进行语法高亮
-      const decodedCode = this.decodeHtmlEntities(code);
-      const highlighted = hljs.highlightAuto(decodedCode).value;
-      return `<pre><code>${highlighted}</code></pre>`;
-    });
-    
-    return result;
-  }
 
   sanitizeStyles(html) {
-    // 由于预处理阶段已经转义了所有尖括号，这里只需要基本的清理
-    // 主要工作已经在 preprocessMarkdown 中完成了
+    // marked.js 已经处理了HTML转义，这里不需要额外处理
     return html;
   }
+
 
   escapeHtml(unsafe) {
     return unsafe
@@ -250,16 +184,6 @@ class MarkdownRenderer {
          .replace(/'/g, "&#039;");
   }
 
-  decodeHtmlEntities(html) {
-    // 解码常见的HTML实体，注意顺序：&amp; 必须最后解码
-    return html
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#039;/g, "'")  // 单引号的命名实体
-      .replace(/&#39;/g, "'")   // 单引号的数字实体
-      .replace(/&amp;/g, '&');
-  }
 
   applyKeywordHighlight(html) {
     // 完全通过插件系统处理

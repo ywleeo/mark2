@@ -442,3 +442,58 @@
 .codemirror-container[data-theme="dark"] .tok-brace { 
   color: #ffffff !important; /* 纯白色 - 大括号 */
 }
+
+/* 覆盖 CodeMirror 6 默认的 #219 颜色 - 深色主题 */
+.codemirror-container[data-theme="dark"] .cm-editor .ͼc {
+  color: #96ff96 !important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼ5 {
+  color: #7c7c7c !important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼm {
+  color: rgb(242, 138, 54) !important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼe {
+  color: #ff7878!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼb {
+  color: #e569f6!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼg {
+  color: #a0a0ff!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼj {
+  color: #42d4f1!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼd {
+  color: #66e0af!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}
+
+.codemirror-container[data-theme="dark"] .cm-editor .ͼf {
+  color: #d2d2d2!important; 
+  font-style: italic !important;
+  font-weight: bold !important;
+}

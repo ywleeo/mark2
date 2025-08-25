@@ -86,10 +86,10 @@ class CodeMirrorHighlighter {
         indentUnit.of("\t"),
         // Tab键缩进支持
         keymap.of([indentWithTab]),
-        // 先应用自定义高亮样式，再应用默认样式
+        // 先应用默认样式，再应用自定义高亮样式（自定义样式优先级更高）
         this.highlightCompartment.of([
-          syntaxHighlighting(this.getCustomHighlightStyle()),
-          syntaxHighlighting(defaultHighlightStyle)
+          syntaxHighlighting(defaultHighlightStyle),
+          syntaxHighlighting(this.getCustomHighlightStyle())
         ]),
         // 搜索装饰
         this.searchCompartment.of([]),
@@ -305,7 +305,7 @@ class CodeMirrorHighlighter {
       regexp: '#ffd699',
       escape: '#ffd699',
       special: '#ff92d0',
-      meta: '#b3bfeb',
+      meta: '#96ff96',
       tag: '#ff92d0',
       attributeName: '#80ff9a',
       attributeValue: '#ffff99',
@@ -351,7 +351,7 @@ class CodeMirrorHighlighter {
       url: '#7c3aed',
       monospace: '#dc2626',
       quote: '#6b7280',
-      list: '#4fdaaf',
+      list: '#1f1f1f',
     };
     
     // 使用内联样式而不是CSS类，确保主题切换生效
@@ -393,7 +393,10 @@ class CodeMirrorHighlighter {
       { tag: tags.monospace, color: colors.monospace, backgroundColor: settings.isDark ? '#2d2d2d' : '#f3f4f6', padding: '2px 4px', borderRadius: '3px' },
       { tag: tags.quote, color: colors.quote, fontStyle: 'italic' },
       { tag: tags.list, color: colors.list },
-      { tag: tags.contentSeparator, color: colors.list, fontWeight: 'bold', opacity: '0.7' },
+      { tag: tags.contentSeparator, color: colors.meta, fontStyle: 'italic', fontWeight: 'bold' },
+      { tag: tags.atom, color: colors.meta, fontStyle: 'italic', fontWeight: 'bold' },
+      { tag: tags.labelName, color: colors.meta, fontStyle: 'italic', fontWeight: 'bold' },
+      { tag: tags.bool, color: colors.meta, fontStyle: 'italic', fontWeight: 'bold' },
     ]);
   }
   
@@ -713,8 +716,8 @@ class CodeMirrorHighlighter {
       // 同时更新主题和高亮样式compartment，实现丝滑的主题切换
       const newTheme = this.getEditorTheme();
       const newHighlight = [
-        syntaxHighlighting(this.getCustomHighlightStyle()),
-        syntaxHighlighting(defaultHighlightStyle)
+        syntaxHighlighting(defaultHighlightStyle),
+        syntaxHighlighting(this.getCustomHighlightStyle())
       ];
       this.editor.dispatch({
         effects: [
