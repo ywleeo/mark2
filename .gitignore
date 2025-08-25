@@ -34,6 +34,7 @@ TODO.md
 # 日志
 *.log
 logs/
+debug/
 
 # 临时文件
 *.tmp

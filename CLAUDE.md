@@ -116,7 +116,7 @@ npm run build         # 完整构建：electron-builder（生成 .dmg/.exe/.AppI
 npm run dev
 
 # 方式2: 直接读取日志文件（所有 console 输出都会保存到这里）
-cat debug.log
+cat debug/debug.log
 
 # 如果需要更详细的调试信息，可以设置环境变量
 DEBUG=* npm run dev
@@ -125,7 +125,7 @@ DEBUG=* npm run dev
 FORCE_NON_MAC_LAYOUT=true npm run dev
 ```
 
-**重要**: 所有的 console.log、console.error 等输出都会自动保存到 `debug.log` 文件中，可以直接读取该文件来查看历史日志和错误信息。
+**重要**: 所有的 console.log、console.error 等输出都会自动保存到 `debug/debug.log` 文件中，可以直接读取该文件来查看历史日志和错误信息。
 
 ### 开发者工具
 - 按 `F12` 或通过菜单打开开发者工具
@@ -145,10 +145,10 @@ FORCE_NON_MAC_LAYOUT=true npm run dev
 4. **样式问题**: 使用开发者工具的 Elements 面板检查 CSS 样式
 
 ### Claude 使用提醒
-- **每当遇到问题时，首先读取 `debug.log` 文件查看完整的应用日志**
-- **可以使用 `npm run dev` 启动应用观察实时输出，也可以直接读取 debug.log 查看历史日志**
-- **所有 console 输出都会保存到 debug.log 中，无需让用户手动提供日志信息**
-- **善用开发者工具进行前端调试，善用 debug.log 和终端输出进行后端调试**
+- **每当遇到问题时，首先读取 `debug/debug.log` 文件查看完整的应用日志**
+- **可以使用 `npm run dev` 启动应用观察实时输出，也可以直接读取 debug/debug.log 查看历史日志**
+- **所有 console 输出都会保存到 debug/debug.log 中，无需让用户手动提供日志信息**
+- **善用开发者工具进行前端调试，善用 debug/debug.log 和终端输出进行后端调试**
 
 ## Key Dependencies
 
@@ -382,12 +382,12 @@ plugins/
 ## Debug System
 
 ### DebugLogger 全局调试工具
-- **功能**: 拦截所有 console 输出并写入 `debug.log` 文件
+- **功能**: 拦截所有 console 输出并写入 `debug/debug.log` 文件
 - **位置**: `src/utils/DebugLogger.js`
 - **特性**: 时间戳、自动格式化、缓冲机制、生命周期管理
 
 ### 调试工作流
-1. **读取日志**: 直接读取项目根目录的 `debug.log` 文件获取完整日志
+1. **读取日志**: 直接读取 `debug/debug.log` 文件获取完整日志
 2. **实时调试**: 使用 `npm run dev` 查看实时输出
 3. **错误分析**: 搜索日志中的 ERROR/WARN 级别信息
 4. **性能追踪**: 通过时间戳分析事件序列
@@ -426,7 +426,7 @@ plugins/
 ### 测试文件管理
 - **所有测试文件放在 `test/` 目录下**，不要放在项目根目录
 - 测试前确保日志打点充分，便于问题排查
-- 测试后直接读取 `debug.log` 文件进行结果分析
+- 测试后直接读取 `debug/debug.log` 文件进行结果分析
 
 ### 需求开发流程
 1. **分析和规划**：接到需求后先进行步骤分析，制定清晰的实现计划

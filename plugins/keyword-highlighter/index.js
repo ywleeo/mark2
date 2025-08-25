@@ -16,22 +16,22 @@ class KeywordHighlighterPlugin extends BasePlugin {
         // 插件自定义的匹配规则
         this.patterns = {
             numbers: [
-                /\d+(?:\.\d+)?%/g,                          // 百分比
-                /\d+(?:\.\d+)?个百分点/g,                    // 百分点
-                /[￥$€£¥]\d+(?:[,\.]\d+)*/g,                 // 货币
-                /\d+(?:\.\d+)?(?:千瓦|兆瓦|吉瓦|GW|MW|KW)/g, // 电力单位
-                /\d+(?:\.\d+)?[万百十亿]/g,                  // 中文数字单位
+                /\d+\.?\d*%/g,                              // 百分比
+                /\d+\.?\d*个百分点/g,                        // 百分点
+                /[￥$€£¥]\d+/g,                             // 货币
+                /\d+\.?\d*(?:千瓦|兆瓦|吉瓦|GW|MW|KW)/g,     // 电力单位
+                /\d+\.?\d*[万百十亿]/g,                      // 中文数字单位
                 /\d{1,3}(?:,\d{3})+/g,                      // 带逗号数字
                 /\d{4,}/g                                   // 大数字
             ],
             dates: [
-                /(\d{4}年(?:1[0-2]|0[1-9]|[1-9])月(?:[12][0-9]|3[01]|0[1-9]|[1-9])日)/g,
-                /((?:1[0-2]|0[1-9]|[1-9])月(?:[12][0-9]|3[01]|0[1-9]|[1-9])日)/g,
-                /(\d{4}年(?:1[0-2]|0[1-9]|[1-9])月)/g,
-                /(\d{4}-(?:1[0-2]|0[1-9]|[1-9])-(?:[12][0-9]|3[01]|0[1-9]|[1-9]))/g,
+                /\d{4}年\d{1,2}月\d{1,2}日/g,
+                /\d{1,2}月\d{1,2}日/g,
+                /\d{4}年\d{1,2}月/g,
+                /\d{4}-\d{1,2}-\d{1,2}/g,
                 /(上午|下午|晚上|今天|明天|昨天|本周|下周|上周|本月|下月|上月|今年|明年|去年)/g,
                 /(第[一二三四]季度|Q[1-4]|[一二三四]季度)/g,
-                /(\d{4}年)(?![0-9月])/g
+                /\d{4}年/g
             ]
         };
         
@@ -278,13 +278,18 @@ class KeywordHighlighterPlugin extends BasePlugin {
      * 提取日期信息
      */
     extractDates(html) {
-        const text = this.api.extractText(html);
-        const matches = this.api.findMatchesAll(text, this.patterns.dates);
-        
-        return matches.map(match => ({
-            text: match,
-            className: 'highlight-dates'
-        }));
+        try {
+            const text = this.api.extractText(html);
+            const matches = this.api.findMatchesAll(text, this.patterns.dates);
+            
+            return matches.map(match => ({
+                text: match,
+                className: 'highlight-dates'
+            }));
+        } catch (error) {
+            this.api.warn(this.name, '日期匹配失败:', error);
+            return [];
+        }
     }
 
     /**

@@ -458,7 +458,12 @@ class IPCHandler {
     // Debug日志处理器
     ipcMain.handle('clear-debug-log', async () => {
       try {
-        const debugLogPath = path.join(__dirname, '../../debug.log');
+        const debugDir = path.join(__dirname, '../../debug');
+        const debugLogPath = path.join(debugDir, 'debug.log');
+        
+        // 确保debug目录存在
+        await fs.promises.mkdir(debugDir, { recursive: true });
+        
         await fs.promises.writeFile(debugLogPath, '');
         return { success: true };
       } catch (error) {
@@ -469,7 +474,12 @@ class IPCHandler {
 
     ipcMain.handle('append-debug-log', async (event, content) => {
       try {
-        const debugLogPath = path.join(__dirname, '../../debug.log');
+        const debugDir = path.join(__dirname, '../../debug');
+        const debugLogPath = path.join(debugDir, 'debug.log');
+        
+        // 确保debug目录存在
+        await fs.promises.mkdir(debugDir, { recursive: true });
+        
         await fs.promises.appendFile(debugLogPath, content);
         return { success: true };
       } catch (error) {
@@ -480,7 +490,8 @@ class IPCHandler {
 
     ipcMain.handle('read-debug-log', async () => {
       try {
-        const debugLogPath = path.join(__dirname, '../../debug.log');
+        const debugDir = path.join(__dirname, '../../debug');
+        const debugLogPath = path.join(debugDir, 'debug.log');
         const content = await fs.promises.readFile(debugLogPath, 'utf8');
         return { success: true, content };
       } catch (error) {
