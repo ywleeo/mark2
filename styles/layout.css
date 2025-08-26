@@ -808,6 +808,7 @@ mark[class*="highlight-"] {
     padding: 1px 2px;
     border-radius: 2px;
     border: none;
+    white-space: nowrap; /* 防止高亮词内部换行，确保截图渲染正确 */
 }
 
 /* 消息提示布局 */
