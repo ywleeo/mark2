@@ -79,6 +79,7 @@ body {
     flex: 1;
     overflow-y: auto;
     min-height: 0; /* 确保flex子元素可以正确收缩和滚动 */
+    padding-bottom: 20px;
 }
 
 .empty-state {
@@ -99,7 +100,7 @@ body {
 .file-item {
     display: flex;
     align-items: center;
-    padding: 3px 16px 3px var(--tree-root-indent);
+    padding: 1px 16px 2px var(--tree-root-indent);
     margin: 1px 0;
     cursor: pointer;
     font-size: 12px;
@@ -143,7 +144,7 @@ body {
 .folder-item {
     display: flex;
     align-items: center;
-    padding: 3px 16px 3px var(--tree-root-indent);
+    padding: 1px 16px 1px var(--tree-root-indent);
     margin: 1px 0;
     cursor: pointer;
     font-size: 13px;
@@ -530,104 +531,7 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
     box-sizing: border-box;
 }
 
-/* Markdown 内容布局 */
-.markdown-content h1, .markdown-content h2, .markdown-content h3 {
-    margin: 15px 0 15px 0;
-}
-
-.markdown-content h1 {
-    font-size: 26px !important;
-    border-bottom-width: 3px;
-    border-bottom-style: solid;
-    padding-bottom: 10px;
-}
-
-.markdown-content h2 {
-    font-size: 22px !important;
-    border-bottom-width: 2px;
-    border-bottom-style: solid;
-    padding-bottom: 8px;
-}
-
-.markdown-content h3 {
-    font-size: 20px !important;
-}
-
-.markdown-content h4 {
-    font-size: 18px !important;
-}
-
-.markdown-content h5 {
-    font-size: 16px !important;
-}
-
-.markdown-content h6 {
-    font-size: 14px !important;
-}
-
-.markdown-content p {
-    margin: 12px 0px;
-    text-align: justify;
-}
-
-.markdown-content code {
-    padding: 1px 3px;
-    border-radius: 4px;
-    font-family: auto;
-}
-
-.markdown-content pre {
-    padding: 15px;
-    border-radius: 5px;
-    overflow-x: auto;
-    border-left-width: 4px;
-    border-left-style: solid;
-}
-
-.markdown-content blockquote {
-    border-left-width: 4px;
-    border-left-style: solid;
-    padding-left: 20px;
-    margin: 20px 0;
-    font-style: italic;
-}
-
-.markdown-content ul, .markdown-content ol {
-    padding-left: 30px;
-}
-
-.markdown-content li {
-    margin: 3px 0;
-}
-
-/* 表格布局 */
-.markdown-content table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 15px 0;
-}
-
-.markdown-content th, .markdown-content td {
-    border-width: 1px;
-    border-style: solid;
-    padding: 8px 12px;
-    text-align: left;
-}
-
-.markdown-content th {
-    font-weight: 600;
-}
-
-.markdown-content a {
-    text-decoration: underline;
-}
-
-.markdown-content hr {
-    border: none;
-    border-top-width: 1px;
-    border-top-style: solid;
-    margin: 20px 0;
-}
+/* Markdown 内容样式已移至 markdown-enhanced.css 统一管理 */
 
 /* 搜索框样式 */
 .search-box {

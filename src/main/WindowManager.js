@@ -12,6 +12,10 @@ class WindowManager {
     // 调试变量：允许在 mac 上测试非 mac 样式
     this.forceNonMacLayout = process.env.FORCE_NON_MAC_LAYOUT === 'true';
     this.useMacLayout = this.isMac && !this.forceNonMacLayout;
+    
+    // IPC 健康检查相关
+    this.ipcHandler = null;
+    this.fileWatcher = null;
   }
 
   async createWindow() {
@@ -148,9 +152,14 @@ class WindowManager {
   }
 
   // 触发内容刷新（窗口激活时使用）
-  triggerContentRefresh() {
+  async triggerContentRefresh() {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      // console.log('WindowManager: 窗口激活，触发内容刷新');
+      // 先进行 IPC 健康检查
+      const ipcHealthy = await this.checkIPCHealth();
+      if (!ipcHealthy) {
+        this.restoreFileWatching();
+      }
+      
       // 通知渲染进程进行内容刷新检查
       this.mainWindow.webContents.send('window-activated-refresh');
     }
@@ -257,6 +266,76 @@ class WindowManager {
       await SettingsManager.saveWindowState(windowState);
     } catch (error) {
       console.error('保存窗口状态失败:', error);
+    }
+  }
+
+  // 设置依赖引用（用于IPC健康检查）
+  setDependencies(ipcHandler, fileWatcher) {
+    this.ipcHandler = ipcHandler;
+    this.fileWatcher = fileWatcher;
+  }
+
+  // IPC 健康检查：尝试简单的 ping-pong 通信
+  async checkIPCHealth() {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) {
+      return false;
+    }
+
+    try {
+      // 设置一个简单的超时检查
+      const healthCheck = new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(false); // 超时认为不健康
+        }, 1000);
+
+        // 发送健康检查信号
+        this.mainWindow.webContents.send('ipc-health-check');
+        
+        // 监听响应（只监听一次）
+        const { ipcMain } = require('electron');
+        const handleHealthResponse = () => {
+          clearTimeout(timeout);
+          ipcMain.removeListener('ipc-health-response', handleHealthResponse);
+          resolve(true);
+        };
+        
+        ipcMain.once('ipc-health-response', handleHealthResponse);
+      });
+
+      return await healthCheck;
+    } catch (error) {
+      console.error('IPC健康检查失败:', error);
+      return false;
+    }
+  }
+
+  // 恢复文件监听（当检测到IPC失效时）
+  restoreFileWatching() {
+    if (!this.fileWatcher) {
+      console.warn('FileWatcher未设置，无法恢复监听');
+      return;
+    }
+
+    try {
+      // 获取当前监听的路径
+      const watchedPath = this.fileWatcher.getWatchedPath();
+      const watchedFile = this.fileWatcher.getWatchedFile();
+
+      // 重新建立文件夹监听
+      if (watchedPath) {
+        console.log('重新建立文件夹监听:', watchedPath);
+        this.fileWatcher.stopWatching();
+        this.fileWatcher.startWatching(watchedPath);
+      }
+
+      // 重新建立文件监听
+      if (watchedFile) {
+        console.log('重新建立文件监听:', watchedFile);
+        this.fileWatcher.stopFileWatching();
+        this.fileWatcher.startFileWatching(watchedFile);
+      }
+    } catch (error) {
+      console.error('恢复文件监听失败:', error);
     }
   }
 }

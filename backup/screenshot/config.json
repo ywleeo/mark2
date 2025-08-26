@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "description": "基于 html-to-image 的高质量截图插件",
   "author": "mark2-team",
-  "enabled": true,
+  "enabled": false,
   "main": "index.js",
   "shortcuts": [
     {

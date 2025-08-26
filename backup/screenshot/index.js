@@ -1,5 +1,6 @@
 const BasePlugin = require('../BasePlugin');
-const { toPng, toJpeg, toBlob } = require('html-to-image');
+// 临时注释掉以避免 Mac App Store 沙盒崩溃问题
+// const { toPng, toJpeg, toBlob } = require('html-to-image');
 
 class ScreenshotPlugin extends BasePlugin {
   constructor(pluginConfig = {}) {
