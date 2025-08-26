@@ -798,6 +798,26 @@ class IPCHandler {
         return { success: false, error: error.message };
       }
     });
+
+    // 检查文件是否存在
+    ipcMain.handle('check-file-exists', async (event, filePath) => {
+      try {
+        return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+      } catch (error) {
+        console.error('Error checking file exists:', error);
+        return false;
+      }
+    });
+
+    // 检查文件夹是否存在
+    ipcMain.handle('check-folder-exists', async (event, folderPath) => {
+      try {
+        return fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory();
+      } catch (error) {
+        console.error('Error checking folder exists:', error);
+        return false;
+      }
+    });
   }
 
   // 清理过期的临时截图文件
