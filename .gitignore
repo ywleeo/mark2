@@ -6,11 +6,16 @@ yarn-error.log*
 
 # 构建产物
 dist/
-build/
 *.dmg
 *.exe
 *.deb
 *.rpm
+
+# build 目录中的敏感文件（保留 plist 文件供其他用户使用）
+build/*.provisionprofile
+build/*.mobileprovision
+build/*.p12
+build/*.cer
 
 # 系统文件
 .DS_Store
@@ -48,3 +53,7 @@ debug/
 
 # 调试和测试文件
 test/
+
+# 网站
+website/
+

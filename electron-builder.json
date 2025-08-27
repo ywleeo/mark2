@@ -1,0 +1,37 @@
+{
+  "build": {
+    "appId": "cc.altron.mark2",
+    "productName": "Mark2",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "identity": "${APPLE_IDENTITY}",
+      "extendInfo": {
+        "ElectronTeamID": "${APPLE_TEAM_ID}"
+      }
+    },
+    "mas": {
+      "type": "distribution",
+      "category": "public.app-category.productivity",
+      "provisioningProfile": "build/embedded.provisionprofile",
+      "identity": "${APPLE_IDENTITY}",
+      "hardenedRuntime": false,
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "extendInfo": {
+        "ElectronTeamID": "${APPLE_TEAM_ID}",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "pkg": {
+      "identity": "${APPLE_IDENTITY}"
+    }
+  }
+}
