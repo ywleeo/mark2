@@ -21,8 +21,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^37.2.3",
-    "electron-builder": "^24.0.0"
+    "electron": "^37.3.1",
+    "electron-builder": "^23.6.0"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",
@@ -44,6 +44,7 @@
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
     "html-to-image": "^1.11.13",
+    "html2canvas": "^1.4.1",
     "marked": "^5.0.0"
   },
   "build": {

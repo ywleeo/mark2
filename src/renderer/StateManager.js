@@ -83,17 +83,13 @@ class StateManager {
         this.tabManager.nextTabId = state.nextTabId;
       }
       
-      // 恢复文件树状态
+      // 恢复文件树状态（刷新文件和文件夹名称）
       if (state.openFiles) {
-        state.openFiles.forEach(([filePath, fileInfo]) => {
-          this.fileTreeManager.openFiles.set(filePath, fileInfo);
-        });
+        await this.refreshOpenFilesState(state.openFiles);
       }
       
       if (state.openFolders) {
-        state.openFolders.forEach(([folderPath, folderInfo]) => {
-          this.fileTreeManager.openFolders.set(folderPath, folderInfo);
-        });
+        await this.refreshOpenFoldersState(state.openFolders);
       }
       
       // 恢复tabs
@@ -293,6 +289,86 @@ class StateManager {
       openFiles: Array.from(this.fileTreeManager.openFiles.keys()),
       openFolders: Array.from(this.fileTreeManager.openFolders.keys())
     };
+  }
+
+  // 刷新打开文件的状态（重新从文件系统读取文件名）
+  async refreshOpenFilesState(savedOpenFiles) {
+    const { ipcRenderer } = require('electron');
+    const path = require('path');
+
+    for (const [filePath, fileInfo] of savedOpenFiles) {
+      try {
+        // 检查文件是否仍然存在
+        const fileExists = await ipcRenderer.invoke('check-file-exists', filePath);
+        
+        if (fileExists) {
+          // 获取当前的文件名（可能已被修改）
+          const currentFileName = path.basename(filePath);
+          
+          // 更新文件信息，使用最新的文件名
+          const updatedFileInfo = {
+            ...fileInfo,
+            name: currentFileName  // 使用文件系统的最新名称
+          };
+          
+          this.fileTreeManager.openFiles.set(filePath, updatedFileInfo);
+          console.log(`[StateManager] 刷新文件状态: ${filePath} -> ${currentFileName}`);
+        } else {
+          console.log(`[StateManager] 文件不存在，跳过: ${filePath}`);
+        }
+      } catch (error) {
+        console.error(`[StateManager] 刷新文件状态失败: ${filePath}`, error);
+        // 文件出错时仍然保留原有信息，避免数据丢失
+        this.fileTreeManager.openFiles.set(filePath, fileInfo);
+      }
+    }
+  }
+
+  // 刷新打开文件夹的状态（重新从文件系统读取文件夹名称和内容）
+  async refreshOpenFoldersState(savedOpenFolders) {
+    const { ipcRenderer } = require('electron');
+    const path = require('path');
+
+    for (const [folderPath, folderInfo] of savedOpenFolders) {
+      try {
+        // 检查文件夹是否仍然存在
+        const folderExists = await ipcRenderer.invoke('check-folder-exists', folderPath);
+        
+        if (folderExists) {
+          // 获取当前的文件夹名称（可能已被修改）
+          const currentFolderName = path.basename(folderPath);
+          
+          // 重新获取文件夹的文件树内容
+          const result = await ipcRenderer.invoke('rebuild-file-tree', folderPath);
+          
+          if (result && result.success && result.fileTree) {
+            // 更新文件夹信息，使用最新的名称和文件树
+            const updatedFolderInfo = {
+              ...folderInfo,
+              name: currentFolderName,  // 使用文件系统的最新名称
+              fileTree: result.fileTree  // 使用最新的文件树结构
+            };
+            
+            this.fileTreeManager.openFolders.set(folderPath, updatedFolderInfo);
+            console.log(`[StateManager] 刷新文件夹状态: ${folderPath} -> ${currentFolderName}`);
+          } else {
+            // 如果无法重建文件树，至少更新文件夹名称
+            const updatedFolderInfo = {
+              ...folderInfo,
+              name: currentFolderName
+            };
+            this.fileTreeManager.openFolders.set(folderPath, updatedFolderInfo);
+            console.log(`[StateManager] 部分刷新文件夹状态: ${folderPath} -> ${currentFolderName}`);
+          }
+        } else {
+          console.log(`[StateManager] 文件夹不存在，跳过: ${folderPath}`);
+        }
+      } catch (error) {
+        console.error(`[StateManager] 刷新文件夹状态失败: ${folderPath}`, error);
+        // 文件夹出错时仍然保留原有信息，避免数据丢失
+        this.fileTreeManager.openFolders.set(folderPath, folderInfo);
+      }
+    }
   }
 }
 
