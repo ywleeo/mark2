@@ -108,7 +108,11 @@
       "icon": "assets/icon.icns",
       "minimumSystemVersion": "10.13.0",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "LSUIElement": false,
+        "NSRequiresAquaSystemAppearance": false
+      }
     },
     "win": {
       "target": "nsis",

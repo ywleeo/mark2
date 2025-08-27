@@ -3,6 +3,12 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
+// 禁用自动更新和 Login Helper
+app.setLoginItemSettings({
+  openAtLogin: false,
+  openAsHidden: false
+});
+
 // 设置固定的用户数据目录，确保localStorage持久化
 const userDataPath = path.join(os.homedir(), '.mark2');
 app.setPath('userData', userDataPath);

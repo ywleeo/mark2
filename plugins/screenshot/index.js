@@ -181,12 +181,15 @@ class ScreenshotPlugin extends BasePlugin {
     
     // 计算文字位置（居中）
     const x = canvas.width / 2;
-    const y = canvas.height / 2 + 20; // 向下偏移20像素
+    const y = canvas.height / 2 + 20; // 
+    
+    
     
     // 在画布中央绘制一个大的测试文本
     console.log('测试绘制中央文本...');
     // 绘制红色背景矩形（添加一些内边距）
     const padding = 4;
+
     ctx.fillStyle = 'red';
     ctx.fillRect(
       x - textWidth / 2 - padding, 
