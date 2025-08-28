@@ -74,6 +74,8 @@ npm run check-deps    # 检查并自动安装缺失的核心依赖
 
 # 打包构建
 npm run build         # 完整构建：electron-builder（生成 .dmg/.exe/.AppImage）
+npm run build:dmg     # DMG 分发版本构建（直接分发给用户）
+npm run build:mas     # Mac App Store 版本构建（需要后续手动处理）
 ```
 
 ### 截图功能依赖说明
@@ -90,6 +92,25 @@ npm run build         # 完整构建：electron-builder（生成 .dmg/.exe/.AppI
 - macOS: ARM64 和 x64 双架构支持
 - Windows: x64 架构
 - Linux: x64 架构（AppImage）
+
+### Mac App Store (MAS) 构建特别说明
+
+**重要**：MAS 构建需要额外的手动步骤来移除 Login Helper，避免 ITMS-90885 审核错误。
+
+**完整流程**：
+```bash
+npm run build:mas
+rm -rf dist/mas-universal/Mark2.app/Contents/Library
+codesign --force --sign "3rd Party Mac Developer Application: yuwei li (YH83TRKYT7)" --deep dist/mas-universal/Mark2.app
+```
+
+**详细说明**：参见 `MAS_BUILD_GUIDE.md` 文件
+
+**关键点**：
+- electron-builder 的 afterSign/afterPack hooks 无效，必须手动移除 Login Helper
+- 删除后必须重新签名应用
+- 需要正确配置 Mac App Store 证书
+- 最终产物：`dist/mas-universal/Mark2-*.pkg` 可直接提交 App Store
 
 ### 命令行参数功能说明
 

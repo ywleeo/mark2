@@ -10,28 +10,27 @@
       "icon": "build/icon.icns",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mas.plist",
-      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
-      "identity": "${APPLE_IDENTITY}",
+      "entitlements": "entitlements.mas.plist",
+      "entitlementsInherit": "entitlements.mas.inherit.plist",
+      "identity": "yuwei li (YH83TRKYT7)",
       "extendInfo": {
-        "ElectronTeamID": "${APPLE_TEAM_ID}"
+        "ElectronTeamID": "YH83TRKYT7"
       }
     },
     "mas": {
       "type": "distribution",
       "category": "public.app-category.productivity",
-      "provisioningProfile": "build/embedded.provisionprofile",
-      "identity": "${APPLE_IDENTITY}",
+      "identity": "yuwei li (YH83TRKYT7)",
       "hardenedRuntime": false,
-      "entitlements": "build/entitlements.mas.plist",
-      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "entitlements": "entitlements.mas.plist",
+      "entitlementsInherit": "entitlements.mas.inherit.plist",
       "extendInfo": {
-        "ElectronTeamID": "${APPLE_TEAM_ID}",
+        "ElectronTeamID": "YH83TRKYT7",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "pkg": {
-      "identity": "${APPLE_IDENTITY}"
+      "identity": "yuwei li (YH83TRKYT7)"
     }
   }
 }

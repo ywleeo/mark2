@@ -57,3 +57,6 @@ test/
 # 网站
 website/
 
+apple_developer/
+*.provisionprofile
+*.plist
