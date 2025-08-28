@@ -45,8 +45,8 @@ class ScreenshotPlugin extends BasePlugin {
       // 显示进度提示
       this.showNotification('正在截图...', 'info');
 
-      // 使用 html2canvas 进行截图
-      const result = await this.captureWithHtml2Canvas(activeContent);
+      // 使用 html2canvas 进行截图（DOM水印模式）
+      const result = await this.captureWithDOMWatermark(activeContent);
       
       if (result.success) {
         this.showNotification('截图已保存并复制到剪切板', 'success');
@@ -62,6 +62,70 @@ class ScreenshotPlugin extends BasePlugin {
       console.error('截图过程出错:', error);
       this.showNotification(`截图失败: ${error.message}`, 'error');
     }
+  }
+
+  // 使用DOM水印方式截图
+  async captureWithDOMWatermark(element) {
+    let watermarkElement = null;
+    let originalPosition = null;
+    try {
+      console.log('=== 开始 DOM水印截图 ===');
+      
+      // 1. 确保element有相对定位，然后创建DOM水印
+      originalPosition = element.style.position;
+      element.style.position = 'relative'; // 确保作为定位参考点
+      
+      watermarkElement = this.createDOMWatermark();
+      element.appendChild(watermarkElement);
+      console.log('DOM水印已添加');
+      
+      // 2. 进行截图
+      const result = await this.captureWithHtml2Canvas(element);
+      
+      return result;
+      
+    } catch (error) {
+      console.error('DOM水印截图失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    } finally {
+      // 3. 确保移除DOM水印并恢复原始样式
+      if (watermarkElement && watermarkElement.parentNode) {
+        const parent = watermarkElement.parentNode;
+        parent.removeChild(watermarkElement);
+        console.log('DOM水印已移除');
+      }
+      // 恢复原始position样式
+      if (element) {
+        if (originalPosition) {
+          element.style.position = originalPosition;
+        } else {
+          element.style.position = '';
+        }
+      }
+    }
+  }
+  
+  // 创建DOM水印元素
+  createDOMWatermark() {
+    const watermarkElement = document.createElement('div');
+    watermarkElement.style.cssText = `
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: red;
+      color: white;
+      padding: 4px 8px;
+      font: bold 10px Arial;
+      pointer-events: none;
+      z-index: 9999;
+    `;
+    watermarkElement.textContent = '# <MARK2> #';
+    watermarkElement.className = 'screenshot-watermark';
+    return watermarkElement;
   }
 
   // 使用 html2canvas 进行截图
@@ -93,6 +157,8 @@ class ScreenshotPlugin extends BasePlugin {
         width: scrollWidth,
         height: scrollHeight,
         scale: this.config.configuration?.pixelRatio || 2,
+        scrollX: 0,
+        scrollY: 0,
         logging: false, // 减少控制台输出
         imageTimeout: 10000, // 图片加载超时时间
         removeContainer: true, // 自动清理临时容器
@@ -144,16 +210,13 @@ class ScreenshotPlugin extends BasePlugin {
       
       console.log(`截图文件大小: ${Math.round(blob.size / 1024)}KB`);
       
-      // 在图片上添加水印
-      const watermarkedBlob = await this.addWatermarkToCanvas(canvas);
-      
-      // 同时保存到剪切板和临时文件
-      const clipboardResult = await this.saveToClipboardAndFile(watermarkedBlob);
+      // 直接保存到剪切板和临时文件（DOM水印已经在截图中）
+      const clipboardResult = await this.saveToClipboardAndFile(blob);
       
       return {
         success: clipboardResult.success,
         duration: duration,
-        size: watermarkedBlob.size,
+        size: blob.size,
         filePath: clipboardResult.filePath,
         error: clipboardResult.error
       };
@@ -168,31 +231,40 @@ class ScreenshotPlugin extends BasePlugin {
   }
 
   // 在 Canvas 上添加水印
-  async addWatermarkToCanvas(canvas) {
+  async addWatermarkToCanvas(canvas, originalSize = {}) {
     console.log('在 Canvas 上添加水印...');
     
     const ctx = canvas.getContext('2d');
     
-    // 完全回滚到之前能显示的代码
     const watermarkText = '# <MARK2> #';
 
-    // 设置字体样式并测量文字尺寸
+    // 设置字体样式并测量文字尺寸（考虑2倍缩放）
+    const scale = this.config.configuration?.pixelRatio || 2;
     ctx.font = `bold 10px Arial`;
     const textMetrics = ctx.measureText(watermarkText);
     const textWidth = textMetrics.width;
-    const textHeight = 10; // 字体大小
+    const textHeight = fontSize;
     
-    // 计算文字位置（居中）
+    // 直接使用Canvas实际尺寸计算中心（忽略style，因为Canvas已经是缩放后的）
     const x = canvas.width / 2;
-    const y = canvas.height / 2 + 20; // 
+    const y = canvas.height / 2 + 40; // 2倍缩放下的偏移也要翻倍
     
+    console.log('水印坐标调试:', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      canvasOffsetWidth: canvas.offsetWidth,
+      canvasOffsetHeight: canvas.offsetHeight,
+      canvasStyle: canvas.style.width + ' x ' + canvas.style.height,
+      textWidth: textWidth,
+      centerX: x,
+      centerY: y,
+      actualCenterShouldBe: canvas.offsetWidth ? canvas.offsetWidth / 2 : 'undefined'
+    });
     
-    
-    // 在画布中央绘制一个大的测试文本
-    console.log('测试绘制中央文本...');
-    // 绘制红色背景矩形（添加一些内边距）
-    const padding = 4;
+    // 绘制红色背景矩形（添加一些内边距，考虑缩放）
+    const padding = 4 * scale;
 
+    // 绘制水印背景矩形
     ctx.fillStyle = 'red';
     ctx.fillRect(
       x - textWidth / 2 - padding, 
@@ -201,6 +273,7 @@ class ScreenshotPlugin extends BasePlugin {
       textHeight + padding * 2
     );
 
+    // 绘制水印文字
     ctx.fillStyle = 'white';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
