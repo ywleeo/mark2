@@ -1,21 +1,20 @@
 {
   "name": "Mark2",
   "productName": "Mark2",
-  "version": "1.3.1",
+  "version": "1.3.3",
   "description": "一个基于 Electron 的 Markdown 阅读器",
   "main": "main.js",
   "scripts": {
     "start": "node check-deps.js && electron .",
     "dev": "node check-deps.js && electron . --dev",
-    "build": "node check-deps.js && node scripts/build-dmg.js",
-    "build:dmg": "node check-deps.js && node scripts/build-dmg.js",
-    "build:mas": "node check-deps.js && node scripts/build-mas.js",
-    "upload:mas": "node scripts/upload-mas.js",
-    "build-upload:mas": "node check-deps.js && node scripts/build-and-upload-mas.js",
-    "fix:mas": "node scripts/fix-mas-build.js",
-    "version:patch": "node scripts/version-bump.js patch",
-    "version:minor": "node scripts/version-bump.js minor",
-    "version:major": "node scripts/version-bump.js major",
+    "build": "node check-deps.js && npx electron-builder",
+    "build:dmg": "node check-deps.js && npx electron-builder --mac",
+    "build:mas": "node check-deps.js && npx electron-builder --mac mas",
+    "build:mas:upload": "node build-mas.js",
+    "version:patch": "node version-bump.js patch",
+    "version:minor": "node version-bump.js minor",
+    "version:major": "node version-bump.js major",
+    "version:prerelease": "node version-bump.js prerelease",
     "check-deps": "node check-deps.js"
   },
   "keywords": [
@@ -26,8 +25,10 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^37.3.1",
-    "electron-builder": "^23.6.0"
+    "@electron/osx-sign": "^1.0.5",
+    "dotenv": "^17.2.1",
+    "electron": "^25.9.8",
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",
@@ -92,6 +93,27 @@
       "minimumSystemVersion": "10.13.0",
       "hardenedRuntime": true,
       "gatekeeperAssess": false
+    },
+    "mas": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "mas",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "type": "distribution",
+      "identity": "yuwei li (YH83TRKYT7)",
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist"
+    },
+    "pkg": {
+      "identity": "yuwei li (YH83TRKYT7)"
     },
     "win": {
       "target": "nsis",

@@ -72,11 +72,30 @@ npm start file1.md file2.md           # 多文件参数（选择第一个有效�
 # 依赖管理
 npm run check-deps    # 检查并自动安装缺失的核心依赖
 
+# 版本管理
+npm run version:patch      # 补丁版本升级 (1.0.0 → 1.0.1)
+npm run version:minor      # 次版本升级   (1.0.1 → 1.1.0)  
+npm run version:major      # 主版本升级   (1.1.0 → 2.0.0)
+npm run version:prerelease # 预发布版本   (1.0.0 → 1.0.1-beta.0)
+
 # 打包构建
-npm run build         # 完整构建：electron-builder（生成 .dmg/.exe/.AppImage）
-npm run build:dmg     # DMG 分发版本构建（直接分发给用户）
-npm run build:mas     # Mac App Store 版本构建（需要后续手动处理）
+npm run build              # 完整构建：electron-builder（生成 .dmg/.exe/.AppImage）
+npm run build:dmg          # DMG 分发版本构建（直接分发给用户）
+npm run build:mas          # Mac App Store 版本构建（仅构建）
+npm run build:mas:upload   # 🚀 MAS 一键构建并上传到 App Store Connect
+
+# 快速发布流程（推荐）
+npm run version:patch && npm run build:mas:upload   # 修复版本
+npm run version:minor && npm run build:mas:upload   # 功能版本
+npm run version:major && npm run build:mas:upload   # 重大版本
 ```
+
+### 🛠️ MAS 构建工具
+
+项目包含专门的 Mac App Store 构建工具：
+- **`build-mas.js`**: 一键构建、签名、上传工具
+- **`version-bump.js`**: 智能版本管理工具
+- **完整文档**: 查看 `MAS_TOOLS_README.md`
 
 ### 截图功能依赖说明
 
