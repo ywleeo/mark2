@@ -49,8 +49,11 @@ class ScreenshotPlugin extends BasePlugin {
       const result = await this.captureWithHtml2Canvas(activeContent);
       
       if (result.success) {
-        this.showNotification('截图已保存 (可在文件夹中 Cmd+V 粘贴)', 'success');
+        this.showNotification('截图已保存并复制到剪切板', 'success');
         console.log('html2canvas 截图成功完成，文件路径:', result.filePath);
+      } else if (result.canceled) {
+        this.showNotification('截图已取消', 'info');
+        console.log('用户取消了截图保存');
       } else {
         this.showNotification(`截图失败: ${result.error}`, 'error');
         console.error('html2canvas 截图失败:', result.error);

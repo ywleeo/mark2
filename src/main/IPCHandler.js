@@ -674,73 +674,54 @@ class IPCHandler {
       }
     });
 
-    // 同时保存图片到剪切板和临时文件
+    // 保存截图到用户选择的位置并复制到剪切板
     ipcMain.handle('save-screenshot-dual', async (event, options) => {
       try {
-        const { clipboard } = require('electron');
-        const os = require('os');
+        const { clipboard, dialog } = require('electron');
         const buffer = Buffer.from(options.buffer, 'base64');
         const nativeImage = require('electron').nativeImage.createFromBuffer(buffer);
         
         // 生成时间戳文件名
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `mark2-screenshot-${timestamp}.png`;
-        const tempFilePath = path.join(os.tmpdir(), filename);
         
-        // 保存到临时文件
-        fs.writeFileSync(tempFilePath, buffer);
-        console.log('截图已保存到临时文件:', tempFilePath);
+        // 显示保存对话框
+        const mainWindow = this.windowManager.getWindow();
+        const result = await dialog.showSaveDialog(mainWindow, {
+          title: '保存截图',
+          defaultPath: filename,
+          filters: [
+            { name: 'PNG 图片', extensions: ['png'] },
+            { name: '所有文件', extensions: ['*'] }
+          ],
+          properties: ['createDirectory']
+        });
         
-        // 保存到剪切板 - 同时保存图像数据和文件路径
-        if (process.platform === 'darwin') {
-          // macOS: 使用 AppleScript 将文件复制到剪切板
-          const { exec } = require('child_process');
-          await new Promise((resolve, reject) => {
-            const script = `
-              set theFile to POSIX file "${tempFilePath}"
-              tell application "Finder"
-                set the clipboard to theFile
-              end tell
-            `;
-            exec(`osascript -e '${script}'`, (error) => {
-              if (error) {
-                console.warn('AppleScript 失败，使用图像数据保存:', error.message);
-                // 降级到图像数据保存
-                clipboard.writeImage(nativeImage);
-              }
-              resolve();
-            });
-          });
-        } else if (process.platform === 'win32') {
-          // Windows: 使用 PowerShell 设置文件剪切板
-          const { exec } = require('child_process');
-          await new Promise((resolve, reject) => {
-            const script = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::SetFileDropList([string[]]@("${tempFilePath.replace(/\\/g, '\\\\')}"))"`;
-            exec(`powershell -Command "${script}"`, (error) => {
-              if (error) {
-                console.warn('PowerShell 失败，使用图像数据保存:', error.message);
-                clipboard.writeImage(nativeImage);
-              }
-              resolve();
-            });
-          });
-        } else {
-          // Linux: 直接保存图像数据（大部分 Linux 文件管理器不支持文件剪切板）
-          clipboard.writeImage(nativeImage);
+        // 如果用户取消了保存
+        if (result.canceled) {
+          console.log('用户取消了截图保存');
+          return { 
+            success: false, 
+            canceled: true,
+            error: '用户取消保存'
+          };
         }
         
-        console.log('截图已保存到剪切板和临时文件');
+        // 保存文件到用户选择的位置
+        fs.writeFileSync(result.filePath, buffer);
+        console.log('截图已保存到:', result.filePath);
         
-        // 清理过期的临时文件
-        this.cleanupOldTempFiles();
+        // 同时将图像数据复制到剪切板（所有平台都支持）
+        clipboard.writeImage(nativeImage);
+        console.log('图像已复制到剪切板');
         
         return { 
           success: true, 
-          filePath: tempFilePath 
+          filePath: result.filePath
         };
         
       } catch (error) {
-        console.error('Error saving screenshot dual:', error);
+        console.error('Error saving screenshot:', error);
         return { success: false, error: error.message };
       }
     });
@@ -820,47 +801,6 @@ class IPCHandler {
     });
   }
 
-  // 清理过期的临时截图文件
-  cleanupOldTempFiles() {
-    try {
-      const os = require('os');
-      const tempDir = os.tmpdir();
-      
-      // 异步清理，避免阻塞主进程
-      process.nextTick(() => {
-        try {
-          const files = fs.readdirSync(tempDir);
-          const now = Date.now();
-          const maxAge = 24 * 60 * 60 * 1000; // 24小时
-          
-          let deletedCount = 0;
-          
-          files.forEach(file => {
-            if (file.startsWith('mark2-screenshot-') && file.endsWith('.png')) {
-              const filePath = path.join(tempDir, file);
-              try {
-                const stats = fs.statSync(filePath);
-                if (now - stats.mtime.getTime() > maxAge) {
-                  fs.unlinkSync(filePath);
-                  deletedCount++;
-                }
-              } catch (error) {
-                // 忽略单个文件的错误
-              }
-            }
-          });
-          
-          if (deletedCount > 0) {
-            console.log(`清理了 ${deletedCount} 个过期的临时截图文件`);
-          }
-        } catch (error) {
-          console.warn('清理临时文件时出错:', error.message);
-        }
-      });
-    } catch (error) {
-      console.warn('启动临时文件清理失败:', error.message);
-    }
-  }
 }
 
 module.exports = IPCHandler;
