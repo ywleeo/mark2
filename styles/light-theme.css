@@ -30,6 +30,10 @@ body {
     scrollbar-color: #d1d5db #f8f9fa;
 }
 
+.content-area {
+    scrollbar-color: #d1d5db #f1f3f4;
+}
+
 .empty-state {
     color: #6c757d;
 }
@@ -324,6 +328,7 @@ body {
 .sidebar::-webkit-scrollbar-track,
 .file-tree::-webkit-scrollbar-track,
 .main-content::-webkit-scrollbar-track,
+.content-area::-webkit-scrollbar-track,
 .settings-content::-webkit-scrollbar-track,
 .markdown-content pre::-webkit-scrollbar-track,
 .editor-textarea::-webkit-scrollbar-track {
@@ -333,6 +338,7 @@ body {
 .sidebar::-webkit-scrollbar-thumb,
 .file-tree::-webkit-scrollbar-thumb,
 .main-content::-webkit-scrollbar-thumb,
+.content-area::-webkit-scrollbar-thumb,
 .settings-content::-webkit-scrollbar-thumb,
 .markdown-content pre::-webkit-scrollbar-thumb,
 .editor-textarea::-webkit-scrollbar-thumb {
@@ -342,6 +348,7 @@ body {
 .sidebar::-webkit-scrollbar-thumb:hover,
 .file-tree::-webkit-scrollbar-thumb:hover,
 .main-content::-webkit-scrollbar-thumb:hover,
+.content-area::-webkit-scrollbar-thumb:hover,
 .settings-content::-webkit-scrollbar-thumb:hover,
 .markdown-content pre::-webkit-scrollbar-thumb:hover,
 .editor-textarea::-webkit-scrollbar-thumb:hover {

@@ -837,6 +837,7 @@ mark[class*="highlight-"] {
 .sidebar,
 .file-tree,
 .main-content,
+.content-area,
 .settings-content,
 .markdown-content pre {
     scrollbar-width: thin;
@@ -847,16 +848,18 @@ mark[class*="highlight-"] {
 .sidebar::-webkit-scrollbar,
 .file-tree::-webkit-scrollbar,
 .main-content::-webkit-scrollbar,
+.content-area::-webkit-scrollbar,
 .settings-content::-webkit-scrollbar,
 .markdown-content pre::-webkit-scrollbar,
 .editor-textarea::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 .sidebar::-webkit-scrollbar-track,
 .file-tree::-webkit-scrollbar-track,
 .main-content::-webkit-scrollbar-track,
+.content-area::-webkit-scrollbar-track,
 .settings-content::-webkit-scrollbar-track,
 .markdown-content pre::-webkit-scrollbar-track,
 .editor-textarea::-webkit-scrollbar-track {
@@ -866,6 +869,7 @@ mark[class*="highlight-"] {
 .sidebar::-webkit-scrollbar-thumb,
 .file-tree::-webkit-scrollbar-thumb,
 .main-content::-webkit-scrollbar-thumb,
+.content-area::-webkit-scrollbar-thumb,
 .settings-content::-webkit-scrollbar-thumb,
 .markdown-content pre::-webkit-scrollbar-thumb,
 .editor-textarea::-webkit-scrollbar-thumb {
