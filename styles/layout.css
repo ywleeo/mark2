@@ -101,7 +101,7 @@ body {
     display: flex;
     align-items: center;
     padding: 1px 16px 2px var(--tree-root-indent);
-    margin: 1px 0;
+    margin: 2px 0;
     cursor: pointer;
     font-size: 12px;
     transition: background-color 0.15s;
