@@ -378,7 +378,7 @@ class TabManager {
       if (tab.isReadOnly) {
         const readOnlyIcon = document.createElement('span');
         readOnlyIcon.className = 'tab-readonly-icon';
-        readOnlyIcon.innerHTML = '🔒';
+        readOnlyIcon.innerHTML = '<img src="assets/icons/lock-icon.svg" alt="只读" width="12" height="12">';
         readOnlyIcon.title = '只读文件';
         tabTitle.appendChild(readOnlyIcon);
       }

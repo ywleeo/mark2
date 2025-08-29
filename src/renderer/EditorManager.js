@@ -410,7 +410,7 @@ class EditorManager {
       
       indicator.innerHTML = `
         <div class="readonly-banner">
-          🔒 此文件为只读文件，如需编辑请
+          <img src="assets/icons/lock-icon.svg" alt="锁" width="16" height="16" style="display: inline-block; vertical-align: middle; margin-right: 6px;">此文件为只读文件，如需编辑请
           <button class="readonly-save-copy-btn" onclick="window.editorManager.saveAsLocalCopy()">
             另存为本地副本
           </button>
@@ -648,6 +648,9 @@ class EditorManager {
       cancelAnimationFrame(this.resizeTimer);
       this.resizeTimer = null;
     }
+    
+    // 清理只读指示器
+    this.updateReadOnlyIndicator();
     
     // 清理预览滚动监听器
     if (this.removePreviewScrollListener) {

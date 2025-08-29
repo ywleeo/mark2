@@ -418,9 +418,17 @@
 
 /* Tab 只读图标样式 */
 .tab-readonly-icon {
-    font-size: 12px;
     margin-left: 6px;
-    opacity: 0.7;
+    opacity: 0.8;
+    display: inline-flex;
+    align-items: center;
+    color: #666;
+    transition: opacity 0.2s ease;
+}
+
+.tab-readonly-icon img {
+    position: relative;
+    top: 2px;
 }
 
 /* 暗色主题下的只读指示器 */
@@ -437,3 +445,4 @@
 [data-theme="dark"] .readonly-save-copy-btn:hover {
     background: #0b5ed7;
 }
+
