@@ -243,8 +243,13 @@ class IPCManager {
       const result = await ipcRenderer.invoke('open-help-file', filename);
       
       if (result.success) {
-        // 使用现有的文件显示方法打开帮助文件
-        this.displayMarkdown(result.content, result.filePath, false, true, false, 'help');
+        // 根据文件名判断文件类型
+        const fileType = filename.startsWith('demo-') ? 'demo' : 'help';
+        
+        // 只读文件应该作为 file 类型存在，并添加到 Files 区域
+        // 使用双击逻辑：添加到Files区域并创建file tab
+        this.fileTreeManager.addFile(result.filePath, result.content);
+        this.displayMarkdown(result.content, result.filePath, false, true, true, fileType);
       } else {
         this.uiManager.showMessage(`无法打开帮助文件: ${result.error}`, 'error');
       }

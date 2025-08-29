@@ -28,6 +28,9 @@ class AppManager {
       this.eventManager, this.editorManager, this.uiManager, 
       this.fileTreeManager, this.searchManager, this.titleBarDragManager
     );
+    
+    // 设置 EditorManager 对 TabManager 的引用
+    this.editorManager.tabManager = this.tabManager;
     this.stateManager = new StateManager(
       this.eventManager, this.tabManager, this.fileTreeManager,
       this.uiManager, this.editorManager, this.titleBarDragManager
@@ -82,7 +85,13 @@ class AppManager {
 
     // 保存文件事件
     this.eventManager.on('save-file', () => {
-      this.editorManager.saveFile();
+      if (this.editorManager.isCurrentFileReadOnly()) {
+        // 只读文件触发另存为
+        this.editorManager.saveAsLocalCopy();
+      } else {
+        // 正常文件触发保存
+        this.editorManager.saveFile();
+      }
     });
 
     // 打开文件事件

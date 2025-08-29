@@ -380,3 +380,60 @@
     margin: 8px 0;
     color: var(--text-muted);
 }
+
+/* ============ 只读文件指示器样式 ============ */
+.readonly-indicator {
+    margin-bottom: 16px;
+}
+
+.readonly-banner {
+    background: linear-gradient(135deg, #fff3cd, #ffeeba);
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 14px;
+    color: #856404;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.readonly-save-copy-btn {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-weight: 500;
+    margin-left: auto;
+}
+
+.readonly-save-copy-btn:hover {
+    background: #0056b3;
+}
+
+/* Tab 只读图标样式 */
+.tab-readonly-icon {
+    font-size: 12px;
+    margin-left: 6px;
+    opacity: 0.7;
+}
+
+/* 暗色主题下的只读指示器 */
+[data-theme="dark"] .readonly-banner {
+    background: linear-gradient(135deg, #3d3416, #4a3d18);
+    border-color: #d4a619;
+    color: #f0c040;
+}
+
+[data-theme="dark"] .readonly-save-copy-btn {
+    background: #0d6efd;
+}
+
+[data-theme="dark"] .readonly-save-copy-btn:hover {
+    background: #0b5ed7;
+}

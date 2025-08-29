@@ -69,6 +69,16 @@ class IPCHandler {
       }
     });
 
+    // 另存为文件
+    ipcMain.handle('save-file-as', async (event, content) => {
+      try {
+        return await this.fileManager.saveFileAs(content);
+      } catch (error) {
+        console.error('Error in save-file-as:', error);
+        throw error;
+      }
+    });
+
     // 保存新文件
     ipcMain.handle('save-new-file', async (event, filePath, content) => {
       try {

@@ -579,6 +579,39 @@ class FileManager {
       return { success: false, error: errorMessage };
     }
   }
+
+  async saveFileAs(content) {
+    try {
+      const mainWindow = this.windowManager.getWindow();
+      const result = await dialog.showSaveDialog(mainWindow, {
+        filters: [
+          { name: 'Markdown Files', extensions: ['md', 'markdown'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        defaultPath: 'Untitled.md'
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, canceled: true };
+      }
+
+      const filePath = result.filePath;
+      
+      // 写入文件
+      fs.writeFileSync(filePath, content, 'utf-8');
+      
+      console.log('文件另存为成功:', filePath);
+      return { 
+        success: true, 
+        filePath: filePath,
+        content: content
+      };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('另存为文件失败:', errorMessage, error);
+      return { success: false, error: errorMessage };
+    }
+  }
 }
 
 module.exports = FileManager;

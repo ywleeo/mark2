@@ -1,8 +1,9 @@
 class EditorManager {
-  constructor(markdownRenderer, eventManager, appManager) {
+  constructor(markdownRenderer, eventManager, appManager, tabManager = null) {
     this.markdownRenderer = markdownRenderer;
     this.eventManager = eventManager;
     this.appManager = appManager;
+    this.tabManager = tabManager;
     this.isEditMode = false;
     this.currentFilePath = null;
     this.originalContent = '';
@@ -163,6 +164,15 @@ class EditorManager {
   }
 
   async toggleEditMode() {
+    // 检查只读状态，只读文件不能进入编辑模式
+    if (!this.isEditMode && this.isCurrentFileReadOnly()) {
+      // 显示只读提示，不切换模式
+      if (this.appManager && this.appManager.uiManager) {
+        this.appManager.uiManager.showMessage('此文件为只读，无法编辑。如需编辑，请另存为本地副本。', 'info');
+      }
+      return;
+    }
+    
     // 保存当前模式的滚动位置
     this.saveCurrentScrollPosition();
     
@@ -289,6 +299,9 @@ class EditorManager {
     this.originalContent = content;
     this.currentFilePath = filePath;
     
+    // 检查当前文件是否为只读
+    const isReadOnly = this.isCurrentFileReadOnly();
+    
     // 只有在需要重置保存状态时才重置
     if (resetSaveState) {
       this.hasUnsavedChanges = false;
@@ -296,7 +309,8 @@ class EditorManager {
     
     // 只有在需要重置编辑模式时才重置（文件外部更新时保持当前编辑状态）
     const wasInEditMode = this.isEditMode;
-    if (resetEditMode) {
+    if (resetEditMode || isReadOnly) {
+      // 只读文件强制保持预览模式
       this.isEditMode = false;
     }
     
@@ -329,8 +343,8 @@ class EditorManager {
       this.markdownHighlighter.setValue(content);
     }
     
-    // 只有在重置编辑模式时才强制切换UI状态
-    if (resetEditMode) {
+    // 只有在重置编辑模式时或只读文件时才强制切换UI状态
+    if (resetEditMode || isReadOnly) {
       const editorContent = document.getElementById('editorContent');
       const contentArea = document.querySelector('.content-area');
       const editButton = document.getElementById('edit-button');
@@ -338,8 +352,10 @@ class EditorManager {
       // 确保编辑器容器隐藏，内容区域显示（预览模式）
       if (editorContent) editorContent.style.display = 'none';
       if (contentArea) contentArea.style.display = 'block';
-      if (editButton) editButton.textContent = '编辑';
-    } else if (wasInEditMode) {
+      if (editButton) {
+        editButton.textContent = isReadOnly ? '只读' : '编辑';
+      }
+    } else if (wasInEditMode && !isReadOnly) {
       // 如果之前在编辑模式且不重置编辑模式，保持编辑模式UI状态
       // 但需要确保编辑器中的内容是最新的
       const editorContent = document.getElementById('editorContent');
@@ -353,8 +369,8 @@ class EditorManager {
     
     this.updatePreview(content);
     
-    // 只有在重置编辑模式时才重置预览区域滚动位置
-    if (resetEditMode) {
+    // 只有在重置编辑模式时或只读文件时才重置预览区域滚动位置
+    if (resetEditMode || isReadOnly) {
       setTimeout(() => {
         const contentArea = document.querySelector('.content-area');
         if (contentArea) {
@@ -363,7 +379,70 @@ class EditorManager {
       }, 50);
     }
     
+    // 显示只读提示
+    this.updateReadOnlyIndicator();
+    
     this.updateSaveButton();
+  }
+
+  // 检查当前文件是否为只读
+  isCurrentFileReadOnly() {
+    if (!this.tabManager) return false;
+    return this.tabManager.isActiveTabReadOnly();
+  }
+
+  // 更新只读指示器
+  updateReadOnlyIndicator() {
+    const isReadOnly = this.isCurrentFileReadOnly();
+    let indicator = document.getElementById('readonly-indicator');
+    
+    if (isReadOnly) {
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'readonly-indicator';
+        indicator.className = 'readonly-indicator';
+        
+        const contentArea = document.querySelector('.content-area');
+        if (contentArea) {
+          contentArea.insertBefore(indicator, contentArea.firstChild);
+        }
+      }
+      
+      indicator.innerHTML = `
+        <div class="readonly-banner">
+          🔒 此文件为只读文件，如需编辑请
+          <button class="readonly-save-copy-btn" onclick="window.editorManager.saveAsLocalCopy()">
+            另存为本地副本
+          </button>
+        </div>
+      `;
+    } else {
+      if (indicator) {
+        indicator.remove();
+      }
+    }
+  }
+
+  // 另存为本地副本
+  async saveAsLocalCopy() {
+    try {
+      const content = this.getCurrentContent();
+      const { ipcRenderer } = require('electron');
+      
+      // 调用IPC接口，使用保存对话框选择位置
+      const result = await ipcRenderer.invoke('save-file-as', content);
+      
+      if (result && result.success) {
+        if (this.appManager && this.appManager.uiManager) {
+          this.appManager.uiManager.showMessage(`文件已另存为: ${result.filePath}`, 'success');
+        }
+      }
+    } catch (error) {
+      console.error('另存为失败:', error);
+      if (this.appManager && this.appManager.uiManager) {
+        this.appManager.uiManager.showMessage(`另存为失败: ${error.message}`, 'error');
+      }
+    }
   }
 
   getCurrentContent() {
@@ -375,6 +454,15 @@ class EditorManager {
   }
 
   async saveFile() {
+    // 检查只读状态，只读文件不能直接保存
+    if (this.isCurrentFileReadOnly()) {
+      // 提示用户需要另存为
+      if (this.appManager && this.appManager.uiManager) {
+        this.appManager.uiManager.showMessage('此文件为只读，无法直接保存。如需编辑，请另存为本地副本。', 'warning');
+      }
+      return;
+    }
+    
     // 使用全局文件路径
     const currentPath = this.appManager ? this.appManager.getCurrentFilePath() : this.currentFilePath;
     
@@ -475,8 +563,37 @@ class EditorManager {
   }
 
   updateSaveButton() {
-    // 移除了保存按钮，不再需要更新状态
-    // 保存状态通过 UI 消息提示显示
+    // 检查只读状态并更新按钮
+    const editButton = document.getElementById('edit-button');
+    const saveBtn = document.getElementById('saveBtn');
+    
+    const isReadOnly = this.isCurrentFileReadOnly();
+    
+    if (editButton) {
+      if (isReadOnly) {
+        editButton.textContent = '只读';
+        editButton.style.color = '#666';
+        editButton.title = '此文件为只读，无法编辑';
+        editButton.disabled = true;
+      } else {
+        editButton.textContent = this.isEditMode ? '预览' : '编辑';
+        editButton.style.color = '';
+        editButton.title = '';
+        editButton.disabled = false;
+      }
+    }
+    
+    if (saveBtn) {
+      if (isReadOnly) {
+        saveBtn.textContent = '另存为';
+        saveBtn.title = '另存为本地副本';
+        saveBtn.disabled = false;
+      } else {
+        saveBtn.textContent = '保存';
+        saveBtn.title = '';
+        saveBtn.disabled = false;
+      }
+    }
   }
 
   showSaveStatus(message, type) {

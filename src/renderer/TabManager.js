@@ -35,7 +35,7 @@ class TabManager {
           existingTab.content = result.content;
           await this.setActiveTab(existingTab.id);
         } else {
-          await this.createTab(result.filePath, result.content, null, 'file');
+          await this.createTab(result.filePath, result.content, null, 'file', 'file');
         }
         
         // 更新编辑器内容
@@ -84,7 +84,7 @@ class TabManager {
     }
   }
 
-  async createTab(filePath, content, title = null, belongsTo = 'folder') {
+  async createTab(filePath, content, title = null, belongsTo = 'folder', fileType = 'subfolder-file') {
     const path = require('path');
     const fileName = title || path.basename(filePath);
     
@@ -102,6 +102,9 @@ class TabManager {
       }
     }
     
+    // 判断是否为只读文件：help文件、demo文件等
+    const isReadOnly = this.determineReadOnlyStatus(fileType, filePath);
+    
     const tab = {
       id: this.nextTabId++,
       title: fileName,
@@ -110,7 +113,9 @@ class TabManager {
       isActive: false,
       isModified: false,
       belongsTo: belongsTo, // 'file' 或 'folder'
-      fileTimestamp: fileTimestamp // 文件最后修改时间戳，用于判断是否需要刷新内容
+      fileTimestamp: fileTimestamp, // 文件最后修改时间戳，用于判断是否需要刷新内容
+      isReadOnly: isReadOnly, // 是否为只读文件
+      fileType: fileType // 保存文件类型信息
     };
     
     this.tabs.push(tab);
@@ -124,6 +129,24 @@ class TabManager {
     
     this.eventManager.emit('tab-created', tab);
     return tab;
+  }
+
+  // 判断文件是否为只读
+  determineReadOnlyStatus(fileType, filePath) {
+    // help文件、demo文件等内置文件为只读
+    if (fileType === 'help') {
+      return true;
+    }
+    
+    // demo文件也是只读的
+    if (fileType === 'demo' || (filePath && filePath.includes('/docs/demo-'))) {
+      return true;
+    }
+    
+    // 未来可扩展：共享文件等也可能是只读的
+    // if (fileType === 'shared') return true;
+    
+    return false;
   }
 
   async setActiveTab(tabId) {
@@ -351,6 +374,15 @@ class TabManager {
         tabTitle.textContent += ' •';
       }
       
+      // 为只读文件添加锁定图标
+      if (tab.isReadOnly) {
+        const readOnlyIcon = document.createElement('span');
+        readOnlyIcon.className = 'tab-readonly-icon';
+        readOnlyIcon.innerHTML = '🔒';
+        readOnlyIcon.title = '只读文件';
+        tabTitle.appendChild(readOnlyIcon);
+      }
+      
       const closeButton = document.createElement('button');
       closeButton.className = 'tab-close';
       closeButton.innerHTML = '×';
@@ -442,13 +474,18 @@ class TabManager {
     
     // 如果强制新建tab，直接创建
     if (forceNewTab) {
+      // 如果是双击操作，创建file类型的tab
+      if (fromDoubleClick) {
+        return await this.createTab(filePath, content, null, 'file', fileType);
+      }
+      // 否则根据fileType决定
       const belongsTo = fileType === 'file' ? 'file' : 'folder';
-      return await this.createTab(filePath, content, null, belongsTo);
+      return await this.createTab(filePath, content, null, belongsTo, fileType);
     }
     
     // 判断其来自file还是folder
     if (fileType === 'file') {
-      return await this.createTab(filePath, content, null, 'file');
+      return await this.createTab(filePath, content, null, 'file', fileType);
     } else {
       // 如果是folder就看tab上哪个tab是folder，替换folder的那个tab显示当前内容
       const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
@@ -457,6 +494,10 @@ class TabManager {
         folderTab.content = content;
         folderTab.title = require('path').basename(filePath);
         folderTab.isModified = false;
+        
+        // 重新确定只读状态
+        folderTab.isReadOnly = this.determineReadOnlyStatus(fileType, filePath);
+        folderTab.fileType = fileType;
         
         // 更新文件时间戳
         try {
@@ -481,7 +522,7 @@ class TabManager {
         this.updateTabTitle(folderTab.id, folderTab.title);
         return folderTab;
       } else {
-        return await this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder');
+        return await this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder', fileType);
       }
     }
   }
@@ -491,7 +532,7 @@ class TabManager {
     const newFileName = 'Untitled.md';
     
     // 创建新tab，标记为file类型
-    const newTab = await this.createTab(null, newFileContent, newFileName, 'file');
+    const newTab = await this.createTab(null, newFileContent, newFileName, 'file', 'file');
     
     // 将文件添加到Files区域，使用临时文件名
     this.fileTreeManager.addFile(null, newFileContent, newFileName);
@@ -557,6 +598,18 @@ class TabManager {
       tab.isModified = false;
       this.updateTabBar();
     }
+  }
+
+  // 检查当前活动tab是否为只读
+  isActiveTabReadOnly() {
+    const activeTab = this.getActiveTab();
+    return activeTab ? activeTab.isReadOnly : false;
+  }
+
+  // 检查指定路径的文件是否为只读
+  isFileReadOnly(filePath) {
+    const tab = this.findTabByPath(filePath);
+    return tab ? tab.isReadOnly : false;
   }
 }
 
