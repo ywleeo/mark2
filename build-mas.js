@@ -164,10 +164,13 @@ function uploadToAppStore(pkgPath) {
     const cmd = `xcrun altool --upload-app --type osx --file "${pkgPath}" --username "${APPLE_ID}" --password "${APPLE_PASSWORD}"`;
     
     const output = execSync(cmd, { 
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'pipe'],
       encoding: 'utf8',
       timeout: 180000 // 3 分钟超时
     });
+    
+    // 输出完整信息供调试
+    console.log('altool output:', output);
     
     // 解析上传结果
     if (output.includes('UPLOAD SUCCEEDED')) {
