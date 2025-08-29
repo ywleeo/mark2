@@ -75,13 +75,47 @@ class DragDropManager {
       // 显示加载提示
       this.uiManager.showMessage('正在处理拖拽的文件...', 'info');
       
-      // 使用 webUtils.getPathForFile 获取真实文件路径
-      const { webUtils, ipcRenderer } = require('electron');
+      // 获取文件路径信息
+      const { ipcRenderer } = require('electron');
       const file = files[0]; // 只处理第一个文件/文件夹
-      const realPath = webUtils.getPathForFile(file);
+      
+      console.log('拖拽文件信息:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+        path: file.path // HTML File API 的路径属性
+      });
+      
+      let realPath;
+      try {
+        // 尝试直接使用 file.path
+        if (file.path) {
+          realPath = file.path;
+          console.log('直接获取路径成功:', realPath);
+        } else {
+          // 如果没有 path 属性，尝试通过 IPC 获取
+          realPath = await ipcRenderer.invoke('get-file-path-from-drag', {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: file.lastModified
+          });
+          console.log('通过 IPC 获取路径成功:', realPath);
+        }
+      } catch (pathError) {
+        console.error('获取文件路径失败:', pathError);
+        throw new Error('无法获取文件路径: ' + pathError.message);
+      }
       
       // 使用真实路径调用处理逻辑
       const result = await ipcRenderer.invoke('handle-drop-file', realPath);
+      
+      console.log('主进程处理结果:', result);
+      
+      if (result.success === false) {
+        throw new Error(result.error || '主进程处理失败');
+      }
       
       if (result.type === 'folder') {
         await this.handleFolderDrop(result);
@@ -93,8 +127,13 @@ class DragDropManager {
       this.uiManager.clearMessage();
       
     } catch (error) {
-      console.error('拖拽处理错误:', error);
-      this.uiManager.showMessage('处理拖拽文件时发生错误: ' + error.message, 'error');
+      console.error('拖拽处理错误 - 错误类型:', typeof error);
+      console.error('拖拽处理错误 - 错误对象:', error);
+      console.error('拖拽处理错误 - 错误消息:', error?.message);
+      console.error('拖拽处理错误 - 错误堆栈:', error?.stack);
+      
+      const errorMessage = error?.message || error?.toString() || '未知错误';
+      this.uiManager.showMessage('处理拖拽文件时发生错误: ' + errorMessage, 'error');
     }
   }
 
