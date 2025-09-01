@@ -241,6 +241,11 @@ class Tab {
     } catch (error) {
       console.log('[Tab] 获取文件时间戳失败:', error.message);
     }
+    
+    // 如果这个tab是当前活动的，立即重新渲染内容
+    if (this.isActive && this.editorManager) {
+      this.restoreToEditor();
+    }
   }
   
   // 标记为已保存

@@ -5,6 +5,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 重要：开始工作前必读
 **每次开始工作时，必须先读取 MISTAKES.md 文件，了解之前的错误和教训，避免重复犯错。**
 
+## 🏗️ 核心架构原则
+
+### Tab-EditorManager 分离架构
+**重要**：项目已完成 Tab 与 EditorManager 的完全分离重构，理解这个架构对开发至关重要：
+
+**核心设计原则**：
+1. **Tab 类**：完全自治的状态管理器和内容控制器
+   - 维护所有状态（`isEditMode`, `content`, `scrollRatio`, `hasUnsavedChanges` 等）
+   - 负责自己的内容显示和状态恢复
+   - 通过 `restoreToEditor()` 调用 EditorManager 服务
+   
+2. **TabManager 类**：纯粹的 Tab 集合管理器
+   - 只负责 tab 的创建、删除、切换
+   - 不直接操作 EditorManager
+   - 不处理内容显示逻辑
+   
+3. **EditorManager 类**：无状态的 DOM 服务类
+   - 只提供服务方法，不保存状态
+   - 通过参数接收所有需要的状态数据
+   - 负责 DOM 操作和界面渲染
+
+**数据流向**：
+```
+用户操作 → TabManager → Tab → EditorManager
+         (管理列表)  (管理状态)  (提供服务)
+```
+
+**关键API变化**：
+```javascript
+// ❌ 已废弃的有状态方法
+editorManager.setContent(content, filePath)
+editorManager.toggleEditMode()
+editorManager.isEditMode
+
+// ✅ 新的无状态服务方法  
+editorManager.renderContent(content, filePath, options)
+editorManager.switchMode(isEditMode, options)
+editorManager.setScrollPosition(scrollRatio, isEditMode)
+```
+
+**Tab 自治原则**：
+- **内容更新**：Tab 负责调用自己的 `restoreToEditor()` 显示内容
+- **状态管理**：Tab 通过 `saveFromEditor()` 保存状态到自己的属性
+- **生命周期**：Tab 的 `activate()` 和 `deactivate()` 管理自己的显示状态
+
+**开发注意事项**：
+- TabManager 不应直接调用 `editorManager.renderContent()`
+- 需要显示内容时，让对应的 Tab 调用 `restoreToEditor()`
+- EditorManager 不应保存任何状态，所有状态通过参数传递
+- Tab 内容发生变化时，在 `updateFileInfo()` 中自动重新渲染
+
 ## Project Overview
 
 mark2 是一个基于 Electron 的 Markdown 阅读器和编辑器，提供双栏界面（文件树+内容区域）和编辑/预览模式切换功能。
@@ -289,10 +340,73 @@ FORCE_NON_MAC_LAYOUT=true npm run dev
 - 文件关联配置：.md 和 .markdown 文件
 
 ### 多标签页系统 (Tab System)
+
+**新架构设计 (2024重构)**：
+
+#### 三层分离架构
+1. **Tab 类** (`src/renderer/Tab.js`): 自治的标签页实例
+   - **完全独立**：每个 Tab 管理自己的完整状态和生命周期  
+   - **自我驱动**：负责自己的内容显示、状态保存和恢复
+   - **服务调用者**：通过调用 EditorManager 服务方法来操作界面
+
+2. **TabManager 类** (`src/renderer/TabManager.js`): 纯粹的集合管理器
+   - **职责单一**：只负责 tab 列表的增删改查和切换
+   - **不涉及内容**：不直接操作文件内容或界面显示
+   - **协调角色**：协调 tab 之间的切换，但让 tab 自己处理显示逻辑
+
+3. **EditorManager 类** (`src/renderer/EditorManager.js`): 无状态的 DOM 服务
+   - **纯服务类**：只提供 DOM 操作方法，不保存任何状态
+   - **参数驱动**：所有方法都通过参数接收状态数据
+   - **被动响应**：被 Tab 调用来执行具体的界面操作
+
+#### Tab 自治生命周期
+```javascript
+// 用户点击文件
+TabManager.openFileFromPath() 
+→ 找到或创建对应的 Tab
+→ Tab.updateFileInfo() // Tab 更新自己的文件信息
+→ Tab.restoreToEditor() // Tab 主动显示内容
+→ EditorManager.renderContent() // 服务方法执行 DOM 操作
+
+// Tab 切换过程
+当前Tab.saveFromEditor() // 保存状态到 Tab 实例
+→ 当前Tab.deactivate() // 取消激活
+→ 目标Tab.activate() // 激活目标 Tab
+→ 目标Tab.restoreToEditor() // Tab 自己恢复显示
+```
+
+#### 关键方法职责
+
+**Tab 类的核心方法**：
+- `activate()`: 激活时检查内容更新并恢复显示
+- `deactivate()`: 取消激活时保存当前状态  
+- `saveFromEditor()`: 从编辑器保存状态到 Tab 属性
+- `restoreToEditor()`: 将 Tab 状态恢复到编辑器显示
+- `updateFileInfo()`: 更新文件信息并自动重新渲染（如果是活动tab）
+
+**TabManager 类的核心方法**：
+- `createTab()`: 创建新 tab 并激活
+- `setActiveTab()`: 切换活动 tab（处理前一个tab的保存和新tab的激活）
+- `openFileFromPath()`: 打开文件（创建或复用 tab）
+- ❌ `不再包含`：任何直接的内容显示逻辑
+
+#### 状态管理原则
+- **完全隔离**：每个 Tab 的状态（`isEditMode`, `content`, `scrollRatio` 等）完全独立
+- **自我管理**：Tab 负责自己状态的保存、恢复和同步
+- **实时更新**：内容变化时立即更新到对应 Tab 的状态中
+- **按需渲染**：只有活动的 Tab 会调用 EditorManager 进行界面渲染
+
+#### 分类系统
 - 每个 tab 具有 `belongsTo: 'file' | 'folder'` 属性来标识归属
 - 文件夹单击操作：更新或创建 folder 类型的 tab
 - 双击操作：将文件添加到 Files 区域，tab 归属变为 file 类型
 - 使用透明覆盖层 (`titlebar-drag-overlay`) 确保窗口拖拽功能不被遮挡
+
+#### 重构优势
+- **职责清晰**：每个类的职责边界明确，降低耦合
+- **状态可靠**：Tab 状态完全隔离，不会相互干扰
+- **维护简单**：修改某个功能时影响范围明确
+- **扩展容易**：新增 Tab 功能只需修改 Tab 类
 
 ### IPC 通信架构
 **双向通信模型**：
@@ -484,4 +598,84 @@ npm run build
 # 运行构建的应用
 open dist/mac-arm64/MARK2.app  # ARM64 版本
 open dist/mac/MARK2.app        # x64 版本
+```
+
+## 常见开发模式
+
+### 添加新功能到 Tab 系统
+当需要为 tab 添加新状态或功能时：
+
+1. **在 Tab.js 中添加状态属性**：
+```javascript
+class Tab {
+  constructor() {
+    // 添加新的状态属性
+    this.newProperty = defaultValue;
+  }
+}
+```
+
+2. **在 saveFromEditor() 中保存状态**：
+```javascript
+saveFromEditor() {
+  // 保存新状态到 tab 实例
+  this.newProperty = this.getCurrentNewProperty();
+}
+```
+
+3. **在 restoreToEditor() 中恢复状态**：
+```javascript
+restoreToEditor() {
+  // 将状态传递给 EditorManager 服务
+  this.editorManager.someServiceMethod(this.newProperty);
+}
+```
+
+### 修改 EditorManager 服务方法
+EditorManager 应该保持无状态，所有方法都应该：
+
+1. **通过参数接收状态**：
+```javascript
+// ✅ 正确：无状态服务方法
+serviceMethod(content, filePath, options) {
+  const { isEditMode, scrollRatio } = options;
+  // 使用传入的状态进行 DOM 操作
+}
+
+// ❌ 错误：依赖内部状态
+serviceMethod() {
+  if (this.isEditMode) { // 不要依赖内部状态
+    // ...
+  }
+}
+```
+
+2. **返回处理结果**：服务方法可以返回结果，但不应该保存状态
+
+### IPC 通信模式
+主进程和渲染进程通信遵循以下模式：
+
+1. **渲染进程发起请求**：
+```javascript
+const result = await ipcRenderer.invoke('handler-name', data);
+```
+
+2. **主进程处理请求**：
+```javascript
+// src/main/IPCHandler.js
+ipcMain.handle('handler-name', async (event, data) => {
+  // 处理逻辑
+  return result;
+});
+```
+
+3. **主进程主动通知**：
+```javascript
+// 主进程
+webContents.send('event-name', data);
+
+// 渲染进程监听
+ipcRenderer.on('event-name', (event, data) => {
+  // 处理事件
+});
 ```

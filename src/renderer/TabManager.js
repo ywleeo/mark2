@@ -39,8 +39,7 @@ class TabManager {
           await this.createTab(result.filePath, result.content, null, 'file', 'file');
         }
         
-        // 更新编辑器内容
-        this.editorManager.setContent(result.content, result.filePath);
+        // Tab 会在 activate() 时自动显示内容，TabManager 只需管理列表
         this.uiManager.updateFileNameDisplay(result.filePath);
         this.fileTreeManager.updateActiveFile(result.filePath);
         
@@ -481,7 +480,7 @@ class TabManager {
         await folderTab.updateFileInfo(filePath, content, fileType, newBelongsTo);
         
         await this.setActiveTab(folderTab.id);
-        this.editorManager.setContent(content, filePath);
+        // Tab 会在 setActiveTab 时自动显示内容，TabManager 只需管理列表
         this.uiManager.updateFileNameDisplay(filePath);
         this.fileTreeManager.updateActiveFile(filePath);
         this.updateTabBar(); // 更新整个tab栏以反映标题变化
@@ -499,11 +498,13 @@ class TabManager {
     // 创建新tab，标记为file类型
     const newTab = await this.createTab(null, newFileContent, newFileName, 'file', 'file');
     
+    // 新文件默认进入编辑模式
+    newTab.isEditMode = true;
+    
     // 将文件添加到Files区域，使用临时文件名
     this.fileTreeManager.addFile(null, newFileContent, newFileName);
     
-    // 更新编辑器内容并切换到编辑模式
-    this.editorManager.setContent(newFileContent, null);
+    // Tab 会在创建和激活时自动显示内容，TabManager 只需管理列表
     this.uiManager.updateFileNameDisplay(newFileName);
     
     // 显示markdown内容区域

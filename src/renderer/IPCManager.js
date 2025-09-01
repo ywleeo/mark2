@@ -210,8 +210,12 @@ class IPCManager {
         // 如果有未保存的更改，显示警告提示用户
         this.uiManager.showMessage('文件已被外部修改，但您有未保存的更改', 'warning');
       } else {
-        // 没有未保存的更改，直接更新内容，重新初始化编辑模式以刷新CodeMirror
-        this.editorManager.setContent(data.content, data.filePath, false, false);
+        // 没有未保存的更改，让当前活动tab更新自己的内容
+        const activeTab = this.appManager.tabManager?.getActiveTab();
+        if (activeTab && activeTab.filePath === data.filePath) {
+          activeTab.content = data.content;
+          activeTab.restoreToEditor(); // 重新显示内容
+        }
       }
     }
   }
