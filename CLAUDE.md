@@ -602,8 +602,10 @@ open dist/mac/MARK2.app        # x64 版本
 
 ## 常见开发模式
 
-### 添加新功能到 Tab 系统
-当需要为 tab 添加新状态或功能时：
+### Tab 系统新架构开发指南
+
+#### 添加新功能到 Tab 系统
+基于新的三层分离架构，当需要为 tab 添加新状态或功能时：
 
 1. **在 Tab.js 中添加状态属性**：
 ```javascript
@@ -629,6 +631,60 @@ restoreToEditor() {
   // 将状态传递给 EditorManager 服务
   this.editorManager.someServiceMethod(this.newProperty);
 }
+```
+
+4. **如需在内容更新时处理，在 updateFileInfo() 中添加逻辑**：
+```javascript
+async updateFileInfo(filePath, content, fileType, belongsTo = null) {
+  // 更新基本属性...
+  this.newProperty = this.calculateNewProperty();
+  
+  // 如果是活动tab，自动重新渲染
+  if (this.isActive && this.editorManager) {
+    this.restoreToEditor();
+  }
+}
+```
+
+#### TabManager 开发原则
+
+**✅ TabManager 应该做的**：
+```javascript
+// 管理 tab 列表
+createTab(filePath, content, title, belongsTo, fileType)
+closeTab(tabId)
+setActiveTab(tabId)
+
+// 协调 tab 操作
+async openFileFromPath(filePath, isViewOnly, forceNewTab, fileType) {
+  const tab = this.findOrCreateTab(...);
+  await this.setActiveTab(tab.id); // 让目标tab自己显示内容
+  this.uiManager.updateFileNameDisplay(filePath); // 只更新UI
+}
+```
+
+**❌ TabManager 不应该做的**：
+```javascript
+// 不要直接操作编辑器内容
+this.editorManager.renderContent(...) // ❌ 错误
+this.editorManager.setContent(...) // ❌ 已废弃
+
+// 不要直接管理文件内容
+editor.value = content // ❌ 错误
+```
+
+#### 内容显示的正确流程
+
+**旧模式（已废弃）**：
+```javascript
+// ❌ TabManager 直接控制内容显示
+TabManager.openFile() → editorManager.setContent() → 显示内容
+```
+
+**新模式（推荐）**：
+```javascript
+// ✅ Tab 自治模式
+TabManager.openFile() → Tab.updateFileInfo() → Tab.restoreToEditor() → editorManager.renderContent()
 ```
 
 ### 修改 EditorManager 服务方法

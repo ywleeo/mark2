@@ -119,7 +119,10 @@ class ShortcutManager {
   handleToggleEditMode() {
     // 只有在有激活的tab时才允许切换编辑模式
     if (this.tabManager.activeTabId) {
-      this.editorManager.toggleEditMode();
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab && activeTab.toggleEditMode) {
+        activeTab.toggleEditMode();
+      }
     }
   }
 

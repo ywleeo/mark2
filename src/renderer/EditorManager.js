@@ -491,6 +491,12 @@ class EditorManager {
       if (contentArea) contentArea.style.display = 'block';
       if (editButton) editButton.textContent = '编辑';
       
+      // 更新预览内容（使用当前编辑器内容）
+      const currentContent = this.getCurrentContent();
+      if (currentContent !== undefined) {
+        this.updatePreview(currentContent);
+      }
+      
       // 延迟设置滚动位置
       requestAnimationFrame(() => {
         this.setScrollPosition(scrollRatio, false);
@@ -562,6 +568,12 @@ class EditorManager {
    * @returns {string} 当前内容
    */
   getCurrentContent() {
+    // 优先从 CodeMirror 获取内容
+    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+      return this.markdownHighlighter.getValue();
+    }
+    
+    // 如果 CodeMirror 不可用，回退到 textarea
     const editor = document.getElementById('editorTextarea');
     return editor ? editor.value : '';
   }

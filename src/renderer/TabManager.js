@@ -470,24 +470,20 @@ class TabManager {
     
     // 判断其来自file还是folder
     if (fileType === 'file') {
+      // file类型：直接创建新的file tab
       return await this.createTab(filePath, content, null, 'file', fileType);
     } else {
-      // 如果是folder就看tab上哪个tab是folder，替换folder的那个tab显示当前内容
+      // folder类型：销毁现有的folder tab，创建新的folder tab
       const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
       if (folderTab) {
-        // 使用Tab对象的方法更新文件信息
-        const newBelongsTo = fromDoubleClick ? 'file' : null;
-        await folderTab.updateFileInfo(filePath, content, fileType, newBelongsTo);
-        
-        await this.setActiveTab(folderTab.id);
-        // Tab 会在 setActiveTab 时自动显示内容，TabManager 只需管理列表
-        this.uiManager.updateFileNameDisplay(filePath);
-        this.fileTreeManager.updateActiveFile(filePath);
-        this.updateTabBar(); // 更新整个tab栏以反映标题变化
-        return folderTab;
-      } else {
-        return await this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder', fileType);
+        console.log(`[TabManager] 销毁现有folder tab: ${folderTab.title}`);
+        // 直接销毁现有的folder tab（不触发保存检查，因为folder tab通常不需要保存）
+        await this.closeTabDirectly(folderTab.id);
       }
+      
+      // 创建新的folder tab
+      const belongsTo = fromDoubleClick ? 'file' : 'folder';
+      return await this.createTab(filePath, content, null, belongsTo, fileType);
     }
   }
 

@@ -21,6 +21,10 @@ class Tab {
     this.viewScrollTop = 0;
     this.editScrollTop = 0;
     
+    // 保存文件的原始内容和MD5，用于检测变化
+    this.originalFileContent = null;
+    this.originalContentMD5 = null;
+    
     // 依赖注入
     this.editorManager = null;
     this.eventManager = null;
@@ -30,6 +34,13 @@ class Tab {
   static generateId() {
     if (!Tab._nextId) Tab._nextId = 1;
     return Tab._nextId++;
+  }
+  
+  // 计算文本的 MD5 哈希值
+  static calculateMD5(text) {
+    if (!text) return '';
+    const crypto = require('crypto');
+    return crypto.createHash('md5').update(text, 'utf8').digest('hex');
   }
   
   // 设置依赖
@@ -104,6 +115,8 @@ class Tab {
           const result = await ipcRenderer.invoke('open-file-dialog', this.filePath);
           if (result && result.content !== undefined) {
             this.content = result.content;
+            this.originalFileContent = result.content; // 更新原始文件内容
+            this.originalContentMD5 = Tab.calculateMD5(result.content); // 计算原始内容MD5
             this.fileTimestamp = timestampResult.timestamp;
             
             // 文件已更新，重置编辑器状态
@@ -138,15 +151,16 @@ class Tab {
     if (!this.editorManager) return;
     
     try {
-      // 保存内容
+      // 获取当前编辑器内容
       const currentContent = this.editorManager.getCurrentContent();
-      if (currentContent !== undefined) {
-        this.content = currentContent;
-      }
+      if (currentContent === undefined) return;
       
-      // 检查内容是否有变化
+      // 检查内容是否有变化（与tab中保存的原始内容比较）
       const originalContent = this.content || '';
       this.hasUnsavedChanges = (currentContent !== originalContent);
+      
+      // 更新tab的当前内容
+      this.content = currentContent;
       
       // 使用新的 EditorManager 服务方法获取滚动位置
       this.scrollRatio = this.editorManager.getCurrentScrollPosition(this.isEditMode);
@@ -196,12 +210,74 @@ class Tab {
   // restoreScrollAndCursor 已移除 - 由 EditorManager.setScrollPosition 取代
   
   // 切换编辑模式
-  toggleEditMode() {
-    // 先保存当前状态（包括滚动位置）
-    this.saveFromEditor();
+  async toggleEditMode() {
+    // 如果是从编辑模式切换到预览模式，需要检查是否要自动保存
+    if (this.isEditMode && this.filePath && !this.isReadOnly) {
+      // 获取当前编辑器内容
+      const currentContent = this.editorManager.getCurrentContent();
+      
+      // 使用 MD5 比较内容是否有变化
+      const currentContentMD5 = Tab.calculateMD5(currentContent);
+      const originalContentMD5 = this.originalContentMD5 || '';
+      const hasChanges = (currentContentMD5 !== originalContentMD5);
+      
+      console.log(`[Tab] 切换模式检查变化: ${this.title}`, {
+        currentLength: currentContent ? currentContent.length : 0,
+        originalLength: this.originalFileContent ? this.originalFileContent.length : 0,
+        currentMD5: currentContentMD5.substring(0, 8) + '...',
+        originalMD5: originalContentMD5.substring(0, 8) + '...',
+        hasChanges: hasChanges,
+        filePath: this.filePath,
+        isReadOnly: this.isReadOnly
+      });
+      
+      if (hasChanges) {
+        try {
+          console.log(`[Tab] 开始自动保存文件: ${this.title}`, {
+            filePath: this.filePath,
+            contentLength: currentContent.length,
+            contentPreview: currentContent.substring(0, 50) + '...'
+          });
+          
+          // 临时更新 tab 状态，让 EditorManager.saveFile 能检测到变化
+          this.hasUnsavedChanges = true;
+          
+          // 使用 EditorManager.saveFile 方法，保持与 Cmd+S 相同的逻辑
+          await this.editorManager.saveFile();
+          
+          console.log(`[Tab] 切换到预览模式时自动保存文件成功: ${this.title}`);
+          
+          // 保存成功后，更新 MD5 基准
+          this.originalFileContent = currentContent;
+          this.originalContentMD5 = currentContentMD5;
+          
+        } catch (error) {
+          console.error(`[Tab] 自动保存异常: ${this.title}`, {
+            error: error.message,
+            stack: error.stack,
+            filePath: this.filePath
+          });
+          // 保存失败时不阻止模式切换，但保持未保存状态
+        }
+      }
+      
+      // 保存当前状态（包括滚动位置）
+      this.saveFromEditor();
+    } else {
+      // 其他情况只保存状态
+      this.saveFromEditor();
+    }
     
     // 切换模式
     this.isEditMode = !this.isEditMode;
+    
+    // 如果切换到预览模式，检查是否需要重新加载内容
+    if (!this.isEditMode && this.filePath) {
+      const contentRefreshed = await this.checkAndRefreshContent();
+      if (contentRefreshed) {
+        console.log(`[Tab] 切换到预览模式时重新加载了文件内容: ${this.title}`);
+      }
+    }
     
     // 使用新的 EditorManager 服务方法切换模式
     if (this.editorManager) {
@@ -221,6 +297,8 @@ class Tab {
   async updateFileInfo(filePath, content, fileType, belongsTo = null) {
     this.filePath = filePath;
     this.content = content;
+    this.originalFileContent = content; // 设置原始文件内容
+    this.originalContentMD5 = Tab.calculateMD5(content); // 计算原始内容MD5
     this.title = this.extractTitle(filePath);
     this.fileType = fileType;
     this.isModified = false;
