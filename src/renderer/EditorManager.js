@@ -4,13 +4,9 @@ class EditorManager {
     this.eventManager = eventManager;
     this.appManager = appManager;
     this.tabManager = tabManager;
-    this.isEditMode = false;
-    this.currentFilePath = null;
-    this.originalContent = '';
-    this.hasUnsavedChanges = false;
     
-    // 滚动位置比例记录（用比例在两个模式间同步滚动位置）
-    this.scrollRatio = 0; // 当前滚动位置的比例（0-1）
+    // EditorManager 作为无状态的服务类，不保存 tab 状态
+    // 状态由 Tab 管理，通过参数传递给服务方法
     
     // Markdown 语法高亮器
     this.markdownHighlighter = null;
@@ -22,7 +18,6 @@ class EditorManager {
     
     this.setupEditor();
     this.setupResizeHandler();
-    this.setupPreviewScrollListener();
   }
 
   setupEditor() {
@@ -31,13 +26,14 @@ class EditorManager {
     
     // 监听编辑器内容变化
     editor.addEventListener('input', () => {
-      this.hasUnsavedChanges = true;
-      this.updateSaveButton();
       this.eventManager.emit('content-changed');
       
-      // 通知TabManager更新当前tab状态
-      if (this.tabManager && typeof this.tabManager.updateCurrentTabState === 'function') {
-        this.tabManager.updateCurrentTabState();
+      // 让当前活动tab保存自己的状态
+      if (this.tabManager) {
+        const activeTab = this.tabManager.getActiveTab();
+        if (activeTab) {
+          activeTab.saveFromEditor();
+        }
       }
     });
     
@@ -79,7 +75,9 @@ class EditorManager {
 
   // 检查语法高亮器是否需要修复
   checkAndFixHighlighterIfNeeded() {
-    if (!this.isEditMode || !this.markdownHighlighter || !this.markdownHighlighter.isReady()) {
+    // 从当前活动tab获取编辑模式状态
+    const activeTab = this.tabManager?.getActiveTab();
+    if (!activeTab?.isEditMode || !this.markdownHighlighter || !this.markdownHighlighter.isReady()) {
       return;
     }
     
@@ -158,144 +156,6 @@ class EditorManager {
     }
   }
 
-  // 设置编辑模式（不切换，直接设置）
-  async setEditMode(editMode) {
-    if (this.isEditMode === editMode) {
-      return; // 已经是目标模式，无需变化
-    }
-    
-    // 直接调用 toggleEditMode，因为它已经有完整的逻辑
-    await this.toggleEditMode();
-  }
-
-  async toggleEditMode() {
-    // 检查只读状态，只读文件不能进入编辑模式
-    if (!this.isEditMode && this.isCurrentFileReadOnly()) {
-      // 显示只读提示，不切换模式
-      if (this.appManager && this.appManager.uiManager) {
-        this.appManager.uiManager.showMessage('此文件为只读，无法编辑。如需编辑，请另存为本地副本。', 'info');
-      }
-      return;
-    }
-    
-    // 保存当前模式的滚动位置
-    this.saveCurrentScrollPosition();
-    
-    // 重置搜索框状态
-    if (window.searchManager) {
-      window.searchManager.reset();
-    }
-    
-    this.isEditMode = !this.isEditMode;
-    
-    // 通知主进程编辑模式状态变化
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('set-edit-mode', this.isEditMode);
-    
-    const editorContent = document.getElementById('editorContent');
-    const contentArea = document.querySelector('.content-area');
-    const editButton = document.getElementById('edit-button');
-    
-    if (this.isEditMode) {
-      // 切换到编辑模式
-      if (editorContent) {
-        editorContent.style.display = 'block';
-        const editor = document.getElementById('editorTextarea');
-        if (editor) {
-          // console.log('[EditorManager] 切换到编辑模式:', {
-          //   editorValue: editor.value ? editor.value.substring(0, 100) + '...' : '(空)',
-          //   originalContent: this.originalContent ? this.originalContent.substring(0, 100) + '...' : '(空)',
-          //   hasUnsavedChanges: this.hasUnsavedChanges,
-          //   needsUpdate: !editor.value || editor.value !== this.originalContent
-          // });
-          
-          // 强制从磁盘重新读取文件内容，确保编辑器显示最新版本
-          if (this.currentFilePath) {
-            // console.log('[EditorManager] 强制从磁盘重新读取文件:', this.currentFilePath);
-            
-            const { ipcRenderer } = require('electron');
-            try {
-              const result = await ipcRenderer.invoke('open-file-dialog', this.currentFilePath);
-              if (result && result.content) {
-                this.originalContent = result.content;
-                editor.value = result.content;
-                // console.log('[EditorManager] 成功从磁盘重新加载文件内容');
-              } else {
-                // console.log('[EditorManager] 磁盘读取失败，使用缓存的 originalContent');
-                editor.value = this.originalContent;
-              }
-            } catch (error) {
-              console.error('[EditorManager] 读取文件失败:', error);
-              editor.value = this.originalContent;
-            }
-          } else {
-            // console.log('[EditorManager] 无文件路径，使用缓存的 originalContent');
-            editor.value = this.originalContent;
-          }
-          editor.focus();
-          
-          // 强制重新初始化语法高亮器，确保使用最新内容
-          if (this.markdownHighlighter) {
-            // console.log('[EditorManager] 销毁现有的 CodeMirror 实例');
-            this.markdownHighlighter.destroy();
-            this.markdownHighlighter = null;
-          }
-          this.initMarkdownHighlighter(editor);
-          
-          // 等待 CodeMirror 内容加载完成后恢复滚动位置
-          this.waitForCodeMirrorContent(() => {
-            this.restoreScrollPositionWithCallback();
-          });
-          
-          // CodeMirror 自己处理光标定位，不需要额外的滚动修正
-        }
-      }
-      if (contentArea) contentArea.style.display = 'none';
-      if (editButton) editButton.textContent = '预览';
-      
-      // 滚动位置恢复已移到 waitForCodeMirrorContent 中处理
-    } else {
-      // 切换到预览模式
-      if (editorContent) {
-        editorContent.style.display = 'none';
-        // 自动保存文件（如果有未保存的更改且有有效文件路径）
-        const currentPath = this.appManager ? this.appManager.getCurrentFilePath() : this.currentFilePath;
-        if (this.hasUnsavedChanges && currentPath) {
-          // 只对已存在的文件进行自动保存，避免对新文件弹出保存对话框
-          this.saveFile().catch(error => {
-            console.warn('自动保存失败:', error);
-          });
-        }
-        // 更新预览内容
-        const editor = document.getElementById('editorTextarea');
-        if (editor) {
-          const content = editor.value;
-          this.updatePreview(content);
-        }
-      }
-      if (contentArea) contentArea.style.display = 'block';
-      if (editButton) editButton.textContent = '编辑';
-      
-      // 使用回调方式恢复预览滚动位置
-      this.restorePreviewScrollPositionWithCallback();
-    }
-    
-    this.eventManager.emit('edit-mode-changed', this.isEditMode);
-    
-    // 通知TabManager更新当前tab状态
-    if (this.tabManager && typeof this.tabManager.updateCurrentTabState === 'function') {
-      this.tabManager.updateCurrentTabState();
-    }
-    
-    // 同步全局状态到当前活动tab的状态
-    if (this.tabManager) {
-      const activeTab = this.tabManager.getActiveTab();
-      if (activeTab) {
-        // 确保Tab对象的编辑模式状态与EditorManager同步
-        activeTab.isEditMode = this.isEditMode;
-      }
-    }
-  }
 
 
   updatePreview(content) {
@@ -315,95 +175,6 @@ class EditorManager {
     // }
   }
 
-  setContent(content, filePath, resetSaveState = true, resetEditMode = true) {
-    this.originalContent = content;
-    this.currentFilePath = filePath;
-    
-    // 检查当前文件是否为只读
-    const isReadOnly = this.isCurrentFileReadOnly();
-    
-    // 只有在需要重置保存状态时才重置
-    if (resetSaveState) {
-      this.hasUnsavedChanges = false;
-    }
-    
-    // 只有在需要重置编辑模式时才重置（文件外部更新时保持当前编辑状态）
-    const wasInEditMode = this.isEditMode;
-    if (resetEditMode || isReadOnly) {
-      // 只读文件强制保持预览模式
-      this.isEditMode = false;
-    }
-    
-    // 通知主进程编辑模式状态
-    const { ipcRenderer } = require('electron');
-    ipcRenderer.send('set-edit-mode', this.isEditMode);
-    
-    // 只有在重置编辑模式时才重置滚动位置和尺寸信息（新文件从顶部开始）
-    if (resetEditMode) {
-      this.scrollRatio = 0;
-    }
-    
-    // 只有在重置编辑模式时才清理语法高亮器（避免正在编辑时被重置）
-    if (resetEditMode && this.markdownHighlighter) {
-      this.markdownHighlighter.destroy();
-      this.markdownHighlighter = null;
-    }
-    
-    // 更新编辑器内容
-    const editor = document.getElementById('editorTextarea');
-    if (editor) {
-      editor.value = content;
-      if (resetEditMode) {
-        editor.scrollTop = 0; // 只有在重置编辑模式时才重置滚动位置
-      }
-    }
-
-    // 如果当前在编辑模式且不重置编辑模式，更新CodeMirror内容
-    if (wasInEditMode && !resetEditMode && this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-      this.markdownHighlighter.setValue(content);
-    }
-    
-    // 只有在重置编辑模式时或只读文件时才强制切换UI状态
-    if (resetEditMode || isReadOnly) {
-      const editorContent = document.getElementById('editorContent');
-      const contentArea = document.querySelector('.content-area');
-      const editButton = document.getElementById('edit-button');
-      
-      // 确保编辑器容器隐藏，内容区域显示（预览模式）
-      if (editorContent) editorContent.style.display = 'none';
-      if (contentArea) contentArea.style.display = 'block';
-      if (editButton) {
-        editButton.textContent = isReadOnly ? '只读' : '编辑';
-      }
-    } else if (wasInEditMode && !isReadOnly) {
-      // 如果之前在编辑模式且不重置编辑模式，保持编辑模式UI状态
-      // 但需要确保编辑器中的内容是最新的
-      const editorContent = document.getElementById('editorContent');
-      const contentArea = document.querySelector('.content-area');
-      const editButton = document.getElementById('edit-button');
-      
-      if (editorContent) editorContent.style.display = 'block';
-      if (contentArea) contentArea.style.display = 'none';
-      if (editButton) editButton.textContent = '预览';
-    }
-    
-    this.updatePreview(content);
-    
-    // 只有在重置编辑模式时或只读文件时才重置预览区域滚动位置
-    if (resetEditMode || isReadOnly) {
-      setTimeout(() => {
-        const contentArea = document.querySelector('.content-area');
-        if (contentArea) {
-          contentArea.scrollTop = 0;
-        }
-      }, 50);
-    }
-    
-    // 显示只读提示
-    this.updateReadOnlyIndicator();
-    
-    this.updateSaveButton();
-  }
 
   // 检查当前文件是否为只读
   isCurrentFileReadOnly() {
@@ -470,11 +241,8 @@ class EditorManager {
   }
 
   getCurrentContent() {
-    if (this.isEditMode) {
-      const editor = document.getElementById('editorTextarea');
-      return editor ? editor.value : this.originalContent;
-    }
-    return this.originalContent;
+    const editor = document.getElementById('editorTextarea');
+    return editor ? editor.value : '';
   }
 
   async saveFile() {
@@ -487,12 +255,15 @@ class EditorManager {
       return;
     }
     
-    // 使用全局文件路径
-    const currentPath = this.appManager ? this.appManager.getCurrentFilePath() : this.currentFilePath;
+    // 从活动tab获取状态
+    const activeTab = this.tabManager?.getActiveTab();
+    if (!activeTab) return;
+    
+    const currentPath = activeTab.filePath;
     
     // 对于已保存的文件，如果没有未保存的更改，直接返回
     // 对于新建文件（currentPath为null），无论是否有更改都要弹出保存对话框
-    if (!this.hasUnsavedChanges && currentPath) {
+    if (!activeTab.hasUnsavedChanges && currentPath) {
       return;
     }
     
@@ -514,28 +285,26 @@ class EditorManager {
         // 保存新文件
         const result = await ipcRenderer.invoke('save-new-file', saveResult.filePath, content);
         if (result.success) {
-          // 更新文件路径
-          this.currentFilePath = result.filePath;
+          // 更新活动tab状态
+          activeTab.filePath = result.filePath;
+          const path = require('path');
+          activeTab.title = path.basename(result.filePath);
+          activeTab.content = content;
+          activeTab.hasUnsavedChanges = false;
+          
+          // 更新TabManager
           if (this.appManager) {
             this.appManager.currentFilePath = result.filePath;
+            this.appManager.tabManager.updateTabTitle(activeTab.id, activeTab.title);
             
-            // 更新当前活动的tab
-            const activeTab = this.appManager.tabManager.tabs.find(tab => tab.id === this.appManager.tabManager.activeTabId);
-            if (activeTab) {
-              activeTab.filePath = result.filePath;
-              const path = require('path');
-              activeTab.title = path.basename(result.filePath);
-              this.appManager.tabManager.updateTabTitle(activeTab.id, activeTab.title);
-              
-              // 检查并关闭重复的tab（具有相同文件路径但不同ID的tab）
-              const duplicateTabs = this.appManager.tabManager.tabs.filter(tab => 
-                tab.filePath === result.filePath && tab.id !== activeTab.id
-              );
-              
-              for (const duplicateTab of duplicateTabs) {
-                console.log(`[EditorManager] 关闭重复的tab: ${duplicateTab.title} (ID: ${duplicateTab.id})`);
-                await this.appManager.tabManager.closeTab(duplicateTab.id);
-              }
+            // 检查并关闭重复的tab（具有相同文件路径但不同ID的tab）
+            const duplicateTabs = this.appManager.tabManager.tabs.filter(tab => 
+              tab.filePath === result.filePath && tab.id !== activeTab.id
+            );
+            
+            for (const duplicateTab of duplicateTabs) {
+              console.log(`[EditorManager] 关闭重复的tab: ${duplicateTab.title} (ID: ${duplicateTab.id})`);
+              await this.appManager.tabManager.closeTab(duplicateTab.id);
             }
             
             // 更新文件树中的文件信息
@@ -545,12 +314,8 @@ class EditorManager {
             this.appManager.uiManager.updateFileNameDisplay(result.filePath);
           }
           
-          this.originalContent = content;
-          this.hasUnsavedChanges = false;
-          this.updateSaveButton();
-          
           // 更新预览
-          if (!this.isEditMode) {
+          if (!activeTab.isEditMode) {
             this.updatePreview(content);
           }
           
@@ -564,12 +329,12 @@ class EditorManager {
         // 已存在的文件
         await ipcRenderer.invoke('save-file', currentPath, content);
         
-        this.originalContent = content;
-        this.hasUnsavedChanges = false;
-        this.updateSaveButton();
+        // 更新活动tab状态
+        activeTab.content = content;
+        activeTab.hasUnsavedChanges = false;
         
         // 更新预览
-        if (!this.isEditMode) {
+        if (!activeTab.isEditMode) {
           this.updatePreview(content);
         }
         
@@ -594,6 +359,7 @@ class EditorManager {
     const saveBtn = document.getElementById('saveBtn');
     
     const isReadOnly = this.isCurrentFileReadOnly();
+    const activeTab = this.tabManager?.getActiveTab();
     
     if (editButton) {
       if (isReadOnly) {
@@ -602,7 +368,7 @@ class EditorManager {
         editButton.title = '此文件为只读，无法编辑';
         editButton.disabled = true;
       } else {
-        editButton.textContent = this.isEditMode ? '预览' : '编辑';
+        editButton.textContent = activeTab?.isEditMode ? '预览' : '编辑';
         editButton.style.color = '';
         editButton.title = '';
         editButton.disabled = false;
@@ -643,26 +409,167 @@ class EditorManager {
   }
 
   hasUnsavedContent() {
-    return this.hasUnsavedChanges;
+    const activeTab = this.tabManager?.getActiveTab();
+    return activeTab?.hasUnsavedChanges || false;
   }
 
   getCurrentFilePath() {
-    return this.currentFilePath;
+    const activeTab = this.tabManager?.getActiveTab();
+    return activeTab?.filePath || null;
   }
 
   isInEditMode() {
-    return this.isEditMode;
+    const activeTab = this.tabManager?.getActiveTab();
+    return activeTab?.isEditMode || false;
   }
 
   resetToInitialState() {
-    this.isEditMode = false;
-    this.currentFilePath = null;
-    this.originalContent = '';
-    this.hasUnsavedChanges = false;
+    // 清理语法高亮器
+    if (this.markdownHighlighter) {
+      this.markdownHighlighter.destroy();
+      this.markdownHighlighter = null;
+    }
+  }
+
+  // ===== 新的无状态服务方法 =====
+  
+  /**
+   * 渲染内容到编辑器
+   * @param {string} content - 文件内容
+   * @param {string} filePath - 文件路径
+   * @param {object} options - 选项
+   */
+  renderContent(content, filePath, options) {
+    options = options || {};
+    const isEditMode = options.isEditMode || false;
+    const scrollRatio = options.scrollRatio || 0;
     
-    // 重置滚动比例
-    this.scrollRatio = 0;
+    // 设置编辑器内容
+    const editor = document.getElementById('editorTextarea');
+    if (editor) {
+      editor.value = content;
+    }
     
+    // 更新预览内容
+    this.updatePreview(content);
+    
+    // 设置编辑模式
+    this.switchMode(isEditMode, { scrollRatio });
+  }
+  
+  /**
+   * 切换编辑/预览模式
+   * @param {boolean} isEditMode - 是否为编辑模式
+   * @param {object} options - 选项
+   */
+  switchMode(isEditMode, options) {
+    options = options || {};
+    const scrollRatio = options.scrollRatio || 0;
+    
+    const editorContent = document.getElementById('editorContent');
+    const contentArea = document.querySelector('.content-area');
+    const editButton = document.getElementById('edit-button');
+    
+    if (isEditMode) {
+      // 切换到编辑模式
+      if (editorContent) editorContent.style.display = 'block';
+      if (contentArea) contentArea.style.display = 'none';
+      if (editButton) editButton.textContent = '预览';
+      
+      // 初始化语法高亮器
+      const editor = document.getElementById('editorTextarea');
+      if (editor) {
+        this.initMarkdownHighlighter(editor);
+        // 延迟设置滚动位置
+        requestAnimationFrame(() => {
+          this.setScrollPosition(scrollRatio, true);
+        });
+      }
+    } else {
+      // 切换到预览模式
+      if (editorContent) editorContent.style.display = 'none';
+      if (contentArea) contentArea.style.display = 'block';
+      if (editButton) editButton.textContent = '编辑';
+      
+      // 延迟设置滚动位置
+      requestAnimationFrame(() => {
+        this.setScrollPosition(scrollRatio, false);
+      });
+    }
+    
+    // 通知主进程编辑模式状态
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.send('set-edit-mode', isEditMode);
+    
+    this.eventManager.emit('edit-mode-changed', isEditMode);
+  }
+  
+  /**
+   * 设置滚动位置
+   * @param {number} scrollRatio - 滚动比例 (0-1)
+   * @param {boolean} isEditMode - 是否为编辑模式
+   */
+  setScrollPosition(scrollRatio, isEditMode) {
+    if (scrollRatio === 0) return;
+    
+    if (isEditMode) {
+      // 编辑模式滚动
+      if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+        const scrollInfo = this.markdownHighlighter.getScrollInfo();
+        const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+        const targetScroll = scrollRatio * maxScroll;
+        this.markdownHighlighter.scrollTo(targetScroll);
+      }
+    } else {
+      // 预览模式滚动
+      const contentArea = document.querySelector('.content-area');
+      if (contentArea) {
+        const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
+        const targetScroll = scrollRatio * maxScroll;
+        contentArea.scrollTop = targetScroll;
+      }
+    }
+  }
+  
+  /**
+   * 获取当前滚动位置
+   * @param {boolean} isEditMode - 是否为编辑模式
+   * @returns {number} 滚动比例 (0-1)
+   */
+  getCurrentScrollPosition(isEditMode) {
+    if (isEditMode) {
+      // 编辑模式
+      if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
+        const scrollInfo = this.markdownHighlighter.getScrollInfo();
+        if (scrollInfo.height > scrollInfo.clientHeight) {
+          const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+          return scrollInfo.top / maxScroll;
+        }
+      }
+    } else {
+      // 预览模式
+      const contentArea = document.querySelector('.content-area');
+      if (contentArea && contentArea.scrollHeight > contentArea.clientHeight) {
+        const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
+        return contentArea.scrollTop / maxScroll;
+      }
+    }
+    return 0;
+  }
+  
+  /**
+   * 获取当前编辑器内容
+   * @returns {string} 当前内容
+   */
+  getCurrentContent() {
+    const editor = document.getElementById('editorTextarea');
+    return editor ? editor.value : '';
+  }
+  
+  /**
+   * 重置编辑器状态
+   */
+  reset() {
     // 清理语法高亮器
     if (this.markdownHighlighter) {
       this.markdownHighlighter.destroy();
@@ -678,16 +585,7 @@ class EditorManager {
     // 清理只读指示器
     this.updateReadOnlyIndicator();
     
-    // 清理预览滚动监听器
-    if (this.removePreviewScrollListener) {
-      this.removePreviewScrollListener();
-      this.removePreviewScrollListener = null;
-    }
-    
-    // 清理待执行回调
-    this.pendingScrollRestore = null;
-    this.onCodeMirrorReady = null;
-    
+    // 重置UI到预览模式
     const editor = document.getElementById('editorTextarea');
     const editorContent = document.getElementById('editorContent');
     const preview = document.getElementById('markdownContent');
@@ -708,176 +606,6 @@ class EditorManager {
     this.updateSaveButton();
   }
 
-  // 保存当前模式的滚动比例
-  saveCurrentScrollPosition() {
-    if (this.isEditMode) {
-      // 当前在编辑模式，获取当前滚动比例
-      if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-        const scrollInfo = this.markdownHighlighter.getScrollInfo();
-        const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
-        this.scrollRatio = scrollInfo.top / maxScroll;
-      } else {
-        // 备用方案：使用原始textarea
-        const editor = document.getElementById('editorTextarea');
-        if (editor) {
-          const maxScroll = Math.max(1, editor.scrollHeight - editor.clientHeight);
-          this.scrollRatio = editor.scrollTop / maxScroll;
-        }
-      }
-    } else {
-      // 当前在预览模式，获取当前滚动比例
-      const contentArea = document.querySelector('.content-area');
-      if (contentArea) {
-        const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
-        this.scrollRatio = contentArea.scrollTop / maxScroll;
-      }
-    }
-  }
-
-
-  // 使用回调方式恢复编辑器滚动位置
-  restoreScrollPositionWithCallback(callback) {
-    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-      this.restoreEditorScrollPosition();
-      if (callback) callback();
-    } else {
-      // 设置待执行回调，等待 CodeMirror 初始化完成
-      this.pendingScrollRestore = () => {
-        this.restoreEditorScrollPosition();
-        if (callback) callback();
-      };
-    }
-  }
-
-  // 恢复编辑器滚动位置的具体实现
-  restoreEditorScrollPosition() {
-    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-      const scrollInfo = this.markdownHighlighter.getScrollInfo();
-      const editorMaxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
-      const targetScroll = this.scrollRatio * editorMaxScroll;
-      this.markdownHighlighter.scrollTo(targetScroll);
-    }
-  }
-
-  // 使用回调方式恢复预览滚动位置
-  restorePreviewScrollPositionWithCallback() {
-    const contentArea = document.querySelector('.content-area');
-    if (!contentArea) return;
-
-    // 使用 ResizeObserver 监听内容变化
-    const observer = new ResizeObserver(() => {
-      const previewMaxScroll = Math.max(0, contentArea.scrollHeight - contentArea.clientHeight);
-      
-      if (previewMaxScroll > 0) {
-        observer.disconnect();
-        this.restorePreviewScrollPosition(contentArea);
-      }
-    });
-    
-    observer.observe(contentArea);
-    
-    // 立即尝试一次
-    const previewMaxScroll = Math.max(0, contentArea.scrollHeight - contentArea.clientHeight);
-    if (previewMaxScroll > 0) {
-      observer.disconnect();
-      this.restorePreviewScrollPosition(contentArea);
-    }
-  }
-
-  // 恢复预览滚动位置的具体实现
-  restorePreviewScrollPosition(contentArea) {
-    const previewMaxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
-    const targetScroll = this.scrollRatio * previewMaxScroll;
-    contentArea.scrollTop = targetScroll;
-  }
-
-
-  // CodeMirror 自己处理所有光标和滚动问题，不再需要手动修正
-
-  // 设置预览模式滚动监听器
-  setupPreviewScrollListener() {
-    const contentArea = document.querySelector('.content-area');
-    
-    if (contentArea) {
-      const handlePreviewScroll = () => {
-        if (!this.isEditMode) {
-          const scrollTop = contentArea.scrollTop;
-          const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
-          this.scrollRatio = scrollTop / maxScroll;
-        }
-      };
-      
-      contentArea.addEventListener('scroll', handlePreviewScroll, { passive: true });
-      
-      // 保存移除函数
-      this.removePreviewScrollListener = () => {
-        contentArea.removeEventListener('scroll', handlePreviewScroll);
-      };
-    } else {
-      // 使用回调方式等待 DOM 准备好
-      const observer = new MutationObserver(() => {
-        const contentArea = document.querySelector('.content-area');
-        if (contentArea) {
-          observer.disconnect();
-          this.setupPreviewScrollListener();
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-    }
-  }
-
-  // 设置 CodeMirror 滚动监听器
-  setupCodeMirrorScrollListener() {
-    if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-      this.markdownHighlighter.onScroll((scrollInfo) => {
-        const scrollTop = scrollInfo.top;
-        const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
-        this.scrollRatio = scrollTop / maxScroll;
-      });
-      
-      // 执行回调，通知 CodeMirror 设置完成
-      if (this.onCodeMirrorReady) {
-        // 使用 requestAnimationFrame 确保 CodeMirror 完全准备好
-        requestAnimationFrame(() => {
-          if (this.onCodeMirrorReady) {
-            this.onCodeMirrorReady();
-            this.onCodeMirrorReady = null;
-          }
-        });
-      }
-    } else {
-      // 设置回调，当 CodeMirror 准备好时调用
-      this.onCodeMirrorReady = () => {
-        this.setupCodeMirrorScrollListener();
-      };
-    }
-  }
-
-  // 等待 CodeMirror 内容加载完成
-  waitForCodeMirrorContent(callback) {
-    
-    const checkContentLoaded = () => {
-      // 检查 CodeMirror 是否已初始化并且内容已加载
-      if (!this.markdownHighlighter || !this.markdownHighlighter.isReady()) {
-        setTimeout(checkContentLoaded, 50);
-        return;
-      }
-      
-      const scrollInfo = this.markdownHighlighter.getScrollInfo();
-      const hasContent = scrollInfo.height > scrollInfo.clientHeight;
-      
-      if (hasContent) {
-        requestAnimationFrame(() => {
-          callback();
-        });
-      } else {
-        setTimeout(checkContentLoaded, 50);
-      }
-    };
-    
-    // 立即开始检查
-    checkContentLoaded();
-  }
 
   // 获取可滚动的父元素
   getScrollableParent(element) {

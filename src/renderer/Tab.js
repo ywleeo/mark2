@@ -144,45 +144,17 @@ class Tab {
         this.content = currentContent;
       }
       
-      // 保存编辑器状态
-      this.hasUnsavedChanges = this.editorManager.hasUnsavedChanges;
+      // 检查内容是否有变化
+      const originalContent = this.content || '';
+      this.hasUnsavedChanges = (currentContent !== originalContent);
       
-      // 保存滚动位置 - 优先使用 CodeMirror 的滚动信息
-      if (this.isEditMode) {
-        // 检查是否有 CodeMirror 高亮器
-        if (this.editorManager.markdownHighlighter && this.editorManager.markdownHighlighter.isReady()) {
-          const scrollInfo = this.editorManager.markdownHighlighter.getScrollInfo();
-          this.editScrollTop = scrollInfo.top;
-          
-          // 保存光标位置（CodeMirror 有自己的光标管理，这里保存为null）
-          this.cursorPosition = null;
-        } else {
-          // 备用方案：使用原始 textarea
-          const editorTextarea = document.getElementById('editorTextarea');
-          if (editorTextarea) {
-            this.editScrollTop = editorTextarea.scrollTop;
-            this.cursorPosition = {
-              selectionStart: editorTextarea.selectionStart,
-              selectionEnd: editorTextarea.selectionEnd
-            };
-          }
-        }
-      } else {
-        const previewArea = document.querySelector('.preview-area');
-        if (previewArea) {
-          this.viewScrollTop = previewArea.scrollTop;
-        }
-      }
-      
-      // 保存滚动比例
-      this.scrollRatio = this.editorManager.scrollRatio || 0;
+      // 使用新的 EditorManager 服务方法获取滚动位置
+      this.scrollRatio = this.editorManager.getCurrentScrollPosition(this.isEditMode);
       
       console.log(`[Tab] 已保存状态: ${this.title}`, {
         isEditMode: this.isEditMode,
         hasUnsavedChanges: this.hasUnsavedChanges,
         scrollRatio: this.scrollRatio,
-        editScrollTop: this.editScrollTop,
-        viewScrollTop: this.viewScrollTop,
         contentLength: this.content ? this.content.length : 0
       });
       
@@ -202,106 +174,40 @@ class Tab {
       console.log(`[Tab] 开始恢复状态: ${this.title}`, {
         isEditMode: this.isEditMode,
         hasUnsavedChanges: this.hasUnsavedChanges,
+        scrollRatio: this.scrollRatio,
         contentLength: this.content ? this.content.length : 0
       });
       
-      // 恢复内容
-      this.editorManager.setContent(this.content, this.filePath, false, false);
-      
-      // 恢复编辑器状态
-      this.editorManager.hasUnsavedChanges = this.hasUnsavedChanges;
-      
-      // 恢复滚动比例
-      if (this.scrollRatio !== undefined) {
-        this.editorManager.scrollRatio = this.scrollRatio;
-      }
-      
-      // 恢复编辑模式
-      this.restoreEditMode();
-      
-      // 延迟恢复滚动位置和光标位置
-      requestAnimationFrame(() => {
-        this.restoreScrollAndCursor();
+      // 使用新的 EditorManager 服务方法
+      this.editorManager.renderContent(this.content, this.filePath, {
+        isEditMode: this.isEditMode,
+        scrollRatio: this.scrollRatio
       });
+      
+      console.log(`[Tab] 已恢复滚动位置和光标: ${this.title}`);
       
     } catch (error) {
       console.error(`[Tab] 恢复状态失败: ${this.title}`, error);
     }
   }
   
-  // 恢复编辑模式
-  restoreEditMode() {
-    if (!this.editorManager) return;
-    
-    const currentEditMode = this.editorManager.isInEditMode();
-    if (this.isEditMode !== currentEditMode) {
-      // 直接设置EditorManager状态和更新UI
-      this.editorManager.isEditMode = this.isEditMode;
-      
-      const editorContent = document.getElementById('editorContent');
-      const contentArea = document.querySelector('.content-area');
-      const editButton = document.getElementById('edit-button');
-      
-      if (this.isEditMode) {
-        if (editorContent) editorContent.style.display = 'block';
-        if (contentArea) contentArea.style.display = 'none';
-        if (editButton) editButton.textContent = '预览';
-      } else {
-        if (editorContent) editorContent.style.display = 'none';
-        if (contentArea) contentArea.style.display = 'block';
-        if (editButton) editButton.textContent = '编辑';
-      }
-      
-      // 通知主进程编辑模式状态变化
-      const { ipcRenderer } = require('electron');
-      ipcRenderer.send('set-edit-mode', this.isEditMode);
-    }
-  }
+  // restoreEditMode 已移除 - 由 EditorManager.switchMode 取代
   
-  // 恢复滚动位置和光标位置
-  restoreScrollAndCursor() {
-    try {
-      if (this.isEditMode) {
-        // 检查是否有 CodeMirror 高亮器
-        if (this.editorManager.markdownHighlighter && this.editorManager.markdownHighlighter.isReady()) {
-          // 使用 CodeMirror 的滚动方法
-          if (this.editScrollTop !== undefined) {
-            this.editorManager.markdownHighlighter.scrollTo(this.editScrollTop);
-          }
-        } else {
-          // 备用方案：使用原始 textarea
-          const editorTextarea = document.getElementById('editorTextarea');
-          if (editorTextarea) {
-            if (this.editScrollTop !== undefined) {
-              editorTextarea.scrollTop = this.editScrollTop;
-            }
-            if (this.cursorPosition) {
-              editorTextarea.selectionStart = this.cursorPosition.selectionStart;
-              editorTextarea.selectionEnd = this.cursorPosition.selectionEnd;
-            }
-          }
-        }
-      } else {
-        const previewArea = document.querySelector('.preview-area');
-        if (previewArea && this.viewScrollTop !== undefined) {
-          previewArea.scrollTop = this.viewScrollTop;
-        }
-      }
-      
-      console.log(`[Tab] 已恢复滚动位置和光标: ${this.title}`);
-    } catch (error) {
-      console.error(`[Tab] 恢复滚动位置失败: ${this.title}`, error);
-    }
-  }
+  // restoreScrollAndCursor 已移除 - 由 EditorManager.setScrollPosition 取代
   
   // 切换编辑模式
   toggleEditMode() {
+    // 先保存当前状态（包括滚动位置）
+    this.saveFromEditor();
+    
+    // 切换模式
     this.isEditMode = !this.isEditMode;
     
-    // 立即同步到EditorManager并更新UI
+    // 使用新的 EditorManager 服务方法切换模式
     if (this.editorManager) {
-      this.editorManager.isEditMode = this.isEditMode;
-      this.restoreEditMode();
+      this.editorManager.switchMode(this.isEditMode, {
+        scrollRatio: this.scrollRatio
+      });
     }
   }
   
@@ -341,6 +247,57 @@ class Tab {
   markSaved() {
     this.isModified = false;
     this.hasUnsavedChanges = false;
+  }
+  
+  // 检查是否有未保存的更改
+  hasUnsavedContent() {
+    // 新建文件（filePath为null）无论是否编辑都需要处理保存
+    if (!this.filePath) {
+      return true;
+    }
+    
+    // 已保存文件：只在编辑模式下检查内容变化
+    if (!this.isEditMode) {
+      return false;
+    }
+    
+    // 获取当前编辑器内容并比较
+    if (this.editorManager) {
+      const currentContent = this.editorManager.getCurrentContent();
+      const originalContent = this.content || '';
+      return currentContent !== originalContent;
+    }
+    
+    return false;
+  }
+  
+  // 关闭前的保存检查和处理（返回是否应该继续关闭）
+  async handleCloseWithSaveCheck(tabManager) {
+    if (!this.hasUnsavedContent()) {
+      return true; // 没有未保存内容，可以直接关闭
+    }
+    
+    // 显示保存确认对话框
+    const result = await tabManager.showSaveConfirmDialog(this);
+    
+    if (result === 'save') {
+      // 用户选择保存
+      try {
+        const currentContent = this.editorManager.getCurrentContent();
+        await this.editorManager.saveFile(currentContent, this.filePath);
+        return true; // 保存成功，可以关闭
+      } catch (error) {
+        console.error('[Tab] 保存失败:', error);
+        // 保存失败，不关闭
+        return false;
+      }
+    } else if (result === 'discard') {
+      // 用户选择不保存
+      return true; // 可以关闭
+    } else {
+      // 用户取消
+      return false; // 不关闭
+    }
   }
   
   // 关闭tab前的清理
