@@ -111,14 +111,19 @@ class CodeMirrorHighlighter {
       parent: this.container,
     });
     
-    // 设置焦点
-    setTimeout(() => {
-      this.editor.focus();
-      this.ready = true;
-      
-      // 设置滚动监听器
-      this.setupScrollListener();
-    }, 100);
+    // 设置焦点并标记为准备好
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        this.editor.focus();
+        this.ready = true;
+        
+        // 设置滚动监听器
+        this.setupScrollListener();
+        
+        // 现在真正准备好了，resolve Promise
+        resolve();
+      }, 100);
+    });
     
     // 监听主题变化
     this.setupThemeListener();

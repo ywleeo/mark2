@@ -36,6 +36,26 @@ class Tab {
     return Tab._nextId++;
   }
   
+  // 预处理Markdown内容（与CodeMirrorHighlighter保持一致）
+  preprocessMarkdownForMD5(content) {
+    if (!content) return content;
+    
+    let processed = content;
+    
+    // 匹配 文本\n--- 的模式，将其转换为 文本\n\n---
+    // 避免 CodeMirror Markdown 解析器将前面的文本识别为标题
+    processed = processed.replace(/^(.+)\n(-{3,})$/gm, (match, text, dashes) => {
+      return `${text}\n\n${dashes}`;
+    });
+    
+    // 对 = 号也做同样处理
+    processed = processed.replace(/^(.+)\n(={3,})$/gm, (match, text, equals) => {
+      return `${text}\n\n${equals}`;
+    });
+    
+    return processed;
+  }
+
   // 计算文本的 MD5 哈希值
   static calculateMD5(text) {
     if (!text) return '';
@@ -116,7 +136,9 @@ class Tab {
           if (result && result.content !== undefined) {
             this.content = result.content;
             this.originalFileContent = result.content; // 更新原始文件内容
-            this.originalContentMD5 = Tab.calculateMD5(result.content); // 计算原始内容MD5
+            // 使用预处理后的内容计算MD5，与CodeMirror保持一致
+            const processedContent = this.preprocessMarkdownForMD5(result.content);
+            this.originalContentMD5 = Tab.calculateMD5(processedContent); // 计算原始内容MD5
             this.fileTimestamp = timestampResult.timestamp;
             
             // 文件已更新，重置编辑器状态
@@ -298,7 +320,9 @@ class Tab {
     this.filePath = filePath;
     this.content = content;
     this.originalFileContent = content; // 设置原始文件内容
-    this.originalContentMD5 = Tab.calculateMD5(content); // 计算原始内容MD5
+    // 使用预处理后的内容计算MD5，与CodeMirror保持一致
+    const processedContent = this.preprocessMarkdownForMD5(content);
+    this.originalContentMD5 = Tab.calculateMD5(processedContent); // 计算原始内容MD5
     this.title = this.extractTitle(filePath);
     this.fileType = fileType;
     this.isModified = false;

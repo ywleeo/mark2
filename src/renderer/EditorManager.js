@@ -44,6 +44,45 @@ class EditorManager {
         this.saveFile();
       }
     });
+    
+    // 设置 view 模式滚动监听器
+    this.setupViewScrollListener();
+  }
+
+  // 设置 view 模式滚动监听器
+  setupViewScrollListener() {
+    const contentArea = document.querySelector('.content-area');
+    if (!contentArea) return;
+    
+    let scrollTimer = null;
+    
+    const handleViewScroll = () => {
+      // 防抖处理，避免过于频繁的状态保存
+      if (scrollTimer) {
+        clearTimeout(scrollTimer);
+      }
+      
+      scrollTimer = setTimeout(() => {
+        // 只有在 view 模式下才保存滚动位置
+        if (this.tabManager) {
+          const activeTab = this.tabManager.getActiveTab();
+          if (activeTab && !activeTab.isEditMode) {
+            activeTab.saveFromEditor();
+          }
+        }
+      }, 100); // 100ms 防抖
+    };
+    
+    contentArea.addEventListener('scroll', handleViewScroll);
+    
+    // 保存移除函数以便销毁时清理
+    this.removeViewScrollListener = () => {
+      contentArea.removeEventListener('scroll', handleViewScroll);
+      if (scrollTimer) {
+        clearTimeout(scrollTimer);
+        scrollTimer = null;
+      }
+    };
   }
 
   // 设置窗口大小调整处理
@@ -95,14 +134,8 @@ class EditorManager {
         
         const editor = document.getElementById('editorTextarea');
         requestAnimationFrame(() => {
-          this.initMarkdownHighlighter(editor);
-          // 立即恢复滚动位置，不等待语法高亮器
-          // 因为滚动位置恢复与语法高亮是独立的
-          requestAnimationFrame(() => {
-            this.restoreScrollPosition();
-            
-            // 重新添加滚动监听器
-            this.setupCodeMirrorScrollListener();
+          this.initMarkdownHighlighter(editor, () => {
+            // CodeMirror 重新初始化完成，滚动位置会在适当时机恢复
           });
         });
       }
@@ -110,15 +143,17 @@ class EditorManager {
   }
 
   // 初始化 Markdown 语法高亮器（在切换到编辑模式时调用）
-  async initMarkdownHighlighter(editor) {
+  async initMarkdownHighlighter(editor, onInitialized = null) {
     if (this.markdownHighlighter) {
-      return; // 已经初始化过了
+      // 已经初始化过了，直接执行回调
+      if (onInitialized) onInitialized();
+      return;
     }
     
     // 如果窗口不稳定，等待稳定后再初始化
     if (!this.isWindowStable) {
       requestAnimationFrame(() => {
-        this.initMarkdownHighlighter(editor);
+        this.initMarkdownHighlighter(editor, onInitialized);
       });
       return;
     }
@@ -132,8 +167,12 @@ class EditorManager {
         if (this.isWindowStable) {
           await this.markdownHighlighter.init(editor);
           
-          // 添加滚动监听器，实时更新编辑器滚动位置
-          this.setupCodeMirrorScrollListener();
+          // 滚动监听器已在 CodeMirrorHighlighter.setupScrollListener() 中设置
+          
+          // CodeMirror 初始化完成，执行回调
+          if (onInitialized) {
+            onInitialized();
+          }
           
           // 如果有待执行的滚动恢复回调，执行它
           if (this.pendingScrollRestore) {
@@ -149,7 +188,7 @@ class EditorManager {
           // 如果不稳定，重置并等待下次
           this.markdownHighlighter = null;
         }
-      }, 100);
+      });
     } catch (error) {
       console.warn('CodeMirror 语法高亮器初始化失败:', error);
       // 继续使用普通 textarea
@@ -479,10 +518,17 @@ class EditorManager {
       // 初始化语法高亮器
       const editor = document.getElementById('editorTextarea');
       if (editor) {
-        this.initMarkdownHighlighter(editor);
-        // 延迟设置滚动位置
-        requestAnimationFrame(() => {
+        // 第一个打点：view 传给 edit 的滚动位置
+        console.log(`[滚动继承] 第一次切到edit，接收到的scrollRatio: ${scrollRatio}`);
+        
+        // 使用回调机制确保滚动位置在 CodeMirror 初始化完成后设置
+        this.initMarkdownHighlighter(editor, () => {
+          // CodeMirror 初始化完成的回调
           this.setScrollPosition(scrollRatio, true);
+          
+          // 第二个打点：设置完滚动位置后的实际位置
+          const actualScrollRatio = this.getCurrentScrollPosition(true);
+          console.log(`[滚动继承] edit初始化完成后，实际scrollRatio: ${actualScrollRatio}`);
         });
       }
     } else {
@@ -516,15 +562,27 @@ class EditorManager {
    * @param {boolean} isEditMode - 是否为编辑模式
    */
   setScrollPosition(scrollRatio, isEditMode) {
-    if (scrollRatio === 0) return;
+    console.log(`[滚动设置] setScrollPosition调用: scrollRatio=${scrollRatio}, isEditMode=${isEditMode}`);
+    
+    if (scrollRatio === 0) {
+      console.log(`[滚动设置] scrollRatio为0，跳过设置`);
+      return;
+    }
     
     if (isEditMode) {
       // 编辑模式滚动
+      const hasHighlighter = !!this.markdownHighlighter;
+      const isReady = hasHighlighter && this.markdownHighlighter.isReady();
+      console.log(`[滚动设置] edit模式检查: hasHighlighter=${hasHighlighter}, isReady=${isReady}`);
+      
       if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
         const scrollInfo = this.markdownHighlighter.getScrollInfo();
         const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
         const targetScroll = scrollRatio * maxScroll;
+        console.log(`[滚动设置] edit模式设置滚动: targetScroll=${targetScroll}, maxScroll=${maxScroll}`);
         this.markdownHighlighter.scrollTo(targetScroll);
+      } else {
+        console.log(`[滚动设置] CodeMirror未准备好，无法设置滚动位置`);
       }
     } else {
       // 预览模式滚动
@@ -592,6 +650,12 @@ class EditorManager {
     if (this.resizeTimer) {
       cancelAnimationFrame(this.resizeTimer);
       this.resizeTimer = null;
+    }
+    
+    // 清理 view 模式滚动监听器
+    if (this.removeViewScrollListener) {
+      this.removeViewScrollListener();
+      this.removeViewScrollListener = null;
     }
     
     // 清理只读指示器
