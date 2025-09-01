@@ -326,9 +326,6 @@ class TabManager {
       const tabTitle = document.createElement('span');
       tabTitle.className = 'tab-title';
       tabTitle.textContent = tab.title;
-      if (tab.isModified) {
-        tabTitle.textContent += ' •';
-      }
       
       // 为只读文件添加锁定图标
       if (tab.isReadOnly) {
