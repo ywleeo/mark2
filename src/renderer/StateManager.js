@@ -1,3 +1,5 @@
+const Tab = require('./Tab');
+
 class StateManager {
   constructor(eventManager, tabManager, fileTreeManager, uiManager, editorManager, titleBarDragManager) {
     this.eventManager = eventManager;
@@ -34,15 +36,7 @@ class StateManager {
   // 保存应用状态到 localStorage
   saveAppState() {
     const state = {
-      tabs: this.tabManager.getAllTabs().map(tab => ({
-        id: tab.id,
-        title: tab.title,
-        filePath: tab.filePath,
-        content: tab.content,
-        isActive: tab.isActive,
-        isModified: tab.isModified,
-        belongsTo: tab.belongsTo
-      })),
+      tabs: this.tabManager.getAllTabs().map(tab => tab.serialize()),
       activeTabId: this.tabManager.activeTabId,
       nextTabId: this.tabManager.nextTabId,
       currentFilePath: this.currentFilePath,
@@ -94,24 +88,41 @@ class StateManager {
       
       // 恢复tabs
       if (state.tabs && state.tabs.length > 0) {
-        this.tabManager.tabs = state.tabs;
-        this.tabManager.activeTabId = state.activeTabId;
+        console.log('[StateManager] 恢复tabs，数量:', state.tabs.length, '活动tab:', state.activeTabId);
+        
+        // 使用 Tab.deserialize 方法恢复Tab对象
+        this.tabManager.tabs = state.tabs.map(tabData => {
+          const tab = Tab.deserialize(tabData);
+          // 设置依赖注入
+          tab.setDependencies(this.editorManager, this.eventManager);
+          return tab;
+        });
+        
+        // 先不设置activeTabId，让setActiveTab方法正常执行
+        // this.tabManager.activeTabId = state.activeTabId;
         
         // 更新tab显示
         this.tabManager.updateTabBar();
         
         // 激活之前的活动tab（使用setActiveTab确保从磁盘重新读取）
-        if (this.tabManager.activeTabId) {
-          const activeTab = this.tabManager.tabs.find(tab => tab.id === this.tabManager.activeTabId);
+        if (state.activeTabId) {
+          const activeTab = this.tabManager.tabs.find(tab => tab.id === state.activeTabId);
           if (activeTab) {
-            // 使用setActiveTab方法，它会从磁盘重新读取文件内容
-            await this.tabManager.setActiveTab(activeTab.id);
+            console.log(`[StateManager] 找到活动tab: ${activeTab.title}, ID: ${activeTab.id}`);
             
-            // 显示markdown内容
-            const markdownContent = document.querySelector('.markdown-content');
-            if (markdownContent) {
-              markdownContent.style.display = 'block';
-            }
+            // 延迟激活，确保DOM和依赖都准备好了
+            setTimeout(async () => {
+              console.log(`[StateManager] 延迟激活活动tab: ${activeTab.title}`);
+              // 使用setActiveTab方法，它会从磁盘重新读取文件内容
+              await this.tabManager.setActiveTab(activeTab.id);
+              console.log(`[StateManager] 已调用 setActiveTab`);
+              
+              // 显示markdown内容
+              const markdownContent = document.querySelector('.markdown-content');
+              if (markdownContent) {
+                markdownContent.style.display = 'block';
+              }
+            }, 100);
           }
         }
       }

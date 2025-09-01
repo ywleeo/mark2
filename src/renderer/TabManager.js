@@ -1,3 +1,5 @@
+const Tab = require('./Tab');
+
 class TabManager {
   constructor(eventManager, editorManager, uiManager, fileTreeManager, searchManager, titleBarDragManager) {
     this.eventManager = eventManager;
@@ -8,9 +10,8 @@ class TabManager {
     this.titleBarDragManager = titleBarDragManager;
     
     // Tab 系统状态
-    this.tabs = [];
+    this.tabs = []; // 现在存储Tab实例
     this.activeTabId = null;
-    this.nextTabId = 1;
     
     this.setupEventListeners();
   }
@@ -85,38 +86,24 @@ class TabManager {
   }
 
   async createTab(filePath, content, title = null, belongsTo = 'folder', fileType = 'subfolder-file') {
-    const path = require('path');
-    const fileName = title || path.basename(filePath);
+    // 创建Tab实例
+    const tab = new Tab(filePath, content, title, belongsTo, fileType);
+    
+    // 设置依赖注入
+    tab.setDependencies(this.editorManager, this.eventManager);
     
     // 获取文件时间戳
-    let fileTimestamp = null;
     if (filePath) {
       try {
         const { ipcRenderer } = require('electron');
         const timestampResult = await ipcRenderer.invoke('get-file-timestamp', filePath);
         if (timestampResult.success) {
-          fileTimestamp = timestampResult.timestamp;
+          tab.fileTimestamp = timestampResult.timestamp;
         }
       } catch (error) {
         console.log('[TabManager] 获取文件时间戳失败:', error.message);
       }
     }
-    
-    // 判断是否为只读文件：help文件、demo文件等
-    const isReadOnly = this.determineReadOnlyStatus(fileType, filePath);
-    
-    const tab = {
-      id: this.nextTabId++,
-      title: fileName,
-      filePath: filePath,
-      content: content,
-      isActive: false,
-      isModified: false,
-      belongsTo: belongsTo, // 'file' 或 'folder'
-      fileTimestamp: fileTimestamp, // 文件最后修改时间戳，用于判断是否需要刷新内容
-      isReadOnly: isReadOnly, // 是否为只读文件
-      fileType: fileType // 保存文件类型信息
-    };
     
     this.tabs.push(tab);
     await this.setActiveTab(tab.id);
@@ -131,94 +118,55 @@ class TabManager {
     return tab;
   }
 
-  // 判断文件是否为只读
-  determineReadOnlyStatus(fileType, filePath) {
-    // help文件、demo文件等内置文件为只读
-    if (fileType === 'help') {
-      return true;
-    }
-    
-    // demo文件也是只读的
-    if (fileType === 'demo' || (filePath && filePath.includes('/docs/demo-'))) {
-      return true;
-    }
-    
-    // 未来可扩展：共享文件等也可能是只读的
-    // if (fileType === 'shared') return true;
-    
-    return false;
-  }
 
   async setActiveTab(tabId) {
+    console.log(`[TabManager] setActiveTab 调用，tabId: ${tabId}, 当前活动: ${this.activeTabId}`);
+    // 如果切换到相同tab，直接返回
+    if (this.activeTabId === tabId) {
+      console.log(`[TabManager] tab已经是活动状态，跳过激活`);
+      return;
+    }
+    
     // 关闭搜索框（如果打开的话）
     this.searchManager.hide();
     
-    // 取消所有tab的活动状态
-    this.tabs.forEach(tab => tab.isActive = false);
+    // 取消当前活动tab的激活状态
+    const currentActiveTab = this.tabs.find(tab => tab.isActive);
+    if (currentActiveTab) {
+      const result = await this.checkAndHandleUnsavedChanges(currentActiveTab);
+      if (result === 'cancelled') {
+        return; // 用户取消了切换
+      }
+      if (result === 'saved_stay') {
+        console.log('[TabManager] 用户选择保存并停留在当前tab，取消切换');
+        return;
+      }
+      if (result === 'tab_closed') {
+        console.log('[TabManager] 新建文件tab被关闭，准备激活目标tab:', tabId);
+        // tab已被关闭，直接继续激活目标tab
+      } else {
+        // 正常取消激活当前tab
+        currentActiveTab.deactivate();
+      }
+    }
     
-    // 设置指定tab为活动状态
-    const activeTab = this.tabs.find(tab => tab.id === tabId);
-    if (activeTab) {
-      activeTab.isActive = true;
+    // 激活目标tab
+    const targetTab = this.tabs.find(tab => tab.id === tabId);
+    if (targetTab) {
       this.activeTabId = tabId;
+      await targetTab.activate();
       
-      // 智能检查文件是否需要刷新（基于时间戳）
-      let needsRefresh = false;
-      if (activeTab.filePath) {
-        try {
-          const { ipcRenderer } = require('electron');
-          const timestampResult = await ipcRenderer.invoke('get-file-timestamp', activeTab.filePath);
-          
-          if (timestampResult.success) {
-            // 如果是第一次加载或文件时间戳发生变化，需要刷新
-            if (!activeTab.fileTimestamp || activeTab.fileTimestamp !== timestampResult.timestamp) {
-              needsRefresh = true;
-              
-              // 读取最新内容
-              const result = await ipcRenderer.invoke('open-file-dialog', activeTab.filePath);
-              if (result && result.content !== undefined) {
-                activeTab.content = result.content;
-                activeTab.fileTimestamp = timestampResult.timestamp;
-                console.log(`[TabManager] 文件已更新，刷新内容: ${activeTab.title}`);
-              }
-            } else {
-              console.log(`[TabManager] 文件未变化，保持当前内容: ${activeTab.title}`);
-            }
-          } else {
-            console.log('[TabManager] 获取文件时间戳失败:', timestampResult.error);
-            // 如果获取时间戳失败，保持原有行为（不刷新）
-          }
-        } catch (error) {
-          console.log('[TabManager] 检查文件变化失败:', error.message);
-          // 如果检查失败，继续使用缓存的内容
-        }
-      } else {
-        // 新文件或无文件路径，不需要检查时间戳
-        needsRefresh = true;
-      }
+      // 更新UI
+      this.uiManager.updateFileNameDisplay(targetTab.filePath);
+      this.fileTreeManager.updateActiveFile(targetTab.filePath);
       
-      // 总是要更新编辑器内容来显示当前tab的内容
-      // 如果内容被刷新了（needsRefresh=true），使用默认的重置行为
-      // 如果内容没有刷新（needsRefresh=false），保持编辑状态和滚动位置
-      if (needsRefresh) {
-        // 内容已刷新，正常设置内容（会重置编辑模式和滚动位置）
-        this.editorManager.setContent(activeTab.content, activeTab.filePath);
-      } else {
-        // 内容未刷新，保持编辑状态，只更新内容显示
-        this.editorManager.setContent(activeTab.content, activeTab.filePath, false, false);
-      }
-      this.uiManager.updateFileNameDisplay(activeTab.filePath);
-      this.fileTreeManager.updateActiveFile(activeTab.filePath);
-      
-      // 只更新tab的活动状态，不重建整个DOM
+      // 更新tab的活动状态显示
       this.updateTabActiveState();
       
       // 确保活动tab在可见区域
       requestAnimationFrame(() => {
         this.scrollTabIntoView(tabId);
       });
-      
-      this.eventManager.emit('tab-activated', activeTab);
     }
   }
 
@@ -292,10 +240,18 @@ class TabManager {
   }
 
   async closeTabDirectly(tabId) {
+    console.log('[TabManager] closeTabDirectly 开始，tabId:', tabId);
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
-    if (tabIndex === -1) return;
+    if (tabIndex === -1) {
+      console.log('[TabManager] closeTabDirectly 未找到tab:', tabId);
+      return;
+    }
     
     const tab = this.tabs[tabIndex];
+    console.log('[TabManager] 准备关闭tab:', tab.title, '活动状态:', tab.isActive);
+    
+    // 调用 Tab 对象的销毁方法
+    tab.destroy();
     
     // 如果是新建的未保存文件（filePath为null），需要清理对应的Files节点
     if (!tab.filePath) {
@@ -378,7 +334,7 @@ class TabManager {
       if (tab.isReadOnly) {
         const readOnlyIcon = document.createElement('span');
         readOnlyIcon.className = 'tab-readonly-icon';
-        readOnlyIcon.innerHTML = '<img src="assets/icons/lock-icon.svg" alt="只读" width="12" height="12">';
+        readOnlyIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="8" height="5" rx="1" stroke="currentColor" stroke-width="1" fill="currentColor" fill-opacity="0.1"/><path d="M3.5 5V3.5C3.5 2.39543 4.39543 1.5 5.5 1.5H6.5C7.60457 1.5 8.5 2.39543 8.5 3.5V5" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="6" cy="7.5" r="0.8" fill="currentColor"/></svg>';
         readOnlyIcon.title = '只读文件';
         tabTitle.appendChild(readOnlyIcon);
       }
@@ -467,7 +423,7 @@ class TabManager {
     // 先判断打开的tab有没有和此文件相同path和名字，相同就focus到已经打开的tab
     const existingTab = this.findTabByPath(filePath);
     if (existingTab && !forceNewTab) {
-      existingTab.content = content;
+      existingTab.updateContent(content);
       await this.setActiveTab(existingTab.id);
       return existingTab;
     }
@@ -490,36 +446,15 @@ class TabManager {
       // 如果是folder就看tab上哪个tab是folder，替换folder的那个tab显示当前内容
       const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
       if (folderTab) {
-        folderTab.filePath = filePath;
-        folderTab.content = content;
-        folderTab.title = require('path').basename(filePath);
-        folderTab.isModified = false;
-        
-        // 重新确定只读状态
-        folderTab.isReadOnly = this.determineReadOnlyStatus(fileType, filePath);
-        folderTab.fileType = fileType;
-        
-        // 更新文件时间戳
-        try {
-          const { ipcRenderer } = require('electron');
-          const timestampResult = await ipcRenderer.invoke('get-file-timestamp', filePath);
-          if (timestampResult.success) {
-            folderTab.fileTimestamp = timestampResult.timestamp;
-          }
-        } catch (error) {
-          console.log('[TabManager] 获取文件时间戳失败:', error.message);
-        }
-        
-        // 如果是双击操作，将tab归属改为file
-        if (fromDoubleClick) {
-          folderTab.belongsTo = 'file';
-        }
+        // 使用Tab对象的方法更新文件信息
+        const newBelongsTo = fromDoubleClick ? 'file' : null;
+        await folderTab.updateFileInfo(filePath, content, fileType, newBelongsTo);
         
         await this.setActiveTab(folderTab.id);
         this.editorManager.setContent(content, filePath);
         this.uiManager.updateFileNameDisplay(filePath);
         this.fileTreeManager.updateActiveFile(filePath);
-        this.updateTabTitle(folderTab.id, folderTab.title);
+        this.updateTabBar(); // 更新整个tab栏以反映标题变化
         return folderTab;
       } else {
         return await this.createTab(filePath, content, null, fromDoubleClick ? 'file' : 'folder', fileType);
@@ -550,6 +485,11 @@ class TabManager {
     // 强制进入编辑模式
     if (!this.editorManager.isInEditMode()) {
       this.editorManager.toggleEditMode();
+    }
+    
+    // 确保新创建的tab也标记为编辑模式
+    if (newTab) {
+      newTab.isEditMode = true;
     }
     
     // 调整窗口大小
@@ -610,6 +550,455 @@ class TabManager {
   isFileReadOnly(filePath) {
     const tab = this.findTabByPath(filePath);
     return tab ? tab.isReadOnly : false;
+  }
+
+  // 直接移除tab（不触发切换逻辑，避免递归）
+  removeTabDirectly(tabId) {
+    console.log('[TabManager] removeTabDirectly 开始，tabId:', tabId);
+    const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
+    if (tabIndex === -1) {
+      console.log('[TabManager] removeTabDirectly 未找到tab:', tabId);
+      return;
+    }
+    
+    const tab = this.tabs[tabIndex];
+    console.log('[TabManager] 直接移除tab:', tab.title);
+    
+    // 如果是新建的未保存文件，清理对应的Files节点
+    if (!tab.filePath) {
+      for (const [key, fileInfo] of this.fileTreeManager.openFiles.entries()) {
+        if (fileInfo.isNewFile) {
+          this.fileTreeManager.openFiles.delete(key);
+          console.log('[TabManager] 清理新建文件的Files节点');
+          break;
+        }
+      }
+      this.fileTreeManager.refreshSidebarTree();
+    }
+    
+    // 直接从数组中移除tab
+    this.tabs.splice(tabIndex, 1);
+    console.log('[TabManager] tab已从数组中移除，剩余tabs:', this.tabs.length);
+    
+    // 如果被移除的是当前活动tab，清空活动状态
+    if (tab.isActive) {
+      this.activeTabId = null;
+      console.log('[TabManager] 清空活动tab状态');
+    }
+    
+    // 更新tab栏显示
+    this.updateTabBar();
+    console.log('[TabManager] tab栏已更新');
+    
+    // 触发事件
+    this.eventManager.emit('tab-closed', { tabId, filePath: tab.filePath });
+  }
+
+  // 检查并处理未保存的更改
+  async checkAndHandleUnsavedChanges(currentTab) {
+    // 新建文件（filePath为null）无论是否编辑都需要处理保存
+    if (!currentTab.filePath) {
+      // 新建文件，显示保存提示
+      const result = await this.showSaveConfirmDialog(currentTab);
+      
+      if (result === 'save') {
+        // 用户选择保存
+        try {
+          console.log('[TabManager] 开始调用保存文件...');
+          await this.editorManager.saveFile();
+          console.log('[TabManager] 保存文件完成，停留在当前tab');
+          return 'saved_stay'; // 保存后停留在当前tab
+        } catch (error) {
+          console.error('[TabManager] 保存失败:', error);
+          this.uiManager.showMessage('保存失败: ' + error.message, 'error');
+          return 'cancelled';
+        }
+      } else if (result === 'discard') {
+        // 用户选择不保存，关闭新建文件tab
+        console.log('[TabManager] 准备关闭新建文件tab:', currentTab.id, currentTab.title);
+        this.removeTabDirectly(currentTab.id);
+        console.log('[TabManager] 新建文件tab关闭完成');
+        return 'tab_closed';
+      } else {
+        // 用户取消
+        return 'cancelled';
+      }
+    }
+
+    // 已保存文件：只在编辑模式下检查
+    // 使用当前tab的编辑模式状态，而不是EditorManager的全局状态
+    const activeTab = this.getActiveTab();
+    if (!activeTab || !activeTab.isEditMode) {
+      return 'no_changes';
+    }
+
+    // 获取当前编辑器内容
+    const currentContent = this.editorManager.getCurrentContent();
+    const originalContent = currentTab.content || '';
+
+    // 检查内容是否有变化
+    if (currentContent === originalContent) {
+      return 'no_changes';
+    }
+
+    // 显示保存确认对话框
+    const result = await this.showSaveConfirmDialog(currentTab);
+    
+    if (result === 'save') {
+      // 用户选择保存
+      try {
+        if (currentTab.filePath) {
+          // 已有文件，直接保存
+          await this.editorManager.saveFile();
+        } else {
+          // 新建文件，使用保存对话框
+          await this.editorManager.saveFile();
+        }
+        return 'saved';
+      } catch (error) {
+        console.error('[TabManager] 保存失败:', error);
+        this.uiManager.showMessage('保存失败: ' + error.message, 'error');
+        return 'cancelled';
+      }
+    } else if (result === 'discard') {
+      // 用户选择不保存
+      if (!currentTab.filePath) {
+        // 新建文件且不保存，关闭tab
+        console.log('[TabManager] 准备关闭新建文件tab:', currentTab.id, currentTab.title);
+        // 使用简化的关闭方法，避免递归调用setActiveTab
+        this.removeTabDirectly(currentTab.id);
+        console.log('[TabManager] 新建文件tab关闭完成');
+        return 'tab_closed';
+      }
+      return 'discarded';
+    } else {
+      // 用户取消
+      console.log('[TabManager] 用户取消操作，result:', result);
+      return 'cancelled';
+    }
+  }
+
+  // 显示保存确认对话框
+  showSaveConfirmDialog(tab) {
+    return new Promise((resolve) => {
+      // 清除任何已存在的对话框
+      const existingOverlays = document.querySelectorAll('.save-confirm-overlay');
+      existingOverlays.forEach(el => el.remove());
+      
+      // 创建对话框遮罩
+      const overlay = document.createElement('div');
+      overlay.className = 'save-confirm-overlay';
+
+      // 创建对话框
+      const dialog = document.createElement('div');
+      dialog.className = 'save-confirm-dialog';
+
+      // 创建图标
+      const icon = document.createElement('div');
+      icon.className = 'save-confirm-icon';
+      icon.innerHTML = '⚠️';
+
+      // 创建标题
+      const title = document.createElement('h3');
+      title.className = 'save-confirm-title';
+      title.textContent = '是否保存更改？';
+
+      // 创建消息
+      const message = document.createElement('p');
+      message.className = 'save-confirm-message';
+      const fileName = tab.filePath ? require('path').basename(tab.filePath) : tab.title;
+      message.textContent = `文件 "${fileName}" 中的更改将会丢失。`;
+
+      // 创建按钮容器
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'save-confirm-buttons';
+
+      // 创建按钮
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = '取消';
+      cancelButton.className = 'save-confirm-button cancel';
+
+      const discardButton = document.createElement('button');
+      discardButton.textContent = '不保存';
+      discardButton.className = 'save-confirm-button discard';
+
+      const saveButton = document.createElement('button');
+      saveButton.textContent = '保存';
+      saveButton.className = 'save-confirm-button save primary';
+
+      // 组装对话框
+      dialog.appendChild(icon);
+      dialog.appendChild(title);
+      dialog.appendChild(message);
+      buttonContainer.appendChild(cancelButton);
+      buttonContainer.appendChild(discardButton);
+      buttonContainer.appendChild(saveButton);
+      dialog.appendChild(buttonContainer);
+      overlay.appendChild(dialog);
+
+      // 事件处理
+      const cleanup = () => {
+        console.log('[TabManager] 开始清理对话框，overlay存在:', !!overlay);
+        
+        // 检查清理前的状态
+        const beforeCleanup = document.querySelectorAll('.save-confirm-overlay');
+        console.log('[TabManager] 清理前找到的对话框数量:', beforeCleanup.length);
+        
+        // 强制移除所有保存确认对话框（包括当前的）
+        const allOverlays = document.querySelectorAll('.save-confirm-overlay');
+        
+        allOverlays.forEach((el, index) => {
+          try {
+            console.log(`[TabManager] 移除第${index + 1}个对话框，父元素:`, el.parentNode?.tagName);
+            console.log(`[TabManager] 对话框类名:`, el.className);
+            el.style.display = 'none'; // 立即隐藏
+            el.remove(); // 然后移除
+            console.log(`[TabManager] 第${index + 1}个对话框已移除`);
+          } catch (error) {
+            console.error(`[TabManager] 移除第${index + 1}个对话框失败:`, error);
+          }
+        });
+        
+        // 验证清理后的状态
+        setTimeout(() => {
+          const afterCleanup = document.querySelectorAll('.save-confirm-overlay');
+          console.log('[TabManager] 清理后仍存在的对话框数量:', afterCleanup.length);
+          if (afterCleanup.length > 0) {
+            console.error('[TabManager] 警告：仍有对话框未被清理！');
+            afterCleanup.forEach((el, index) => {
+              console.log(`[TabManager] 残留对话框${index + 1}:`, el.outerHTML.substring(0, 100));
+              try {
+                el.remove();
+              } catch (e) {
+                console.error(`[TabManager] 强制移除残留对话框${index + 1}失败:`, e);
+              }
+            });
+          }
+        }, 100);
+        
+        console.log('[TabManager] 对话框清理完成');
+      };
+
+      saveButton.addEventListener('click', () => {
+        cleanup();
+        resolve('save');
+      });
+
+      discardButton.addEventListener('click', () => {
+        console.log('[TabManager] 用户点击不保存按钮，开始清理对话框');
+        cleanup();
+        console.log('[TabManager] 对话框清理完成，返回discard结果');
+        resolve('discard');
+      });
+
+      cancelButton.addEventListener('click', () => {
+        console.log('[TabManager] 用户点击取消按钮，开始清理对话框');
+        cleanup();
+        console.log('[TabManager] 对话框清理完成，返回cancel结果');
+        resolve('cancel');
+      });
+
+      // ESC键取消
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          resolve('cancel');
+          document.removeEventListener('keydown', handleKeyDown);
+        } else if (e.key === 'Enter') {
+          cleanup();
+          resolve('save');
+          document.removeEventListener('keydown', handleKeyDown);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      // 显示对话框
+      document.body.appendChild(overlay);
+      
+      // 聚焦保存按钮
+      setTimeout(() => {
+        saveButton.focus();
+      }, 100);
+    });
+  }
+
+  // ===== 新增：Tab状态管理方法 =====
+
+  /**
+   * 保存当前tab的完整编辑器状态
+   * @param {Object} tab - 要保存状态的tab对象
+   */
+  saveTabState(tab) {
+    if (!this.editorManager || !tab || !tab.editorState) return;
+    
+    try {
+      // 保存内容
+      const currentContent = this.editorManager.getCurrentContent();
+      if (currentContent !== undefined) {
+        tab.content = currentContent;
+      }
+      
+      // 保存编辑器状态 - 编辑模式状态已经在tab中维护，不需要从EditorManager获取
+      // tab.editorState.isEditMode = this.editorManager.isInEditMode(); // 移除这行，保持tab自己的状态
+      tab.editorState.hasUnsavedChanges = this.editorManager.hasUnsavedChanges;
+      
+      // 保存滚动位置
+      if (tab.editorState.isEditMode) {
+        // 编辑模式：保存编辑器滚动位置
+        const editorTextarea = document.getElementById('editorTextarea');
+        if (editorTextarea) {
+          tab.editorState.editScrollTop = editorTextarea.scrollTop;
+        }
+        
+        // 保存光标位置
+        if (editorTextarea) {
+          tab.editorState.cursorPosition = {
+            selectionStart: editorTextarea.selectionStart,
+            selectionEnd: editorTextarea.selectionEnd
+          };
+        }
+      } else {
+        // 预览模式：保存预览滚动位置
+        const previewArea = document.querySelector('.preview-area');
+        if (previewArea) {
+          tab.editorState.viewScrollTop = previewArea.scrollTop;
+        }
+      }
+      
+      // 保存滚动比例
+      tab.editorState.scrollRatio = this.editorManager.scrollRatio || 0;
+      
+      console.log(`[TabManager] 已保存 tab 状态: ${tab.title}`, {
+        isEditMode: tab.editorState.isEditMode,
+        hasUnsavedChanges: tab.editorState.hasUnsavedChanges,
+        scrollRatio: tab.editorState.scrollRatio,
+        contentLength: tab.content ? tab.content.length : 0
+      });
+      
+    } catch (error) {
+      console.error('[TabManager] 保存tab状态失败:', error);
+    }
+  }
+
+  /**
+   * 恢复tab的完整编辑器状态
+   * @param {Object} tab - 要恢复状态的tab对象
+   */
+  restoreTabState(tab) {
+    if (!this.editorManager) return;
+    
+    try {
+      console.log(`[TabManager] 开始恢复 tab 状态: ${tab.title}`, {
+        isEditMode: tab.editorState.isEditMode,
+        hasUnsavedChanges: tab.editorState.hasUnsavedChanges,
+        scrollRatio: tab.editorState.scrollRatio
+      });
+      
+      // 恢复内容（不重置状态）
+      this.editorManager.setContent(tab.content, tab.filePath, false, false);
+      
+      // 恢复编辑器状态
+      this.editorManager.hasUnsavedChanges = tab.editorState.hasUnsavedChanges;
+      
+      // 恢复滚动比例
+      if (tab.editorState.scrollRatio !== undefined) {
+        this.editorManager.scrollRatio = tab.editorState.scrollRatio;
+      }
+      
+      // 恢复编辑模式 - 先更新EditorManager的状态，然后根据需要切换UI
+      const shouldBeInEditMode = tab.editorState.isEditMode;
+      const currentEditMode = this.editorManager.isInEditMode();
+      
+      if (shouldBeInEditMode !== currentEditMode) {
+        // 直接设置 EditorManager 的状态，然后更新UI
+        this.editorManager.isEditMode = shouldBeInEditMode;
+        
+        // 更新UI状态
+        const editorContent = document.getElementById('editorContent');
+        const contentArea = document.querySelector('.content-area');
+        const editButton = document.getElementById('edit-button');
+        
+        if (shouldBeInEditMode) {
+          if (editorContent) editorContent.style.display = 'block';
+          if (contentArea) contentArea.style.display = 'none';
+          if (editButton) editButton.textContent = '预览';
+        } else {
+          if (editorContent) editorContent.style.display = 'none';
+          if (contentArea) contentArea.style.display = 'block';
+          if (editButton) editButton.textContent = '编辑';
+        }
+        
+        // 通知主进程编辑模式状态变化
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.send('set-edit-mode', shouldBeInEditMode);
+      }
+      
+      // 延迟恢复滚动位置和光标位置，确保DOM已更新
+      requestAnimationFrame(() => {
+        this.restoreScrollAndCursor(tab);
+      });
+      
+    } catch (error) {
+      console.error('[TabManager] 恢复tab状态失败:', error);
+    }
+  }
+
+  /**
+   * 恢复滚动位置和光标位置
+   * @param {Object} tab - 要恢复的tab对象
+   */
+  restoreScrollAndCursor(tab) {
+    try {
+      if (tab.editorState.isEditMode) {
+        // 编辑模式：恢复编辑器滚动位置和光标
+        const editorTextarea = document.getElementById('editorTextarea');
+        if (editorTextarea) {
+          // 恢复滚动位置
+          if (tab.editorState.editScrollTop !== undefined) {
+            editorTextarea.scrollTop = tab.editorState.editScrollTop;
+          }
+          
+          // 恢复光标位置
+          if (tab.editorState.cursorPosition) {
+            editorTextarea.selectionStart = tab.editorState.cursorPosition.selectionStart;
+            editorTextarea.selectionEnd = tab.editorState.cursorPosition.selectionEnd;
+          }
+        }
+      } else {
+        // 预览模式：恢复预览滚动位置
+        const previewArea = document.querySelector('.preview-area');
+        if (previewArea && tab.editorState.viewScrollTop !== undefined) {
+          previewArea.scrollTop = tab.editorState.viewScrollTop;
+        }
+      }
+      
+      console.log(`[TabManager] 已恢复滚动位置和光标: ${tab.title}`);
+      
+    } catch (error) {
+      console.error('[TabManager] 恢复滚动位置和光标失败:', error);
+    }
+  }
+
+  /**
+   * 更新当前活动tab的状态（在编辑过程中实时调用）
+   */
+  updateCurrentTabState() {
+    const activeTab = this.getActiveTab();
+    if (activeTab && this.editorManager) {
+      // 实时保存当前状态，但不打印日志避免过于频繁
+      const currentContent = this.editorManager.getCurrentContent();
+      if (currentContent !== undefined) {
+        activeTab.content = currentContent;
+      }
+      
+      // 注意：不要在这里同步 isEditMode，因为这会在状态恢复时造成冲突
+      // activeTab.editorState.isEditMode = this.editorManager.isInEditMode();
+      activeTab.editorState.hasUnsavedChanges = this.editorManager.hasUnsavedChanges;
+      
+      // 更新修改状态标记
+      activeTab.isModified = this.editorManager.hasUnsavedChanges;
+    }
   }
 }
 

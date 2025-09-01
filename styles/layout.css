@@ -1006,3 +1006,88 @@ mark[class*="highlight-"] {
     background: var(--bg-color);
     color: var(--text-color);
 }
+
+/* 保存确认对话框样式 */
+.save-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10001;
+}
+
+.save-confirm-dialog {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 24px;
+  width: 380px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+.save-confirm-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.save-confirm-title {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.save-confirm-message {
+  margin: 0 0 24px 0;
+  font-size: 14px;
+  color: var(--text-color-secondary);
+  line-height: 1.4;
+}
+
+.save-confirm-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.save-confirm-button {
+  padding: 8px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  background-color: var(--button-background);
+  color: var(--text-color);
+  min-width: 80px;
+  transition: all 0.2s ease;
+}
+
+.save-confirm-button:hover {
+  background-color: var(--button-hover-background);
+}
+
+.save-confirm-button.primary {
+  background-color: #007acc;
+  color: white;
+  border-color: #007acc;
+}
+
+.save-confirm-button.primary:hover {
+  background-color: #005a9e;
+}
+
+.save-confirm-button.discard {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.save-confirm-button.discard:hover {
+  background-color: #c82333;
+}

@@ -34,6 +34,11 @@ class EditorManager {
       this.hasUnsavedChanges = true;
       this.updateSaveButton();
       this.eventManager.emit('content-changed');
+      
+      // 通知TabManager更新当前tab状态
+      if (this.tabManager && typeof this.tabManager.updateCurrentTabState === 'function') {
+        this.tabManager.updateCurrentTabState();
+      }
     });
     
     // 监听快捷键
@@ -276,7 +281,22 @@ class EditorManager {
     }
     
     this.eventManager.emit('edit-mode-changed', this.isEditMode);
+    
+    // 通知TabManager更新当前tab状态
+    if (this.tabManager && typeof this.tabManager.updateCurrentTabState === 'function') {
+      this.tabManager.updateCurrentTabState();
+    }
+    
+    // 同步全局状态到当前活动tab的状态
+    if (this.tabManager) {
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab) {
+        // 确保Tab对象的编辑模式状态与EditorManager同步
+        activeTab.isEditMode = this.isEditMode;
+      }
+    }
   }
+
 
   updatePreview(content) {
     const preview = document.getElementById('markdownContent');
@@ -410,7 +430,7 @@ class EditorManager {
       
       indicator.innerHTML = `
         <div class="readonly-banner">
-          <img src="assets/icons/lock-icon.svg" alt="锁" width="16" height="16" style="display: inline-block; vertical-align: middle; margin-right: 6px;">此文件为只读文件，如需编辑请
+          <svg width="16" height="16" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: inline-block; vertical-align: middle; margin-right: 6px;"><rect x="2" y="5" width="8" height="5" rx="1" stroke="currentColor" stroke-width="1" fill="currentColor" fill-opacity="0.1"/><path d="M3.5 5V3.5C3.5 2.39543 4.39543 1.5 5.5 1.5H6.5C7.60457 1.5 8.5 2.39543 8.5 3.5V5" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="6" cy="7.5" r="0.8" fill="currentColor"/></svg>此文件为只读文件，如需编辑请
           <button class="readonly-save-copy-btn" onclick="window.editorManager.saveAsLocalCopy()">
             另存为本地副本
           </button>
@@ -470,7 +490,9 @@ class EditorManager {
     // 使用全局文件路径
     const currentPath = this.appManager ? this.appManager.getCurrentFilePath() : this.currentFilePath;
     
-    if (!this.hasUnsavedChanges) {
+    // 对于已保存的文件，如果没有未保存的更改，直接返回
+    // 对于新建文件（currentPath为null），无论是否有更改都要弹出保存对话框
+    if (!this.hasUnsavedChanges && currentPath) {
       return;
     }
     
