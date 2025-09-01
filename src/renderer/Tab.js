@@ -184,7 +184,7 @@ class Tab {
       // 更新tab的当前内容
       this.content = currentContent;
       
-      // 使用新的 EditorManager 服务方法获取滚动位置
+      // 直接获取并保存当前滚动位置，不做任何保护
       this.scrollRatio = this.editorManager.getCurrentScrollPosition(this.isEditMode);
       
       console.log(`[Tab] 已保存状态: ${this.title}`, {

@@ -529,6 +529,9 @@ class EditorManager {
           // 第二个打点：设置完滚动位置后的实际位置
           const actualScrollRatio = this.getCurrentScrollPosition(true);
           console.log(`[滚动继承] edit初始化完成后，实际scrollRatio: ${actualScrollRatio}`);
+          
+          // CodeMirror 初始化完成后，更新活动 tab 的基准 MD5
+          this.updateActiveTabBaselineMD5();
         });
       }
     } else {
@@ -563,11 +566,6 @@ class EditorManager {
    */
   setScrollPosition(scrollRatio, isEditMode) {
     console.log(`[滚动设置] setScrollPosition调用: scrollRatio=${scrollRatio}, isEditMode=${isEditMode}`);
-    
-    if (scrollRatio === 0) {
-      console.log(`[滚动设置] scrollRatio为0，跳过设置`);
-      return;
-    }
     
     if (isEditMode) {
       // 编辑模式滚动
@@ -703,6 +701,24 @@ class EditorManager {
     
     // 如果没找到，返回window（使用document.documentElement）
     return document.documentElement;
+  }
+
+  // 更新活动 tab 的基准 MD5（CodeMirror 初始化完成后调用）
+  updateActiveTabBaselineMD5() {
+    if (!this.tabManager) return;
+    
+    const activeTab = this.tabManager.getActiveTab();
+    if (!activeTab) return;
+    
+    // 获取 CodeMirror 中的当前内容
+    const currentContent = this.getCurrentContent();
+    if (currentContent !== undefined) {
+      // 用 CodeMirror 的内容（已预处理）生成新的基准 MD5
+      const newBaselineMD5 = activeTab.constructor.calculateMD5(currentContent);
+      activeTab.originalContentMD5 = newBaselineMD5;
+      
+      console.log(`[MD5基准] 更新基准MD5: ${newBaselineMD5.substring(0, 8)}... (内容长度: ${currentContent.length})`);
+    }
   }
 }
 
