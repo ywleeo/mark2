@@ -429,8 +429,12 @@ class EditorManager {
       const content = this.getCurrentContent();
       const { ipcRenderer } = require('electron');
       
+      // 获取当前文件名作为建议名称
+      const currentPath = this.getCurrentFilePath();
+      const suggestedName = currentPath ? require('path').basename(currentPath) : null;
+      
       // 调用IPC接口，使用保存对话框选择位置
-      const result = await ipcRenderer.invoke('save-file-as', content);
+      const result = await ipcRenderer.invoke('save-file-as', content, suggestedName);
       
       if (result && result.success) {
         if (this.appManager && this.appManager.uiManager) {

@@ -580,15 +580,19 @@ class FileManager {
     }
   }
 
-  async saveFileAs(content) {
+  async saveFileAs(content, suggestedName = null) {
     try {
       const mainWindow = this.windowManager.getWindow();
+      
+      // 如果提供了建议文件名，使用它；否则使用默认名
+      const defaultPath = suggestedName || 'Untitled.md';
+      
       const result = await dialog.showSaveDialog(mainWindow, {
         filters: [
           { name: 'Markdown Files', extensions: ['md', 'markdown'] },
           { name: 'All Files', extensions: ['*'] }
         ],
-        defaultPath: 'Untitled.md'
+        defaultPath: defaultPath
       });
 
       if (result.canceled || !result.filePath) {

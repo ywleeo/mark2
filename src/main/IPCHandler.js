@@ -70,9 +70,9 @@ class IPCHandler {
     });
 
     // 另存为文件
-    ipcMain.handle('save-file-as', async (event, content) => {
+    ipcMain.handle('save-file-as', async (event, content, suggestedName) => {
       try {
-        return await this.fileManager.saveFileAs(content);
+        return await this.fileManager.saveFileAs(content, suggestedName);
       } catch (error) {
         console.error('Error in save-file-as:', error);
         throw error;
