@@ -172,15 +172,20 @@ function uploadToAppStore(pkgPath) {
     // 输出完整信息供调试
     console.log('altool output:', output);
     
-    // 解析上传结果
-    if (output.includes('UPLOAD SUCCEEDED')) {
+    // 解析上传结果 - 兼容新旧版本的 altool 输出格式
+    const isSuccess = output.includes('UPLOAD SUCCEEDED') || output.includes('No errors uploading');
+    
+    if (isSuccess) {
+      // 提取 UUID（旧版本格式）
       const uuidMatch = output.match(/Delivery UUID: ([a-f0-9-]+)/);
       const uuid = uuidMatch ? uuidMatch[1] : '未知';
       
       logSuccess('上传成功！');
-      log(`Delivery UUID: ${uuid}`, 'cyan');
+      if (uuid !== '未知') {
+        log(`Delivery UUID: ${uuid}`, 'cyan');
+      }
       
-      // 提取传输信息
+      // 提取传输信息（旧版本格式）
       const transferMatch = output.match(/Transferred (\d+) bytes in ([\d.]+) seconds/);
       if (transferMatch) {
         const bytes = parseInt(transferMatch[1]);
@@ -188,10 +193,16 @@ function uploadToAppStore(pkgPath) {
         const sizeMB = (bytes / 1024 / 1024).toFixed(1);
         const speedMBs = (bytes / 1024 / 1024 / seconds).toFixed(1);
         log(`传输信息: ${sizeMB}MB 在 ${seconds}s 内完成 (${speedMBs}MB/s)`, 'cyan');
+      } else if (output.includes('No errors uploading')) {
+        // 新版本格式的简化反馈
+        log('上传已完成，请前往 App Store Connect 查看处理状态', 'cyan');
       }
       
       return uuid;
     } else {
+      // 上传失败，输出详细信息用于调试
+      logError('altool 上传失败，完整输出：');
+      console.log(output);
       throw new Error('上传失败');
     }
   } catch (error) {
