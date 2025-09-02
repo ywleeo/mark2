@@ -243,17 +243,23 @@ class TodoListPlugin extends BasePlugin {
      * 处理 Markdown 渲染
      * 增强生成的 HTML，添加交互功能
      */
-    processMarkdown(html) {
+    processMarkdown(html, originalContent = null) {
         
         try {
-            // 获取当前文件内容用于行号映射
-            const currentFile = this.getCurrentFileInfo();
-            if (!currentFile || !currentFile.content) {
-                return html;
+            // 优先使用传入的原始内容
+            let content = originalContent;
+            
+            // 如果没有传入原始内容，尝试获取当前文件内容
+            if (!content) {
+                const currentFile = this.getCurrentFileInfo();
+                if (!currentFile || !currentFile.content) {
+                    return html;
+                }
+                content = currentFile.content;
             }
             
             // 解析任务列表并增强 HTML
-            const enhancedHtml = this.enhanceTaskLists(html, currentFile.content);
+            const enhancedHtml = this.enhanceTaskLists(html, content);
             
             // 添加进度显示（如果启用）
             if (this.config.general?.showProgress) {
@@ -288,7 +294,18 @@ class TodoListPlugin extends BasePlugin {
                 };
             }
             
-            // 方法2：如果编辑器不可用，尝试从预览内容推断
+            // 方法2：从 Tab 系统获取活动 tab 的内容（适用于预览模式）
+            if (window.tabManager && typeof window.tabManager.getActiveTab === 'function') {
+                const activeTab = window.tabManager.getActiveTab();
+                if (activeTab && activeTab.content) {
+                    return {
+                        path: activeTab.filePath || 'current',
+                        content: activeTab.content
+                    };
+                }
+            }
+            
+            // 方法3：如果都不可用，最后尝试从预览内容推断
             const previewElement = document.getElementById('content');
             if (previewElement && window.appManager) {
                 // 这种情况下我们无法获取原始内容，只能跳过

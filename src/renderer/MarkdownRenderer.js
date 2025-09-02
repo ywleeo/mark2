@@ -114,7 +114,7 @@ class MarkdownRenderer {
           try {
             // 检查任务是否还有效（元素存在且内容ID匹配）
             if (targetElement.isConnected && targetElement.dataset.contentId === String(contentId)) {
-              let enhancedHtml = this.applyKeywordHighlight(html);
+              let enhancedHtml = this.applyKeywordHighlight(html, content);
               if (enhancedHtml !== html) {
                 targetElement.innerHTML = enhancedHtml;
                 // 保持内容ID，表示高亮已完成
@@ -133,7 +133,7 @@ class MarkdownRenderer {
       }
       
       // 兼容性：如果没有提供目标元素，保持同步行为
-      html = this.applyKeywordHighlight(html);
+      html = this.applyKeywordHighlight(html, content);
       
       return html;
     } catch (error) {
@@ -185,10 +185,10 @@ class MarkdownRenderer {
   }
 
 
-  applyKeywordHighlight(html) {
+  applyKeywordHighlight(html, originalContent = null) {
     // 完全通过插件系统处理
     if (window.pluginManager && window.pluginManager.initialized) {
-      return window.pluginManager.processMarkdown(html);
+      return window.pluginManager.processMarkdown(html, originalContent);
     }
     
     // 如果插件系统未初始化，直接返回原始HTML

@@ -265,19 +265,30 @@ class PluginManager {
      * 处理 Markdown 渲染
      * 按顺序调用所有启用插件的 processMarkdown 方法
      * @param {string} html - 输入的 HTML 内容
+     * @param {string} originalContent - 原始 Markdown 内容（可选）
      * @returns {string} - 处理后的 HTML 内容
      */
-    processMarkdown(html) {
+    processMarkdown(html, originalContent = null) {
         let result = html;
         
         const enabledPlugins = this.getEnabledPlugins();
         
+        // 临时存储原始内容，供插件访问
+        if (originalContent) {
+            window._currentProcessingContent = originalContent;
+        }
+        
         for (const plugin of enabledPlugins) {
             try {
-                result = plugin.processMarkdown(result);
+                result = plugin.processMarkdown(result, originalContent);
             } catch (error) {
                 console.warn(`[插件管理器] 插件 ${plugin.name} 处理 Markdown 失败:`, error);
             }
+        }
+        
+        // 清理临时数据
+        if (window._currentProcessingContent) {
+            delete window._currentProcessingContent;
         }
         
         return result;

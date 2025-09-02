@@ -215,7 +215,7 @@ class KeywordHighlighterPlugin extends BasePlugin {
     /**
      * 处理 Markdown 渲染
      */
-    processMarkdown(html) {
+    processMarkdown(html, originalContent = null) {
         if (!this.isActive()) return html;
         
         // 检查全局开关

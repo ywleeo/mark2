@@ -50,6 +50,7 @@ class AppManager {
     
     // 将核心管理器挂载到全局window对象
     window.editorManager = this.editorManager;
+    window.tabManager = this.tabManager;
     window.searchManager = this.searchManager;
     
     // 初始化应用
