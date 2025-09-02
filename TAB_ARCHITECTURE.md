@@ -221,6 +221,49 @@ isInEditMode()           // 查询活动tab的编辑模式
 - 光标位置
 - 文件内容
 
+### 编辑内容管理机制（防串台核心）
+
+**❌ 严禁使用全局 `currentContent` 变量**：
+- 不要创建中间变量如 `const currentContent = this.content`
+- 直接使用 `this.content` 和编辑器DOM
+- 避免破坏Tab独立性的设计
+
+**编辑内容管理原则**：
+1. **编辑时**：用户输入的内容只存在于编辑器DOM中，Tab的 `this.content` 保持原始内容不变
+2. **确认修改**：只有在以下3个时机才同步编辑器内容到Tab并保存：
+   - **切回view模式**：`Tab.toggleEditMode()` 从编辑模式切到预览模式
+   - **关闭tab**：`Tab.handleCloseWithSaveCheck()` 
+   - **点击其他tab**：TabManager调用当前tab的 `confirmModification()` 
+
+**确认修改的正确流程**：
+```javascript
+// 1. 从编辑器DOM获取当前内容
+const editor = document.getElementById('editorTextarea');
+const editorContent = editor ? this.editorManager.getCurrentContent() : '';
+
+// 2. 比较编辑器内容与Tab原始内容的MD5
+const editorContentMD5 = Tab.calculateMD5(editorContent);
+const hasChanges = (editorContentMD5 !== this.originalContentMD5);
+
+// 3. 如果有变化，调用EditorManager统一保存方法
+if (hasChanges) {
+  await this.editorManager.saveFile(); // 统一保存方法，UI提示一致
+  
+  // 4. 保存成功后，更新Tab的内容和基准
+  this.content = editorContent;
+  this.originalFileContent = editorContent;
+  this.originalContentMD5 = editorContentMD5;
+}
+```
+
+**关键设计要点**：
+- **单一活跃Tab原则**：任何时候只有一个Tab是活跃状态，由TabManager严格控制
+- **内容来源明确**：编辑器的内容必须来自当前活跃Tab的 `content` 属性
+- **状态清理机制**：Tab切换时必须清理前一个Tab的编辑状态
+- **默认view模式**：任何Tab被点击后都默认进入view模式，这是单一逻辑
+- **编辑器内容隔离**：编辑过程中的内容只存在于编辑器DOM，不污染Tab原始内容
+- **使用CodeMirror API**：严禁使用 `editor.value = content` 直接操作DOM，必须使用 `this.markdownHighlighter.setValue(content)`
+
 ### 实时同步机制
 
 ```javascript
@@ -266,11 +309,43 @@ editor.addEventListener('input', () => {
 - 通过参数接收所有需要的数据
 - 执行DOM操作
 - 管理CodeMirror实例
+- 使用CodeMirror API: `this.markdownHighlighter.setValue(content)`
 
 ❌ **不应该做**:
 - 保存任何状态属性
 - 直接读取文件或tab状态
 - 假设当前的编辑模式或内容
+- 直接操作DOM: `editor.value = content` (必须使用CodeMirror API)
+
+### 编辑内容管理约束
+
+✅ **正确的内容操作**:
+```javascript
+// 设置编辑器内容
+if (this.markdownHighlighter && this.markdownHighlighter.setValue) {
+  this.markdownHighlighter.setValue(content);
+}
+
+// 获取编辑器内容
+const content = this.editorManager.getCurrentContent();
+
+// Tab状态管理
+const activeTab = this.tabManager.getActiveTab();
+activeTab.content = newContent;
+```
+
+❌ **禁止的操作**:
+```javascript
+// 直接操作DOM元素
+const editor = document.getElementById('editorTextarea');
+editor.value = content; // ❌ 错误
+
+// 创建全局内容变量
+const currentContent = this.content; // ❌ 破坏Tab独立性
+
+// 绕过Tab状态管理
+this.editorManager.currentContent = content; // ❌ EditorManager应该无状态
+```
 
 ## 重构优势
 
@@ -280,6 +355,8 @@ editor.addEventListener('input', () => {
 4. **扩展容易**: 新增Tab功能只需修改Tab类
 5. **测试友好**: 每个类都可以独立测试
 6. **调试方便**: 问题定位更准确
+7. **防止串台**: 严格的状态管理和内容隔离机制防止Tab内容混淆
+8. **API规范**: 统一使用CodeMirror API，避免直接DOM操作引起的问题
 
 ## 常见问题
 
