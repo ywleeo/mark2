@@ -1091,3 +1091,17 @@ mark[class*="highlight-"] {
 .save-confirm-button.discard:hover {
   background-color: #c82333;
 }
+
+/* Focus 状态样式 */
+.save-confirm-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.save-confirm-button.primary:focus {
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.5);
+}
+
+.save-confirm-button.discard:focus {
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.5);
+}

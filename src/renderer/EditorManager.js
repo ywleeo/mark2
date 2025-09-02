@@ -18,6 +18,7 @@ class EditorManager {
     
     this.setupEditor();
     this.setupResizeHandler();
+    this.setupThemeListener();
   }
 
   setupEditor() {
@@ -556,6 +557,19 @@ class EditorManager {
           
           // CodeMirror 初始化完成后，更新活动 tab 的基准 MD5
           this.updateActiveTabBaselineMD5(content);
+          
+          // 设置编辑器焦点（确保新建文件等场景下编辑器获得焦点）
+          console.log('[EditorManager] 检查是否设置编辑器焦点', {
+            hasHighlighter: !!this.markdownHighlighter,
+            hasFocusMethod: !!(this.markdownHighlighter && this.markdownHighlighter.focus)
+          });
+          if (this.markdownHighlighter && this.markdownHighlighter.focus) {
+            // 使用 setTimeout 确保 DOM 完全更新后再设置焦点
+            setTimeout(() => {
+              console.log('[EditorManager] 设置编辑器焦点');
+              this.markdownHighlighter.focus();
+            }, 10);
+          }
         });
       }
     } else {
@@ -743,6 +757,20 @@ class EditorManager {
       
       console.log(`[MD5基准] 更新基准MD5: ${newBaselineMD5.substring(0, 8)}... (内容长度: ${contentToUse.length})`);
     }
+  }
+
+  // 设置主题监听
+  setupThemeListener() {
+    // 监听主题变化事件，更新 CodeMirror 编辑器主题
+    this.eventManager.on('theme-changed', (theme) => {
+      console.log('[EditorManager] 收到主题变化事件:', theme);
+      if (this.markdownHighlighter && this.markdownHighlighter.updateTheme) {
+        // 延迟一点让 CSS 加载完成
+        setTimeout(() => {
+          this.markdownHighlighter.updateTheme();
+        }, 50);
+      }
+    });
   }
 }
 
