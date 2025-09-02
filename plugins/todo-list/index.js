@@ -765,56 +765,52 @@ class TodoListPlugin extends BasePlugin {
      */
     async updateFileContent(newContent) {
         try {
-            // 直接更新编辑器内容
-            const editor = document.getElementById('editorTextarea');
-            if (editor) {
-                // 更新编辑器内容
-                editor.value = newContent;
-                
-                // 触发 input 事件，让编辑器知道内容已变化
-                editor.dispatchEvent(new Event('input', { bubbles: true }));
-                
-                // 更新 EditorManager 的状态
-                if (window.editorManager) {
-                    // 同步更新 originalContent，确保编辑模式切换时内容一致
-                    window.editorManager.originalContent = newContent;
-                    // this.api.log(this.name, 'EditorManager.originalContent 已同步更新');
-                    
-                    // 标记为有未保存的更改
-                    window.editorManager.hasUnsavedChanges = true;
-                    window.editorManager.updateSaveButton();
-                    
-                    // 如果启用自动保存，触发保存
-                    if (this.config.general?.autoSave && typeof window.editorManager.saveFile === 'function') {
-                        await window.editorManager.saveFile();
-                    }
-                } else {
-                    // 备用方法：点击保存按钮
-                    if (this.config.general?.autoSave) {
-                        setTimeout(() => {
-                            const saveButton = document.getElementById('saveButton');
-                            if (saveButton && !saveButton.disabled) {
-                                saveButton.click();
-                            }
-                        }, 100);
-                    }
-                }
-                
-                // 如果在预览模式，需要重新渲染
-                if (!document.body.classList.contains('edit-mode')) {
-                    // 触发内容变化事件，让应用重新渲染预览
-                    if (window.eventManager) {
-                        window.eventManager.emit('content-changed');
-                    }
-                }
-                
+            // 新 Tab 架构下的正确流程
+            
+            // 1. 获取活动 Tab
+            const activeTab = window.tabManager?.getActiveTab();
+            if (!activeTab || !activeTab.filePath) {
+                this.api.warn(this.name, '无法获取活动 Tab 或文件路径');
                 return;
             }
             
-            this.api.warn(this.name, '找不到编辑器元素');
+            // 2. 更新 Tab 的内容
+            activeTab.content = newContent;
+            activeTab.hasUnsavedChanges = true;
+            
+            // 3. 更新编辑器内容（如果在编辑模式）
+            const editor = document.getElementById('editorTextarea');
+            if (editor && activeTab.isEditMode) {
+                editor.value = newContent;
+                // 触发 input 事件，让编辑器知道内容已变化
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            // 4. 直接通过 IPC 保存文件，避免依赖 EditorManager 的编辑器状态
+            if (this.config.general?.autoSave) {
+                const { ipcRenderer } = require('electron');
+                await ipcRenderer.invoke('save-file', activeTab.filePath, newContent);
+                
+                // 保存成功后标记为已保存
+                activeTab.hasUnsavedChanges = false;
+                
+                this.api.log(this.name, `文件保存成功: ${activeTab.filePath}`);
+            }
+            
+            // 5. 如果在预览模式，需要延迟重新渲染内容
+            if (!activeTab.isEditMode) {
+                // 使用 setTimeout 确保保存操作完成后再重新渲染
+                setTimeout(() => {
+                    if (activeTab && activeTab.content === newContent) {
+                        activeTab.restoreToEditor();
+                    }
+                }, 50);
+            }
+            
+            this.api.log(this.name, '文件内容更新完成');
             
         } catch (error) {
-            this.api.warn(this.name, '更新编辑器内容失败:', error);
+            this.api.warn(this.name, '更新文件内容失败:', error);
             throw error;
         }
     }

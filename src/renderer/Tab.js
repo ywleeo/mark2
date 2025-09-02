@@ -78,13 +78,8 @@ class Tab {
   
   // 判断是否为只读文件
   determineReadOnlyStatus() {
-    if (this.fileType === 'help' || this.fileType === 'demo') {
-      return true;
-    }
-    if (this.filePath && this.filePath.includes('/docs/demo-')) {
-      return true;
-    }
-    return false;
+    // 只基于 fileType 判断，这是正确的方式
+    return this.fileType === 'help' || this.fileType === 'demo';
   }
   
   // 激活tab
