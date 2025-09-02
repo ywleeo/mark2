@@ -94,6 +94,9 @@ class Tab {
     console.log(`[Tab] 激活 tab: ${this.title}`);
     this.isActive = true;
     
+    // 【核心修复】Tab被点击时默认进入view模式
+    this.isEditMode = false;
+    
     // 【智能缓存】只有检测到文件变化时才重新加载
     if (this.filePath) {
       const hasExternalChanges = await this.checkFileTimestamp();
@@ -423,15 +426,16 @@ class Tab {
     if (result === 'save') {
       // 用户选择保存
       try {
-        // 【修复】使用Tab自己的content保存
-        const { ipcRenderer } = require('electron');
-        const saveResult = await ipcRenderer.invoke('save-file', this.filePath, this.content);
-        if (saveResult.success) {
-          this.hasUnsavedChanges = false;
-          return true; // 保存成功，可以关闭
-        } else {
-          return false; // 保存失败，不关闭
-        }
+        // 【修复】使用EditorManager统一保存方法，支持新文件的保存对话框
+        // 先确保编辑器内容同步到Tab
+        this.saveFromEditor();
+        
+        // 调用EditorManager的saveFile方法
+        await this.editorManager.saveFile();
+        
+        // 保存成功后更新Tab状态
+        this.hasUnsavedChanges = false;
+        return true; // 保存成功，可以关闭
       } catch (error) {
         console.error('[Tab] 保存失败:', error);
         // 保存失败，不关闭

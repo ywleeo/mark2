@@ -131,14 +131,42 @@ class TabManager {
     // 取消当前活动tab的激活状态
     const currentActiveTab = this.tabs.find(tab => tab.isActive);
     if (currentActiveTab) {
-      // 【新增功能】如果当前tab在编辑模式，自动保存并切换到预览模式
-      if (currentActiveTab.isEditMode && currentActiveTab.filePath && !currentActiveTab.isReadOnly) {
-        console.log(`[TabManager] 当前tab在编辑模式，执行自动保存: ${currentActiveTab.title}`);
+      // 【核心修复】处理当前tab的edit模式：保存内容 + 强制关闭edit模式
+      if (currentActiveTab.isEditMode) {
+        console.log(`[TabManager] 当前tab在编辑模式，保存并关闭edit: ${currentActiveTab.title}`);
         
-        // 调用tab的toggleEditMode来处理自动保存逻辑
-        await currentActiveTab.toggleEditMode();
+        // 1. 从编辑器DOM获取内容并保存到当前tab
+        const editor = document.getElementById('editorTextarea');
+        if (editor) {
+          const editorContent = editor.value;
+          const originalContentMD5 = currentActiveTab.originalContentMD5;
+          const editorContentMD5 = currentActiveTab.constructor.calculateMD5(editorContent);
+          
+          // 判断内容是否有变化
+          const hasChanges = (editorContentMD5 !== originalContentMD5);
+          
+          if (hasChanges && currentActiveTab.filePath && !currentActiveTab.isReadOnly) {
+            console.log(`[TabManager] 检测到内容变化，自动保存: ${currentActiveTab.title}`);
+            try {
+              // 调用EditorManager保存文件
+              await currentActiveTab.editorManager.saveFile();
+              // 更新Tab状态
+              currentActiveTab.content = editorContent;
+              currentActiveTab.originalFileContent = editorContent;
+              currentActiveTab.originalContentMD5 = editorContentMD5;
+              currentActiveTab.hasUnsavedChanges = false;
+            } catch (error) {
+              console.error(`[TabManager] 自动保存失败: ${currentActiveTab.title}`, error);
+            }
+          } else {
+            console.log(`[TabManager] 内容无变化，只更新到tab: ${currentActiveTab.title}`);
+            currentActiveTab.content = editorContent;
+          }
+        }
         
-        console.log(`[TabManager] 已自动保存并切换到预览模式: ${currentActiveTab.title}`);
+        // 2. 强制关闭当前tab的edit模式
+        currentActiveTab.isEditMode = false;
+        console.log(`[TabManager] 已强制关闭edit模式: ${currentActiveTab.title}`);
       }
       
       // 检查当前tab是否有未保存更改（在自动保存后重新检查）

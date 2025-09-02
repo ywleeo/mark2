@@ -159,16 +159,45 @@ isInEditMode()           // 查询活动tab的编辑模式
 7. EditorManager.renderContent(content, options) // 执行DOM操作
 ```
 
-### 2. Tab切换过程
+### 2. Tab切换过程（防串台关键流程）
 
 ```javascript
 1. TabManager.setActiveTab(newTabId)
-2. 当前活动Tab.deactivate() // 保存状态，取消激活
-3. 当前活动Tab.saveFromEditor() // 保存编辑器状态
-4. 新Tab.activate() // 激活新tab
+2. 处理当前活动Tab的编辑状态:
+   if (currentActiveTab.isEditMode) {
+     // 2.1 获取编辑器内容并判断变化
+     const editorContent = this.getEditorContent();
+     const hasChanges = this.hasContentChanged(editorContent);
+     
+     // 2.2 如果有变化则保存，没变化则跳过
+     if (hasChanges) {
+       await currentActiveTab.confirmModification();
+       // 更新Tab内容和基准MD5
+       currentActiveTab.content = editorContent;
+       currentActiveTab.originalContentMD5 = Tab.calculateMD5(editorContent);
+     }
+     
+     // 2.3 强制关闭当前Tab的编辑模式，清理编辑器状态
+     currentActiveTab.isEditMode = false;
+   }
+3. 当前活动Tab.deactivate() // 取消激活状态
+4. 新Tab.activate() // 激活新tab（自动进入view模式）
 5. 新Tab.checkAndRefreshContent() // 检查内容是否需要更新
-6. 新Tab.restoreToEditor() // 恢复显示状态
+6. 新Tab.restoreToEditor() // 恢复显示状态到view模式
 7. EditorManager.renderContent() // 执行DOM操作
+```
+
+### 3. 进入编辑模式流程（Cmd+E触发）
+
+```javascript
+1. 快捷键管理器捕获Cmd+E
+2. 获取当前活跃的Tab（必须是唯一的，由TabManager确保）:
+   const activeTab = this.tabManager.getActiveTab();
+3. 从活跃Tab获取内容，创建编辑器并显示:
+   const content = activeTab.content;
+   this.editorManager.switchMode(true, { content, filePath: activeTab.filePath });
+4. 标记Tab进入编辑模式:
+   activeTab.isEditMode = true;
 ```
 
 ### 3. 新文件创建

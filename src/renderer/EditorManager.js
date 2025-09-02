@@ -504,11 +504,7 @@ class EditorManager {
     const isEditMode = options.isEditMode || false;
     const scrollRatio = options.scrollRatio || 0;
     
-    // 设置编辑器内容
-    const editor = document.getElementById('editorTextarea');
-    if (editor) {
-      editor.value = content;
-    }
+    // 编辑器内容将通过switchMode中的CodeMirror API设置，这里不直接操作DOM
     
     // 更新预览内容
     this.updatePreview(content);
@@ -545,6 +541,12 @@ class EditorManager {
         
         // 使用回调机制确保滚动位置在 CodeMirror 初始化完成后设置
         this.initMarkdownHighlighter(editor, () => {
+          // 【核心修复】使用CodeMirror的setValue API设置内容
+          if (this.markdownHighlighter && this.markdownHighlighter.setValue) {
+            this.markdownHighlighter.setValue(content);
+            console.log(`[EditorManager] 使用CodeMirror API设置编辑器内容，长度: ${content.length}`);
+          }
+          
           // CodeMirror 初始化完成的回调
           this.setScrollPosition(scrollRatio, true);
           
@@ -690,6 +692,7 @@ class EditorManager {
       editorContent.style.display = 'none';
     }
     if (editor) {
+      // 在reset()方法中，CodeMirror已被销毁，这里直接操作DOM是合理的
       editor.value = '';
     }
     if (preview) {

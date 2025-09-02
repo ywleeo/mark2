@@ -8,6 +8,7 @@ body {
     
     /* CSS变量定义 */
     --bg-color: #2d2d2d;
+    --background-color: #2d2d2d88;
     --text-color: #e0e0e0;
     --text-secondary: #b0b0b0;
     --border-color: #404040;

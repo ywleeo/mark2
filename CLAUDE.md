@@ -96,11 +96,58 @@ if (hasChanges) {
 - **禁止直接IPC**：在确认修改时不要绕过EditorManager直接调用IPC
 - **UI提示统一**：通过EditorManager确保保存成功/失败提示一致
 
+### Tab编辑模式的正确逻辑
+
+**核心原则**：任何时候只能有一个活跃Tab，编辑模式内容严格隔离，防止串台。
+
+**Tab切换时的处理流程**：
+```javascript
+// 用户点击 tab2 时：
+// 1. 如果 tab1 正在编辑模式：
+if (currentActiveTab.isEditMode) {
+    // 1.1 从编辑器获取内容并判断是否有变化
+    const editorContent = this.getEditorContent();
+    const hasChanges = this.hasContentChanged(editorContent);
+    
+    // 1.2 如果有变化则保存，没变化则跳过
+    if (hasChanges) {
+        await currentActiveTab.confirmModification();
+    }
+    
+    // 1.3 强制关闭 tab1 的编辑模式，清理编辑器状态
+    currentActiveTab.isEditMode = false;
+}
+
+// 2. 激活 tab2，进入 view 模式（这是单一逻辑）
+tab2.activate(); // 自动进入 view 模式
+```
+
+**进入编辑模式的处理流程**（Cmd+E触发）：
+```javascript
+// 获取当前活跃的Tab（必须是唯一的，由TabManager确保）
+const activeTab = this.tabManager.getActiveTab();
+
+// 从活跃Tab获取内容，创建编辑器并显示内容
+const content = activeTab.content;
+this.editorManager.switchMode(true, { content, filePath: activeTab.filePath });
+
+// 标记Tab进入编辑模式
+activeTab.isEditMode = true;
+```
+
+**关键设计要点**：
+- **单一活跃Tab原则**：任何时候只有一个Tab是活跃状态，由TabManager严格控制
+- **内容来源明确**：编辑器的内容必须来自当前活跃Tab的 `content` 属性
+- **状态清理机制**：Tab切换时必须清理前一个Tab的编辑状态
+- **默认view模式**：任何Tab被点击后都默认进入view模式，这是单一逻辑
+- **编辑器内容隔离**：编辑过程中的内容只存在于编辑器DOM，不污染Tab原始内容
+
 **核心优势**：
 - **内容隔离**：编辑过程中不污染Tab原始内容
 - **确认机制**：明确的确认修改时机，避免意外覆盖
 - **职责清晰**：EditorManager负责保存，Tab负责状态管理
 - **架构一致**：Cmd+S手动保存和自动保存使用相同逻辑
+- **防止串台**：严格的状态管理和内容隔离机制防止Tab内容混淆
 
 ## Project Overview
 
