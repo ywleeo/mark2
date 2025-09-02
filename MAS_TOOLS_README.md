@@ -47,6 +47,9 @@ npm run build:mas:upload
 
 # 或直接调用脚本
 node build-mas.js
+
+# 构建arm64的包
+npx electron-builder --mac --arm64
 ```
 
 ## ⚙️ 环境配置
