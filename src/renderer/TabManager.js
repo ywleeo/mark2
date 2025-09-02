@@ -33,10 +33,9 @@ class TabManager {
         const existingTab = this.findTabByPath(result.filePath);
         if (existingTab) {
           existingTab.belongsTo = 'file';
-          existingTab.content = result.content;
           await this.setActiveTab(existingTab.id);
         } else {
-          await this.createTab(result.filePath, result.content, null, 'file', 'file');
+          await this.createTab(result.filePath, null, 'file', 'file');
         }
         
         // Tab 会在 activate() 时自动显示内容，TabManager 只需管理列表
@@ -62,7 +61,7 @@ class TabManager {
       const result = await ipcRenderer.invoke('open-file-dialog', filePath);
       
       if (result) {
-        await this.openFileInTab(result.filePath, result.content, forceNewTab, false, fileType);
+        await this.openFileInTab(result.filePath, forceNewTab, false, fileType);
         
         // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
         if (!fromFolderMode) {
@@ -84,9 +83,9 @@ class TabManager {
     }
   }
 
-  async createTab(filePath, content, title = null, belongsTo = 'folder', fileType = 'subfolder-file') {
+  async createTab(filePath, title = null, belongsTo = 'folder', fileType = 'subfolder-file') {
     // 创建Tab实例
-    const tab = new Tab(filePath, content, title, belongsTo, fileType);
+    const tab = new Tab(filePath, title, belongsTo, fileType);
     
     // 设置依赖注入
     tab.setDependencies(this.editorManager, this.eventManager);
@@ -132,7 +131,17 @@ class TabManager {
     // 取消当前活动tab的激活状态
     const currentActiveTab = this.tabs.find(tab => tab.isActive);
     if (currentActiveTab) {
-      // 检查当前tab是否有未保存更改
+      // 【新增功能】如果当前tab在编辑模式，自动保存并切换到预览模式
+      if (currentActiveTab.isEditMode && currentActiveTab.filePath && !currentActiveTab.isReadOnly) {
+        console.log(`[TabManager] 当前tab在编辑模式，执行自动保存: ${currentActiveTab.title}`);
+        
+        // 调用tab的toggleEditMode来处理自动保存逻辑
+        await currentActiveTab.toggleEditMode();
+        
+        console.log(`[TabManager] 已自动保存并切换到预览模式: ${currentActiveTab.title}`);
+      }
+      
+      // 检查当前tab是否有未保存更改（在自动保存后重新检查）
       const hasUnsaved = currentActiveTab.hasUnsavedContent();
       if (hasUnsaved) {
         const shouldContinue = await currentActiveTab.handleCloseWithSaveCheck(this);
@@ -448,11 +457,10 @@ class TabManager {
     return this.tabs.find(tab => tab.filePath === filePath);
   }
 
-  async openFileInTab(filePath, content, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
+  async openFileInTab(filePath, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {
     // 先判断打开的tab有没有和此文件相同path和名字，相同就focus到已经打开的tab
     const existingTab = this.findTabByPath(filePath);
     if (existingTab && !forceNewTab) {
-      existingTab.updateContent(content);
       await this.setActiveTab(existingTab.id);
       return existingTab;
     }
@@ -461,17 +469,17 @@ class TabManager {
     if (forceNewTab) {
       // 如果是双击操作，创建file类型的tab
       if (fromDoubleClick) {
-        return await this.createTab(filePath, content, null, 'file', fileType);
+        return await this.createTab(filePath, null, 'file', fileType);
       }
       // 否则根据fileType决定
       const belongsTo = fileType === 'file' ? 'file' : 'folder';
-      return await this.createTab(filePath, content, null, belongsTo, fileType);
+      return await this.createTab(filePath, null, belongsTo, fileType);
     }
     
     // 判断其来自file还是folder
     if (fileType === 'file') {
       // file类型：直接创建新的file tab
-      return await this.createTab(filePath, content, null, 'file', fileType);
+      return await this.createTab(filePath, null, 'file', fileType);
     } else {
       // folder类型：销毁现有的folder tab，创建新的folder tab
       const folderTab = this.tabs.find(tab => tab.belongsTo === 'folder');
@@ -483,7 +491,7 @@ class TabManager {
       
       // 创建新的folder tab
       const belongsTo = fromDoubleClick ? 'file' : 'folder';
-      return await this.createTab(filePath, content, null, belongsTo, fileType);
+      return await this.createTab(filePath, null, belongsTo, fileType);
     }
   }
 
@@ -492,10 +500,13 @@ class TabManager {
     const newFileName = 'Untitled.md';
     
     // 创建新tab，标记为file类型
-    const newTab = await this.createTab(null, newFileContent, newFileName, 'file', 'file');
+    const newTab = await this.createTab(null, newFileName, 'file', 'file');
     
-    // 新文件默认进入编辑模式
+    // 新文件默认进入编辑模式，并设置空内容
     newTab.isEditMode = true;
+    newTab.content = newFileContent;
+    newTab.originalFileContent = newFileContent;
+    newTab.originalContentMD5 = '';
     
     // 将文件添加到Files区域，使用临时文件名
     this.fileTreeManager.addFile(null, newFileContent, newFileName);
@@ -509,14 +520,11 @@ class TabManager {
       markdownContent.style.display = 'block';
     }
     
-    // 强制进入编辑模式
-    if (!this.editorManager.isInEditMode()) {
-      this.editorManager.toggleEditMode();
-    }
-    
-    // 确保新创建的tab也标记为编辑模式
+    // 确保新创建的tab进入编辑模式并显示
     if (newTab) {
       newTab.isEditMode = true;
+      // Tab 自己负责切换到编辑模式并显示内容
+      newTab.restoreToEditor();
     }
     
     // 调整窗口大小

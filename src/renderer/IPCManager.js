@@ -87,8 +87,9 @@ class IPCManager {
 
     // 编辑模式切换
     ipcRenderer.on('toggle-edit-mode', () => {
-      if (this.tabManager.activeTabId) {
-        this.editorManager.toggleEditMode();
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab) {
+        activeTab.toggleEditMode();
       }
     });
 
@@ -253,7 +254,8 @@ class IPCManager {
         // 只读文件应该作为 file 类型存在，并添加到 Files 区域
         // 使用双击逻辑：添加到Files区域并创建file tab
         this.fileTreeManager.addFile(result.filePath, result.content);
-        this.displayMarkdown(result.content, result.filePath, false, true, true, fileType);
+        // Tab会自己从文件读取内容，不需要传递content
+        this.displayMarkdown('', result.filePath, false, true, true, fileType);
       } else {
         this.uiManager.showMessage(`无法打开帮助文件: ${result.error}`, 'error');
       }
@@ -315,9 +317,9 @@ class IPCManager {
       }
 
       // 重新渲染当前内容
-      const currentContent = this.editorManager.getCurrentContent();
-      if (currentContent) {
-        this.editorManager.updatePreview(currentContent);
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab && activeTab.content) {
+        this.editorManager.updatePreview(activeTab.content);
       }
 
       console.log(`插件 ${plugin.name} 已${enabled ? '启用' : '禁用'}`);

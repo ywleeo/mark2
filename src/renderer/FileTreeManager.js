@@ -905,7 +905,7 @@ class FileTreeManager {
         await this.refreshFileTreeAfterDeletion();
         
         // 自动打开新创建的文件并进入编辑模式
-        this.eventManager.emit('file-created-and-open', result.filePath, result.content);
+        this.eventManager.emit('file-created-and-open', result.filePath);
         
         // 显示成功消息
         if (window.uiManager) {

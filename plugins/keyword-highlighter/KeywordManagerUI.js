@@ -278,10 +278,10 @@ class KeywordManagerUI {
         }
 
         // 通知EditorManager更新预览内容
-        if (window.editorManager) {
-            const currentContent = window.editorManager.getCurrentContent();
-            if (currentContent) {
-                window.editorManager.updatePreview(currentContent);
+        if (window.editorManager && window.tabManager) {
+            const activeTab = window.tabManager.getActiveTab();
+            if (activeTab && activeTab.content) {
+                window.editorManager.updatePreview(activeTab.content);
             }
         }
     }

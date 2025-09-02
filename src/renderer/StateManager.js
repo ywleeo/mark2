@@ -211,9 +211,9 @@ class StateManager {
       }
       
       // 重新渲染当前内容，确保启用的插件生效
-      const currentContent = this.editorManager.getCurrentContent();
-      if (currentContent) {
-        this.editorManager.updatePreview(currentContent);
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab && activeTab.content) {
+        this.editorManager.updatePreview(activeTab.content);
       }
       
       // 通知主进程更新菜单状态

@@ -78,8 +78,9 @@ class AppManager {
   setupBasicEventListeners() {
     // 编辑模式切换事件
     this.eventManager.on('toggle-edit-mode', () => {
-      if (this.tabManager.activeTabId) {
-        this.editorManager.toggleEditMode();
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab) {
+        activeTab.toggleEditMode();
       }
     });
 
@@ -117,15 +118,19 @@ class AppManager {
     });
 
     // 文件创建并打开事件
-    this.eventManager.on('file-created-and-open', async (filePath, content) => {
-      // 添加文件到文件树
-      this.fileTreeManager.addFile(filePath, content);
+    this.eventManager.on('file-created-and-open', async (filePath) => {
+      // 读取文件内容并添加到文件树
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('open-file-dialog', filePath);
+      if (result) {
+        this.fileTreeManager.addFile(filePath, result.content);
+      }
       
       // 设置当前文件路径
       this.stateManager.setCurrentFilePath(filePath);
       
       // 在标签页中打开文件（forceNewTab=true创建新标签）
-      await this.tabManager.openFileInTab(filePath, content, true, false, 'file');
+      await this.tabManager.openFileInTab(filePath, true, false, 'file');
       
       // 显示markdown内容区域
       const markdownContent = document.querySelector('.markdown-content');
@@ -147,7 +152,7 @@ class AppManager {
       
       if (result) {
         this.stateManager.setCurrentFilePath(result.filePath);
-        this.tabManager.openFileInTab(result.filePath, result.content, false, false, 'file');
+        this.tabManager.openFileInTab(result.filePath, false, false, 'file');
         this.fileTreeManager.addFile(result.filePath, result.content);
         
         // 显示markdown内容

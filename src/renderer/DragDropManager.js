@@ -162,7 +162,7 @@ class DragDropManager {
       this.uiManager.showMessage('文件已打开，切换到对应标签页', 'info');
     } else {
       // 文件未打开，创建新tab，标记为来自file节点
-      this.tabManager.openFileInTab(result.filePath, result.content, false, false, 'file');
+      this.tabManager.openFileInTab(result.filePath, false, false, 'file');
       
       // 将文件添加到侧边栏
       this.fileTreeManager.addFile(result.filePath, result.content);
@@ -224,7 +224,7 @@ class DragDropManager {
         
         if (result.type === 'file') {
           // 为每个文件创建新的tab
-          this.tabManager.createTab(result.filePath, result.content, null, 'file');
+          this.tabManager.createTab(result.filePath, null, 'file');
           this.fileTreeManager.addFile(result.filePath, result.content);
           successCount++;
         }

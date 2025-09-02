@@ -28,11 +28,19 @@ class EditorManager {
     editor.addEventListener('input', () => {
       this.eventManager.emit('content-changed');
       
-      // 让当前活动tab保存自己的状态
+      // 【修复】直接让活动tab更新自己的content和变化状态
       if (this.tabManager) {
         const activeTab = this.tabManager.getActiveTab();
-        if (activeTab) {
-          activeTab.saveFromEditor();
+        if (activeTab && activeTab.isActive) {
+          // 直接从DOM获取内容并更新到活动tab
+          activeTab.content = editor.value;
+          
+          // 更新未保存变化状态
+          const originalContent = activeTab.originalFileContent || '';
+          activeTab.hasUnsavedChanges = (activeTab.content !== originalContent);
+          
+          // 只同步滚动位置，不调用saveFromEditor避免递归
+          activeTab.scrollRatio = this.getCurrentScrollPosition(activeTab.isEditMode);
         }
       }
     });
@@ -463,11 +471,24 @@ class EditorManager {
   }
 
   resetToInitialState() {
+    console.log('[EditorManager] 重置到初始状态');
+    
     // 清理语法高亮器
     if (this.markdownHighlighter) {
       this.markdownHighlighter.destroy();
       this.markdownHighlighter = null;
     }
+    
+    // 【修复】使用标准 API 而不是直接 DOM 操作
+    // 只在真正没有活动 tab 时才清空内容
+    const activeTab = this.tabManager?.getActiveTab();
+    if (!activeTab) {
+      console.log('[EditorManager] 无活动tab，渲染空内容');
+      // 使用标准的 renderContent API 来清空内容
+      this.renderContent('', null, { isEditMode: false, scrollRatio: 0 });
+    }
+    
+    console.log('[EditorManager] 初始状态重置完成');
   }
 
   // ===== 新的无状态服务方法 =====
@@ -493,7 +514,7 @@ class EditorManager {
     this.updatePreview(content);
     
     // 设置编辑模式
-    this.switchMode(isEditMode, { scrollRatio });
+    this.switchMode(isEditMode, { scrollRatio, content });
   }
   
   /**
@@ -504,6 +525,7 @@ class EditorManager {
   switchMode(isEditMode, options) {
     options = options || {};
     const scrollRatio = options.scrollRatio || 0;
+    const content = options.content || ''; // 从外部接收内容，不从DOM获取
     
     const editorContent = document.getElementById('editorContent');
     const contentArea = document.querySelector('.content-area');
@@ -531,7 +553,7 @@ class EditorManager {
           console.log(`[滚动继承] edit初始化完成后，实际scrollRatio: ${actualScrollRatio}`);
           
           // CodeMirror 初始化完成后，更新活动 tab 的基准 MD5
-          this.updateActiveTabBaselineMD5();
+          this.updateActiveTabBaselineMD5(content);
         });
       }
     } else {
@@ -540,10 +562,9 @@ class EditorManager {
       if (contentArea) contentArea.style.display = 'block';
       if (editButton) editButton.textContent = '编辑';
       
-      // 更新预览内容（使用当前编辑器内容）
-      const currentContent = this.getCurrentContent();
-      if (currentContent !== undefined) {
-        this.updatePreview(currentContent);
+      // 更新预览内容（使用传入的内容）
+      if (content !== undefined) {
+        this.updatePreview(content);
       }
       
       // 延迟设置滚动位置
@@ -704,20 +725,20 @@ class EditorManager {
   }
 
   // 更新活动 tab 的基准 MD5（CodeMirror 初始化完成后调用）
-  updateActiveTabBaselineMD5() {
+  updateActiveTabBaselineMD5(content) {
     if (!this.tabManager) return;
     
     const activeTab = this.tabManager.getActiveTab();
     if (!activeTab) return;
     
-    // 获取 CodeMirror 中的当前内容
-    const currentContent = this.getCurrentContent();
-    if (currentContent !== undefined) {
-      // 用 CodeMirror 的内容（已预处理）生成新的基准 MD5
-      const newBaselineMD5 = activeTab.constructor.calculateMD5(currentContent);
+    // 使用传入的内容或从 Tab 获取内容，而不是从 DOM 获取
+    const contentToUse = content !== undefined ? content : activeTab.content;
+    if (contentToUse !== undefined) {
+      // 用传入的内容（已预处理）生成新的基准 MD5
+      const newBaselineMD5 = activeTab.constructor.calculateMD5(contentToUse);
       activeTab.originalContentMD5 = newBaselineMD5;
       
-      console.log(`[MD5基准] 更新基准MD5: ${newBaselineMD5.substring(0, 8)}... (内容长度: ${currentContent.length})`);
+      console.log(`[MD5基准] 更新基准MD5: ${newBaselineMD5.substring(0, 8)}... (内容长度: ${contentToUse.length})`);
     }
   }
 }

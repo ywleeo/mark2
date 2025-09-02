@@ -1,8 +1,8 @@
 class Tab {
-  constructor(filePath, content, title, belongsTo = 'folder', fileType = 'subfolder-file') {
+  constructor(filePath, title, belongsTo = 'folder', fileType = 'subfolder-file') {
     this.id = Tab.generateId();
     this.filePath = filePath;
-    this.content = content;
+    this.content = ''; // 初始为空，激活时从文件加载
     this.title = title || this.extractTitle(filePath);
     this.belongsTo = belongsTo; // 'file' 或 'folder'
     this.fileType = fileType;
@@ -94,14 +94,126 @@ class Tab {
     console.log(`[Tab] 激活 tab: ${this.title}`);
     this.isActive = true;
     
-    // 检查文件是否需要刷新
-    const contentRefreshed = await this.checkAndRefreshContent();
+    // 【智能缓存】只有检测到文件变化时才重新加载
+    if (this.filePath) {
+      const hasExternalChanges = await this.checkFileTimestamp();
+      if (hasExternalChanges) {
+        await this.reloadFromFile();
+        console.log(`[Tab] 检测到外部文件变化，重新加载: ${this.title}`);
+      } else {
+        console.log(`[Tab] 文件无变化，使用缓存内容: ${this.title} (长度: ${this.content ? this.content.length : 0})`);
+      }
+    }
     
     // 恢复编辑器状态
     this.restoreToEditor();
     
     if (this.eventManager) {
       this.eventManager.emit('tab-activated', this);
+    }
+  }
+  
+  // 从文件重新加载内容
+  async reloadFromFile() {
+    if (!this.filePath) return;
+    
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('open-file-dialog', this.filePath);
+      
+      if (result && result.content !== undefined) {
+        this.content = result.content;
+        this.originalFileContent = result.content;
+        
+        // 使用预处理后的内容计算MD5
+        const processedContent = this.preprocessMarkdownForMD5(result.content);
+        this.originalContentMD5 = Tab.calculateMD5(processedContent);
+        
+        // 重置未保存状态
+        this.hasUnsavedChanges = false;
+        
+        console.log(`[Tab] 从文件重新加载内容: ${this.title} (长度: ${this.content.length})`);
+      }
+    } catch (error) {
+      console.error(`[Tab] 重新加载文件失败: ${this.title}`, error);
+    }
+  }
+
+  // 检查文件时间戳是否变化
+  async checkFileTimestamp() {
+    if (!this.filePath) return false;
+    
+    try {
+      const { ipcRenderer } = require('electron');
+      const timestampResult = await ipcRenderer.invoke('get-file-timestamp', this.filePath);
+      
+      if (timestampResult.success) {
+        const currentTimestamp = timestampResult.timestamp;
+        
+        // 【修复】如果内容为空，强制加载，无论时间戳如何
+        if (!this.content || this.content === '') {
+          this.fileTimestamp = currentTimestamp;
+          console.log(`[Tab] 内容为空，强制加载: ${this.title}`);
+          return true; // 内容为空，需要加载
+        }
+        
+        // 如果是首次加载或时间戳不存在，记录当前时间戳
+        if (!this.fileTimestamp) {
+          this.fileTimestamp = currentTimestamp;
+          return true; // 首次加载，需要加载内容
+        }
+        
+        // 比较时间戳
+        if (currentTimestamp !== this.fileTimestamp) {
+          console.log(`[Tab] 检测到文件时间戳变化: ${this.title}`, {
+            old: this.fileTimestamp,
+            new: currentTimestamp
+          });
+          this.fileTimestamp = currentTimestamp;
+          return true; // 文件有变化，需要重新加载
+        }
+        
+        return false; // 文件无变化，使用缓存
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`[Tab] 检查文件时间戳失败: ${this.title}`, error);
+      return false;
+    }
+  }
+
+  // 检查文件是否被外部修改，如果是则刷新内容
+  async checkAndRefreshContent() {
+    if (!this.filePath) return false;
+    
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('open-file-dialog', this.filePath);
+      
+      if (result && result.content !== undefined) {
+        // 使用预处理后的内容计算MD5来比较
+        const processedContent = this.preprocessMarkdownForMD5(result.content);
+        const currentFileMD5 = Tab.calculateMD5(processedContent);
+        
+        // 如果文件内容发生变化，更新内容
+        if (currentFileMD5 !== this.originalContentMD5) {
+          this.content = result.content;
+          this.originalFileContent = result.content;
+          this.originalContentMD5 = currentFileMD5;
+          
+          // 重置未保存状态，因为我们现在与文件同步了
+          this.hasUnsavedChanges = false;
+          
+          console.log(`[Tab] 检测到文件外部修改，已刷新内容: ${this.title}`);
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`[Tab] 检查文件内容失败: ${this.title}`, error);
+      return false;
     }
   }
   
@@ -117,46 +229,6 @@ class Tab {
     this.isActive = false;
   }
   
-  // 检查并刷新文件内容
-  async checkAndRefreshContent() {
-    if (!this.filePath) return;
-    
-    try {
-      const { ipcRenderer } = require('electron');
-      const timestampResult = await ipcRenderer.invoke('get-file-timestamp', this.filePath);
-      
-      if (timestampResult.success) {
-        // 检查是否需要刷新内容
-        const needRefresh = !this.fileTimestamp || 
-                           this.fileTimestamp !== timestampResult.timestamp ||
-                           !this.content || this.content.length === 0;
-                           
-        if (needRefresh) {
-          const result = await ipcRenderer.invoke('open-file-dialog', this.filePath);
-          if (result && result.content !== undefined) {
-            this.content = result.content;
-            this.originalFileContent = result.content; // 更新原始文件内容
-            // 使用预处理后的内容计算MD5，与CodeMirror保持一致
-            const processedContent = this.preprocessMarkdownForMD5(result.content);
-            this.originalContentMD5 = Tab.calculateMD5(processedContent); // 计算原始内容MD5
-            this.fileTimestamp = timestampResult.timestamp;
-            
-            // 文件已更新，重置编辑器状态
-            this.resetEditorState();
-            
-            console.log(`[Tab] 文件已更新，刷新内容: ${this.title} (长度: ${this.content.length})`);
-            return true; // 返回true表示内容已刷新
-          }
-        } else {
-          // 时间戳未变化，但更新文件时间戳用于下次比较
-          this.fileTimestamp = timestampResult.timestamp;
-        }
-      }
-    } catch (error) {
-      console.warn(`[Tab] 检查文件变化失败: ${this.title}`, error);
-    }
-    return false; // 返回false表示内容未刷新
-  }
   
   // 重置编辑器状态
   resetEditorState() {
@@ -172,30 +244,24 @@ class Tab {
   saveFromEditor() {
     if (!this.editorManager) return;
     
+    // 【关键修复】只有活动的tab才需要从编辑器同步状态
+    if (!this.isActive) {
+      console.log(`[Tab] 跳过非活动tab的状态同步: ${this.title}`);
+      return;
+    }
+    
     try {
-      // 获取当前编辑器内容
-      const currentContent = this.editorManager.getCurrentContent();
-      if (currentContent === undefined) return;
-      
-      // 检查内容是否有变化（与tab中保存的原始内容比较）
-      const originalContent = this.content || '';
-      this.hasUnsavedChanges = (currentContent !== originalContent);
-      
-      // 更新tab的当前内容
-      this.content = currentContent;
-      
-      // 直接获取并保存当前滚动位置，不做任何保护
+      // 只同步滚动位置，不同步内容（内容在确认修改时才同步）
       this.scrollRatio = this.editorManager.getCurrentScrollPosition(this.isEditMode);
       
-      console.log(`[Tab] 已保存状态: ${this.title}`, {
+      console.log(`[Tab] 已同步滚动状态: ${this.title}`, {
         isEditMode: this.isEditMode,
-        hasUnsavedChanges: this.hasUnsavedChanges,
         scrollRatio: this.scrollRatio,
         contentLength: this.content ? this.content.length : 0
       });
       
     } catch (error) {
-      console.error(`[Tab] 保存状态失败: ${this.title}`, error);
+      console.error(`[Tab] 同步状态失败: ${this.title}`, error);
     }
   }
   
@@ -233,54 +299,47 @@ class Tab {
   
   // 切换编辑模式
   async toggleEditMode() {
-    // 如果是从编辑模式切换到预览模式，需要检查是否要自动保存
+    // 如果是从编辑模式切换到预览模式，需要确认修改
     if (this.isEditMode && this.filePath && !this.isReadOnly) {
-      // 获取当前编辑器内容
-      const currentContent = this.editorManager.getCurrentContent();
+      console.log(`[Tab] 从编辑模式切换到预览模式，确认修改: ${this.title}`);
       
-      // 使用 MD5 比较内容是否有变化
-      const currentContentMD5 = Tab.calculateMD5(currentContent);
+      // 从编辑器获取当前内容
+      const editor = document.getElementById('editorTextarea');
+      const editorContent = editor ? editor.value : '';
+      
+      // 比较编辑器内容与Tab原始内容
+      const editorContentMD5 = Tab.calculateMD5(editorContent);
       const originalContentMD5 = this.originalContentMD5 || '';
-      const hasChanges = (currentContentMD5 !== originalContentMD5);
+      const hasChanges = (editorContentMD5 !== originalContentMD5);
       
-      console.log(`[Tab] 切换模式检查变化: ${this.title}`, {
-        currentLength: currentContent ? currentContent.length : 0,
+      console.log(`[Tab] 检查编辑器变化: ${this.title}`, {
+        editorLength: editorContent.length,
         originalLength: this.originalFileContent ? this.originalFileContent.length : 0,
-        currentMD5: currentContentMD5.substring(0, 8) + '...',
+        editorMD5: editorContentMD5.substring(0, 8) + '...',
         originalMD5: originalContentMD5.substring(0, 8) + '...',
-        hasChanges: hasChanges,
-        filePath: this.filePath,
-        isReadOnly: this.isReadOnly
+        hasChanges: hasChanges
       });
       
       if (hasChanges) {
+        console.log(`[Tab] 确认修改，调用EditorManager保存: ${this.title}`);
+        
+        // 确认修改：调用EditorManager统一保存方法
         try {
-          console.log(`[Tab] 开始自动保存文件: ${this.title}`, {
-            filePath: this.filePath,
-            contentLength: currentContent.length,
-            contentPreview: currentContent.substring(0, 50) + '...'
-          });
-          
-          // 临时更新 tab 状态，让 EditorManager.saveFile 能检测到变化
-          this.hasUnsavedChanges = true;
-          
-          // 使用 EditorManager.saveFile 方法，保持与 Cmd+S 相同的逻辑
           await this.editorManager.saveFile();
           
-          console.log(`[Tab] 切换到预览模式时自动保存文件成功: ${this.title}`);
+          // 保存成功后，更新Tab的内容和基准
+          this.content = editorContent;
+          this.originalFileContent = editorContent;
+          this.originalContentMD5 = editorContentMD5;
+          this.hasUnsavedChanges = false;
           
-          // 保存成功后，更新 MD5 基准
-          this.originalFileContent = currentContent;
-          this.originalContentMD5 = currentContentMD5;
-          
+          console.log(`[Tab] 确认修改完成: ${this.title}`);
         } catch (error) {
-          console.error(`[Tab] 自动保存异常: ${this.title}`, {
-            error: error.message,
-            stack: error.stack,
-            filePath: this.filePath
-          });
+          console.error(`[Tab] 确认修改失败: ${this.title}`, error);
           // 保存失败时不阻止模式切换，但保持未保存状态
         }
+      } else {
+        console.log(`[Tab] 无变化，跳过保存: ${this.title}`);
       }
       
       // 保存当前状态（包括滚动位置）
@@ -304,25 +363,16 @@ class Tab {
     // 使用新的 EditorManager 服务方法切换模式
     if (this.editorManager) {
       this.editorManager.switchMode(this.isEditMode, {
-        scrollRatio: this.scrollRatio
+        scrollRatio: this.scrollRatio,
+        content: this.content
       });
     }
   }
   
-  // 更新内容
-  updateContent(content) {
-    this.content = content;
-    this.isModified = true;
-  }
   
   // 更新文件信息（用于文件夹tab切换文件时）
-  async updateFileInfo(filePath, content, fileType, belongsTo = null) {
+  async updateFileInfo(filePath, fileType, belongsTo = null) {
     this.filePath = filePath;
-    this.content = content;
-    this.originalFileContent = content; // 设置原始文件内容
-    // 使用预处理后的内容计算MD5，与CodeMirror保持一致
-    const processedContent = this.preprocessMarkdownForMD5(content);
-    this.originalContentMD5 = Tab.calculateMD5(processedContent); // 计算原始内容MD5
     this.title = this.extractTitle(filePath);
     this.fileType = fileType;
     this.isModified = false;
@@ -333,15 +383,9 @@ class Tab {
       this.belongsTo = belongsTo;
     }
     
-    // 更新文件时间戳
-    try {
-      const { ipcRenderer } = require('electron');
-      const timestampResult = await ipcRenderer.invoke('get-file-timestamp', filePath);
-      if (timestampResult.success) {
-        this.fileTimestamp = timestampResult.timestamp;
-      }
-    } catch (error) {
-      console.log('[Tab] 获取文件时间戳失败:', error.message);
+    // 【修复】从文件重新加载内容，不接收传递的content
+    if (filePath) {
+      await this.reloadFromFile();
     }
     
     // 如果这个tab是当前活动的，立即重新渲染内容
@@ -363,19 +407,8 @@ class Tab {
       return true;
     }
     
-    // 已保存文件：只在编辑模式下检查内容变化
-    if (!this.isEditMode) {
-      return false;
-    }
-    
-    // 获取当前编辑器内容并比较
-    if (this.editorManager) {
-      const currentContent = this.editorManager.getCurrentContent();
-      const originalContent = this.content || '';
-      return currentContent !== originalContent;
-    }
-    
-    return false;
+    // 【修复】直接使用Tab的hasUnsavedChanges状态，不依赖全局编辑器
+    return this.hasUnsavedChanges;
   }
   
   // 关闭前的保存检查和处理（返回是否应该继续关闭）
@@ -390,9 +423,15 @@ class Tab {
     if (result === 'save') {
       // 用户选择保存
       try {
-        const currentContent = this.editorManager.getCurrentContent();
-        await this.editorManager.saveFile(currentContent, this.filePath);
-        return true; // 保存成功，可以关闭
+        // 【修复】使用Tab自己的content保存
+        const { ipcRenderer } = require('electron');
+        const saveResult = await ipcRenderer.invoke('save-file', this.filePath, this.content);
+        if (saveResult.success) {
+          this.hasUnsavedChanges = false;
+          return true; // 保存成功，可以关闭
+        } else {
+          return false; // 保存失败，不关闭
+        }
       } catch (error) {
         console.error('[Tab] 保存失败:', error);
         // 保存失败，不关闭
@@ -445,7 +484,7 @@ class Tab {
   
   // 从序列化数据恢复Tab对象
   static deserialize(data) {
-    const tab = new Tab(data.filePath, data.content, data.title, data.belongsTo, data.fileType);
+    const tab = new Tab(data.filePath, data.title, data.belongsTo, data.fileType);
     
     // 恢复基本属性
     tab.id = data.id;

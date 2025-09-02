@@ -56,6 +56,52 @@ editorManager.setScrollPosition(scrollRatio, isEditMode)
 - EditorManager 不应保存任何状态，所有状态通过参数传递
 - Tab 内容发生变化时，在 `updateFileInfo()` 中自动重新渲染
 
+### 编辑内容管理机制
+
+**❌ 严禁使用全局 `currentContent` 变量**：
+- 不要创建中间变量如 `const currentContent = this.content`
+- 直接使用 `this.content` 和编辑器DOM
+- 避免破坏Tab独立性的设计
+
+**编辑内容管理原则**：
+1. **编辑时**：用户输入的内容只存在于编辑器DOM中，Tab的 `this.content` 保持原始内容不变
+2. **确认修改**：只有在以下3个时机才同步编辑器内容到Tab并保存：
+   - **切回view模式**：`Tab.toggleEditMode()` 从编辑模式切到预览模式
+   - **关闭tab**：`Tab.handleCloseWithSaveCheck()` 
+   - **点击其他tab**：TabManager调用当前tab的 `toggleEditMode()` 
+
+**确认修改的正确流程**：
+```javascript
+// 1. 从编辑器DOM获取当前内容
+const editor = document.getElementById('editorTextarea');
+const editorContent = editor ? editor.value : '';
+
+// 2. 比较编辑器内容与Tab原始内容的MD5
+const editorContentMD5 = Tab.calculateMD5(editorContent);
+const hasChanges = (editorContentMD5 !== this.originalContentMD5);
+
+// 3. 如果有变化，调用EditorManager统一保存方法
+if (hasChanges) {
+  await this.editorManager.saveFile(); // 统一保存方法，UI提示一致
+  
+  // 4. 保存成功后，更新Tab的内容和基准
+  this.content = editorContent;
+  this.originalFileContent = editorContent;
+  this.originalContentMD5 = editorContentMD5;
+}
+```
+
+**架构统一性**：
+- **确认修改时**：必须调用 `this.editorManager.saveFile()` 统一保存方法
+- **禁止直接IPC**：在确认修改时不要绕过EditorManager直接调用IPC
+- **UI提示统一**：通过EditorManager确保保存成功/失败提示一致
+
+**核心优势**：
+- **内容隔离**：编辑过程中不污染Tab原始内容
+- **确认机制**：明确的确认修改时机，避免意外覆盖
+- **职责清晰**：EditorManager负责保存，Tab负责状态管理
+- **架构一致**：Cmd+S手动保存和自动保存使用相同逻辑
+
 ## Project Overview
 
 mark2 是一个基于 Electron 的 Markdown 阅读器和编辑器，提供双栏界面（文件树+内容区域）和编辑/预览模式切换功能。
