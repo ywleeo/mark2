@@ -62,11 +62,67 @@ class StateManager {
       return false;
     }
     
+    // 检查是否为版本更新
+    const currentVersion = require('../../package.json').version;
+    const savedVersion = localStorage.getItem('mark2-app-version');
+    
+    // 首次运行时设置版本号，不触发版本更新逻辑
+    const isVersionUpdate = savedVersion !== null && savedVersion !== currentVersion;
+    
+    console.log(`[StateManager] 版本检查 - 当前: ${currentVersion}, 保存: ${savedVersion}, 是否更新: ${isVersionUpdate}`);
+    
     this.isRestoringState = true;
     
     try {
       const state = JSON.parse(saved);
       
+      if (isVersionUpdate) {
+        console.log('[StateManager] 🔄 检测到版本更新，执行完全重开流程');
+        
+        let success = false;
+        try {
+          success = await this.fullRestoreAfterUpdate(state);
+          console.log(`[StateManager] 完全重开流程结果: ${success ? '成功' : '失败'}`);
+        } catch (error) {
+          console.error('[StateManager] 完全重开流程异常:', error);
+          success = false;
+        }
+        
+        // 更新版本号
+        localStorage.setItem('mark2-app-version', currentVersion);
+        
+        if (!success) {
+          console.warn('[StateManager] ⚠️ 完全重开失败，清空所有状态');
+          this.clearAllState();
+        } else {
+          console.log('[StateManager] ✅ 版本更新恢复成功');
+        }
+        
+        this.isRestoringState = false;
+        return success;
+      }
+      
+      // 正常重启：使用现有恢复机制
+      console.log('[StateManager] 正常重启，使用快速恢复机制');
+      const result = await this.normalRestore(state);
+      
+      // 确保版本号被正确保存（首次运行或正常重启）
+      if (!savedVersion || savedVersion === currentVersion) {
+        localStorage.setItem('mark2-app-version', currentVersion);
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error('恢复应用状态失败:', error);
+      this.isRestoringState = false;
+      return false;
+    }
+  }
+
+  // 正常重启的恢复逻辑（原有逻辑）
+  async normalRestore(state) {
+    try {
       // 恢复基本状态
       this.currentFilePath = state.currentFilePath || null;
       this.currentFolderPath = state.currentFolderPath || null;
@@ -146,12 +202,126 @@ class StateManager {
         });
       }
       
-      this.isRestoringState = false;
       return true;
     } catch (error) {
-      console.error('恢复应用状态失败:', error);
-      this.isRestoringState = false;
+      console.error('[StateManager] 正常恢复失败:', error);
       return false;
+    }
+  }
+
+  // 版本更新后的完全重开流程
+  async fullRestoreAfterUpdate(state) {
+    try {
+      console.log('[StateManager] 开始完全重开流程');
+      
+      // 1. 清空当前状态
+      this.tabManager.closeAllTabs();
+      this.fileTreeManager.clearOpenFiles();
+      this.fileTreeManager.clearOpenFolders();
+      
+      let successCount = 0;
+      let totalItems = 0;
+      
+      // 2. 重新打开所有文件夹
+      if (state.openFolders && state.openFolders.length > 0) {
+        totalItems += state.openFolders.length;
+        console.log(`[StateManager] 重新打开 ${state.openFolders.length} 个文件夹`);
+        
+        for (const [folderPath, folderInfo] of state.openFolders) {
+          try {
+            const result = await this.fileTreeManager.openFolder(folderPath);
+            if (result) {
+              successCount++;
+              console.log(`[StateManager] 成功重开文件夹: ${folderPath}`);
+            } else {
+              console.warn(`[StateManager] 重开文件夹失败: ${folderPath}`);
+            }
+          } catch (error) {
+            console.error(`[StateManager] 重开文件夹出错: ${folderPath}`, error);
+          }
+        }
+      }
+      
+      // 3. 重新打开所有文件tab
+      if (state.tabs && state.tabs.length > 0) {
+        totalItems += state.tabs.length;
+        console.log(`[StateManager] 重新打开 ${state.tabs.length} 个文件tab`);
+        
+        for (const tabData of state.tabs) {
+          try {
+            const result = await this.tabManager.openFileFromPath(
+              tabData.filePath, 
+              !tabData.isEditMode, // isViewOnly
+              true, // forceNewTab
+              tabData.fileType
+            );
+            if (result) {
+              successCount++;
+              console.log(`[StateManager] 成功重开文件: ${tabData.filePath}`);
+            } else {
+              console.warn(`[StateManager] 重开文件失败: ${tabData.filePath}`);
+            }
+          } catch (error) {
+            console.error(`[StateManager] 重开文件出错: ${tabData.filePath}`, error);
+          }
+        }
+        
+        // 4. 恢复活动tab
+        if (state.activeTabId) {
+          setTimeout(async () => {
+            const activeTab = this.tabManager.tabs.find(tab => 
+              tab.filePath === state.tabs.find(t => t.id === state.activeTabId)?.filePath
+            );
+            if (activeTab) {
+              await this.tabManager.setActiveTab(activeTab.id);
+              console.log(`[StateManager] 已恢复活动tab: ${activeTab.title}`);
+            }
+          }, 200);
+        }
+      }
+      
+      // 5. 恢复UI状态
+      this.uiManager.loadSidebarWidth();
+      if (this.titleBarDragManager) {
+        requestAnimationFrame(() => {
+          this.titleBarDragManager.updateDragRegions();
+        });
+      }
+      
+      const successRate = totalItems > 0 ? (successCount / totalItems) : 1;
+      console.log(`[StateManager] 完全重开完成，成功率: ${successCount}/${totalItems} (${(successRate * 100).toFixed(1)}%)`);
+      
+      // 如果成功率太低，认为重开失败
+      return successRate >= 0.5; // 至少50%成功才算成功
+      
+    } catch (error) {
+      console.error('[StateManager] 完全重开流程失败:', error);
+      return false;
+    }
+  }
+
+  // 清空所有状态
+  clearAllState() {
+    console.log('[StateManager] 清空所有应用状态');
+    
+    // 清空tab系统
+    this.tabManager.closeAllTabs();
+    
+    // 清空文件树
+    this.fileTreeManager.clearOpenFiles();
+    this.fileTreeManager.clearOpenFolders();
+    this.fileTreeManager.refreshSidebarTree();
+    
+    // 重置状态变量
+    this.currentFilePath = null;
+    this.currentFolderPath = null;
+    this.appMode = null;
+    
+    // 清空localStorage（保留版本号）
+    const currentVersion = localStorage.getItem('mark2-app-version');
+    this.clearAppState();
+    if (currentVersion) {
+      localStorage.setItem('mark2-app-version', currentVersion);
     }
   }
 

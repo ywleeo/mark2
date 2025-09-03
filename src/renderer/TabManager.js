@@ -77,9 +77,14 @@ class TabManager {
         // 调整窗口大小
         const { ipcRenderer } = require('electron');
         ipcRenderer.send('resize-window-to-content-loaded');
+        
+        return true; // 【修复】返回成功标识
+      } else {
+        return false; // 【修复】返回失败标识
       }
     } catch (error) {
       this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
+      return false; // 【修复】异常时返回失败标识
     }
   }
 
@@ -841,6 +846,36 @@ class TabManager {
         saveButton.focus();
       }, 100);
     });
+  }
+
+  // 关闭所有tabs（用于版本更新后的完全重开）
+  closeAllTabs() {
+    console.log('[TabManager] 开始关闭所有tabs');
+    
+    // 清空tabs数组
+    this.tabs = [];
+    this.activeTabId = null;
+    
+    // 清空tab bar显示
+    const tabBar = document.querySelector('.tab-bar');
+    if (tabBar) {
+      tabBar.innerHTML = '';
+    }
+    
+    // 清空内容区域
+    const markdownContent = document.querySelector('.markdown-content');
+    if (markdownContent) {
+      markdownContent.innerHTML = '';
+      markdownContent.style.display = 'none';
+    }
+    
+    const editorTextarea = document.getElementById('editorTextarea');
+    if (editorTextarea) {
+      editorTextarea.value = '';
+      editorTextarea.style.display = 'none';
+    }
+    
+    console.log('[TabManager] 所有tabs已关闭');
   }
 
 }

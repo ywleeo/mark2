@@ -1022,6 +1022,78 @@ class FileTreeManager {
       }, 100);
     });
   }
+
+  // 清空打开的文件（用于版本更新后的完全重开）
+  clearOpenFiles() {
+    console.log('[FileTreeManager] 清空所有打开的文件');
+    this.openFiles.clear();
+    
+    // 清空Files区域显示
+    const filesContainer = document.querySelector('#files .file-list');
+    if (filesContainer) {
+      filesContainer.innerHTML = '';
+    }
+  }
+
+  // 清空打开的文件夹（用于版本更新后的完全重开）
+  clearOpenFolders() {
+    console.log('[FileTreeManager] 清空所有打开的文件夹');
+    this.openFolders.clear();
+    this.expandedFolders.clear();
+    
+    // 清空Sidebar区域显示
+    const sidebarTree = document.querySelector('#folders .folder-tree');
+    if (sidebarTree) {
+      sidebarTree.innerHTML = '';
+    }
+  }
+
+  // 打开文件夹（重新建立IPC连接和文件监听）
+  async openFolder(folderPath) {
+    try {
+      console.log(`[FileTreeManager] 重新打开文件夹: ${folderPath}`);
+      
+      // 检查文件夹是否存在
+      const { ipcRenderer } = require('electron');
+      const exists = await ipcRenderer.invoke('check-folder-exists', folderPath);
+      
+      if (!exists) {
+        console.warn(`[FileTreeManager] 文件夹不存在: ${folderPath}`);
+        return false;
+      }
+      
+      // 重新获取文件夹内容
+      const result = await ipcRenderer.invoke('rebuild-file-tree', folderPath);
+      
+      if (result && result.success && result.fileTree) {
+        const path = require('path');
+        const folderName = path.basename(folderPath);
+        
+        // 重新添加到openFolders
+        this.openFolders.set(folderPath, {
+          name: folderName,
+          path: folderPath,
+          fileTree: result.fileTree
+        });
+        
+        // 重新建立文件监听
+        await ipcRenderer.invoke('restart-folder-watching', folderPath);
+        
+        // 刷新显示
+        this.refreshSidebarTree();
+        
+        console.log(`[FileTreeManager] 成功重开文件夹: ${folderPath}`);
+        return true;
+      } else {
+        console.error(`[FileTreeManager] 重建文件树失败: ${folderPath}`, result);
+        return false;
+      }
+      
+    } catch (error) {
+      console.error(`[FileTreeManager] 重开文件夹出错: ${folderPath}`, error);
+      return false;
+    }
+  }
 }
 
 module.exports = FileTreeManager;

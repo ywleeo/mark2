@@ -492,6 +492,11 @@ class Tab {
     tab.isReadOnly = data.isReadOnly || false;
     tab.fileTimestamp = data.fileTimestamp;
     
+    // 【关键修复】恢复内容属性，确保tab能正确显示
+    tab.content = data.content || '';
+    tab.originalFileContent = data.content || ''; // 用于状态一致性检查
+    tab.originalContentMD5 = data.content ? Tab.calculateMD5(data.content) : '';
+    
     // 恢复编辑器状态
     tab.isEditMode = data.isEditMode || false;
     tab.scrollRatio = data.scrollRatio || 0;
