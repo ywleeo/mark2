@@ -191,12 +191,34 @@ class UIManager {
   }
 
   getStyleSettings() {
+    // 迁移旧版本的字体设置到新的混合字体
+    this.migrateFontSettings();
+    
     return {
       fontSize: parseInt(localStorage.getItem('fontSize')) || 16,
       lineHeight: localStorage.getItem('lineHeight') || '1.6',
       letterSpacing: parseFloat(localStorage.getItem('letterSpacing')) || 0, // 使用 parseFloat 支持小数
-      fontFamily: localStorage.getItem('fontFamily') || '-apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Roboto\', sans-serif'
+      fontFamily: localStorage.getItem('fontFamily') || '\'SF Mono\', Monaco, \'Cascadia Code\', \'Roboto Mono\', Consolas, \'Courier New\', monospace, -apple-system, BlinkMacSystemFont, \'Segoe UI\', \'Microsoft YaHei\', \'SimHei\', sans-serif'
     };
+  }
+
+  migrateFontSettings() {
+    const currentVersion = '1.3.7-mixed-font';
+    const savedVersion = localStorage.getItem('fontMigrationVersion');
+    
+    // 如果是首次运行或版本更新，重置字体设置为新的混合字体
+    if (!savedVersion || savedVersion !== currentVersion) {
+      const oldFontFamily = localStorage.getItem('fontFamily');
+      
+      // 如果存在旧的字体设置且不是混合字体，清除它
+      if (oldFontFamily && !oldFontFamily.includes('SF Mono')) {
+        localStorage.removeItem('fontFamily');
+        console.log('[UIManager] 已迁移到新的混合字体设置');
+      }
+      
+      // 标记已完成迁移
+      localStorage.setItem('fontMigrationVersion', currentVersion);
+    }
   }
 
   saveSettings(settings) {

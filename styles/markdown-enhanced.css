@@ -4,11 +4,16 @@
 .markdown-content {
     line-height: 1.6;
     color: var(--text-color, #374151);
+    /* 混合字体：英文等宽，中文系统字体 */
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace, 
+                 -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif;
 }
 
 .markdown-content p {
     margin: 12px 0;
     text-align: justify;
+    /* 继承混合字体设置 */
+    font-family: inherit;
 }
 
 .markdown-content hr {
@@ -28,6 +33,7 @@
     border-bottom-style: solid;
     border-bottom-color: var(--h1-border-color, #e5e7eb);
     padding-bottom: 10px;
+    font-family: inherit;
 }
 
 /* 二级标题 - 背景色块风格 */
@@ -42,6 +48,7 @@
     background-size: 100% 40%; /* 覆盖文字下半部分 */
     background-repeat: no-repeat;
     background-position: bottom;
+    font-family: inherit;
 }
 
 /* h4-h6 标题样式 */
@@ -49,16 +56,19 @@
     font-size: 18px !important;
     margin: 15px 0 12px 0;
     color: var(--h4-text-color, #374151);
+    font-family: inherit;
 }
 
 .markdown-content h5 {
     font-size: 16px !important;
     margin: 15px 0 12px 0;
+    font-family: inherit;
 }
 
 .markdown-content h6 {
     font-size: 14px !important;
     margin: 15px 0 12px 0;
+    font-family: inherit;
 }
 
 /* 三级标题添加左侧装饰线 */
@@ -67,6 +77,7 @@
     padding-left: 12px;
     border-left: 3px solid #608bdf;
     position: relative;
+    font-family: inherit;
 }
 
 
@@ -120,6 +131,7 @@
     font-style: italic;
     background-color: var(--quote-background-color, rgba(245, 158, 11, 0.05));
     border-radius: 0 4px 4px 0;
+    font-family: inherit;
 }
 
 /* 嵌套引用块 */
@@ -145,10 +157,12 @@
 .markdown-content ul, .markdown-content ol {
     padding: 0;
     margin-left: 28px;
+    font-family: inherit;
 }
 
 .markdown-content li {
     margin: 3px 0;
+    font-family: inherit;
 }
 
 .markdown-content li > span{
@@ -218,6 +232,7 @@
     text-decoration: underline;
     color: var(--link-color, #2563eb);
     transition: color 0.2s ease;
+    font-family: inherit;
 }
 
 .markdown-content a:hover {
