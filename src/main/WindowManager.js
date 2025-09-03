@@ -16,6 +16,7 @@ class WindowManager {
     // IPC 健康检查相关
     this.ipcHandler = null;
     this.fileWatcher = null;
+    this.menuManager = null; // MenuManager引用
   }
 
   async createWindow() {
@@ -102,12 +103,22 @@ class WindowManager {
         event.preventDefault();
         // macOS 标准行为：关闭窗口但保持应用在 Dock 中运行
         this.mainWindow.hide();
+        // 更新菜单状态为不可见
+        if (this.menuManager) {
+          this.menuManager.setWindowVisible(false);
+        }
       }
     });
 
     // 监听窗口显示事件
     this.mainWindow.on('show', () => {
       this.mainWindow.focus();
+      
+      // 更新菜单状态为可见
+      if (this.menuManager) {
+        this.menuManager.setWindowVisible(true);
+      }
+      
       // 只在初次启动时恢复状态，避免窗口激活时重复触发
       if (this.isInitialStartup) {
         this.mainWindow.webContents.send('restore-app-state');
@@ -267,9 +278,10 @@ class WindowManager {
   }
 
   // 设置依赖引用（用于IPC健康检查）
-  setDependencies(ipcHandler, fileWatcher) {
+  setDependencies(ipcHandler, fileWatcher, menuManager) {
     this.ipcHandler = ipcHandler;
     this.fileWatcher = fileWatcher;
+    this.menuManager = menuManager;
   }
 
   // IPC 健康检查：尝试简单的 ping-pong 通信

@@ -8,6 +8,7 @@ class MenuManager {
     this.currentTheme = 'light';
     this.sidebarEnabled = false; // 新增：sidebar 是否启用状态
     this.isEditMode = false; // 新增：是否处于编辑模式
+    this.isWindowVisible = true; // 窗口是否可见
     this.pluginStates = new Map(); // 插件启用状态
     
     // 初始化设置
@@ -80,6 +81,7 @@ class MenuManager {
           { 
             label: '查找', 
             accelerator: 'CmdOrCtrl+F', 
+            enabled: this.isWindowVisible,
             click: () => {
               const mainWindow = this.windowManager.getWindow();
               mainWindow.webContents.send('show-search-box');
@@ -93,12 +95,13 @@ class MenuManager {
           {
             label: '切换侧边栏',
             accelerator: 'CmdOrCtrl+B',
-            enabled: this.sidebarEnabled,
+            enabled: this.sidebarEnabled && this.isWindowVisible,
             click: () => this.toggleSidebar()
           },
           {
             label: '切换编辑模式',
             accelerator: 'CmdOrCtrl+E',
+            enabled: this.isWindowVisible,
             click: () => this.toggleEditMode()
           },
           {
@@ -108,6 +111,7 @@ class MenuManager {
                 label: '浅色主题',
                 type: 'radio',
                 checked: this.currentTheme === 'light',
+                enabled: this.isWindowVisible,
                 accelerator: 'CmdOrCtrl+Shift+L',
                 click: () => this.switchTheme('light')
               },
@@ -115,6 +119,7 @@ class MenuManager {
                 label: '深色主题',
                 type: 'radio',
                 checked: this.currentTheme === 'dark',
+                enabled: this.isWindowVisible,
                 accelerator: 'CmdOrCtrl+Shift+D',
                 click: () => this.switchTheme('dark')
               }
@@ -124,12 +129,14 @@ class MenuManager {
           {
             label: '显示设置',
             accelerator: 'CmdOrCtrl+,',
+            enabled: this.isWindowVisible,
             click: () => this.showSettings()
           },
           { type: 'separator' },
           {
             label: '开发者工具',
             accelerator: process.platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
+            enabled: this.isWindowVisible,
             click: () => this.toggleDevTools()
           }
         ]
@@ -168,6 +175,7 @@ class MenuManager {
         submenu: [
           {
             label: '使用指南',
+            enabled: this.isWindowVisible,
             click: () => this.openHelpFile()
           }
         ]
@@ -198,6 +206,9 @@ class MenuManager {
   }
 
   createNewFile() {
+    // 确保窗口可见并获得焦点
+    this.windowManager.showWindow();
+    
     const mainWindow = this.windowManager.getWindow();
     mainWindow.webContents.send('create-new-file');
   }
@@ -206,6 +217,9 @@ class MenuManager {
     try {
       const result = await this.fileManager.openFileDialog();
       if (result) {
+        // 确保窗口可见并获得焦点
+        this.windowManager.showWindow();
+        
         const mainWindow = this.windowManager.getWindow();
         mainWindow.webContents.send('file-opened', result);
       }
@@ -218,6 +232,9 @@ class MenuManager {
     try {
       const result = await this.fileManager.openFolderDialog();
       if (result) {
+        // 确保窗口可见并获得焦点
+        this.windowManager.showWindow();
+        
         const mainWindow = this.windowManager.getWindow();
         mainWindow.webContents.send('folder-opened', result);
         this.fileWatcher.startWatching(result.folderPath);
@@ -255,6 +272,12 @@ class MenuManager {
   setEditMode(isEditMode) {
     this.isEditMode = isEditMode;
     // 重新创建菜单以更新导出PDF的启用状态
+    this.createMenu();
+  }
+
+  setWindowVisible(isVisible) {
+    this.isWindowVisible = isVisible;
+    // 重新创建菜单以更新菜单项的启用状态
     this.createMenu();
   }
 

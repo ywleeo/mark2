@@ -39,8 +39,8 @@ function initializeManagers() {
   menuManager = new MenuManager(windowManager, fileManager, fileWatcher);
   ipcHandler = new IPCHandler(windowManager, fileManager, fileWatcher, menuManager);
   
-  // 设置 WindowManager 的依赖引用，用于 IPC 健康检查
-  windowManager.setDependencies(ipcHandler, fileWatcher);
+  // 设置 WindowManager 的依赖引用，用于 IPC 健康检查和菜单状态管理
+  windowManager.setDependencies(ipcHandler, fileWatcher, menuManager);
 }
 
 async function createWindow() {
