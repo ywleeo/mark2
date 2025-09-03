@@ -100,8 +100,7 @@ class WindowManager {
       
       if (this.useMacLayout && !global.app.isQuiting) {
         event.preventDefault();
-        // 修复：不发送 reset-to-initial-state，保持状态以便重新打开时恢复
-        // this.mainWindow.webContents.send('reset-to-initial-state');
+        // macOS 标准行为：关闭窗口但保持应用在 Dock 中运行
         this.mainWindow.hide();
       }
     });
@@ -184,8 +183,6 @@ class WindowManager {
   hideWindow() {
     if (this.mainWindow) {
       if (this.useMacLayout) {
-        // 修复：不发送 reset-to-initial-state，保持状态
-        // this.mainWindow.webContents.send('reset-to-initial-state');
         this.mainWindow.hide();
       } else {
         this.mainWindow.close();

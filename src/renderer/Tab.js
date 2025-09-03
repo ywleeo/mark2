@@ -416,6 +416,9 @@ class Tab {
   
   // 更新文件信息（用于文件夹tab切换文件时）
   async updateFileInfo(filePath, fileType, belongsTo = null) {
+    // 记录旧路径用于清理
+    this.oldFilePath = this.filePath;
+    
     this.filePath = filePath;
     this.title = this.extractTitle(filePath);
     this.fileType = fileType;

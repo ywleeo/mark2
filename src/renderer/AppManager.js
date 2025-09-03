@@ -29,8 +29,9 @@ class AppManager {
       this.fileTreeManager, this.searchManager, this.titleBarDragManager
     );
     
-    // 设置 EditorManager 对 TabManager 的引用
+    // 设置 EditorManager 和 UIManager 对 TabManager 的引用
     this.editorManager.tabManager = this.tabManager;
+    this.uiManager.tabManager = this.tabManager;
     this.stateManager = new StateManager(
       this.eventManager, this.tabManager, this.fileTreeManager,
       this.uiManager, this.editorManager, this.titleBarDragManager

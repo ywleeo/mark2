@@ -568,13 +568,41 @@ class UIManager {
                 return;
               }
               
-              // 在应用内打开文件
+              // 在当前tab中打开文件（替换当前内容）
               const { ipcRenderer } = require('electron');
               const result = await ipcRenderer.invoke('open-file-dialog', targetPath);
               if (result && result.content !== null) {
-                // 触发文件打开事件
-                if (this.eventManager) {
-                  this.eventManager.emit('file-double-clicked', targetPath);
+                // 直接在当前tab中替换内容，而不是创建新tab
+                if (this.tabManager) {
+                  const activeTab = this.tabManager.getActiveTab();
+                  if (activeTab) {
+                    // 保存旧的文件路径，用于稍后的files节点清理
+                    const oldFilePath = activeTab.filePath;
+                    
+                    // 更新Tab的文件信息
+                    await activeTab.updateFileInfo(result.filePath, result.fileType || 'file', activeTab.belongsTo);
+                    
+                    // 更新FileTreeManager中对应的节点（无论tab类型）
+                    if (this.tabManager.fileTreeManager) {
+                      // 只有在路径实际发生变化时才更新files节点
+                      if (oldFilePath && oldFilePath !== result.filePath) {
+                        // 删除旧的文件节点
+                        this.tabManager.fileTreeManager.removeFile(oldFilePath);
+                        
+                        // 添加新的文件节点
+                        this.tabManager.fileTreeManager.addFile(result.filePath, result.content);
+                      } else if (!oldFilePath) {
+                        // 如果之前没有路径（新文件），直接添加
+                        this.tabManager.fileTreeManager.addFile(result.filePath, result.content);
+                      }
+                    }
+                    
+                    // 更新tab在UI中的显示标题
+                    this.tabManager.updateTabTitle(activeTab.id, activeTab.title);
+                    
+                    // 更新UI显示的文件名
+                    this.updateFileNameDisplay(result.filePath);
+                  }
                 }
               } else {
                 this.showMessage(`无法读取文件: ${href}`, 'error');

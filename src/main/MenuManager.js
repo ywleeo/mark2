@@ -135,6 +135,31 @@ class MenuManager {
         ]
       },
       {
+        label: '窗口',
+        submenu: [
+          {
+            label: '最小化',
+            accelerator: 'CmdOrCtrl+M',
+            click: () => this.minimizeWindow()
+          },
+          {
+            label: '缩放',
+            click: () => this.toggleMaximize()
+          },
+          { type: 'separator' },
+          {
+            label: '显示主窗口',
+            accelerator: 'CmdOrCtrl+1',
+            click: () => this.showMainWindow()
+          },
+          { type: 'separator' },
+          {
+            label: '前置全部窗口',
+            click: () => this.bringAllToFront()
+          }
+        ]
+      },
+      {
         label: '工具',
         submenu: this.createToolsSubmenu()
       },
@@ -359,6 +384,27 @@ class MenuManager {
   openDemoFile(filename) {
     const mainWindow = this.windowManager.getWindow();
     mainWindow.webContents.send('open-help-file', filename);
+  }
+
+  showMainWindow() {
+    this.windowManager.showWindow();
+  }
+
+  minimizeWindow() {
+    this.windowManager.minimizeWindow();
+  }
+
+  toggleMaximize() {
+    this.windowManager.maximizeWindow();
+  }
+
+  bringAllToFront() {
+    // macOS 标准功能：将应用的所有窗口前置
+    const { app } = require('electron');
+    if (process.platform === 'darwin') {
+      app.focus();
+    }
+    this.windowManager.showWindow();
   }
 }
 
