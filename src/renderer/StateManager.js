@@ -249,15 +249,18 @@ class StateManager {
         
         for (const tabData of state.tabs) {
           try {
+            // 根据原 tab 的 belongsTo 属性决定如何重开
+            const fromFolderMode = tabData.belongsTo === 'folder';
+            
             const result = await this.tabManager.openFileFromPath(
               tabData.filePath, 
-              !tabData.isEditMode, // isViewOnly
-              true, // forceNewTab
+              fromFolderMode,  // 正确的参数：是否来自文件夹模式
+              true,           // forceNewTab
               tabData.fileType
             );
             if (result) {
               successCount++;
-              console.log(`[StateManager] 成功重开文件: ${tabData.filePath}`);
+              console.log(`[StateManager] 成功重开文件: ${tabData.filePath} (belongsTo: ${tabData.belongsTo})`);
             } else {
               console.warn(`[StateManager] 重开文件失败: ${tabData.filePath}`);
             }
