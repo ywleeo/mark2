@@ -901,7 +901,21 @@ class TodoListPlugin extends BasePlugin {
             </div>
         `;
         
-        // 在第一个任务列表前插入进度指示器
+        // 优先查找进度注释标记位置
+        const progressMarker = '<!-- todo-progress -->';
+        if (html.includes(progressMarker)) {
+            // 如果存在进度标记，替换为实际进度
+            return html.replace(progressMarker, progressHtml);
+        }
+        
+        // 如果没有进度标记，检查是否有禁用标记
+        const noProgressMarker = '<!-- no-todo-progress -->';
+        if (html.includes(noProgressMarker)) {
+            // 如果存在禁用标记，不显示进度
+            return html;
+        }
+        
+        // 默认行为：在第一个任务列表前插入进度指示器
         const firstList = tempDiv.querySelector('ul, ol');
         if (firstList) {
             firstList.insertAdjacentHTML('beforebegin', progressHtml);

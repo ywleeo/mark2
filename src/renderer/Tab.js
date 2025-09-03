@@ -78,9 +78,9 @@ class Tab {
   
   // 判断是否为只读文件
   determineReadOnlyStatus() {
-    // 检查是否有有效的本地文件路径
+    // 新建文件（filePath为null）不是只读，可以编辑和另存为
     if (!this.filePath || this.filePath === '') {
-      return true; // 无路径文件为只读
+      return false; // 新建文件可编辑
     }
     
     // 检查是否为URL路径（来自网络的文件）
@@ -98,30 +98,34 @@ class Tab {
       return true; // 应用内部文件为只读
     }
     
-    // 检查是否为应用内置文档路径（如docs/目录下的文件）
+    // 对于本地文件路径，通过实际写入权限判断是否只读
+    const fs = require('fs');
     const path = require('path');
+    
     try {
-      // 如果是应用内置的docs目录或类似的内部文件，视为只读
-      if (this.filePath.includes('/docs/') || 
-          this.filePath.includes('\\docs\\') ||
-          this.filePath.endsWith('help.md') ||
-          this.filePath.includes('demo-')) {
-        return true; // 应用内置文档为只读
-      }
-      
-      // 检查路径是否为绝对路径且指向真实用户文件系统
       if (path.isAbsolute(this.filePath)) {
-        // 排除应用安装目录下的文件
-        const appPath = process.resourcesPath || __dirname;
-        if (this.filePath.startsWith(appPath)) {
-          return true; // 应用安装目录下的文件为只读
+        // 检查文件是否存在
+        if (fs.existsSync(this.filePath)) {
+          // 检查文件写入权限
+          try {
+            fs.accessSync(this.filePath, fs.constants.W_OK);
+            return false; // 有写入权限，不是只读
+          } catch (error) {
+            return true; // 没有写入权限，是只读
+          }
+        } else {
+          // 文件不存在，检查父目录写入权限
+          const parentDir = path.dirname(this.filePath);
+          try {
+            fs.accessSync(parentDir, fs.constants.W_OK);
+            return false; // 父目录可写，文件可创建
+          } catch (error) {
+            return true; // 父目录不可写，无法创建文件
+          }
         }
-        
-        // 真实的用户文件 - 可编辑
-        return false;
       }
     } catch (error) {
-      console.log(`[Tab] 路径检查失败，视为只读: ${this.filePath}`, error);
+      console.log(`[Tab] 权限检查失败，视为只读: ${this.filePath}`, error);
     }
     
     // 默认情况下视为只读（安全起见）
