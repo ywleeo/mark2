@@ -659,16 +659,14 @@ class TodoListPlugin extends BasePlugin {
      * 处理复选框点击
      */
     async handleCheckboxClick(checkbox, newChecked = null, isNestedTask = false) {
-        // 如果没有传入新状态，使用checkbox当前状态
-        if (newChecked === null) {
-            newChecked = checkbox.checked;
-        }
-        
-        // 立即更新UI
-        this.updateTaskUI(checkbox, newChecked);
-        
         // 嵌套任务不需要更新文件
         if (isNestedTask) {
+            // 如果没有传入新状态，使用checkbox当前状态
+            if (newChecked === null) {
+                newChecked = checkbox.checked;
+            }
+            // 立即更新UI
+            this.updateTaskUI(checkbox, newChecked);
             // this.api.log(this.name, `嵌套任务状态更新: ${newChecked}`);
             return;
         }
@@ -680,36 +678,49 @@ class TodoListPlugin extends BasePlugin {
             return;
         }
         
-        this.api.log(this.name, `处理 checkbox 点击: 行 ${lineNumber}, 新状态: ${newChecked}`);
+        // 获取当前文件信息来确定真实的文件状态
+        const fileInfo = this.getCurrentFileInfo();
+        if (!fileInfo) {
+            this.api.warn(this.name, '无法获取当前文件信息');
+            return;
+        }
+        
+        // 从文件中读取该行的真实状态
+        const lines = fileInfo.content.split('\n');
+        if (lineNumber >= lines.length) {
+            this.api.warn(this.name, '行号超出范围:', lineNumber);
+            return;
+        }
+        
+        const line = lines[lineNumber];
+        const currentFileState = /\[x\]/.test(line); // true表示已完成，false表示未完成
+        const targetState = !currentFileState; // 目标状态是相反的状态
+        
+        // 更新checkbox显示状态和UI
+        checkbox.checked = targetState;
+        this.updateTaskUI(checkbox, targetState);
+        
+        this.api.log(this.name, `处理 checkbox 点击: 行 ${lineNumber}, 文件当前状态: ${currentFileState}, 目标状态: ${targetState}`);
         
         try {
-            // 获取当前文件信息
-            const fileInfo = this.getCurrentFileInfo();
-            
-            if (!fileInfo) {
-                this.api.warn(this.name, '无法获取当前文件信息');
-                return;
-            }
-            
             // 更新文件内容
-            const success = await this.updateTaskState(fileInfo, lineNumber, newChecked);
+            const success = await this.updateTaskState(fileInfo, lineNumber, targetState);
             
             if (success) {
-                this.api.log(this.name, `任务状态更新成功: 行 ${lineNumber}, 新状态: ${newChecked}`);
-                // 确保checkbox状态正确
-                checkbox.checked = newChecked;
+                this.api.log(this.name, `任务状态更新成功: 行 ${lineNumber}, 新状态: ${targetState}`);
+                // checkbox状态已经在前面设置了，这里不需要再设置
             } else {
-                this.api.warn(this.name, `任务状态更新失败: 行 ${lineNumber}, 尝试状态: ${newChecked}`);
+                this.api.warn(this.name, `任务状态更新失败: 行 ${lineNumber}, 尝试状态: ${targetState}`);
                 // 如果更新失败，恢复checkbox状态
-                checkbox.checked = !newChecked;
-                this.updateTaskUI(checkbox, !newChecked);
+                checkbox.checked = currentFileState;
+                this.updateTaskUI(checkbox, currentFileState);
             }
             
         } catch (error) {
             this.api.warn(this.name, '更新任务状态失败:', error);
             // 恢复checkbox状态
-            checkbox.checked = !newChecked;
-            this.updateTaskUI(checkbox, !newChecked);
+            checkbox.checked = currentFileState;
+            this.updateTaskUI(checkbox, currentFileState);
         }
     }
 
@@ -738,10 +749,12 @@ class TodoListPlugin extends BasePlugin {
             
             const newLine = line.replace(regex, `$1${checked ? 'x' : ' '}$2`);
             
-            // this.api.log(this.name, `行内容更新: "${line}" → "${newLine}"`);
+            this.api.log(this.name, `行内容更新: "${line}" → "${newLine}" (目标状态: ${checked})`);
             
             if (newLine === line) {
                 this.api.warn(this.name, '行内容没有变化，跳过更新');
+                this.api.warn(this.name, `调试信息 - 原行: "${line}"`);
+                this.api.warn(this.name, `调试信息 - 正则匹配: ${!!match}, checked: ${checked}`);
                 return false;
             }
             
@@ -865,13 +878,7 @@ class TodoListPlugin extends BasePlugin {
             }
         }
         
-        // 添加完成动画效果（如果启用）
-        if (this.config.general?.enableAnimation) {
-            listItem.style.transform = 'scale(0.98)';
-            setTimeout(() => {
-                listItem.style.transform = '';
-            }, 150);
-        }
+        // 不再添加缩放动画效果，避免 zoom item 效果
     }
 
     /**
