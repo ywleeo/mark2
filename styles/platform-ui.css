@@ -424,11 +424,16 @@
     align-items: center;
     color: #666;
     transition: opacity 0.2s ease;
+    /* 相对定位父容器，为子元素绝对定位做准备 */
+    position: relative;
 }
 
-.tab-readonly-icon img {
-    position: relative;
-    top: 2px;
+.tab-readonly-icon svg {
+    /* 使用绝对定位脱离baseline对齐影响 */
+    position: absolute;
+    top: -4px;
+    left: 0;
+    transform: translateY(-50%);
 }
 
 /* 暗色主题下的只读指示器 */

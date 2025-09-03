@@ -248,14 +248,12 @@ class IPCManager {
       const result = await ipcRenderer.invoke('open-help-file', filename);
       
       if (result.success) {
-        // 根据文件名判断文件类型
-        const fileType = filename.startsWith('demo-') ? 'demo' : 'help';
-        
         // 只读文件应该作为 file 类型存在，并添加到 Files 区域
         // 使用双击逻辑：添加到Files区域并创建file tab
         this.fileTreeManager.addFile(result.filePath, result.content);
         // Tab会自己从文件读取内容，不需要传递content
-        this.displayMarkdown('', result.filePath, false, true, true, fileType);
+        // fileType使用默认值，只读判断完全基于路径
+        this.displayMarkdown('', result.filePath, false, true, true);
       } else {
         this.uiManager.showMessage(`无法打开帮助文件: ${result.error}`, 'error');
       }

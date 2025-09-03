@@ -78,8 +78,54 @@ class Tab {
   
   // 判断是否为只读文件
   determineReadOnlyStatus() {
-    // 只基于 fileType 判断，这是正确的方式
-    return this.fileType === 'help' || this.fileType === 'demo';
+    // 检查是否有有效的本地文件路径
+    if (!this.filePath || this.filePath === '') {
+      return true; // 无路径文件为只读
+    }
+    
+    // 检查是否为URL路径（来自网络的文件）
+    if (this.filePath.startsWith('http://') || 
+        this.filePath.startsWith('https://') || 
+        this.filePath.startsWith('file://')) {
+      return true; // URL文件为只读
+    }
+    
+    // 检查是否为应用内部路径或虚拟路径
+    if (this.filePath.includes('app://') || 
+        this.filePath.includes('internal://') ||
+        this.filePath.startsWith('temp-') ||
+        this.filePath.startsWith('virtual-')) {
+      return true; // 应用内部文件为只读
+    }
+    
+    // 检查是否为应用内置文档路径（如docs/目录下的文件）
+    const path = require('path');
+    try {
+      // 如果是应用内置的docs目录或类似的内部文件，视为只读
+      if (this.filePath.includes('/docs/') || 
+          this.filePath.includes('\\docs\\') ||
+          this.filePath.endsWith('help.md') ||
+          this.filePath.includes('demo-')) {
+        return true; // 应用内置文档为只读
+      }
+      
+      // 检查路径是否为绝对路径且指向真实用户文件系统
+      if (path.isAbsolute(this.filePath)) {
+        // 排除应用安装目录下的文件
+        const appPath = process.resourcesPath || __dirname;
+        if (this.filePath.startsWith(appPath)) {
+          return true; // 应用安装目录下的文件为只读
+        }
+        
+        // 真实的用户文件 - 可编辑
+        return false;
+      }
+    } catch (error) {
+      console.log(`[Tab] 路径检查失败，视为只读: ${this.filePath}`, error);
+    }
+    
+    // 默认情况下视为只读（安全起见）
+    return true;
   }
   
   // 激活tab
@@ -374,6 +420,7 @@ class Tab {
     this.title = this.extractTitle(filePath);
     this.fileType = fileType;
     this.isModified = false;
+    // 重新判断只读状态（基于新的路径和类型）
     this.isReadOnly = this.determineReadOnlyStatus();
     
     // 如果指定了新的归属，更新它
