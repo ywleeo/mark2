@@ -580,10 +580,10 @@ class UIManager {
                     const oldFilePath = activeTab.filePath;
                     
                     // 更新Tab的文件信息
-                    await activeTab.updateFileInfo(result.filePath, result.fileType || 'file', activeTab.belongsTo);
+                    await activeTab.updateFileInfo(result.filePath, result.content, activeTab.belongsTo);
                     
-                    // 更新FileTreeManager中对应的节点（无论tab类型）
-                    if (this.tabManager.fileTreeManager) {
+                    // 只有当tab belongsTo file时，才更新FileTreeManager中的Files区域节点
+                    if (this.tabManager.fileTreeManager && activeTab.belongsTo === 'file') {
                       // 只有在路径实际发生变化时才更新files节点
                       if (oldFilePath && oldFilePath !== result.filePath) {
                         // 删除旧的文件节点
