@@ -208,12 +208,12 @@ class MarkdownRenderer {
 
 
   applyKeywordHighlight(html, originalContent = null) {
-    // 完全通过插件系统处理
-    if (window.pluginManager && window.pluginManager.initialized) {
+    // 检查是否在浏览器环境中
+    if (typeof window !== 'undefined' && window.pluginManager && window.pluginManager.initialized) {
       return window.pluginManager.processMarkdown(html, originalContent);
     }
     
-    // 如果插件系统未初始化，直接返回原始HTML
+    // 如果不在浏览器环境或插件系统未初始化，直接返回原始HTML
     return html;
   }
 
