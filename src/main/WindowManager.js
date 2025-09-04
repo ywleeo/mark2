@@ -37,6 +37,7 @@ class WindowManager {
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
+        webSecurity: false,  // 允许加载外部资源（如网络图片）
         spellcheck: false
       },
       icon: path.join(__dirname, '../../assets/icon.png')
