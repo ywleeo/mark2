@@ -32,9 +32,13 @@ class MarkdownRenderer {
       }
     });
 
-    // 自定义链接渲染器，让外链在系统浏览器中打开
+    // 保存当前文件路径，用于图片路径解析
+    this.currentFilePath = null;
+
+    // 自定义渲染器
     const renderer = new marked.Renderer();
     const originalLinkRenderer = renderer.link.bind(renderer);
+    const originalImageRenderer = renderer.image.bind(renderer);
     
     renderer.link = function(href, title, text) {
       // 判断是否为外链（包含协议的完整URL）
@@ -48,6 +52,21 @@ class MarkdownRenderer {
         // 内部链接使用默认渲染
         return originalLinkRenderer(href, title, text);
       }
+    };
+    
+    // 自定义图片渲染器，处理相对路径
+    renderer.image = (href, title, text) => {
+      // 如果是相对路径且有当前文件路径，则转换为绝对路径
+      if (this.currentFilePath && href && !href.match(/^https?:\/\//) && !href.startsWith('/')) {
+        const path = require('path');
+        const currentDir = path.dirname(this.currentFilePath);
+        const absolutePath = path.resolve(currentDir, href);
+        // 转换为 file:// 协议路径
+        href = `file://${absolutePath}`;
+      }
+      
+      // 调用原始图片渲染器
+      return originalImageRenderer(href, title, text);
     };
     
     marked.setOptions({ renderer });
@@ -84,10 +103,13 @@ class MarkdownRenderer {
     });
   }
 
-  renderMarkdown(content, targetElement = null) {
+  renderMarkdown(content, targetElement = null, filePath = null) {
     if (!content) return '';
     
     try {
+      // 设置当前文件路径，用于图片路径解析
+      this.currentFilePath = filePath;
+      
       // 预处理 Markdown
       const preprocessed = this.preprocessMarkdown(content);
       

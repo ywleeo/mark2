@@ -206,14 +206,20 @@ class EditorManager {
 
 
 
-  updatePreview(content) {
+  updatePreview(content, filePath = null) {
     const preview = document.getElementById('markdownContent');
     if (!preview) {
       return;
     }
     
+    // 获取文件路径（如果未提供，则从当前活动tab获取）
+    if (!filePath) {
+      const activeTab = this.tabManager?.getActiveTab();
+      filePath = activeTab?.filePath || null;
+    }
+    
     // 使用异步渲染：立即显示基础内容，然后异步应用关键词高亮
-    const html = this.markdownRenderer.renderMarkdown(content, preview);
+    const html = this.markdownRenderer.renderMarkdown(content, preview, filePath);
     preview.innerHTML = html;
     
     // 移除自定义搜索功能
@@ -507,11 +513,11 @@ class EditorManager {
     
     // 编辑器内容将通过switchMode中的CodeMirror API设置，这里不直接操作DOM
     
-    // 更新预览内容
-    this.updatePreview(content);
+    // 更新预览内容，传递文件路径
+    this.updatePreview(content, filePath);
     
     // 设置编辑模式
-    this.switchMode(isEditMode, { scrollRatio, content });
+    this.switchMode(isEditMode, { scrollRatio, content, filePath });
   }
   
   /**
@@ -523,6 +529,7 @@ class EditorManager {
     options = options || {};
     const scrollRatio = options.scrollRatio || 0;
     const content = options.content || ''; // 从外部接收内容，不从DOM获取
+    const filePath = options.filePath || null;
     
     const editorContent = document.getElementById('editorContent');
     const contentArea = document.querySelector('.content-area');
@@ -580,7 +587,7 @@ class EditorManager {
       
       // 更新预览内容（使用传入的内容）
       if (content !== undefined) {
-        this.updatePreview(content);
+        this.updatePreview(content, filePath);
       }
       
       // 延迟设置滚动位置
