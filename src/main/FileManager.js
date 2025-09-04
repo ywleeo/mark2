@@ -507,7 +507,7 @@ class FileManager {
     } catch (error) {
       const errorMessage = error.message || error.toString() || '未知错误';
       console.error('删除文件夹时发生错误:', errorMessage, error);
-      throw new Error('无法删除文件夹: ' + errorMessage);
+      return { success: false, error: '无法删除文件夹: ' + errorMessage };
     }
   }
 
@@ -576,6 +576,166 @@ class FileManager {
     } catch (error) {
       const errorMessage = error.message || error.toString() || '未知错误';
       console.error('创建文件时发生错误:', errorMessage, error);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  // 在指定文件夹中创建新文件夹
+  async createFolderInFolder(parentFolderPath, folderName) {
+    try {
+      if (!parentFolderPath) {
+        throw new Error('父文件夹路径为空');
+      }
+
+      if (!folderName) {
+        throw new Error('文件夹名为空');
+      }
+
+      // 检查父文件夹是否存在
+      if (!fs.existsSync(parentFolderPath)) {
+        throw new Error('父文件夹不存在: ' + parentFolderPath);
+      }
+
+      // 检查是否是文件夹
+      const stats = fs.statSync(parentFolderPath);
+      if (!stats.isDirectory()) {
+        throw new Error('指定路径不是文件夹: ' + parentFolderPath);
+      }
+
+      // 生成唯一的文件夹名（如果存在重复则添加序号）
+      let finalFolderName = folderName;
+      let folderPath = path.join(parentFolderPath, finalFolderName);
+      let counter = 1;
+
+      // 如果文件夹已存在，添加序号直到找到不重复的文件夹名
+      while (fs.existsSync(folderPath)) {
+        finalFolderName = `${folderName}(${counter})`;
+        folderPath = path.join(parentFolderPath, finalFolderName);
+        counter++;
+        
+        // 防止无限循环
+        if (counter > 1000) {
+          throw new Error('无法生成唯一文件夹名，请检查父文件夹');
+        }
+      }
+
+      // 创建文件夹
+      fs.mkdirSync(folderPath, { recursive: true });
+
+      // 验证文件夹创建是否成功
+      if (!fs.existsSync(folderPath)) {
+        throw new Error('文件夹创建失败');
+      }
+
+      console.log('文件夹创建成功:', folderPath);
+      return { 
+        success: true, 
+        folderPath: folderPath,
+        folderName: finalFolderName
+      };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('创建文件夹时发生错误:', errorMessage, error);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  // 重命名文件
+  async renameFile(oldPath, newPath) {
+    try {
+      if (!oldPath || !newPath) {
+        throw new Error('文件路径不能为空');
+      }
+
+      // 检查源文件是否存在
+      if (!fs.existsSync(oldPath)) {
+        throw new Error('源文件不存在: ' + oldPath);
+      }
+
+      // 检查是否是文件
+      const stats = fs.statSync(oldPath);
+      if (!stats.isFile()) {
+        throw new Error('源路径不是文件: ' + oldPath);
+      }
+
+      // 检查目标文件是否已存在
+      if (fs.existsSync(newPath)) {
+        throw new Error('目标文件已存在: ' + path.basename(newPath));
+      }
+
+      // 检查目标文件夹是否存在
+      const targetDir = path.dirname(newPath);
+      if (!fs.existsSync(targetDir)) {
+        throw new Error('目标文件夹不存在: ' + targetDir);
+      }
+
+      // 执行重命名
+      fs.renameSync(oldPath, newPath);
+
+      // 验证重命名是否成功
+      if (!fs.existsSync(newPath)) {
+        throw new Error('文件重命名失败');
+      }
+
+      console.log(`文件重命名成功: ${oldPath} → ${newPath}`);
+      return { 
+        success: true, 
+        oldPath: oldPath,
+        newPath: newPath
+      };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('重命名文件时发生错误:', errorMessage, error);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  // 重命名文件夹
+  async renameFolder(oldPath, newPath) {
+    try {
+      if (!oldPath || !newPath) {
+        throw new Error('文件夹路径不能为空');
+      }
+
+      // 检查源文件夹是否存在
+      if (!fs.existsSync(oldPath)) {
+        throw new Error('源文件夹不存在: ' + oldPath);
+      }
+
+      // 检查是否是文件夹
+      const stats = fs.statSync(oldPath);
+      if (!stats.isDirectory()) {
+        throw new Error('源路径不是文件夹: ' + oldPath);
+      }
+
+      // 检查目标文件夹是否已存在
+      if (fs.existsSync(newPath)) {
+        throw new Error('目标文件夹已存在: ' + path.basename(newPath));
+      }
+
+      // 检查目标父文件夹是否存在
+      const targetParentDir = path.dirname(newPath);
+      if (!fs.existsSync(targetParentDir)) {
+        throw new Error('目标父文件夹不存在: ' + targetParentDir);
+      }
+
+      // 执行重命名
+      fs.renameSync(oldPath, newPath);
+
+      // 验证重命名是否成功
+      if (!fs.existsSync(newPath)) {
+        throw new Error('文件夹重命名失败');
+      }
+
+      console.log(`文件夹重命名成功: ${oldPath} → ${newPath}`);
+      return { 
+        success: true, 
+        oldPath: oldPath,
+        newPath: newPath
+      };
+    } catch (error) {
+      const errorMessage = error.message || error.toString() || '未知错误';
+      console.error('重命名文件夹时发生错误:', errorMessage, error);
       return { success: false, error: errorMessage };
     }
   }

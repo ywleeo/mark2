@@ -746,6 +746,36 @@ class IPCHandler {
       }
     });
 
+    // 在指定文件夹中创建新文件夹
+    ipcMain.handle('create-folder-in-folder', async (event, parentFolderPath, folderName) => {
+      try {
+        return await this.fileManager.createFolderInFolder(parentFolderPath, folderName);
+      } catch (error) {
+        console.error('Error in create-folder-in-folder:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 重命名文件
+    ipcMain.handle('rename-file', async (event, oldPath, newPath) => {
+      try {
+        return await this.fileManager.renameFile(oldPath, newPath);
+      } catch (error) {
+        console.error('Error in rename-file:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 重命名文件夹
+    ipcMain.handle('rename-folder', async (event, oldPath, newPath) => {
+      try {
+        return await this.fileManager.renameFolder(oldPath, newPath);
+      } catch (error) {
+        console.error('Error in rename-folder:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
     // 打开帮助文件
     ipcMain.handle('open-help-file', async (event, filename) => {
       try {

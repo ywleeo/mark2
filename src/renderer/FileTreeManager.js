@@ -485,7 +485,7 @@ class FileTreeManager {
     menu.style.top = event.clientY + 'px';
 
     if (type === 'file') {
-      // Files 区域下的文件：路径访问、关闭文件、删除文件
+      // Files 区域下的文件：路径访问、关闭文件、重命名文件、删除文件
       menu.innerHTML = `
         <div class="context-menu-item" data-action="reveal-file" data-path="${path}">
           路径访问
@@ -494,15 +494,21 @@ class FileTreeManager {
           关闭文件
         </div>
         <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="rename-file" data-path="${path}">
+          重命名文件
+        </div>
         <div class="context-menu-item delete-item" data-action="delete-file" data-path="${path}">
           删除文件
         </div>
       `;
     } else if (type === 'folder') {
-      // Folders 区域下的文件夹：新建文件、路径访问、关闭文件夹、删除文件夹
+      // Folders 区域下的文件夹：新建文件、新建文件夹、路径访问、关闭文件夹、重命名文件夹、删除文件夹
       menu.innerHTML = `
         <div class="context-menu-item" data-action="create-file" data-path="${path}">
           新建文件
+        </div>
+        <div class="context-menu-item" data-action="create-folder" data-path="${path}">
+          新建文件夹
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
@@ -512,32 +518,44 @@ class FileTreeManager {
           关闭文件夹
         </div>
         <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="rename-folder" data-path="${path}">
+          重命名文件夹
+        </div>
         <div class="context-menu-item delete-item" data-action="delete-folder" data-path="${path}">
           删除文件夹
         </div>
       `;
     } else if (type === 'subfolder-file') {
-      // 文件树中的文件：路径访问、删除文件
+      // 文件树中的文件：路径访问、重命名文件、删除文件
       menu.innerHTML = `
         <div class="context-menu-item" data-action="reveal-file" data-path="${path}">
           路径访问
         </div>
         <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="rename-file" data-path="${path}">
+          重命名文件
+        </div>
         <div class="context-menu-item delete-item" data-action="delete-file" data-path="${path}">
           删除文件
         </div>
       `;
     } else if (type === 'subfolder') {
-      // 文件树中的文件夹：新建文件、路径访问、删除文件夹
+      // 文件树中的文件夹：新建文件、新建文件夹、路径访问、重命名文件夹、删除文件夹
       menu.innerHTML = `
         <div class="context-menu-item" data-action="create-file" data-path="${path}">
           新建文件
+        </div>
+        <div class="context-menu-item" data-action="create-folder" data-path="${path}">
+          新建文件夹
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="reveal-folder" data-path="${path}">
           路径访问
         </div>
         <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="rename-folder" data-path="${path}">
+          重命名文件夹
+        </div>
         <div class="context-menu-item delete-item" data-action="delete-folder" data-path="${path}">
           删除文件夹
         </div>
@@ -553,6 +571,8 @@ class FileTreeManager {
       
       if (action === 'create-file') {
         this.createFileInFolder(itemPath);
+      } else if (action === 'create-folder') {
+        this.createFolderInFolder(itemPath);
       } else if (action === 'close-file') {
         this.closeFile(itemPath);
       } else if (action === 'close-folder') {
@@ -561,6 +581,10 @@ class FileTreeManager {
         this.revealFile(itemPath);
       } else if (action === 'reveal-folder') {
         this.revealFolder(itemPath);
+      } else if (action === 'rename-file') {
+        this.renameFileWithDialog(itemPath);
+      } else if (action === 'rename-folder') {
+        this.renameFolderWithDialog(itemPath);
       } else if (action === 'delete-file') {
         this.deleteFileWithConfirm(itemPath);
       } else if (action === 'delete-folder') {
@@ -798,12 +822,15 @@ class FileTreeManager {
     }
 
     try {
+      // 删除前先强制关闭该文件夹下所有打开的文件 tab（不显示保存提示）
+      await this.forceCloseTabsInFolder(folderPath);
+
       const { ipcRenderer } = require('electron');
       const result = await ipcRenderer.invoke('delete-folder', folderPath);
       
       if (result.success) {
         // 删除成功，从界面中移除文件夹
-        this.handleFolderDeleted(folderPath);
+        await this.handleFolderDeleted(folderPath);
         
         // 显示成功消息
         if (window.uiManager) {
@@ -818,12 +845,88 @@ class FileTreeManager {
         }
       }
     } catch (error) {
-      console.error('删除文件夹时发生错误:', error);
+      console.error('删除文件夹时发生错误:', {
+        message: error.message,
+        stack: error.stack,
+        error: error,
+        folderPath: folderPath
+      });
       if (window.uiManager) {
-        window.uiManager.showMessage(`删除文件夹失败: ${error.message}`, 'error');
+        window.uiManager.showMessage(`删除文件夹失败: ${error.message || '未知错误'}`, 'error');
       } else {
-        alert(`删除文件夹失败: ${error.message}`);
+        alert(`删除文件夹失败: ${error.message || '未知错误'}`);
       }
+    }
+  }
+
+  // 强制关闭指定文件夹下所有打开的 tab（删除文件夹时使用，不显示保存提示）
+  async forceCloseTabsInFolder(folderPath) {
+    try {
+      const path = require('path');
+      console.log(`[FileTreeManager] 开始强制关闭文件夹 ${folderPath} 下的所有tab`);
+      
+      if (!window.tabManager || !window.tabManager.tabs) {
+        console.log('[FileTreeManager] TabManager不存在，跳过tab关闭');
+        return;
+      }
+
+      // 直接从TabManager获取需要关闭的tabs
+      const tabsToClose = [];
+      for (const tab of window.tabManager.tabs) {
+        if (tab.filePath && (tab.filePath.startsWith(folderPath + path.sep) || tab.filePath === folderPath)) {
+          tabsToClose.push(tab);
+          console.log(`[FileTreeManager] 找到需要关闭的tab: ${tab.filePath} (id: ${tab.id})`);
+        }
+      }
+
+      // 强制移除tabs - 直接操作数组，不依赖closeTabDirectly
+      for (const tab of tabsToClose) {
+        console.log(`[FileTreeManager] 强制销毁tab: ${tab.filePath} (id: ${tab.id})`);
+        
+        // 1. 直接销毁tab对象
+        tab.destroy();
+        
+        // 2. 从files区域移除
+        if (tab.belongsTo === 'file' && tab.filePath) {
+          this.removeFile(tab.filePath, false);
+        }
+        
+        // 3. 从tabs数组中移除
+        const tabIndex = window.tabManager.tabs.findIndex(t => t.id === tab.id);
+        if (tabIndex !== -1) {
+          window.tabManager.tabs.splice(tabIndex, 1);
+          console.log(`[FileTreeManager] 已从数组移除tab: ${tab.id}, 剩余tabs: ${window.tabManager.tabs.length}`);
+        }
+      }
+
+      // 4. 更新TabManager状态
+      if (tabsToClose.length > 0) {
+        // 重置活动tab
+        if (window.tabManager.tabs.length === 0) {
+          window.tabManager.activeTabId = null;
+          window.editorManager.resetToInitialState();
+        } else {
+          // 激活第一个剩余的tab
+          const remainingTab = window.tabManager.tabs[0];
+          await window.tabManager.setActiveTab(remainingTab.id);
+        }
+        
+        // 更新tab bar显示
+        window.tabManager.updateTabBar();
+        
+        // 更新标题栏拖拽区域
+        if (window.tabManager.titleBarDragManager) {
+          window.tabManager.titleBarDragManager.updateDragRegions();
+        }
+        
+        // 刷新Files区域
+        this.refreshFilesPanel();
+      }
+      
+      console.log(`[FileTreeManager] 已强制关闭文件夹 ${folderPath} 下的 ${tabsToClose.length} 个tab`);
+      
+    } catch (error) {
+      console.error('[FileTreeManager] 强制关闭文件夹下的 tab 时发生错误:', error);
     }
   }
 
@@ -842,7 +945,7 @@ class FileTreeManager {
   }
 
   // 处理文件夹删除后的界面更新
-  handleFolderDeleted(folderPath) {
+  async handleFolderDeleted(folderPath) {
     // 1. 从Folders区域移除文件夹
     this.openFolders.delete(folderPath);
     
@@ -855,13 +958,10 @@ class FileTreeManager {
       this.activeItemType = null;
     }
     
-    // 4. 关闭该文件夹下的所有打开文件
-    if (window.appManager) {
-      window.appManager.closeFilesInFolder(folderPath);
-    }
+    // 4. Tab已在删除前强制关闭，此处不再重复处理
     
-    // 5. 刷新界面
-    this.refreshSidebarTree();
+    // 5. 刷新界面（使用与新建文件夹相同的刷新机制）
+    await this.refreshFileTreeAfterDeletion();
     
     // 6. 保存状态
     if (window.appManager) {
@@ -925,6 +1025,44 @@ class FileTreeManager {
         window.uiManager.showMessage(`创建文件失败: ${error.message}`, 'error');
       } else {
         alert(`创建文件失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 在文件夹中创建新文件夹
+  async createFolderInFolder(parentFolderPath) {
+    const folderName = await this.showFolderNameInputDialog();
+    
+    if (!folderName || folderName.trim() === '') {
+      return; // 用户取消或输入为空
+    }
+    
+    try {
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('create-folder-in-folder', parentFolderPath, folderName.trim());
+      
+      if (result.success) {
+        // 刷新文件树以显示新文件夹
+        await this.refreshFileTreeAfterDeletion();
+        
+        // 显示成功消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`文件夹 "${result.folderName}" 创建成功`, 'success');
+        }
+      } else {
+        // 显示错误消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`创建文件夹失败: ${result.error}`, 'error');
+        } else {
+          alert(`创建文件夹失败: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('创建文件夹时发生错误:', error);
+      if (window.uiManager) {
+        window.uiManager.showMessage(`创建文件夹失败: ${error.message}`, 'error');
+      } else {
+        alert(`创建文件夹失败: ${error.message}`);
       }
     }
   }
@@ -1023,6 +1161,95 @@ class FileTreeManager {
     });
   }
 
+  // 显示文件夹名输入对话框
+  showFolderNameInputDialog() {
+    return new Promise((resolve) => {
+      // 创建对话框遮罩
+      const overlay = document.createElement('div');
+      overlay.className = 'file-dialog-overlay';
+
+      // 创建对话框
+      const dialog = document.createElement('div');
+      dialog.className = 'file-dialog';
+
+      // 创建标题
+      const title = document.createElement('h3');
+      title.textContent = '新建文件夹';
+      title.className = 'file-dialog-title';
+
+      // 创建输入框
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = 'untitled folder';
+      input.className = 'file-dialog-input';
+
+      // 创建按钮容器
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'file-dialog-buttons';
+
+      // 创建确定按钮
+      const confirmButton = document.createElement('button');
+      confirmButton.textContent = '确定';
+      confirmButton.className = 'file-dialog-button confirm';
+
+      // 创建取消按钮
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = '取消';
+      cancelButton.className = 'file-dialog-button cancel';
+
+      // 组装对话框
+      dialog.appendChild(title);
+      dialog.appendChild(input);
+      buttonContainer.appendChild(cancelButton);
+      buttonContainer.appendChild(confirmButton);
+      dialog.appendChild(buttonContainer);
+      overlay.appendChild(dialog);
+
+      // 事件处理
+      const cleanup = () => {
+        if (overlay && overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      };
+
+      confirmButton.addEventListener('click', () => {
+        const folderName = input.value.trim();
+        cleanup();
+        resolve(folderName);
+      });
+
+      cancelButton.addEventListener('click', () => {
+        cleanup();
+        resolve(null);
+      });
+
+      // ESC 键取消
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          resolve(null);
+          document.removeEventListener('keydown', handleKeyDown);
+        } else if (e.key === 'Enter') {
+          const folderName = input.value.trim();
+          cleanup();
+          resolve(folderName);
+          document.removeEventListener('keydown', handleKeyDown);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      // 显示对话框
+      document.body.appendChild(overlay);
+      
+      // 自动选中全部文件夹名
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 100);
+    });
+  }
+
   // 清空打开的文件（用于版本更新后的完全重开）
   clearOpenFiles() {
     console.log('[FileTreeManager] 清空所有打开的文件');
@@ -1092,6 +1319,277 @@ class FileTreeManager {
     } catch (error) {
       console.error(`[FileTreeManager] 重开文件夹出错: ${folderPath}`, error);
       return false;
+    }
+  }
+
+  // 重命名文件（带输入对话框）
+  async renameFileWithDialog(filePath) {
+    try {
+      const path = require('path');
+      const currentName = path.basename(filePath, path.extname(filePath));
+      const extension = path.extname(filePath);
+      
+      const newName = await this.showRenameInputDialog('重命名文件', currentName);
+      if (!newName || newName === currentName) {
+        return;
+      }
+
+      // 构造新文件路径
+      const parentDir = path.dirname(filePath);
+      const newFilePath = path.join(parentDir, newName + extension);
+
+      // 调用主进程执行重命名
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('rename-file', filePath, newFilePath);
+      
+      if (result.success) {
+        // 重命名成功，更新界面
+        await this.refreshFileTreeAfterRename(filePath, newFilePath);
+        
+        // 显示成功消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`文件重命名成功: "${currentName}" → "${newName}"`, 'success');
+        }
+      } else {
+        // 显示错误消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`重命名文件失败: ${result.error}`, 'error');
+        } else {
+          alert(`重命名文件失败: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('重命名文件时发生错误:', error);
+      if (window.uiManager) {
+        window.uiManager.showMessage(`重命名文件失败: ${error.message}`, 'error');
+      } else {
+        alert(`重命名文件失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 重命名文件夹（带输入对话框）
+  async renameFolderWithDialog(folderPath) {
+    try {
+      const path = require('path');
+      const currentName = path.basename(folderPath);
+      
+      const newName = await this.showRenameInputDialog('重命名文件夹', currentName);
+      if (!newName || newName === currentName) {
+        return;
+      }
+
+      // 构造新文件夹路径
+      const parentDir = path.dirname(folderPath);
+      const newFolderPath = path.join(parentDir, newName);
+
+      // 调用主进程执行重命名
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('rename-folder', folderPath, newFolderPath);
+      
+      if (result.success) {
+        // 重命名成功，更新界面
+        await this.refreshFileTreeAfterRename(folderPath, newFolderPath);
+        
+        // 显示成功消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`文件夹重命名成功: "${currentName}" → "${newName}"`, 'success');
+        }
+      } else {
+        // 显示错误消息
+        if (window.uiManager) {
+          window.uiManager.showMessage(`重命名文件夹失败: ${result.error}`, 'error');
+        } else {
+          alert(`重命名文件夹失败: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('重命名文件夹时发生错误:', error);
+      if (window.uiManager) {
+        window.uiManager.showMessage(`重命名文件夹失败: ${error.message}`, 'error');
+      } else {
+        alert(`重命名文件夹失败: ${error.message}`);
+      }
+    }
+  }
+
+  // 显示重命名输入对话框
+  showRenameInputDialog(title, currentName) {
+    return new Promise((resolve) => {
+      // 创建遮罩层
+      const overlay = document.createElement('div');
+      overlay.className = 'file-dialog-overlay';
+
+      // 创建对话框
+      const dialog = document.createElement('div');
+      dialog.className = 'file-dialog';
+
+      // 创建标题
+      const titleElement = document.createElement('h3');
+      titleElement.textContent = title;
+      titleElement.className = 'file-dialog-title';
+
+      // 创建输入框
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = currentName;
+      input.className = 'file-dialog-input';
+
+      // 创建按钮容器
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'file-dialog-buttons';
+
+      // 创建确定按钮
+      const confirmButton = document.createElement('button');
+      confirmButton.textContent = '确定';
+      confirmButton.className = 'file-dialog-button confirm';
+
+      // 创建取消按钮
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = '取消';
+      cancelButton.className = 'file-dialog-button cancel';
+
+      // 组装对话框
+      dialog.appendChild(titleElement);
+      dialog.appendChild(input);
+      buttonContainer.appendChild(cancelButton);
+      buttonContainer.appendChild(confirmButton);
+      dialog.appendChild(buttonContainer);
+      overlay.appendChild(dialog);
+
+      // 事件处理
+      const cleanup = () => {
+        if (overlay && overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      };
+
+      confirmButton.addEventListener('click', () => {
+        const newName = input.value.trim();
+        cleanup();
+        resolve(newName);
+      });
+
+      cancelButton.addEventListener('click', () => {
+        cleanup();
+        resolve(null);
+      });
+
+      // ESC 键取消，Enter 键确定
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          cleanup();
+          resolve(null);
+          document.removeEventListener('keydown', handleKeyDown);
+        } else if (e.key === 'Enter') {
+          const newName = input.value.trim();
+          cleanup();
+          resolve(newName);
+          document.removeEventListener('keydown', handleKeyDown);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      // 显示对话框
+      document.body.appendChild(overlay);
+      
+      // 自动选中全部文本
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 100);
+    });
+  }
+
+  // 重命名后刷新文件树
+  async refreshFileTreeAfterRename(oldPath, newPath) {
+    try {
+      console.log(`[FileTreeManager] 重命名后刷新: ${oldPath} → ${newPath}`);
+      
+      // 立即强制刷新sidebar的文件树显示
+      await this.forceRefreshFileTree();
+      
+      // 如果重命名的是已打开的文件，需要更新Files区域和对应的tab
+      const path = require('path');
+      if (this.openFiles.has(oldPath)) {
+        const fileData = this.openFiles.get(oldPath);
+        this.openFiles.delete(oldPath);
+        this.openFiles.set(newPath, {
+          ...fileData,
+          name: path.basename(newPath),
+          path: newPath
+        });
+        
+        // 更新对应的tab标题
+        if (window.tabManager && window.tabManager.tabs) {
+          for (const tab of window.tabManager.tabs) {
+            if (tab.filePath === oldPath) {
+              console.log(`[FileTreeManager] 更新tab标题: ${oldPath} → ${newPath}`);
+              tab.filePath = newPath;
+              tab.title = tab.extractTitle(newPath);
+              
+              // 如果这个tab是活动tab，更新UI显示
+              if (tab.isActive && window.uiManager) {
+                window.uiManager.updateFileNameDisplay(newPath);
+              }
+              
+              // 更新tab在tab bar中的显示
+              if (window.tabManager) {
+                window.tabManager.updateTabTitle(tab.id, tab.title);
+              }
+              break;
+            }
+          }
+        }
+        
+        // 刷新Files区域显示
+        this.refreshSidebarTree();
+      }
+      
+      // 通知主进程重新建立文件监听（如果是文件夹重命名）
+      const { ipcRenderer } = require('electron');
+      const stats = require('fs').lstatSync(newPath);
+      if (stats.isDirectory()) {
+        // 为新路径建立文件监听
+        await ipcRenderer.invoke('restart-folder-watching', path.dirname(newPath));
+      }
+      
+    } catch (error) {
+      console.error('[FileTreeManager] 重命名后刷新失败:', error);
+    }
+  }
+
+  // 强制刷新文件树（立即重新读取文件系统）
+  async forceRefreshFileTree() {
+    try {
+      // 获取当前所有打开的文件夹
+      const foldersToRefresh = Array.from(this.openFolders.keys());
+      
+      for (const folderPath of foldersToRefresh) {
+        const { ipcRenderer } = require('electron');
+        // 重新获取文件夹内容
+        const result = await ipcRenderer.invoke('rebuild-file-tree', folderPath);
+        
+        if (result && result.success && result.fileTree) {
+          const path = require('path');
+          const folderName = path.basename(folderPath);
+          
+          // 更新openFolders
+          this.openFolders.set(folderPath, {
+            name: folderName,
+            path: folderPath,
+            fileTree: result.fileTree
+          });
+        }
+      }
+      
+      // 立即刷新显示
+      this.refreshSidebarTree();
+      console.log('[FileTreeManager] 强制刷新文件树完成');
+      
+    } catch (error) {
+      console.error('[FileTreeManager] 强制刷新文件树失败:', error);
     }
   }
 }

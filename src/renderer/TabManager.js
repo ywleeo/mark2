@@ -285,10 +285,10 @@ class TabManager {
   }
 
   async closeTabDirectly(tabId) {
-    console.log('[TabManager] closeTabDirectly 开始，tabId:', tabId);
+    console.log('[TabManager] closeTabDirectly 开始，tabId:', tabId, '当前tabs数量:', this.tabs.length);
     const tabIndex = this.tabs.findIndex(tab => tab.id === tabId);
     if (tabIndex === -1) {
-      console.log('[TabManager] closeTabDirectly 未找到tab:', tabId);
+      console.log('[TabManager] closeTabDirectly 未找到tab:', tabId, '所有tab ids:', this.tabs.map(t => t.id));
       return;
     }
     
@@ -297,6 +297,12 @@ class TabManager {
     
     // 调用 Tab 对象的销毁方法
     tab.destroy();
+    
+    // 如果tab属于file类型，需要从Files区域移除对应节点
+    if (tab.belongsTo === 'file' && tab.filePath) {
+      console.log('[TabManager] 移除Files区域节点:', tab.filePath);
+      this.fileTreeManager.removeFile(tab.filePath, false); // false表示不显示确认对话框
+    }
     
     // 如果是新建的未保存文件（filePath为null），需要清理对应的Files节点
     if (!tab.filePath) {
@@ -488,6 +494,10 @@ class TabManager {
 
   findTabByPath(filePath) {
     return this.tabs.find(tab => tab.filePath === filePath);
+  }
+
+  findTabsByFilePath(filePath) {
+    return this.tabs.filter(tab => tab.filePath === filePath);
   }
 
   async openFileInTab(filePath, forceNewTab = false, fromDoubleClick = false, fileType = 'subfolder-file') {

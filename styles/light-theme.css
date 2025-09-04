@@ -6,14 +6,15 @@ body {
     color: #333;
     
     /* CSS变量定义 */
-    --bg-color: #ecebeb;
+    --bg-color: #f9f9f9;
     --background-color: #ffffff88;
     --text-color: #333;
     --text-secondary: #666;
-    --border-color: #e9ecef;
-    --hover-bg-color: #f8f9fa;
+    --border-color: #a6bace;
+    --hover-bg-color: #dee9f6;
     --active-bg-color: #e9ecef;
     --tab-scroll-gradient-start: rgba(248, 249, 250, 0.9);
+    --accent-color: #9a9ff0;
     /* 自定义标题栏变量 */
     --sidebar-bg-color: #f8f9fa;
     --main-bg-color: #ffffff;

@@ -11,10 +11,11 @@ body {
     --background-color: #2d2d2d88;
     --text-color: #e0e0e0;
     --text-secondary: #b0b0b0;
-    --border-color: #404040;
+    --border-color: #4a4d62;
     --hover-bg-color: #3a3a3a;
     --active-bg-color: #404040;
     --tab-scroll-gradient-start: rgba(45, 45, 45, 0.9);
+    --accent-color: #9a9ff0;
     /* 自定义标题栏变量 */
     --sidebar-bg-color: #2d2d2d;
     --main-bg-color: #1e1e1e;

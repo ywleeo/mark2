@@ -301,13 +301,13 @@ class AppManager {
       const path = require('path');
       // 找到所有在指定文件夹下的文件并关闭
       const tabsToClose = [];
-      for (const [tabId, tab] of this.tabManager.tabs) {
+      for (const tab of this.tabManager.tabs) {
         if (tab.filePath && tab.filePath.startsWith(folderPath + path.sep)) {
-          tabsToClose.push(tabId);
+          tabsToClose.push(tab.id);
         }
       }
       
-      // 关闭找到的所有标签页
+      // 关闭找到的所有标签页（正常关闭，会有保存提示）
       tabsToClose.forEach(tabId => {
         this.tabManager.closeTab(tabId);
       });
