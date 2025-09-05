@@ -684,10 +684,12 @@ class IPCHandler {
       }
     });
 
-    // 保存截图到用户选择的位置并复制到剪切板
+    // 保存截图到临时文件夹并实现双重剪贴板机制
     ipcMain.handle('save-screenshot-dual', async (event, options) => {
       try {
-        const { clipboard, dialog } = require('electron');
+        const { clipboard } = require('electron');
+        const { exec } = require('child_process');
+        const os = require('os');
         const buffer = Buffer.from(options.buffer, 'base64');
         const nativeImage = require('electron').nativeImage.createFromBuffer(buffer);
         
@@ -695,39 +697,76 @@ class IPCHandler {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const filename = `mark2-screenshot-${timestamp}.png`;
         
-        // 显示保存对话框
-        const mainWindow = this.windowManager.getWindow();
-        const result = await dialog.showSaveDialog(mainWindow, {
-          title: '保存截图',
-          defaultPath: filename,
-          filters: [
-            { name: 'PNG 图片', extensions: ['png'] },
-            { name: '所有文件', extensions: ['*'] }
-          ],
-          properties: ['createDirectory']
-        });
+        // 保存到应用临时目录
+        const tempDir = app.getPath('temp');
+        const filePath = path.join(tempDir, filename);
         
-        // 如果用户取消了保存
-        if (result.canceled) {
-          console.log('用户取消了截图保存');
-          return { 
-            success: false, 
-            canceled: true,
-            error: '用户取消保存'
-          };
+        // 保存文件到临时目录
+        fs.writeFileSync(filePath, buffer);
+        console.log('截图已保存到临时文件:', filePath);
+        
+        // 1. 将图像数据复制到剪切板（供微信等应用粘贴图片）
+        clipboard.writeImage(nativeImage);
+        console.log('图像已复制到剪切板（图片模式）');
+        
+        // 2. 平台特定的文件复制到剪切板（供文件管理器粘贴文件）
+        const platform = process.platform;
+        let fileClipboardResult = null;
+        
+        if (platform === 'darwin') {
+          // macOS: 使用 AppleScript 复制文件到剪切板
+          await new Promise((resolve, reject) => {
+            const script = `tell application "Finder" to set the clipboard to (POSIX file "${filePath}")`;
+            exec(`osascript -e '${script}'`, (error, stdout, stderr) => {
+              if (error) {
+                console.warn('macOS 文件剪切板复制失败:', error.message);
+                fileClipboardResult = { success: false, error: error.message };
+              } else {
+                console.log('macOS 文件已复制到剪切板（文件模式）');
+                fileClipboardResult = { success: true };
+              }
+              resolve();
+            });
+          });
+        } else if (platform === 'win32') {
+          // Windows: 使用 PowerShell 复制文件到剪切板
+          await new Promise((resolve, reject) => {
+            const psScript = `Set-Clipboard -Path '${filePath.replace(/'/g, "''")}'`;
+            exec(`powershell -Command "${psScript}"`, (error, stdout, stderr) => {
+              if (error) {
+                console.warn('Windows 文件剪切板复制失败:', error.message);
+                fileClipboardResult = { success: false, error: error.message };
+              } else {
+                console.log('Windows 文件已复制到剪切板（文件模式）');
+                fileClipboardResult = { success: true };
+              }
+              resolve();
+            });
+          });
+        } else {
+          // Linux: 将文件路径复制到文本剪切板
+          clipboard.writeText(filePath);
+          console.log('Linux 文件路径已复制到剪切板（文本模式）');
+          fileClipboardResult = { success: true, mode: 'text' };
         }
         
-        // 保存文件到用户选择的位置
-        fs.writeFileSync(result.filePath, buffer);
-        console.log('截图已保存到:', result.filePath);
-        
-        // 同时将图像数据复制到剪切板（所有平台都支持）
-        clipboard.writeImage(nativeImage);
-        console.log('图像已复制到剪切板');
+        // 设置24小时后自动清理临时文件
+        setTimeout(() => {
+          try {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log('临时截图文件已自动清理:', filePath);
+            }
+          } catch (cleanupError) {
+            console.warn('清理临时文件失败:', cleanupError.message);
+          }
+        }, 24 * 60 * 60 * 1000); // 24小时
         
         return { 
           success: true, 
-          filePath: result.filePath
+          filePath: filePath,
+          fileClipboard: fileClipboardResult,
+          platform: platform
         };
         
       } catch (error) {

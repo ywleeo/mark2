@@ -49,14 +49,23 @@ class ScreenshotPlugin extends BasePlugin {
       const result = await this.captureWithDOMWatermark(activeContent);
       
       if (result.success) {
-        this.showNotification('截图已保存并复制到剪切板', 'success');
-        console.log('html2canvas 截图成功完成，文件路径:', result.filePath);
-      } else if (result.canceled) {
-        this.showNotification('截图已取消', 'info');
-        console.log('用户取消了截图保存');
+        // 根据平台和文件剪贴板结果显示详细信息
+        let message = '截图已保存到临时文件夹并复制到剪切板';
+        if (result.fileClipboard && result.fileClipboard.success) {
+          message += '（支持文件和图片两种粘贴模式）';
+        } else if (result.fileClipboard && !result.fileClipboard.success) {
+          message += '（仅支持图片粘贴模式）';
+        }
+        
+        this.showNotification(message, 'success');
+        console.log('截图成功完成:', {
+          filePath: result.filePath,
+          platform: result.platform,
+          fileClipboard: result.fileClipboard
+        });
       } else {
         this.showNotification(`截图失败: ${result.error}`, 'error');
-        console.error('html2canvas 截图失败:', result.error);
+        console.error('截图失败:', result.error);
       }
     } catch (error) {
       console.error('截图过程出错:', error);
