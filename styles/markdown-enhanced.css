@@ -176,14 +176,130 @@
     margin: 0 0 0 22px;
 }
 
-/* 列表项目符号自定义 */
-.markdown-content ul li::marker {
-    color: #319227;
+/* 列表项目符号自定义 - 使用 before 伪元素以兼容 html2canvas */
+.markdown-content ul {
+    list-style: none;
 }
 
-.markdown-content ol li::marker {
+.markdown-content ol {
+    list-style: none;
+}
+
+/* 只有顶层 ol 才重置计数器 */
+.markdown-content > ol,
+.markdown-content li > ol:first-child {
+    counter-reset: ol-counter;
+}
+
+.markdown-content ul li {
+    position: relative;
+}
+
+/* 第一层无序列表：实心圆 */
+.markdown-content ul > li::before {
+    content: '•';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+}
+
+/* 第二层无序列表：空心圆 */
+.markdown-content ul ul > li::before {
+    content: '◦';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 1.1em;
+}
+
+/* 第三层无序列表：实心方块 */
+.markdown-content ul ul ul > li::before {
+    content: '▪';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 0.9em;
+}
+
+/* 第四层无序列表：小三角 */
+.markdown-content ul ul ul ul > li::before {
+    content: '▸';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 1em;
+}
+
+.markdown-content ol > li {
+    position: relative;
+    counter-increment: ol-counter;
+}
+
+.markdown-content ol > li::before {
+    content: counter(ol-counter) '.';
     color: #36b5a8;
     font-weight: 600;
+    position: absolute;
+    left: -24px;
+    top: 0;
+}
+
+/* 嵌套在 ol 内的 ul 使用不同层级的符号 */
+.markdown-content ol ul li {
+    position: relative;
+}
+
+/* 第一层嵌套：空心圆 */
+.markdown-content ol > li > ul > li::before {
+    content: '◦';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 1.1em;
+}
+
+/* 第二层嵌套：实心方块 */
+.markdown-content ol > li > ul > li > ul > li::before {
+    content: '▪';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 0.9em;
+}
+
+/* 第三层嵌套：小三角 */
+.markdown-content ol > li > ul > li > ul > li > ul > li::before {
+    content: '▸';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 1em;
+}
+
+/* 嵌套在 ul 内的 ol 重新开始计数 */
+.markdown-content ul ol {
+    counter-reset: nested-ol-counter;
+}
+
+.markdown-content ul ol li {
+    position: relative;
+    counter-increment: nested-ol-counter;
+}
+
+.markdown-content ul ol li::before {
+    content: counter(nested-ol-counter) '.';
+    color: #36b5a8;
+    font-weight: 600;
+    position: absolute;
+    left: -24px;
+    top: 0;
 }
 
 /* 图片自适应样式 */
