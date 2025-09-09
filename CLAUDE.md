@@ -243,7 +243,7 @@ npm run version:major && npm run build:mas:upload   # 重大版本
 
 ### 截图功能依赖说明
 
-项目使用 **html-to-image** 库处理截图功能，这是一个纯前端库：
+项目使用 **html2canvas** 库处理截图功能，这是一个纯前端库：
 
 **技术优势**：
 - 纯 JavaScript 实现，无原生模块依赖
@@ -340,7 +340,7 @@ FORCE_NON_MAC_LAYOUT=true npm run dev
 - **Electron**: 桌面应用框架 (v37.2.3)
 - **marked**: Markdown 解析和渲染库 (v5.0.0) 
 - **highlight.js**: 代码语法高亮 (v11.11.1)
-- **html-to-image**: 前端截图库，用于将 DOM 元素转换为图像 (v1.11.13)
+- **html2canvas**: 前端截图库，用于将 DOM 元素转换为图像 (v1.11.13)
 - **electron-builder**: 应用打包工具 (v24.0.0)
 
 ### CodeMirror 6 编辑器系统
@@ -601,12 +601,12 @@ plugins/
 ### 技术实现
 **全页截图处理**：
 - 自动检测内容区域尺寸，支持超出可视区域的内容截图
-- 使用 html-to-image 直接将 DOM 元素转换为高质量 PNG 图像
+- 使用 html2canvas 直接将 DOM 元素转换为高质量 PNG 图像
 - 智能背景色检测，自动适配浅色/深色主题
 
 **图片处理管道**：
 1. 获取内容区域尺寸和滚动信息
-2. 使用 html-to-image 直接截取整个 DOM 元素
+2. 使用 html2canvas 获取图像数据直接截取整个 DOM 元素
 3. 自动处理图片质量和像素比例配置
 4. **双重保存机制**：同时保存图像数据和临时文件
 
@@ -621,7 +621,7 @@ plugins/
 - **Linux**: 将文件路径复制到文本剪切板
 
 **重要配置**：
-- html-to-image 是纯 JavaScript 库，无需原生编译
+- html2canvas: 用于截图的 JavaScript 库，支持多种渲染引擎是纯 JavaScript 库，无需原生编译
 - 临时文件保存在系统临时目录，24小时自动清理
 - 支持多架构构建 (ARM64/x64)
 - 可配置图片质量、像素比例和保存模式

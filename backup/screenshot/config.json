@@ -2,7 +2,7 @@
   "name": "screenshot",
   "displayName": "截图插件",
   "version": "2.0.0",
-  "description": "基于 html-to-image 的高质量截图插件",
+  "description": "基于 html2canvas 的高质量截图插件",
   "author": "mark2-team",
   "enabled": false,
   "main": "index.js",

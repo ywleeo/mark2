@@ -1,6 +1,6 @@
 const BasePlugin = require('../BasePlugin');
 // 临时注释掉以避免 Mac App Store 沙盒崩溃问题
-// const { toPng, toJpeg, toBlob } = require('html-to-image');
+// const { toPng, toJpeg, toBlob } = require('html2canvas');
 
 class ScreenshotPlugin extends BasePlugin {
   constructor(pluginConfig = {}) {
@@ -22,7 +22,7 @@ class ScreenshotPlugin extends BasePlugin {
   // 主要截图方法
   async takeScreenshot() {
     try {
-      console.log('=== html-to-image 截图功能触发 ===');
+      console.log('=== html2canvas 截图功能触发 ===');
       console.log('插件状态:', { 
         enabled: this.enabled, 
         initialized: this.initialized,
@@ -47,15 +47,15 @@ class ScreenshotPlugin extends BasePlugin {
       // 显示进度提示
       this.showNotification('正在截图...', 'info');
 
-      // 使用 html-to-image 进行截图
+      // 使用 html2canvas 进行截图
       const result = await this.captureWithHtmlToImage(activeContent);
       
       if (result.success) {
         this.showNotification('截图已保存 (可在文件夹中 Cmd+V 粘贴)', 'success');
-        console.log('html-to-image 截图成功完成，文件路径:', result.filePath);
+        console.log('html2canvas 截图成功完成，文件路径:', result.filePath);
       } else {
         this.showNotification(`截图失败: ${result.error}`, 'error');
-        console.error('html-to-image 截图失败:', result.error);
+        console.error('html2canvas 截图失败:', result.error);
       }
     } catch (error) {
       console.error('截图过程出错:', error);
@@ -63,10 +63,10 @@ class ScreenshotPlugin extends BasePlugin {
     }
   }
 
-  // 使用 html-to-image 进行截图
+  // 使用 html2canvas 进行截图
   async captureWithHtmlToImage(element) {
     try {
-      console.log('=== 开始 html-to-image 截图 ===');
+      console.log('=== 开始 html2canvas 截图 ===');
       
       const startTime = Date.now();
       
@@ -114,13 +114,13 @@ class ScreenshotPlugin extends BasePlugin {
         allowTaint: true
       };
 
-      console.log('开始调用 html-to-image.toPng...');
+      console.log('开始调用 html2canvas.toPng...');
       
       // 生成截图
       const dataUrl = await toPng(element, options);
       
       const duration = Date.now() - startTime;
-      console.log(`html-to-image 截图完成，耗时: ${duration}ms`);
+      console.log(`html2canvas 截图完成，耗时: ${duration}ms`);
       
       if (!dataUrl || !dataUrl.startsWith('data:image/')) {
         throw new Error('生成的截图数据无效');
@@ -147,7 +147,7 @@ class ScreenshotPlugin extends BasePlugin {
       };
       
     } catch (error) {
-      console.error('html-to-image 截图失败:', error);
+      console.error('html2canvas 截图失败:', error);
       return {
         success: false,
         error: error.message || '截图过程中发生未知错误'

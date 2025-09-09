@@ -8,7 +8,7 @@ const requiredDeps = [
   'electron', 
   'marked', 
   'highlight.js', 
-  'html-to-image', 
+  'html2canvas', 
   'codemirror',
   '@codemirror/lang-markdown',
   '@codemirror/search',
@@ -43,7 +43,7 @@ if (missing.length > 0) {
   
   // 构建安装命令，直接安装指定版本的包
   const installMap = {
-    'html-to-image': 'html-to-image@^1.11.13',
+    'html2canvas': 'html2canvas@^1.4.1',
     'electron': 'electron@^37.2.3',
     'marked': 'marked@^5.0.0',
     'highlight.js': 'highlight.js@^11.11.1',

@@ -17,7 +17,7 @@
 - 📄 **智能文件创建**: 右键创建文件支持自动重名处理（`untitled.md` → `untitled(1).md`）
 
 ### 高级功能
-- 📸 **智能截图**: 基于 html-to-image 的全页截图，**双重保存机制**支持文件夹粘贴
+- 📸 **智能截图**: 基于 html2canvas 的全页截图，**双重保存机制**支持文件夹粘贴
 - 🔌 **插件系统**: 可扩展的插件架构，支持自定义功能
 - ⚡ **性能优化**: 基于 CodeMirror 6 的高性能编辑器
 - 🖱️ **原生体验**: 支持文件拖拽、系统集成和键盘快捷键
@@ -95,7 +95,7 @@ MARK2 支持强大的插件生态系统：
 ### 内置插件
 - **关键词高亮**: 智能识别数字、日期、实体和热词
 - **Todo 列表**: 美化的任务列表渲染
-- **截图工具**: 基于 html-to-image 的全页截图，支持双重保存机制
+- **截图工具**: 基于 html2canvas 的全页截图，支持双重保存机制
 
 ### 插件开发
 ```javascript
@@ -128,7 +128,7 @@ class MyPlugin extends BasePlugin {
 ### 技术栈
 - **前端**: Electron v37.2.3, CodeMirror 6, HTML/CSS/JavaScript
 - **构建**: electron-builder, 自动依赖检查系统
-- **图像处理**: html-to-image v1.11.13 (纯前端截图库)
+- **图像处理**: html2canvas v1.11.13 (纯前端截图库)
 - **Markdown**: marked.js v5.0.0, highlight.js v11.11.1
 - **平台适配**: 自动检测平台并应用对应的 UI 样式
 - **调试系统**: 全局 DebugLogger，自动日志收集
