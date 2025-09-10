@@ -522,10 +522,9 @@ class UIManager {
       
       // 检查是否为链接元素
       if (target.tagName === 'A') {
-        event.preventDefault(); // 阻止所有链接的默认行为
-        
         // 处理外部链接
         if (target.classList.contains('external-link')) {
+          event.preventDefault(); // 只阻止外部链接的默认行为
           const url = target.getAttribute('data-external-url') || target.href;
           if (url) {
             // 使用 Electron 的 shell.openExternal 在系统浏览器中打开
@@ -537,6 +536,7 @@ class UIManager {
           }
         } else {
           // 处理内部链接（相对路径）
+          event.preventDefault(); // 阻止内部链接的默认行为
           const href = target.getAttribute('href');
           if (href && !href.startsWith('http')) {
             try {
