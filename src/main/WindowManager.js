@@ -68,6 +68,19 @@ class WindowManager {
 
     this.mainWindow.loadFile('index.html');
 
+    // 设置所有新窗口打开请求都在外部浏览器中打开
+    this.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+      // 如果是外部URL（http/https），使用系统默认浏览器打开
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const { shell } = require('electron');
+        shell.openExternal(url).catch(error => {
+          console.error('Failed to open external URL:', error);
+        });
+      }
+      // 阻止在Electron中打开新窗口
+      return { action: 'deny' };
+    });
+
     // 页面加载完成后发送平台信息
     this.mainWindow.webContents.once('dom-ready', () => {
       this.mainWindow.webContents.send('platform-layout-info', {
