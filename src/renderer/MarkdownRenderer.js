@@ -19,7 +19,18 @@ class MarkdownRenderer {
         // 让 highlight.js 直接处理代码高亮
         if (lang && hljs.getLanguage(lang)) {
           try {
-            return hljs.highlight(code, { language: lang }).value;
+            let result = hljs.highlight(code, { language: lang });
+            
+            // 特别处理 bash 语言，添加现代工具包支持
+            if (lang === 'bash' || lang === 'sh' || lang === 'shell') {
+              // 只对未高亮的命令添加 built_in 标签
+              result.value = result.value.replace(
+                /(?<!<span class="hljs-built_in">)\b(npm|npx|yarn|pnpm|brew|uv|docker|git|curl|wget|node|deno|bun|pip|pip3|conda|pipenv|ping|ssh|rsync|ps|top|systemctl|sudo|kill|chmod|rg|fd|bat|exa|jq|fzf|gh|kubectl|terraform|ansible)\b(?!<\/span>)/g,
+                '<span class="hljs-built_in">$&</span>'
+              );
+            }
+            
+            return result.value;
           } catch (err) {
             console.error('Highlight.js error:', err);
           }
