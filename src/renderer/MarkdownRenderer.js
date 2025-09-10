@@ -85,30 +85,6 @@ class MarkdownRenderer {
       strikethrough: true  // 启用删除线支持
     });
     
-    // 完全禁用 setext 标题，只允许 ATX 标题
-    marked.use({
-      extensions: [{
-        name: 'heading',
-        level: 'block',
-        start(src) {
-          // 只匹配 ATX 标题开头的行
-          return src.match(/^#{1,6}\s/)?.index;
-        },
-        tokenizer(src) {
-          // 只处理 ATX 标题 (# ## ###)
-          const rule = /^(#{1,6})\s+(.*)$/;
-          const match = rule.exec(src);
-          if (match) {
-            return {
-              type: 'heading',
-              raw: match[0],
-              depth: match[1].length,
-              text: match[2].trim()
-            };
-          }
-        }
-      }]
-    });
   }
 
   renderMarkdown(content, targetElement = null, filePath = null) {
