@@ -50,7 +50,8 @@
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
     "html2canvas": "^1.4.1",
-    "marked": "^5.0.0"
+    "marked": "^5.0.0",
+    "marked-emoji": "^1.4.3"
   },
   "build": {
     "appId": "cc.altron.mark2",

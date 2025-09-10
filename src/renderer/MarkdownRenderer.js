@@ -1,4 +1,5 @@
 const { marked } = require('marked');
+const { markedEmoji } = require('marked-emoji');
 const hljs = require('highlight.js');
 
 class MarkdownRenderer {
@@ -71,6 +72,13 @@ class MarkdownRenderer {
     
     marked.setOptions({ renderer });
     
+    // 添加emoji支持（针对marked 5.0.0）
+    try {
+      marked.use(markedEmoji());
+    } catch (error) {
+      console.warn('marked-emoji插件加载失败:', error);
+    }
+    
     // 启用 GFM 扩展 (删除线、任务列表等)
     marked.use({
       gfm: true,
@@ -109,6 +117,14 @@ class MarkdownRenderer {
     try {
       // 设置当前文件路径，用于图片路径解析
       this.currentFilePath = filePath;
+      
+      // 清理零宽度字符，这些字符会干扰emoji渲染
+      if (typeof content === 'string') {
+        // 移除可能干扰Unicode渲染的零宽度字符
+        content = content.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/,"");
+        // 移除所有零宽度字符（全局替换）
+        content = content.replace(/[\u200B\u200C\u200D\u200E\u200F\uFEFF]/g, '');
+      }
       
       // 预处理 Markdown
       const preprocessed = this.preprocessMarkdown(content);

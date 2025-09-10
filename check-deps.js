@@ -7,6 +7,7 @@ const path = require('path');
 const requiredDeps = [
   'electron', 
   'marked', 
+  'marked-emoji',
   'highlight.js', 
   'html2canvas', 
   'codemirror',
@@ -46,6 +47,7 @@ if (missing.length > 0) {
     'html2canvas': 'html2canvas@^1.4.1',
     'electron': 'electron@^37.2.3',
     'marked': 'marked@^5.0.0',
+    'marked-emoji': 'marked-emoji@^1.4.3',
     'highlight.js': 'highlight.js@^11.11.1',
     'codemirror': 'codemirror@^6.0.2',
     '@codemirror/lang-markdown': '@codemirror/lang-markdown@^6.3.3',
