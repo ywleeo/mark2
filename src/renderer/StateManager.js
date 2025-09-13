@@ -189,8 +189,10 @@ class StateManager {
       // 刷新文件树显示
       this.fileTreeManager.refreshSidebarTree();
       
-      // 重新启动文件监听 - 解决状态恢复后监听失效的问题
-      this.restartFileWatching();
+      // 重新启动文件监听 - 解决状态恢复后监听失效的问题（带延迟以确保 IPC 连接稳定）
+      setTimeout(async () => {
+        await this.restartFileWatching();
+      }, 1000);
       
       // 确保sidebar宽度正确恢复并触发热区绘制
       this.uiManager.loadSidebarWidth();
@@ -328,28 +330,78 @@ class StateManager {
     }
   }
 
-  // 重新启动文件监听 - 用于状态恢复后重新建立监听
-  restartFileWatching() {
+  // 重新启动文件监听 - 用于状态恢复后重新建立监听（带重试机制）
+  async restartFileWatching() {
+    console.log('[StateManager] 开始重新启动文件监听...');
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1秒
+
     // 对所有打开的文件夹重新启动监听
     for (const [folderPath] of this.fileTreeManager.openFolders) {
-      try {
-        // 通过IPC请求主进程重新开始监听这个文件夹
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.invoke('restart-folder-watching', folderPath);
-      } catch (error) {
-        console.error('重新启动文件夹监听失败:', folderPath, error);
+      let retries = 0;
+      let success = false;
+
+      while (retries < MAX_RETRIES && !success) {
+        try {
+          const { ipcRenderer } = require('electron');
+          const result = await ipcRenderer.invoke('restart-folder-watching', folderPath);
+
+          if (result && result.success) {
+            success = true;
+            console.log(`[StateManager] ✅ 文件夹监听恢复成功: ${folderPath}`);
+          } else {
+            throw new Error(result?.error || 'IPC调用失败');
+          }
+        } catch (error) {
+          retries++;
+          console.warn(`[StateManager] ⚠️ 文件夹监听恢复失败 (${retries}/${MAX_RETRIES}): ${folderPath}`, error.message);
+
+          if (retries < MAX_RETRIES) {
+            console.log(`[StateManager] 等待 ${RETRY_DELAY}ms 后重试...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          }
+        }
+      }
+
+      if (!success) {
+        console.error(`[StateManager] ❌ 文件夹监听恢复最终失败: ${folderPath}`);
       }
     }
 
     // 对当前打开的文件重新启动监听
     if (this.currentFilePath) {
-      try {
-        const { ipcRenderer } = require('electron');
-        ipcRenderer.invoke('restart-file-watching', this.currentFilePath);
-      } catch (error) {
-        console.error('重新启动文件监听失败:', this.currentFilePath, error);
+      let retries = 0;
+      let success = false;
+
+      while (retries < MAX_RETRIES && !success) {
+        try {
+          const { ipcRenderer } = require('electron');
+          const result = await ipcRenderer.invoke('restart-file-watching', this.currentFilePath);
+
+          if (result && result.success) {
+            success = true;
+            console.log(`[StateManager] ✅ 文件监听恢复成功: ${this.currentFilePath}`);
+          } else {
+            throw new Error(result?.error || 'IPC调用失败');
+          }
+        } catch (error) {
+          retries++;
+          console.warn(`[StateManager] ⚠️ 文件监听恢复失败 (${retries}/${MAX_RETRIES}): ${this.currentFilePath}`, error.message);
+
+          if (retries < MAX_RETRIES) {
+            console.log(`[StateManager] 等待 ${RETRY_DELAY}ms 后重试...`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          }
+        }
+      }
+
+      if (!success) {
+        console.error(`[StateManager] ❌ 文件监听恢复最终失败: ${this.currentFilePath}`);
       }
     }
+
+    console.log('[StateManager] 文件监听重启完成');
   }
 
   // 加载插件状态

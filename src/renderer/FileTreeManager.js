@@ -655,18 +655,31 @@ class FileTreeManager {
     ipcRenderer.invoke('reveal-in-finder', folderPath);
   }
   
-  toggleFolder(folderPath) {
+  async toggleFolder(folderPath) {
+    // 对于真实文件夹，检查 IPC 连接状态
+    if (folderPath !== '__files_root__' && folderPath !== '__folders_root__' && folderPath !== 'root') {
+      const ipcHealthy = await this.checkIPCHealth();
+      if (!ipcHealthy) {
+        console.warn('[FileTreeManager] IPC 连接异常，尝试重新建立连接');
+        const restored = await this.restoreIPCConnection();
+        if (!restored) {
+          console.error('[FileTreeManager] 无法恢复 IPC 连接，文件夹操作可能失败');
+          // 即使 IPC 有问题，也要继续操作，避免界面完全卡死
+        }
+      }
+    }
+
     if (this.expandedFolders.has(folderPath)) {
       this.expandedFolders.delete(folderPath);
     } else {
       this.expandedFolders.add(folderPath);
     }
-    
+
     // 确保根节点默认展开
     if (folderPath === '__files_root__' || folderPath === '__folders_root__') {
       this.expandedFolders.add(folderPath);
     }
-    
+
     this.saveExpandedState();
     this.refreshSidebarTree();
   }
@@ -1565,16 +1578,16 @@ class FileTreeManager {
     try {
       // 获取当前所有打开的文件夹
       const foldersToRefresh = Array.from(this.openFolders.keys());
-      
+
       for (const folderPath of foldersToRefresh) {
         const { ipcRenderer } = require('electron');
         // 重新获取文件夹内容
         const result = await ipcRenderer.invoke('rebuild-file-tree', folderPath);
-        
+
         if (result && result.success && result.fileTree) {
           const path = require('path');
           const folderName = path.basename(folderPath);
-          
+
           // 更新openFolders
           this.openFolders.set(folderPath, {
             name: folderName,
@@ -1583,13 +1596,71 @@ class FileTreeManager {
           });
         }
       }
-      
+
       // 立即刷新显示
       this.refreshSidebarTree();
       console.log('[FileTreeManager] 强制刷新文件树完成');
-      
+
     } catch (error) {
       console.error('[FileTreeManager] 强制刷新文件树失败:', error);
+    }
+  }
+
+  // 检查 IPC 连接健康状态
+  async checkIPCHealth() {
+    try {
+      const { ipcRenderer } = require('electron');
+      const startTime = Date.now();
+
+      // 使用一个轻量级的 IPC 调用测试连接
+      const result = await Promise.race([
+        ipcRenderer.invoke('check-folder-exists', process.cwd()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('IPC timeout')), 2000))
+      ]);
+
+      const duration = Date.now() - startTime;
+      console.log(`[FileTreeManager] IPC 健康检查: ${duration}ms, 结果: ${result}`);
+
+      // 如果响应时间过长（超过1秒），认为连接有问题
+      return duration < 1000 && result !== undefined;
+    } catch (error) {
+      console.error('[FileTreeManager] IPC 健康检查失败:', error);
+      return false;
+    }
+  }
+
+  // 恢复 IPC 连接
+  async restoreIPCConnection() {
+    try {
+      console.log('[FileTreeManager] 尝试恢复 IPC 连接...');
+
+      // 给主进程一些时间完成初始化
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 重新建立所有文件夹的监听
+      const foldersToRestore = Array.from(this.openFolders.keys());
+      let successCount = 0;
+
+      for (const folderPath of foldersToRestore) {
+        try {
+          const { ipcRenderer } = require('electron');
+          const result = await ipcRenderer.invoke('restart-folder-watching', folderPath);
+          if (result && result.success) {
+            successCount++;
+            console.log(`[FileTreeManager] 恢复文件夹监听: ${folderPath}`);
+          }
+        } catch (error) {
+          console.warn(`[FileTreeManager] 恢复文件夹监听失败: ${folderPath}`, error);
+        }
+      }
+
+      const success = successCount === foldersToRestore.length;
+      console.log(`[FileTreeManager] IPC 连接恢复结果: ${successCount}/${foldersToRestore.length} ${success ? '成功' : '部分失败'}`);
+
+      return success;
+    } catch (error) {
+      console.error('[FileTreeManager] 恢复 IPC 连接失败:', error);
+      return false;
     }
   }
 }
