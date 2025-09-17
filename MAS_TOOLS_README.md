@@ -48,7 +48,7 @@ npm run build:mas:upload
 # 或直接调用脚本
 node build-mas.js
 
-# 构建arm64的包
+# 构建arm64的.app包需要sudo权限（针对原生依赖问题）
 sudo npx electron-builder --mac --arm64
 ```
 

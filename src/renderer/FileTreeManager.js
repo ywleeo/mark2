@@ -6,6 +6,7 @@ class FileTreeManager {
     this.expandedFolders = new Set();
     this.activeFilePath = null;
     this.activeItemType = null; // 'file' 或 'folder'
+    this.isRestoringIPC = false; // IPC恢复状态锁
     
     // 初始化根节点展开状态
     this.initializeRootExpansion();
@@ -656,32 +657,115 @@ class FileTreeManager {
   }
   
   async toggleFolder(folderPath) {
-    // 对于真实文件夹，检查 IPC 连接状态
-    if (folderPath !== '__files_root__' && folderPath !== '__folders_root__' && folderPath !== 'root') {
-      const ipcHealthy = await this.checkIPCHealth();
-      if (!ipcHealthy) {
-        console.warn('[FileTreeManager] IPC 连接异常，尝试重新建立连接');
-        const restored = await this.restoreIPCConnection();
-        if (!restored) {
-          console.error('[FileTreeManager] 无法恢复 IPC 连接，文件夹操作可能失败');
-          // 即使 IPC 有问题，也要继续操作，避免界面完全卡死
-        }
-      }
+    // 对于根节点，直接跳过IPC检查，快速响应用户操作
+    if (folderPath === '__files_root__' || folderPath === '__folders_root__') {
+      // 直接处理状态变更，无需IPC检查
+      this.expandedFolders.add(folderPath); // 根节点始终保持展开
+      this.saveExpandedState();
+      this.refreshSidebarTree();
+      return;
     }
 
+    // 对于真实文件夹，使用非阻塞的IPC检查
+    if (folderPath !== 'root') {
+      // 异步检查IPC健康状态，但不阻塞用户操作
+      this.checkIPCHealthNonBlocking(folderPath);
+    }
+
+    // 立即处理用户的展开/收缩操作
     if (this.expandedFolders.has(folderPath)) {
       this.expandedFolders.delete(folderPath);
     } else {
       this.expandedFolders.add(folderPath);
     }
 
-    // 确保根节点默认展开
-    if (folderPath === '__files_root__' || folderPath === '__folders_root__') {
-      this.expandedFolders.add(folderPath);
-    }
-
     this.saveExpandedState();
     this.refreshSidebarTree();
+  }
+
+  // 非阻塞的IPC健康检查
+  async checkIPCHealthNonBlocking(folderPath) {
+    try {
+      // 使用更宽松的超时时间，避免文件多的文件夹误判
+      const ipcHealthy = await this.checkIPCHealthWithTimeout(5000); // 从2秒增加到5秒
+
+      if (!ipcHealthy) {
+        console.warn(`[FileTreeManager] IPC 连接异常，后台恢复连接: ${folderPath}`);
+        // 后台静默恢复，不影响用户当前操作
+        this.restoreIPCConnectionSilently();
+      }
+    } catch (error) {
+      console.warn('[FileTreeManager] IPC健康检查异常，忽略:', error);
+      // 忽略检查异常，避免影响正常操作
+    }
+  }
+
+  // 带超时时间的IPC健康检查
+  async checkIPCHealthWithTimeout(timeoutMs = 5000) {
+    try {
+      const { ipcRenderer } = require('electron');
+      const startTime = Date.now();
+
+      // 使用更宽松的超时时间
+      const result = await Promise.race([
+        ipcRenderer.invoke('check-folder-exists', process.cwd()),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('IPC timeout')), timeoutMs))
+      ]);
+
+      const duration = Date.now() - startTime;
+      console.log(`[FileTreeManager] IPC 健康检查: ${duration}ms, 结果: ${result}`);
+
+      // 更宽松的判断条件：只要在超时时间内完成就认为健康
+      return result !== undefined;
+    } catch (error) {
+      console.error('[FileTreeManager] IPC 健康检查失败:', error);
+      return false;
+    }
+  }
+
+  // 静默的IPC连接恢复，不影响用户操作
+  async restoreIPCConnectionSilently() {
+    // 防止多个恢复过程同时进行
+    if (this.isRestoringIPC) {
+      console.log('[FileTreeManager] IPC恢复已在进行中，跳过');
+      return;
+    }
+
+    this.isRestoringIPC = true;
+
+    try {
+      console.log('[FileTreeManager] 后台静默恢复 IPC 连接...');
+
+      // 给主进程一些时间
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 只恢复确实需要的文件夹监听，而不是全部重建
+      const foldersToRestore = Array.from(this.openFolders.keys());
+
+      for (const folderPath of foldersToRestore) {
+        try {
+          const { ipcRenderer } = require('electron');
+          // 使用更短的超时，避免长时间阻塞
+          const result = await Promise.race([
+            ipcRenderer.invoke('restart-folder-watching', folderPath),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('恢复超时')), 3000))
+          ]);
+
+          if (result && result.success) {
+            console.log(`[FileTreeManager] 静默恢复文件夹监听: ${folderPath}`);
+          }
+        } catch (error) {
+          // 静默处理错误，不影响用户体验
+          console.warn(`[FileTreeManager] 静默恢复失败: ${folderPath}`, error.message);
+        }
+      }
+
+      console.log('[FileTreeManager] IPC 连接静默恢复完成');
+    } catch (error) {
+      console.error('[FileTreeManager] 静默恢复 IPC 连接失败:', error);
+    } finally {
+      this.isRestoringIPC = false;
+    }
   }
 
   refreshFileTree() {
