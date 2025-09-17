@@ -401,9 +401,154 @@ class EditorManager {
       }
     } catch (error) {
       console.error('保存文件失败:', error);
-      if (this.appManager && this.appManager.getUIManager()) {
-        this.appManager.getUIManager().showMessage('保存失败: ' + error.message, 'error');
+
+      // 检查是否为IPC连接失效导致的错误
+      if (this.isIPCError(error)) {
+        console.log('检测到IPC连接失效，尝试恢复...');
+
+        // 尝试恢复IPC连接并重试保存
+        const retryResult = await this.retryWithIPCRecovery(currentPath, content, activeTab);
+        if (retryResult.success) {
+          return; // 重试成功，直接返回
+        }
+
+        // 恢复失败，显示带恢复建议的错误信息
+        if (this.appManager && this.appManager.getUIManager()) {
+          this.appManager.getUIManager().showMessage(
+            `保存失败: ${error.message}\n\n建议操作：\n1. 检查文件路径是否有效\n2. 确认文件写入权限\n3. 手动复制内容到其他位置备份`,
+            'error'
+          );
+        }
+      } else {
+        // 常规错误处理
+        if (this.appManager && this.appManager.getUIManager()) {
+          this.appManager.getUIManager().showMessage('保存失败: ' + error.message, 'error');
+        }
       }
+    }
+  }
+
+  // 检查错误是否为IPC连接相关错误
+  isIPCError(error) {
+    if (!error) return false;
+
+    const errorMessage = error.message || error.toString();
+    const ipcErrorPatterns = [
+      'Cannot read properties of null',
+      'Object has been destroyed',
+      'webContents was destroyed',
+      'Request timeout',
+      'ENOTFOUND',
+      'ECONNREFUSED',
+      'Context destroyed',
+      'Connection lost',
+      'IPC timeout',
+      'Target is destroyed'
+    ];
+
+    return ipcErrorPatterns.some(pattern =>
+      errorMessage.toLowerCase().includes(pattern.toLowerCase())
+    );
+  }
+
+  // 尝试恢复IPC连接并重试保存
+  async retryWithIPCRecovery(currentPath, content, activeTab) {
+    const { ipcRenderer } = require('electron');
+
+    try {
+      // 第一步：测试IPC连接健康状态
+      console.log('测试IPC连接健康状态...');
+
+      // 使用简单的IPC调用测试连接
+      const healthCheck = await Promise.race([
+        ipcRenderer.invoke('check-file-exists', currentPath || '/tmp'),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('IPC健康检查超时')), 3000)
+        )
+      ]);
+
+      console.log('IPC连接测试完成，状态正常');
+
+      // 第二步：重新尝试文件保存
+      console.log('重新尝试保存文件...');
+
+      if (!currentPath) {
+        // 新文件保存流程
+        const saveResult = await ipcRenderer.invoke('show-save-dialog');
+        if (!saveResult) {
+          return { success: false, reason: '用户取消保存' };
+        }
+
+        const result = await ipcRenderer.invoke('save-new-file', saveResult.filePath, content);
+        if (result.success) {
+          // 更新tab状态
+          activeTab.filePath = result.filePath;
+          const path = require('path');
+          activeTab.title = path.basename(result.filePath);
+          activeTab.content = content;
+          activeTab.hasUnsavedChanges = false;
+
+          this.handleSuccessfulSave(result.filePath, content, activeTab, true);
+          return { success: true };
+        }
+      } else {
+        // 已存在文件保存流程
+        await ipcRenderer.invoke('save-file', currentPath, content);
+
+        // 更新tab状态
+        activeTab.content = content;
+        activeTab.hasUnsavedChanges = false;
+
+        this.handleSuccessfulSave(currentPath, content, activeTab, false);
+        return { success: true };
+      }
+
+      return { success: false, reason: '保存操作失败' };
+
+    } catch (retryError) {
+      console.error('IPC恢复重试失败:', retryError);
+      return { success: false, reason: retryError.message };
+    }
+  }
+
+  // 处理成功保存后的统一逻辑
+  handleSuccessfulSave(filePath, content, activeTab, isNewFile) {
+    try {
+      if (isNewFile && this.appManager) {
+        // 新文件的额外处理
+        this.appManager.currentFilePath = filePath;
+        this.appManager.tabManager.updateTabTitle(activeTab.id, activeTab.title);
+
+        // 关闭重复tab
+        const duplicateTabs = this.appManager.tabManager.tabs.filter(tab =>
+          tab.filePath === filePath && tab.id !== activeTab.id
+        );
+
+        duplicateTabs.forEach(async (duplicateTab) => {
+          await this.appManager.tabManager.closeTab(duplicateTab.id);
+        });
+
+        // 更新文件树和界面
+        this.appManager.fileTreeManager.updateNewFileInfo(filePath, content);
+        this.appManager.uiManager.updateFileNameDisplay(filePath);
+      }
+
+      // 更新预览
+      if (!activeTab.isEditMode) {
+        this.updatePreview(content, filePath);
+      }
+
+      // 发送保存事件
+      this.eventManager.emit('file-saved', filePath);
+
+      // 显示成功消息
+      if (this.appManager && this.appManager.getUIManager()) {
+        this.appManager.getUIManager().showMessage('文件保存成功（IPC恢复后）', 'success');
+      }
+
+      console.log('文件保存成功（通过IPC恢复）:', filePath);
+    } catch (error) {
+      console.error('保存后处理失败:', error);
     }
   }
 

@@ -97,13 +97,13 @@ let pendingFileToOpen = null;
 
 app.whenReady().then(async () => {
   await createWindow();
-  
+
   // 如果有文件需要打开，保存起来等待渲染进程就绪
   if (fileToOpen) {
     pendingFileToOpen = fileToOpen;
     console.log(`Pending file to open: ${fileToOpen}`);
   }
-  
+
 });
 
 // 监听渲染进程准备就绪的信号

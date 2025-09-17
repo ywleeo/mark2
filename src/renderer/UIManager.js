@@ -427,6 +427,30 @@ class UIManager {
     this.showMessage('设置已保存', 'success');
   }
 
+  adjustFontSize(direction) {
+    const settings = this.getStyleSettings();
+    let currentSize = parseInt(settings.fontSize);
+
+    // 调整字体大小，每次改变2px，范围8-32px
+    const newSize = Math.min(32, Math.max(8, currentSize + (direction * 2)));
+
+    if (newSize === currentSize) {
+      // 已达到最大/最小值，显示提示
+      const message = direction > 0 ? '字体已达到最大值 32px' : '字体已达到最小值 8px';
+      this.showMessage(message, 'info');
+      return;
+    }
+
+    // 保存新的字体大小
+    localStorage.setItem('fontSize', newSize.toString());
+
+    // 立即应用新的字体大小
+    this.updateStyle();
+
+    // 显示当前字体大小
+    this.showMessage(`字体大小: ${newSize}px`, 'success');
+  }
+
   setupSidebarResizer() {
     const resizer = document.getElementById('sidebarResizer');
     const sidebar = document.getElementById('sidebar');

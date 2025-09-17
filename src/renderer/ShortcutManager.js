@@ -80,8 +80,19 @@ class ShortcutManager {
         event.preventDefault();
         this.handleShowSettings();
       }
-      
-      
+
+      // Cmd++ 增加字体大小
+      if (event.metaKey && event.key === '=' && !event.shiftKey) {
+        event.preventDefault();
+        this.handleIncreaseFontSize();
+      }
+
+      // Cmd+- 减小字体大小
+      if (event.metaKey && event.key === '-' && !event.shiftKey) {
+        event.preventDefault();
+        this.handleDecreaseFontSize();
+      }
+
       // ESC 关闭设置对话框
       if (event.key === 'Escape') {
         this.handleEscapeKey();
@@ -144,6 +155,13 @@ class ShortcutManager {
     this.uiManager.showSettings();
   }
 
+  handleIncreaseFontSize() {
+    this.uiManager.adjustFontSize(1);
+  }
+
+  handleDecreaseFontSize() {
+    this.uiManager.adjustFontSize(-1);
+  }
 
   handleEscapeKey() {
     const settingsModal = document.getElementById('settingsModal');
@@ -178,6 +196,8 @@ class ShortcutManager {
       { key: 'Cmd+Shift+L', action: '浅色主题' },
       { key: 'Cmd+Shift+D', action: '深色主题' },
       { key: 'Cmd+,', action: '显示设置' },
+      { key: 'Cmd++', action: '增加字体大小' },
+      { key: 'Cmd+-', action: '减小字体大小' },
       { key: 'ESC', action: '关闭设置对话框' }
     ];
   }
