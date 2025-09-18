@@ -543,98 +543,27 @@ class UIManager {
     // 使用事件委托监听所有链接点击
     document.addEventListener('click', async (event) => {
       const target = event.target;
-      
+
       // 检查是否为链接元素
       if (target.tagName === 'A') {
         // 处理外部链接
         if (target.classList.contains('external-link')) {
-          event.preventDefault(); // 只阻止外部链接的默认行为
-          const url = target.getAttribute('data-external-url') || target.href;
-          if (url) {
-            // 使用 Electron 的 shell.openExternal 在系统浏览器中打开
-            const { shell } = require('electron');
-            shell.openExternal(url).catch(error => {
-              console.error('Failed to open external link:', error);
-              this.showMessage(`无法打开链接: ${url}`, 'error');
-            });
-          }
+          // 不调用 preventDefault()，让链接正常导航，主进程的 will-navigate 会处理
         } else {
-          // 处理内部链接（相对路径）
-          event.preventDefault(); // 阻止内部链接的默认行为
+          // 处理内部链接（相对路径）和未正确标记的外部链接
           const href = target.getAttribute('href');
+
+          // 如果是外部链接但没有external-link类，让它正常导航
+          if (href && href.startsWith('http')) {
+            // 不调用 preventDefault()，让主进程处理
+            return;
+          }
+
+          // 处理内部链接
+          event.preventDefault(); // 阻止内部链接的默认行为
           if (href && !href.startsWith('http')) {
-            try {
-              // 获取当前文件的目录作为基础路径
-              const currentFilePath = this.getCurrentFilePath();
-              
-              if (!currentFilePath) {
-                this.showMessage('无法确定当前文件路径', 'error');
-                return;
-              }
-              
-              // 解析相对路径为绝对路径
-              const path = require('path');
-              const currentDir = path.dirname(currentFilePath);
-              const targetPath = path.resolve(currentDir, href);
-              
-              // 检查文件是否存在
-              const fs = require('fs');
-              if (!fs.existsSync(targetPath)) {
-                this.showMessage(`文件不存在: ${href}`, 'error');
-                return;
-              }
-              
-              // 检查是否为支持的Markdown文件
-              const supportedExtensions = ['.md', '.markdown'];
-              const ext = path.extname(targetPath).toLowerCase();
-              if (!supportedExtensions.includes(ext)) {
-                this.showMessage(`不支持的文件类型: ${ext}`, 'error');
-                return;
-              }
-              
-              // 在当前tab中打开文件（替换当前内容）
-              const { ipcRenderer } = require('electron');
-              const result = await ipcRenderer.invoke('open-file-dialog', targetPath);
-              if (result && result.content !== null) {
-                // 直接在当前tab中替换内容，而不是创建新tab
-                if (this.tabManager) {
-                  const activeTab = this.tabManager.getActiveTab();
-                  if (activeTab) {
-                    // 保存旧的文件路径，用于稍后的files节点清理
-                    const oldFilePath = activeTab.filePath;
-                    
-                    // 更新Tab的文件信息
-                    await activeTab.updateFileInfo(result.filePath, result.content, activeTab.belongsTo);
-                    
-                    // 只有当tab belongsTo file时，才更新FileTreeManager中的Files区域节点
-                    if (this.tabManager.fileTreeManager && activeTab.belongsTo === 'file') {
-                      // 只有在路径实际发生变化时才更新files节点
-                      if (oldFilePath && oldFilePath !== result.filePath) {
-                        // 删除旧的文件节点
-                        this.tabManager.fileTreeManager.removeFile(oldFilePath);
-                        
-                        // 添加新的文件节点
-                        this.tabManager.fileTreeManager.addFile(result.filePath, result.content);
-                      } else if (!oldFilePath) {
-                        // 如果之前没有路径（新文件），直接添加
-                        this.tabManager.fileTreeManager.addFile(result.filePath, result.content);
-                      }
-                    }
-                    
-                    // 更新tab在UI中的显示标题
-                    this.tabManager.updateTabTitle(activeTab.id, activeTab.title);
-                    
-                    // 更新UI显示的文件名
-                    this.updateFileNameDisplay(result.filePath);
-                  }
-                }
-              } else {
-                this.showMessage(`无法读取文件: ${href}`, 'error');
-              }
-            } catch (error) {
-              console.error('Error handling internal link:', error);
-              this.showMessage(`打开文件失败: ${href}`, 'error');
-            }
+            // 使用健壮的异步处理器
+            this.handleInternalLinkSafely(href);
           }
         }
       }
@@ -643,8 +572,275 @@ class UIManager {
   
   // 获取当前活动文件的路径
   getCurrentFilePath() {
-    // 直接返回保存的当前文件路径
+    // 从活动Tab获取当前文件路径，更可靠
+    if (this.tabManager) {
+      const activeTab = this.tabManager.getActiveTab();
+      if (activeTab && activeTab.filePath) {
+        console.log(`[内部链接] 从活动Tab获取当前文件路径: ${activeTab.filePath}`);
+        return activeTab.filePath;
+      }
+    }
+
+    // 降级：使用保存的当前文件路径
+    console.log(`[内部链接] 降级使用保存的文件路径: ${this.currentFilePath}`);
     return this.currentFilePath;
+  }
+
+  /**
+   * 健壮的内部链接处理器
+   * 设计原则：错误隔离、优雅降级、详细反馈
+   */
+  async handleInternalLinkSafely(href) {
+    try {
+      console.log(`[内部链接] 开始处理: ${href}`);
+
+      // 第一步：状态检查和预验证
+      const validationResult = this.validateInternalLinkContext(href);
+      if (!validationResult.valid) {
+        console.log(`[内部链接] 上下文验证失败: ${validationResult.message}`);
+        this.showMessage(validationResult.message, 'error');
+        console.log(`[内部链接] 处理完成（上下文验证失败）: ${href}`);
+        return;
+      }
+
+      // 第二步：路径解析和文件检查
+      const pathResult = await this.resolveAndValidatePath(href, validationResult.currentFilePath);
+      if (!pathResult.valid) {
+        console.log(`[内部链接] 路径验证失败: ${pathResult.message}`);
+        this.showMessage(pathResult.message, 'error');
+        console.log(`[内部链接] 处理完成（路径验证失败）: ${href}`);
+        return;
+      }
+
+      // 第三步：尝试打开文件（带重试机制）
+      const fileResult = await this.openFileWithRetry(pathResult.targetPath, href);
+      if (!fileResult.success) {
+        console.log(`[内部链接] 文件打开失败: ${fileResult.message}`);
+        this.showMessage(fileResult.message, 'error');
+        console.log(`[内部链接] 处理完成（文件打开失败）: ${href}`);
+        return;
+      }
+
+      // 第四步：更新 UI 状态（隔离错误）
+      await this.updateUIForInternalLink(fileResult.data, pathResult.targetPath);
+
+      console.log(`[内部链接] 处理完成: ${href}`);
+
+    } catch (error) {
+      // 最顶层错误捕获，确保任何异常都不会影响其他链接
+      console.error('[内部链接] 未预期的错误:', error);
+      this.showMessage(`链接处理出现异常: ${href}`, 'error');
+    }
+  }
+
+  /**
+   * 验证内部链接处理的上下文环境
+   */
+  validateInternalLinkContext(href) {
+    if (!href) {
+      return { valid: false, message: '链接路径为空' };
+    }
+
+    const currentFilePath = this.getCurrentFilePath();
+    if (!currentFilePath) {
+      return { valid: false, message: '无法确定当前文件路径，请确保已打开有效文件' };
+    }
+
+    if (!this.tabManager) {
+      return { valid: false, message: '标签管理器不可用' };
+    }
+
+    const activeTab = this.tabManager.getActiveTab();
+    if (!activeTab) {
+      return { valid: false, message: '没有活动的标签页' };
+    }
+
+    return { valid: true, currentFilePath, activeTab };
+  }
+
+  /**
+   * 解析和验证文件路径
+   */
+  async resolveAndValidatePath(href, currentFilePath) {
+    console.log(`[内部链接] 解析路径: ${href} (基于: ${currentFilePath})`);
+
+    try {
+      const path = require('path');
+
+      // 解析相对路径为绝对路径
+      const currentDir = path.dirname(currentFilePath);
+      const targetPath = path.resolve(currentDir, href);
+      console.log(`[内部链接] 目标路径: ${targetPath}`);
+
+      // 检查是否为支持的Markdown文件
+      const supportedExtensions = ['.md', '.markdown'];
+      const ext = path.extname(targetPath).toLowerCase();
+      if (!supportedExtensions.includes(ext)) {
+        console.log(`[内部链接] 不支持的文件类型: ${ext}`);
+        return {
+          valid: false,
+          message: `不支持的文件类型: ${ext}\n仅支持 .md 和 .markdown 文件`
+        };
+      }
+
+      // 使用IPC检查文件是否存在（更可靠）
+      try {
+        console.log(`[内部链接] 检查文件存在性: ${targetPath}`);
+        const { ipcRenderer } = require('electron');
+        const exists = await ipcRenderer.invoke('check-file-exists', targetPath);
+
+        if (!exists) {
+          console.log(`[内部链接] 文件不存在: ${href} -> ${targetPath}`);
+          return {
+            valid: false,
+            message: `文件不存在: ${href}\n路径: ${targetPath}\n建议检查文件路径是否正确`
+          };
+        }
+
+        console.log(`[内部链接] 文件存在性检查通过: ${targetPath}`);
+        return { valid: true, targetPath };
+
+      } catch (ipcError) {
+        console.error(`[内部链接] IPC文件检查失败:`, ipcError);
+        // IPC失败时的降级处理
+        return {
+          valid: false,
+          message: `文件检查失败: ${ipcError.message}\n可能是IPC通信问题`
+        };
+      }
+
+    } catch (error) {
+      console.error(`[内部链接] 路径解析失败:`, error);
+      return {
+        valid: false,
+        message: `路径解析失败: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * 带重试机制的文件打开
+   */
+  async openFileWithRetry(targetPath, originalHref, maxRetries = 2) {
+    const { ipcRenderer } = require('electron');
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[内部链接] 尝试打开文件 (第 ${attempt} 次): ${targetPath}`);
+
+        // 如果是重试，先进行 IPC 健康检查
+        if (attempt > 1) {
+          await this.checkIPCHealth(targetPath);
+        }
+
+        const result = await ipcRenderer.invoke('open-file-dialog', targetPath);
+
+        if (result && result.content !== null) {
+          console.log(`[内部链接] 文件读取成功: ${result.filePath}`);
+          return { success: true, data: result };
+        } else {
+          throw new Error('文件内容为空或读取失败');
+        }
+
+      } catch (error) {
+        console.warn(`[内部链接] 第 ${attempt} 次尝试失败:`, error);
+
+        if (attempt === maxRetries) {
+          return {
+            success: false,
+            message: `无法打开文件: ${originalHref}\n${error.message}\n\n建议操作:\n1. 检查文件是否存在\n2. 确认文件权限\n3. 重新启动应用`
+          };
+        }
+
+        // 等待后重试
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
+
+    return { success: false, message: '文件打开重试失败' };
+  }
+
+  /**
+   * IPC 健康检查
+   */
+  async checkIPCHealth(testPath) {
+    const { ipcRenderer } = require('electron');
+    try {
+      // 使用轻量级的文件存在性检查测试 IPC 连接
+      await Promise.race([
+        ipcRenderer.invoke('check-file-exists', testPath),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('IPC 健康检查超时')), 2000)
+        )
+      ]);
+      console.log('[内部链接] IPC 连接正常');
+    } catch (error) {
+      console.warn('[内部链接] IPC 连接异常，继续尝试:', error.message);
+      // 不抛出错误，让文件操作继续尝试
+    }
+  }
+
+  /**
+   * 更新 UI 状态（错误隔离）
+   */
+  async updateUIForInternalLink(fileData, targetPath) {
+    try {
+      if (!this.tabManager) return;
+
+      const activeTab = this.tabManager.getActiveTab();
+      if (!activeTab) return;
+
+      // 保存旧的文件路径
+      const oldFilePath = activeTab.filePath;
+
+      // 更新 Tab 的文件信息
+      await activeTab.updateFileInfo(fileData.filePath, fileData.content, activeTab.belongsTo);
+
+      // 安全地更新文件树管理器
+      this.updateFileTreeManagerSafely(activeTab, oldFilePath, fileData);
+
+      // 安全地更新 UI 显示
+      this.updateUIDisplaySafely(activeTab, fileData);
+
+    } catch (error) {
+      console.warn('[内部链接] UI 更新部分失败，但文件已成功打开:', error);
+      // 不阻止整个操作，因为文件已经成功打开
+    }
+  }
+
+  /**
+   * 安全地更新文件树管理器
+   */
+  updateFileTreeManagerSafely(activeTab, oldFilePath, fileData) {
+    try {
+      if (this.tabManager.fileTreeManager && activeTab.belongsTo === 'file') {
+        if (oldFilePath && oldFilePath !== fileData.filePath) {
+          this.tabManager.fileTreeManager.removeFile(oldFilePath);
+          this.tabManager.fileTreeManager.addFile(fileData.filePath, fileData.content);
+        } else if (!oldFilePath) {
+          this.tabManager.fileTreeManager.addFile(fileData.filePath, fileData.content);
+        }
+      }
+    } catch (error) {
+      console.warn('[内部链接] 文件树更新失败:', error);
+    }
+  }
+
+  /**
+   * 安全地更新 UI 显示
+   */
+  updateUIDisplaySafely(activeTab, fileData) {
+    try {
+      if (this.tabManager.updateTabTitle) {
+        this.tabManager.updateTabTitle(activeTab.id, activeTab.title);
+      }
+
+      if (this.updateFileNameDisplay) {
+        this.updateFileNameDisplay(fileData.filePath);
+      }
+    } catch (error) {
+      console.warn('[内部链接] UI 显示更新失败:', error);
+    }
   }
 
   // 热区清理已移至TitleBarDragManager

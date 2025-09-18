@@ -81,6 +81,19 @@ class WindowManager {
       return { action: 'deny' };
     });
 
+    // 阻止页面导航到外部URL，改为在外部浏览器打开
+    this.mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+      // 如果是外部URL（http/https），阻止导航并在外部浏览器打开
+      if (navigationUrl.startsWith('http://') || navigationUrl.startsWith('https://')) {
+        event.preventDefault();
+
+        const { shell } = require('electron');
+        shell.openExternal(navigationUrl).catch(error => {
+          console.error('Failed to open external URL:', error);
+        });
+      }
+    });
+
     // 页面加载完成后发送平台信息
     this.mainWindow.webContents.once('dom-ready', () => {
       this.mainWindow.webContents.send('platform-layout-info', {

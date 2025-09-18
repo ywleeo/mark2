@@ -55,7 +55,7 @@ class MarkdownRenderer {
     renderer.link = function(href, title, text) {
       // 判断是否为外链（包含协议的完整URL）
       const isExternalLink = /^https?:\/\//.test(href);
-      
+
       if (isExternalLink) {
         // 外链添加特殊类名和数据属性
         const titleAttr = title ? ` title="${title}"` : '';
