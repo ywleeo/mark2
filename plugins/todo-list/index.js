@@ -779,18 +779,18 @@ class TodoListPlugin extends BasePlugin {
     async updateFileContent(newContent) {
         try {
             // 新 Tab 架构下的正确流程
-            
+
             // 1. 获取活动 Tab
             const activeTab = window.tabManager?.getActiveTab();
             if (!activeTab || !activeTab.filePath) {
                 this.api.warn(this.name, '无法获取活动 Tab 或文件路径');
                 return;
             }
-            
+
             // 2. 更新 Tab 的内容
             activeTab.content = newContent;
             activeTab.hasUnsavedChanges = true;
-            
+
             // 3. 更新编辑器内容（如果在编辑模式）
             const editor = document.getElementById('editorTextarea');
             if (editor && activeTab.isEditMode) {
@@ -798,18 +798,20 @@ class TodoListPlugin extends BasePlugin {
                 // 触发 input 事件，让编辑器知道内容已变化
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
             }
-            
-            // 4. 直接通过 IPC 保存文件，避免依赖 EditorManager 的编辑器状态
+
+            // 4. 保存文件（带 IPC 连接检测和重连机制）
             if (this.config.general?.autoSave) {
-                const { ipcRenderer } = require('electron');
-                await ipcRenderer.invoke('save-file', activeTab.filePath, newContent);
-                
-                // 保存成功后标记为已保存
-                activeTab.hasUnsavedChanges = false;
-                
-                this.api.log(this.name, `文件保存成功: ${activeTab.filePath}`);
+                const success = await this.saveFileWithRetry(activeTab.filePath, newContent);
+                if (success) {
+                    // 保存成功后标记为已保存
+                    activeTab.hasUnsavedChanges = false;
+                    this.api.log(this.name, `文件保存成功: ${activeTab.filePath}`);
+                } else {
+                    this.api.warn(this.name, `文件保存失败: ${activeTab.filePath}`);
+                    return;
+                }
             }
-            
+
             // 5. 如果在预览模式，需要延迟重新渲染内容
             if (!activeTab.isEditMode) {
                 // 使用 setTimeout 确保保存操作完成后再重新渲染
@@ -819,13 +821,92 @@ class TodoListPlugin extends BasePlugin {
                     }
                 }, 50);
             }
-            
+
             this.api.log(this.name, '文件内容更新完成');
-            
+
         } catch (error) {
             this.api.warn(this.name, '更新文件内容失败:', error);
             throw error;
         }
+    }
+
+    /**
+     * 带重试机制的文件保存（解决休眠后IPC连接失效问题）
+     */
+    async saveFileWithRetry(filePath, content, maxRetries = 2) {
+        const { ipcRenderer } = require('electron');
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // 如果是第一次尝试失败后的重试，先测试IPC连接
+                if (attempt > 1) {
+                    this.api.log(this.name, `第 ${attempt} 次尝试保存，先测试IPC连接...`);
+
+                    // 测试IPC连接健康状态
+                    await Promise.race([
+                        ipcRenderer.invoke('check-file-exists', filePath),
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('IPC健康检查超时')), 3000)
+                        )
+                    ]);
+
+                    this.api.log(this.name, 'IPC连接测试通过，继续保存文件...');
+                }
+
+                // 执行文件保存
+                await ipcRenderer.invoke('save-file', filePath, content);
+
+                if (attempt > 1) {
+                    this.api.log(this.name, `文件保存成功 (重试第 ${attempt - 1} 次后成功)`);
+                }
+
+                return true;
+
+            } catch (error) {
+                this.api.warn(this.name, `保存文件失败 (尝试 ${attempt}/${maxRetries}):`, error);
+
+                // 检查是否为IPC连接相关错误
+                if (this.isIPCError(error) && attempt < maxRetries) {
+                    this.api.log(this.name, '检测到IPC连接问题，将重试...');
+                    // 等待一小段时间后重试
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    continue;
+                } else {
+                    // 非IPC错误或已达到最大重试次数
+                    if (attempt === maxRetries) {
+                        this.api.warn(this.name, `文件保存最终失败，已重试 ${maxRetries - 1} 次`);
+                    }
+                    return false;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查是否为IPC连接相关错误
+     */
+    isIPCError(error) {
+        if (!error) return false;
+        const errorMessage = error.message || error.toString();
+        const ipcErrorPatterns = [
+            'Cannot read properties of null',
+            'Object has been destroyed',
+            'webContents was destroyed',
+            'Request timeout',
+            'ENOTFOUND',
+            'ECONNREFUSED',
+            'Context destroyed',
+            'Connection lost',
+            'IPC timeout',
+            'Target is destroyed',
+            'main process is not responding',
+            'No such channel'
+        ];
+        return ipcErrorPatterns.some(pattern =>
+            errorMessage.toLowerCase().includes(pattern.toLowerCase())
+        );
     }
 
     /**
