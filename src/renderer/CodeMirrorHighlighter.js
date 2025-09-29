@@ -499,20 +499,36 @@ class CodeMirrorHighlighter {
   // 预处理Markdown内容，避免setext标题误识别
   preprocessMarkdown(content) {
     if (!content) return content;
-    
+
     let processed = content;
-    
+
     // 匹配 文本\n--- 的模式，将其转换为 文本\n\n---
     // 避免 CodeMirror Markdown 解析器将前面的文本识别为标题
     processed = processed.replace(/^(.+)\n(-{3,})$/gm, (match, text, dashes) => {
       return `${text}\n\n${dashes}`;
     });
-    
+
     // 对 = 号也做同样处理
     processed = processed.replace(/^(.+)\n(={3,})$/gm, (match, text, equals) => {
       return `${text}\n\n${equals}`;
     });
-    
+
+    // 修复可能导致嵌套加粗问题的 Markdown 语法
+    // CodeMirror 的 Markdown 解析器对于连续出现的 ** 标记会产生嵌套问题
+    // 我们通过在特定位置插入空格来中断嵌套解析
+
+    // 处理主要问题模式：**A**B**C** 中的中间部分
+    // 匹配：**内容**文字**内容** 这样的模式
+    processed = processed.replace(/(\*\*[^*\n]+?\*\*)([^*\n]*?)(\*\*[^*\n]+?\*\*)/g,
+      (match, first, middle, last) => {
+        // 在中间部分的前后加空格，避免解析器将其视为一个整体
+        return `${first} ${middle.trim()} ${last}`;
+      });
+
+    // 特殊处理：百分号后紧跟汉字的情况
+    // **70%**的 → **70%** 的
+    processed = processed.replace(/(\*\*[^*]*%\*\*)([的在等与和])/g, '$1 $2');
+
     return processed;
   }
 
