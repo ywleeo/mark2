@@ -118,7 +118,10 @@ class MarkdownRenderer {
       
       // 渲染为 HTML（marked.js 会自动处理代码高亮）
       let html = marked(preprocessed);
-      
+
+      // 清理预处理时添加的多余空格（支持各种标点符号）
+      html = html.replace(/(<strong>[^<]*%<\/strong>) ([，,。；;：:！!？?])/g, '$1$2');
+
       // 隔离样式标签，防止样式冲突
       html = this.sanitizeStyles(html);
       
@@ -188,8 +191,11 @@ class MarkdownRenderer {
       return `${text}\n\n${equals}`;
     });
     
-    // 让 marked.js 自己处理HTML转义，我们只做最小化预处理
-    
+    // 修复 marked.js 无法识别 %**[标点] 模式的问题
+    // 问题：当加粗文本以百分号结尾并紧跟标点符号时，marked.js无法正确识别
+    // 解决：在百分号后的星号前插入空格，让marked正确识别
+    processed = processed.replace(/(%\*\*)([，,。；;：:！!？?])/g, '$1 $2');
+
     return processed;
   }
 
