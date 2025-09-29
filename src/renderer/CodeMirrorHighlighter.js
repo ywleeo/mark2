@@ -634,14 +634,27 @@ class CodeMirrorHighlighter {
   // 滚动到行
   scrollToLine(line) {
     if (!this.editor) return;
-    
+
     try {
       const pos = this.editor.state.doc.line(line + 1).from;
       this.editor.dispatch({
         effects: EditorView.scrollIntoView(pos),
       });
+
+      // 【修复】等待DOM更新后返回实际滚动位置给调用者
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          const actualScrollInfo = this.getScrollInfo();
+          const actualScrollRatio = actualScrollInfo.height > actualScrollInfo.clientHeight
+            ? actualScrollInfo.top / Math.max(1, actualScrollInfo.height - actualScrollInfo.clientHeight)
+            : 0;
+          console.log(`[scrollToLine] 行号${line}滚动完成，实际scrollRatio: ${actualScrollRatio}`);
+          resolve(actualScrollRatio);
+        });
+      });
     } catch (error) {
       console.warn('无法滚动到指定行:', line, error);
+      return Promise.resolve(0);
     }
   }
   

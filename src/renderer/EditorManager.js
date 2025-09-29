@@ -755,21 +755,30 @@ class EditorManager {
    */
   setScrollPosition(scrollRatio, isEditMode) {
     console.log(`[滚动设置] setScrollPosition调用: scrollRatio=${scrollRatio}, isEditMode=${isEditMode}`);
-    
+
     if (isEditMode) {
-      // 编辑模式滚动
+      // 编辑模式滚动 - 使用改进的算法
       const hasHighlighter = !!this.markdownHighlighter;
       const isReady = hasHighlighter && this.markdownHighlighter.isReady();
       console.log(`[滚动设置] edit模式检查: hasHighlighter=${hasHighlighter}, isReady=${isReady}`);
-      
+
       if (this.markdownHighlighter && this.markdownHighlighter.isReady()) {
-        const scrollInfo = this.markdownHighlighter.getScrollInfo();
-        const maxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
-        const targetScroll = scrollRatio * maxScroll;
-        console.log(`[滚动设置] edit模式设置滚动: targetScroll=${targetScroll}, maxScroll=${maxScroll}`);
-        this.markdownHighlighter.scrollTo(targetScroll);
+        // 【修复】使用基于行号的精确滚动映射
+        const targetScroll = this.calculateCorrectedScrollPosition(scrollRatio, true);
+        console.log(`[滚动设置] edit模式校正后滚动位置: ${targetScroll}`);
+
+        // 如果返回-1，说明已经使用scrollToLine完成滚动，不需要再调用scrollTo
+        if (targetScroll !== -1) {
+          this.markdownHighlighter.scrollTo(targetScroll);
+        }
       } else {
-        console.log(`[滚动设置] CodeMirror未准备好，无法设置滚动位置`);
+        console.log(`[滚动设置] CodeMirror未准备好，延迟设置滚动位置`);
+        // 【修复】CodeMirror未准备好时，保存待执行的滚动恢复
+        this.pendingScrollRestore = () => {
+          const targetScroll = this.calculateCorrectedScrollPosition(scrollRatio, true);
+          console.log(`[滚动设置] 延迟执行edit滚动: ${targetScroll}`);
+          this.markdownHighlighter.scrollTo(targetScroll);
+        };
       }
     } else {
       // 预览模式滚动
@@ -778,10 +787,103 @@ class EditorManager {
         const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
         const targetScroll = scrollRatio * maxScroll;
         contentArea.scrollTop = targetScroll;
+        console.log(`[滚动设置] view模式设置滚动: scrollRatio=${scrollRatio}, targetScroll=${targetScroll}, maxScroll=${maxScroll}`);
       }
     }
   }
-  
+
+  /**
+   * 计算校正后的滚动位置 - 使用基于行号的精确映射
+   * @param {number} scrollRatio - 原始滚动比例 (0-1)
+   * @param {boolean} targetIsEditMode - 目标模式是否为编辑模式
+   * @returns {number} 校正后的滚动像素位置
+   */
+  calculateCorrectedScrollPosition(scrollRatio, targetIsEditMode) {
+    if (targetIsEditMode) {
+      // 从view切换到edit：使用基于行号的精确映射
+
+      if (!this.markdownHighlighter || !this.markdownHighlighter.isReady()) {
+        console.log(`[滚动校正] CodeMirror未准备好，使用0位置`);
+        return 0;
+      }
+
+      try {
+        // 1. 获取当前活动tab的内容
+        const activeTab = this.tabManager?.getActiveTab();
+        if (!activeTab || !activeTab.content) {
+          console.log(`[滚动校正] 无活动tab或内容，使用简单映射`);
+          const scrollInfo = this.markdownHighlighter.getScrollInfo();
+          const editMaxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+          return scrollRatio * editMaxScroll;
+        }
+
+        // 2. 计算view模式中对应的行号
+        const contentLines = activeTab.content.split('\n');
+        const totalLines = contentLines.length;
+
+        // 根据view模式的滚动比例计算对应的行号
+        const targetLineNumber = Math.floor(scrollRatio * totalLines);
+        const targetLineRatio = targetLineNumber / Math.max(1, totalLines);
+
+        console.log(`[滚动校正] 基于行号映射:`, {
+          原始滚动比例: scrollRatio,
+          总行数: totalLines,
+          目标行号: targetLineNumber,
+          目标行比例: targetLineRatio,
+          内容长度: activeTab.content.length
+        });
+
+        // 3. 在edit模式中滚动到对应行
+        if (this.markdownHighlighter.scrollToLine) {
+          // 使用CodeMirror的scrollToLine方法（如果可用）
+          console.log(`[滚动校正] 使用scrollToLine滚动到行号: ${targetLineNumber}`);
+
+          // 【修复】异步处理scrollToLine，获取实际滚动位置并同步到Tab状态
+          this.markdownHighlighter.scrollToLine(targetLineNumber).then((actualScrollRatio) => {
+            console.log(`[滚动校正] scrollToLine完成，同步实际scrollRatio: ${actualScrollRatio}`);
+
+            // 同步实际滚动位置到当前活动Tab
+            const activeTab = this.tabManager?.getActiveTab();
+            if (activeTab) {
+              activeTab.scrollRatio = actualScrollRatio;
+              console.log(`[滚动继承] edit初始化完成后，实际scrollRatio: ${actualScrollRatio}`);
+            }
+          });
+
+          return -1; // 返回特殊值表示已使用行号滚动
+        } else {
+          // 回退到基于行比例的像素映射
+          const scrollInfo = this.markdownHighlighter.getScrollInfo();
+          const editMaxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+          const targetScroll = targetLineRatio * editMaxScroll;
+
+          console.log(`[滚动校正] 基于行比例的像素映射:`, {
+            目标行比例: targetLineRatio,
+            editMaxScroll: editMaxScroll,
+            目标像素位置: targetScroll
+          });
+
+          return Math.max(0, Math.min(targetScroll, editMaxScroll));
+        }
+
+      } catch (error) {
+        console.error(`[滚动校正] 行号映射失败:`, error);
+        // 回退到简单映射
+        const scrollInfo = this.markdownHighlighter.getScrollInfo();
+        const editMaxScroll = Math.max(1, scrollInfo.height - scrollInfo.clientHeight);
+        return scrollRatio * editMaxScroll;
+      }
+    } else {
+      // 从edit切换到view：直接使用原始比例
+      const contentArea = document.querySelector('.content-area');
+      if (contentArea) {
+        const maxScroll = Math.max(1, contentArea.scrollHeight - contentArea.clientHeight);
+        return scrollRatio * maxScroll;
+      }
+      return 0;
+    }
+  }
+
   /**
    * 获取当前滚动位置
    * @param {boolean} isEditMode - 是否为编辑模式
