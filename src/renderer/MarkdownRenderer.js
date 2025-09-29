@@ -122,6 +122,9 @@ class MarkdownRenderer {
       // 清理预处理时添加的多余空格（支持各种标点符号）
       html = html.replace(/(<strong>[^<]*%<\/strong>) ([，,。；;：:！!？?])/g, '$1$2');
 
+      // 修复嵌套的强调标签
+      html = this.fixNestedStrongTags(html);
+
       // 隔离样式标签，防止样式冲突
       html = this.sanitizeStyles(html);
       
@@ -199,6 +202,47 @@ class MarkdownRenderer {
     return processed;
   }
 
+
+  fixNestedStrongTags(html) {
+    // 修复嵌套的 strong 标签，保持语义正确性
+
+    // 匹配类似 <strong>70%<strong>的惊人涨幅。其中，光模块制造商</strong>中际旭创</strong> 的模式
+    // 这种情况应该变成 <strong>70%</strong>的惊人涨幅。其中，光模块制造商<strong>中际旭创</strong>
+
+    // 处理最常见的问题模式：<strong>A<strong>B</strong>C</strong>
+    // 这通常来自 **A**B** 这样的语法错误
+    html = html.replace(
+      /<strong>([^<]*?)<strong>([^<]*?)<\/strong>([^<]*?)<\/strong>/g,
+      (match, before, middle, after) => {
+        // 智能判断分割点
+        // 如果before以百分号、数字或简短词结尾，通常是独立的加粗
+        if (/[%\d]$/.test(before.trim()) || before.trim().length <= 3) {
+          return `<strong>${before}</strong>${middle}<strong>${after}</strong>`;
+        }
+        // 如果after是简短的词（比如人名、公司名），也应该独立
+        else if (after.trim().length <= 10 && !/[，。；：！？]/.test(after)) {
+          return `<strong>${before}</strong>${middle}<strong>${after}</strong>`;
+        }
+        // 其他情况保持为一个加粗块
+        else {
+          return `<strong>${before}${middle}${after}</strong>`;
+        }
+      }
+    );
+
+    // 处理连续嵌套的情况：<strong><strong>content</strong>other</strong>
+    html = html.replace(/<strong><strong>([^<]*)<\/strong>([^<]*)<\/strong>/g,
+      '<strong>$1</strong><strong>$2</strong>');
+
+    // 处理末尾嵌套：<strong>content<strong>nested</strong></strong>
+    html = html.replace(/<strong>([^<]*)<strong>([^<]*)<\/strong><\/strong>/g,
+      '<strong>$1</strong><strong>$2</strong>');
+
+    // 清理空的强调标签
+    html = html.replace(/<strong>\s*<\/strong>/g, '');
+
+    return html;
+  }
 
   sanitizeStyles(html) {
     // marked.js 已经处理了HTML转义，这里不需要额外处理
