@@ -1690,26 +1690,99 @@ class FileTreeManager {
     }
   }
 
-  // 检查 IPC 连接健康状态
-  async checkIPCHealth() {
+  // 增强的IPC连接健康检查
+  async checkIPCHealth(timeoutMs = 3000) {
     try {
       const { ipcRenderer } = require('electron');
       const startTime = Date.now();
 
-      // 使用一个轻量级的 IPC 调用测试连接
+      // 使用专门的健康检查接口
       const result = await Promise.race([
-        ipcRenderer.invoke('check-folder-exists', process.cwd()),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('IPC timeout')), 2000))
+        ipcRenderer.invoke('ipc-health-check'),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('IPC timeout')), timeoutMs))
       ]);
 
       const duration = Date.now() - startTime;
-      console.log(`[FileTreeManager] IPC 健康检查: ${duration}ms, 结果: ${result}`);
+      console.log(`[FileTreeManager] IPC 健康检查: ${duration}ms, 结果:`, result);
 
-      // 如果响应时间过长（超过1秒），认为连接有问题
-      return duration < 1000 && result !== undefined;
+      return result && result.success && duration < (timeoutMs * 0.8);
     } catch (error) {
       console.error('[FileTreeManager] IPC 健康检查失败:', error);
       return false;
+    }
+  }
+
+  // 强制刷新单个文件夹的IPC连接
+  async forceRefreshFolderIPC(folderPath) {
+    try {
+      console.log(`[FileTreeManager] 强制刷新文件夹IPC: ${folderPath}`);
+
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('force-refresh-folder-ipc', folderPath);
+
+      if (result.success) {
+        console.log(`[FileTreeManager] 文件夹IPC刷新成功: ${folderPath}`);
+
+        // 更新本地文件树数据
+        if (result.fileTree && this.openFolders.has(folderPath)) {
+          const folderInfo = this.openFolders.get(folderPath);
+          folderInfo.fileTree = result.fileTree;
+          this.refreshSidebarTree();
+        }
+
+        return { success: true, message: '文件夹IPC连接已恢复' };
+      } else {
+        console.error(`[FileTreeManager] 文件夹IPC刷新失败: ${folderPath}`, result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error(`[FileTreeManager] 强制刷新文件夹IPC异常: ${folderPath}`, error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // 批量刷新所有打开文件夹的IPC连接
+  async refreshAllFolderIPC() {
+    try {
+      const folderPaths = Array.from(this.openFolders.keys());
+
+      if (folderPaths.length === 0) {
+        console.log('[FileTreeManager] 无打开的文件夹需要刷新');
+        return { success: true, message: '无文件夹需要刷新' };
+      }
+
+      console.log(`[FileTreeManager] 批量刷新 ${folderPaths.length} 个文件夹的IPC连接`);
+
+      const { ipcRenderer } = require('electron');
+      const result = await ipcRenderer.invoke('refresh-all-folder-ipc', folderPaths);
+
+      if (result.success) {
+        console.log('[FileTreeManager] 批量刷新IPC连接成功');
+
+        // 更新所有成功刷新的文件夹数据
+        if (result.results) {
+          for (const folderResult of result.results) {
+            if (folderResult.success && this.openFolders.has(folderResult.folderPath)) {
+              // 触发单个文件夹的刷新以更新界面
+              await this.refreshFolderTree(folderResult.folderPath);
+            }
+          }
+          this.refreshSidebarTree();
+        }
+
+        return {
+          success: true,
+          message: result.message,
+          details: result.results
+        };
+      } else {
+        console.error('[FileTreeManager] 批量刷新IPC连接失败:', result.error);
+        return { success: false, error: result.error };
+      }
+
+    } catch (error) {
+      console.error('[FileTreeManager] 批量刷新IPC连接异常:', error);
+      return { success: false, error: error.message };
     }
   }
 

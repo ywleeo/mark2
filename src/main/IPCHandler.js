@@ -878,6 +878,152 @@ class IPCHandler {
         return false;
       }
     });
+
+    // IPC健康检查 - 轻量级连接测试
+    ipcMain.handle('ipc-health-check', async () => {
+      try {
+        return {
+          success: true,
+          timestamp: Date.now(),
+          pid: process.pid
+        };
+      } catch (error) {
+        console.error('IPC health check failed:', error);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // 强制刷新文件夹IPC连接
+    ipcMain.handle('force-refresh-folder-ipc', async (event, folderPath) => {
+      try {
+        console.log(`[IPCHandler] 强制刷新文件夹IPC: ${folderPath}`);
+
+        if (!folderPath || !fs.existsSync(folderPath)) {
+          return { success: false, error: '文件夹不存在' };
+        }
+
+        // 1. 停止现有的文件监听
+        if (this.fileWatcher) {
+          try {
+            this.fileWatcher.stopWatching(folderPath);
+            console.log(`[IPCHandler] 已停止文件夹监听: ${folderPath}`);
+          } catch (stopError) {
+            console.warn(`[IPCHandler] 停止监听失败: ${stopError.message}`);
+          }
+        }
+
+        // 2. 重新建立文件监听
+        if (this.fileWatcher) {
+          try {
+            this.fileWatcher.startWatching(folderPath);
+            console.log(`[IPCHandler] 已重新建立文件夹监听: ${folderPath}`);
+          } catch (startError) {
+            console.warn(`[IPCHandler] 重新建立监听失败: ${startError.message}`);
+          }
+        }
+
+        // 3. 重新构建文件树以验证连接
+        try {
+          const fileTree = this.fileManager.buildFileTreeWithRoot(folderPath);
+          console.log(`[IPCHandler] 文件夹IPC刷新成功，文件数量: ${fileTree[0]?.children?.length || 0}`);
+
+          return {
+            success: true,
+            message: '文件夹IPC连接已刷新',
+            fileTree: fileTree,
+            timestamp: Date.now()
+          };
+        } catch (buildError) {
+          console.error(`[IPCHandler] 重新构建文件树失败: ${buildError.message}`);
+          return {
+            success: false,
+            error: `重新构建文件树失败: ${buildError.message}`
+          };
+        }
+
+      } catch (error) {
+        console.error('[IPCHandler] 强制刷新文件夹IPC失败:', error);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    });
+
+    // 批量刷新所有文件夹IPC连接
+    ipcMain.handle('refresh-all-folder-ipc', async (event, folderPaths) => {
+      try {
+        console.log(`[IPCHandler] 批量刷新IPC连接，文件夹数量: ${folderPaths?.length || 0}`);
+
+        if (!Array.isArray(folderPaths) || folderPaths.length === 0) {
+          return { success: true, message: '无需刷新的文件夹', results: [] };
+        }
+
+        const results = [];
+        let successCount = 0;
+
+        for (const folderPath of folderPaths) {
+          try {
+            const result = await this.handleSingleFolderRefresh(folderPath);
+            results.push({ folderPath, ...result });
+            if (result.success) successCount++;
+          } catch (error) {
+            results.push({
+              folderPath,
+              success: false,
+              error: error.message
+            });
+          }
+        }
+
+        const allSuccess = successCount === folderPaths.length;
+        console.log(`[IPCHandler] 批量刷新完成: ${successCount}/${folderPaths.length} 成功`);
+
+        return {
+          success: allSuccess,
+          message: `${successCount}/${folderPaths.length} 个文件夹IPC连接刷新成功`,
+          results: results,
+          timestamp: Date.now()
+        };
+
+      } catch (error) {
+        console.error('[IPCHandler] 批量刷新文件夹IPC失败:', error);
+        return {
+          success: false,
+          error: error.message,
+          results: []
+        };
+      }
+    });
+  }
+
+  // 单个文件夹刷新的内部方法
+  async handleSingleFolderRefresh(folderPath) {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return { success: false, error: '文件夹不存在' };
+    }
+
+    try {
+      // 停止并重新启动监听
+      if (this.fileWatcher) {
+        this.fileWatcher.stopWatching(folderPath);
+        this.fileWatcher.startWatching(folderPath);
+      }
+
+      // 验证连接
+      const fileTree = this.fileManager.buildFileTreeWithRoot(folderPath);
+
+      return {
+        success: true,
+        message: '连接已刷新',
+        fileCount: fileTree[0]?.children?.length || 0
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 
 }

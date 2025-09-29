@@ -58,33 +58,141 @@ class TabManager {
   async openFileFromPath(filePath, fromFolderMode = false, forceNewTab = false, fileType = 'subfolder-file') {
     try {
       const { ipcRenderer } = require('electron');
-      const result = await ipcRenderer.invoke('open-file-dialog', filePath);
-      
+
+      // 尝试打开文件
+      let result = await ipcRenderer.invoke('open-file-dialog', filePath);
+
+      // 如果第一次失败，尝试IPC连接恢复
+      if (!result) {
+        console.warn(`[TabManager] 文件打开失败，尝试修复IPC连接: ${filePath}`);
+
+        // 显示修复提示
+        if (this.uiManager) {
+          this.uiManager.showMessage('文件打开失败，正在尝试修复连接...', 'warning');
+        }
+
+        // 尝试自动修复IPC连接
+        const repairResult = await this.attemptIPCRepair(filePath);
+
+        if (repairResult.success) {
+          console.log(`[TabManager] IPC连接修复成功，重试打开文件: ${filePath}`);
+
+          // 修复成功后重试打开文件
+          result = await ipcRenderer.invoke('open-file-dialog', filePath);
+
+          if (result) {
+            if (this.uiManager) {
+              this.uiManager.showMessage('连接已修复，文件打开成功', 'success');
+            }
+          } else {
+            if (this.uiManager) {
+              this.uiManager.showMessage('连接修复后仍无法打开文件', 'error');
+            }
+            return false;
+          }
+        } else {
+          console.error(`[TabManager] IPC连接修复失败: ${repairResult.error}`);
+          if (this.uiManager) {
+            this.uiManager.showMessage(`文件打开失败: ${repairResult.error}`, 'error');
+          }
+          return false;
+        }
+      }
+
       if (result) {
         await this.openFileInTab(result.filePath, forceNewTab, false, fileType);
-        
+
         // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
         if (!fromFolderMode) {
           this.fileTreeManager.addFile(result.filePath, result.content);
         }
-        
+
         // 显示markdown内容
         const markdownContent = document.querySelector('.markdown-content');
         if (markdownContent) {
           markdownContent.style.display = 'block';
         }
-        
+
         // 调整窗口大小
         const { ipcRenderer } = require('electron');
         ipcRenderer.send('resize-window-to-content-loaded');
-        
-        return true; // 【修复】返回成功标识
+
+        return true;
       } else {
-        return false; // 【修复】返回失败标识
+        return false;
       }
     } catch (error) {
-      this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
-      return false; // 【修复】异常时返回失败标识
+      console.error('[TabManager] 打开文件异常:', error);
+
+      // 即使在异常情况下也尝试修复
+      try {
+        console.log(`[TabManager] 异常后尝试修复IPC连接: ${filePath}`);
+        const repairResult = await this.attemptIPCRepair(filePath);
+
+        if (repairResult.success) {
+          // 修复成功后，给用户一个重试的机会
+          if (this.uiManager) {
+            this.uiManager.showMessage('连接已修复，请重试打开文件', 'info');
+          }
+        }
+      } catch (repairError) {
+        console.error('[TabManager] 修复过程中发生异常:', repairError);
+      }
+
+      if (this.uiManager) {
+        this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
+      }
+
+      return false;
+    }
+  }
+
+  // 尝试修复IPC连接
+  async attemptIPCRepair(filePath) {
+    try {
+      console.log(`[TabManager] 开始修复IPC连接，目标文件: ${filePath}`);
+
+      // 1. 首先进行IPC健康检查
+      const healthCheck = await this.fileTreeManager.checkIPCHealth(2000);
+      if (healthCheck) {
+        console.log('[TabManager] IPC连接健康，问题可能是文件特定的');
+        return { success: false, error: '文件可能不存在或无权限访问' };
+      }
+
+      // 2. 尝试刷新所有文件夹的IPC连接
+      const refreshResult = await this.fileTreeManager.refreshAllFolderIPC();
+      if (refreshResult.success) {
+        console.log('[TabManager] 文件夹IPC连接批量刷新成功');
+        return { success: true, message: '文件夹IPC连接已修复' };
+      }
+
+      // 3. 如果批量刷新失败，尝试确定文件所在的文件夹并单独刷新
+      if (filePath) {
+        const path = require('path');
+        const parentDir = path.dirname(filePath);
+
+        // 检查这个文件夹是否在我们管理的文件夹中
+        for (const [folderPath] of this.fileTreeManager.openFolders) {
+          if (parentDir.startsWith(folderPath)) {
+            console.log(`[TabManager] 尝试刷新特定文件夹IPC: ${folderPath}`);
+            const singleRefreshResult = await this.fileTreeManager.forceRefreshFolderIPC(folderPath);
+            if (singleRefreshResult.success) {
+              return { success: true, message: '目标文件夹IPC连接已修复' };
+            }
+          }
+        }
+      }
+
+      // 4. 所有修复尝试都失败
+      console.error('[TabManager] 所有IPC修复尝试都失败');
+      return {
+        success: false,
+        error: '无法修复IPC连接，请尝试重新打开文件夹或重启应用'
+      };
+
+    } catch (error) {
+      console.error('[TabManager] IPC修复过程异常:', error);
+      return { success: false, error: `修复过程异常: ${error.message}` };
     }
   }
 
