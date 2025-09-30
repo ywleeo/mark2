@@ -1,0 +1,30 @@
+{
+  "name": "荧光马克笔",
+  "version": "1.0.0",
+  "description": "将加粗内容渲染为荧光马克笔涂色效果",
+  "enabled": true,
+  "priority": 60,
+  "shortcuts": [],
+  "config": {
+    "highlightStyle": {
+      "enabled": true,
+      "themes": {
+        "light": {
+          "backgroundColor": "#7afcff",
+          "textColor": "#1a1a1a"
+        },
+        "dark": {
+          "backgroundColor": "#7afcff",
+          "textColor": "#0a0a0a"
+        }
+      },
+      "padding": "2px 4px",
+      "borderRadius": "2px",
+      "opacity": "0.25"
+    },
+    "general": {
+      "replaceBold": true,
+      "keepFontWeight": false
+    }
+  }
+}
