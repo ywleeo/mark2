@@ -20,7 +20,7 @@
       },
       "padding": "2px 4px",
       "borderRadius": "2px",
-      "opacity": "0.25"
+      "opacity": "0.15"
     },
     "general": {
       "replaceBold": true,
