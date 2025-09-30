@@ -56,31 +56,47 @@ class TabManager {
   }
 
   async openFileFromPath(filePath, fromFolderMode = false, forceNewTab = false, fileType = 'subfolder-file') {
+    const { ipcRenderer } = require('electron');
+    let result = null;
+    let needsRepair = false;
+    let errorMessage = '';
+
+    // 第一次尝试打开文件
     try {
-      const { ipcRenderer } = require('electron');
+      result = await ipcRenderer.invoke('open-file-dialog', filePath);
 
-      // 尝试打开文件
-      let result = await ipcRenderer.invoke('open-file-dialog', filePath);
+      // 检查结果是否有效
+      if (!result || !result.filePath) {
+        needsRepair = true;
+        errorMessage = '文件打开失败（结果为空）';
+      }
+    } catch (error) {
+      // IPC调用异常，通常是连接失效
+      needsRepair = true;
+      errorMessage = error.message || '文件打开异常';
+      console.error('[TabManager] 打开文件时IPC调用异常:', error);
+    }
 
-      // 如果第一次失败，尝试IPC连接恢复
-      if (!result) {
-        console.warn(`[TabManager] 文件打开失败，尝试修复IPC连接: ${filePath}`);
+    // 如果需要修复，尝试IPC连接恢复
+    if (needsRepair) {
+      console.warn(`[TabManager] ${errorMessage}，尝试修复IPC连接: ${filePath}`);
 
-        // 显示修复提示
-        if (this.uiManager) {
-          this.uiManager.showMessage('文件打开失败，正在尝试修复连接...', 'warning');
-        }
+      // 显示修复提示
+      if (this.uiManager) {
+        this.uiManager.showMessage('文件打开失败，正在尝试修复连接...', 'warning');
+      }
 
-        // 尝试自动修复IPC连接
-        const repairResult = await this.attemptIPCRepair(filePath);
+      // 尝试自动修复IPC连接
+      const repairResult = await this.attemptIPCRepair(filePath);
 
-        if (repairResult.success) {
-          console.log(`[TabManager] IPC连接修复成功，重试打开文件: ${filePath}`);
+      if (repairResult.success) {
+        console.log(`[TabManager] IPC连接修复成功，重试打开文件: ${filePath}`);
 
-          // 修复成功后重试打开文件
+        // 修复成功后重试打开文件
+        try {
           result = await ipcRenderer.invoke('open-file-dialog', filePath);
 
-          if (result) {
+          if (result && result.filePath) {
             if (this.uiManager) {
               this.uiManager.showMessage('连接已修复，文件打开成功', 'success');
             }
@@ -90,16 +106,25 @@ class TabManager {
             }
             return false;
           }
-        } else {
-          console.error(`[TabManager] IPC连接修复失败: ${repairResult.error}`);
+        } catch (retryError) {
+          console.error('[TabManager] 修复后重试仍然失败:', retryError);
           if (this.uiManager) {
-            this.uiManager.showMessage(`文件打开失败: ${repairResult.error}`, 'error');
+            this.uiManager.showMessage(`修复后重试失败: ${retryError.message}`, 'error');
           }
           return false;
         }
+      } else {
+        console.error(`[TabManager] IPC连接修复失败: ${repairResult.error}`);
+        if (this.uiManager) {
+          this.uiManager.showMessage(`文件打开失败: ${repairResult.error}`, 'error');
+        }
+        return false;
       }
+    }
 
-      if (result) {
+    // 成功打开文件，处理后续逻辑
+    if (result && result.filePath) {
+      try {
         await this.openFileInTab(result.filePath, forceNewTab, false, fileType);
 
         // 如果不是从文件夹模式打开的文件，将文件添加到侧边栏
@@ -114,35 +139,17 @@ class TabManager {
         }
 
         // 调整窗口大小
-        const { ipcRenderer } = require('electron');
         ipcRenderer.send('resize-window-to-content-loaded');
 
         return true;
-      } else {
+      } catch (error) {
+        console.error('[TabManager] 打开文件后续处理异常:', error);
+        if (this.uiManager) {
+          this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
+        }
         return false;
       }
-    } catch (error) {
-      console.error('[TabManager] 打开文件异常:', error);
-
-      // 即使在异常情况下也尝试修复
-      try {
-        console.log(`[TabManager] 异常后尝试修复IPC连接: ${filePath}`);
-        const repairResult = await this.attemptIPCRepair(filePath);
-
-        if (repairResult.success) {
-          // 修复成功后，给用户一个重试的机会
-          if (this.uiManager) {
-            this.uiManager.showMessage('连接已修复，请重试打开文件', 'info');
-          }
-        }
-      } catch (repairError) {
-        console.error('[TabManager] 修复过程中发生异常:', repairError);
-      }
-
-      if (this.uiManager) {
-        this.uiManager.showMessage('打开文件失败: ' + error.message, 'error');
-      }
-
+    } else {
       return false;
     }
   }
