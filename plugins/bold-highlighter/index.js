@@ -44,7 +44,7 @@ class BoldHighlighterPlugin extends BasePlugin {
 
         // 将十六进制颜色转换为 rgba，只让背景透明
         const bgColor = themeColors.backgroundColor || '#7afcff';
-        const opacity = parseFloat(highlightStyle.opacity || '0.25');
+        const opacity = parseFloat(highlightStyle.opacity || '0.15');
         const rgba = this.hexToRgba(bgColor, opacity);
 
         this.styleConfig = {
