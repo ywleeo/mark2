@@ -5,10 +5,10 @@ class FileWatcher {
   constructor(windowManager, fileManager) {
     this.windowManager = windowManager;
     this.fileManager = fileManager;
-    this.watchedPath = null; // 当前监听的文件夹路径
+    // 多文件夹监听：{folderPath: {lastFileTreeHash}}
+    this.watchedFolders = new Map();
     this.watchedFile = null; // 当前监听的文件路径
     this.lastFileContent = null; // 上次读取的文件内容，用于去重
-    this.lastFileTreeHash = null; // 上次文件树的哈希值，用于检测实际变化
   }
 
   // 开始跟踪文件夹（不使用持续监听）
@@ -19,18 +19,43 @@ class FileWatcher {
       return;
     }
 
-    this.watchedPath = folderPath;
+    // 如果已经在监听，直接返回
+    if (this.watchedFolders.has(folderPath)) {
+      console.log(`FileWatcher: 文件夹已在监听中: ${folderPath}`);
+      return;
+    }
+
     // 建立初始文件树快照
-    this.createFileTreeSnapshot();
-    // console.log(`FileWatcher: 开始跟踪文件夹: ${folderPath}`);
+    const fileTree = this.fileManager.buildFileTreeWithRoot(folderPath);
+    const hash = this.calculateFileTreeHash(fileTree);
+
+    this.watchedFolders.set(folderPath, {
+      lastFileTreeHash: hash
+    });
+
+    console.log(`FileWatcher: 开始跟踪文件夹: ${folderPath} (总计: ${this.watchedFolders.size})`);
   }
 
-  // 停止跟踪
-  stopWatching() {
-    this.watchedPath = null;
-    this.lastFileTreeHash = null;
+  // 停止跟踪特定文件夹
+  stopWatching(folderPath) {
+    if (folderPath) {
+      // 停止特定文件夹监听
+      if (this.watchedFolders.has(folderPath)) {
+        this.watchedFolders.delete(folderPath);
+        console.log(`FileWatcher: 已停止文件夹跟踪: ${folderPath} (剩余: ${this.watchedFolders.size})`);
+      }
+    } else {
+      // 停止所有文件夹监听
+      this.watchedFolders.clear();
+      console.log('FileWatcher: 已停止所有文件夹跟踪');
+    }
+  }
+
+  // 停止所有监听
+  stopAllWatching() {
+    this.watchedFolders.clear();
     this.stopFileWatching();
-    // console.log('FileWatcher: 已停止文件夹跟踪');
+    console.log('FileWatcher: 已停止所有监听（文件夹+文件）');
   }
 
   // 开始跟踪单个文件（不使用持续监听）
@@ -126,45 +151,50 @@ class FileWatcher {
     }
   }
 
-  // 按需检查并更新文件树
+  // 按需检查并更新文件树（遍历所有监听的文件夹）
   checkAndUpdateFileTree() {
-    if (!this.watchedPath) return false;
-    
-    // 重新验证路径是否仍然存在
-    if (!fs.existsSync(this.watchedPath)) {
-      this.stopWatching();
-      return false;
-    }
-    
-    try {
-      const fileTree = this.fileManager.buildFileTreeWithRoot(this.watchedPath);
-      
-      // 计算文件树哈希以检测实际变化
-      const currentHash = this.calculateFileTreeHash(fileTree);
-      
-      // 只有当文件树真正发生变化时才发送更新
-      if (currentHash !== this.lastFileTreeHash) {
-        this.lastFileTreeHash = currentHash;
-        
-        const mainWindow = this.windowManager.getWindow();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('file-tree-updated', {
-            folderPath: this.watchedPath,
-            fileTree
-          });
+    if (this.watchedFolders.size === 0) return false;
+
+    let hasAnyChanges = false;
+
+    for (const [folderPath, folderInfo] of this.watchedFolders.entries()) {
+      // 重新验证路径是否仍然存在
+      if (!fs.existsSync(folderPath)) {
+        this.stopWatching(folderPath);
+        continue;
+      }
+
+      try {
+        const fileTree = this.fileManager.buildFileTreeWithRoot(folderPath);
+
+        // 计算文件树哈希以检测实际变化
+        const currentHash = this.calculateFileTreeHash(fileTree);
+
+        // 只有当文件树真正发生变化时才发送更新
+        if (currentHash !== folderInfo.lastFileTreeHash) {
+          folderInfo.lastFileTreeHash = currentHash;
+
+          const mainWindow = this.windowManager.getWindow();
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('file-tree-updated', {
+              folderPath: folderPath,
+              fileTree
+            });
+          }
+
+          console.log(`FileWatcher: 文件夹有变化: ${folderPath}`);
+          hasAnyChanges = true;
         }
-        return true; // 有变化
-      } else {
-        return false; // 无变化
+      } catch (error) {
+        console.error(`Error checking file tree for ${folderPath}:`, error);
+        // 如果更新失败，可能是路径问题，停止监听
+        if (error.code === 'ENOENT' || error.code === 'EACCES') {
+          this.stopWatching(folderPath);
+        }
       }
-    } catch (error) {
-      console.error('Error checking file tree:', error);
-      // 如果更新失败，可能是路径问题，停止监听
-      if (error.code === 'ENOENT' || error.code === 'EACCES') {
-        this.stopWatching();
-      }
-      return false;
     }
+
+    return hasAnyChanges;
   }
 
 
@@ -196,42 +226,33 @@ class FileWatcher {
 
 
   isWatching() {
-    return this.watchedPath !== null;
+    return this.watchedFolders.size > 0;
   }
 
-  getWatchedPath() {
-    return this.watchedPath;
+  // 获取所有监听的文件夹路径
+  getWatchedFolders() {
+    return Array.from(this.watchedFolders.keys());
   }
-  
+
+  // 检查特定文件夹是否在监听中
+  isWatchingFolder(folderPath) {
+    return this.watchedFolders.has(folderPath);
+  }
+
   getWatchedFile() {
     return this.watchedFile;
-  }
-
-  // 建立初始文件树快照
-  createFileTreeSnapshot() {
-    if (!this.watchedPath) return;
-    
-    try {
-      const fileTree = this.fileManager.buildFileTreeWithRoot(this.watchedPath);
-      this.lastFileTreeHash = this.calculateFileTreeHash(fileTree);
-      // console.log(`FileWatcher: 建立文件树快照，哈希值: ${this.lastFileTreeHash}`);
-    } catch (error) {
-      console.error('Error creating file tree snapshot:', error);
-    }
   }
 
   // 统一的刷新方法：检查文件和文件夹变化
   checkAndRefreshAll() {
     let hasChanges = false;
-    
-    // 检查文件夹变化
-    if (this.watchedPath) {
-      const folderChanged = this.checkAndUpdateFileTree();
-      if (folderChanged) {
-        hasChanges = true;
-      }
+
+    // 检查所有文件夹变化
+    const folderChanged = this.checkAndUpdateFileTree();
+    if (folderChanged) {
+      hasChanges = true;
     }
-    
+
     // 检查文件内容变化
     if (this.watchedFile) {
       const fileChanged = this.checkAndRefreshFile();
@@ -239,7 +260,7 @@ class FileWatcher {
         hasChanges = true;
       }
     }
-    
+
     return hasChanges;
   }
 }

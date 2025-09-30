@@ -1004,9 +1004,16 @@ class IPCHandler {
     }
 
     try {
-      // 停止并重新启动监听
+      // 停止特定文件夹监听
       if (this.fileWatcher) {
         this.fileWatcher.stopWatching(folderPath);
+      }
+
+      // 短暂延迟后重新启动监听
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 重新启动监听
+      if (this.fileWatcher) {
         this.fileWatcher.startWatching(folderPath);
       }
 
