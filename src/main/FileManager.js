@@ -8,12 +8,20 @@ class FileManager {
     this.windowManager = windowManager;
   }
 
+  // 检查是否为支持的文件类型
+  isSupportedFile(fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+    return ext === 'md' || ext === 'markdown' || ext === 'json';
+  }
+
   async openFileDialog() {
     const mainWindow = this.windowManager.getWindow();
     const result = await dialog.showOpenDialog(mainWindow, {
       properties: ['openFile'],
       filters: [
+        { name: 'Supported Files', extensions: ['md', 'markdown', 'json'] },
         { name: 'Markdown Files', extensions: ['md', 'markdown'] },
+        { name: 'JSON Files', extensions: ['json'] },
         { name: 'All Files', extensions: ['*'] }
       ]
     });
@@ -169,7 +177,7 @@ class FileManager {
             type: 'folder',
             children: this.buildFileTree(fullPath)
           });
-        } else if (stats.isFile() && (file.endsWith('.md') || file.endsWith('.markdown'))) {
+        } else if (stats.isFile() && this.isSupportedFile(file)) {
           items.push({
             name: file,
             path: fullPath,
@@ -211,9 +219,9 @@ class FileManager {
           fileTree
         };
       } else {
-        // 检查是否是Markdown文件
-        if (!filePath.endsWith('.md') && !filePath.endsWith('.markdown')) {
-          return { success: false, error: '只支持Markdown文件 (.md, .markdown)' };
+        // 检查是否是支持的文件类型
+        if (!this.isSupportedFile(filePath)) {
+          return { success: false, error: '只支持 Markdown 和 JSON 文件 (.md, .markdown, .json)' };
         }
         
         const content = fs.readFileSync(filePath, 'utf-8');
@@ -278,7 +286,7 @@ class FileManager {
               folderPath: fullPath,
               fileTree
             };
-          } else if (stats.isFile() && (fullPath.endsWith('.md') || fullPath.endsWith('.markdown'))) {
+          } else if (stats.isFile() && this.isSupportedFile(fullPath)) {
             const content = fs.readFileSync(fullPath, 'utf-8');
             return {
               success: true,
@@ -533,8 +541,8 @@ class FileManager {
         throw new Error('指定路径不是文件夹: ' + folderPath);
       }
 
-      // 确保文件名有 .md 扩展名
-      if (!fileName.endsWith('.md') && !fileName.endsWith('.markdown')) {
+      // 确保文件名有合适的扩展名（默认为 .md）
+      if (!this.isSupportedFile(fileName)) {
         fileName = fileName + '.md';
       }
 

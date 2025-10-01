@@ -51,13 +51,14 @@ class CodeMirrorHighlighter {
     this.languageMap = this.initLanguageMap();
   }
 
-  async init(textarea) {
+  async init(textarea, languageMode = 'markdown') {
     if (!textarea) {
       throw new Error('Textarea element is required');
     }
 
     this.textarea = textarea;
-    
+    this.languageMode = languageMode;
+
     // 创建容器
     this.container = document.createElement('div');
     this.container.className = 'codemirror-container';
@@ -65,21 +66,29 @@ class CodeMirrorHighlighter {
     this.container.style.width = '100%';
     this.container.style.height = '100%';
     this.container.style.overflow = 'hidden'; // 让CodeMirror自己处理滚动
-    
+
     // 插入容器
     textarea.parentNode.insertBefore(this.container, textarea);
-    
+
     // 隐藏原始textarea但保持其存在（用于表单提交等）
     textarea.style.display = 'none';
-    
+
+    // 根据语言模式选择语言包
+    const languageExtension = this.getLanguageExtension(languageMode);
+
+    // 根据语言模式决定是否预处理
+    const initialDoc = languageMode === 'markdown'
+      ? this.preprocessMarkdown(textarea.value)
+      : textarea.value;
+
     // 创建编辑器状态
     const state = EditorState.create({
-      doc: this.preprocessMarkdown(textarea.value),
+      doc: initialDoc,
       extensions: [
         // 基本扩展
         EditorView.lineWrapping,
-        // 增强的 Markdown 语言支持（包含代码块高亮）
-        this.createEnhancedMarkdown(),
+        // 根据语言模式选择语言支持
+        languageExtension,
         // 设置Tab大小为4个字符宽度
         EditorState.tabSize.of(4),
         // 设置Tab为真正的Tab字符
@@ -195,20 +204,31 @@ class CodeMirrorHighlighter {
     }
   }
 
+  // 根据语言模式获取对应的语言扩展
+  getLanguageExtension(languageMode) {
+    switch (languageMode) {
+      case 'json':
+        return json();
+      case 'markdown':
+      default:
+        return this.createEnhancedMarkdown();
+    }
+  }
+
   // 暴露搜索API到全局
   exposeSearchAPI() {
     // 确保全局CodeMirror对象存在
     if (!window.CodeMirror) {
       window.CodeMirror = {};
     }
-    
+
     // 暴露搜索相关的类和方法
     window.CodeMirror.SearchCursor = SearchCursor;
     window.CodeMirror.StateEffect = StateEffect;
     window.CodeMirror.StateField = require('@codemirror/state').StateField;
     window.CodeMirror.Decoration = Decoration;
     window.CodeMirror.EditorView = EditorView;
-    
+
     // 暴露当前编辑器实例的引用
     window.CodeMirror.getCurrentEditor = () => this.editor;
   }

@@ -100,11 +100,19 @@ class MarkdownRenderer {
 
   renderMarkdown(content, targetElement = null, filePath = null) {
     if (!content) return '';
-    
+
     try {
       // 设置当前文件路径，用于图片路径解析
       this.currentFilePath = filePath;
-      
+
+      // 检测文件类型
+      const fileType = this.detectFileType(filePath, content);
+
+      // 如果是 JSON 文件，使用 JSON 渲染器
+      if (fileType === 'json') {
+        return this.renderJSON(content);
+      }
+
       // 清理零宽度字符，这些字符会干扰emoji渲染
       if (typeof content === 'string') {
         // 移除可能干扰Unicode渲染的零宽度字符
@@ -112,10 +120,10 @@ class MarkdownRenderer {
         // 移除所有零宽度字符（全局替换）
         content = content.replace(/[\u200B\u200C\u200D\u200E\u200F\uFEFF]/g, '');
       }
-      
+
       // 预处理 Markdown
       const preprocessed = this.preprocessMarkdown(content);
-      
+
       // 渲染为 HTML（marked.js 会自动处理代码高亮）
       let html = marked(preprocessed);
 
@@ -265,9 +273,92 @@ class MarkdownRenderer {
     if (typeof window !== 'undefined' && window.pluginManager && window.pluginManager.initialized) {
       return window.pluginManager.processMarkdown(html, originalContent);
     }
-    
+
     // 如果不在浏览器环境或插件系统未初始化，直接返回原始HTML
     return html;
+  }
+
+  // 检测文件类型
+  detectFileType(filePath, content) {
+    if (!filePath) {
+      // 如果没有文件路径，尝试通过内容判断
+      if (typeof content === 'string') {
+        const trimmed = content.trim();
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+          try {
+            JSON.parse(content);
+            return 'json';
+          } catch (e) {
+            // 不是有效的 JSON
+          }
+        }
+      }
+      return 'markdown';
+    }
+
+    // 根据文件扩展名判断
+    const ext = filePath.split('.').pop().toLowerCase();
+    if (ext === 'json') {
+      return 'json';
+    }
+
+    return 'markdown';
+  }
+
+  // 渲染 JSON 内容
+  renderJSON(content) {
+    try {
+      // 解析 JSON
+      const jsonObj = JSON.parse(content);
+
+      // 格式化 JSON（美化输出）
+      const formatted = JSON.stringify(jsonObj, null, 2);
+
+      // 使用 highlight.js 进行语法高亮
+      let highlighted;
+      try {
+        highlighted = hljs.highlight(formatted, { language: 'json' }).value;
+      } catch (e) {
+        highlighted = this.escapeHtml(formatted);
+      }
+
+      // 返回格式化的 HTML
+      return `
+        <div class="json-viewer">
+          <div class="json-header">
+            <span class="json-format-label">JSON</span>
+          </div>
+          <pre><code class="hljs language-json">${highlighted}</code></pre>
+        </div>
+      `;
+    } catch (error) {
+      // JSON 解析失败，显示错误信息
+      return `
+        <div class="json-viewer json-error">
+          <div class="json-header">
+            <span class="json-format-label error">JSON 解析错误</span>
+          </div>
+          <pre><code>${this.escapeHtml(error.message)}</code></pre>
+          <div class="json-raw-content">
+            <h4>原始内容:</h4>
+            <pre><code>${this.escapeHtml(content)}</code></pre>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // HTML 转义函数
+  escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
   }
 
 }

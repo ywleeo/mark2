@@ -233,8 +233,30 @@
   color: #24292e; /* 深灰色 - 方括号 */
 }
 
-.cm-editor .tok-brace { 
+.cm-editor .tok-brace {
   color: #24292e; /* 深灰色 - 大括号 */
+}
+
+/* ==================== JSON 特定样式 ==================== */
+
+/* 移除 JSON 字符串值的下划线 */
+.cm-editor .tok-string {
+  text-decoration: none !important;
+}
+
+/* JSON 属性名不需要下划线 */
+.cm-editor .tok-propertyName {
+  text-decoration: none !important;
+}
+
+/* 覆盖 CodeMirror 6 混淆类名的下划线样式 */
+.cm-editor .ͼ6 {
+  text-decoration: none !important;
+}
+
+/* 其他可能的 CodeMirror JSON 相关混淆类 */
+.cm-editor .cm-content [class^="ͼ"] {
+  text-decoration: none !important;
 }
 
 /* ==================== 搜索高亮样式 ==================== */

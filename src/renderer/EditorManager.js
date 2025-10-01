@@ -152,21 +152,21 @@ class EditorManager {
   }
 
   // 初始化 Markdown 语法高亮器（在切换到编辑模式时调用）
-  async initMarkdownHighlighter(editor, onInitialized = null) {
+  async initMarkdownHighlighter(editor, onInitialized = null, languageMode = 'markdown') {
     if (this.markdownHighlighter) {
       // 已经初始化过了，直接执行回调
       if (onInitialized) onInitialized();
       return;
     }
-    
+
     // 如果窗口不稳定，等待稳定后再初始化
     if (!this.isWindowStable) {
       requestAnimationFrame(() => {
-        this.initMarkdownHighlighter(editor, onInitialized);
+        this.initMarkdownHighlighter(editor, onInitialized, languageMode);
       });
       return;
     }
-    
+
     try {
       const CodeMirrorHighlighter = require('./CodeMirrorHighlighter');
       this.markdownHighlighter = new CodeMirrorHighlighter();
@@ -174,15 +174,16 @@ class EditorManager {
       requestAnimationFrame(async () => {
         // 再次检查窗口是否稳定
         if (this.isWindowStable) {
-          await this.markdownHighlighter.init(editor);
-          
+          // 根据语言模式初始化 CodeMirror
+          await this.markdownHighlighter.init(editor, languageMode);
+
           // 滚动监听器已在 CodeMirrorHighlighter.setupScrollListener() 中设置
-          
+
           // CodeMirror 初始化完成，执行回调
           if (onInitialized) {
             onInitialized();
           }
-          
+
           // 如果有待执行的滚动恢复回调，执行它
           if (this.pendingScrollRestore) {
             // 确保 CodeMirror 完全初始化后再执行滚动恢复，使用 requestAnimationFrame 确保渲染完成
@@ -691,7 +692,10 @@ class EditorManager {
       if (editor) {
         // 第一个打点：view 传给 edit 的滚动位置
         console.log(`[滚动继承] 第一次切到edit，接收到的scrollRatio: ${scrollRatio}`);
-        
+
+        // 根据文件类型确定语言模式
+        const languageMode = this.detectLanguageMode(filePath);
+
         // 使用回调机制确保滚动位置在 CodeMirror 初始化完成后设置
         this.initMarkdownHighlighter(editor, () => {
           // 【核心修复】使用CodeMirror的setValue API设置内容
@@ -699,17 +703,17 @@ class EditorManager {
             this.markdownHighlighter.setValue(content);
             console.log(`[EditorManager] 使用CodeMirror API设置编辑器内容，长度: ${content.length}`);
           }
-          
+
           // CodeMirror 初始化完成的回调
           this.setScrollPosition(scrollRatio, true);
-          
+
           // 第二个打点：设置完滚动位置后的实际位置
           const actualScrollRatio = this.getCurrentScrollPosition(true);
           console.log(`[滚动继承] edit初始化完成后，实际scrollRatio: ${actualScrollRatio}`);
-          
+
           // CodeMirror 初始化完成后，更新活动 tab 的基准 MD5
           this.updateActiveTabBaselineMD5(content);
-          
+
           // 设置编辑器焦点（确保新建文件等场景下编辑器获得焦点）
           console.log('[EditorManager] 检查是否设置编辑器焦点', {
             hasHighlighter: !!this.markdownHighlighter,
@@ -722,7 +726,7 @@ class EditorManager {
               this.markdownHighlighter.focus();
             }, 10);
           }
-        });
+        }, languageMode);
       }
     } else {
       // 切换到预览模式
@@ -1025,6 +1029,25 @@ class EditorManager {
         }, 50);
       }
     });
+  }
+
+  // 根据文件路径检测语言模式
+  detectLanguageMode(filePath) {
+    if (!filePath) {
+      return 'markdown'; // 默认为 markdown
+    }
+
+    // 根据文件扩展名判断
+    const ext = filePath.split('.').pop().toLowerCase();
+
+    switch (ext) {
+      case 'json':
+        return 'json';
+      case 'md':
+      case 'markdown':
+      default:
+        return 'markdown';
+    }
   }
 }
 

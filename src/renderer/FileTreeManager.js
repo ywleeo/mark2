@@ -347,23 +347,56 @@ class FileTreeManager {
       } else {
         const isActive = item.path === this.activeFilePath && this.activeItemType === 'subfolder-file';
         html += `
-          <div class="tree-item file-item ${isActive ? 'active' : ''}" 
+          <div class="tree-item file-item ${isActive ? 'active' : ''}"
                data-path="${item.path}"
                data-level="${level}"
                data-type="subfolder-file">
-            <div class="file-icon">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 2C3.44772 2 3 2.44772 3 3V13C3 13.5523 3.44772 14 4 14H12C12.5523 14 13 13.5523 13 13V5L10 2H4Z" stroke="currentColor" stroke-width="1" fill="none"/>
-                <path d="M10 2V5H13" stroke="currentColor" stroke-width="1" fill="none"/>
-              </svg>
+            <div class="file-icon ${this.getFileIconClass(item.name)}">
+              ${this.getFileIconSVG(item.name)}
             </div>
             <span class="name">${this.escapeHtml(item.name)}</span>
           </div>
         `;
       }
     });
-    
+
     return html;
+  }
+
+  // 根据文件名获取图标类名
+  getFileIconClass(fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+
+    if (ext === 'json') {
+      return 'json-file-icon';
+    }
+
+    // 默认文件图标
+    return 'default-file-icon';
+  }
+
+  // 根据文件名获取图标SVG
+  getFileIconSVG(fileName) {
+    const ext = fileName.split('.').pop().toLowerCase();
+
+    if (ext === 'json') {
+      // JSON 文件图标 - 使用大括号符号
+      return `
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 2C3.44772 2 3 2.44772 3 3V13C3 13.5523 3.44772 14 4 14H12C12.5523 14 13 13.5523 13 13V5L10 2H4Z" stroke="currentColor" stroke-width="1" fill="none"/>
+          <path d="M10 2V5H13" stroke="currentColor" stroke-width="1" fill="none"/>
+          <text x="8" y="11" font-size="6" text-anchor="middle" fill="currentColor" font-family="monospace">{}</text>
+        </svg>
+      `;
+    }
+
+    // 默认文件图标
+    return `
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 2C3.44772 2 3 2.44772 3 3V13C3 13.5523 3.44772 14 4 14H12C12.5523 14 13 13.5523 13 13V5L10 2H4Z" stroke="currentColor" stroke-width="1" fill="none"/>
+        <path d="M10 2V5H13" stroke="currentColor" stroke-width="1" fill="none"/>
+      </svg>
+    `;
   }
 
   attachFileTreeEvents() {
