@@ -207,6 +207,11 @@ class MarkdownRenderer {
     // 解决：在百分号后的星号前插入空格，让marked正确识别
     processed = processed.replace(/(%\*\*)([，,。；;：:！!？?])/g, '$1 $2');
 
+    // 修复连续加粗的问题：**text1****text2** 应该被解析为两个独立的加粗
+    // 问题：marked.js 会把 **** 当作普通文本，而不是两个加粗的边界
+    // 解决：在连续的 **** 中间插入空格，让 marked 正确识别为两个独立的加粗标记
+    processed = processed.replace(/(\*\*)(\*\*)/g, '$1 $2');
+
     return processed;
   }
 
