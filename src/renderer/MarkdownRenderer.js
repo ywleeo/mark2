@@ -127,8 +127,11 @@ class MarkdownRenderer {
       // 渲染为 HTML（marked.js 会自动处理代码高亮）
       let html = marked(preprocessed);
 
-      // 清理预处理时添加的多余空格（支持各种标点符号）
-      html = html.replace(/(<strong>[^<]*%<\/strong>) ([，,。；;：:！!？?])/g, '$1$2');
+      // 清理预处理时添加的空格标记
+      // 1. 移除非空格字符和 <strong> 之间的空格
+      html = html.replace(/([^\s]) (<strong>)/g, '$1$2');
+      // 2. 移除 </strong> 后的空格标记（ %）
+      html = html.replace(/(<\/strong>) %/g, '$1');
 
       // 修复嵌套的强调标签
       html = this.fixNestedStrongTags(html);
@@ -202,15 +205,40 @@ class MarkdownRenderer {
       return `${text}\n\n${equals}`;
     });
     
-    // 修复 marked.js 无法识别 %**[标点] 模式的问题
-    // 问题：当加粗文本以百分号结尾并紧跟标点符号时，marked.js无法正确识别
-    // 解决：在百分号后的星号前插入空格，让marked正确识别
-    processed = processed.replace(/(%\*\*)([，,。；;：:！!？?])/g, '$1 $2');
+    // 修复 marked.js 无法识别紧贴 ** 的加粗标记问题
+    // 问题：当 ** 前后没有空格时，marked.js 无法正确识别加粗
+    // 例如：的**"文本"**。 → 无法识别
+    //      (括号)**文本** → 无法识别
+    // 解决：匹配完整的 **内容** 模式，在前后插入空格
+
+    // 匹配：(非空格非星号字符)?**内容**(非空格非星号字符)?
+    // 如果前后紧贴非空格字符，则插入空格（添加 % 标记便于后续移除）
+    processed = processed.replace(
+      /([^\s*]?)(\*\*[^*]+?\*\*)([^\s*]?)/g,
+      (match, before, bold, after) => {
+        let result = bold;
+        // 如果前面紧贴字符，插入空格
+        if (before) {
+          result = before + ' ' + result;
+        } else {
+          result = before + result;
+        }
+        // 如果后面紧贴字符，插入空格标记（%用于标识需要移除）
+        if (after) {
+          result = result + ' %' + after;
+        } else {
+          result = result + after;
+        }
+        return result;
+      }
+    );
 
     // 修复连续加粗的问题：**text1****text2** 应该被解析为两个独立的加粗
     // 问题：marked.js 会把 **** 当作普通文本，而不是两个加粗的边界
-    // 解决：在连续的 **** 中间插入空格，让 marked 正确识别为两个独立的加粗标记
-    processed = processed.replace(/(\*\*)(\*\*)/g, '$1 $2');
+    // 解决：匹配 **[非星号内容]**** 的模式，在中间插入空格
+    // 例如：**text1****text2** → **text1** **text2**
+    // 但保留：**"text"** 这样包含引号的正常加粗语法
+    processed = processed.replace(/(\*\*[^*]+\*\*)(\*\*)/g, '$1 $2');
 
     return processed;
   }

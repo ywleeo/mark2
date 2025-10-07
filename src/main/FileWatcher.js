@@ -243,6 +243,17 @@ class FileWatcher {
     return this.watchedFile;
   }
 
+  getWatchedPath() {
+    // 返回第一个监听的文件夹路径（兼容旧接口）
+    const paths = Array.from(this.watchedFolders.keys());
+    return paths.length > 0 ? paths[0] : null;
+  }
+
+  getWatchedPaths() {
+    // 返回所有监听的文件夹路径
+    return Array.from(this.watchedFolders.keys());
+  }
+
   // 统一的刷新方法：检查文件和文件夹变化
   checkAndRefreshAll() {
     let hasChanges = false;
