@@ -24,28 +24,28 @@ class EditorManager {
   setupEditor() {
     const editor = document.getElementById('editorTextarea');
     if (!editor) return;
-    
+
     // 监听编辑器内容变化
     editor.addEventListener('input', () => {
       this.eventManager.emit('content-changed');
-      
+
       // 【修复】直接让活动tab更新自己的content和变化状态
       if (this.tabManager) {
         const activeTab = this.tabManager.getActiveTab();
         if (activeTab && activeTab.isActive) {
           // 直接从DOM获取内容并更新到活动tab
           activeTab.content = editor.value;
-          
+
           // 更新未保存变化状态
           const originalContent = activeTab.originalFileContent || '';
           activeTab.hasUnsavedChanges = (activeTab.content !== originalContent);
-          
+
           // 只同步滚动位置，不调用saveFromEditor避免递归
           activeTab.scrollRatio = this.getCurrentScrollPosition(activeTab.isEditMode);
         }
       }
     });
-    
+
     // 监听快捷键
     editor.addEventListener('keydown', (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 's') {
@@ -53,9 +53,12 @@ class EditorManager {
         this.saveFile();
       }
     });
-    
+
     // 设置 view 模式滚动监听器
     this.setupViewScrollListener();
+
+    // 设置代码复制按钮事件监听（使用事件委托）
+    this.setupCodeCopyButtons();
   }
 
   // 设置 view 模式滚动监听器
@@ -1048,6 +1051,55 @@ class EditorManager {
       default:
         return 'markdown';
     }
+  }
+
+  // 设置代码复制按钮事件监听
+  setupCodeCopyButtons() {
+    // 使用事件委托在 content-area 上监听点击事件
+    const contentArea = document.querySelector('.content-area');
+    if (!contentArea) return;
+
+    contentArea.addEventListener('click', (event) => {
+      // 检查点击的是否是复制按钮
+      const copyBtn = event.target.closest('.code-copy-btn');
+      if (!copyBtn) return;
+
+      // 获取按钮所属的代码块
+      const blockId = copyBtn.getAttribute('data-block-id');
+      const wrapper = document.querySelector(`.code-block-wrapper[data-block-id="${blockId}"]`);
+
+      if (!wrapper) {
+        console.error('未找到代码块:', blockId);
+        return;
+      }
+
+      // 获取代码内容
+      const codeElement = wrapper.querySelector('pre code');
+      if (!codeElement) {
+        console.error('未找到代码元素');
+        return;
+      }
+
+      // 提取纯文本内容（去除HTML标签）
+      const codeText = codeElement.textContent || codeElement.innerText;
+
+      // 复制到剪贴板
+      const { clipboard } = require('electron');
+      clipboard.writeText(codeText);
+
+      // 显示复制成功反馈
+      copyBtn.classList.add('copied');
+      const originalTitle = copyBtn.getAttribute('title');
+      copyBtn.setAttribute('title', '已复制！');
+
+      // 2秒后恢复按钮状态
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.setAttribute('title', originalTitle);
+      }, 2000);
+
+      console.log('代码已复制到剪贴板，长度:', codeText.length);
+    });
   }
 }
 

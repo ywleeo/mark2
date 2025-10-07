@@ -36,18 +36,13 @@
     font-family: inherit;
 }
 
-/* 二级标题 - 背景色块风格 */
+/* 二级标题 - 浅色背景块 */
 .markdown-content h2 {
     font-size: 24px !important;
-    display: inline-block;
     margin-bottom: 15px;
-    padding: 0 12px 1px 15px; /* 右侧留出呼吸空间 */
-    border-bottom: none !important; /* 移除原有下划线 */
-    position: relative;
-    background: linear-gradient(90deg, #61a2ff78 0%, var(--h2-background-color, rgba(61 141 241 / 0%)) 100%) left bottom;
-    background-size: 100% 40%; /* 覆盖文字下半部分 */
-    background-repeat: no-repeat;
-    background-position: bottom;
+    padding: 8px 12px;
+    background-color: #f3ffe5;
+    border-radius: 4px;
     font-family: inherit;
 }
 
@@ -92,7 +87,28 @@
     font-size: 0.9em;
 }
 
+/* 代码块包装容器 */
+.markdown-content .code-block-wrapper {
+    position: relative;
+    margin: 15px 0;
+}
+
 /* 代码块 */
+.markdown-content .code-block-wrapper pre {
+    padding: 10px;
+    padding-right: 50px; /* 为复制按钮留出空间 */
+    margin: 0 !important;
+    border-radius: 0 5px 5px 0;
+    overflow-x: auto;
+    border-left-width: 3px;
+    border-left-style: solid;
+    border-left-color: var(--code-accent-color, #10b981);
+    background-color: var(--code-background-color, #f8fafc);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* 保持旧的 pre 样式兼容性（如果有直接的 pre 元素） */
 .markdown-content pre {
     padding: 10px;
     margin: 8px 0!important;
@@ -102,7 +118,6 @@
     border-left-style: solid;
     border-left-color: var(--code-accent-color, #10b981);
     background-color: var(--code-background-color, #f8fafc);
-    margin: 15px 0;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
@@ -114,6 +129,43 @@
     color: inherit;
     font-size: inherit;
     border-radius: 0;
+}
+
+/* 复制按钮样式 */
+.markdown-content .code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 6px 8px;
+    background: var(--copy-btn-bg, rgba(255, 255, 255, 0.8));
+    border: 1px solid var(--copy-btn-border, rgba(0, 0, 0, 0.1));
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--copy-btn-color, #6b7280);
+}
+
+.markdown-content .code-copy-btn:hover {
+    background: var(--copy-btn-hover-bg, rgba(255, 255, 255, 0.95));
+    color: var(--copy-btn-hover-color, #374151);
+}
+
+.markdown-content .code-block-wrapper:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.markdown-content .code-copy-btn.copied {
+    background: var(--copy-btn-success-bg, #10b981);
+    color: white;
+    border-color: var(--copy-btn-success-border, #059669);
+}
+
+.markdown-content .code-copy-btn svg {
+    pointer-events: none;
 }
 
 /* 删除线样式 */

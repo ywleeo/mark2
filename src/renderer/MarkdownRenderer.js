@@ -138,7 +138,10 @@ class MarkdownRenderer {
 
       // 隔离样式标签，防止样式冲突
       html = this.sanitizeStyles(html);
-      
+
+      // 为代码块添加复制按钮
+      html = this.addCopyButtonsToCodeBlocks(html);
+
       // 如果提供了目标元素，启用异步关键词高亮
       if (targetElement) {
         // 取消之前的高亮任务
@@ -146,11 +149,11 @@ class MarkdownRenderer {
           cancelAnimationFrame(this.currentHighlightTask);
           this.currentHighlightTask = null;
         }
-        
+
         // 为当前内容添加标记，用于验证任务有效性
         const contentId = Date.now() + Math.random();
         targetElement.dataset.contentId = contentId;
-        
+
         // 创建新的异步高亮任务
         this.currentHighlightTask = requestAnimationFrame(() => {
           try {
@@ -169,14 +172,14 @@ class MarkdownRenderer {
             this.currentHighlightTask = null;
           }
         });
-        
+
         // 立即返回基础版本
         return html;
       }
-      
+
       // 兼容性：如果没有提供目标元素，保持同步行为
       html = this.applyKeywordHighlight(html, content);
-      
+
       return html;
     } catch (error) {
       console.error('Markdown rendering error:', error);
@@ -392,6 +395,29 @@ class MarkdownRenderer {
       "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
+  }
+
+  // 为代码块添加复制按钮
+  addCopyButtonsToCodeBlocks(html) {
+    // 匹配所有 <pre><code>...</code></pre> 代码块
+    return html.replace(
+      /(<pre>)(<code[^>]*>)([\s\S]*?)(<\/code><\/pre>)/g,
+      (match, preOpen, codeOpen, codeContent, closeTags) => {
+        // 为每个代码块生成唯一ID
+        const blockId = 'code-block-' + Math.random().toString(36).substr(2, 9);
+
+        // 包装代码块并添加复制按钮
+        return `<div class="code-block-wrapper" data-block-id="${blockId}">
+          ${preOpen}${codeOpen}${codeContent}${closeTags}
+          <button class="code-copy-btn" data-block-id="${blockId}" title="复制代码">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>`;
+      }
+    );
   }
 
 }

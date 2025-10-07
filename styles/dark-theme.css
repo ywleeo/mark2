@@ -180,7 +180,8 @@ body {
 }
 
 .markdown-content h2 {
-    border-bottom-color: #7b7b7b;
+    background-color: #42befa1c !important;
+    border-bottom: none !important;
 }
 
 .markdown-content p {
@@ -385,7 +386,16 @@ body {
     --table-border-color: #4b5563;
     --table-stripe-background: #111827;
     --list-marker-color: #9ca3af;
-    
+
+    /* 代码复制按钮颜色变量 - 深色主题 */
+    --copy-btn-bg: rgba(45, 45, 45, 0.95);
+    --copy-btn-border: rgba(255, 255, 255, 0.1);
+    --copy-btn-color: #9ca3af;
+    --copy-btn-hover-bg: rgba(60, 60, 60, 0.95);
+    --copy-btn-hover-color: #e0e0e0;
+    --copy-btn-success-bg: #238636;
+    --copy-btn-success-border: #2ea043;
+
     /* Markdown 编辑器高亮颜色变量 - 深色主题 */
     --md-text-color: #f0f6fc;
     --md-caret-color: #58a6ff;
