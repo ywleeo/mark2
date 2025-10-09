@@ -10,6 +10,7 @@ export class MarkdownEditor {
         this.currentFile = null;
         this.originalMarkdown = ''; // 保存原始 Markdown
         this.contentChanged = false;
+        this.suppressUpdateEvent = false;
 
         // 配置 turndown 减少转义
         this.turndownService = new TurndownService({
@@ -58,6 +59,9 @@ export class MarkdownEditor {
             },
             onUpdate: ({ editor }) => {
                 // 标记内容已修改，但不自动保存
+                if (this.suppressUpdateEvent) {
+                    return;
+                }
                 this.contentChanged = true;
             },
         });
@@ -71,7 +75,12 @@ export class MarkdownEditor {
         // 预处理：手动处理 ** 加粗
         const processed = this.preprocessBold(markdown);
         const html = this.md.render(processed);
-        this.editor.commands.setContent(html);
+        this.suppressUpdateEvent = true;
+        try {
+            this.editor.commands.setContent(html);
+        } finally {
+            this.suppressUpdateEvent = false;
+        }
     }
 
     // 预处理加粗标记，支持中文和标点符号

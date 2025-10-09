@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeyboardShortcuts();
     setupMenuListeners();
     setupSidebarResizer();
+    setupCleanupHandlers();
 });
 
 // 文件选择回调
@@ -206,7 +207,7 @@ function normalizeFsPath(path) {
     if (typeof path === 'string' && path.startsWith('file://')) {
         try {
             const url = new URL(path);
-            return url.pathname;
+            return decodeURI(url.pathname);
         } catch (error) {
             console.warn('无法解析文件路径 URL:', path, error);
         }
@@ -214,15 +215,35 @@ function normalizeFsPath(path) {
     return path;
 }
 
+function setupCleanupHandlers() {
+    window.addEventListener('beforeunload', cleanupResources);
+}
+
+function cleanupResources() {
+    fileTree?.dispose?.();
+    editor?.destroy?.();
+}
+
 function handleFolderWatcherEvent(watchedPath, event) {
     if (!fileTree || !fileTree.rootPath) return;
-    if (normalizeFsPath(watchedPath) !== normalizeFsPath(fileTree.rootPath)) return;
+    const normalizedWatchedPath = normalizeFsPath(watchedPath);
+    const normalizedRoot = normalizeFsPath(fileTree.rootPath);
+
+    if (normalizedWatchedPath !== normalizedRoot) {
+        const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
+        const includesRoot = eventPaths.some((changedPath) => normalizeFsPath(changedPath) === normalizedRoot);
+        if (!includesRoot) {
+            return;
+        }
+    }
 
     const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
+    console.debug('[Watcher] 目录变更路径', eventPaths);
     eventPaths.forEach((changedPath) => {
         if (!changedPath) return;
-        if (fileTree.openFiles?.includes?.(changedPath)) {
-            if (editor && editor.currentFile === changedPath) {
+        if (fileTree?.isFileOpen?.(changedPath)) {
+            const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
+            if (editor && editorPath === changedPath) {
                 if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
                     console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
                     return;
@@ -239,13 +260,16 @@ function handleFileWatcherEvent(filePath, event) {
     const normalizedPath = normalizeFsPath(filePath);
     if (!normalizedPath) return;
 
-    const isOpenFile = fileTree?.openFiles?.includes?.(normalizedPath);
+    console.debug('[Watcher] 文件变更事件触发', { normalizedPath, event });
+
+    const isOpenFile = fileTree?.isFileOpen?.(normalizedPath);
     if (!isOpenFile) {
         // 不在打开列表的文件不需要自动刷新
         return;
     }
 
-    if (editor && normalizeFsPath(editor.currentFile) === normalizedPath) {
+    const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
+    if (editor && editorPath === normalizedPath) {
         if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
             console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
             return;
@@ -282,10 +306,12 @@ function scheduleFileRefresh(filePath) {
 
     const timer = setTimeout(async () => {
         fileRefreshTimers.delete(normalizedPath);
-        if (!fileTree?.openFiles?.includes?.(normalizedPath)) {
+        if (!fileTree?.isFileOpen?.(normalizedPath)) {
+            console.debug('[Watcher] 跳过文件刷新，文件已不在打开列表', normalizedPath);
             return;
         }
         try {
+            console.debug('[Watcher] 重新加载文件', normalizedPath);
             await loadFile(normalizedPath);
         } catch (error) {
             console.error('刷新文件失败:', error);

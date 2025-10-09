@@ -14,6 +14,47 @@ export class FileTree {
         this.init();
     }
 
+    normalizePath(path) {
+        if (!path) return path;
+        if (typeof path === 'string' && path.startsWith('file://')) {
+            try {
+                const url = new URL(path);
+                return decodeURI(url.pathname);
+            } catch (error) {
+                console.warn('无法解析路径 URL:', path, error);
+            }
+        }
+        return path;
+    }
+
+    isInOpenList(path) {
+        const normalized = this.normalizePath(path);
+        const result = this.openFiles.some(item => this.normalizePath(item) === normalized);
+        console.debug('[FileTree] 检查打开列表', {
+            path,
+            normalized,
+            openFiles: [...this.openFiles],
+            result,
+        });
+        return result;
+    }
+
+    isFileOpen(path) {
+        const normalized = this.normalizePath(path);
+        const normalizedCurrent = this.normalizePath(this.currentFile);
+        const isInOpenList = this.isInOpenList(path);
+        const isCurrent = normalizedCurrent === normalized;
+        const result = isInOpenList || isCurrent;
+        console.debug('[FileTree] 检查文件是否已打开', {
+            path,
+            normalized,
+            normalizedCurrent,
+            openFiles: [...this.openFiles],
+            result,
+        });
+        return result;
+    }
+
     init() {
         this.container.innerHTML = `
             <!-- 打开的文件区域 -->
@@ -313,9 +354,10 @@ export class FileTree {
     }
 
     addToOpenFiles(path) {
-        if (this.openFiles.includes(path)) return;
+        if (this.isInOpenList(path)) return;
 
         this.openFiles.push(path);
+        console.debug('[FileTree] 添加到打开文件列表', { path, openFiles: [...this.openFiles] });
         this.renderOpenFiles();
         this.watchFile(path).catch(error => {
             console.error('监听文件失败:', error);
@@ -391,6 +433,7 @@ export class FileTree {
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(path, (event) => {
+                console.debug('[FileTree] 目录变更事件', { path, event });
                 this.onFolderChange?.(path, event);
             }, { recursive: true, delayMs: 200 });
             this.folderWatcherStop = unwatch;
@@ -415,14 +458,17 @@ export class FileTree {
     }
 
     async watchFile(path) {
-        if (!path || this.fileWatchers.has(path)) return;
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath || this.fileWatchers.has(normalizedPath)) return;
 
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
-            const unwatch = await watch(path, (event) => {
-                this.onFileChange?.(path, event);
+            const unwatch = await watch(normalizedPath, (event) => {
+                console.debug('[FileTree] 文件变更事件', { path: normalizedPath, event });
+                this.onFileChange?.(normalizedPath, event);
             }, { recursive: false, delayMs: 150 });
-            this.fileWatchers.set(path, unwatch);
+            this.fileWatchers.set(normalizedPath, unwatch);
+            console.debug('[FileTree] 已监听文件', normalizedPath);
         } catch (error) {
             console.error('文件监听失败:', error);
             throw error;
@@ -430,19 +476,30 @@ export class FileTree {
     }
 
     stopWatchingFile(path) {
-        const unwatch = this.fileWatchers.get(path);
+        const normalizedPath = this.normalizePath(path);
+        const unwatch = this.fileWatchers.get(normalizedPath);
         if (unwatch) {
             try {
                 unwatch();
             } catch (error) {
                 console.error('停止文件监听失败:', error);
             }
-            this.fileWatchers.delete(path);
+            this.fileWatchers.delete(normalizedPath);
         }
     }
 
     async refreshCurrentFolder() {
         if (!this.rootPath) return;
         await this.loadFolder(this.rootPath);
+    }
+
+    dispose() {
+        this.stopWatchingFolder();
+        Array.from(this.fileWatchers.keys()).forEach(path => {
+            this.stopWatchingFile(path);
+        });
+        this.fileWatchers.clear();
+        this.openFiles = [];
+        this.expandedFolders.clear();
     }
 }
