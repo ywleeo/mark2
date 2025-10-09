@@ -198,6 +198,15 @@ export class FileTree {
             this.selectFile(path);
         });
 
+        item.addEventListener('dblclick', () => {
+            this.addToOpenFiles(path);
+            this.selectFile(path);
+        });
+
+        if (this.openFiles.includes(path)) {
+            item.classList.add('open');
+        }
+
         return item;
     }
 
@@ -245,9 +254,6 @@ export class FileTree {
     }
 
     selectFile(path) {
-        // 添加到打开文件列表
-        this.addToOpenFiles(path);
-
         // 移除之前的选中状态
         this.container.querySelectorAll('.tree-file.selected, .open-file-item.selected').forEach(el => {
             el.classList.remove('selected');
@@ -278,6 +284,7 @@ export class FileTree {
 
         this.openFiles.push(path);
         this.renderOpenFiles();
+        this.applyTreeOpenMarkers();
     }
 
     renderOpenFiles() {
@@ -325,11 +332,22 @@ export class FileTree {
         });
     }
 
+    applyTreeOpenMarkers() {
+        this.container.querySelectorAll('.tree-file').forEach(item => {
+            if (this.openFiles.includes(item.dataset.path)) {
+                item.classList.add('open');
+            } else {
+                item.classList.remove('open');
+            }
+        });
+    }
+
     closeFile(path) {
         const index = this.openFiles.indexOf(path);
         if (index > -1) {
             this.openFiles.splice(index, 1);
             this.renderOpenFiles();
+            this.applyTreeOpenMarkers();
         }
     }
 }

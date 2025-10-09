@@ -235,6 +235,16 @@
     border-right: 2px solid var(--file-selected-border, #fd7e14);
 }
 
+.tree-file.open .tree-item-name::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background-color: var(--accent-color, #007acc);
+}
+
 /* 文件图标 */
 .tree-file-icon {
     margin-right: 6px;
