@@ -35,7 +35,6 @@ body {
 /* 侧边栏布局 */
 .sidebar {
     width: 260px; /* 增加宽度以更好地容纳深层级文件 */
-    padding-top: 40px; /* 为窗口标题栏留出空间 */
     box-sizing: border-box;
     overflow: hidden; /* 防止侧边栏整体滚动 */
     border-right-width: 1px;

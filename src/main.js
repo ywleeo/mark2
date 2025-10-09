@@ -2,12 +2,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { MarkdownEditor } from './components/MarkdownEditor.js';
+import { FileTree } from './components/FileTree.js';
 
 console.log('Mark2 Tauri 版本已启动');
 
 let currentFile = null;
 let currentFolder = null;
 let editor = null;
+let fileTree = null;
 
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,9 +19,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const editorElement = document.getElementById('viewContent');
     editor = new MarkdownEditor(editorElement);
 
+    // 初始化文件树
+    const fileTreeElement = document.getElementById('fileTree');
+    fileTree = new FileTree(fileTreeElement, handleFileSelect);
+
     setupKeyboardShortcuts();
     setupMenuListeners();
 });
+
+// 文件选择回调
+async function handleFileSelect(filePath) {
+    await loadFile(filePath);
+}
 
 // 监听菜单事件
 async function setupMenuListeners() {
