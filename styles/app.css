@@ -46,6 +46,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
+    background: var(--content-bg, #ffffff);
 }
 
 .view-content pre {

@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupKeyboardShortcuts();
     setupMenuListeners();
+    setupSidebarResizer();
 });
 
 // 文件选择回调
@@ -59,6 +60,58 @@ function setupKeyboardShortcuts() {
         }
     });
     console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存');
+}
+
+function setupSidebarResizer() {
+    const sidebar = document.getElementById('sidebar');
+    const resizer = document.getElementById('sidebarResizer');
+
+    if (!sidebar || !resizer) return;
+
+    const minWidth = 180;
+    const maxSidebarWidth = 640;
+    const minContentWidth = 320;
+    let startX = 0;
+    let startWidth = 0;
+    let activePointerId = null;
+
+    const stopResizing = (event) => {
+        if (activePointerId === null || event.pointerId !== activePointerId) return;
+
+        if (resizer.hasPointerCapture(activePointerId)) {
+            resizer.releasePointerCapture(activePointerId);
+        }
+        activePointerId = null;
+        document.body.classList.remove('sidebar-resizing');
+        document.body.style.userSelect = '';
+    };
+
+    resizer.addEventListener('pointerdown', (event) => {
+        if (activePointerId !== null) return;
+
+        startX = event.clientX;
+        startWidth = sidebar.getBoundingClientRect().width;
+        activePointerId = event.pointerId;
+        resizer.setPointerCapture(activePointerId);
+        document.body.classList.add('sidebar-resizing');
+        document.body.style.userSelect = 'none';
+        event.preventDefault();
+    });
+
+    resizer.addEventListener('pointermove', (event) => {
+        if (activePointerId === null || event.pointerId !== activePointerId) return;
+
+        const delta = event.clientX - startX;
+        const bodyWidth = document.body.getBoundingClientRect().width;
+        const maxAvailable = bodyWidth - minContentWidth;
+        const clampedMax = Math.max(minWidth, Math.min(maxSidebarWidth, maxAvailable));
+        const nextWidth = Math.min(Math.max(minWidth, startWidth + delta), clampedMax);
+
+        sidebar.style.width = `${nextWidth}px`;
+    });
+
+    resizer.addEventListener('pointerup', stopResizing);
+    resizer.addEventListener('pointercancel', stopResizing);
 }
 
 // 打开文件或文件夹（自动判断）

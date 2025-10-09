@@ -6,6 +6,8 @@
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.25);
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.45);
     --scrollbar-track-color: rgba(255, 255, 255, 0.12);
+    --sidebar-bg: #f5f6f8;
+    --content-bg: #ffffff;
 }
 
 body {
@@ -20,6 +22,11 @@ body {
     overscroll-behavior: none;
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
+    background: var(--sidebar-bg, #f5f6f8);
+}
+
+body.sidebar-resizing {
+    cursor: col-resize;
 }
 
 .content-wrapper {
@@ -28,28 +35,55 @@ body {
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
+    background: var(--content-bg, #ffffff);
 }
 
 .sidebar {
     width: 260px;
+    min-width: 180px;
+    max-width: 640px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     height: 100vh;
-    border-right: 1px solid var(--border-color, #e5e7eb);
+    border-right: none;
     overflow: hidden;
     flex-shrink: 0;
+    background: var(--sidebar-bg, #f5f6f8);
+}
+
+.sidebar-resizer {
+    width: 4px;
+    flex: 0 0 auto;
+    cursor: col-resize;
+    background: transparent;
+    border-right: none;
+    border-left: none;
+    height: 100%;
+    align-self: stretch;
+    transition: background 0.15s ease;
+    touch-action: none;
+}
+
+.sidebar-resizer:hover,
+body.sidebar-resizing .sidebar-resizer {
+    background: var(--sidebar-resizer-active, rgba(0, 0, 0, 0.12));
 }
 
 .tab-bar {
     display: flex;
     align-items: center;
-    min-height: var(--titlebar-height);
-    padding: 4px 8px;
+    min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 8px 4px;
     gap: 8px;
     overflow-x: auto;
     -webkit-app-region: drag;
     scrollbar-width: none;
+    background: var(--sidebar-bg, #f5f6f8);
+}
+
+.tab-bar:empty {
+    display: none;
 }
 
 .tab-bar::-webkit-scrollbar {

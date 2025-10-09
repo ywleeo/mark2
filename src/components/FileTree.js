@@ -203,10 +203,6 @@ export class FileTree {
             this.selectFile(path);
         });
 
-        if (this.openFiles.includes(path)) {
-            item.classList.add('open');
-        }
-
         return item;
     }
 
@@ -284,7 +280,6 @@ export class FileTree {
 
         this.openFiles.push(path);
         this.renderOpenFiles();
-        this.applyTreeOpenMarkers();
     }
 
     renderOpenFiles() {
@@ -332,22 +327,11 @@ export class FileTree {
         });
     }
 
-    applyTreeOpenMarkers() {
-        this.container.querySelectorAll('.tree-file').forEach(item => {
-            if (this.openFiles.includes(item.dataset.path)) {
-                item.classList.add('open');
-            } else {
-                item.classList.remove('open');
-            }
-        });
-    }
-
     closeFile(path) {
         const index = this.openFiles.indexOf(path);
         if (index > -1) {
             this.openFiles.splice(index, 1);
             this.renderOpenFiles();
-            this.applyTreeOpenMarkers();
         }
     }
 }

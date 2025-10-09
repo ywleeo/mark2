@@ -10,7 +10,18 @@
 
 /* 区域容器 */
 .sidebar-section {
-    
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.open-files-section {
+    flex: 0 0 auto;
+}
+
+.folders-section {
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .section-header {
@@ -20,7 +31,7 @@
     cursor: pointer;
     user-select: none;
     transition: background 0.15s;
-    border-bottom: 1px solid var(--border-color, #cbcbcb);
+    border-bottom: 1px solid var(--border-color, #e4e4e4);
 }
 
 .section-header:hover {
@@ -58,6 +69,24 @@
     overflow-x: hidden;
 }
 
+.sidebar .section-content {
+    scrollbar-width: none;
+}
+
+.sidebar .section-content::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+.sidebar .section-content:hover {
+    scrollbar-width: thin;
+}
+
+.sidebar .section-content:hover::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+}
+
 /* Section 收起时隐藏内容 */
 .section-content.collapsed {
     display: none;
@@ -67,6 +96,8 @@
 .folders-section .section-content {
     flex: 1;
     max-height: none;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 /* 打开的文件项 */
@@ -85,7 +116,7 @@
 }
 
 .open-file-item.selected {
-    background: var(--active-bg-color, #fff2fd);
+    background: var(--active-bg-color, #eeeeee);
     font-weight: 500;
 }
 
@@ -233,16 +264,6 @@
     background-color: var(--file-selected-bg, #fcf8d8);
     font-weight: 500;
     border-right: 2px solid var(--file-selected-border, #fd7e14);
-}
-
-.tree-file.open .tree-item-name::after {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    margin-left: 6px;
-    border-radius: 50%;
-    background-color: var(--accent-color, #007acc);
 }
 
 /* 文件图标 */
