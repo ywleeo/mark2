@@ -5,6 +5,13 @@ use std::fs;
 use std::path::Path;
 use tauri::{menu::*, Emitter};
 
+#[cfg(target_os = "macos")]
+use objc2::MainThreadMarker;
+#[cfg(target_os = "macos")]
+use objc2::rc::autoreleasepool;
+#[cfg(target_os = "macos")]
+use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+
 #[tauri::command]
 fn is_directory(path: String) -> Result<bool, String> {
     Path::new(&path)
@@ -36,6 +43,46 @@ fn read_dir(path: String) -> Result<Vec<String>, String> {
     Ok(entries)
 }
 
+#[tauri::command]
+fn pick_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::sync::mpsc;
+
+        let (tx, rx) = mpsc::channel();
+        app.run_on_main_thread(move || {
+            let selection = autoreleasepool(|_| {
+                let mtm = MainThreadMarker::new().expect("pick_path must run on main thread");
+                let panel = NSOpenPanel::openPanel(mtm);
+                panel.setAllowsMultipleSelection(false);
+                panel.setCanChooseDirectories(true);
+                panel.setCanChooseFiles(true);
+
+                if panel.runModal() == NSModalResponseOK {
+                    let urls = panel.URLs();
+                    if let Some(url) = urls.firstObject() {
+                        if let Some(path) = url.path() {
+                            return Some(path.to_string());
+                        }
+                    }
+                }
+
+                None
+            });
+
+            let _ = tx.send(selection);
+        })
+        .map_err(|e| e.to_string())?;
+
+        rx.recv().map_err(|e| e.to_string())
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("unsupported".to_string())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -44,7 +91,8 @@ fn main() {
             is_directory,
             read_file,
             write_file,
-            read_dir
+            read_dir,
+            pick_path
         ])
         .setup(|app| {
             // 创建菜单

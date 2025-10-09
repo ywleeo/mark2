@@ -64,23 +64,23 @@ function setupKeyboardShortcuts() {
 // 打开文件或文件夹（自动判断）
 async function openFileOrFolder() {
     try {
-        const selected = await open({
-            multiple: false,
-            directory: false, // 允许选择文件和文件夹
-        });
-
+        const selected = await selectPath();
         if (!selected) return;
 
-        console.log('选择:', selected);
+        const resolvedPath = normalizeSelectedPath(selected);
+        if (!resolvedPath) return;
 
-        // 判断是文件还是文件夹
-        const isDir = await invoke('is_directory', { path: selected });
+        console.log('选择:', resolvedPath);
+
+        const isDir = await invoke('is_directory', { path: resolvedPath });
 
         if (isDir) {
-            currentFolder = selected;
-            await loadFileTree(selected);
+            currentFolder = resolvedPath;
+            if (fileTree) {
+                await fileTree.loadFolder(resolvedPath);
+            }
         } else {
-            await loadFile(selected);
+            await loadFile(resolvedPath);
         }
     } catch (error) {
         console.error('打开失败:', error);
@@ -88,39 +88,31 @@ async function openFileOrFolder() {
     }
 }
 
-
-async function loadFileTree(folderPath) {
+async function selectPath() {
     try {
-        console.log('读取文件夹:', folderPath);
-        const entries = await invoke('read_dir', { path: folderPath });
-        console.log('文件列表:', entries);
-        renderFileTree(entries);
+        return await invoke('pick_path');
     } catch (error) {
-        console.error('读取文件夹失败:', error);
-        alert('读取文件夹失败: ' + error);
+        const message = typeof error === 'string' ? error : error?.message;
+        if (message === 'unsupported') {
+            return await open({ multiple: false, directory: false });
+        }
+        throw error;
     }
 }
 
-function renderFileTree(entries) {
-    const fileTree = document.getElementById('fileTree');
-    fileTree.innerHTML = '';
-
-    entries.forEach(entry => {
-        const item = document.createElement('div');
-        item.className = 'file-tree-item';
-
-        const fileName = entry.split('/').pop();
-        item.textContent = fileName;
-
-        if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
-            item.style.cursor = 'pointer';
-            item.addEventListener('click', () => {
-                loadFile(entry);
-            });
+function normalizeSelectedPath(selected) {
+    if (!selected) return null;
+    if (typeof selected === 'string') return selected;
+    if (Array.isArray(selected)) return selected[0] ?? null;
+    if (typeof selected === 'object') {
+        if ('path' in selected && typeof selected.path === 'string') {
+            return selected.path;
         }
-
-        fileTree.appendChild(item);
-    });
+        if ('uri' in selected && typeof selected.uri === 'string') {
+            return selected.uri;
+        }
+    }
+    return null;
 }
 
 async function loadFile(filePath) {
