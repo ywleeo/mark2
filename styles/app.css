@@ -42,9 +42,10 @@
 }
 
 .view-content {
-    padding: 20px;
+    flex: 1;
     overflow-y: auto;
-    height: 100%;
+    overflow-x: hidden;
+    min-height: 0;
 }
 
 .view-content pre {

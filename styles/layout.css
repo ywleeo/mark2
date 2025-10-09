@@ -16,10 +16,20 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     display: flex;
     height: 100vh;
+    width: 100vw;
     font-weight: 300;
     transition: opacity 0.1s ease;
     overflow: hidden;
     overscroll-behavior: none;
+}
+
+/* 主容器包装 */
+.content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
 }
 
 /* 侧边栏布局 */
@@ -27,7 +37,7 @@ body {
     width: 260px; /* 增加宽度以更好地容纳深层级文件 */
     padding-top: 40px; /* 为窗口标题栏留出空间 */
     box-sizing: border-box;
-    overflow-y: hidden; /* 移除sidebar的滚动，让file-tree单独滚动 */
+    overflow: hidden; /* 防止侧边栏整体滚动 */
     border-right-width: 1px;
     border-right-style: solid;
     transition: width 0.3s ease;
@@ -39,6 +49,7 @@ body {
     position: relative; /* 为拖拽手柄提供定位上下文 */
     display: flex;
     flex-direction: column;
+    height: 100vh; /* 限制侧边栏高度 */
 }
 
 .sidebar.hidden {
@@ -439,22 +450,11 @@ body.platform-darwin .sidebar.hidden ~ .main-content .tab-bar {
 }
 
 .content-area {
-    padding: 20px 30px;
-    margin: 0 auto;
-    box-sizing: border-box;
-    width: 100%;
     flex: 1;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    /* 确保内容可以选择和复制 */
-    user-select: text;
-    -webkit-user-select: text;
-    -moz-user-select: text;
-    -ms-user-select: text;
-    /* 长英文字符换行 */
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: break-word;
+    overflow: hidden; /* 让子元素处理滚动 */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 

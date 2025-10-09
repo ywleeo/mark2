@@ -13,17 +13,22 @@
     "tauri:run": "open src-tauri/target/release/bundle/macos/Mark2.app"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-markdown": "^6.3.3",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.38.1",
     "@tauri-apps/api": "^2.3.0",
     "@tauri-apps/plugin-dialog": "^2.3.0",
     "@tauri-apps/plugin-fs": "^2.3.0",
-    "marked": "^5.1.2",
-    "highlight.js": "^11.11.1",
+    "@tiptap/pm": "^3.6.5",
+    "@tiptap/react": "^3.6.5",
+    "@tiptap/starter-kit": "^3.6.5",
     "codemirror": "^6.0.2",
-    "@codemirror/lang-markdown": "^6.3.3",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.38.1",
-    "@codemirror/commands": "^6.8.1",
-    "@codemirror/search": "^6.5.11"
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.1.0",
+    "prosemirror-markdown": "^1.13.2",
+    "turndown": "^7.2.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.3.0",

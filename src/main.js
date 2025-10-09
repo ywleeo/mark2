@@ -1,15 +1,22 @@
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
+import { MarkdownEditor } from './components/MarkdownEditor.js';
 
 console.log('Mark2 Tauri 版本已启动');
 
 let currentFile = null;
 let currentFolder = null;
+let editor = null;
 
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM 加载完成');
+
+    // 初始化编辑器
+    const editorElement = document.getElementById('viewContent');
+    editor = new MarkdownEditor(editorElement);
+
     setupKeyboardShortcuts();
     setupMenuListeners();
 });
@@ -31,8 +38,16 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             await openFileOrFolder();
         }
+
+        // Cmd+S (macOS) 或 Ctrl+S (Windows/Linux) 保存
+        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            e.preventDefault();
+            if (editor) {
+                await editor.save();
+            }
+        }
     });
-    console.log('快捷键已设置: Cmd+O 打开文件/文件夹');
+    console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存');
 }
 
 // 打开文件或文件夹（自动判断）
@@ -103,8 +118,10 @@ async function loadFile(filePath) {
         const content = await invoke('read_file', { path: filePath });
         currentFile = filePath;
 
-        const viewContent = document.getElementById('viewContent');
-        viewContent.innerHTML = `<pre>${content}</pre>`;
+        // 使用编辑器加载内容
+        if (editor) {
+            editor.loadFile(filePath, content);
+        }
 
         console.log('文件加载成功');
     } catch (error) {
