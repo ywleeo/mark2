@@ -66,8 +66,17 @@ export class MarkdownEditor {
     setContent(markdown) {
         this.originalMarkdown = markdown; // 保存原始内容
         this.contentChanged = false;
-        const html = this.md.render(markdown);
+
+        // 预处理：手动处理 ** 加粗
+        const processed = this.preprocessBold(markdown);
+        const html = this.md.render(processed);
         this.editor.commands.setContent(html);
+    }
+
+    // 预处理加粗标记，支持中文和标点符号
+    preprocessBold(markdown) {
+        // 匹配 ** 包裹的内容，不管前后是什么字符
+        return markdown.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     }
 
     // 获取 Markdown 格式的内容
