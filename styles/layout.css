@@ -3,6 +3,9 @@
 :root {
     --titlebar-height: 28px;
     --scrollbar-size: 2px;
+    --scrollbar-thumb-color: rgba(255, 255, 255, 0.25);
+    --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.45);
+    --scrollbar-track-color: rgba(255, 255, 255, 0.12);
 }
 
 body {
@@ -98,8 +101,8 @@ body {
 .markdown-content pre::-webkit-scrollbar-thumb,
 .editor-textarea::-webkit-scrollbar-thumb,
 .view-content::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb-color, #d1d5db);
-    border-radius: 4px;
+    background: var(--scrollbar-thumb-color, #ffffff);
+    border-radius: 2px;
     transition: background 0.2s ease;
 }
 
@@ -109,6 +112,5 @@ body {
 .markdown-content pre::-webkit-scrollbar-thumb:hover,
 .editor-textarea::-webkit-scrollbar-thumb:hover,
 .view-content::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover-color, #9ca3af);
+    background: var(--scrollbar-thumb-hover-color, #d0d2d6);
 }
-
