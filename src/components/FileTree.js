@@ -62,14 +62,13 @@ export class FileTree {
     toggleSection(contentId) {
         const content = this.container.querySelector(`#${contentId}`);
         const header = content.previousElementSibling;
-        const arrow = header.querySelector('.section-arrow');
 
-        if (content.style.display === 'none') {
-            content.style.display = 'block';
-            arrow.style.transform = 'rotate(0deg)';
+        if (content.classList.contains('collapsed')) {
+            content.classList.remove('collapsed');
+            header.classList.remove('collapsed');
         } else {
-            content.style.display = 'none';
-            arrow.style.transform = 'rotate(-90deg)';
+            content.classList.add('collapsed');
+            header.classList.add('collapsed');
         }
     }
 
@@ -218,18 +217,17 @@ export class FileTree {
 
         const header = folderItem.querySelector('.tree-folder-header');
         const children = folderItem.querySelector('.tree-folder-children');
-        const expandIcon = header.querySelector('.tree-expand-icon');
 
         if (this.expandedFolders.has(path)) {
             // 收起
             this.expandedFolders.delete(path);
-            children.style.display = 'none';
-            expandIcon.style.transform = 'rotate(-90deg)';
+            children.classList.remove('expanded');
+            header.classList.remove('expanded');
         } else {
             // 展开
             this.expandedFolders.add(path);
-            children.style.display = 'block';
-            expandIcon.style.transform = 'rotate(0deg)';
+            children.classList.add('expanded');
+            header.classList.add('expanded');
 
             // 如果还没加载子项，加载它们
             if (children.children.length === 0) {

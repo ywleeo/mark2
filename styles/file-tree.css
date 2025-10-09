@@ -1,14 +1,16 @@
-/* Sidebar 布局 */
+/* Sidebar 布局 - 参考 mark2 electron 版本 */
 #fileTree {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* 区域容器 */
 .sidebar-section {
-    border-top: 2px solid #bfd2ff;
+    
 }
 
 .section-header {
@@ -17,18 +19,29 @@
     padding: 6px 12px;
     cursor: pointer;
     user-select: none;
-    background: #ebf6ff;
     transition: background 0.15s;
+    border-bottom: 1px solid var(--border-color, #cbcbcb);
 }
 
 .section-header:hover {
-    background: #dceefc;
+    background: var(--sidebar-section-header-hover-bg, #fafafa);
 }
 
 .section-arrow {
     margin-right: 6px;
-    transition: transform 0.2s;
-    color: var(--text-secondary, #666);
+    width: 12px;
+    height: 12px;
+    transition: transform 0.15s ease;
+    color: var(--text-secondary, #aaa);
+}
+
+.section-arrow path {
+    stroke-width: 1;
+}
+
+/* Section 收起时的箭头旋转 */
+.section-header.collapsed .section-arrow {
+    transform: rotate(-90deg);
 }
 
 .section-title {
@@ -44,6 +57,12 @@
     overflow-y: auto;
     overflow-x: hidden;
 }
+
+/* Section 收起时隐藏内容 */
+.section-content.collapsed {
+    display: none;
+}
+
 
 .folders-section .section-content {
     flex: 1;
@@ -126,40 +145,71 @@
     color: var(--text-color, #333);
 }
 
-/* 文件夹项 */
+/* 文件夹项 - 参考 mark2 electron 版本 */
 .tree-folder {
     user-select: none;
+    position: relative;
 }
 
 .tree-folder-header {
     display: flex;
     align-items: center;
-    padding: 3px 12px;
+    padding: 1px 16px 1px 14px;
+    margin: 1px 0;
     cursor: pointer;
-    font-size: 12px;
-    transition: background 0.15s;
+    font-size: 13px;
+    transition: background-color 0.15s;
 }
 
 .tree-folder-header:hover {
-    background: var(--hover-bg-color, #f0f0f0);
+    background-color: var(--hover-bg-color, #f1f3f4);
 }
 
 .tree-folder-header.root {
     font-weight: 600;
+    border-bottom: 1px solid var(--border-color, #e9ecef);
+    margin-bottom: 4px;
+    padding: 8px 5px 8px 15px;
 }
 
+/* 展开/收起小箭头 */
 .tree-expand-icon {
-    width: 14px;
-    margin-right: 4px;
-    transition: transform 0.2s;
+    margin-right: 6px;
+    width: 12px;
+    height: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease;
     flex-shrink: 0;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary, #6c757d);
 }
 
+.tree-expand-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* 箭头旋转动画 - 展开时旋转90度 */
+.tree-folder-header.expanded .tree-expand-icon {
+    transform: rotate(90deg);
+}
+
+/* 文件夹图标 */
 .tree-folder-icon {
     margin-right: 6px;
+    width: 14px;
+    height: 14px;
+    display: inline-block;
     flex-shrink: 0;
-    color: var(--folder-color, #8B7B3E);
+    position: relative;
+    color: var(--folder-color, #54aeff);
+}
+
+.tree-folder-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
 .tree-item-name {
@@ -168,34 +218,57 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text-color, #333);
+    font-weight: 400;
+    min-width: 0;
 }
 
+/* 文件夹子项容器 - 带竖线 */
 .tree-folder-children {
-    padding-left: 16px;
+    display: none;
+    position: relative;
 }
 
-/* 文件项 */
+.tree-folder-children.expanded {
+    display: block;
+    margin-left: 20px;
+    border-left: 1px solid var(--tree-line-color, #d1d5db);
+    padding-left: 0;
+}
+
+/* 文件项 - 参考 mark2 electron 版本 */
 .tree-file {
     display: flex;
     align-items: center;
-    padding: 3px 12px;
-    padding-left: 28px;
+    padding: 1px 16px 2px 28px;
+    margin: 2px 0;
     cursor: pointer;
     font-size: 12px;
-    transition: background 0.15s;
+    transition: background-color 0.15s;
+    border-radius: 0;
 }
 
 .tree-file:hover {
-    background: var(--hover-bg-color, #f0f0f0);
+    background-color: var(--hover-bg-color, #f1f3f4);
 }
 
 .tree-file.selected {
-    background: var(--active-bg-color, #e0e8f0);
+    background-color: var(--file-selected-bg, #fcf8d8);
     font-weight: 500;
+    border-right: 2px solid var(--file-selected-border, #fd7e14);
 }
 
+/* 文件图标 */
 .tree-file-icon {
     margin-right: 6px;
+    width: 14px;
+    height: 14px;
+    display: inline-block;
     flex-shrink: 0;
-    color: var(--text-secondary, #666);
+    color: var(--file-icon-color, #656d76);
+}
+
+.tree-file-icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
