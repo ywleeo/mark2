@@ -1,0 +1,522 @@
+/* 浅色主题 - 只包含颜色定义 */
+
+/* 基础颜色 */
+body {
+    background-color: #ecebeb;
+    color: #333;
+    
+    /* CSS变量定义 */
+    --bg-color: #f9f9f9;
+    --background-color: #ffffff88;
+    --text-color: #333;
+    --text-secondary: #666;
+    --border-color: #a6bace;
+    --hover-bg-color: #dee9f6;
+    --active-bg-color: #e9ecef;
+    --tab-scroll-gradient-start: rgba(248, 249, 250, 0.9);
+    --accent-color: #9a9ff0;
+    /* 自定义标题栏变量 */
+    --sidebar-bg-color: #f8f9fa;
+    --main-bg-color: #ffffff;
+}
+
+/* 侧边栏颜色 */
+.sidebar {
+    background-color: #f8f9fa;
+    color: #2c3e50;
+    border-right-color: #e9ecef;
+    scrollbar-color: #d1d5db #f1f3f4;
+}
+
+.file-tree {
+    scrollbar-color: #d1d5db #f8f9fa;
+}
+
+.content-area {
+    scrollbar-color: #d1d5db #f1f3f4;
+}
+
+.empty-state {
+    color: #6c757d;
+}
+
+.empty-state small {
+    color: #adb5bd;
+}
+
+/* 文件项颜色 */
+.file-item:hover {
+    background-color: #f1f3f4;
+}
+
+.file-item.active {
+    background-color: #fcf8d8;
+    color: #24292f;
+    border-right-color: #fd7e14;
+}
+
+.file-item .file-icon {
+    color: #656d76;
+}
+
+.file-item .file-icon svg {
+    color: #656d76;
+}
+
+/* 文件夹项颜色 */
+.folder-item:hover {
+    background-color: #f1f3f4;
+}
+
+.folder-item .expand-icon {
+    color: #6c757d;
+}
+
+.folder-item .folder-icon svg {
+    color: #54aeff;
+}
+
+/* 文件夹连接线颜色 */
+.folder-children.expanded {
+    border-left-color: #d1d5db;
+}
+
+.folder-item.root-folder {
+    border-bottom-color: #e9ecef;
+}
+
+.folder-item.root-folder .name {
+    color: #495057;
+}
+
+
+/* 主内容区颜色 */
+.main-content {
+    background-color: white;
+    scrollbar-color: #d1d5db #f1f3f4;
+}
+
+/* Tab栏颜色 */
+.tab-bar {
+    background-color: #f8f9fa;
+    border-bottom-color: #e9ecef;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+}
+
+.tab-item {
+    background-color: #eeeeee;
+    border-top-color: #f45ab9;
+    border-right-color: #ffffff;
+    border-left-color: #ffffff;
+    color: #495057;
+}
+
+.tab-item:hover {
+    background-color: #f4f4f4;
+    color: #212529;
+}
+
+.tab-item.active {
+    background-color: white;
+    color: #212529;
+    border-bottom-color: white;
+}
+
+.tab-close {
+    color: #6c757d;
+}
+
+.tab-close:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+/* 自定义搜索功能已移除，使用浏览器原生搜索 */
+
+
+/* 编辑器颜色 */
+.editor-toolbar {
+    background-color: #f8f9fa;
+    border-color: #e9ecef;
+}
+
+.editor-toolbar h3 {
+    color: #495057;
+}
+
+.editor-save-btn {
+    background: #1f883d;
+    color: white;
+    border-color: transparent;
+}
+
+.editor-save-btn:hover {
+    background: #1a7f37;
+    border-color: #1a7f37;
+}
+
+.editor-save-btn:disabled {
+    background: #ccc;
+}
+
+.editor-textarea {
+    border-color: #e9ecef;
+    background-color: white;
+    color: #333;
+}
+
+/* Markdown 内容颜色 */
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+    color: #2c3e50;
+}
+
+.markdown-content h1 {
+    border-bottom-color: #3498db;
+}
+
+.markdown-content h2 {
+    border-bottom-color: #95a5a6;
+}
+
+.markdown-content p {
+    color: #333;
+}
+
+.markdown-content code {
+    /* background-color: #f8f9fa; */
+    color: #e91e63;
+}
+
+.markdown-content pre {
+    background-color: #f8f9fa;
+    border-left-color: #3498db;
+}
+
+.markdown-content blockquote {
+    border-left-color: #3498db;
+    color: #7f8c8d;
+}
+
+.markdown-content table th, .markdown-content table td {
+    border-color: #dee2e6;
+}
+
+.markdown-content table th {
+    background-color: #f8f9fa;
+}
+
+.markdown-content a {
+    color: #0969da;
+}
+
+.markdown-content a:hover {
+    color: #0550ae;
+}
+
+.markdown-content hr {
+    border-top-color: #dee2e6;
+}
+
+/* 设置弹窗颜色 */
+.settings-modal {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.settings-content {
+    background: white;
+    border-color: #e9ecef;
+    scrollbar-color: #d1d5db #f1f3f4;
+}
+
+.settings-header {
+    border-bottom-color: #f1f3f4;
+}
+
+.settings-header h3 {
+    color: #495057;
+}
+
+.close-btn {
+    color: #656d76;
+}
+
+.close-btn:hover {
+    background: #f3f4f6;
+    color: #24292f;
+}
+
+.setting-group label {
+    color: #495057;
+}
+
+.setting-group select {
+    border-color: #dee2e6;
+    background: white;
+    color: #495057;
+}
+
+.setting-group select:focus {
+    border-color: #0969da;
+}
+
+.settings-footer {
+    border-top-color: #f1f3f4;
+}
+
+.btn-primary {
+    background: #1f883d;
+    color: white;
+    border-color: #1f883d;
+}
+
+.btn-primary:hover {
+    background: #1a7f37;
+    border-color: #1a7f37;
+}
+
+.btn-secondary {
+    background: #f6f8fa;
+    color: #24292f;
+    border-color: #d1d9e0;
+}
+
+.btn-secondary:hover {
+    background: #f3f4f6;
+    border-color: #8c959f;
+}
+
+/* 拖拽颜色 */
+.drag-highlight {
+    background: linear-gradient(135deg, rgba(255, 102, 102, 0.1), rgba(102, 153, 255, 0.1));
+}
+
+.drag-highlight::before {
+    background: rgba(255, 102, 102, 0.95);
+    color: white;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+
+/* 消息提示颜色 */
+.message {
+    background: white;
+    color: #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-left-color: #007acc;
+}
+
+.message.error {
+    border-left-color: #dc3545;
+    background: #fff5f5;
+    color: #dc3545;
+}
+
+.message.success {
+    border-left-color: #28a745;
+    background: #f0fff4;
+    color: #28a745;
+}
+
+.message.warning {
+    border-left-color: #ffc107;
+    background: #fffbf0;
+    color: #e8900a;
+}
+
+/* 滚动条颜色 */
+.sidebar::-webkit-scrollbar-track,
+.file-tree::-webkit-scrollbar-track,
+.main-content::-webkit-scrollbar-track,
+.content-area::-webkit-scrollbar-track,
+.settings-content::-webkit-scrollbar-track,
+.markdown-content pre::-webkit-scrollbar-track,
+.editor-textarea::-webkit-scrollbar-track {
+    background: #f1f3f4;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.file-tree::-webkit-scrollbar-thumb,
+.main-content::-webkit-scrollbar-thumb,
+.content-area::-webkit-scrollbar-thumb,
+.settings-content::-webkit-scrollbar-thumb,
+.markdown-content pre::-webkit-scrollbar-thumb,
+.editor-textarea::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.file-tree::-webkit-scrollbar-thumb:hover,
+.main-content::-webkit-scrollbar-thumb:hover,
+.content-area::-webkit-scrollbar-thumb:hover,
+.settings-content::-webkit-scrollbar-thumb:hover,
+.markdown-content pre::-webkit-scrollbar-thumb:hover,
+.editor-textarea::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+.editor-textarea {
+    scrollbar-color: #d1d5db #f1f3f4;
+}
+
+/* Markdown 增强样式颜色变量 - 浅色主题 */
+:root {
+    --h1-border-color: #3498db;
+    --h2-accent-color: #3b82f6;
+    --h2-background-color: rgba(59, 130, 246, 0.08);
+    --h3-accent-color: #6b7280;
+    --h4-text-color: #374151;
+    --code-accent-color: #10b981;
+    --code-background-color: #f8fafc;
+    --inline-code-background: rgba(99, 102, 241, 0.1);
+    --inline-code-color: #6366f1;
+    --quote-accent-color: #6fca39;
+    --quote-background-color: rgba(54, 245, 11, 0.05);
+    --link-color: #2563eb;
+    --link-hover-color: #1d4ed8;
+    --table-header-background: #f3f4f6;
+    --table-border-color: #d1d5db;
+    --table-stripe-background: #f9fafb;
+    --list-marker-color: #6b7280;
+    
+    /* Markdown 编辑器高亮颜色变量 - 浅色主题 */
+    --md-text-color: #24292f;
+    --md-caret-color: #0969da;
+    --md-heading-color: #0969da;
+    --md-bold-color: #cf222e;
+    --md-italic-color: #8250df;
+    --md-strikethrough-color: #656d76;
+    --md-inline-code-color: #e36209;
+    --md-inline-code-bg: rgba(175, 184, 193, 0.2);
+    --md-code-block-color: #24292f;
+    --md-code-block-bg: #f6f8fa;
+    --md-code-block-border: #d1d9e0;
+    --md-link-color: #0969da;
+    --md-image-color: #1f883d;
+    --md-blockquote-color: #656d76;
+    --md-blockquote-border: #d1d9e0;
+    --md-list-color: #0550ae;
+    --md-hr-color: #d1d9e0;
+    --md-table-separator-color: #656d76;
+    --md-table-row-color: #24292f;
+    --md-html-tag-color: #e36209;
+    --md-escape-color: #cf222e;
+}
+.search-box{
+    background: #fffa;
+}
+
+/* 列表 */
+.cm-editor .cm-list {
+  color: #0c6a4c!important;
+}
+
+/* 代码高亮样式 - GitHub Light Theme */
+pre code.hljs {
+    display: block;
+    overflow-x: auto;
+    padding: 1em;
+}
+
+code.hljs {
+    padding: 3px 5px;
+}
+
+.hljs {
+    color: #24292e;
+    background: #f6f8fa;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+    color: #d73a49;
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+    color: #6f42c1;
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+    color: #005cc5;
+}
+
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+    color: #032f62;
+}
+
+.hljs-built_in,
+.hljs-symbol {
+    color: #e36209;
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+    color: #6a737d;
+}
+
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+    color: #22863a;
+}
+
+.hljs-subst {
+    color: #24292e;
+}
+
+.hljs-section {
+    color: #005cc5;
+    font-weight: bold;
+}
+
+.hljs-bullet {
+    color: #735c0f;
+}
+
+.hljs-emphasis {
+    color: #24292e;
+    font-style: italic;
+}
+
+.hljs-strong {
+    color: #24292e;
+    font-weight: bold;
+}
+
+.hljs-addition {
+    color: #22863a;
+    background-color: #f0fff4;
+}
+
+.hljs-deletion {
+    color: #b31d28;
+    background-color: #ffeef0;
+}
+
+.folder-item.root-folder .folder-icon svg path {
+    fill: currentColor;       /* 跟随当前图标颜色 */
+    fill-opacity: 0.9;       /* 适度透明，避免过重 */
+}
