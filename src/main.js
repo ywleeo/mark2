@@ -11,6 +11,9 @@ let currentFolder = null;
 let editor = null;
 let fileTree = null;
 
+let folderRefreshTimer = null;
+const fileRefreshTimers = new Map();
+
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM 加载完成');
@@ -21,7 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
-    fileTree = new FileTree(fileTreeElement, handleFileSelect);
+    fileTree = new FileTree(fileTreeElement, handleFileSelect, {
+        onFolderChange: handleFolderWatcherEvent,
+        onFileChange: handleFileWatcherEvent,
+    });
 
     setupKeyboardShortcuts();
     setupMenuListeners();
@@ -133,7 +139,8 @@ async function openFileOrFolder() {
                 await fileTree.loadFolder(resolvedPath);
             }
         } else {
-            await loadFile(resolvedPath);
+            fileTree?.addToOpenFiles(resolvedPath);
+            fileTree?.selectFile(resolvedPath);
         }
     } catch (error) {
         console.error('打开失败:', error);
@@ -179,9 +186,111 @@ async function loadFile(filePath) {
             editor.loadFile(filePath, content);
         }
 
+        if (fileTree?.openFiles?.includes?.(filePath)) {
+            try {
+                await fileTree.watchFile(filePath);
+            } catch (error) {
+                console.error('无法监听文件:', error);
+            }
+        }
+
         console.log('文件加载成功');
     } catch (error) {
         console.error('读取文件失败:', error);
         alert('读取文件失败: ' + error);
     }
+}
+
+function normalizeFsPath(path) {
+    if (!path) return path;
+    if (typeof path === 'string' && path.startsWith('file://')) {
+        try {
+            const url = new URL(path);
+            return url.pathname;
+        } catch (error) {
+            console.warn('无法解析文件路径 URL:', path, error);
+        }
+    }
+    return path;
+}
+
+function handleFolderWatcherEvent(watchedPath, event) {
+    if (!fileTree || !fileTree.rootPath) return;
+    if (normalizeFsPath(watchedPath) !== normalizeFsPath(fileTree.rootPath)) return;
+
+    const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
+    eventPaths.forEach((changedPath) => {
+        if (!changedPath) return;
+        if (fileTree.openFiles?.includes?.(changedPath)) {
+            if (editor && editor.currentFile === changedPath) {
+                if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+                    console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
+                    return;
+                }
+            }
+            scheduleFileRefresh(changedPath);
+        }
+    });
+
+    scheduleFolderRefresh();
+}
+
+function handleFileWatcherEvent(filePath, event) {
+    const normalizedPath = normalizeFsPath(filePath);
+    if (!normalizedPath) return;
+
+    const isOpenFile = fileTree?.openFiles?.includes?.(normalizedPath);
+    if (!isOpenFile) {
+        // 不在打开列表的文件不需要自动刷新
+        return;
+    }
+
+    if (editor && normalizeFsPath(editor.currentFile) === normalizedPath) {
+        if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+            console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
+            return;
+        }
+        scheduleFileRefresh(normalizedPath);
+    }
+}
+
+function scheduleFolderRefresh() {
+    if (folderRefreshTimer) {
+        clearTimeout(folderRefreshTimer);
+    }
+
+    folderRefreshTimer = setTimeout(async () => {
+        folderRefreshTimer = null;
+        if (!fileTree || !fileTree.rootPath) return;
+
+        try {
+            await fileTree.refreshCurrentFolder();
+        } catch (error) {
+            console.error('刷新目录失败:', error);
+        }
+    }, 200);
+}
+
+function scheduleFileRefresh(filePath) {
+    const normalizedPath = normalizeFsPath(filePath);
+    if (!normalizedPath) return;
+
+    const existing = fileRefreshTimers.get(normalizedPath);
+    if (existing) {
+        clearTimeout(existing);
+    }
+
+    const timer = setTimeout(async () => {
+        fileRefreshTimers.delete(normalizedPath);
+        if (!fileTree?.openFiles?.includes?.(normalizedPath)) {
+            return;
+        }
+        try {
+            await loadFile(normalizedPath);
+        } catch (error) {
+            console.error('刷新文件失败:', error);
+        }
+    }, 150);
+
+    fileRefreshTimers.set(normalizedPath, timer);
 }

@@ -8,6 +8,15 @@
     "core:event:allow-listen",
     "core:event:allow-emit",
     "dialog:default",
-    "fs:default"
+    "fs:default",
+    {
+      "identifier": "fs:allow-watch",
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
+    },
+    "fs:allow-unwatch"
   ]
 }

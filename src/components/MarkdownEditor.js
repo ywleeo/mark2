@@ -9,6 +9,7 @@ export class MarkdownEditor {
         this.editor = null;
         this.currentFile = null;
         this.originalMarkdown = ''; // 保存原始 Markdown
+        this.contentChanged = false;
 
         // 配置 turndown 减少转义
         this.turndownService = new TurndownService({
@@ -128,5 +129,9 @@ export class MarkdownEditor {
         if (this.editor) {
             this.editor.destroy();
         }
+    }
+
+    hasUnsavedChanges() {
+        return !!this.contentChanged;
     }
 }

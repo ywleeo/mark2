@@ -1,11 +1,16 @@
 export class FileTree {
-    constructor(containerElement, onFileSelect) {
+    constructor(containerElement, onFileSelect, callbacks = {}) {
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
         this.rootPath = null;
         this.expandedFolders = new Set();
         this.currentFile = null;
         this.openFiles = []; // 跟踪打开的文件
+        this.folderWatcherStop = null;
+        this.folderWatchPath = null;
+        this.fileWatchers = new Map();
+        this.onFolderChange = callbacks.onFolderChange;
+        this.onFileChange = callbacks.onFileChange;
         this.init();
     }
 
@@ -78,6 +83,15 @@ export class FileTree {
     }
 
     async loadFolder(folderPath) {
+        const isRootChange = this.rootPath !== folderPath;
+
+        if (isRootChange) {
+            this.expandedFolders.clear();
+            this.stopWatchingFolder();
+        } else if (this.folderWatchPath && this.folderWatchPath !== folderPath) {
+            this.stopWatchingFolder();
+        }
+
         this.rootPath = folderPath;
 
         try {
@@ -91,10 +105,22 @@ export class FileTree {
             const rootItem = this.createFolderItem(folderName, folderPath, entries, true);
             contentDiv.appendChild(rootItem);
 
-            // 默认展开根文件夹
-            if (!this.expandedFolders.has(folderPath)) {
+            const rootHeader = rootItem.querySelector('.tree-folder-header');
+            const rootChildren = rootItem.querySelector('.tree-folder-children');
+
+            // 根据先前状态决定是否展开根目录
+            if (this.expandedFolders.has(folderPath)) {
+                rootHeader?.classList.add('expanded');
+                rootChildren?.classList.add('expanded');
+                if (rootChildren) {
+                    rootChildren.style.display = 'block';
+                    await this.loadFolderChildren(folderPath, rootChildren);
+                }
+            } else if (isRootChange) {
                 await this.toggleFolder(folderPath);
             }
+
+            await this.watchFolder(folderPath);
         } catch (error) {
             console.error('读取文件夹失败:', error);
         }
@@ -242,6 +268,17 @@ export class FileTree {
             if (entry.isDir) {
                 const folderItem = this.createFolderItem(name, entry.path, []);
                 childrenContainer.appendChild(folderItem);
+
+                if (this.expandedFolders.has(entry.path)) {
+                    const header = folderItem.querySelector('.tree-folder-header');
+                    const children = folderItem.querySelector('.tree-folder-children');
+                    header?.classList.add('expanded');
+                    if (children) {
+                        children.classList.add('expanded');
+                        children.style.display = 'block';
+                        await this.loadFolderChildren(entry.path, children);
+                    }
+                }
             } else {
                 const fileItem = this.createFileItem(name, entry.path);
                 childrenContainer.appendChild(fileItem);
@@ -280,6 +317,9 @@ export class FileTree {
 
         this.openFiles.push(path);
         this.renderOpenFiles();
+        this.watchFile(path).catch(error => {
+            console.error('监听文件失败:', error);
+        });
     }
 
     renderOpenFiles() {
@@ -293,6 +333,10 @@ export class FileTree {
         contentDiv.innerHTML = '';
 
         this.openFiles.forEach(path => {
+            this.watchFile(path).catch(error => {
+                console.error('监听文件失败:', error);
+            });
+
             const fileName = path.split('/').pop();
             const item = document.createElement('div');
             item.className = 'open-file-item';
@@ -332,6 +376,73 @@ export class FileTree {
         if (index > -1) {
             this.openFiles.splice(index, 1);
             this.renderOpenFiles();
+            this.stopWatchingFile(path);
         }
+    }
+
+    async watchFolder(path) {
+        if (!path) return;
+        if (this.folderWatchPath === path && this.folderWatcherStop) {
+            return;
+        }
+
+        this.stopWatchingFolder();
+
+        try {
+            const { watch } = await import('@tauri-apps/plugin-fs');
+            const unwatch = await watch(path, (event) => {
+                this.onFolderChange?.(path, event);
+            }, { recursive: true, delayMs: 200 });
+            this.folderWatcherStop = unwatch;
+            this.folderWatchPath = path;
+        } catch (error) {
+            console.error('目录监听失败:', error);
+            this.folderWatcherStop = null;
+            this.folderWatchPath = null;
+        }
+    }
+
+    stopWatchingFolder() {
+        if (this.folderWatcherStop) {
+            try {
+                this.folderWatcherStop();
+            } catch (error) {
+                console.error('停止目录监听失败:', error);
+            }
+        }
+        this.folderWatcherStop = null;
+        this.folderWatchPath = null;
+    }
+
+    async watchFile(path) {
+        if (!path || this.fileWatchers.has(path)) return;
+
+        try {
+            const { watch } = await import('@tauri-apps/plugin-fs');
+            const unwatch = await watch(path, (event) => {
+                this.onFileChange?.(path, event);
+            }, { recursive: false, delayMs: 150 });
+            this.fileWatchers.set(path, unwatch);
+        } catch (error) {
+            console.error('文件监听失败:', error);
+            throw error;
+        }
+    }
+
+    stopWatchingFile(path) {
+        const unwatch = this.fileWatchers.get(path);
+        if (unwatch) {
+            try {
+                unwatch();
+            } catch (error) {
+                console.error('停止文件监听失败:', error);
+            }
+            this.fileWatchers.delete(path);
+        }
+    }
+
+    async refreshCurrentFolder() {
+        if (!this.rootPath) return;
+        await this.loadFolder(this.rootPath);
     }
 }
