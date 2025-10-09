@@ -69,29 +69,6 @@
     max-height: none;
 }
 
-.section-empty {
-    padding: 16px 12px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-secondary, #999);
-}
-
-.open-folder-button {
-    padding: 6px 14px;
-    background: var(--accent-color, #007acc);
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.open-folder-button:hover {
-    background: var(--accent-hover-color, #005a9e);
-}
-
 /* 打开的文件项 */
 .open-file-item {
     display: flex;

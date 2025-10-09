@@ -19,9 +19,7 @@ export class FileTree {
                     </svg>
                     <span class="section-title">打开的文件</span>
                 </div>
-                <div class="section-content" id="openFilesContent">
-                    <div class="section-empty">未打开文件</div>
-                </div>
+                <div class="section-content" id="openFilesContent"></div>
             </div>
 
             <!-- 文件夹区域 -->
@@ -32,11 +30,7 @@ export class FileTree {
                     </svg>
                     <span class="section-title">文件夹</span>
                 </div>
-                <div class="section-content" id="foldersContent">
-                    <div class="section-empty">
-                        <button class="open-folder-button">打开文件夹</button>
-                    </div>
-                </div>
+                <div class="section-content" id="foldersContent"></div>
             </div>
         `;
 
@@ -44,11 +38,6 @@ export class FileTree {
     }
 
     setupEventListeners() {
-        // 打开文件夹按钮
-        this.container.querySelector('.open-folder-button')?.addEventListener('click', () => {
-            this.requestOpenFolder();
-        });
-
         // 区域折叠
         this.container.querySelector('#openFilesHeader')?.addEventListener('click', () => {
             this.toggleSection('openFilesContent');
@@ -295,7 +284,7 @@ export class FileTree {
         const contentDiv = this.container.querySelector('#openFilesContent');
 
         if (this.openFiles.length === 0) {
-            contentDiv.innerHTML = '<div class="section-empty">未打开文件</div>';
+            contentDiv.innerHTML = '';
             return;
         }
 
