@@ -103,8 +103,9 @@ export class FileTree {
             contentDiv.appendChild(rootItem);
 
             // 默认展开根文件夹
-            this.expandedFolders.add(folderPath);
-            this.toggleFolder(folderPath);
+            if (!this.expandedFolders.has(folderPath)) {
+                await this.toggleFolder(folderPath);
+            }
         } catch (error) {
             console.error('读取文件夹失败:', error);
         }
@@ -223,11 +224,13 @@ export class FileTree {
             this.expandedFolders.delete(path);
             children.classList.remove('expanded');
             header.classList.remove('expanded');
+            children.style.display = 'none';
         } else {
             // 展开
             this.expandedFolders.add(path);
             children.classList.add('expanded');
             header.classList.add('expanded');
+            children.style.display = 'block';
 
             // 如果还没加载子项，加载它们
             if (children.children.length === 0) {

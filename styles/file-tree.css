@@ -96,7 +96,7 @@
 .open-file-item {
     display: flex;
     align-items: center;
-    padding: 4px 12px;
+    padding: 1px 0 1px 22px;
     cursor: pointer;
     font-size: 12px;
     transition: background 0.15s;
@@ -108,7 +108,7 @@
 }
 
 .open-file-item.selected {
-    background: var(--active-bg-color, #e0e8f0);
+    background: var(--active-bg-color, #fff2fd);
     font-weight: 500;
 }
 
@@ -182,7 +182,8 @@
     justify-content: center;
     transition: transform 0.15s ease;
     flex-shrink: 0;
-    color: var(--text-secondary, #6c757d);
+    color: var(--text-secondary, #bfbfbf);
+    transform: rotate(-90deg);
 }
 
 .tree-expand-icon svg {
@@ -192,7 +193,7 @@
 
 /* 箭头旋转动画 - 展开时旋转90度 */
 .tree-folder-header.expanded .tree-expand-icon {
-    transform: rotate(90deg);
+    transform: rotate(0deg);
 }
 
 /* 文件夹图标 */
@@ -239,7 +240,7 @@
 .tree-file {
     display: flex;
     align-items: center;
-    padding: 1px 16px 2px 28px;
+    padding: 1px 16px 2px 20px;
     margin: 2px 0;
     cursor: pointer;
     font-size: 12px;
