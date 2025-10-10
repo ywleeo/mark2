@@ -2,12 +2,11 @@ export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
-        this.rootPath = null;
+        this.rootPaths = new Set();
         this.expandedFolders = new Set();
         this.currentFile = null;
         this.openFiles = []; // 跟踪打开的文件
-        this.folderWatcherStop = null;
-        this.folderWatchPath = null;
+        this.folderWatchers = new Map();
         this.fileWatchers = new Map();
         this.onFolderChange = callbacks.onFolderChange;
         this.onFileChange = callbacks.onFileChange;
@@ -112,11 +111,15 @@ export class FileTree {
         try {
             const selected = await open({
                 directory: true,
-                multiple: false,
+                multiple: true,
             });
 
-            if (selected) {
-                await this.loadFolder(selected);
+            const selections = Array.isArray(selected)
+                ? selected.filter(Boolean)
+                : selected ? [selected] : [];
+
+            for (const folderPath of selections) {
+                await this.loadFolder(folderPath);
             }
         } catch (error) {
             console.error('打开文件夹失败:', error);
@@ -124,44 +127,55 @@ export class FileTree {
     }
 
     async loadFolder(folderPath) {
-        const isRootChange = this.rootPath !== folderPath;
+        const normalizedPath = this.normalizePath(folderPath);
+        if (!normalizedPath) return;
 
-        if (isRootChange) {
-            this.expandedFolders.clear();
-            this.stopWatchingFolder();
-        } else if (this.folderWatchPath && this.folderWatchPath !== folderPath) {
-            this.stopWatchingFolder();
+        const isNewRoot = !this.rootPaths.has(normalizedPath);
+        if (isNewRoot) {
+            this.rootPaths.add(normalizedPath);
         }
 
-        this.rootPath = folderPath;
-
         try {
-            const entries = await this.readDirectory(folderPath);
-            const folderName = folderPath.split('/').pop() || folderPath;
+            const entries = await this.readDirectory(normalizedPath);
+            const folderName = normalizedPath.split('/').pop() || normalizedPath;
 
             const contentDiv = this.container.querySelector('#foldersContent');
-            contentDiv.innerHTML = '';
+            if (!contentDiv) return;
 
-            // 渲染根文件夹
-            const rootItem = this.createFolderItem(folderName, folderPath, entries, true);
-            contentDiv.appendChild(rootItem);
-
-            const rootHeader = rootItem.querySelector('.tree-folder-header');
-            const rootChildren = rootItem.querySelector('.tree-folder-children');
-
-            // 根据先前状态决定是否展开根目录
-            if (this.expandedFolders.has(folderPath)) {
-                rootHeader?.classList.add('expanded');
-                rootChildren?.classList.add('expanded');
-                if (rootChildren) {
-                    rootChildren.style.display = 'block';
-                    await this.loadFolderChildren(folderPath, rootChildren);
+            let rootItem = contentDiv.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+            if (!rootItem) {
+                rootItem = this.createFolderItem(folderName, normalizedPath, entries, true);
+                contentDiv.appendChild(rootItem);
+            } else {
+                const nameSpan = rootItem.querySelector('.tree-item-name');
+                if (nameSpan) {
+                    nameSpan.textContent = folderName;
                 }
-            } else if (isRootChange) {
-                await this.toggleFolder(folderPath);
             }
 
-            await this.watchFolder(folderPath);
+            const header = rootItem.querySelector('.tree-folder-header');
+            const children = rootItem.querySelector('.tree-folder-children');
+
+            if (!children) {
+                return;
+            }
+
+            children.innerHTML = '';
+            const shouldExpand = isNewRoot || this.expandedFolders.has(normalizedPath);
+
+            if (shouldExpand) {
+                this.expandedFolders.add(normalizedPath);
+                header?.classList.add('expanded');
+                children.classList.add('expanded');
+                children.style.display = 'block';
+                await this.loadFolderChildren(normalizedPath, children, entries);
+            } else {
+                header?.classList.remove('expanded');
+                children.classList.remove('expanded');
+                children.style.display = 'none';
+            }
+
+            await this.watchFolder(normalizedPath);
         } catch (error) {
             console.error('读取文件夹失败:', error);
         }
@@ -300,8 +314,8 @@ export class FileTree {
         }
     }
 
-    async loadFolderChildren(path, childrenContainer) {
-        const entries = await this.readDirectory(path);
+    async loadFolderChildren(path, childrenContainer, prefetchedEntries = null) {
+        const entries = Array.isArray(prefetchedEntries) ? prefetchedEntries : await this.readDirectory(path);
 
         for (const entry of entries) {
             const name = entry.path.split('/').pop();
@@ -423,38 +437,48 @@ export class FileTree {
     }
 
     async watchFolder(path) {
-        if (!path) return;
-        if (this.folderWatchPath === path && this.folderWatcherStop) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath || this.folderWatchers.has(normalizedPath)) {
             return;
         }
 
-        this.stopWatchingFolder();
-
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
-            const unwatch = await watch(path, (event) => {
-                console.debug('[FileTree] 目录变更事件', { path, event });
-                this.onFolderChange?.(path, event);
+            const unwatch = await watch(normalizedPath, (event) => {
+                console.debug('[FileTree] 目录变更事件', { path: normalizedPath, event });
+                this.onFolderChange?.(normalizedPath, event);
             }, { recursive: true, delayMs: 200 });
-            this.folderWatcherStop = unwatch;
-            this.folderWatchPath = path;
+            this.folderWatchers.set(normalizedPath, unwatch);
         } catch (error) {
             console.error('目录监听失败:', error);
-            this.folderWatcherStop = null;
-            this.folderWatchPath = null;
+            this.folderWatchers.delete(normalizedPath);
         }
     }
 
-    stopWatchingFolder() {
-        if (this.folderWatcherStop) {
-            try {
-                this.folderWatcherStop();
-            } catch (error) {
-                console.error('停止目录监听失败:', error);
+    stopWatchingFolder(path = null) {
+        if (path) {
+            const normalizedPath = this.normalizePath(path);
+            if (!normalizedPath) return;
+            const unwatch = this.folderWatchers.get(normalizedPath);
+            if (unwatch) {
+                try {
+                    unwatch();
+                } catch (error) {
+                    console.error('停止目录监听失败:', error);
+                }
+                this.folderWatchers.delete(normalizedPath);
             }
+            return;
         }
-        this.folderWatcherStop = null;
-        this.folderWatchPath = null;
+
+        this.folderWatchers.forEach((unwatch, watchedPath) => {
+            try {
+                unwatch();
+            } catch (error) {
+                console.error('停止目录监听失败:', { watchedPath, error });
+            }
+        });
+        this.folderWatchers.clear();
     }
 
     async watchFile(path) {
@@ -488,9 +512,32 @@ export class FileTree {
         }
     }
 
-    async refreshCurrentFolder() {
-        if (!this.rootPath) return;
-        await this.loadFolder(this.rootPath);
+    async refreshCurrentFolder(targetPath = null) {
+        if (targetPath) {
+            await this.refreshFolder(targetPath);
+            return;
+        }
+
+        const tasks = Array.from(this.rootPaths).map((path) => this.refreshFolder(path));
+        await Promise.all(tasks);
+    }
+
+    async refreshFolder(path) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
+            return;
+        }
+
+        await this.loadFolder(normalizedPath);
+    }
+
+    getRootPaths() {
+        return Array.from(this.rootPaths);
+    }
+
+    hasRoot(path) {
+        const normalizedPath = this.normalizePath(path);
+        return normalizedPath ? this.rootPaths.has(normalizedPath) : false;
     }
 
     dispose() {
@@ -501,5 +548,6 @@ export class FileTree {
         this.fileWatchers.clear();
         this.openFiles = [];
         this.expandedFolders.clear();
+        this.rootPaths.clear();
     }
 }

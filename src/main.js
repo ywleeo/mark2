@@ -7,11 +7,10 @@ import { FileTree } from './components/FileTree.js';
 console.log('Mark2 Tauri 版本已启动');
 
 let currentFile = null;
-let currentFolder = null;
 let editor = null;
 let fileTree = null;
 
-let folderRefreshTimer = null;
+const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
 
 // 基础初始化代码
@@ -125,23 +124,29 @@ function setupSidebarResizer() {
 async function openFileOrFolder() {
     try {
         const selected = await selectPath();
-        if (!selected) return;
+        const selections = normalizeSelectedPaths(selected)
+            .map(normalizeFsPath)
+            .filter(Boolean);
 
-        const resolvedPath = normalizeSelectedPath(selected);
-        if (!resolvedPath) return;
+        if (selections.length === 0) return;
 
-        console.log('选择:', resolvedPath);
+        const uniqueSelections = Array.from(new Set(selections));
 
-        const isDir = await invoke('is_directory', { path: resolvedPath });
+        console.log('选择:', uniqueSelections);
 
-        if (isDir) {
-            currentFolder = resolvedPath;
-            if (fileTree) {
-                await fileTree.loadFolder(resolvedPath);
+        for (const resolvedPath of uniqueSelections) {
+            try {
+                const isDir = await invoke('is_directory', { path: resolvedPath });
+
+                if (isDir) {
+                    await fileTree?.loadFolder(resolvedPath);
+                } else {
+                    fileTree?.addToOpenFiles(resolvedPath);
+                    fileTree?.selectFile(resolvedPath);
+                }
+            } catch (typeError) {
+                console.error('判断路径类型失败:', { resolvedPath, error: typeError });
             }
-        } else {
-            fileTree?.addToOpenFiles(resolvedPath);
-            fileTree?.selectFile(resolvedPath);
         }
     } catch (error) {
         console.error('打开失败:', error);
@@ -155,25 +160,35 @@ async function selectPath() {
     } catch (error) {
         const message = typeof error === 'string' ? error : error?.message;
         if (message === 'unsupported') {
-            return await open({ multiple: false, directory: false });
+            return await open({ multiple: true, directory: false });
         }
         throw error;
     }
 }
 
-function normalizeSelectedPath(selected) {
-    if (!selected) return null;
-    if (typeof selected === 'string') return selected;
-    if (Array.isArray(selected)) return selected[0] ?? null;
-    if (typeof selected === 'object') {
-        if ('path' in selected && typeof selected.path === 'string') {
-            return selected.path;
+function normalizeSelectedPaths(selected) {
+    if (!selected) return [];
+
+    const extractPath = (entry) => {
+        if (!entry) return null;
+        if (typeof entry === 'string') return entry;
+        if (typeof entry === 'object') {
+            if ('path' in entry && typeof entry.path === 'string') {
+                return entry.path;
+            }
+            if ('uri' in entry && typeof entry.uri === 'string') {
+                return entry.uri;
+            }
         }
-        if ('uri' in selected && typeof selected.uri === 'string') {
-            return selected.uri;
-        }
+        return null;
+    };
+
+    if (Array.isArray(selected)) {
+        return selected.map(extractPath).filter(Boolean);
     }
-    return null;
+
+    const single = extractPath(selected);
+    return single ? [single] : [];
 }
 
 async function loadFile(filePath) {
@@ -220,25 +235,25 @@ function setupCleanupHandlers() {
 }
 
 function cleanupResources() {
+    folderRefreshTimers.forEach((timer) => clearTimeout(timer));
+    folderRefreshTimers.clear();
+    fileRefreshTimers.forEach((timer) => clearTimeout(timer));
+    fileRefreshTimers.clear();
     fileTree?.dispose?.();
     editor?.destroy?.();
 }
 
 function handleFolderWatcherEvent(watchedPath, event) {
-    if (!fileTree || !fileTree.rootPath) return;
-    const normalizedWatchedPath = normalizeFsPath(watchedPath);
-    const normalizedRoot = normalizeFsPath(fileTree.rootPath);
+    if (!fileTree) return;
 
-    if (normalizedWatchedPath !== normalizedRoot) {
-        const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
-        const includesRoot = eventPaths.some((changedPath) => normalizeFsPath(changedPath) === normalizedRoot);
-        if (!includesRoot) {
-            return;
-        }
+    const normalizedRoot = normalizeFsPath(watchedPath);
+    if (!normalizedRoot || !fileTree?.hasRoot?.(normalizedRoot)) {
+        return;
     }
 
     const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
     console.debug('[Watcher] 目录变更路径', eventPaths);
+
     eventPaths.forEach((changedPath) => {
         if (!changedPath) return;
         if (fileTree?.isFileOpen?.(changedPath)) {
@@ -253,7 +268,7 @@ function handleFolderWatcherEvent(watchedPath, event) {
         }
     });
 
-    scheduleFolderRefresh();
+    scheduleFolderRefresh(normalizedRoot);
 }
 
 function handleFileWatcherEvent(filePath, event) {
@@ -278,21 +293,29 @@ function handleFileWatcherEvent(filePath, event) {
     }
 }
 
-function scheduleFolderRefresh() {
-    if (folderRefreshTimer) {
-        clearTimeout(folderRefreshTimer);
+function scheduleFolderRefresh(rootPath) {
+    const normalizedRoot = normalizeFsPath(rootPath);
+    if (!normalizedRoot) return;
+
+    const existing = folderRefreshTimers.get(normalizedRoot);
+    if (existing) {
+        clearTimeout(existing);
     }
 
-    folderRefreshTimer = setTimeout(async () => {
-        folderRefreshTimer = null;
-        if (!fileTree || !fileTree.rootPath) return;
+    const timer = setTimeout(async () => {
+        folderRefreshTimers.delete(normalizedRoot);
+        if (!fileTree?.hasRoot?.(normalizedRoot)) {
+            return;
+        }
 
         try {
-            await fileTree.refreshCurrentFolder();
+            await fileTree.refreshFolder(normalizedRoot);
         } catch (error) {
             console.error('刷新目录失败:', error);
         }
     }, 200);
+
+    folderRefreshTimers.set(normalizedRoot, timer);
 }
 
 function scheduleFileRefresh(filePath) {
