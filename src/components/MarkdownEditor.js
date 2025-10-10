@@ -73,6 +73,18 @@ export class MarkdownEditor {
             linkify: true,
         });
 
+        const trimCodeRenderer = renderer => {
+            return (tokens, idx, options, env, self) => {
+                const output = renderer ? renderer(tokens, idx, options, env, self) : '';
+                return typeof output === 'string'
+                    ? output.replace(/\r?\n(?=<\/code><\/pre>)/, '')
+                    : output;
+            };
+        };
+
+        this.md.renderer.rules.fence = trimCodeRenderer(this.md.renderer.rules.fence);
+        this.md.renderer.rules.code_block = trimCodeRenderer(this.md.renderer.rules.code_block);
+
         this.turndownService.addRule('preserveImageOriginalSrc', {
             filter: 'img',
             replacement: (content, node) => {
