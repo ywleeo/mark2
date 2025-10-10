@@ -120,6 +120,12 @@
     font-style: italic;
 }
 
+.tiptap-editor img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
 /* 占位符 */
 .tiptap-editor p.is-editor-empty:first-child::before {
     content: "开始写作...";
