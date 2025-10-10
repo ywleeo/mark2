@@ -6,9 +6,9 @@ use std::path::Path;
 use tauri::{menu::*, Emitter};
 
 #[cfg(target_os = "macos")]
-use objc2::MainThreadMarker;
-#[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
+#[cfg(target_os = "macos")]
+use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 
@@ -35,9 +35,9 @@ fn read_dir(path: String) -> Result<Vec<String>, String> {
     let entries = fs::read_dir(&path)
         .map_err(|e| e.to_string())?
         .filter_map(|entry| {
-            entry.ok().and_then(|e| {
-                e.path().to_str().map(|s| s.to_string())
-            })
+            entry
+                .ok()
+                .and_then(|e| e.path().to_str().map(|s| s.to_string()))
         })
         .collect();
     Ok(entries)
@@ -101,18 +101,33 @@ fn main() {
                 .build(app)?;
 
             // 应用菜单（macOS 默认菜单）
-            let app_menu = SubmenuBuilder::new(app, "Mark2")
-                .quit()
-                .build()?;
+            let app_menu = SubmenuBuilder::new(app, "Mark2").quit().build()?;
 
             // File 菜单
-            let file_menu = SubmenuBuilder::new(app, "File")
-                .item(&open_item)
+            let file_menu = SubmenuBuilder::new(app, "File").item(&open_item).build()?;
+
+            // Edit 菜单，启用复制/粘贴等系统原生快捷键
+            let undo_item = PredefinedMenuItem::undo(app, None)?;
+            let redo_item = PredefinedMenuItem::redo(app, None)?;
+            let cut_item = PredefinedMenuItem::cut(app, None)?;
+            let copy_item = PredefinedMenuItem::copy(app, None)?;
+            let paste_item = PredefinedMenuItem::paste(app, None)?;
+            let select_all_item = PredefinedMenuItem::select_all(app, None)?;
+
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .item(&undo_item)
+                .item(&redo_item)
+                .separator()
+                .item(&cut_item)
+                .item(&copy_item)
+                .item(&paste_item)
+                .item(&select_all_item)
                 .build()?;
 
             let menu = MenuBuilder::new(app)
                 .item(&app_menu)
                 .item(&file_menu)
+                .item(&edit_menu)
                 .build()?;
 
             app.set_menu(menu)?;
