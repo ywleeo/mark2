@@ -199,7 +199,7 @@ async function loadFile(filePath) {
 
         // 使用编辑器加载内容
         if (editor) {
-            editor.loadFile(filePath, content);
+            await editor.loadFile(filePath, content);
         }
 
         if (fileTree?.openFiles?.includes?.(filePath)) {
