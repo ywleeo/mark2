@@ -74,8 +74,7 @@ body.sidebar-resizing .sidebar-resizer {
     display: flex;
     align-items: center;
     min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
-    padding: calc(4px + env(safe-area-inset-top, 0px)) 8px 4px;
-    gap: 8px;
+    gap: 2px;
     overflow-x: auto;
     -webkit-app-region: drag;
     scrollbar-width: none;
@@ -91,16 +90,17 @@ body.sidebar-resizing .sidebar-resizer {
 }
 
 .tab {
+    margin-top: 1px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 10px;
-    border-radius: 8px;
+    padding: 7px 10px;
+    border-top: 3px solid #ffa2f9;
+    border-radius: 4px 4px 0 0;
     font-size: 12px;
     line-height: 1;
     color: rgba(21, 23, 26, 0.8);
     background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(15, 17, 20, 0.08);
     cursor: pointer;
     user-select: none;
     -webkit-app-region: no-drag;
@@ -109,12 +109,12 @@ body.sidebar-resizing .sidebar-resizer {
 
 .tab:hover {
     background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(15, 17, 20, 0.14);
+    border-color: #6be275;
 }
 
 .tab.active {
     background: #ffffff;
-    border-color: rgba(15, 17, 20, 0.24);
+    border-color: #6be275;
     color: rgba(21, 23, 26, 0.95);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
