@@ -6,7 +6,7 @@ import { FileTree } from './components/FileTree.js';
 import { TabManager } from './components/TabManager.js';
 import { SettingsDialog } from './components/SettingsDialog.js';
 import { desktopDir, join } from '@tauri-apps/api/path';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -209,80 +209,59 @@ async function captureViewContent() {
         return color && !transparentValues.has(color) ? color : null;
     };
 
-    const adjustments = [];
-    const rememberStyle = (element, property, value) => {
-        const previousValue = element.style.getPropertyValue(property);
-        const previousPriority = element.style.getPropertyPriority(property);
-        adjustments.push(() => {
-            if (previousValue) {
-                element.style.setProperty(property, previousValue, previousPriority);
-            } else {
-                element.style.removeProperty(property);
-            }
-        });
-        element.style.setProperty(property, value);
-    };
+    const bodyBackground = getBackground(document.body);
+    const backgroundColor =
+        getBackground(captureElement) ||
+        getBackground(viewElement) ||
+        bodyBackground ||
+        '#ffffff';
+    const scale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
 
-    const rememberScroll = (element) => {
-        const previousTop = element.scrollTop;
-        const previousLeft = element.scrollLeft;
-        adjustments.push(() => {
-            element.scrollTop = previousTop;
-            element.scrollLeft = previousLeft;
-        });
-        element.scrollTop = 0;
-        element.scrollLeft = 0;
-    };
+    const scrollWidth = Math.ceil(
+        Math.max(
+            captureElement.scrollWidth,
+            captureElement.offsetWidth,
+            captureElement.clientWidth
+        )
+    );
+    const scrollHeight = Math.ceil(captureElement.scrollHeight);
 
-    const ancestors = [];
-    let current = captureElement.parentElement;
-    while (current) {
-        ancestors.push(current);
-        if (current === document.body || current === document.documentElement) {
-            break;
-        }
-        current = current.parentElement;
-    }
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-100000px';
+    wrapper.style.top = '0';
+    wrapper.style.padding = '0';
+    wrapper.style.margin = '0';
+    wrapper.style.background = backgroundColor;
+    wrapper.style.width = `${scrollWidth}px`;
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.zIndex = '-1';
 
-    const ensureVisible = (element) => {
-        rememberStyle(element, 'overflow', 'visible');
-        rememberStyle(element, 'height', 'auto');
-        rememberStyle(element, 'min-height', 'auto');
-        rememberStyle(element, 'max-height', 'none');
-    };
+    const clone = captureElement.cloneNode(true);
+    clone.style.width = `${scrollWidth}px`;
+    clone.style.minHeight = `${scrollHeight}px`;
+    clone.style.boxSizing = 'border-box';
 
-    ensureVisible(captureElement);
-    ensureVisible(viewElement);
-    ancestors.forEach(ensureVisible);
-
-    rememberStyle(document.body, 'overflow', 'auto');
-    rememberStyle(document.documentElement, 'overflow', 'auto');
-
-    rememberScroll(viewElement);
-    rememberScroll(captureElement);
-
-    const backgroundColor = getBackground(captureElement) || getBackground(viewElement) || '#ffffff';
-    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
 
     await new Promise(resolve => requestAnimationFrame(resolve));
     await new Promise(resolve => requestAnimationFrame(resolve));
 
     try {
-        const canvas = await html2canvas(captureElement, {
+        await document.fonts?.ready;
+        const dataUrl = await toPng(clone, {
             backgroundColor,
-            useCORS: true,
-            scale,
+            pixelRatio: scale,
+            cacheBust: true,
+            width: scrollWidth,
+            height: scrollHeight,
+            canvasWidth: Math.ceil(scrollWidth * scale),
+            canvasHeight: Math.ceil(scrollHeight * scale),
         });
-        return canvas.toDataURL('image/png');
+        return dataUrl;
     } finally {
-        while (adjustments.length > 0) {
-            const restore = adjustments.pop();
-            try {
-                restore();
-            } catch (restoreError) {
-                console.warn('恢复样式时出错', restoreError);
-            }
-        }
+        document.body.removeChild(wrapper);
     }
 }
 

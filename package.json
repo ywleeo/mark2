@@ -27,7 +27,7 @@
     "@tiptap/starter-kit": "^3.6.5",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
-    "html2canvas": "^1.4.1",
+    "html-to-image": "^1.11.13",
     "lowlight": "^3.3.0",
     "markdown-it": "^14.1.0",
     "prosemirror-markdown": "^1.13.2",
