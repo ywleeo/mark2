@@ -1,0 +1,159 @@
+.settings-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1000;
+}
+
+.settings-modal,
+.settings-modal * {
+    -webkit-app-region: no-drag;
+}
+
+.settings-modal.hidden {
+    display: none;
+}
+
+.settings-dialog {
+    width: 420px;
+    max-width: 100%;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(14, 18, 27, 0.25);
+    overflow: hidden;
+    color: #1f2933;
+}
+
+.settings-header {
+    padding: 20px 24px 12px 24px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.settings-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.settings-subtitle {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.settings-body {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+}
+
+.settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settings-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.settings-field input,
+.settings-field select {
+    border: 1px solid #cbd5f5;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #1f2937;
+    background: #f8fafc;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-field select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8L10 12L14 8' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px 16px;
+    padding-right: 40px;
+}
+
+.settings-field input[type="number"] {
+    appearance: textfield;
+}
+
+.settings-field input[type="number"]::-webkit-outer-spin-button,
+.settings-field input[type="number"]::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+}
+
+.settings-field input:focus,
+.settings-field select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+    background: #ffffff;
+}
+
+.settings-footer {
+    padding: 16px 24px 20px 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    background: #f8fafc;
+}
+
+.settings-footer .btn {
+    min-width: 96px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s ease;
+}
+
+.settings-footer .btn.primary {
+    background: #2563eb;
+    color: #ffffff;
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+}
+
+.settings-footer .btn.primary:hover {
+    background: #1d4ed8;
+}
+
+.settings-footer .btn.secondary {
+    background: transparent;
+    color: #1e293b;
+}
+
+.settings-footer .btn.secondary:hover {
+    background: rgba(148, 163, 184, 0.12);
+}
+
+@media (max-width: 520px) {
+    .settings-dialog {
+        width: 100%;
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+}

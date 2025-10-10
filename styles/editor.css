@@ -3,8 +3,10 @@
     padding: 30px 50px;
     min-height: 100%;
     outline: none;
-    font-size: 16px;
-    line-height: 1.6;
+    font-size: var(--editor-font-size, 16px);
+    line-height: var(--editor-line-height, 1.6);
+    font-family: var(--editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif);
+    font-weight: var(--editor-font-weight, 400);
     color: #333;
     box-sizing: border-box;
 }

@@ -43,7 +43,7 @@
     width: 12px;
     height: 12px;
     transition: transform 0.15s ease;
-    color: var(--text-secondary, #c63378);
+    color: var(--text-secondary, #313131);
 }
 
 .section-arrow path {

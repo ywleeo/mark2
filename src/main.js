@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { MarkdownEditor } from './components/MarkdownEditor.js';
 import { FileTree } from './components/FileTree.js';
 import { TabManager } from './components/TabManager.js';
+import { SettingsDialog } from './components/SettingsDialog.js';
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -11,9 +12,19 @@ let currentFile = null;
 let editor = null;
 let fileTree = null;
 let tabManager = null;
+let settingsDialog = null;
+let editorSettings = { fontSize: 16, lineHeight: 1.6, fontFamily: '', fontWeight: 400 };
+let availableFontFamilies = [];
 
 const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
+const SETTINGS_STORAGE_KEY = 'mark2:editorSettings';
+const defaultEditorSettings = {
+    fontSize: 16,
+    lineHeight: 1.6,
+    fontFamily: '',
+    fontWeight: 400,
+};
 
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,10 +48,22 @@ document.addEventListener('DOMContentLoaded', () => {
         onTabClose: handleTabClose,
     });
 
+    editorSettings = loadEditorSettings();
+    applyEditorSettings(editorSettings);
+
+    settingsDialog = new SettingsDialog({
+        onSubmit: handleSettingsSubmit,
+    });
+    if (availableFontFamilies.length > 0) {
+        settingsDialog.setAvailableFonts(availableFontFamilies);
+    }
+
     setupKeyboardShortcuts();
     setupMenuListeners();
     setupSidebarResizer();
     setupCleanupHandlers();
+
+    loadAvailableFonts();
 });
 
 // 文件选择回调
@@ -93,7 +116,160 @@ async function setupMenuListeners() {
         console.log('收到菜单事件:', event);
         openFileOrFolder();
     });
+
+    await listen('menu-settings', () => {
+        console.log('收到设置菜单事件');
+        openSettingsDialog();
+    });
     console.log('菜单事件监听已设置');
+}
+
+function openSettingsDialog() {
+    if (!settingsDialog) {
+        settingsDialog = new SettingsDialog({
+            onSubmit: handleSettingsSubmit,
+        });
+    }
+    settingsDialog.open(editorSettings);
+}
+
+function handleSettingsSubmit(nextSettings) {
+    const merged = {
+        ...editorSettings,
+        ...nextSettings,
+    };
+
+    editorSettings = normalizeEditorSettings(merged);
+    applyEditorSettings(editorSettings);
+    saveEditorSettings(editorSettings);
+}
+
+function loadEditorSettings() {
+    try {
+        const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (!stored) {
+            return { ...defaultEditorSettings };
+        }
+
+        const parsed = JSON.parse(stored);
+        return normalizeEditorSettings(parsed);
+    } catch (error) {
+        console.warn('加载编辑器设置失败，使用默认值', error);
+        return { ...defaultEditorSettings };
+    }
+}
+
+function saveEditorSettings(settings) {
+    try {
+        const normalized = normalizeEditorSettings(settings);
+        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(normalized));
+    } catch (error) {
+        console.warn('保存编辑器设置失败', error);
+    }
+}
+
+function applyEditorSettings(settings) {
+    const prefs = normalizeEditorSettings(settings);
+    const root = document.documentElement;
+
+    root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
+    root.style.setProperty('--editor-line-height', prefs.lineHeight.toString());
+    root.style.setProperty('--editor-font-weight', prefs.fontWeight.toString());
+
+    if (prefs.fontFamily && prefs.fontFamily.length > 0) {
+        root.style.setProperty('--editor-font-family', prefs.fontFamily);
+    } else {
+        root.style.removeProperty('--editor-font-family');
+    }
+}
+
+async function loadAvailableFonts() {
+    try {
+        const fonts = await invoke('list_fonts');
+        if (!Array.isArray(fonts)) {
+            return;
+        }
+
+        const normalized = Array.from(
+            new Set(
+                fonts
+                    .map(name => (typeof name === 'string' ? name.trim() : ''))
+                    .filter(Boolean)
+            )
+        ).sort((a, b) => a.localeCompare(b, 'zh-Hans-CN', { sensitivity: 'accent' }));
+
+        availableFontFamilies = normalized;
+        if (settingsDialog) {
+            settingsDialog.setAvailableFonts(availableFontFamilies);
+            settingsDialog.syncFontSelection(editorSettings.fontFamily);
+        }
+    } catch (error) {
+        console.warn('加载系统字体列表失败', error);
+    }
+}
+
+function normalizeEditorSettings(candidate) {
+    const prefs = { ...defaultEditorSettings };
+
+    if (candidate && typeof candidate === 'object') {
+        if (candidate.fontSize !== undefined) {
+            const size = Number(candidate.fontSize);
+            if (Number.isFinite(size)) {
+                prefs.fontSize = clamp(size, 10, 48);
+            }
+        }
+
+        if (candidate.lineHeight !== undefined) {
+            const height = Number(candidate.lineHeight);
+            if (Number.isFinite(height)) {
+                const clampedHeight = clamp(height, 1.0, 3.0);
+                prefs.lineHeight = Number(clampedHeight.toFixed(2));
+            }
+        }
+
+        if (typeof candidate.fontFamily === 'string') {
+            const trimmedFamily = candidate.fontFamily.trim();
+            if (
+                trimmedFamily &&
+                !trimmedFamily.includes(',') &&
+                !/["']/.test(trimmedFamily) &&
+                /\s/.test(trimmedFamily)
+            ) {
+                prefs.fontFamily = `'${trimmedFamily.replace(/'/g, "\\'")}'`;
+            } else {
+                prefs.fontFamily = trimmedFamily;
+            }
+        }
+
+        if (candidate.fontWeight !== undefined) {
+            const weight = Number(candidate.fontWeight);
+            if (Number.isFinite(weight)) {
+                prefs.fontWeight = normalizeFontWeight(weight);
+            }
+        }
+    }
+
+    return prefs;
+}
+
+function clamp(value, min, max) {
+    if (!Number.isFinite(value)) {
+        return min;
+    }
+    return Math.min(Math.max(value, min), max);
+}
+
+function normalizeFontWeight(weight) {
+    const allowed = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+    if (allowed.includes(weight)) {
+        return weight;
+    }
+
+    const nearest = allowed.reduce((closest, current) => {
+        return Math.abs(current - weight) < Math.abs(closest - weight) ? current : closest;
+    }, allowed[0]);
+
+    return nearest;
 }
 
 // 设置快捷键

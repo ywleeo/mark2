@@ -4,6 +4,7 @@
 use std::fs;
 use std::path::Path;
 use tauri::{menu::*, Emitter};
+use font_kit::source::SystemSource;
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -83,6 +84,19 @@ fn pick_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
     }
 }
 
+#[tauri::command]
+fn list_fonts() -> Result<Vec<String>, String> {
+    let source = SystemSource::new();
+    let mut families = source
+        .all_families()
+        .map_err(|err| err.to_string())?;
+
+    families.sort();
+    families.dedup();
+
+    Ok(families)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -92,7 +106,8 @@ fn main() {
             read_file,
             write_file,
             read_dir,
-            pick_path
+            pick_path,
+            list_fonts
         ])
         .setup(|app| {
             // 创建菜单
@@ -100,8 +115,16 @@ fn main() {
                 .accelerator("CmdOrCtrl+O")
                 .build(app)?;
 
+            let settings_item = MenuItemBuilder::with_id("settings", "Settings...")
+                .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+
             // 应用菜单（macOS 默认菜单）
-            let app_menu = SubmenuBuilder::new(app, "Mark2").quit().build()?;
+            let app_menu = SubmenuBuilder::new(app, "Mark2")
+                .item(&settings_item)
+                .separator()
+                .quit()
+                .build()?;
 
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File").item(&open_item).build()?;
@@ -138,6 +161,9 @@ fn main() {
                 if event.id().as_ref() == "open" {
                     println!("发送 menu-open 事件到前端");
                     let _ = app.emit("menu-open", ());
+                } else if event.id().as_ref() == "settings" {
+                    println!("发送 menu-settings 事件到前端");
+                    let _ = app.emit("menu-settings", ());
                 }
             });
 
