@@ -1,12 +1,44 @@
 import { invoke } from '@tauri-apps/api/core';
 import { open, save, message } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
-import { MarkdownEditor } from './components/MarkdownEditor.js';
-import { FileTree } from './components/FileTree.js';
-import { TabManager } from './components/TabManager.js';
-import { SettingsDialog } from './components/SettingsDialog.js';
 import { desktopDir, join } from '@tauri-apps/api/path';
-import { toPng } from 'html-to-image';
+
+let MarkdownEditorCtor = null;
+let FileTreeCtor = null;
+let TabManagerCtor = null;
+let SettingsDialogCtor = null;
+let ensureCoreModulesPromise = null;
+
+async function ensureCoreModules() {
+    if (!ensureCoreModulesPromise) {
+        ensureCoreModulesPromise = (async () => {
+            const [editorModule, fileTreeModule, tabManagerModule, settingsModule] = await Promise.all([
+                import('./components/MarkdownEditor.js'),
+                import('./components/FileTree.js'),
+                import('./components/TabManager.js'),
+                import('./components/SettingsDialog.js'),
+            ]);
+
+            MarkdownEditorCtor = editorModule.MarkdownEditor;
+            FileTreeCtor = fileTreeModule.FileTree;
+            TabManagerCtor = tabManagerModule.TabManager;
+            SettingsDialogCtor = settingsModule.SettingsDialog;
+        })();
+    }
+
+    await ensureCoreModulesPromise;
+}
+
+let toPngRenderer = null;
+
+async function ensureToPng() {
+    if (!toPngRenderer) {
+        const module = await import('html-to-image');
+        toPngRenderer = module.toPng;
+    }
+
+    return toPngRenderer;
+}
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -30,22 +62,28 @@ const defaultEditorSettings = {
 
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
+    void initializeApplication();
+});
+
+async function initializeApplication() {
     console.log('DOM 加载完成');
+
+    await ensureCoreModules();
 
     // 初始化编辑器
     const editorElement = document.getElementById('viewContent');
-    editor = new MarkdownEditor(editorElement);
+    editor = new MarkdownEditorCtor(editorElement);
 
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
-    fileTree = new FileTree(fileTreeElement, handleFileSelect, {
+    fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
         onFolderChange: handleFolderWatcherEvent,
         onFileChange: handleFileWatcherEvent,
         onOpenFilesChange: handleOpenFilesChange,
     });
 
     const tabBarElement = document.getElementById('tabBar');
-    tabManager = new TabManager(tabBarElement, {
+    tabManager = new TabManagerCtor(tabBarElement, {
         onTabSelect: handleTabSelect,
         onTabClose: handleTabClose,
     });
@@ -53,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     editorSettings = loadEditorSettings();
     applyEditorSettings(editorSettings);
 
-    settingsDialog = new SettingsDialog({
+    settingsDialog = new SettingsDialogCtor({
         onSubmit: handleSettingsSubmit,
     });
     if (availableFontFamilies.length > 0) {
@@ -61,12 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupKeyboardShortcuts();
-    setupMenuListeners();
+    await setupMenuListeners();
     setupSidebarResizer();
     setupCleanupHandlers();
 
     loadAvailableFonts();
-});
+}
 
 // 文件选择回调
 async function handleFileSelect(filePath) {
@@ -116,12 +154,12 @@ function handleTabClose(tab) {
 async function setupMenuListeners() {
     await listen('menu-open', (event) => {
         console.log('收到菜单事件:', event);
-        openFileOrFolder();
+        void openFileOrFolder();
     });
 
     await listen('menu-settings', () => {
         console.log('收到设置菜单事件');
-        openSettingsDialog();
+        void openSettingsDialog();
     });
 
     await listen('menu-screenshot', async () => {
@@ -279,7 +317,8 @@ async function captureViewContent() {
         clone.style.minHeight = `${targetHeight}px`;
 
         await document.fonts?.ready;
-        const dataUrl = await toPng(clone, {
+        const renderToPng = await ensureToPng();
+        const dataUrl = await renderToPng(clone, {
             backgroundColor,
             pixelRatio: scale,
             cacheBust: true,
@@ -327,12 +366,18 @@ function createWatermarkElement(baseBackground) {
     return container;
 }
 
-function openSettingsDialog() {
+async function openSettingsDialog() {
+    await ensureCoreModules();
+
     if (!settingsDialog) {
-        settingsDialog = new SettingsDialog({
+        settingsDialog = new SettingsDialogCtor({
             onSubmit: handleSettingsSubmit,
         });
+        if (availableFontFamilies.length > 0) {
+            settingsDialog.setAvailableFonts(availableFontFamilies);
+        }
     }
+
     settingsDialog.open(editorSettings);
 }
 
