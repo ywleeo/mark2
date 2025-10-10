@@ -1,0 +1,17 @@
+{
+    "commands": [
+        "git", "gitk", "gitfs", "gh",
+        "top", "htop", "btop",
+        "ps", "pgrep", "pkill", "systemctl",
+        "pip", "pip3", "pipenv", "poetry", "uv",
+        "npm", "npx", "pnpm", "yarn", "bun",
+        "brew", "apt", "apt-get", "aptitude", "dnf", "yum", "pacman", "zypper", "conda", "mamba",
+        "docker", "docker-compose", "kubectl", "helm",
+        "tmux", "screen", "watch", "lsof", "ll",
+        "ssh", "scp", "sftp", "rsync", "curl", "wget", "ping",
+        "make", "cmake", "ninja", "cargo", "go", "gradle", "mvn",
+        "code", "open", "osascript",
+        "export", "ls", "cd",
+        "rg", "fd", "bat", "exa", "jq", "fzf"
+    ]
+}

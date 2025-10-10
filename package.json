@@ -21,11 +21,13 @@
     "@tauri-apps/api": "^2.3.0",
     "@tauri-apps/plugin-dialog": "^2.3.0",
     "@tauri-apps/plugin-fs": "^2.3.0",
+    "@tiptap/extension-code-block-lowlight": "^3.6.6",
     "@tiptap/pm": "^3.6.5",
     "@tiptap/react": "^3.6.5",
     "@tiptap/starter-kit": "^3.6.5",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
+    "lowlight": "^3.3.0",
     "markdown-it": "^14.1.0",
     "prosemirror-markdown": "^1.13.2",
     "turndown": "^7.2.1"

@@ -2,6 +2,108 @@ import { Editor, Node, mergeAttributes } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import MarkdownIt from 'markdown-it';
 import TurndownService from 'turndown';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { createLowlight, common as commonLanguages } from 'lowlight';
+import shellCommandConfig from '../config/shell-commands.json';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import bash from 'highlight.js/lib/languages/bash';
+import shell from 'highlight.js/lib/languages/shell';
+import python from 'highlight.js/lib/languages/python';
+import go from 'highlight.js/lib/languages/go';
+import rust from 'highlight.js/lib/languages/rust';
+import java from 'highlight.js/lib/languages/java';
+import cpp from 'highlight.js/lib/languages/cpp';
+import csharp from 'highlight.js/lib/languages/csharp';
+import php from 'highlight.js/lib/languages/php';
+import ruby from 'highlight.js/lib/languages/ruby';
+import kotlin from 'highlight.js/lib/languages/kotlin';
+import swift from 'highlight.js/lib/languages/swift';
+import markdownLang from 'highlight.js/lib/languages/markdown';
+import yaml from 'highlight.js/lib/languages/yaml';
+import xml from 'highlight.js/lib/languages/xml';
+import css from 'highlight.js/lib/languages/css';
+import scss from 'highlight.js/lib/languages/scss';
+import sql from 'highlight.js/lib/languages/sql';
+import powershell from 'highlight.js/lib/languages/powershell';
+
+const lowlight = createLowlight(commonLanguages);
+
+const extendBuiltInCommands = (languageFn, additionalCommands = []) => {
+    return hljs => {
+        const language = languageFn(hljs);
+
+        if (language?.keywords?.built_in) {
+            const builtIns = new Set(language.keywords.built_in);
+            additionalCommands.forEach(command => builtIns.add(command));
+            language.keywords.built_in = Array.from(builtIns);
+        }
+
+        if (Array.isArray(language?.contains)) {
+            const assignmentRule = {
+                className: 'variable',
+                begin: /\b[A-Za-z_][A-Za-z0-9_]*\b(?=\s*=)/,
+            };
+
+            const hasAssignmentRule = language.contains.some(rule => {
+                return rule.className === assignmentRule.className && String(rule.begin) === String(assignmentRule.begin);
+            });
+
+            if (!hasAssignmentRule) {
+                language.contains = [assignmentRule, ...language.contains];
+            }
+        }
+
+        return language;
+    };
+};
+
+const additionalShellCommands = Array.isArray(shellCommandConfig?.commands)
+    ? shellCommandConfig.commands
+    : [];
+
+lowlight.register({ bash: extendBuiltInCommands(bash, additionalShellCommands) });
+
+const ensureLanguage = (name, fn) => {
+    if (!lowlight.registered(name)) {
+        lowlight.register({ [name]: fn });
+    }
+};
+
+const ensureAlias = (language, alias) => {
+    if (!lowlight.registered(alias)) {
+        lowlight.registerAlias({ [language]: [alias] });
+    }
+};
+
+[
+    ['javascript', javascript, ['js', 'jsx']],
+    ['typescript', typescript, ['ts', 'tsx']],
+    ['json', json, []],
+    ['bash', bash, []],
+    ['shell', shell, ['sh']],
+    ['python', python, ['py']],
+    ['go', go, []],
+    ['rust', rust, []],
+    ['java', java, []],
+    ['cpp', cpp, ['c++']],
+    ['csharp', csharp, ['cs']],
+    ['php', php, []],
+    ['ruby', ruby, []],
+    ['kotlin', kotlin, []],
+    ['swift', swift, []],
+    ['markdown', markdownLang, ['md']],
+    ['yaml', yaml, ['yml']],
+    ['xml', xml, ['html', 'htm']],
+    ['css', css, []],
+    ['scss', scss, []],
+    ['sql', sql, []],
+    ['powershell', powershell, ['ps', 'ps1']],
+].forEach(([name, fn, aliases]) => {
+    ensureLanguage(name, fn);
+    aliases.forEach(alias => ensureAlias(name, alias));
+});
 
 const MarkdownImage = Node.create({
     name: 'image',
@@ -108,10 +210,12 @@ export class MarkdownEditor {
                     heading: {
                         levels: [1, 2, 3, 4, 5, 6],
                     },
-                    codeBlock: {
-                        HTMLAttributes: {
-                            class: 'code-block',
-                        },
+                    codeBlock: false,
+                }),
+                CodeBlockLowlight.configure({
+                    lowlight,
+                    HTMLAttributes: {
+                        class: 'code-block hljs',
                     },
                 }),
                 MarkdownImage,

@@ -50,7 +50,6 @@
 
 /* 代码块 */
 .tiptap-editor pre {
-    background: #f5f5f5;
     border-radius: 6px;
     padding: 16px;
     margin: 1em 0;
@@ -58,6 +57,10 @@
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     font-size: 14px;
     line-height: 1.5;
+}
+
+.tiptap-editor pre:not(.hljs) {
+    background: #f5f5f5;
 }
 
 .tiptap-editor code {
