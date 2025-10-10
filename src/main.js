@@ -237,7 +237,15 @@ async function captureViewContent() {
     wrapper.style.pointerEvents = 'none';
     wrapper.style.zIndex = '-1';
 
+    captureElement
+        .querySelectorAll('.screenshot-watermark')
+        .forEach(element => element.remove());
+
     const clone = captureElement.cloneNode(true);
+    clone.style.paddingBottom = '0px';
+    clone.style.marginBottom = '0px';
+    const watermarkElement = createWatermarkElement(backgroundColor || '#ffffff');
+    clone.appendChild(watermarkElement);
     clone.style.width = `${scrollWidth}px`;
     clone.style.minHeight = `${scrollHeight}px`;
     clone.style.boxSizing = 'border-box';
@@ -249,20 +257,74 @@ async function captureViewContent() {
     await new Promise(resolve => requestAnimationFrame(resolve));
 
     try {
+        const targetWidth = Math.ceil(
+            Math.max(
+                scrollWidth,
+                clone.scrollWidth,
+                clone.offsetWidth,
+                clone.clientWidth
+            )
+        );
+        const targetHeight = Math.ceil(
+            Math.max(
+                scrollHeight,
+                clone.scrollHeight,
+                clone.offsetHeight,
+                clone.clientHeight
+            )
+        );
+
+        wrapper.style.width = `${targetWidth}px`;
+        clone.style.width = `${targetWidth}px`;
+        clone.style.minHeight = `${targetHeight}px`;
+
         await document.fonts?.ready;
         const dataUrl = await toPng(clone, {
             backgroundColor,
             pixelRatio: scale,
             cacheBust: true,
-            width: scrollWidth,
-            height: scrollHeight,
-            canvasWidth: Math.ceil(scrollWidth * scale),
-            canvasHeight: Math.ceil(scrollHeight * scale),
+            width: targetWidth,
+            height: targetHeight,
+            canvasWidth: Math.ceil(targetWidth * scale),
+            canvasHeight: Math.ceil(targetHeight * scale),
         });
         return dataUrl;
     } finally {
-        document.body.removeChild(wrapper);
+        if (wrapper.parentNode) {
+            wrapper.parentNode.removeChild(wrapper);
+        }
     }
+}
+
+function createWatermarkElement(baseBackground) {
+    const container = document.createElement('div');
+    container.className = 'screenshot-watermark';
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.style.padding = '2px 0 5px';
+    container.style.background = baseBackground;
+
+    const divider = document.createElement('div');
+    divider.style.width = '100%';
+    divider.style.height = '2px';
+    divider.style.backgroundColor = '#eeeeee';
+    divider.style.margin = '0 0 10px 0';
+
+    const ribbon = document.createElement('span');
+    ribbon.textContent = 'Mark2';
+    ribbon.style.display = 'inline-block';
+    ribbon.style.background = '#ff3b30';
+    ribbon.style.color = '#ffffff';
+    ribbon.style.fontSize = '14px';
+    ribbon.style.fontWeight = '700';
+    ribbon.style.padding = '2px 15px';
+    ribbon.style.letterSpacing = '0.5px';
+
+    container.appendChild(divider);
+    container.appendChild(ribbon);
+
+    return container;
 }
 
 function openSettingsDialog() {

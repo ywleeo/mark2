@@ -143,7 +143,7 @@ fn main() {
                 .build(app)?;
 
             let screenshot_item = MenuItemBuilder::with_id("tool-screenshot", "Capture Screenshot...")
-                .accelerator("CmdOrCtrl+Shift+S")
+                .accelerator("CmdOrCtrl+Shift+C")
                 .build(app)?;
 
             // 应用菜单（macOS 默认菜单）
