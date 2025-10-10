@@ -10,6 +10,7 @@ export class FileTree {
         this.fileWatchers = new Map();
         this.onFolderChange = callbacks.onFolderChange;
         this.onFileChange = callbacks.onFileChange;
+        this.onOpenFilesChange = callbacks.onOpenFilesChange;
         this.init();
     }
 
@@ -28,7 +29,7 @@ export class FileTree {
 
     isInOpenList(path) {
         const normalized = this.normalizePath(path);
-        const result = this.openFiles.some(item => this.normalizePath(item) === normalized);
+        const result = this.openFiles.some(item => item === normalized);
         console.debug('[FileTree] 检查打开列表', {
             path,
             normalized,
@@ -342,40 +343,56 @@ export class FileTree {
     }
 
     selectFile(path) {
+        const normalized = this.normalizePath(path);
+        if (!normalized) {
+            this.clearSelection();
+            this.currentFile = null;
+            if (this.onFileSelect) {
+                this.onFileSelect(null);
+            }
+            return;
+        }
+
         // 移除之前的选中状态
         this.container.querySelectorAll('.tree-file.selected, .open-file-item.selected').forEach(el => {
             el.classList.remove('selected');
         });
 
         // 添加选中状态到文件树
-        const fileItem = this.container.querySelector(`.tree-file[data-path="${path}"]`);
+        const fileItem = this.container.querySelector(`.tree-file[data-path="${normalized}"]`)
+            || this.container.querySelector(`.tree-file[data-path="${path}"]`);
         if (fileItem) {
             fileItem.classList.add('selected');
         }
 
         // 添加选中状态到打开文件列表
-        const openFileItem = this.container.querySelector(`.open-file-item[data-path="${path}"]`);
+        const openFileItem = this.container.querySelector(`.open-file-item[data-path="${normalized}"]`)
+            || this.container.querySelector(`.open-file-item[data-path="${path}"]`);
         if (openFileItem) {
             openFileItem.classList.add('selected');
         }
 
-        this.currentFile = path;
+        this.currentFile = normalized;
 
         // 回调
         if (this.onFileSelect) {
-            this.onFileSelect(path);
+            this.onFileSelect(normalized);
         }
     }
 
     addToOpenFiles(path) {
-        if (this.isInOpenList(path)) return;
+        const normalized = this.normalizePath(path);
+        if (!normalized) return;
 
-        this.openFiles.push(path);
-        console.debug('[FileTree] 添加到打开文件列表', { path, openFiles: [...this.openFiles] });
+        if (this.isInOpenList(normalized)) return;
+
+        this.openFiles.push(normalized);
+        console.debug('[FileTree] 添加到打开文件列表', { path: normalized, openFiles: [...this.openFiles] });
         this.renderOpenFiles();
-        this.watchFile(path).catch(error => {
+        this.watchFile(normalized).catch(error => {
             console.error('监听文件失败:', error);
         });
+        this.onOpenFilesChange?.([...this.openFiles]);
     }
 
     renderOpenFiles() {
@@ -397,6 +414,10 @@ export class FileTree {
             const item = document.createElement('div');
             item.className = 'open-file-item';
             item.dataset.path = path;
+
+            if (this.normalizePath(this.currentFile) === path) {
+                item.classList.add('selected');
+            }
 
             const iconSvg = `
                 <svg class="open-file-icon" width="14" height="14" viewBox="0 0 16 16">
@@ -428,12 +449,35 @@ export class FileTree {
     }
 
     closeFile(path) {
-        const index = this.openFiles.indexOf(path);
+        const normalizedTarget = this.normalizePath(path);
+        const index = this.openFiles.findIndex(item => item === normalizedTarget);
         if (index > -1) {
+            const wasActive = this.normalizePath(this.currentFile) === normalizedTarget;
             this.openFiles.splice(index, 1);
             this.renderOpenFiles();
-            this.stopWatchingFile(path);
+            this.stopWatchingFile(normalizedTarget);
+            this.onOpenFilesChange?.([...this.openFiles]);
+
+            if (wasActive) {
+                const fallbackIndex = Math.min(index, this.openFiles.length - 1);
+                const fallback = fallbackIndex >= 0 ? this.openFiles[fallbackIndex] : null;
+                if (fallback) {
+                    this.selectFile(fallback);
+                } else {
+                    this.clearSelection();
+                    if (this.onFileSelect) {
+                        this.onFileSelect(null);
+                    }
+                }
+            }
         }
+    }
+
+    clearSelection() {
+        this.container.querySelectorAll('.tree-file.selected, .open-file-item.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        this.currentFile = null;
     }
 
     async watchFolder(path) {

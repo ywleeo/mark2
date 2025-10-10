@@ -90,6 +90,59 @@ body.sidebar-resizing .sidebar-resizer {
     display: none;
 }
 
+.tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1;
+    color: rgba(21, 23, 26, 0.8);
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(15, 17, 20, 0.08);
+    cursor: pointer;
+    user-select: none;
+    -webkit-app-region: no-drag;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tab:hover {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 17, 20, 0.14);
+}
+
+.tab.active {
+    background: #ffffff;
+    border-color: rgba(15, 17, 20, 0.24);
+    color: rgba(21, 23, 26, 0.95);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tab-label {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-close {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: rgba(21, 23, 26, 0.4);
+    transition: color 0.15s ease;
+}
+
+.tab-close:hover {
+    color: rgba(21, 23, 26, 0.85);
+}
+
 .content-area {
     flex: 1;
     display: flex;

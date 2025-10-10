@@ -3,12 +3,14 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { MarkdownEditor } from './components/MarkdownEditor.js';
 import { FileTree } from './components/FileTree.js';
+import { TabManager } from './components/TabManager.js';
 
 console.log('Mark2 Tauri 版本已启动');
 
 let currentFile = null;
 let editor = null;
 let fileTree = null;
+let tabManager = null;
 
 const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
@@ -26,6 +28,13 @@ document.addEventListener('DOMContentLoaded', () => {
     fileTree = new FileTree(fileTreeElement, handleFileSelect, {
         onFolderChange: handleFolderWatcherEvent,
         onFileChange: handleFileWatcherEvent,
+        onOpenFilesChange: handleOpenFilesChange,
+    });
+
+    const tabBarElement = document.getElementById('tabBar');
+    tabManager = new TabManager(tabBarElement, {
+        onTabSelect: handleTabSelect,
+        onTabClose: handleTabClose,
     });
 
     setupKeyboardShortcuts();
@@ -36,7 +45,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 文件选择回调
 async function handleFileSelect(filePath) {
+    if (!filePath) {
+        currentFile = null;
+        editor?.clear?.();
+        tabManager?.clearSharedTab?.();
+        return;
+    }
+
     await loadFile(filePath);
+    const isOpenTab = fileTree?.isInOpenList?.(filePath);
+    if (isOpenTab) {
+        tabManager?.setActiveFileTab(filePath, { silent: true });
+    } else {
+        tabManager?.showSharedTab(filePath);
+    }
+}
+
+function handleOpenFilesChange(openFilePaths) {
+    tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
+}
+
+function handleTabSelect(tab) {
+    if (!tab) return;
+    if ((tab.type === 'file' || tab.type === 'shared') && tab.path) {
+        fileTree?.selectFile(tab.path);
+    }
+}
+
+function handleTabClose(tab) {
+    if (!tab) return;
+    if (tab.type === 'file' && tab.path) {
+        fileTree?.closeFile(tab.path);
+        return;
+    }
+
+    if (tab.type === 'shared') {
+        if (!tab.fallbackPath) {
+            fileTree?.selectFile(null);
+        }
+        return;
+    }
 }
 
 // 监听菜单事件

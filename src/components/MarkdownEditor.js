@@ -196,6 +196,21 @@ export class MarkdownEditor {
         }
     }
 
+    clear() {
+        this.currentFile = null;
+        this.originalMarkdown = '';
+        this.contentChanged = false;
+        if (!this.editor) {
+            return;
+        }
+        this.suppressUpdateEvent = true;
+        try {
+            this.editor.commands.setContent('');
+        } finally {
+            this.suppressUpdateEvent = false;
+        }
+    }
+
     hasUnsavedChanges() {
         return !!this.contentChanged;
     }
