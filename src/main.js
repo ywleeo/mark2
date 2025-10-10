@@ -1,10 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save, message } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { MarkdownEditor } from './components/MarkdownEditor.js';
 import { FileTree } from './components/FileTree.js';
 import { TabManager } from './components/TabManager.js';
 import { SettingsDialog } from './components/SettingsDialog.js';
+import { desktopDir, join } from '@tauri-apps/api/path';
+import html2canvas from 'html2canvas';
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -121,7 +123,167 @@ async function setupMenuListeners() {
         console.log('收到设置菜单事件');
         openSettingsDialog();
     });
+
+    await listen('menu-screenshot', async () => {
+        console.log('收到截图菜单事件');
+        await handleMenuScreenshot();
+    });
     console.log('菜单事件监听已设置');
+}
+
+async function handleMenuScreenshot() {
+    try {
+        const defaultPath = await buildDefaultScreenshotPath();
+        const targetPath = await save({
+            title: '保存截图',
+            filters: [
+                {
+                    name: 'PNG 图片',
+                    extensions: ['png'],
+                },
+            ],
+            defaultPath,
+        });
+
+        if (!targetPath) {
+            return;
+        }
+
+        const dataUrl = await captureViewContent();
+        await invoke('capture_screenshot', {
+            destination: targetPath,
+            imageData: dataUrl,
+        });
+        await message('截图已保存至: ' + targetPath, {
+            title: '截图完成',
+            kind: 'info',
+        });
+    } catch (error) {
+        console.error('生成截图失败', error);
+        const reason = error?.message || String(error);
+        await message('生成截图失败: ' + reason, {
+            title: '截图失败',
+            kind: 'error',
+        });
+    }
+}
+
+async function buildDefaultScreenshotPath() {
+    const timestamp = formatTimestampForFilename(new Date());
+    const fileName = `Mark2-Screenshot-${timestamp}.png`;
+
+    try {
+        const desktop = await desktopDir();
+        if (desktop && desktop.length > 0) {
+            return await join(desktop, fileName);
+        }
+    } catch (error) {
+        console.warn('无法获取桌面路径，使用默认文件名', error);
+    }
+
+    return fileName;
+}
+
+function formatTimestampForFilename(date) {
+    const pad = (value) => String(value).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    const seconds = pad(date.getSeconds());
+    return `${year}${month}${day}-${hours}${minutes}${seconds}`;
+}
+
+async function captureViewContent() {
+    const viewElement = document.getElementById('viewContent');
+    if (!viewElement) {
+        throw new Error('无法找到 viewContent 元素');
+    }
+
+    const captureElement = viewElement.querySelector('.tiptap-editor') || viewElement;
+
+    const transparentValues = new Set(['rgba(0, 0, 0, 0)', 'transparent']);
+    const getBackground = (element) => {
+        const color = window.getComputedStyle(element).backgroundColor;
+        return color && !transparentValues.has(color) ? color : null;
+    };
+
+    const adjustments = [];
+    const rememberStyle = (element, property, value) => {
+        const previousValue = element.style.getPropertyValue(property);
+        const previousPriority = element.style.getPropertyPriority(property);
+        adjustments.push(() => {
+            if (previousValue) {
+                element.style.setProperty(property, previousValue, previousPriority);
+            } else {
+                element.style.removeProperty(property);
+            }
+        });
+        element.style.setProperty(property, value);
+    };
+
+    const rememberScroll = (element) => {
+        const previousTop = element.scrollTop;
+        const previousLeft = element.scrollLeft;
+        adjustments.push(() => {
+            element.scrollTop = previousTop;
+            element.scrollLeft = previousLeft;
+        });
+        element.scrollTop = 0;
+        element.scrollLeft = 0;
+    };
+
+    const ancestors = [];
+    let current = captureElement.parentElement;
+    while (current) {
+        ancestors.push(current);
+        if (current === document.body || current === document.documentElement) {
+            break;
+        }
+        current = current.parentElement;
+    }
+
+    const ensureVisible = (element) => {
+        rememberStyle(element, 'overflow', 'visible');
+        rememberStyle(element, 'height', 'auto');
+        rememberStyle(element, 'min-height', 'auto');
+        rememberStyle(element, 'max-height', 'none');
+    };
+
+    ensureVisible(captureElement);
+    ensureVisible(viewElement);
+    ancestors.forEach(ensureVisible);
+
+    rememberStyle(document.body, 'overflow', 'auto');
+    rememberStyle(document.documentElement, 'overflow', 'auto');
+
+    rememberScroll(viewElement);
+    rememberScroll(captureElement);
+
+    const backgroundColor = getBackground(captureElement) || getBackground(viewElement) || '#ffffff';
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    try {
+        const canvas = await html2canvas(captureElement, {
+            backgroundColor,
+            useCORS: true,
+            scale,
+        });
+        return canvas.toDataURL('image/png');
+    } finally {
+        while (adjustments.length > 0) {
+            const restore = adjustments.pop();
+            try {
+                restore();
+            } catch (restoreError) {
+                console.warn('恢复样式时出错', restoreError);
+            }
+        }
+    }
 }
 
 function openSettingsDialog() {

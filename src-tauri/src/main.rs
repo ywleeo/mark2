@@ -4,6 +4,7 @@
 use std::fs;
 use std::path::Path;
 use tauri::{menu::*, Emitter};
+use base64::Engine;
 use font_kit::source::SystemSource;
 
 #[cfg(target_os = "macos")]
@@ -97,6 +98,27 @@ fn list_fonts() -> Result<Vec<String>, String> {
     Ok(families)
 }
 
+#[tauri::command]
+async fn capture_screenshot(destination: String, image_data: String) -> Result<(), String> {
+    if let Some(parent) = Path::new(&destination).parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+        }
+    }
+
+    let cleaned = image_data
+        .strip_prefix("data:image/png;base64,")
+        .unwrap_or(&image_data);
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(cleaned)
+        .map_err(|err| err.to_string())?;
+
+    fs::write(&destination, bytes).map_err(|err| err.to_string())?;
+
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -107,7 +129,8 @@ fn main() {
             write_file,
             read_dir,
             pick_path,
-            list_fonts
+            list_fonts,
+            capture_screenshot
         ])
         .setup(|app| {
             // 创建菜单
@@ -117,6 +140,10 @@ fn main() {
 
             let settings_item = MenuItemBuilder::with_id("settings", "Settings...")
                 .accelerator("CmdOrCtrl+,")
+                .build(app)?;
+
+            let screenshot_item = MenuItemBuilder::with_id("tool-screenshot", "Capture Screenshot...")
+                .accelerator("CmdOrCtrl+Shift+S")
                 .build(app)?;
 
             // 应用菜单（macOS 默认菜单）
@@ -147,10 +174,15 @@ fn main() {
                 .item(&select_all_item)
                 .build()?;
 
+            let tool_menu = SubmenuBuilder::new(app, "Tool")
+                .item(&screenshot_item)
+                .build()?;
+
             let menu = MenuBuilder::new(app)
                 .item(&app_menu)
                 .item(&file_menu)
                 .item(&edit_menu)
+                .item(&tool_menu)
                 .build()?;
 
             app.set_menu(menu)?;
@@ -164,6 +196,9 @@ fn main() {
                 } else if event.id().as_ref() == "settings" {
                     println!("发送 menu-settings 事件到前端");
                     let _ = app.emit("menu-settings", ());
+                } else if event.id().as_ref() == "tool-screenshot" {
+                    println!("发送 menu-screenshot 事件到前端");
+                    let _ = app.emit("menu-screenshot", ());
                 }
             });
 
