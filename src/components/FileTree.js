@@ -27,6 +27,14 @@ export class FileTree {
         return path;
     }
 
+    buildFolderKey(path, parentPath = null, isRoot = false) {
+        if (isRoot) {
+            return `root::${path}`;
+        }
+        const parentSegment = parentPath ?? '';
+        return `${parentSegment}::${path}`;
+    }
+
     isPrimaryPointerActivation(event) {
         if (!event) {
             return false;
@@ -168,8 +176,10 @@ export class FileTree {
             if (!contentDiv) return;
 
             let rootItem = contentDiv.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+            const folderKey = this.buildFolderKey(normalizedPath, null, true);
+
             if (!rootItem) {
-                rootItem = this.createFolderItem(folderName, normalizedPath, entries, true);
+                rootItem = this.createFolderItem(folderName, normalizedPath, entries, true, null);
                 contentDiv.appendChild(rootItem);
             } else {
                 const nameSpan = rootItem.querySelector('.tree-item-name');
@@ -177,6 +187,9 @@ export class FileTree {
                     nameSpan.textContent = folderName;
                 }
             }
+            rootItem.dataset.parentPath = '';
+            rootItem.dataset.nodeKey = folderKey;
+            rootItem.dataset.isRoot = 'true';
 
             const header = rootItem.querySelector('.tree-folder-header');
             const children = rootItem.querySelector('.tree-folder-children');
@@ -186,10 +199,10 @@ export class FileTree {
             }
 
             children.innerHTML = '';
-            const shouldExpand = isNewRoot || this.expandedFolders.has(normalizedPath);
+            const shouldExpand = isNewRoot || this.expandedFolders.has(folderKey);
 
             if (shouldExpand) {
-                this.expandedFolders.add(normalizedPath);
+                this.expandedFolders.add(folderKey);
                 header?.classList.add('expanded');
                 children.classList.add('expanded');
                 children.style.display = 'block';
@@ -229,10 +242,13 @@ export class FileTree {
         return [...folders, ...files];
     }
 
-    createFolderItem(name, path, entries, isRoot = false) {
+    createFolderItem(name, path, entries, isRoot = false, parentPath = null) {
         const item = document.createElement('div');
         item.className = 'tree-folder';
         item.dataset.path = path;
+        item.dataset.parentPath = parentPath ?? '';
+        item.dataset.nodeKey = this.buildFolderKey(path, parentPath, isRoot);
+        item.dataset.isRoot = isRoot ? 'true' : 'false';
 
         const header = document.createElement('div');
         header.className = `tree-folder-header ${isRoot ? 'root' : ''}`;
@@ -264,7 +280,7 @@ export class FileTree {
             }
 
             headerPointerState.handled = true;
-            this.toggleFolder(path);
+            this.toggleFolder(path, item);
             setTimeout(() => {
                 headerPointerState.handled = false;
             }, 0);
@@ -275,7 +291,7 @@ export class FileTree {
                 headerPointerState.handled = false;
                 return;
             }
-            this.toggleFolder(path);
+            this.toggleFolder(path, item);
         });
 
         const children = document.createElement('div');
@@ -348,22 +364,25 @@ export class FileTree {
         return item;
     }
 
-    async toggleFolder(path) {
-        const folderItem = this.container.querySelector(`[data-path="${path}"]`);
+    async toggleFolder(path, folderElement = null) {
+        const folderItem = folderElement ?? this.container.querySelector(`[data-path="${path}"]`);
         if (!folderItem) return;
 
         const header = folderItem.querySelector('.tree-folder-header');
         const children = folderItem.querySelector('.tree-folder-children');
+        const parentPath = folderItem.dataset.parentPath || null;
+        const isRoot = folderItem.dataset.isRoot === 'true';
+        const folderKey = folderItem.dataset.nodeKey || this.buildFolderKey(path, parentPath, isRoot);
 
-        if (this.expandedFolders.has(path)) {
+        if (this.expandedFolders.has(folderKey)) {
             // 收起
-            this.expandedFolders.delete(path);
+            this.expandedFolders.delete(folderKey);
             children.classList.remove('expanded');
             header.classList.remove('expanded');
             children.style.display = 'none';
         } else {
             // 展开
-            this.expandedFolders.add(path);
+            this.expandedFolders.add(folderKey);
             children.classList.add('expanded');
             header.classList.add('expanded');
             children.style.display = 'block';
@@ -382,10 +401,12 @@ export class FileTree {
             const name = entry.path.split('/').pop();
 
             if (entry.isDir) {
-                const folderItem = this.createFolderItem(name, entry.path, []);
+                const folderItem = this.createFolderItem(name, entry.path, [], false, path);
                 childrenContainer.appendChild(folderItem);
 
-                if (this.expandedFolders.has(entry.path)) {
+                const childKey = folderItem.dataset.nodeKey;
+
+                if (childKey && this.expandedFolders.has(childKey)) {
                     const header = folderItem.querySelector('.tree-folder-header');
                     const children = folderItem.querySelector('.tree-folder-children');
                     header?.classList.add('expanded');
