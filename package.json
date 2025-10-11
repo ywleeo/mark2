@@ -27,6 +27,7 @@
     "@tiptap/starter-kit": "^3.6.5",
     "codemirror": "^6.0.2",
     "highlight.js": "^11.11.1",
+    "monaco-editor": "^0.50.0",
     "html-to-image": "^1.11.13",
     "lowlight": "^3.3.0",
     "markdown-it": "^14.1.0",

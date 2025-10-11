@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { desktopDir, join } from '@tauri-apps/api/path';
 
 let MarkdownEditorCtor = null;
+let CodeEditorCtor = null;
 let FileTreeCtor = null;
 let TabManagerCtor = null;
 let SettingsDialogCtor = null;
@@ -12,14 +13,22 @@ let ensureCoreModulesPromise = null;
 async function ensureCoreModules() {
     if (!ensureCoreModulesPromise) {
         ensureCoreModulesPromise = (async () => {
-            const [editorModule, fileTreeModule, tabManagerModule, settingsModule] = await Promise.all([
+            const [
+                editorModule,
+                codeEditorModule,
+                fileTreeModule,
+                tabManagerModule,
+                settingsModule,
+            ] = await Promise.all([
                 import('./components/MarkdownEditor.js'),
+                import('./components/CodeEditor.js'),
                 import('./components/FileTree.js'),
                 import('./components/TabManager.js'),
                 import('./components/SettingsDialog.js'),
             ]);
 
             MarkdownEditorCtor = editorModule.MarkdownEditor;
+            CodeEditorCtor = codeEditorModule.CodeEditor;
             FileTreeCtor = fileTreeModule.FileTree;
             TabManagerCtor = tabManagerModule.TabManager;
             SettingsDialogCtor = settingsModule.SettingsDialog;
@@ -44,11 +53,15 @@ console.log('Mark2 Tauri 版本已启动');
 
 let currentFile = null;
 let editor = null;
+let codeEditor = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
 let editorSettings = { fontSize: 16, lineHeight: 1.6, fontFamily: '', fontWeight: 400 };
 let availableFontFamilies = [];
+let markdownPaneElement = null;
+let codeEditorPaneElement = null;
+let activeViewMode = 'markdown';
 
 const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
@@ -60,6 +73,143 @@ const defaultEditorSettings = {
     fontWeight: 400,
 };
 
+const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
+const CODE_SUFFIX_LANGUAGE_MAP = [
+    ['.d.ts', 'typescript'],
+    ['.d.mts', 'typescript'],
+    ['.d.cts', 'typescript'],
+    ['.dockerfile', 'dockerfile'],
+];
+
+const CODE_EXTENSION_LANGUAGE_MAP = new Map([
+    ['js', 'javascript'],
+    ['mjs', 'javascript'],
+    ['cjs', 'javascript'],
+    ['jsx', 'javascript'],
+    ['ts', 'typescript'],
+    ['tsx', 'typescript'],
+    ['json', 'json'],
+    ['yml', 'yaml'],
+    ['yaml', 'yaml'],
+    ['toml', 'ini'],
+    ['ini', 'ini'],
+    ['conf', 'ini'],
+    ['env', 'ini'],
+    ['properties', 'ini'],
+    ['css', 'css'],
+    ['scss', 'scss'],
+    ['less', 'less'],
+    ['html', 'html'],
+    ['htm', 'html'],
+    ['vue', 'html'],
+    ['svelte', 'html'],
+    ['xml', 'xml'],
+    ['py', 'python'],
+    ['pyw', 'python'],
+    ['go', 'go'],
+    ['rs', 'rust'],
+    ['java', 'java'],
+    ['kt', 'kotlin'],
+    ['kts', 'kotlin'],
+    ['swift', 'swift'],
+    ['rb', 'ruby'],
+    ['php', 'php'],
+    ['cs', 'csharp'],
+    ['cpp', 'cpp'],
+    ['cc', 'cpp'],
+    ['cxx', 'cpp'],
+    ['hpp', 'cpp'],
+    ['hh', 'cpp'],
+    ['hxx', 'cpp'],
+    ['c', 'c'],
+    ['h', 'c'],
+    ['mm', 'objective-c'],
+    ['m', 'objective-c'],
+    ['sql', 'sql'],
+    ['sh', 'shell'],
+    ['bash', 'shell'],
+    ['zsh', 'shell'],
+    ['fish', 'shell'],
+    ['ps1', 'powershell'],
+    ['psm1', 'powershell'],
+    ['bat', 'shell'],
+    ['cmd', 'shell'],
+    ['dock', 'dockerfile'],
+    ['dockerfile', 'dockerfile'],
+    ['diff', 'diff'],
+    ['patch', 'diff'],
+    ['log', 'plaintext'],
+    ['txt', 'plaintext'],
+]);
+
+function normalizeCandidatePath(path) {
+    return typeof path === 'string' ? path.toLowerCase() : '';
+}
+
+function isMarkdownFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+
+    if (normalized.endsWith('.md') || normalized.endsWith('.markdown') || normalized.endsWith('.mdx')) {
+        return true;
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+
+    return MARKDOWN_EXTENSIONS.has(match[1]);
+}
+
+function detectLanguageForPath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return null;
+    }
+
+    for (const [suffix, language] of CODE_SUFFIX_LANGUAGE_MAP) {
+        if (normalized.endsWith(suffix)) {
+            return language;
+        }
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return null;
+    }
+
+    return CODE_EXTENSION_LANGUAGE_MAP.get(match[1]) || null;
+}
+
+function getViewModeForPath(filePath) {
+    if (isMarkdownFilePath(filePath)) {
+        return 'markdown';
+    }
+    return 'code';
+}
+
+function activateMarkdownView() {
+    markdownPaneElement?.classList.add('is-active');
+    codeEditorPaneElement?.classList.remove('is-active');
+    codeEditor?.hide?.();
+    activeViewMode = 'markdown';
+}
+
+function activateCodeView() {
+    markdownPaneElement?.classList.remove('is-active');
+    codeEditorPaneElement?.classList.add('is-active');
+    activeViewMode = 'code';
+}
+
+function clearActiveFileView() {
+    editor?.clear?.();
+    codeEditor?.clear?.();
+    activateMarkdownView();
+}
+
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
     void initializeApplication();
@@ -70,9 +220,25 @@ async function initializeApplication() {
 
     await ensureCoreModules();
 
-    // 初始化编辑器
-    const editorElement = document.getElementById('viewContent');
-    editor = new MarkdownEditorCtor(editorElement);
+    // 初始化主视图容器
+    const viewContainer = document.getElementById('viewContent');
+    if (!viewContainer) {
+        throw new Error('未找到视图容器 viewContent');
+    }
+    viewContainer.innerHTML = '';
+
+    markdownPaneElement = document.createElement('div');
+    markdownPaneElement.className = 'view-pane markdown-pane is-active';
+    viewContainer.appendChild(markdownPaneElement);
+
+    codeEditorPaneElement = document.createElement('div');
+    codeEditorPaneElement.className = 'view-pane code-pane';
+    viewContainer.appendChild(codeEditorPaneElement);
+
+    editor = new MarkdownEditorCtor(markdownPaneElement);
+    codeEditor = new CodeEditorCtor(codeEditorPaneElement);
+    codeEditor.hide();
+    activeViewMode = 'markdown';
 
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
@@ -110,7 +276,7 @@ async function initializeApplication() {
 async function handleFileSelect(filePath) {
     if (!filePath) {
         currentFile = null;
-        editor?.clear?.();
+        clearActiveFileView();
         tabManager?.clearSharedTab?.();
         return;
     }
@@ -532,9 +698,7 @@ function setupKeyboardShortcuts() {
         // Cmd+S (macOS) 或 Ctrl+S (Windows/Linux) 保存
         if ((e.metaKey || e.ctrlKey) && e.key === 's') {
             e.preventDefault();
-            if (editor) {
-                await editor.save();
-            }
+            await saveCurrentFile();
         }
     });
     console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存');
@@ -663,15 +827,52 @@ function normalizeSelectedPaths(selected) {
     return single ? [single] : [];
 }
 
+async function saveCurrentFile() {
+    if (!currentFile) {
+        return false;
+    }
+
+    if (activeViewMode === 'markdown' && editor) {
+        return await editor.save();
+    }
+
+    if (activeViewMode === 'code' && codeEditor) {
+        try {
+            const content = codeEditor.getValue();
+            await invoke('write_file', {
+                path: currentFile,
+                content,
+            });
+            codeEditor.markSaved();
+            console.log('保存成功');
+            return true;
+        } catch (error) {
+            console.error('保存失败:', error);
+            alert('保存失败: ' + error);
+            return false;
+        }
+    }
+
+    return false;
+}
+
 async function loadFile(filePath) {
     try {
         console.log('读取文件:', filePath);
         const content = await invoke('read_file', { path: filePath });
         currentFile = filePath;
 
-        // 使用编辑器加载内容
-        if (editor) {
-            await editor.loadFile(filePath, content);
+        const viewMode = getViewModeForPath(filePath);
+        if (viewMode === 'markdown') {
+            activateMarkdownView();
+            if (editor) {
+                await editor.loadFile(filePath, content);
+            }
+        } else {
+            activateCodeView();
+            editor?.clear?.();
+            const language = detectLanguageForPath(filePath);
+            await codeEditor?.show(filePath, content, language);
         }
 
         if (fileTree?.openFiles?.includes?.(filePath)) {
@@ -713,6 +914,7 @@ function cleanupResources() {
     fileRefreshTimers.clear();
     fileTree?.dispose?.();
     editor?.destroy?.();
+    codeEditor?.dispose?.();
 }
 
 function handleFolderWatcherEvent(watchedPath, event) {
@@ -756,11 +958,25 @@ function handleFileWatcherEvent(filePath, event) {
     }
 
     const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
-    if (editor && editorPath === normalizedPath) {
+    const currentFilePath = normalizeFsPath(currentFile);
+    const isMarkdownActive = editor && editorPath === normalizedPath;
+    const isCodeActive = activeViewMode === 'code' && currentFilePath === normalizedPath;
+
+    if (isMarkdownActive) {
         if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
             console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
             return;
         }
+    }
+
+    if (isCodeActive) {
+        if (codeEditor?.hasUnsavedChanges?.()) {
+            console.log('检测到文件外部变更，但代码编辑器存在未保存的修改，暂不覆盖');
+            return;
+        }
+    }
+
+    if (isMarkdownActive || isCodeActive) {
         scheduleFileRefresh(normalizedPath);
     }
 }

@@ -49,6 +49,16 @@
     background: var(--content-bg, #ffffff);
 }
 
+.view-pane {
+    height: 100%;
+    width: 100%;
+    display: none;
+}
+
+.view-pane.is-active {
+    display: block;
+}
+
 .view-content pre {
     white-space: pre-wrap;
     word-wrap: break-word;

@@ -1,0 +1,53 @@
+.code-editor-pane {
+    display: none;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--content-bg, #ffffff);
+    --scrollbar-size: 8px;
+    --scrollbar-thumb-color: rgba(148, 163, 184, 0.45);
+    --scrollbar-thumb-hover-color: rgba(148, 163, 184, 0.7);
+}
+
+.code-editor-pane.is-active {
+    display: block;
+}
+
+.code-editor__instance {
+    height: 100%;
+    width: 100%;
+}
+
+.code-editor-pane .monaco-editor,
+.code-editor-pane .monaco-editor-background {
+    background: var(--content-bg, #ffffff);
+}
+
+.code-editor-pane .monaco-scrollable-element > .scrollbar {
+    width: var(--scrollbar-size, 6px) !important;
+    height: var(--scrollbar-size, 6px) !important;
+}
+
+.code-editor-pane .monaco-scrollable-element > .scrollbar > .slider {
+    background: var(--scrollbar-thumb-color, rgba(148, 163, 184, 0.35)) !important;
+    border-radius: 4px !important;
+    opacity: 0.7 !important;
+    visibility: visible !important;
+    transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.code-editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
+    background: var(--scrollbar-thumb-hover-color, rgba(148, 163, 184, 0.55)) !important;
+    opacity: 1 !important;
+}
+
+.code-editor-pane .monaco-scrollable-element > .scrollbar > .slider:active {
+    background: var(--scrollbar-thumb-hover-color, rgba(148, 163, 184, 0.7)) !important;
+    opacity: 1 !important;
+}
+
+.code-editor-pane .monaco-editor .decorationsOverviewRuler,
+.code-editor-pane .monaco-editor .minimap,
+.code-editor-pane .monaco-editor .minimap-shadow-visible {
+    background: transparent !important;
+}
