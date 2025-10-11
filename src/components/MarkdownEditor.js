@@ -1,5 +1,6 @@
 import { Editor, Node, mergeAttributes } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import { TaskItem, TaskList } from '@tiptap/extension-list';
 import MarkdownIt from 'markdown-it';
 import TurndownService from 'turndown';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
@@ -34,6 +35,109 @@ const COPY_BUTTON_ICON = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true
 const COPY_FEEDBACK_DURATION = 1600;
 const COPY_BUTTON_OFFSET = 8;
 const COPY_BUTTON_SIZE = 28;
+const TASK_ITEM_TYPE = 'taskItem';
+const TASK_LIST_TYPE = 'taskList';
+
+const setAttribute = (token, name, value) => {
+    if (!token) {
+        return;
+    }
+    const index = token.attrIndex(name);
+    if (index >= 0) {
+        token.attrs[index][1] = value;
+    } else {
+        token.attrPush([name, value]);
+    }
+};
+
+const findMatchingOpenIndex = (tokens, closeIndex, type) => {
+    for (let i = closeIndex; i >= 0; i--) {
+        if (tokens[i].type === type) {
+            return i;
+        }
+    }
+    return -1;
+};
+
+const taskListPlugin = md => {
+    md.core.ruler.after('inline', 'task-list-items', state => {
+        const tokens = state.tokens;
+        for (let idx = 2; idx < tokens.length; idx++) {
+            const inlineToken = tokens[idx];
+            if (inlineToken.type !== 'inline') {
+                continue;
+            }
+            const paragraphOpen = tokens[idx - 1];
+            const listItemOpen = tokens[idx - 2];
+            if (!paragraphOpen || paragraphOpen.type !== 'paragraph_open') {
+                continue;
+            }
+            if (!listItemOpen || listItemOpen.type !== 'list_item_open') {
+                continue;
+            }
+            if (!inlineToken.children || inlineToken.children.length === 0) {
+                continue;
+            }
+
+            const firstChild = inlineToken.children[0];
+            if (!firstChild || firstChild.type !== 'text') {
+                continue;
+            }
+
+            const match = firstChild.content.match(/^\s*\[( |x|X)\]\s*/);
+            if (!match) {
+                continue;
+            }
+
+            const checked = match[1].toLowerCase() === 'x';
+
+            firstChild.content = firstChild.content.slice(match[0].length).replace(/^\s+/, '');
+
+            if (firstChild.content.length === 0) {
+                inlineToken.children.shift();
+            }
+
+            setAttribute(listItemOpen, 'data-type', TASK_ITEM_TYPE);
+            setAttribute(listItemOpen, 'data-checked', checked ? 'true' : 'false');
+
+            for (let search = idx - 3; search >= 0; search--) {
+                const token = tokens[search];
+                const isListToken = token.type === 'bullet_list_open' || token.type === 'ordered_list_open';
+                if (isListToken && token.level === listItemOpen.level - 1) {
+                    setAttribute(token, 'data-type', TASK_LIST_TYPE);
+                    break;
+                }
+            }
+        }
+    });
+
+    const defaultListItemOpen =
+        md.renderer.rules.list_item_open ||
+        ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
+
+    const defaultListItemClose =
+        md.renderer.rules.list_item_close ||
+        ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
+
+    md.renderer.rules.list_item_open = (tokens, idx, options, env, self) => {
+        const token = tokens[idx];
+        if (token.attrGet('data-type') === TASK_ITEM_TYPE) {
+            const attrs = self.renderAttrs(token);
+            const checked = token.attrGet('data-checked') === 'true';
+            const checkbox = `<input class="task-list-item-checkbox" type="checkbox"${checked ? ' checked' : ''} disabled />`;
+            return `<li${attrs}><label class="task-list-item-label">${checkbox}<span class="task-list-item-indicator" aria-hidden="true"></span></label><div class="task-list-item-content">`;
+        }
+        return defaultListItemOpen(tokens, idx, options, env, self);
+    };
+
+    md.renderer.rules.list_item_close = (tokens, idx, options, env, self) => {
+        const openIndex = findMatchingOpenIndex(tokens, idx, 'list_item_open');
+        if (openIndex >= 0 && tokens[openIndex].attrGet('data-type') === TASK_ITEM_TYPE) {
+            return '</div></li>';
+        }
+        return defaultListItemClose(tokens, idx, options, env, self);
+    };
+};
 
 const extendBuiltInCommands = (languageFn, additionalCommands = []) => {
     return hljs => {
@@ -194,6 +298,7 @@ export class MarkdownEditor {
             breaks: true,
             linkify: true,
         });
+        this.md.use(taskListPlugin);
 
         const trimCodeRenderer = renderer => {
             return (tokens, idx, options, env, self) => {
@@ -219,6 +324,28 @@ export class MarkdownEditor {
                 return `![${alt}](${escapedSrc}${titlePart})`;
             },
         });
+        this.turndownService.addRule('taskListItem', {
+            filter: node => {
+                if (!node || node.nodeName !== 'LI') {
+                    return false;
+                }
+                const dataType = node.getAttribute('data-type') || (node.dataset ? node.dataset.type : null);
+                return dataType === TASK_ITEM_TYPE;
+            },
+            replacement: (content, node, options) => {
+                const checkedAttr = (node.getAttribute('data-checked') || (node.dataset ? node.dataset.checked : '') || '').toLowerCase();
+                const hasCheckedInput = node.querySelector('input[type="checkbox"][checked]');
+                const isChecked = checkedAttr === 'true' || (!checkedAttr && Boolean(hasCheckedInput));
+                const checkboxMarker = isChecked ? 'x' : ' ';
+                const prefix = `${options.bulletListMarker} [${checkboxMarker}] `;
+                const normalized = content
+                    .replace(/^\n+/, '')
+                    .replace(/\n+$/, '\n')
+                    .replace(/\n/gm, '\n' + ' '.repeat(prefix.length));
+                const needsLineBreak = node.nextSibling && !/\n$/.test(normalized);
+                return prefix + normalized + (needsLineBreak ? '\n' : '');
+            },
+        });
         this.init();
     }
 
@@ -231,6 +358,17 @@ export class MarkdownEditor {
                         levels: [1, 2, 3, 4, 5, 6],
                     },
                     codeBlock: false,
+                }),
+                TaskList.configure({
+                    HTMLAttributes: {
+                        class: 'task-list',
+                    },
+                }),
+                TaskItem.configure({
+                    nested: true,
+                    HTMLAttributes: {
+                        class: 'task-list-item',
+                    },
                 }),
                 CodeBlockLowlight.configure({
                     lowlight,

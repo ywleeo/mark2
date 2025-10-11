@@ -151,6 +151,96 @@
     margin: 0.5em 0;
 }
 
+.tiptap-editor ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0;
+    margin: 1em 0;
+}
+
+.tiptap-editor ul[data-type="taskList"] ul[data-type="taskList"] {
+    margin: 0.5em 0 0.5em 1.8em;
+}
+
+.tiptap-editor li[data-type="taskItem"],
+.tiptap-editor li.task-list-item {
+    display: grid;
+    grid-template-columns: 1.4em 1fr;
+    align-items: flex-start;
+    column-gap: 10px;
+    margin: 0.25em 0;
+}
+
+.tiptap-editor li[data-type="taskItem"] > label,
+.tiptap-editor li.task-list-item > label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 1.1em;
+    height: 1.1em;
+    margin: 0.3em 0 0;
+    cursor: default;
+}
+
+.tiptap-editor li[data-type="taskItem"] > label > input[type="checkbox"],
+.tiptap-editor li.task-list-item > label > input[type="checkbox"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    margin: 0;
+    appearance: none;
+}
+
+.tiptap-editor li[data-type="taskItem"] > label > span,
+.tiptap-editor li.task-list-item > label > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    background: #ffffff;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.tiptap-editor li[data-type="taskItem"][data-checked="true"] > label > span,
+.tiptap-editor li.task-list-item[data-checked="true"] > label > span {
+    border-color: #ffffff;
+    background-color: #64ce86;
+}
+
+.tiptap-editor li[data-type="taskItem"][data-checked="true"] > label > span::after,
+.tiptap-editor li.task-list-item[data-checked="true"] > label > span::after {
+    content: '';
+    width: 0.6em;
+    height: 0.3em;
+    border-left: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(-45deg);
+}
+
+.tiptap-editor li[data-type="taskItem"][data-checked="false"] > label > span::after,
+.tiptap-editor li.task-list-item[data-checked="false"] > label > span::after {
+    content: '';
+}
+
+.tiptap-editor li[data-type="taskItem"] > div,
+.tiptap-editor li.task-list-item > div {
+    margin: 0;
+}
+
+.tiptap-editor li[data-type="taskItem"] > div > *:first-child,
+.tiptap-editor li.task-list-item > div > *:first-child {
+    margin-top: 0;
+}
+
+.tiptap-editor li[data-type="taskItem"] > div > *:last-child,
+.tiptap-editor li.task-list-item > div > *:last-child {
+    margin-bottom: 0;
+}
+
 /* 链接 */
 .tiptap-editor a {
     color: #0066cc;
