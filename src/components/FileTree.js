@@ -27,6 +27,30 @@ export class FileTree {
         return path;
     }
 
+    isPrimaryPointerActivation(event) {
+        if (!event) {
+            return false;
+        }
+
+        const { pointerType } = event;
+        if (typeof pointerType === 'string' && pointerType.length > 0) {
+            const type = pointerType.toLowerCase();
+            if (type === 'mouse') {
+                return event.button === 0;
+            }
+            if (type === 'touch' || type === 'pen') {
+                return true;
+            }
+            return false;
+        }
+
+        if (typeof MouseEvent !== 'undefined' && event instanceof MouseEvent) {
+            return event.button === 0;
+        }
+
+        return false;
+    }
+
     isInOpenList(path) {
         const normalized = this.normalizePath(path);
         const result = this.openFiles.some(item => item === normalized);
@@ -232,7 +256,25 @@ export class FileTree {
             <span class="tree-item-name">${name}</span>
         `;
 
+        const headerPointerState = { handled: false };
+
+        header.addEventListener('pointerup', (event) => {
+            if (!this.isPrimaryPointerActivation(event)) {
+                return;
+            }
+
+            headerPointerState.handled = true;
+            this.toggleFolder(path);
+            setTimeout(() => {
+                headerPointerState.handled = false;
+            }, 0);
+        });
+
         header.addEventListener('click', () => {
+            if (headerPointerState.handled) {
+                headerPointerState.handled = false;
+                return;
+            }
             this.toggleFolder(path);
         });
 
@@ -276,7 +318,25 @@ export class FileTree {
             <span class="tree-item-name">${name}</span>
         `;
 
+        const filePointerState = { handled: false };
+
+        item.addEventListener('pointerup', (event) => {
+            if (!this.isPrimaryPointerActivation(event)) {
+                return;
+            }
+
+            filePointerState.handled = true;
+            this.selectFile(path);
+            setTimeout(() => {
+                filePointerState.handled = false;
+            }, 0);
+        });
+
         item.addEventListener('click', () => {
+            if (filePointerState.handled) {
+                filePointerState.handled = false;
+                return;
+            }
             this.selectFile(path);
         });
 
@@ -433,14 +493,44 @@ export class FileTree {
                 <button class="close-file-btn" data-path="${path}">×</button>
             `;
 
-            item.addEventListener('click', (e) => {
-                if (!e.target.classList.contains('close-file-btn')) {
+            const openItemPointerState = { handled: false };
+
+            item.addEventListener('pointerup', (event) => {
+                if (!this.isPrimaryPointerActivation(event)) {
+                    return;
+                }
+                if (event.target.closest('.close-file-btn')) {
+                    return;
+                }
+
+                openItemPointerState.handled = true;
+                this.selectFile(path);
+                setTimeout(() => {
+                    openItemPointerState.handled = false;
+                }, 0);
+            });
+
+            item.addEventListener('click', (event) => {
+                if (openItemPointerState.handled) {
+                    openItemPointerState.handled = false;
+                    return;
+                }
+                if (!event.target.classList.contains('close-file-btn')) {
                     this.selectFile(path);
                 }
             });
 
-            item.querySelector('.close-file-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
+            const closeButton = item.querySelector('.close-file-btn');
+            closeButton.addEventListener('pointerup', (event) => {
+                if (!this.isPrimaryPointerActivation(event)) {
+                    return;
+                }
+                event.stopPropagation();
+                this.closeFile(path);
+            });
+
+            closeButton.addEventListener('click', (event) => {
+                event.stopPropagation();
                 this.closeFile(path);
             });
 

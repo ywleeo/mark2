@@ -77,14 +77,21 @@ export class SettingsDialog {
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
         this.lineHeightInput = this.form.querySelector('input[name="lineHeight"]');
         this.fontWeightSelect = this.form.querySelector('select[name="fontWeight"]');
+        this.cancelButton = this.form.querySelector('[data-action="cancel"]');
+        this.saveButton = this.form.querySelector('button[type="submit"]');
+        this.cancelPointerHandled = false;
 
         this.handleSubmit = this.handleSubmit.bind(this);
         this.handleCancelClick = this.handleCancelClick.bind(this);
         this.handleKeydown = this.handleKeydown.bind(this);
         this.handleBackdropClick = this.handleBackdropClick.bind(this);
+        this.handleCancelPointerUp = this.handleCancelPointerUp.bind(this);
+        this.handleSavePointerUp = this.handleSavePointerUp.bind(this);
 
         this.form.addEventListener('submit', this.handleSubmit);
-        this.form.querySelector('[data-action="cancel"]').addEventListener('click', this.handleCancelClick);
+        this.cancelButton?.addEventListener('click', this.handleCancelClick);
+        this.cancelButton?.addEventListener('pointerup', this.handleCancelPointerUp);
+        this.saveButton?.addEventListener('pointerup', this.handleSavePointerUp);
         this.root.addEventListener('mousedown', this.handleBackdropClick);
 
         this.availableFonts = [];
@@ -145,7 +152,33 @@ export class SettingsDialog {
         this.close(false);
     }
 
+    handleCancelPointerUp(event) {
+        if (!this.isPointerActivation(event)) {
+            return;
+        }
+
+        this.cancelPointerHandled = true;
+        event.preventDefault();
+        event.stopPropagation();
+        this.close(true);
+    }
+
+    handleSavePointerUp(event) {
+        if (!this.isPointerActivation(event)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        this.form.requestSubmit();
+    }
+
     handleCancelClick(event) {
+        if (this.cancelPointerHandled) {
+            this.cancelPointerHandled = false;
+            return;
+        }
+
         event.preventDefault();
         this.close(true);
     }
@@ -154,6 +187,22 @@ export class SettingsDialog {
         if (event.key === 'Escape') {
             this.close(true);
         }
+    }
+
+    isPointerActivation(event) {
+        if (!event || typeof event.pointerType !== 'string') {
+            return false;
+        }
+
+        if (event.pointerType === 'mouse') {
+            return event.button === 0;
+        }
+
+        if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+            return true;
+        }
+
+        return false;
     }
 
     handleBackdropClick(event) {
