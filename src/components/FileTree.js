@@ -270,12 +270,17 @@ export class FileTree {
             ${expandIcon}
             ${folderIcon}
             <span class="tree-item-name">${name}</span>
+            ${isRoot ? `<button class="close-folder-btn" type="button" data-path="${path}">×</button>` : ''}
         `;
 
         const headerPointerState = { handled: false };
 
         header.addEventListener('pointerup', (event) => {
             if (!this.isPrimaryPointerActivation(event)) {
+                return;
+            }
+
+            if (event.target.closest('.close-folder-btn')) {
                 return;
             }
 
@@ -286,13 +291,34 @@ export class FileTree {
             }, 0);
         });
 
-        header.addEventListener('click', () => {
+        header.addEventListener('click', (event) => {
             if (headerPointerState.handled) {
                 headerPointerState.handled = false;
                 return;
             }
+            if (event.target.closest('.close-folder-btn')) {
+                return;
+            }
             this.toggleFolder(path, item);
         });
+
+        if (isRoot) {
+            const closeButton = header.querySelector('.close-folder-btn');
+            if (closeButton) {
+                closeButton.addEventListener('pointerup', (event) => {
+                    if (!this.isPrimaryPointerActivation(event)) {
+                        return;
+                    }
+                    event.stopPropagation();
+                    this.closeFolder(path);
+                });
+
+                closeButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this.closeFolder(path);
+                });
+            }
+        }
 
         const children = document.createElement('div');
         children.className = 'tree-folder-children';
@@ -580,6 +606,44 @@ export class FileTree {
                         this.onFileSelect(null);
                     }
                 }
+            }
+        }
+    }
+
+    closeFolder(path) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
+            return;
+        }
+
+        this.rootPaths.delete(normalizedPath);
+
+        const keysToRemove = [];
+        this.expandedFolders.forEach((key) => {
+            if (key.includes(normalizedPath)) {
+                keysToRemove.push(key);
+            }
+        });
+        keysToRemove.forEach((key) => this.expandedFolders.delete(key));
+
+        this.stopWatchingFolder(normalizedPath);
+
+        const folderElement = this.container.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+        if (folderElement?.parentElement) {
+            folderElement.parentElement.removeChild(folderElement);
+        }
+
+        const currentNormalized = this.normalizePath(this.currentFile);
+        const isUnderFolder = currentNormalized
+            ? currentNormalized === normalizedPath
+                || currentNormalized.startsWith(`${normalizedPath}/`)
+                || currentNormalized.startsWith(`${normalizedPath}\\`)
+            : false;
+
+        if (isUnderFolder && !this.isInOpenList(currentNormalized)) {
+            this.clearSelection();
+            if (this.onFileSelect) {
+                this.onFileSelect(null);
             }
         }
     }
