@@ -198,6 +198,18 @@ export class FileTree {
         }
     }
 
+    shouldIgnoreFile(name) {
+        // 只忽略特定的系统文件
+        const ignoredFiles = new Set([
+            '.DS_Store',
+            'Thumbs.db',
+            'desktop.ini',
+            '.localized'
+        ]);
+
+        return ignoredFiles.has(name);
+    }
+
     async readDirectory(path) {
         const { invoke } = await import('@tauri-apps/api/core');
         const entries = await invoke('read_dir', { path });
@@ -207,6 +219,13 @@ export class FileTree {
         const files = [];
 
         for (const entry of entries) {
+            const name = entry.split('/').pop() || entry.split('\\').pop();
+
+            // 过滤掉系统文件
+            if (this.shouldIgnoreFile(name)) {
+                continue;
+            }
+
             const isDir = await invoke('is_directory', { path: entry });
             if (isDir) {
                 folders.push({ path: entry, isDir: true });

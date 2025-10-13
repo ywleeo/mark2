@@ -245,12 +245,17 @@ fn main() {
                 .quit()
                 .build()?;
 
+            // Export 子菜单
+            let export_submenu = SubmenuBuilder::new(app, "Export")
+                .item(&export_image_item)
+                .item(&export_pdf_item)
+                .build()?;
+
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&open_item)
                 .separator()
-                .item(&export_image_item)
-                .item(&export_pdf_item)
+                .item(&export_submenu)
                 .build()?;
 
             // Edit 菜单，启用复制/粘贴等系统原生快捷键

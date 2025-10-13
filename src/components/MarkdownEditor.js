@@ -379,8 +379,8 @@ export class MarkdownEditor {
                 MarkdownImage,
             ],
             content: '',
-            editable: true,
-            autofocus: true,
+            editable: false,
+            autofocus: false,
             editorProps: {
                 attributes: {
                     class: 'tiptap-editor',
@@ -412,6 +412,7 @@ export class MarkdownEditor {
         this.hideCodeCopyButton({ immediate: true });
         this.suppressUpdateEvent = true;
         try {
+            this.editor.setEditable(true);
             this.editor.commands.setContent(resolvedHtml);
             // 设置光标到开头并滚动到顶部
             this.editor.commands.focus('start');
@@ -491,6 +492,7 @@ export class MarkdownEditor {
         this.suppressUpdateEvent = true;
         try {
             this.editor.commands.setContent('');
+            this.editor.setEditable(false);
         } finally {
             this.suppressUpdateEvent = false;
         }

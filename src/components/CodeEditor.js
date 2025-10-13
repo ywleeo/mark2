@@ -115,6 +115,7 @@ export class CodeEditor {
             tabSize: 4,
             insertSpaces: true,
             detectIndentation: false,
+            readOnly: true,
             scrollbar: {
                 verticalScrollbarSize: 8,
                 horizontalScrollbarSize: 8,
@@ -174,6 +175,7 @@ export class CodeEditor {
 
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
+        this.editor.updateOptions({ readOnly: false });
         this.showContainer();
         this.requestLayout();
         this.editor.focus();
@@ -223,6 +225,7 @@ export class CodeEditor {
         }
         if (this.editor) {
             this.editor.setModel(null);
+            this.editor.updateOptions({ readOnly: true });
         }
         if (this.currentModel) {
             this.currentModel.dispose();
