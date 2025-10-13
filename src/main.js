@@ -294,12 +294,18 @@ async function handleFileSelect(filePath) {
         return;
     }
 
-    await loadFile(filePath);
-    const isOpenTab = fileTree?.isInOpenList?.(filePath);
-    if (isOpenTab) {
-        tabManager?.setActiveFileTab(filePath, { silent: true });
-    } else {
-        tabManager?.showSharedTab(filePath);
+    try {
+        await loadFile(filePath);
+        // 只有文件加载成功后才更新 tab
+        const isOpenTab = fileTree?.isInOpenList?.(filePath);
+        if (isOpenTab) {
+            tabManager?.setActiveFileTab(filePath, { silent: true });
+        } else {
+            tabManager?.showSharedTab(filePath);
+        }
+    } catch (error) {
+        // 加载失败时不更新 tab，保持当前状态
+        console.error('文件选择失败，保持当前 tab 状态');
     }
 }
 
@@ -1020,6 +1026,7 @@ async function loadFile(filePath) {
     } catch (error) {
         console.error('读取文件失败:', error);
         alert('读取文件失败: ' + error);
+        throw error; // 向上抛出异常，让调用方知道加载失败了
     }
 }
 
