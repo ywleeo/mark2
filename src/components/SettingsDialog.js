@@ -26,6 +26,18 @@ export class SettingsDialog {
             },
         ];
 
+        this.codeModeFonts = [
+            { label: 'JetBrains Mono', value: "'JetBrains Mono', monospace" },
+            { label: 'Fira Code', value: "'Fira Code', monospace" },
+            { label: 'Source Code Pro', value: "'Source Code Pro', monospace" },
+            { label: 'Monaco', value: "'Monaco', monospace" },
+            { label: 'Menlo', value: "'Menlo', monospace" },
+            { label: 'Consolas', value: "'Consolas', monospace" },
+            { label: 'Courier New', value: "'Courier New', monospace" },
+        ];
+
+        this.currentTab = 'editor'; // 'editor' or 'code'
+
         this.root = document.createElement('div');
         this.root.className = 'settings-modal hidden';
         this.root.innerHTML = `
@@ -33,9 +45,15 @@ export class SettingsDialog {
                 <form class="settings-form">
                     <header class="settings-header">
                         <h2 id="settingsDialogTitle">编辑器设置</h2>
-                        <p class="settings-subtitle">设置默认的字号、行距、字重和字体</p>
+                        <nav class="settings-tabs">
+                            <button type="button" class="settings-tab active" data-tab="editor">普通模式</button>
+                            <button type="button" class="settings-tab" data-tab="code">代码模式</button>
+                        </nav>
                     </header>
-                    <section class="settings-body">
+
+                    <!-- 编辑器设置 -->
+                    <section class="settings-body" data-tab-content="editor">
+                        <p class="settings-subtitle">设置默认的字号、行距、字重和字体</p>
                         <label class="settings-field">
                             <span class="settings-label">字体</span>
                             <select name="fontFamily"></select>
@@ -65,6 +83,40 @@ export class SettingsDialog {
                             </label>
                         </div>
                     </section>
+
+                    <!-- Code 模式设置 -->
+                    <section class="settings-body hidden" data-tab-content="code">
+                        <p class="settings-subtitle">设置代码模式的字体样式</p>
+                        <label class="settings-field">
+                            <span class="settings-label">字体</span>
+                            <select name="codeFontFamily"></select>
+                        </label>
+                        <div class="settings-grid">
+                            <label class="settings-field">
+                                <span class="settings-label">字号 (px)</span>
+                                <input type="number" name="codeFontSize" min="10" max="48" step="1" />
+                            </label>
+                            <label class="settings-field">
+                                <span class="settings-label">行距</span>
+                                <input type="number" name="codeLineHeight" min="1.0" max="3.0" step="0.1" />
+                            </label>
+                            <label class="settings-field">
+                                <span class="settings-label">字重</span>
+                                <select name="codeFontWeight">
+                                    <option value="100">Thin 100</option>
+                                    <option value="200">Extra Light 200</option>
+                                    <option value="300">Light 300</option>
+                                    <option value="400">Regular 400</option>
+                                    <option value="500">Medium 500</option>
+                                    <option value="600">Semibold 600</option>
+                                    <option value="700">Bold 700</option>
+                                    <option value="800">Extra Bold 800</option>
+                                    <option value="900">Black 900</option>
+                                </select>
+                            </label>
+                        </div>
+                    </section>
+
                     <footer class="settings-footer">
                         <button type="button" class="btn secondary" data-action="cancel">取消</button>
                         <button type="submit" class="btn primary">保存</button>
@@ -76,10 +128,23 @@ export class SettingsDialog {
         document.body.appendChild(this.root);
 
         this.form = this.root.querySelector('.settings-form');
+
+        // Tab 元素
+        this.tabButtons = this.root.querySelectorAll('.settings-tab');
+        this.tabContents = this.root.querySelectorAll('[data-tab-content]');
+
+        // 编辑器设置字段
         this.fontFamilySelect = this.form.querySelector('select[name="fontFamily"]');
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
         this.lineHeightInput = this.form.querySelector('input[name="lineHeight"]');
         this.fontWeightSelect = this.form.querySelector('select[name="fontWeight"]');
+
+        // Code 模式设置字段
+        this.codeFontFamilySelect = this.form.querySelector('select[name="codeFontFamily"]');
+        this.codeFontSizeInput = this.form.querySelector('input[name="codeFontSize"]');
+        this.codeLineHeightInput = this.form.querySelector('input[name="codeLineHeight"]');
+        this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
+
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
         this.saveButton = this.form.querySelector('button[type="submit"]');
 
@@ -89,6 +154,14 @@ export class SettingsDialog {
 
         this.form.addEventListener('submit', this.handleSubmit);
         this.root.addEventListener('mousedown', this.handleBackdropClick);
+
+        // Tab 切换事件
+        this.tabButtons.forEach(tab => {
+            const cleanup = addClickHandler(tab, () => {
+                this.switchTab(tab.dataset.tab);
+            });
+            this.cleanupFunctions.push(cleanup);
+        });
 
         // 使用统一的点击处理函数
         if (this.cancelButton) {
@@ -107,14 +180,64 @@ export class SettingsDialog {
 
         this.availableFonts = [];
         this.setAvailableFonts([]);
+        this.initCodeFontOptions();
+    }
+
+    switchTab(tabName) {
+        this.currentTab = tabName;
+
+        // 更新 tab 按钮状态
+        this.tabButtons.forEach(tab => {
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        // 更新内容显示
+        this.tabContents.forEach(content => {
+            if (content.dataset.tabContent === tabName) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        });
+    }
+
+    initCodeFontOptions() {
+        this.codeFontFamilySelect.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '跟随系统 (默认)';
+        this.codeFontFamilySelect.appendChild(defaultOption);
+
+        this.codeModeFonts.forEach(font => {
+            const option = document.createElement('option');
+            option.value = font.value;
+            option.textContent = font.label;
+            this.codeFontFamilySelect.appendChild(option);
+        });
     }
 
     open(settings) {
         const prefs = settings || {};
+
+        // 编辑器设置
         this.syncFontSelection(prefs.fontFamily || '');
         this.fontSizeInput.value = Number(prefs.fontSize) || 16;
         this.lineHeightInput.value = Number(prefs.lineHeight) || 1.6;
         this.syncFontWeight(prefs.fontWeight);
+
+        // Code 模式设置
+        this.codeFontFamilySelect.value = prefs.codeFontFamily || '';
+        this.codeFontSizeInput.value = Number(prefs.codeFontSize) || 14;
+        this.codeLineHeightInput.value = Number(prefs.codeLineHeight) || 1.5;
+        this.codeFontWeightSelect.value = String(prefs.codeFontWeight || 400);
+
+        // 重置到第一个 tab
+        this.switchTab('editor');
 
         if (!this.isOpen) {
             document.addEventListener('keydown', this.handleKeydown);
@@ -141,6 +264,7 @@ export class SettingsDialog {
     handleSubmit(event) {
         event.preventDefault();
 
+        // 编辑器设置
         const fontSize = Number(this.fontSizeInput.value);
         const lineHeight = Number(this.lineHeightInput.value);
         const fontFamily = (this.fontFamilySelect.value || '').trim();
@@ -149,11 +273,24 @@ export class SettingsDialog {
         const normalizedSize = Number.isFinite(fontSize) ? this.clamp(fontSize, 10, 48) : 16;
         const normalizedLineHeight = Number.isFinite(lineHeight) ? this.clamp(lineHeight, 1.0, 3.0) : 1.6;
 
+        // Code 模式设置
+        const codeFontSize = Number(this.codeFontSizeInput.value);
+        const codeLineHeight = Number(this.codeLineHeightInput.value);
+        const codeFontFamily = (this.codeFontFamilySelect.value || '').trim();
+        const codeFontWeight = Number(this.codeFontWeightSelect.value);
+
+        const normalizedCodeSize = Number.isFinite(codeFontSize) ? this.clamp(codeFontSize, 10, 48) : 14;
+        const normalizedCodeLineHeight = Number.isFinite(codeLineHeight) ? this.clamp(codeLineHeight, 1.0, 3.0) : 1.5;
+
         const sanitized = {
             fontSize: normalizedSize,
             lineHeight: Number(normalizedLineHeight.toFixed(2)),
             fontFamily: fontFamily || '',
             fontWeight: Number.isFinite(fontWeight) ? fontWeight : 400,
+            codeFontSize: normalizedCodeSize,
+            codeLineHeight: Number(normalizedCodeLineHeight.toFixed(2)),
+            codeFontFamily: codeFontFamily || '',
+            codeFontWeight: Number.isFinite(codeFontWeight) ? codeFontWeight : 400,
         };
 
         if (this.onSubmit) {

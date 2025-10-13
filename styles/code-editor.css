@@ -51,3 +51,16 @@
 .code-editor-pane .monaco-editor .minimap-shadow-visible {
     background: transparent !important;
 }
+
+/* 应用 Code 模式字体设置 */
+.code-editor-pane .monaco-editor,
+.code-editor-pane .monaco-editor .view-lines,
+.code-editor-pane .monaco-editor .view-line {
+    font-size: var(--code-font-size, 14px) !important;
+    line-height: var(--code-line-height, 1.5) !important;
+    font-weight: var(--code-font-weight, 400) !important;
+}
+
+.code-editor-pane .monaco-editor {
+    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace) !important;
+}

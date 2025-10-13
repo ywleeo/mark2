@@ -18,6 +18,10 @@
     display: none;
 }
 
+.hidden {
+    display: none !important;
+}
+
 .settings-dialog {
     width: 420px;
     max-width: 100%;
@@ -29,19 +33,49 @@
 }
 
 .settings-header {
-    padding: 20px 24px 12px 24px;
+    padding: 20px 24px 0 24px;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .settings-header h2 {
-    margin: 0;
+    margin: 0 0 16px 0;
     font-size: 18px;
     font-weight: 600;
     color: #111827;
 }
 
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+}
+
+.settings-tab {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    outline: none;
+}
+
+.settings-tab:hover {
+    color: #475569;
+}
+
+.settings-tab.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+
 .settings-subtitle {
-    margin: 6px 0 0;
+    margin: 0 0 16px 0;
     font-size: 13px;
     color: #64748b;
 }

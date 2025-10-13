@@ -57,7 +57,16 @@ let codeEditor = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
-let editorSettings = { fontSize: 16, lineHeight: 1.6, fontFamily: '', fontWeight: 400 };
+let editorSettings = {
+    fontSize: 16,
+    lineHeight: 1.6,
+    fontFamily: '',
+    fontWeight: 400,
+    codeFontSize: 14,
+    codeLineHeight: 1.5,
+    codeFontFamily: '',
+    codeFontWeight: 400,
+};
 let availableFontFamilies = [];
 let markdownPaneElement = null;
 let codeEditorPaneElement = null;
@@ -71,6 +80,10 @@ const defaultEditorSettings = {
     lineHeight: 1.6,
     fontFamily: '',
     fontWeight: 400,
+    codeFontSize: 14,
+    codeLineHeight: 1.5,
+    codeFontFamily: '',
+    codeFontWeight: 400,
 };
 
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
@@ -586,6 +599,7 @@ function applyEditorSettings(settings) {
     const prefs = normalizeEditorSettings(settings);
     const root = document.documentElement;
 
+    // 普通模式设置
     root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
     root.style.setProperty('--editor-line-height', prefs.lineHeight.toString());
     root.style.setProperty('--editor-font-weight', prefs.fontWeight.toString());
@@ -594,6 +608,17 @@ function applyEditorSettings(settings) {
         root.style.setProperty('--editor-font-family', prefs.fontFamily);
     } else {
         root.style.removeProperty('--editor-font-family');
+    }
+
+    // Code 模式设置
+    root.style.setProperty('--code-font-size', `${prefs.codeFontSize}px`);
+    root.style.setProperty('--code-line-height', prefs.codeLineHeight.toString());
+    root.style.setProperty('--code-font-weight', prefs.codeFontWeight.toString());
+
+    if (prefs.codeFontFamily && prefs.codeFontFamily.length > 0) {
+        root.style.setProperty('--code-font-family', prefs.codeFontFamily);
+    } else {
+        root.style.removeProperty('--code-font-family');
     }
 }
 
@@ -626,6 +651,7 @@ function normalizeEditorSettings(candidate) {
     const prefs = { ...defaultEditorSettings };
 
     if (candidate && typeof candidate === 'object') {
+        // 普通模式设置
         if (candidate.fontSize !== undefined) {
             const size = Number(candidate.fontSize);
             if (Number.isFinite(size)) {
@@ -659,6 +685,33 @@ function normalizeEditorSettings(candidate) {
             const weight = Number(candidate.fontWeight);
             if (Number.isFinite(weight)) {
                 prefs.fontWeight = normalizeFontWeight(weight);
+            }
+        }
+
+        // Code 模式设置
+        if (candidate.codeFontSize !== undefined) {
+            const size = Number(candidate.codeFontSize);
+            if (Number.isFinite(size)) {
+                prefs.codeFontSize = clamp(size, 10, 48);
+            }
+        }
+
+        if (candidate.codeLineHeight !== undefined) {
+            const height = Number(candidate.codeLineHeight);
+            if (Number.isFinite(height)) {
+                const clampedHeight = clamp(height, 1.0, 3.0);
+                prefs.codeLineHeight = Number(clampedHeight.toFixed(2));
+            }
+        }
+
+        if (typeof candidate.codeFontFamily === 'string') {
+            prefs.codeFontFamily = candidate.codeFontFamily.trim();
+        }
+
+        if (candidate.codeFontWeight !== undefined) {
+            const weight = Number(candidate.codeFontWeight);
+            if (Number.isFinite(weight)) {
+                prefs.codeFontWeight = normalizeFontWeight(weight);
             }
         }
     }
