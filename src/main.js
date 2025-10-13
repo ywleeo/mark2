@@ -341,14 +341,19 @@ async function setupMenuListeners() {
         void openSettingsDialog();
     });
 
-    await listen('menu-screenshot', async () => {
-        console.log('收到截图菜单事件');
-        await handleMenuScreenshot();
+    await listen('menu-export-image', async () => {
+        console.log('收到导出图片菜单事件');
+        await handleMenuExportImage();
+    });
+
+    await listen('menu-export-pdf', async () => {
+        console.log('收到导出 PDF 菜单事件');
+        await handleMenuExportPdf();
     });
     console.log('菜单事件监听已设置');
 }
 
-async function handleMenuScreenshot() {
+async function handleMenuExportImage() {
     try {
         const defaultPath = await buildDefaultScreenshotPath();
         const targetPath = await save({
@@ -385,9 +390,71 @@ async function handleMenuScreenshot() {
     }
 }
 
+async function handleMenuExportPdf() {
+    try {
+        const defaultPath = await buildDefaultPdfPath();
+        const targetPath = await save({
+            title: '导出 PDF',
+            filters: [
+                {
+                    name: 'PDF 文件',
+                    extensions: ['pdf'],
+                },
+            ],
+            defaultPath,
+        });
+
+        if (!targetPath) {
+            return;
+        }
+
+        console.log('开始生成 PDF...');
+        const startTime = Date.now();
+
+        const { htmlContent, cssContent, pageWidth } = await collectContentForPdf();
+        await invoke('export_to_pdf', {
+            destination: targetPath,
+            htmlContent,
+            cssContent,
+            pageWidth,
+        });
+
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`PDF 生成完成，耗时 ${duration} 秒`);
+
+        await message('PDF 已保存至: ' + targetPath, {
+            title: '导出完成',
+            kind: 'info',
+        });
+    } catch (error) {
+        console.error('导出 PDF 失败', error);
+        const reason = error?.message || String(error);
+        await message('导出 PDF 失败: ' + reason, {
+            title: '导出失败',
+            kind: 'error',
+        });
+    }
+}
+
 async function buildDefaultScreenshotPath() {
     const timestamp = formatTimestampForFilename(new Date());
     const fileName = `Mark2-Screenshot-${timestamp}.png`;
+
+    try {
+        const desktop = await desktopDir();
+        if (desktop && desktop.length > 0) {
+            return await join(desktop, fileName);
+        }
+    } catch (error) {
+        console.warn('无法获取桌面路径，使用默认文件名', error);
+    }
+
+    return fileName;
+}
+
+async function buildDefaultPdfPath() {
+    const timestamp = formatTimestampForFilename(new Date());
+    const fileName = `Mark2-Export-${timestamp}.pdf`;
 
     try {
         const desktop = await desktopDir();
@@ -1096,4 +1163,80 @@ function scheduleFileRefresh(filePath) {
     }, 150);
 
     fileRefreshTimers.set(normalizedPath, timer);
+}
+
+async function collectContentForPdf() {
+    const viewElement = document.getElementById('viewContent');
+    if (!viewElement) {
+        throw new Error('无法找到 viewContent 元素');
+    }
+
+    // 获取内容元素
+    let contentElement;
+    if (activeViewMode === 'markdown') {
+        contentElement = viewElement.querySelector('.tiptap-editor');
+    } else {
+        contentElement = viewElement.querySelector('.monaco-editor');
+    }
+
+    if (!contentElement) {
+        contentElement = viewElement;
+    }
+
+    // 获取 HTML 内容
+    const htmlContent = contentElement.innerHTML;
+
+    // 收集所有相关的 CSS
+    const cssContent = await collectAllStyles();
+
+    // 获取视图容器的实际宽度
+    const pageWidth = viewElement.clientWidth || 800;
+
+    return { htmlContent, cssContent, pageWidth };
+}
+
+async function collectAllStyles() {
+    const styles = [];
+
+    // 收集所有 <style> 标签
+    const styleTags = document.querySelectorAll('style');
+    styleTags.forEach(tag => {
+        if (tag.textContent) {
+            styles.push(tag.textContent);
+        }
+    });
+
+    // 收集所有外部样式表
+    const linkTags = document.querySelectorAll('link[rel="stylesheet"]');
+    for (const link of linkTags) {
+        try {
+            const href = link.getAttribute('href');
+            if (href) {
+                const response = await fetch(href);
+                const cssText = await response.text();
+                styles.push(cssText);
+            }
+        } catch (error) {
+            console.warn('无法加载样式表:', link.href, error);
+        }
+    }
+
+    // 添加必要的基础样式
+    styles.push(`
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+        }
+        .tiptap-editor {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .code-copy-button {
+            display: none !important;
+        }
+    `);
+
+    return styles.join('\n');
 }
