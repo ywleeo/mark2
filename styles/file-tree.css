@@ -196,7 +196,6 @@
 .tree-folder-header.root {
     font-weight: 600;
     border-bottom: 1px solid var(--border-color, #e9ecef);
-    margin-bottom: 4px;
     padding: 8px 5px 8px 15px;
 }
 
@@ -276,7 +275,7 @@
 }
 
 .tree-file:hover {
-    background-color: var(--hover-bg-color, #f1f3f4);
+    background-color: var(--hover-bg-color, #e4e5e5);
 }
 
 .tree-file.selected {
