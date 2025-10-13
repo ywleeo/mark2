@@ -413,6 +413,8 @@ export class MarkdownEditor {
         this.suppressUpdateEvent = true;
         try {
             this.editor.commands.setContent(resolvedHtml);
+            // 设置光标到开头并滚动到顶部
+            this.editor.commands.focus('start');
         } finally {
             this.suppressUpdateEvent = false;
         }
