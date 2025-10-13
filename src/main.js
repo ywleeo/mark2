@@ -832,8 +832,16 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             closeActiveTab();
         }
+
+        // Cmd+F (macOS) 或 Ctrl+F (Windows/Linux) 查找
+        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+            e.preventDefault();
+            if (activeViewMode === 'markdown' && editor) {
+                editor.showSearch();
+            }
+        }
     });
-    console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存, Cmd+W 关闭当前标签');
+    console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存, Cmd+W 关闭当前标签, Cmd+F 查找');
 }
 
 function closeActiveTab() {
