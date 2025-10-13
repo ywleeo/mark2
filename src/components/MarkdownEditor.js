@@ -1,6 +1,10 @@
 import { Editor, Node, mergeAttributes } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
 import MarkdownIt from 'markdown-it';
 import TurndownService from 'turndown';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
@@ -298,6 +302,8 @@ export class MarkdownEditor {
             breaks: true,
             linkify: true,
         });
+        // 启用表格支持
+        this.md.enable('table');
         this.md.use(taskListPlugin);
 
         const trimCodeRenderer = renderer => {
@@ -376,6 +382,12 @@ export class MarkdownEditor {
                         class: 'code-block hljs',
                     },
                 }),
+                Table.configure({
+                    resizable: true,
+                }),
+                TableRow,
+                TableHeader,
+                TableCell,
                 MarkdownImage,
             ],
             content: '',
