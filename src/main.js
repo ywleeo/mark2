@@ -753,8 +753,21 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             await saveCurrentFile();
         }
+
+        // Cmd+W (macOS) 或 Ctrl+W (Windows/Linux) 关闭当前 tab
+        if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+            e.preventDefault();
+            closeActiveTab();
+        }
     });
-    console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存');
+    console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存, Cmd+W 关闭当前标签');
+}
+
+function closeActiveTab() {
+    if (!tabManager || !tabManager.activeTabId) {
+        return;
+    }
+    tabManager.handleTabClose(tabManager.activeTabId);
 }
 
 function setupSidebarResizer() {
