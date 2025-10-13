@@ -1,8 +1,11 @@
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 export class SettingsDialog {
     constructor(options = {}) {
         this.onSubmit = typeof options.onSubmit === 'function' ? options.onSubmit : null;
         this.onCancel = typeof options.onCancel === 'function' ? options.onCancel : null;
         this.isOpen = false;
+        this.cleanupFunctions = [];
 
         this.recommendedFonts = [
             {
@@ -79,20 +82,28 @@ export class SettingsDialog {
         this.fontWeightSelect = this.form.querySelector('select[name="fontWeight"]');
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
         this.saveButton = this.form.querySelector('button[type="submit"]');
-        this.cancelPointerHandled = false;
 
         this.handleSubmit = this.handleSubmit.bind(this);
-        this.handleCancelClick = this.handleCancelClick.bind(this);
         this.handleKeydown = this.handleKeydown.bind(this);
         this.handleBackdropClick = this.handleBackdropClick.bind(this);
-        this.handleCancelPointerUp = this.handleCancelPointerUp.bind(this);
-        this.handleSavePointerUp = this.handleSavePointerUp.bind(this);
 
         this.form.addEventListener('submit', this.handleSubmit);
-        this.cancelButton?.addEventListener('click', this.handleCancelClick);
-        this.cancelButton?.addEventListener('pointerup', this.handleCancelPointerUp);
-        this.saveButton?.addEventListener('pointerup', this.handleSavePointerUp);
         this.root.addEventListener('mousedown', this.handleBackdropClick);
+
+        // 使用统一的点击处理函数
+        if (this.cancelButton) {
+            const cleanup1 = addClickHandler(this.cancelButton, () => {
+                this.close(true);
+            });
+            this.cleanupFunctions.push(cleanup1);
+        }
+
+        if (this.saveButton) {
+            const cleanup2 = addClickHandler(this.saveButton, () => {
+                this.form.requestSubmit();
+            });
+            this.cleanupFunctions.push(cleanup2);
+        }
 
         this.availableFonts = [];
         this.setAvailableFonts([]);
@@ -152,57 +163,10 @@ export class SettingsDialog {
         this.close(false);
     }
 
-    handleCancelPointerUp(event) {
-        if (!this.isPointerActivation(event)) {
-            return;
-        }
-
-        this.cancelPointerHandled = true;
-        event.preventDefault();
-        event.stopPropagation();
-        this.close(true);
-    }
-
-    handleSavePointerUp(event) {
-        if (!this.isPointerActivation(event)) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        this.form.requestSubmit();
-    }
-
-    handleCancelClick(event) {
-        if (this.cancelPointerHandled) {
-            this.cancelPointerHandled = false;
-            return;
-        }
-
-        event.preventDefault();
-        this.close(true);
-    }
-
     handleKeydown(event) {
         if (event.key === 'Escape') {
             this.close(true);
         }
-    }
-
-    isPointerActivation(event) {
-        if (!event || typeof event.pointerType !== 'string') {
-            return false;
-        }
-
-        if (event.pointerType === 'mouse') {
-            return event.button === 0;
-        }
-
-        if (event.pointerType === 'touch' || event.pointerType === 'pen') {
-            return true;
-        }
-
-        return false;
     }
 
     handleBackdropClick(event) {
@@ -329,5 +293,20 @@ export class SettingsDialog {
             return min;
         }
         return Math.min(Math.max(value, min), max);
+    }
+
+    dispose() {
+        // 清理所有事件监听器
+        this.cleanupFunctions.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.cleanupFunctions = [];
+
+        // 移除 DOM 元素
+        if (this.root && this.root.parentElement) {
+            this.root.parentElement.removeChild(this.root);
+        }
     }
 }

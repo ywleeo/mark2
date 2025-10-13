@@ -1,3 +1,5 @@
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 export class TabManager {
     constructor(containerElement, callbacks = {}) {
         this.container = containerElement;
@@ -6,6 +8,7 @@ export class TabManager {
         this.sharedTab = null;
         this.fileTabs = [];
         this.activeTabId = null;
+        this.cleanupFunctions = [];
         this.render();
     }
 
@@ -174,6 +177,14 @@ export class TabManager {
     render() {
         if (!this.container) return;
 
+        // 清理旧的事件监听器
+        this.cleanupFunctions.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.cleanupFunctions = [];
+
         this.container.innerHTML = '';
         const tabs = this.getAllTabs();
 
@@ -192,19 +203,34 @@ export class TabManager {
             closeButton.className = 'tab-close';
             closeButton.type = 'button';
             closeButton.textContent = '×';
-            closeButton.addEventListener('click', event => {
+
+            // 使用统一的点击处理函数
+            const cleanup1 = addClickHandler(closeButton, (event) => {
                 event.stopPropagation();
                 this.handleTabClose(tab.id);
             });
+            this.cleanupFunctions.push(cleanup1);
+
             tabElement.appendChild(closeButton);
 
-            tabElement.addEventListener('click', () => {
+            const cleanup2 = addClickHandler(tabElement, () => {
                 this.setActiveTab(tab.id);
             });
+            this.cleanupFunctions.push(cleanup2);
 
             this.container.appendChild(tabElement);
         });
 
         this.updateActiveState();
+    }
+
+    dispose() {
+        // 清理所有事件监听器
+        this.cleanupFunctions.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.cleanupFunctions = [];
     }
 }

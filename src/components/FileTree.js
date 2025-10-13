@@ -1,3 +1,5 @@
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
         this.container = containerElement;
@@ -11,6 +13,7 @@ export class FileTree {
         this.onFolderChange = callbacks.onFolderChange;
         this.onFileChange = callbacks.onFileChange;
         this.onOpenFilesChange = callbacks.onOpenFilesChange;
+        this.cleanupFunctions = []; // 存储清理函数
         this.init();
     }
 
@@ -33,30 +36,6 @@ export class FileTree {
         }
         const parentSegment = parentPath ?? '';
         return `${parentSegment}::${path}`;
-    }
-
-    isPrimaryPointerActivation(event) {
-        if (!event) {
-            return false;
-        }
-
-        const { pointerType } = event;
-        if (typeof pointerType === 'string' && pointerType.length > 0) {
-            const type = pointerType.toLowerCase();
-            if (type === 'mouse') {
-                return event.button === 0;
-            }
-            if (type === 'touch' || type === 'pen') {
-                return true;
-            }
-            return false;
-        }
-
-        if (typeof MouseEvent !== 'undefined' && event instanceof MouseEvent) {
-            return event.button === 0;
-        }
-
-        return false;
     }
 
     isInOpenList(path) {
@@ -273,50 +252,23 @@ export class FileTree {
             ${isRoot ? `<button class="close-folder-btn" type="button" data-path="${path}">×</button>` : ''}
         `;
 
-        const headerPointerState = { handled: false };
-
-        header.addEventListener('pointerup', (event) => {
-            if (!this.isPrimaryPointerActivation(event)) {
-                return;
-            }
-
-            if (event.target.closest('.close-folder-btn')) {
-                return;
-            }
-
-            headerPointerState.handled = true;
-            this.toggleFolder(path, item);
-            setTimeout(() => {
-                headerPointerState.handled = false;
-            }, 0);
-        });
-
-        header.addEventListener('click', (event) => {
-            if (headerPointerState.handled) {
-                headerPointerState.handled = false;
-                return;
-            }
+        // 使用统一的点击处理函数
+        const cleanup1 = addClickHandler(header, (event) => {
             if (event.target.closest('.close-folder-btn')) {
                 return;
             }
             this.toggleFolder(path, item);
         });
+        this.cleanupFunctions.push(cleanup1);
 
         if (isRoot) {
             const closeButton = header.querySelector('.close-folder-btn');
             if (closeButton) {
-                closeButton.addEventListener('pointerup', (event) => {
-                    if (!this.isPrimaryPointerActivation(event)) {
-                        return;
-                    }
+                const cleanup2 = addClickHandler(closeButton, (event) => {
                     event.stopPropagation();
                     this.closeFolder(path);
                 });
-
-                closeButton.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    this.closeFolder(path);
-                });
+                this.cleanupFunctions.push(cleanup2);
             }
         }
 
@@ -360,27 +312,11 @@ export class FileTree {
             <span class="tree-item-name">${name}</span>
         `;
 
-        const filePointerState = { handled: false };
-
-        item.addEventListener('pointerup', (event) => {
-            if (!this.isPrimaryPointerActivation(event)) {
-                return;
-            }
-
-            filePointerState.handled = true;
-            this.selectFile(path);
-            setTimeout(() => {
-                filePointerState.handled = false;
-            }, 0);
-        });
-
-        item.addEventListener('click', () => {
-            if (filePointerState.handled) {
-                filePointerState.handled = false;
-                return;
-            }
+        // 使用统一的点击处理函数
+        const cleanup = addClickHandler(item, () => {
             this.selectFile(path);
         });
+        this.cleanupFunctions.push(cleanup);
 
         item.addEventListener('dblclick', () => {
             this.addToOpenFiles(path);
@@ -540,46 +476,21 @@ export class FileTree {
                 <button class="close-file-btn" data-path="${path}">×</button>
             `;
 
-            const openItemPointerState = { handled: false };
-
-            item.addEventListener('pointerup', (event) => {
-                if (!this.isPrimaryPointerActivation(event)) {
-                    return;
-                }
+            // 使用统一的点击处理函数
+            const cleanup1 = addClickHandler(item, (event) => {
                 if (event.target.closest('.close-file-btn')) {
                     return;
                 }
-
-                openItemPointerState.handled = true;
                 this.selectFile(path);
-                setTimeout(() => {
-                    openItemPointerState.handled = false;
-                }, 0);
             });
-
-            item.addEventListener('click', (event) => {
-                if (openItemPointerState.handled) {
-                    openItemPointerState.handled = false;
-                    return;
-                }
-                if (!event.target.classList.contains('close-file-btn')) {
-                    this.selectFile(path);
-                }
-            });
+            this.cleanupFunctions.push(cleanup1);
 
             const closeButton = item.querySelector('.close-file-btn');
-            closeButton.addEventListener('pointerup', (event) => {
-                if (!this.isPrimaryPointerActivation(event)) {
-                    return;
-                }
+            const cleanup2 = addClickHandler(closeButton, (event) => {
                 event.stopPropagation();
                 this.closeFile(path);
             });
-
-            closeButton.addEventListener('click', (event) => {
-                event.stopPropagation();
-                this.closeFile(path);
-            });
+            this.cleanupFunctions.push(cleanup2);
 
             contentDiv.appendChild(item);
         });
@@ -760,6 +671,14 @@ export class FileTree {
     }
 
     dispose() {
+        // 清理所有事件监听器
+        this.cleanupFunctions.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.cleanupFunctions = [];
+
         this.stopWatchingFolder();
         Array.from(this.fileWatchers.keys()).forEach(path => {
             this.stopWatchingFile(path);
