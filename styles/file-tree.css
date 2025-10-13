@@ -268,8 +268,7 @@
 .tree-file {
     display: flex;
     align-items: center;
-    padding: 1px 16px 2px 20px;
-    margin: 2px 0;
+    padding: 2px 16px 2px 20px;
     cursor: pointer;
     font-size: 12px;
     transition: background-color 0.15s;
