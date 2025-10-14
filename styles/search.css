@@ -3,17 +3,17 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 8px 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: rgba(128, 128, 128, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
     z-index: 1000;
     display: none;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .search-box.is-visible {
@@ -23,34 +23,43 @@
 .search-box input[type="text"] {
     flex: 1;
     min-width: 200px;
-    padding: 6px 12px;
-    border: 1px solid #d0d0d0;
+    padding: 7px 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
     font-size: 14px;
+    color: #333;
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.2s;
 }
 
 .search-box input[type="text"]:focus {
-    border-color: #007aff;
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.search-box input[type="text"]::placeholder {
+    color: rgba(0, 0, 0, 0.4);
 }
 
 .search-info {
     font-size: 12px;
-    color: #666;
+    color: rgba(255, 255, 255, 0.85);
     user-select: none;
     min-width: 50px;
     text-align: center;
+    font-weight: 500;
 }
 
 .search-button {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    background: #f5f5f5;
-    border: 1px solid #d0d0d0;
-    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
     font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
     cursor: pointer;
     transition: all 0.2s;
     user-select: none;
@@ -61,23 +70,24 @@
 }
 
 .search-button:hover {
-    background: #e8e8e8;
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
 }
 
 .search-button:active {
-    background: #d8d8d8;
+    background: rgba(255, 255, 255, 0.4);
 }
 
 .search-button.close-btn {
-    background: transparent;
-    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     font-size: 18px;
-    color: #999;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .search-button.close-btn:hover {
-    background: #f0f0f0;
-    color: #333;
+    background: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.95);
 }
 
 /* 搜索结果高亮 */
@@ -90,59 +100,4 @@
     background-color: rgba(255, 165, 0, 0.6);
     outline: 2px solid rgba(255, 140, 0, 0.8);
     outline-offset: 1px;
-}
-
-/* 暗色模式适配 */
-@media (prefers-color-scheme: dark) {
-    .search-box {
-        background: rgba(40, 40, 40, 0.95);
-        border-color: #555;
-    }
-
-    .search-box input[type="text"] {
-        background: #2a2a2a;
-        border-color: #555;
-        color: #fff;
-    }
-
-    .search-box input[type="text"]:focus {
-        border-color: #0a84ff;
-    }
-
-    .search-info {
-        color: #aaa;
-    }
-
-    .search-button {
-        background: #3a3a3a;
-        border-color: #555;
-        color: #ddd;
-    }
-
-    .search-button:hover {
-        background: #4a4a4a;
-    }
-
-    .search-button:active {
-        background: #555;
-    }
-
-    .search-button.close-btn {
-        background: transparent;
-        color: #888;
-    }
-
-    .search-button.close-btn:hover {
-        background: #3a3a3a;
-        color: #ddd;
-    }
-
-    .search-result {
-        background-color: rgba(200, 180, 50, 0.4);
-    }
-
-    .search-result-current {
-        background-color: rgba(255, 165, 0, 0.5);
-        outline-color: rgba(255, 140, 0, 0.7);
-    }
 }
