@@ -61,6 +61,14 @@ export class SearchBoxManager {
             }
         });
 
+        // 全局 ESC 键监听（用于失焦时也能关闭搜索框）
+        this.globalKeyHandler = (e) => {
+            if (e.key === 'Escape' && this.searchBox?.classList.contains('is-visible')) {
+                this.hideSearch();
+            }
+        };
+        document.addEventListener('keydown', this.globalKeyHandler);
+
         // 使用 PointerHelper 处理按钮点击
         const closeBtnCleanup = addClickHandler(closeBtn, () => this.hideSearch());
         const prevBtnCleanup = addClickHandler(prevBtn, () => this.searchPrev());
@@ -187,6 +195,12 @@ export class SearchBoxManager {
             }
         });
         this.cleanupFunctions = [];
+
+        // 清理全局键盘监听
+        if (this.globalKeyHandler) {
+            document.removeEventListener('keydown', this.globalKeyHandler);
+            this.globalKeyHandler = null;
+        }
 
         // 清理引用
         this.searchBox = null;
