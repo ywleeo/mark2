@@ -253,6 +253,9 @@ async function initializeApplication() {
     codeEditor.hide();
     activeViewMode = 'markdown';
 
+    // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
+    editor.setCodeEditor(codeEditor);
+
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
     fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
@@ -836,7 +839,8 @@ function setupKeyboardShortcuts() {
         // Cmd+F (macOS) 或 Ctrl+F (Windows/Linux) 查找
         if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
             e.preventDefault();
-            if (activeViewMode === 'markdown' && editor) {
+            // 统一使用 editor 的 showSearch 方法，它会自动判断当前编辑器
+            if (editor) {
                 editor.showSearch();
             }
         }

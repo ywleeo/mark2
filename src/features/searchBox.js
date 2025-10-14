@@ -3,13 +3,29 @@ import { searchPluginKey } from '../extensions/SearchExtension.js';
 
 // 查找框管理类
 export class SearchBoxManager {
-    constructor(editor) {
-        this.editor = editor;
+    constructor(editor, codeEditor = null) {
+        this.editor = editor; // Markdown 编辑器
+        this.codeEditor = codeEditor; // 代码编辑器
         this.searchBox = null;
         this.searchInput = null;
         this.searchInfo = null;
 
         this.initSearchBox();
+    }
+
+    // 设置代码编辑器引用
+    setCodeEditor(codeEditor) {
+        this.codeEditor = codeEditor;
+    }
+
+    // 获取当前激活的编辑器
+    getActiveEditor() {
+        // 检查是否在代码编辑模式
+        if (this.codeEditor && this.codeEditor.isVisible) {
+            return { type: 'code', editor: this.codeEditor };
+        }
+        // 默认使用 Markdown 编辑器
+        return { type: 'markdown', editor: this.editor };
     }
 
     // 初始化查找 UI
@@ -23,10 +39,9 @@ export class SearchBoxManager {
         this.searchInput = this.searchBox.querySelector('input[type="text"]');
         this.searchInfo = this.searchBox.querySelector('.search-info');
 
+        const prevBtn = this.searchBox.querySelector('.prev-btn');
+        const nextBtn = this.searchBox.querySelector('.next-btn');
         const closeBtn = this.searchBox.querySelector('.close-btn');
-        const buttons = this.searchBox.querySelectorAll('.search-controls .search-button');
-        const prevBtn = buttons[0];
-        const nextBtn = buttons[1];
 
         if (!this.searchInput || !closeBtn || !prevBtn || !nextBtn) return;
 
@@ -60,44 +75,72 @@ export class SearchBoxManager {
     hideSearch() {
         if (!this.searchBox) return;
         this.searchBox.classList.remove('is-visible');
-        if (this.editor) {
-            this.editor.commands.clearSearch();
+
+        const { type, editor } = this.getActiveEditor();
+        if (type === 'markdown' && editor) {
+            editor.commands.clearSearch();
+        } else if (type === 'code' && editor) {
+            editor.clearSearch();
         }
     }
 
     // 处理搜索输入
     handleSearchInput() {
         const searchTerm = this.searchInput?.value || '';
+        const { type, editor } = this.getActiveEditor();
 
-        if (!this.editor) return;
+        if (!editor) return;
 
         if (!searchTerm) {
-            this.editor.commands.clearSearch();
+            if (type === 'markdown') {
+                editor.commands.clearSearch();
+            } else {
+                editor.clearSearch();
+            }
             if (this.searchInfo) {
                 this.searchInfo.textContent = '';
             }
             return;
         }
 
-        this.editor.commands.setSearchTerm(searchTerm);
-        this.updateSearchInfo();
+        if (type === 'markdown') {
+            editor.commands.setSearchTerm(searchTerm);
+            this.updateSearchInfo();
+        } else {
+            const result = editor.setSearchTerm(searchTerm);
+            this.updateSearchInfoFromResult(result);
+        }
     }
 
     // 查找下一个
     searchNext() {
-        if (!this.editor) return;
-        this.editor.commands.nextSearchResult();
-        this.updateSearchInfo();
+        const { type, editor } = this.getActiveEditor();
+        if (!editor) return;
+
+        if (type === 'markdown') {
+            editor.commands.nextSearchResult();
+            this.updateSearchInfo();
+        } else {
+            const result = editor.nextSearchResult();
+            this.updateSearchInfoFromResult(result);
+        }
     }
 
     // 查找上一个
     searchPrev() {
-        if (!this.editor) return;
-        this.editor.commands.prevSearchResult();
-        this.updateSearchInfo();
+        const { type, editor } = this.getActiveEditor();
+        if (!editor) return;
+
+        if (type === 'markdown') {
+            editor.commands.prevSearchResult();
+            this.updateSearchInfo();
+        } else {
+            const result = editor.prevSearchResult();
+            this.updateSearchInfoFromResult(result);
+        }
     }
 
-    // 更新搜索信息
+    // 更新搜索信息 (Markdown 编辑器)
     updateSearchInfo() {
         if (!this.editor || !this.searchInfo) return;
 
@@ -108,6 +151,20 @@ export class SearchBoxManager {
             const current = pluginState.currentIndex + 1;
             const total = pluginState.results.length;
             this.searchInfo.textContent = `${current} / ${total}`;
+        } else if (this.searchInput?.value) {
+            this.searchInfo.textContent = '无结果';
+        } else {
+            this.searchInfo.textContent = '';
+        }
+    }
+
+    // 更新搜索信息 (代码编辑器)
+    updateSearchInfoFromResult(result) {
+        if (!this.searchInfo) return;
+
+        if (result && result.total > 0) {
+            const current = result.current + 1;
+            this.searchInfo.textContent = `${current} / ${result.total}`;
         } else if (this.searchInput?.value) {
             this.searchInfo.textContent = '无结果';
         } else {

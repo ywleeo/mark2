@@ -174,6 +174,11 @@ export class MarkdownEditor {
         this.searchBoxManager?.showSearch();
     }
 
+    // 设置代码编辑器引用
+    setCodeEditor(codeEditor) {
+        this.searchBoxManager?.setCodeEditor(codeEditor);
+    }
+
     // 销毁编辑器
     destroy() {
         this.codeCopyManager?.destroy();

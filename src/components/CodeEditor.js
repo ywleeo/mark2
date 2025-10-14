@@ -376,4 +376,99 @@ export class CodeEditor {
         const selection = new this.monaco.Selection(lineNumber, column, lineNumber, column);
         this.editor.setSelection(selection);
     }
+
+    // 搜索相关方法
+    findMatches(searchTerm) {
+        if (!this.editor || !this.currentModel) return [];
+
+        const matches = this.currentModel.findMatches(
+            searchTerm,
+            false, // searchOnlyEditableRange
+            false, // isRegex
+            false, // matchCase
+            null,  // wordSeparators
+            true   // captureMatches
+        );
+
+        return matches || [];
+    }
+
+    setSearchTerm(searchTerm) {
+        if (!this.editor) return;
+
+        const matches = this.findMatches(searchTerm);
+        this.searchMatches = matches;
+        this.currentMatchIndex = matches.length > 0 ? 0 : -1;
+
+        // 高亮所有匹配项
+        if (matches.length > 0) {
+            this.highlightMatches(matches, 0);
+            this.scrollToMatch(0);
+        }
+
+        return { total: matches.length, current: this.currentMatchIndex };
+    }
+
+    highlightMatches(matches, currentIndex) {
+        if (!this.editor || !this.monaco) return;
+
+        const decorations = matches.map((match, index) => ({
+            range: match.range,
+            options: {
+                className: index === currentIndex ? 'search-result-current' : 'search-result',
+                isWholeLine: false,
+            }
+        }));
+
+        this.searchDecorations = this.editor.deltaDecorations(
+            this.searchDecorations || [],
+            decorations
+        );
+    }
+
+    scrollToMatch(index) {
+        if (!this.editor || !this.searchMatches || index < 0 || index >= this.searchMatches.length) {
+            return;
+        }
+
+        const match = this.searchMatches[index];
+        this.editor.revealRangeInCenter(match.range);
+        this.editor.setPosition({
+            lineNumber: match.range.startLineNumber,
+            column: match.range.startColumn
+        });
+    }
+
+    nextSearchResult() {
+        if (!this.searchMatches || this.searchMatches.length === 0) return null;
+
+        this.currentMatchIndex = (this.currentMatchIndex + 1) % this.searchMatches.length;
+        this.highlightMatches(this.searchMatches, this.currentMatchIndex);
+        this.scrollToMatch(this.currentMatchIndex);
+
+        return { total: this.searchMatches.length, current: this.currentMatchIndex };
+    }
+
+    prevSearchResult() {
+        if (!this.searchMatches || this.searchMatches.length === 0) return null;
+
+        this.currentMatchIndex = this.currentMatchIndex <= 0
+            ? this.searchMatches.length - 1
+            : this.currentMatchIndex - 1;
+        this.highlightMatches(this.searchMatches, this.currentMatchIndex);
+        this.scrollToMatch(this.currentMatchIndex);
+
+        return { total: this.searchMatches.length, current: this.currentMatchIndex };
+    }
+
+    clearSearch() {
+        if (!this.editor) return;
+
+        if (this.searchDecorations) {
+            this.editor.deltaDecorations(this.searchDecorations, []);
+            this.searchDecorations = null;
+        }
+        this.searchMatches = null;
+        this.currentMatchIndex = -1;
+    }
 }
