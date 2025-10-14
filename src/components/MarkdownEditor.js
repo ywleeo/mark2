@@ -7,6 +7,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { SearchExtension } from '../extensions/SearchExtension.js';
+import { HtmlSpan, HtmlDiv, HtmlInline } from '../extensions/HtmlSupport.js';
 import { createConfiguredLowlight } from '../utils/highlightConfig.js';
 import {
     MarkdownImage,
@@ -75,10 +76,16 @@ export class MarkdownEditor {
                 TableCell,
                 MarkdownImage,
                 SearchExtension,
+                HtmlSpan,
+                HtmlDiv,
+                HtmlInline,
             ],
             content: '',
             editable: false,
             autofocus: false,
+            parseOptions: {
+                preserveWhitespace: 'full',
+            },
             editorProps: {
                 attributes: {
                     class: 'tiptap-editor',
@@ -102,7 +109,7 @@ export class MarkdownEditor {
     }
 
     // 加载 Markdown 内容
-    async setContent(markdown) {
+    async setContent(markdown, shouldFocusStart = true) {
         this.originalMarkdown = markdown;
         this.contentChanged = false;
 
@@ -115,7 +122,10 @@ export class MarkdownEditor {
         try {
             this.editor.setEditable(true);
             this.editor.commands.setContent(resolvedHtml);
-            this.editor.commands.focus('start');
+            // 只在首次加载文件时将光标移到开头
+            if (shouldFocusStart) {
+                this.editor.commands.focus('start');
+            }
         } finally {
             this.suppressUpdateEvent = false;
         }
@@ -159,8 +169,9 @@ export class MarkdownEditor {
 
     // 加载文件
     async loadFile(filePath, content) {
+        const isNewFile = this.currentFile !== filePath;
         this.currentFile = filePath;
-        await this.setContent(content);
+        await this.setContent(content, isNewFile);
     }
 
     // AI 生成内容插入
