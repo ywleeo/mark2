@@ -230,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initializeApplication() {
-    console.log('DOM 加载完成');
 
     await ensureCoreModules();
 
@@ -304,24 +303,13 @@ async function handleFileSelect(filePath) {
         // 只有文件加载成功后才更新 tab
         const isOpenTab = fileTree?.isInOpenList?.(filePath);
 
-        console.log('[handleFileSelect]', {
-            filePath,
-            isOpenTab,
-            isOpeningFromLink,
-        });
-
         // 如果是从链接打开，强制使用 shared tab
         if (isOpeningFromLink) {
-            console.log('[handleFileSelect] 使用 shared tab（从链接打开）');
-            console.log('[handleFileSelect] 调用 showSharedTab 前的 tabs:', tabManager?.getAllTabs() || []);
             tabManager?.showSharedTab(filePath);
-            console.log('[handleFileSelect] 调用 showSharedTab 后的 tabs:', tabManager?.getAllTabs() || []);
             isOpeningFromLink = false; // 重置标记
         } else if (isOpenTab) {
-            console.log('[handleFileSelect] 使用 file tab（在打开列表中）');
             tabManager?.setActiveFileTab(filePath, { silent: true });
         } else {
-            console.log('[handleFileSelect] 使用 shared tab（不在打开列表中）');
             tabManager?.showSharedTab(filePath);
         }
     } catch (error) {
@@ -332,11 +320,6 @@ async function handleFileSelect(filePath) {
 }
 
 function handleOpenFilesChange(openFilePaths) {
-    console.log('[handleOpenFilesChange]', {
-        openFilePaths,
-        currentFile: fileTree?.currentFile,
-        isOpeningFromLink
-    });
     tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
 }
 
@@ -364,26 +347,21 @@ function handleTabClose(tab) {
 
 // 监听菜单事件
 async function setupMenuListeners() {
-    await listen('menu-open', (event) => {
-        console.log('收到菜单事件:', event);
+    await listen('menu-open', () => {
         void openFileOrFolder();
     });
 
     await listen('menu-settings', () => {
-        console.log('收到设置菜单事件');
         void openSettingsDialog();
     });
 
     await listen('menu-export-image', async () => {
-        console.log('收到导出图片菜单事件');
         await handleMenuExportImage();
     });
 
     await listen('menu-export-pdf', async () => {
-        console.log('收到导出 PDF 菜单事件');
         await handleMenuExportPdf();
     });
-    console.log('菜单事件监听已设置');
 }
 
 // 监听文档链接导航
@@ -395,10 +373,6 @@ function setupLinkNavigationListener() {
             return;
         }
 
-        console.log('[Link] 从链接打开文件:', path);
-        console.log('[Link] 当前文件:', currentFile);
-        console.log('[Link] 当前 openFiles:', fileTree?.openFiles || []);
-
         if (!fileTree) {
             console.error('fileTree 未初始化');
             return;
@@ -406,11 +380,9 @@ function setupLinkNavigationListener() {
 
         // 获取当前激活的 tab
         const activeTab = tabManager?.getAllTabs().find(tab => tab.id === tabManager?.activeTabId);
-        console.log('[Link] 当前激活的 tab:', activeTab);
 
         // 如果当前有激活的 file tab，用新文件替换它
         if (activeTab && activeTab.type === 'file' && activeTab.path) {
-            console.log('[Link] 替换 file tab:', activeTab.path, '->', path);
             const oldPath = activeTab.path;
 
             // 先添加新文件到打开列表并选择它
@@ -421,7 +393,6 @@ function setupLinkNavigationListener() {
             fileTree.closeFile(oldPath);
         } else {
             // 如果当前是 shared tab 或没有激活的 tab，使用 shared tab
-            console.log('[Link] 使用 shared tab');
             isOpeningFromLink = true;
             fileTree.selectFile(path);
         }
@@ -483,9 +454,6 @@ async function handleMenuExportPdf() {
             return;
         }
 
-        console.log('开始生成 PDF...');
-        const startTime = Date.now();
-
         const { htmlContent, cssContent, pageWidth } = await collectContentForPdf();
         await invoke('export_to_pdf', {
             destination: targetPath,
@@ -493,9 +461,6 @@ async function handleMenuExportPdf() {
             cssContent,
             pageWidth,
         });
-
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`PDF 生成完成，耗时 ${duration} 秒`);
 
         await message('PDF 已保存至: ' + targetPath, {
             title: '导出完成',
@@ -911,7 +876,6 @@ function setupKeyboardShortcuts() {
             }
         }
     });
-    console.log('快捷键已设置: Cmd+O 打开文件, Cmd+S 保存, Cmd+W 关闭当前标签, Cmd+F 查找');
 }
 
 function closeActiveTab() {
@@ -984,8 +948,6 @@ async function openFileOrFolder() {
         if (selections.length === 0) return;
 
         const uniqueSelections = Array.from(new Set(selections));
-
-        console.log('选择:', uniqueSelections);
 
         for (const resolvedPath of uniqueSelections) {
             try {
@@ -1061,7 +1023,6 @@ async function saveCurrentFile() {
                 content,
             });
             codeEditor.markSaved();
-            console.log('保存成功');
             return true;
         } catch (error) {
             console.error('保存失败:', error);
@@ -1075,7 +1036,6 @@ async function saveCurrentFile() {
 
 async function loadFile(filePath) {
     try {
-        console.log('读取文件:', filePath);
         const content = await invoke('read_file', { path: filePath });
         currentFile = filePath;
 
@@ -1099,8 +1059,6 @@ async function loadFile(filePath) {
                 console.error('无法监听文件:', error);
             }
         }
-
-        console.log('文件加载成功');
     } catch (error) {
         console.error('读取文件失败:', error);
         alert('读取文件失败: ' + error);
@@ -1144,7 +1102,6 @@ function handleFolderWatcherEvent(watchedPath, event) {
     }
 
     const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
-    console.debug('[Watcher] 目录变更路径', eventPaths);
 
     eventPaths.forEach((changedPath) => {
         if (!changedPath) return;
@@ -1152,7 +1109,6 @@ function handleFolderWatcherEvent(watchedPath, event) {
             const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
             if (editor && editorPath === changedPath) {
                 if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-                    console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
                     return;
                 }
             }
@@ -1167,8 +1123,6 @@ function handleFileWatcherEvent(filePath, event) {
     const normalizedPath = normalizeFsPath(filePath);
     if (!normalizedPath) return;
 
-    console.debug('[Watcher] 文件变更事件触发', { normalizedPath, event });
-
     const isOpenFile = fileTree?.isFileOpen?.(normalizedPath);
     if (!isOpenFile) {
         // 不在打开列表的文件不需要自动刷新
@@ -1182,14 +1136,12 @@ function handleFileWatcherEvent(filePath, event) {
 
     if (isMarkdownActive) {
         if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-            console.log('检测到文件外部变更，但编辑器存在未保存的修改，暂不覆盖');
             return;
         }
     }
 
     if (isCodeActive) {
         if (codeEditor?.hasUnsavedChanges?.()) {
-            console.log('检测到文件外部变更，但代码编辑器存在未保存的修改，暂不覆盖');
             return;
         }
     }
@@ -1236,11 +1188,9 @@ function scheduleFileRefresh(filePath) {
     const timer = setTimeout(async () => {
         fileRefreshTimers.delete(normalizedPath);
         if (!fileTree?.isFileOpen?.(normalizedPath)) {
-            console.debug('[Watcher] 跳过文件刷新，文件已不在打开列表', normalizedPath);
             return;
         }
         try {
-            console.debug('[Watcher] 重新加载文件', normalizedPath);
             await loadFile(normalizedPath);
         } catch (error) {
             console.error('刷新文件失败:', error);

@@ -40,14 +40,7 @@ export class FileTree {
 
     isInOpenList(path) {
         const normalized = this.normalizePath(path);
-        const result = this.openFiles.some(item => item === normalized);
-        console.debug('[FileTree] 检查打开列表', {
-            path,
-            normalized,
-            openFiles: [...this.openFiles],
-            result,
-        });
-        return result;
+        return this.openFiles.some(item => item === normalized);
     }
 
     isFileOpen(path) {
@@ -55,15 +48,7 @@ export class FileTree {
         const normalizedCurrent = this.normalizePath(this.currentFile);
         const isInOpenList = this.isInOpenList(path);
         const isCurrent = normalizedCurrent === normalized;
-        const result = isInOpenList || isCurrent;
-        console.debug('[FileTree] 检查文件是否已打开', {
-            path,
-            normalized,
-            normalizedCurrent,
-            openFiles: [...this.openFiles],
-            result,
-        });
-        return result;
+        return isInOpenList || isCurrent;
     }
 
     init() {
@@ -337,25 +322,19 @@ export class FileTree {
 
         const cleanup = addClickHandler(item, () => {
             clickCount++;
-            console.log(`[FileTree] 文件点击: ${path.split('/').pop()}, clickCount: ${clickCount}`);
-
-            if (clickTimer) {
-                clearTimeout(clickTimer);
-            }
 
             if (clickCount === 1) {
-                // 单击：延迟执行，等待可能的第二次点击
+                // 第一次点击：立即打开文件
+                this.selectFile(path);
+
+                // 启动定时器，等待可能的第二次点击
                 clickTimer = setTimeout(() => {
-                    console.log(`[FileTree] 单击确认: ${path.split('/').pop()}`);
-                    this.selectFile(path);
                     clickCount = 0;
                 }, 300);
             } else if (clickCount === 2) {
-                // 双击：立即执行
+                // 第二次点击（双击）：添加到打开的文件
                 clearTimeout(clickTimer);
-                console.log(`[FileTree] 双击确认: ${path.split('/').pop()}`);
                 this.addToOpenFiles(path);
-                this.selectFile(path);
                 clickCount = 0;
             }
         }, { preventDefault: true });
@@ -468,11 +447,6 @@ export class FileTree {
         if (this.isInOpenList(normalized)) return;
 
         this.openFiles.push(normalized);
-        console.debug('[FileTree] 添加到打开文件列表', {
-            path: normalized,
-            openFiles: [...this.openFiles],
-            stack: new Error().stack
-        });
         this.renderOpenFiles();
         this.watchFile(normalized).catch(error => {
             console.error('监听文件失败:', error);
@@ -617,7 +591,6 @@ export class FileTree {
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(normalizedPath, (event) => {
-                console.debug('[FileTree] 目录变更事件', { path: normalizedPath, event });
                 this.onFolderChange?.(normalizedPath, event);
             }, { recursive: true, delayMs: 200 });
             this.folderWatchers.set(normalizedPath, unwatch);
@@ -660,11 +633,9 @@ export class FileTree {
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(normalizedPath, (event) => {
-                console.debug('[FileTree] 文件变更事件', { path: normalizedPath, event });
                 this.onFileChange?.(normalizedPath, event);
             }, { recursive: false, delayMs: 150 });
             this.fileWatchers.set(normalizedPath, unwatch);
-            console.debug('[FileTree] 已监听文件', normalizedPath);
         } catch (error) {
             console.error('文件监听失败:', error);
             throw error;

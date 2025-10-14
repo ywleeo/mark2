@@ -129,15 +129,11 @@ export class MarkdownEditor {
             const href = link.getAttribute('href');
             if (!href) return;
 
-            console.log('[LinkClick] 点击链接:', { href, currentFile: this.currentFile });
-
             // 判断是外链还是相对路径
             if (this.isExternalLink(href)) {
-                console.log('[LinkClick] 识别为外链');
                 // 外链在浏览器中打开
                 await this.openExternalLink(href);
             } else {
-                console.log('[LinkClick] 识别为相对路径');
                 // 相对路径在编辑器中打开
                 await this.openRelativeLink(href);
             }
@@ -145,11 +141,7 @@ export class MarkdownEditor {
 
         // 使用 PointerHelper 处理点击，避免触控板重复触发
         this.linkClickCleanup = addClickHandler(this.element, handleLinkClick, {
-            shouldHandle: (e) => {
-                const isLink = e.target.closest('a.markdown-link') !== null;
-                console.log('[LinkClick] shouldHandle:', isLink);
-                return isLink;
-            },
+            shouldHandle: (e) => e.target.closest('a.markdown-link') !== null,
             preventDefault: true
         });
     }
@@ -177,23 +169,17 @@ export class MarkdownEditor {
         }
 
         try {
-            const { invoke } = await import('@tauri-apps/api/core');
             const { dirname, join } = await import('@tauri-apps/api/path');
-
-            console.log('打开相对路径链接:', { href, currentFile: this.currentFile });
 
             // 获取当前文件所在目录
             const currentDir = await dirname(this.currentFile);
-            console.log('当前文件目录:', currentDir);
 
             // 解析相对路径为绝对路径
             let targetPath = await join(currentDir, href);
-            console.log('解析后的路径:', targetPath);
 
             // 如果没有 .md 扩展名，尝试添加
             if (!targetPath.endsWith('.md') && !targetPath.endsWith('.markdown')) {
                 targetPath = targetPath + '.md';
-                console.log('添加扩展名后:', targetPath);
             }
 
             // 触发文件打开事件
