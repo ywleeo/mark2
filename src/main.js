@@ -57,6 +57,7 @@ let codeEditor = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
+let isOpeningFromLink = false;
 let editorSettings = {
     fontSize: 16,
     lineHeight: 1.6,
@@ -282,6 +283,7 @@ async function initializeApplication() {
 
     setupKeyboardShortcuts();
     await setupMenuListeners();
+    setupLinkNavigationListener();
     setupSidebarResizer();
     setupCleanupHandlers();
 
@@ -301,18 +303,40 @@ async function handleFileSelect(filePath) {
         await loadFile(filePath);
         // 只有文件加载成功后才更新 tab
         const isOpenTab = fileTree?.isInOpenList?.(filePath);
-        if (isOpenTab) {
+
+        console.log('[handleFileSelect]', {
+            filePath,
+            isOpenTab,
+            isOpeningFromLink,
+        });
+
+        // 如果是从链接打开，强制使用 shared tab
+        if (isOpeningFromLink) {
+            console.log('[handleFileSelect] 使用 shared tab（从链接打开）');
+            console.log('[handleFileSelect] 调用 showSharedTab 前的 tabs:', tabManager?.getAllTabs() || []);
+            tabManager?.showSharedTab(filePath);
+            console.log('[handleFileSelect] 调用 showSharedTab 后的 tabs:', tabManager?.getAllTabs() || []);
+            isOpeningFromLink = false; // 重置标记
+        } else if (isOpenTab) {
+            console.log('[handleFileSelect] 使用 file tab（在打开列表中）');
             tabManager?.setActiveFileTab(filePath, { silent: true });
         } else {
+            console.log('[handleFileSelect] 使用 shared tab（不在打开列表中）');
             tabManager?.showSharedTab(filePath);
         }
     } catch (error) {
         // 加载失败时不更新 tab，保持当前状态
         console.error('文件选择失败，保持当前 tab 状态');
+        isOpeningFromLink = false; // 重置标记
     }
 }
 
 function handleOpenFilesChange(openFilePaths) {
+    console.log('[handleOpenFilesChange]', {
+        openFilePaths,
+        currentFile: fileTree?.currentFile,
+        isOpeningFromLink
+    });
     tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
 }
 
@@ -360,6 +384,48 @@ async function setupMenuListeners() {
         await handleMenuExportPdf();
     });
     console.log('菜单事件监听已设置');
+}
+
+// 监听文档链接导航
+function setupLinkNavigationListener() {
+    window.addEventListener('open-file', async (event) => {
+        const { path } = event.detail || {};
+        if (!path) {
+            console.error('open-file 事件缺少 path');
+            return;
+        }
+
+        console.log('[Link] 从链接打开文件:', path);
+        console.log('[Link] 当前文件:', currentFile);
+        console.log('[Link] 当前 openFiles:', fileTree?.openFiles || []);
+
+        if (!fileTree) {
+            console.error('fileTree 未初始化');
+            return;
+        }
+
+        // 获取当前激活的 tab
+        const activeTab = tabManager?.getAllTabs().find(tab => tab.id === tabManager?.activeTabId);
+        console.log('[Link] 当前激活的 tab:', activeTab);
+
+        // 如果当前有激活的 file tab，用新文件替换它
+        if (activeTab && activeTab.type === 'file' && activeTab.path) {
+            console.log('[Link] 替换 file tab:', activeTab.path, '->', path);
+            const oldPath = activeTab.path;
+
+            // 先添加新文件到打开列表并选择它
+            fileTree.addToOpenFiles(path);
+            fileTree.selectFile(path);
+
+            // 再移除旧文件（这样不会触发自动选择其他文件）
+            fileTree.closeFile(oldPath);
+        } else {
+            // 如果当前是 shared tab 或没有激活的 tab，使用 shared tab
+            console.log('[Link] 使用 shared tab');
+            isOpeningFromLink = true;
+            fileTree.selectFile(path);
+        }
+    });
 }
 
 async function handleMenuExportImage() {

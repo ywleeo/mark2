@@ -9,6 +9,7 @@
     "core:event:allow-emit",
     "dialog:default",
     "fs:default",
+    "shell:allow-open",
     {
       "identifier": "fs:allow-watch",
       "allow": [

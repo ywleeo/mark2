@@ -33,6 +33,7 @@ export function isPrimaryPointerActivation(event) {
  * @param {Function} handler - 点击处理函数
  * @param {Object} options - 配置选项
  * @param {Function} options.shouldHandle - 可选，判断是否应该处理事件（比如检查 target）
+ * @param {Boolean} options.preventDefault - 可选，是否阻止默认行为（默认 false）
  */
 export function addClickHandler(element, handler, options = {}) {
     if (!element || typeof handler !== 'function') {
@@ -40,7 +41,7 @@ export function addClickHandler(element, handler, options = {}) {
     }
 
     const state = { handled: false };
-    const { shouldHandle } = options;
+    const { shouldHandle, preventDefault = false } = options;
 
     // pointerup 事件处理
     const onPointerUp = (event) => {
@@ -50,6 +51,11 @@ export function addClickHandler(element, handler, options = {}) {
 
         if (typeof shouldHandle === 'function' && !shouldHandle(event)) {
             return;
+        }
+
+        if (preventDefault) {
+            event.preventDefault();
+            event.stopPropagation();
         }
 
         state.handled = true;
@@ -65,11 +71,20 @@ export function addClickHandler(element, handler, options = {}) {
     const onClick = (event) => {
         if (state.handled) {
             state.handled = false;
+            if (preventDefault) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             return;
         }
 
         if (typeof shouldHandle === 'function' && !shouldHandle(event)) {
             return;
+        }
+
+        if (preventDefault) {
+            event.preventDefault();
+            event.stopPropagation();
         }
 
         handler(event);

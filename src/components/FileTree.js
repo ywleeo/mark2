@@ -332,15 +332,34 @@ export class FileTree {
         `;
 
         // 使用统一的点击处理函数
-        const cleanup = addClickHandler(item, () => {
-            this.selectFile(path);
-        });
-        this.cleanupFunctions.push(cleanup);
+        let clickCount = 0;
+        let clickTimer = null;
 
-        item.addEventListener('dblclick', () => {
-            this.addToOpenFiles(path);
-            this.selectFile(path);
-        });
+        const cleanup = addClickHandler(item, () => {
+            clickCount++;
+            console.log(`[FileTree] 文件点击: ${path.split('/').pop()}, clickCount: ${clickCount}`);
+
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+            }
+
+            if (clickCount === 1) {
+                // 单击：延迟执行，等待可能的第二次点击
+                clickTimer = setTimeout(() => {
+                    console.log(`[FileTree] 单击确认: ${path.split('/').pop()}`);
+                    this.selectFile(path);
+                    clickCount = 0;
+                }, 300);
+            } else if (clickCount === 2) {
+                // 双击：立即执行
+                clearTimeout(clickTimer);
+                console.log(`[FileTree] 双击确认: ${path.split('/').pop()}`);
+                this.addToOpenFiles(path);
+                this.selectFile(path);
+                clickCount = 0;
+            }
+        }, { preventDefault: true });
+        this.cleanupFunctions.push(cleanup);
 
         return item;
     }
@@ -449,7 +468,11 @@ export class FileTree {
         if (this.isInOpenList(normalized)) return;
 
         this.openFiles.push(normalized);
-        console.debug('[FileTree] 添加到打开文件列表', { path: normalized, openFiles: [...this.openFiles] });
+        console.debug('[FileTree] 添加到打开文件列表', {
+            path: normalized,
+            openFiles: [...this.openFiles],
+            stack: new Error().stack
+        });
         this.renderOpenFiles();
         this.watchFile(normalized).catch(error => {
             console.error('监听文件失败:', error);
