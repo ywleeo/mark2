@@ -1,5 +1,6 @@
 // 查找框功能模块
 import { searchPluginKey } from '../extensions/SearchExtension.js';
+import { addClickHandler } from '../utils/PointerHelper.js';
 
 // 查找框管理类
 export class SearchBoxManager {
@@ -9,6 +10,7 @@ export class SearchBoxManager {
         this.searchBox = null;
         this.searchInput = null;
         this.searchInfo = null;
+        this.cleanupFunctions = []; // 存储清理函数
 
         this.initSearchBox();
     }
@@ -58,9 +60,13 @@ export class SearchBoxManager {
                 this.hideSearch();
             }
         });
-        closeBtn.addEventListener('click', () => this.hideSearch());
-        prevBtn.addEventListener('click', () => this.searchPrev());
-        nextBtn.addEventListener('click', () => this.searchNext());
+
+        // 使用 PointerHelper 处理按钮点击
+        const closeBtnCleanup = addClickHandler(closeBtn, () => this.hideSearch());
+        const prevBtnCleanup = addClickHandler(prevBtn, () => this.searchPrev());
+        const nextBtnCleanup = addClickHandler(nextBtn, () => this.searchNext());
+
+        this.cleanupFunctions.push(closeBtnCleanup, prevBtnCleanup, nextBtnCleanup);
     }
 
     // 显示查找框
@@ -174,7 +180,15 @@ export class SearchBoxManager {
 
     // 销毁
     destroy() {
-        // 不需要删除元素，只需清理引用
+        // 清理事件监听器
+        this.cleanupFunctions.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.cleanupFunctions = [];
+
+        // 清理引用
         this.searchBox = null;
         this.searchInput = null;
         this.searchInfo = null;
