@@ -6,6 +6,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
+let ImageViewerCtor = null;
 let FileTreeCtor = null;
 let TabManagerCtor = null;
 let SettingsDialogCtor = null;
@@ -17,12 +18,14 @@ async function ensureCoreModules() {
             const [
                 editorModule,
                 codeEditorModule,
+                imageViewerModule,
                 fileTreeModule,
                 tabManagerModule,
                 settingsModule,
             ] = await Promise.all([
                 import('./components/MarkdownEditor.js'),
                 import('./components/CodeEditor.js'),
+                import('./components/ImageViewer.js'),
                 import('./components/FileTree.js'),
                 import('./components/TabManager.js'),
                 import('./components/SettingsDialog.js'),
@@ -30,6 +33,7 @@ async function ensureCoreModules() {
 
             MarkdownEditorCtor = editorModule.MarkdownEditor;
             CodeEditorCtor = codeEditorModule.CodeEditor;
+            ImageViewerCtor = imageViewerModule.ImageViewer;
             FileTreeCtor = fileTreeModule.FileTree;
             TabManagerCtor = tabManagerModule.TabManager;
             SettingsDialogCtor = settingsModule.SettingsDialog;
@@ -55,6 +59,7 @@ console.log('Mark2 Tauri 版本已启动');
 let currentFile = null;
 let editor = null;
 let codeEditor = null;
+let imageViewer = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
@@ -75,6 +80,7 @@ let editorSettings = {
 let availableFontFamilies = [];
 let markdownPaneElement = null;
 let codeEditorPaneElement = null;
+let imagePaneElement = null;
 let activeViewMode = 'markdown';
 
 const folderRefreshTimers = new Map();
@@ -93,6 +99,7 @@ const defaultEditorSettings = {
 };
 
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
 const CODE_SUFFIX_LANGUAGE_MAP = [
     ['.d.ts', 'typescript'],
     ['.d.mts', 'typescript'],
@@ -183,6 +190,20 @@ function isMarkdownFilePath(filePath) {
     return MARKDOWN_EXTENSIONS.has(match[1]);
 }
 
+function isImageFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+
+    return IMAGE_EXTENSIONS.has(match[1]);
+}
+
 function detectLanguageForPath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -207,25 +228,43 @@ function getViewModeForPath(filePath) {
     if (isMarkdownFilePath(filePath)) {
         return 'markdown';
     }
+    if (isImageFilePath(filePath)) {
+        return 'image';
+    }
     return 'code';
 }
 
 function activateMarkdownView() {
     markdownPaneElement?.classList.add('is-active');
     codeEditorPaneElement?.classList.remove('is-active');
+    imagePaneElement?.classList.remove('is-active');
     codeEditor?.hide?.();
+    imageViewer?.hide?.();
     activeViewMode = 'markdown';
 }
 
 function activateCodeView() {
     markdownPaneElement?.classList.remove('is-active');
     codeEditorPaneElement?.classList.add('is-active');
+    imagePaneElement?.classList.remove('is-active');
+    imageViewer?.hide?.();
     activeViewMode = 'code';
+}
+
+function activateImageView() {
+    markdownPaneElement?.classList.remove('is-active');
+    codeEditorPaneElement?.classList.remove('is-active');
+    imagePaneElement?.classList.add('is-active');
+    editor?.clear?.();
+    codeEditor?.hide?.();
+    imageViewer?.show?.();
+    activeViewMode = 'image';
 }
 
 function clearActiveFileView() {
     editor?.clear?.();
     codeEditor?.clear?.();
+    imageViewer?.clear?.();
     activateMarkdownView();
     currentFile = null;
     hasUnsavedChanges = false;
@@ -256,6 +295,10 @@ async function initializeApplication() {
     codeEditorPaneElement.className = 'view-pane code-pane';
     viewContainer.appendChild(codeEditorPaneElement);
 
+    imagePaneElement = document.createElement('div');
+    imagePaneElement.className = 'view-pane image-pane';
+    viewContainer.appendChild(imagePaneElement);
+
     const editorCallbacks = {
         onContentChange: () => {
             hasUnsavedChanges = editor?.hasUnsavedChanges() || codeEditor?.hasUnsavedChanges() || false;
@@ -266,6 +309,8 @@ async function initializeApplication() {
     editor = new MarkdownEditorCtor(markdownPaneElement, editorCallbacks);
     codeEditor = new CodeEditorCtor(codeEditorPaneElement, editorCallbacks);
     codeEditor.hide();
+    imageViewer = new ImageViewerCtor(imagePaneElement);
+    imageViewer.hide();
     activeViewMode = 'markdown';
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
@@ -1246,38 +1291,49 @@ async function saveFile(filePath) {
 
 async function loadFile(filePath) {
     try {
-        // 从缓存或磁盘获取文件内容
-        const fileData = await getFileContent(filePath);
         currentFile = filePath;
+        const viewMode = getViewModeForPath(filePath);
 
-        const viewMode = fileData.viewMode;
-        if (viewMode === 'markdown') {
-            activateMarkdownView();
-            if (editor) {
-                await editor.loadFile(filePath, fileData.content);
-                // 如果有未保存的更改，需要标记编辑器为已修改状态
-                if (fileData.hasChanges) {
-                    editor.contentChanged = true;
-                    // 恢复原始内容，这样编辑器才能正确判断是否有修改
-                    if (fileData.originalContent) {
-                        editor.originalMarkdown = fileData.originalContent;
+        if (viewMode === 'image') {
+            // 图片文件，直接加载显示
+            activateImageView();
+            editor?.clear?.();
+            codeEditor?.clear?.();
+            await imageViewer?.loadImage(filePath);
+            hasUnsavedChanges = false;
+            updateWindowTitle();
+        } else {
+            // 文本文件（Markdown 或代码），从缓存或磁盘获取内容
+            const fileData = await getFileContent(filePath);
+
+            if (viewMode === 'markdown') {
+                activateMarkdownView();
+                if (editor) {
+                    await editor.loadFile(filePath, fileData.content);
+                    // 如果有未保存的更改，需要标记编辑器为已修改状态
+                    if (fileData.hasChanges) {
+                        editor.contentChanged = true;
+                        // 恢复原始内容，这样编辑器才能正确判断是否有修改
+                        if (fileData.originalContent) {
+                            editor.originalMarkdown = fileData.originalContent;
+                        }
                     }
                 }
+            } else {
+                activateCodeView();
+                editor?.clear?.();
+                const language = detectLanguageForPath(filePath);
+                await codeEditor?.show(filePath, fileData.content, language);
+                // 如果有未保存的更改，需要标记编辑器为已修改状态
+                if (fileData.hasChanges) {
+                    codeEditor.isDirty = true;
+                }
             }
-        } else {
-            activateCodeView();
-            editor?.clear?.();
-            const language = detectLanguageForPath(filePath);
-            await codeEditor?.show(filePath, fileData.content, language);
-            // 如果有未保存的更改，需要标记编辑器为已修改状态
-            if (fileData.hasChanges) {
-                codeEditor.isDirty = true;
-            }
-        }
 
-        // 在加载完成后再次确认并设置 hasUnsavedChanges
-        hasUnsavedChanges = fileData.hasChanges;
-        updateWindowTitle();
+            // 在加载完成后再次确认并设置 hasUnsavedChanges
+            hasUnsavedChanges = fileData.hasChanges;
+            updateWindowTitle();
+        }
 
         if (fileTree?.openFiles?.includes?.(filePath)) {
             try {
@@ -1416,6 +1472,7 @@ function cleanupResources() {
     fileTree?.dispose?.();
     editor?.destroy?.();
     codeEditor?.dispose?.();
+    imageViewer?.dispose?.();
 }
 
 function handleFolderWatcherEvent(watchedPath, event) {

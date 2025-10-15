@@ -1,0 +1,55 @@
+/* 图片查看器样式 */
+.image-viewer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-color, #ffffff);
+    overflow: auto;
+    padding: 20px;
+}
+
+.image-viewer-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.image-viewer-img {
+    max-width: 100%;
+    max-height: calc(100vh - 200px);
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.image-viewer-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-color, #333333);
+}
+
+.image-viewer-filename {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary, #666666);
+    text-align: center;
+    word-break: break-all;
+    max-width: 600px;
+}
+
+/* 图片 pane */
+.image-pane {
+    display: none;
+}
+
+.image-pane.is-active {
+    display: flex;
+}
