@@ -349,6 +349,9 @@ async function initializeApplication() {
     setupCleanupHandlers();
 
     loadAvailableFonts();
+
+    // 初始化时清空窗口标题
+    updateWindowTitle();
 }
 
 // 保存当前编辑器内容到缓存
