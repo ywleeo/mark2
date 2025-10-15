@@ -59,6 +59,7 @@ let tabManager = null;
 let settingsDialog = null;
 let isOpeningFromLink = false;
 let editorSettings = {
+    theme: 'default',
     fontSize: 16,
     lineHeight: 1.6,
     fontFamily: '',
@@ -77,6 +78,7 @@ const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
 const SETTINGS_STORAGE_KEY = 'mark2:editorSettings';
 const defaultEditorSettings = {
+    theme: 'default',
     fontSize: 16,
     lineHeight: 1.6,
     fontFamily: '',
@@ -706,6 +708,9 @@ function applyEditorSettings(settings) {
     const prefs = normalizeEditorSettings(settings);
     const root = document.documentElement;
 
+    // 应用主题
+    loadTheme(prefs.theme);
+
     // 普通模式设置
     root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
     root.style.setProperty('--editor-line-height', prefs.lineHeight.toString());
@@ -727,6 +732,26 @@ function applyEditorSettings(settings) {
     } else {
         root.style.removeProperty('--code-font-family');
     }
+}
+
+function loadTheme(themeName) {
+    const theme = themeName || 'default';
+    const themeId = 'markdown-theme-stylesheet';
+
+    // 移除已有的主题样式
+    const existingTheme = document.getElementById(themeId);
+    if (existingTheme) {
+        existingTheme.remove();
+    }
+
+    // 创建新的主题样式链接
+    const link = document.createElement('link');
+    link.id = themeId;
+    link.rel = 'stylesheet';
+    link.href = `/styles/themes/${theme}.css`;
+
+    // 添加到 head 中
+    document.head.appendChild(link);
 }
 
 async function loadAvailableFonts() {
@@ -758,6 +783,16 @@ function normalizeEditorSettings(candidate) {
     const prefs = { ...defaultEditorSettings };
 
     if (candidate && typeof candidate === 'object') {
+        // 主题设置
+        if (typeof candidate.theme === 'string') {
+            let theme = candidate.theme.trim() || 'default';
+            // 兼容旧主题名
+            if (theme === 'github-dark') {
+                theme = 'emerald';
+            }
+            prefs.theme = theme;
+        }
+
         // 普通模式设置
         if (candidate.fontSize !== undefined) {
             const size = Number(candidate.fontSize);

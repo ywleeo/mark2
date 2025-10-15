@@ -1,0 +1,324 @@
+/* 翠绿主题 - Emerald */
+
+/* 基础颜色 */
+:root {
+    --text-color: #374151;
+    --border-color: #e5e7eb;
+    --h1-border-color: #3498db;
+    --h4-text-color: #374151;
+    --inline-code-background: rgba(99, 102, 241, 0.1);
+    --inline-code-color: #6366f1;
+    --code-accent-color: #10b981;
+    --code-background-color: #f8fafc;
+    --quote-accent-color: #a2fb24;
+    --quote-background-color: rgba(245, 158, 11, 0.05);
+    --delete-color: #f8717180;
+}
+
+/* 基础编辑器样式 */
+.tiptap-editor {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace,
+                 -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif;
+    color: var(--text-color);
+}
+
+/* 段落 */
+.tiptap-editor p {
+    margin: 12px 0;
+    text-align: justify;
+    font-family: inherit;
+}
+
+/* 水平线 */
+.tiptap-editor hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 20px 0;
+}
+
+/* 一级标题 - 简洁下划线风格 */
+.tiptap-editor h1 {
+    font-size: 2em !important;
+    margin: 15px 0;
+    border-bottom: 3px solid var(--h1-border-color);
+    padding-bottom: 10px;
+    font-family: inherit;
+}
+
+/* 二级标题 - 浅色背景块 */
+.tiptap-editor h2 {
+    font-size: 1.5em !important;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    background-color: #f3ffe5;
+    border-radius: 4px;
+    border-bottom: none;
+    font-family: inherit;
+}
+
+/* 三级标题 - 左侧装饰线 */
+.tiptap-editor h3 {
+    font-size: 1.25em !important;
+    padding-left: 12px;
+    border-left: 3px solid #608bdf;
+    position: relative;
+    font-family: inherit;
+}
+
+/* h4-h6 标题样式 */
+.tiptap-editor h4 {
+    font-size: 1.125em !important;
+    margin: 15px 0 12px 0;
+    color: var(--h4-text-color);
+    font-family: inherit;
+}
+
+.tiptap-editor h5 {
+    font-size: 1em !important;
+    margin: 15px 0 12px 0;
+    font-family: inherit;
+}
+
+.tiptap-editor h6 {
+    font-size: 0.875em !important;
+    margin: 15px 0 12px 0;
+    font-family: inherit;
+}
+
+/* 行内代码 */
+.tiptap-editor code {
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    background-color: var(--inline-code-background);
+    color: var(--inline-code-color);
+    font-size: 0.9em;
+}
+
+/* 代码块 */
+.tiptap-editor pre {
+    padding: 10px;
+    margin: 15px 0 !important;
+    border-radius: 0 5px 5px 0;
+    overflow-x: auto;
+    border-left: 3px solid var(--code-accent-color);
+    background-color: var(--code-background-color);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* 代码块内的代码不重复样式 */
+.tiptap-editor pre code {
+    padding: 0;
+    background: none;
+    color: inherit;
+    font-size: inherit;
+    border-radius: 0;
+}
+
+/* 删除线 */
+.tiptap-editor del {
+    color: var(--delete-color);
+    font-style: italic;
+}
+
+/* 加粗 */
+.tiptap-editor strong,
+.tiptap-editor b {
+    background-color: rgba(122, 252, 255, 0.15);
+    padding: 0px 2px;
+    border-radius: 2px;
+    font-weight: normal;
+    border: none;
+    display: inline;
+}
+
+/* 引用块 */
+.tiptap-editor blockquote {
+    border-left: 4px solid var(--quote-accent-color);
+    padding: 8px 20px;
+    margin: 20px 0;
+    font-style: italic;
+    background-color: var(--quote-background-color);
+    border-radius: 0 4px 4px 0;
+    font-family: inherit;
+}
+
+/* 嵌套引用块 */
+.tiptap-editor blockquote blockquote {
+    margin: 10px 0;
+    padding: 8px 16px;
+    border-left-width: 3px;
+    opacity: 0.8;
+    background-color: rgba(245, 158, 11, 0.03);
+}
+
+.tiptap-editor blockquote blockquote blockquote {
+    margin: 5px 0;
+    padding: 6px 12px;
+    border-left-width: 2px;
+    opacity: 0.6;
+    background-color: rgba(245, 158, 11, 0.02);
+}
+
+/* 列表基础样式 */
+.tiptap-editor ul,
+.tiptap-editor ol {
+    padding: 0;
+    margin-left: 28px;
+    font-family: inherit;
+}
+
+.tiptap-editor li {
+    margin: 3px 0;
+    font-family: inherit;
+}
+
+.tiptap-editor li > span {
+    border-radius: 3px;
+}
+
+.tiptap-editor li ol,
+.tiptap-editor li ul,
+.tiptap-editor li blockquote,
+.tiptap-editor li pre {
+    margin: 0 0 0 22px;
+}
+
+/* 无序列表项目符号 */
+.tiptap-editor ul {
+    list-style: none;
+}
+
+.tiptap-editor ul li {
+    position: relative;
+}
+
+/* 第一层：实心圆 */
+.tiptap-editor ul > li::before {
+    content: '•';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+}
+
+/* 第二层：空心圆 */
+.tiptap-editor ul ul > li::before {
+    content: '◦';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 1.1em;
+}
+
+/* 第三层：实心方块 */
+.tiptap-editor ul ul ul > li::before {
+    content: '▪';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 0.9em;
+}
+
+/* 第四层：小三角 */
+.tiptap-editor ul ul ul ul > li::before {
+    content: '▸';
+    color: #319227;
+    position: absolute;
+    left: -20px;
+    top: 0;
+    font-size: 1em;
+}
+
+/* 有序列表样式 */
+.tiptap-editor ol {
+    list-style: none;
+}
+
+.tiptap-editor > ol,
+.tiptap-editor li > ol:first-child {
+    counter-reset: ol-counter;
+}
+
+.tiptap-editor ol > li {
+    position: relative;
+    counter-increment: ol-counter;
+}
+
+.tiptap-editor ol > li::before {
+    content: counter(ol-counter) '.';
+    color: #36b5a8;
+    font-weight: 600;
+    position: absolute;
+    left: -24px;
+    top: 0;
+}
+
+/* 链接 */
+.tiptap-editor a {
+    color: #0066cc;
+}
+
+/* 表格 */
+.tiptap-editor table td,
+.tiptap-editor table th {
+    border-color: var(--border-color);
+}
+
+.tiptap-editor table th {
+    background-color: #f8fafc;
+}
+
+/* 代码高亮 */
+.hljs {
+    background: #f8fafc;
+    color: #374151;
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: #6b7280;
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+    color: #d73a49;
+}
+
+.hljs-literal,
+.hljs-number,
+.hljs-addition,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-symbol,
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+    color: #005cc5;
+}
+
+.hljs-string,
+.hljs-doctag,
+.hljs-regexp,
+.hljs-template-variable,
+.hljs-variable,
+.hljs-attribute .hljs-string,
+.hljs-meta .hljs-string {
+    color: #032f62;
+}
+
+.hljs-title,
+.hljs-name,
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
+    color: #6f42c1;
+}
+
+.hljs-deletion {
+    color: #b31d28;
+}

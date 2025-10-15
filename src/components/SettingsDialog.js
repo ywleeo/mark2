@@ -55,6 +55,14 @@ export class SettingsDialog {
                     <section class="settings-body" data-tab-content="editor">
                         <p class="settings-subtitle">设置默认的字号、行距、字重和字体</p>
                         <label class="settings-field">
+                            <span class="settings-label">主题</span>
+                            <select name="theme">
+                                <option value="default">GitHub 浅色</option>
+                                <option value="emerald">翠绿</option>
+                                <option value="notion">Notion 风格</option>
+                            </select>
+                        </label>
+                        <label class="settings-field">
                             <span class="settings-label">字体</span>
                             <select name="fontFamily"></select>
                         </label>
@@ -134,6 +142,7 @@ export class SettingsDialog {
         this.tabContents = this.root.querySelectorAll('[data-tab-content]');
 
         // 编辑器设置字段
+        this.themeSelect = this.form.querySelector('select[name="theme"]');
         this.fontFamilySelect = this.form.querySelector('select[name="fontFamily"]');
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
         this.lineHeightInput = this.form.querySelector('input[name="lineHeight"]');
@@ -225,6 +234,7 @@ export class SettingsDialog {
         const prefs = settings || {};
 
         // 编辑器设置
+        this.themeSelect.value = prefs.theme || 'default';
         this.syncFontSelection(prefs.fontFamily || '');
         this.fontSizeInput.value = Number(prefs.fontSize) || 16;
         this.lineHeightInput.value = Number(prefs.lineHeight) || 1.6;
@@ -265,6 +275,7 @@ export class SettingsDialog {
         event.preventDefault();
 
         // 编辑器设置
+        const theme = this.themeSelect.value || 'default';
         const fontSize = Number(this.fontSizeInput.value);
         const lineHeight = Number(this.lineHeightInput.value);
         const fontFamily = (this.fontFamilySelect.value || '').trim();
@@ -283,6 +294,7 @@ export class SettingsDialog {
         const normalizedCodeLineHeight = Number.isFinite(codeLineHeight) ? this.clamp(codeLineHeight, 1.0, 3.0) : 1.5;
 
         const sanitized = {
+            theme: theme,
             fontSize: normalizedSize,
             lineHeight: Number(normalizedLineHeight.toFixed(2)),
             fontFamily: fontFamily || '',

@@ -1,0 +1,144 @@
+/* Notion 风格主题 */
+
+/* 基础颜色 */
+:root {
+    --theme-bg: #ffffff;
+    --theme-text: #37352f;
+    --theme-text-secondary: #787774;
+    --theme-border: #e9e9e7;
+    --theme-border-strong: #d3d1cb;
+    --theme-code-bg: #f7f6f3;
+    --theme-code-block-bg: #f7f6f3;
+    --theme-link: #0b6e99;
+    --theme-heading-border: #e9e9e7;
+    --theme-quote-border: #d3d1cb;
+    --theme-quote-text: #787774;
+    --theme-table-header-bg: #f7f6f3;
+    --theme-table-border: #e9e9e7;
+}
+
+/* 标题颜色 */
+.tiptap-editor h1 {
+    color: #37352f;
+    font-weight: 700;
+}
+
+.tiptap-editor h2 {
+    color: #37352f;
+    font-weight: 600;
+    border-bottom: none;
+}
+
+.tiptap-editor h3 {
+    color: #37352f;
+    font-weight: 600;
+}
+
+.tiptap-editor h4,
+.tiptap-editor h5,
+.tiptap-editor h6 {
+    color: #37352f;
+    font-weight: 600;
+}
+
+/* 段落 */
+.tiptap-editor p {
+    color: var(--theme-text);
+}
+
+/* 代码块样式 */
+.tiptap-editor pre {
+    background: var(--theme-code-block-bg);
+    border: 1px solid var(--theme-border);
+}
+
+.tiptap-editor code {
+    background: var(--theme-code-bg);
+    color: #eb5757;
+    padding: 3px 6px;
+}
+
+/* 引用 */
+.tiptap-editor blockquote {
+    border-left: 3px solid var(--theme-quote-border);
+    color: var(--theme-quote-text);
+    background: #f7f6f3;
+    padding: 4px 16px;
+}
+
+/* 链接 */
+.tiptap-editor a {
+    color: var(--theme-link);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.tiptap-editor a:hover {
+    border-bottom-color: var(--theme-link);
+}
+
+/* 表格 */
+.tiptap-editor table td,
+.tiptap-editor table th {
+    border-color: var(--theme-table-border);
+}
+
+.tiptap-editor table th {
+    background-color: var(--theme-table-header-bg);
+}
+
+/* 水平线 */
+.tiptap-editor hr {
+    border-top: 1px solid var(--theme-border);
+}
+
+/* 代码高亮 - Notion 风格 */
+.hljs {
+    background: #f7f6f3;
+    color: #37352f;
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: #9b9a97;
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+    color: #cf222e;
+}
+
+.hljs-literal,
+.hljs-number,
+.hljs-addition,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-symbol,
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+    color: #0969da;
+}
+
+.hljs-string,
+.hljs-doctag,
+.hljs-regexp,
+.hljs-template-variable,
+.hljs-variable,
+.hljs-attribute .hljs-string,
+.hljs-meta .hljs-string {
+    color: #0a3069;
+}
+
+.hljs-title,
+.hljs-name,
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
+    color: #8250df;
+}
+
+.hljs-deletion {
+    color: #a40e26;
+}

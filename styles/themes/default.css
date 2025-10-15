@@ -1,0 +1,124 @@
+/* 默认主题 - GitHub 风格 */
+
+/* 基础颜色 */
+:root {
+    --theme-bg: #ffffff;
+    --theme-text: #333;
+    --theme-text-secondary: #666;
+    --theme-border: #eee;
+    --theme-border-strong: #ddd;
+    --theme-code-bg: #f0f0f0;
+    --theme-code-block-bg: #f6f8fa;
+    --theme-link: #0066cc;
+    --theme-heading-border: #eee;
+    --theme-quote-border: #ddd;
+    --theme-quote-text: #666;
+    --theme-table-header-bg: #f6f8fa;
+    --theme-table-border: #ddd;
+}
+
+/* 标题颜色 */
+.tiptap-editor h1,
+.tiptap-editor h2,
+.tiptap-editor h3,
+.tiptap-editor h4,
+.tiptap-editor h5,
+.tiptap-editor h6 {
+    color: var(--theme-text);
+}
+
+.tiptap-editor h2 {
+    border-bottom-color: var(--theme-heading-border);
+}
+
+/* 段落 */
+.tiptap-editor p {
+    color: var(--theme-text);
+}
+
+/* 代码块样式 */
+.tiptap-editor pre {
+    background: var(--theme-code-block-bg);
+}
+
+.tiptap-editor code {
+    background: var(--theme-code-bg);
+    color: var(--theme-text);
+}
+
+/* 引用 */
+.tiptap-editor blockquote {
+    border-left-color: var(--theme-quote-border);
+    color: var(--theme-quote-text);
+}
+
+/* 链接 */
+.tiptap-editor a {
+    color: var(--theme-link);
+}
+
+/* 表格 */
+.tiptap-editor table td,
+.tiptap-editor table th {
+    border-color: var(--theme-table-border);
+}
+
+.tiptap-editor table th {
+    background-color: var(--theme-table-header-bg);
+}
+
+/* 水平线 */
+.tiptap-editor hr {
+    border-top-color: var(--theme-border);
+}
+
+/* 代码高亮 - GitHub 风格 */
+.hljs {
+    background: #f6f8fa;
+    color: #24292e;
+}
+
+.hljs-comment,
+.hljs-quote {
+    color: #6a737d;
+    font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+    color: #d73a49;
+}
+
+.hljs-literal,
+.hljs-number,
+.hljs-addition,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-symbol,
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+    color: #005cc5;
+}
+
+.hljs-string,
+.hljs-doctag,
+.hljs-regexp,
+.hljs-template-variable,
+.hljs-variable,
+.hljs-attribute .hljs-string,
+.hljs-meta .hljs-string {
+    color: #032f62;
+}
+
+.hljs-title,
+.hljs-name,
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
+    color: #6f42c1;
+}
+
+.hljs-deletion {
+    color: #b31d28;
+}
