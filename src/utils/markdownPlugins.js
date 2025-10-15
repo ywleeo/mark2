@@ -2,6 +2,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import TurndownService from 'turndown';
+import { gfm } from 'turndown-plugin-gfm';
 
 // 任务列表类型常量
 export const TASK_ITEM_TYPE = 'taskItem';
@@ -239,6 +240,9 @@ export function createConfiguredTurndownService() {
         strongDelimiter: '**',
         bulletListMarker: '-',
     });
+
+    // 使用 GFM 插件支持表格
+    turndownService.use(gfm);
 
     // 禁用自动转义，保持原样
     turndownService.escape = function(string) {
