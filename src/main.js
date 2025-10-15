@@ -407,9 +407,24 @@ async function getFileContent(filePath, options = {}) {
 async function handleFileSelect(filePath) {
     if (!filePath) {
         saveCurrentEditorContentToCache();
-        currentFile = null;
-        clearActiveFileView();
-        tabManager?.clearSharedTab?.();
+
+        // 如果有 shared tab，切换到它，而不是清除
+        const sharedTab = tabManager?.sharedTab;
+        if (sharedTab && sharedTab.path) {
+            // 切换到 shared tab
+            try {
+                await loadFile(sharedTab.path);
+                tabManager?.setActiveTab(sharedTab.id, { silent: true });
+            } catch (error) {
+                console.error('切换到 shared tab 失败:', error);
+                currentFile = null;
+                clearActiveFileView();
+            }
+        } else {
+            // 没有 shared tab，清除视图
+            currentFile = null;
+            clearActiveFileView();
+        }
         return;
     }
 
