@@ -628,8 +628,14 @@ export class FileTree {
 
     async watchFile(path) {
         const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath || this.fileWatchers.has(normalizedPath)) return;
+        if (!normalizedPath) return;
 
+        // 如果已经在监听，直接返回
+        if (this.fileWatchers.has(normalizedPath)) {
+            return;
+        }
+
+        // 建立新的监听
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(normalizedPath, (event) => {

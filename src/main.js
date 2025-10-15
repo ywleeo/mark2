@@ -383,10 +383,14 @@ function saveCurrentEditorContentToCache() {
 }
 
 // 从缓存或磁盘加载文件内容
-async function getFileContent(filePath) {
-    const cached = fileContentCache.get(filePath);
-    if (cached) {
-        return cached;
+async function getFileContent(filePath, options = {}) {
+    const { skipCache = false } = options;
+
+    if (!skipCache) {
+        const cached = fileContentCache.get(filePath);
+        if (cached) {
+            return cached;
+        }
     }
 
     // 从磁盘读取
@@ -505,6 +509,11 @@ async function handleTabClose(tab) {
                 }
 
                 fileContentCache.delete(tab.path);
+            }
+
+            // 如果文件不在打开列表中，停止监听
+            if (!fileTree?.isInOpenList(tab.path)) {
+                fileTree?.stopWatchingFile(tab.path);
             }
         }
 
@@ -1292,7 +1301,9 @@ async function saveFile(filePath) {
     }
 }
 
-async function loadFile(filePath) {
+async function loadFile(filePath, options = {}) {
+    const { skipWatchSetup = false, forceReload = false } = options;
+
     try {
         currentFile = filePath;
         const viewMode = getViewModeForPath(filePath);
@@ -1307,7 +1318,8 @@ async function loadFile(filePath) {
             updateWindowTitle();
         } else {
             // 文本文件（Markdown 或代码），从缓存或磁盘获取内容
-            const fileData = await getFileContent(filePath);
+            // 如果是强制重新加载（刷新），跳过缓存
+            const fileData = await getFileContent(filePath, { skipCache: forceReload });
 
             if (viewMode === 'markdown') {
                 activateMarkdownView();
@@ -1338,7 +1350,8 @@ async function loadFile(filePath) {
             updateWindowTitle();
         }
 
-        if (fileTree?.openFiles?.includes?.(filePath)) {
+        // 只在首次打开文件时建立监听，刷新时不重新建立
+        if (!skipWatchSetup) {
             try {
                 await fileTree.watchFile(filePath);
             } catch (error) {
@@ -1576,7 +1589,7 @@ function scheduleFileRefresh(filePath) {
             return;
         }
         try {
-            await loadFile(normalizedPath);
+            await loadFile(normalizedPath, { skipWatchSetup: true, forceReload: true });
         } catch (error) {
             console.error('刷新文件失败:', error);
         }
