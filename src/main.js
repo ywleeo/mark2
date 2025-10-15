@@ -274,6 +274,8 @@ async function initializeApplication() {
 
     editorSettings = loadEditorSettings();
     applyEditorSettings(editorSettings);
+    // 保存一次以更新 localStorage 中的旧数据（如旧主题名）
+    saveEditorSettings(editorSettings);
 
     settingsDialog = new SettingsDialogCtor({
         onSubmit: handleSettingsSubmit,
