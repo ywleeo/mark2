@@ -3,10 +3,12 @@
 
 use std::fs;
 use std::path::Path;
+use std::time::SystemTime;
 use tauri::{menu::*, Emitter};
 use base64::Engine;
 use font_kit::source::SystemSource;
 use headless_chrome::{Browser, LaunchOptions};
+use serde::Serialize;
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -15,12 +17,31 @@ use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 
+#[derive(Serialize)]
+struct FileMetadata {
+    modified_time: u64, // Unix timestamp in seconds
+}
+
 #[tauri::command]
 fn is_directory(path: String) -> Result<bool, String> {
     Path::new(&path)
         .metadata()
         .map(|m| m.is_dir())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
+    let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| e.to_string())?;
+    let modified_time = modified
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs();
+
+    Ok(FileMetadata { modified_time })
 }
 
 #[tauri::command]
@@ -219,7 +240,8 @@ fn main() {
             pick_path,
             list_fonts,
             capture_screenshot,
-            export_to_pdf
+            export_to_pdf,
+            get_file_metadata
         ])
         .setup(|app| {
             // 创建菜单

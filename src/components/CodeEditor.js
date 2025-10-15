@@ -68,9 +68,10 @@ const buildModelUri = (monaco, filePath) => {
 };
 
 export class CodeEditor {
-    constructor(containerElement) {
+    constructor(containerElement, callbacks = {}) {
         this.container = containerElement;
         this.container.classList.add('code-editor-pane');
+        this.callbacks = callbacks;
 
         this.editorHost = document.createElement('div');
         this.editorHost.className = 'code-editor__instance';
@@ -207,6 +208,7 @@ export class CodeEditor {
             }
             const currentVersion = model.getAlternativeVersionId();
             this.isDirty = currentVersion !== this.baseVersion;
+            this.callbacks.onContentChange?.();
         });
     }
 
@@ -232,6 +234,7 @@ export class CodeEditor {
             this.currentModel = null;
         }
         this.hide();
+        this.callbacks.onContentChange?.();
     }
 
     showContainer() {
@@ -255,6 +258,7 @@ export class CodeEditor {
         }
         this.baseVersion = this.currentModel.getAlternativeVersionId();
         this.isDirty = false;
+        this.callbacks.onContentChange?.();
     }
 
     focus() {

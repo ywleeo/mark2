@@ -22,7 +22,7 @@ import { SearchBoxManager } from '../features/searchBox.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 
 export class MarkdownEditor {
-    constructor(element) {
+    constructor(element, callbacks = {}) {
         this.element = element;
         this.editor = null;
         this.currentFile = null;
@@ -30,6 +30,7 @@ export class MarkdownEditor {
         this.contentChanged = false;
         this.suppressUpdateEvent = false;
         this.linkClickCleanup = null;
+        this.callbacks = callbacks;
 
         // 初始化 Markdown 和 Turndown 服务
         this.md = createConfiguredMarkdownIt();
@@ -103,6 +104,7 @@ export class MarkdownEditor {
                     return;
                 }
                 this.contentChanged = true;
+                this.callbacks.onContentChange?.();
             },
         });
 
@@ -207,6 +209,7 @@ export class MarkdownEditor {
             this.suppressUpdateEvent = false;
         }
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.callbacks.onContentChange?.();
     }
 
     // 预处理加粗标记
@@ -236,6 +239,7 @@ export class MarkdownEditor {
             });
             this.originalMarkdown = markdown;
             this.contentChanged = false;
+            this.callbacks.onContentChange?.();
             console.log('保存成功');
             return true;
         } catch (error) {
@@ -296,6 +300,7 @@ export class MarkdownEditor {
         }
         this.codeCopyManager?.hideCodeCopyButton({ immediate: true });
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.callbacks.onContentChange?.();
     }
 
     hasUnsavedChanges() {

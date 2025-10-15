@@ -1,7 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import { open, save, message } from '@tauri-apps/plugin-dialog';
+import { open, save, message, confirm } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { desktopDir, join } from '@tauri-apps/api/path';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -58,6 +59,8 @@ let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
 let isOpeningFromLink = false;
+let hasUnsavedChanges = false;
+let fileContentCache = new Map(); // 缓存文件的编辑内容和状态
 let editorSettings = {
     theme: 'default',
     fontSize: 16,
@@ -224,6 +227,9 @@ function clearActiveFileView() {
     editor?.clear?.();
     codeEditor?.clear?.();
     activateMarkdownView();
+    currentFile = null;
+    hasUnsavedChanges = false;
+    updateWindowTitle();
 }
 
 // 基础初始化代码
@@ -250,8 +256,15 @@ async function initializeApplication() {
     codeEditorPaneElement.className = 'view-pane code-pane';
     viewContainer.appendChild(codeEditorPaneElement);
 
-    editor = new MarkdownEditorCtor(markdownPaneElement);
-    codeEditor = new CodeEditorCtor(codeEditorPaneElement);
+    const editorCallbacks = {
+        onContentChange: () => {
+            hasUnsavedChanges = editor?.hasUnsavedChanges() || codeEditor?.hasUnsavedChanges() || false;
+            updateWindowTitle();
+        }
+    };
+
+    editor = new MarkdownEditorCtor(markdownPaneElement, editorCallbacks);
+    codeEditor = new CodeEditorCtor(codeEditorPaneElement, editorCallbacks);
     codeEditor.hide();
     activeViewMode = 'markdown';
 
@@ -293,9 +306,55 @@ async function initializeApplication() {
     loadAvailableFonts();
 }
 
+// 保存当前编辑器内容到缓存
+function saveCurrentEditorContentToCache() {
+    if (!currentFile) return;
+
+    const viewMode = activeViewMode;
+    let content = null;
+    let originalContent = null;
+    let hasChanges = false;
+
+    if (viewMode === 'markdown' && editor) {
+        content = editor.getMarkdown();
+        originalContent = editor.originalMarkdown;
+        hasChanges = editor.hasUnsavedChanges();
+    } else if (viewMode === 'code' && codeEditor) {
+        content = codeEditor.getValue();
+        hasChanges = codeEditor.hasUnsavedChanges();
+    }
+
+    if (content !== null) {
+        fileContentCache.set(currentFile, {
+            content,
+            originalContent,
+            hasChanges,
+            viewMode,
+        });
+    }
+}
+
+// 从缓存或磁盘加载文件内容
+async function getFileContent(filePath) {
+    const cached = fileContentCache.get(filePath);
+    if (cached) {
+        return cached;
+    }
+
+    // 从磁盘读取
+    const content = await invoke('read_file', { path: filePath });
+    const viewMode = getViewModeForPath(filePath);
+    return {
+        content,
+        hasChanges: false,
+        viewMode,
+    };
+}
+
 // 文件选择回调
 async function handleFileSelect(filePath) {
     if (!filePath) {
+        saveCurrentEditorContentToCache();
         currentFile = null;
         clearActiveFileView();
         tabManager?.clearSharedTab?.();
@@ -303,6 +362,9 @@ async function handleFileSelect(filePath) {
     }
 
     try {
+        // 保存当前文件的编辑内容
+        saveCurrentEditorContentToCache();
+
         await loadFile(filePath);
         // 只有文件加载成功后才更新 tab
         const isOpenTab = fileTree?.isInOpenList?.(filePath);
@@ -334,19 +396,92 @@ function handleTabSelect(tab) {
     }
 }
 
-function handleTabClose(tab) {
+async function handleTabClose(tab) {
     if (!tab) return;
+
     if (tab.type === 'file' && tab.path) {
+        // 检查文件是否有未保存的更改
+        const hasChanges = await checkFileHasUnsavedChanges(tab.path);
+
+        if (hasChanges) {
+            // 弹出确认对话框
+            const fileName = tab.path.split('/').pop() || tab.path;
+            const shouldSave = await confirm(
+                `文件 "${fileName}" 有未保存的更改，是否保存？`,
+                {
+                    title: '保存确认',
+                    kind: 'warning',
+                    okLabel: '保存',
+                    cancelLabel: '不保存',
+                }
+            );
+
+            if (shouldSave) {
+                const saved = await saveFile(tab.path);
+                if (!saved) {
+                    // 保存失败，不关闭 tab
+                    return;
+                }
+            }
+
+            // 清除缓存
+            fileContentCache.delete(tab.path);
+        }
+
         fileTree?.closeFile(tab.path);
         return;
     }
 
     if (tab.type === 'shared') {
+        // shared tab 关闭时也要检查未保存的更改
+        if (tab.path) {
+            const hasChanges = await checkFileHasUnsavedChanges(tab.path);
+
+            if (hasChanges) {
+                const fileName = tab.path.split('/').pop() || tab.path;
+                const shouldSave = await confirm(
+                    `文件 "${fileName}" 有未保存的更改，是否保存？`,
+                    {
+                        title: '保存确认',
+                        kind: 'warning',
+                        okLabel: '保存',
+                        cancelLabel: '不保存',
+                    }
+                );
+
+                if (shouldSave) {
+                    const saved = await saveFile(tab.path);
+                    if (!saved) {
+                        return;
+                    }
+                }
+
+                fileContentCache.delete(tab.path);
+            }
+        }
+
         if (!tab.fallbackPath) {
             fileTree?.selectFile(null);
         }
         return;
     }
+}
+
+// 检查文件是否有未保存的更改
+async function checkFileHasUnsavedChanges(filePath) {
+    // 如果是当前文件，检查编辑器状态
+    if (filePath === currentFile) {
+        if (activeViewMode === 'markdown' && editor) {
+            return editor.hasUnsavedChanges();
+        }
+        if (activeViewMode === 'code' && codeEditor) {
+            return codeEditor.hasUnsavedChanges();
+        }
+    }
+
+    // 检查缓存
+    const cached = fileContentCache.get(filePath);
+    return cached ? cached.hasChanges : false;
 }
 
 // 监听菜单事件
@@ -901,7 +1036,7 @@ function setupKeyboardShortcuts() {
         // Cmd+W (macOS) 或 Ctrl+W (Windows/Linux) 关闭当前 tab
         if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
             e.preventDefault();
-            closeActiveTab();
+            await closeActiveTab();
         }
 
         // Cmd+F (macOS) 或 Ctrl+F (Windows/Linux) 查找
@@ -915,11 +1050,11 @@ function setupKeyboardShortcuts() {
     });
 }
 
-function closeActiveTab() {
+async function closeActiveTab() {
     if (!tabManager || !tabManager.activeTabId) {
         return;
     }
-    tabManager.handleTabClose(tabManager.activeTabId);
+    await tabManager.handleTabClose(tabManager.activeTabId);
 }
 
 function setupSidebarResizer() {
@@ -1049,7 +1184,14 @@ async function saveCurrentFile() {
     }
 
     if (activeViewMode === 'markdown' && editor) {
-        return await editor.save();
+        const result = await editor.save();
+        if (result) {
+            hasUnsavedChanges = false;
+            // 清除缓存，因为文件已保存
+            fileContentCache.delete(currentFile);
+            updateWindowTitle();
+        }
+        return result;
     }
 
     if (activeViewMode === 'code' && codeEditor) {
@@ -1060,6 +1202,10 @@ async function saveCurrentFile() {
                 content,
             });
             codeEditor.markSaved();
+            hasUnsavedChanges = false;
+            // 清除缓存，因为文件已保存
+            fileContentCache.delete(currentFile);
+            updateWindowTitle();
             return true;
         } catch (error) {
             console.error('保存失败:', error);
@@ -1071,23 +1217,67 @@ async function saveCurrentFile() {
     return false;
 }
 
+// 保存指定文件（用于关闭 tab 时）
+async function saveFile(filePath) {
+    // 如果是当前文件，直接保存
+    if (filePath === currentFile) {
+        return await saveCurrentFile();
+    }
+
+    // 如果不是当前文件，从缓存获取内容并保存
+    const cached = fileContentCache.get(filePath);
+    if (!cached || !cached.hasChanges) {
+        return true; // 没有未保存的更改
+    }
+
+    try {
+        await invoke('write_file', {
+            path: filePath,
+            content: cached.content,
+        });
+        // 清除缓存
+        fileContentCache.delete(filePath);
+        return true;
+    } catch (error) {
+        console.error('保存文件失败:', error);
+        return false;
+    }
+}
+
 async function loadFile(filePath) {
     try {
-        const content = await invoke('read_file', { path: filePath });
+        // 从缓存或磁盘获取文件内容
+        const fileData = await getFileContent(filePath);
         currentFile = filePath;
 
-        const viewMode = getViewModeForPath(filePath);
+        const viewMode = fileData.viewMode;
         if (viewMode === 'markdown') {
             activateMarkdownView();
             if (editor) {
-                await editor.loadFile(filePath, content);
+                await editor.loadFile(filePath, fileData.content);
+                // 如果有未保存的更改，需要标记编辑器为已修改状态
+                if (fileData.hasChanges) {
+                    editor.contentChanged = true;
+                    // 恢复原始内容，这样编辑器才能正确判断是否有修改
+                    if (fileData.originalContent) {
+                        editor.originalMarkdown = fileData.originalContent;
+                    }
+                }
             }
         } else {
             activateCodeView();
             editor?.clear?.();
             const language = detectLanguageForPath(filePath);
-            await codeEditor?.show(filePath, content, language);
+            await codeEditor?.show(filePath, fileData.content, language);
+            // 如果有未保存的更改，需要标记编辑器为已修改状态
+            if (fileData.hasChanges) {
+                codeEditor.isDirty = true;
+            }
         }
+
+        // 在加载完成后再次确认并设置 hasUnsavedChanges
+        hasUnsavedChanges = fileData.hasChanges;
+        updateWindowTitle();
 
         if (fileTree?.openFiles?.includes?.(filePath)) {
             try {
@@ -1114,6 +1304,104 @@ function normalizeFsPath(path) {
         }
     }
     return path;
+}
+
+async function updateWindowTitle() {
+    try {
+        const window = getCurrentWindow();
+        let title = '';
+
+        if (currentFile) {
+            const fileName = currentFile.split('/').pop() || currentFile;
+
+            // 获取字数
+            const wordCount = getWordCount();
+
+            // 获取最后编辑时间
+            const lastModified = await getLastModifiedTime(currentFile);
+
+            // 构建标题
+            const parts = [fileName];
+
+            if (wordCount > 0) {
+                parts.push(`${wordCount} 字`);
+            }
+
+            if (lastModified) {
+                parts.push(lastModified);
+            }
+
+            if (hasUnsavedChanges) {
+                parts.push('已编辑');
+            }
+
+            title = parts.join(' • ');
+        }
+
+        window.setTitle(title);
+    } catch (error) {
+        console.error('更新窗口标题失败:', error);
+    }
+}
+
+function getWordCount() {
+    try {
+        let content = '';
+
+        if (activeViewMode === 'markdown' && editor) {
+            content = editor.getMarkdown() || '';
+        } else if (activeViewMode === 'code' && codeEditor) {
+            content = codeEditor.getValue() || '';
+        }
+
+        if (!content) return 0;
+
+        // 移除 Markdown 标记和代码块
+        const cleaned = content
+            .replace(/```[\s\S]*?```/g, '') // 移除代码块
+            .replace(/`[^`]+`/g, '') // 移除行内代码
+            .replace(/!\[.*?\]\(.*?\)/g, '') // 移除图片
+            .replace(/\[.*?\]\(.*?\)/g, '') // 移除链接
+            .replace(/[#*_~\->`]/g, '') // 移除 Markdown 标记
+            .replace(/\s+/g, ' ') // 合并空白
+            .trim();
+
+        // 统计中文字符和英文单词
+        const chineseChars = cleaned.match(/[\u4e00-\u9fa5]/g) || [];
+        const englishWords = cleaned.match(/[a-zA-Z]+/g) || [];
+
+        return chineseChars.length + englishWords.length;
+    } catch (error) {
+        console.error('计算字数失败:', error);
+        return 0;
+    }
+}
+
+async function getLastModifiedTime(filePath) {
+    try {
+        const metadata = await invoke('get_file_metadata', { path: filePath });
+        if (!metadata || !metadata.modified_time) return null;
+
+        const date = new Date(metadata.modified_time * 1000);
+        const now = new Date();
+
+        // 如果是今天，只显示时间
+        if (date.toDateString() === now.toDateString()) {
+            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // 如果是今年，显示月日时间
+        if (date.getFullYear() === now.getFullYear()) {
+            return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' +
+                   date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // 否则显示完整日期
+        return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch (error) {
+        console.error('获取文件修改时间失败:', error);
+        return null;
+    }
 }
 
 function setupCleanupHandlers() {
@@ -1156,7 +1444,7 @@ function handleFolderWatcherEvent(watchedPath, event) {
     scheduleFolderRefresh(normalizedRoot);
 }
 
-function handleFileWatcherEvent(filePath, event) {
+function handleFileWatcherEvent(filePath) {
     const normalizedPath = normalizeFsPath(filePath);
     if (!normalizedPath) return;
 

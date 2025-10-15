@@ -142,7 +142,7 @@ export class TabManager {
         }
     }
 
-    handleTabClose(tabId) {
+    async handleTabClose(tabId) {
         const tab = this.getAllTabs().find(item => item.id === tabId);
         if (!tab) {
             return;
@@ -151,7 +151,7 @@ export class TabManager {
         if (tab.type === 'shared') {
             const fallback = this.fileTabs[0] || null;
             this.clearSharedTab(fallback?.id || null);
-            this.callbacks.onTabClose?.({
+            await this.callbacks.onTabClose?.({
                 ...tab,
                 fallbackPath: fallback?.path || null,
             });
@@ -159,7 +159,7 @@ export class TabManager {
         }
 
         if (tab.type === 'file') {
-            this.callbacks.onTabClose?.(tab);
+            await this.callbacks.onTabClose?.(tab);
         }
     }
 
