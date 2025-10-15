@@ -1,4 +1,4 @@
-/* 翠绿主题 - Emerald */
+/* 自定义主题 - 混合字体风格 */
 
 /* 基础颜色 */
 :root {
@@ -17,8 +17,7 @@
 
 /* 基础编辑器样式 */
 .tiptap-editor {
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace,
-                 -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     color: var(--text-color);
 }
 
@@ -231,13 +230,6 @@
     left: -20px;
     top: 0;
     font-size: 1em;
-}
-
-/* 任务列表项目不显示圆点 */
-.tiptap-editor li[data-checked]::before,
-.tiptap-editor li[data-type="taskItem"]::before,
-.tiptap-editor li.task-list-item::before {
-    content: none !important;
 }
 
 /* 有序列表样式 */

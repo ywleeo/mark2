@@ -1,6 +1,6 @@
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import { TaskItem, TaskList } from '@tiptap/extension-list';
+import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
@@ -9,6 +9,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Link from '@tiptap/extension-link';
 import { SearchExtension } from '../extensions/SearchExtension.js';
 import { HtmlSpan, HtmlDiv, HtmlInline } from '../extensions/HtmlSupport.js';
+import { CustomTaskItem } from '../extensions/CustomTaskItem.js';
 import { createConfiguredLowlight } from '../utils/highlightConfig.js';
 import {
     MarkdownImage,
@@ -60,16 +61,9 @@ export class MarkdownEditor {
                         class: 'markdown-link',
                     },
                 }),
-                TaskList.configure({
-                    HTMLAttributes: {
-                        class: 'task-list',
-                    },
-                }),
-                TaskItem.configure({
+                TaskList,
+                CustomTaskItem.configure({
                     nested: true,
-                    HTMLAttributes: {
-                        class: 'task-list-item',
-                    },
                 }),
                 CodeBlockLowlight.configure({
                     lowlight: this.lowlight,

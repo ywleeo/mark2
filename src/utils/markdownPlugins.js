@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import MarkdownIt from 'markdown-it';
+import markdownItTaskLists from 'markdown-it-task-lists';
 import TurndownService from 'turndown';
 
 // 任务列表类型常量
@@ -95,8 +96,8 @@ export const taskListPlugin = md => {
         if (token.attrGet('data-type') === TASK_ITEM_TYPE) {
             const attrs = self.renderAttrs(token);
             const checked = token.attrGet('data-checked') === 'true';
-            const checkbox = `<input class="task-list-item-checkbox" type="checkbox"${checked ? ' checked' : ''} disabled />`;
-            return `<li${attrs}><label class="task-list-item-label">${checkbox}<span class="task-list-item-indicator" aria-hidden="true"></span></label><div class="task-list-item-content">`;
+            const checkbox = `<input type="checkbox"${checked ? ' checked' : ''} />`;
+            return `<li${attrs}><label>${checkbox}`;
         }
         return defaultListItemOpen(tokens, idx, options, env, self);
     };
@@ -104,7 +105,7 @@ export const taskListPlugin = md => {
     md.renderer.rules.list_item_close = (tokens, idx, options, env, self) => {
         const openIndex = findMatchingOpenIndex(tokens, idx, 'list_item_open');
         if (openIndex >= 0 && tokens[openIndex].attrGet('data-type') === TASK_ITEM_TYPE) {
-            return '</div></li>';
+            return '</label></li>';
         }
         return defaultListItemClose(tokens, idx, options, env, self);
     };
@@ -162,7 +163,56 @@ export function createConfiguredMarkdownIt() {
 
     // 启用表格支持
     md.enable('table');
-    md.use(taskListPlugin);
+
+    // 使用官方的 markdown-it-task-lists 插件
+    md.use(markdownItTaskLists, {
+        enabled: true,
+        label: true,
+        labelAfter: true
+    });
+
+    // 自定义渲染器，将官方插件生成的 HTML 转换为 TipTap 格式
+    const defaultListRender = md.renderer.rules.list_item_open || function(tokens, idx, options, env, self) {
+        return self.renderToken(tokens, idx, options);
+    };
+
+    md.renderer.rules.list_item_open = function(tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        const isTaskItem = token.attrGet('class') === 'task-list-item';
+
+        if (isTaskItem) {
+            // 查找 checkbox 状态
+            let checked = false;
+            for (let i = idx + 1; i < tokens.length && tokens[i].type !== 'list_item_close'; i++) {
+                if (tokens[i].type === 'html_inline' && tokens[i].content.includes('type="checkbox"')) {
+                    checked = tokens[i].content.includes('checked');
+                    break;
+                }
+            }
+
+            token.attrSet('data-type', 'taskItem');
+            token.attrSet('data-checked', checked ? 'true' : 'false');
+            token.attrSet('class', 'task-list-item');
+        }
+
+        return defaultListRender(tokens, idx, options, env, self);
+    };
+
+    const defaultBulletListOpen = md.renderer.rules.bullet_list_open || function(tokens, idx, options, env, self) {
+        return self.renderToken(tokens, idx, options);
+    };
+
+    md.renderer.rules.bullet_list_open = function(tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        const hasTaskList = token.attrGet('class') === 'contains-task-list';
+
+        if (hasTaskList) {
+            token.attrSet('data-type', 'taskList');
+            token.attrSet('class', 'contains-task-list');
+        }
+
+        return defaultBulletListOpen(tokens, idx, options, env, self);
+    };
 
     // 移除代码块末尾的换行符
     const trimCodeRenderer = renderer => {

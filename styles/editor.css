@@ -151,95 +151,105 @@
     margin: 0.5em 0;
 }
 
-.tiptap-editor ul[data-type="taskList"] {
+.tiptap-editor ul[data-type="taskList"],
+.tiptap-editor ul.contains-task-list {
     list-style: none;
     padding-left: 0;
     margin: 1em 0;
 }
 
-.tiptap-editor ul[data-type="taskList"] ul[data-type="taskList"] {
+.tiptap-editor ul[data-type="taskList"] ul[data-type="taskList"],
+.tiptap-editor ul.contains-task-list ul.contains-task-list {
     margin: 0.5em 0 0.5em 1.8em;
 }
 
 .tiptap-editor li[data-type="taskItem"],
-.tiptap-editor li.task-list-item {
-    display: grid;
-    grid-template-columns: 1.4em 1fr;
-    align-items: flex-start;
-    column-gap: 10px;
+.tiptap-editor li.task-list-item,
+.tiptap-editor li[data-checked] {
+    list-style: none;
     margin: 0.25em 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .tiptap-editor li[data-type="taskItem"] > label,
-.tiptap-editor li.task-list-item > label {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    width: 1.1em;
-    height: 1.1em;
-    margin: 0.3em 0 0;
+.tiptap-editor li.task-list-item > label,
+.tiptap-editor li[data-checked] > label {
+    display: flex;
+    align-items: flex-start;
+    flex-shrink: 0;
     cursor: default;
 }
 
-.tiptap-editor li[data-type="taskItem"] > label > input[type="checkbox"],
-.tiptap-editor li.task-list-item > label > input[type="checkbox"] {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    pointer-events: none;
-    margin: 0;
-    appearance: none;
+.tiptap-editor li[data-type="taskItem"] > div,
+.tiptap-editor li.task-list-item > div,
+.tiptap-editor li[data-checked] > div {
+    flex: 1;
+    min-width: 0;
+    display: inline-block !important;
 }
 
-.tiptap-editor li[data-type="taskItem"] > label > span,
-.tiptap-editor li.task-list-item > label > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1em;
-    height: 1em;
+.tiptap-editor li[data-type="taskItem"] > div > p,
+.tiptap-editor li.task-list-item > div > p,
+.tiptap-editor li[data-checked] > div > p {
+    margin: 0;
+    display: inline;
+}
+
+.tiptap-editor li[data-type="taskItem"] > label > input[type="checkbox"],
+.tiptap-editor li.task-list-item > label > input[type="checkbox"],
+.tiptap-editor li[data-type="taskItem"] > input[type="checkbox"],
+.tiptap-editor li.task-list-item > input[type="checkbox"] {
+    flex-shrink: 0;
+    width: 1.2em;
+    height: 1.2em;
+    margin: 0;
+    appearance: none;
     border: 1px solid #bbb;
     border-radius: 6px;
     background: #ffffff;
+    cursor: pointer;
+    position: relative;
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.tiptap-editor li[data-type="taskItem"][data-checked="true"] > label > span,
-.tiptap-editor li.task-list-item[data-checked="true"] > label > span {
-    border-color: #ffffff;
+.tiptap-editor li[data-type="taskItem"] > label > input[type="checkbox"]:checked,
+.tiptap-editor li.task-list-item > label > input[type="checkbox"]:checked,
+.tiptap-editor li[data-type="taskItem"] > input[type="checkbox"]:checked,
+.tiptap-editor li.task-list-item > input[type="checkbox"]:checked {
+    border-color: #64ce86;
     background-color: #64ce86;
 }
 
-.tiptap-editor li[data-type="taskItem"][data-checked="true"] > label > span::after,
-.tiptap-editor li.task-list-item[data-checked="true"] > label > span::after {
+.tiptap-editor li[data-type="taskItem"] > label > input[type="checkbox"]:checked::after,
+.tiptap-editor li.task-list-item > label > input[type="checkbox"]:checked::after,
+.tiptap-editor li[data-type="taskItem"] > input[type="checkbox"]:checked::after,
+.tiptap-editor li.task-list-item > input[type="checkbox"]:checked::after {
     content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -60%) rotate(-45deg);
     width: 0.6em;
     height: 0.3em;
     border-left: 2px solid #fff;
     border-bottom: 2px solid #fff;
-    transform: rotate(-45deg);
 }
 
-.tiptap-editor li[data-type="taskItem"][data-checked="false"] > label > span::after,
-.tiptap-editor li.task-list-item[data-checked="false"] > label > span::after {
-    content: '';
+.tiptap-editor li[data-type="taskItem"] > label > span,
+.tiptap-editor li.task-list-item > label > span {
+    flex: 1;
+    min-width: 0;
 }
 
-.tiptap-editor li[data-type="taskItem"] > div,
-.tiptap-editor li.task-list-item > div {
+/* 确保 span 内的段落不产生额外间距 */
+.tiptap-editor li[data-type="taskItem"] > label > span > p,
+.tiptap-editor li.task-list-item > label > span > p {
     margin: 0;
+    display: inline;
 }
 
-.tiptap-editor li[data-type="taskItem"] > div > *:first-child,
-.tiptap-editor li.task-list-item > div > *:first-child {
-    margin-top: 0;
-}
-
-.tiptap-editor li[data-type="taskItem"] > div > *:last-child,
-.tiptap-editor li.task-list-item > div > *:last-child {
-    margin-bottom: 0;
-}
 
 /* 链接 */
 .tiptap-editor a {
