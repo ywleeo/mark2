@@ -58,8 +58,8 @@
     overflow-x: auto;
     position: relative;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 14px;
-    line-height: 1.5;
+    font-size: var(--editor-font-size, 14px);
+    line-height: var(--editor-line-height, 1.5);
 }
 
 .tiptap-editor pre:not(.hljs) {
@@ -71,7 +71,7 @@
     padding: 2px 6px;
     border-radius: 3px;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 0.9em;
+    font-size: calc(var(--editor-font-size, 16px) * 0.9);
 }
 
 .tiptap-editor pre code {
