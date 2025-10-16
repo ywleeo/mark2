@@ -173,8 +173,11 @@ export class MarkdownEditor {
             // 获取当前文件所在目录
             const currentDir = await dirname(this.currentFile);
 
+            // 解码 URL 编码的路径（处理中文等特殊字符）
+            const decodedHref = decodeURIComponent(href);
+
             // 解析相对路径为绝对路径
-            let targetPath = await join(currentDir, href);
+            let targetPath = await join(currentDir, decodedHref);
 
             // 如果没有 .md 扩展名，尝试添加
             if (!targetPath.endsWith('.md') && !targetPath.endsWith('.markdown')) {
