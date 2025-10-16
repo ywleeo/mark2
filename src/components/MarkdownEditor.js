@@ -19,6 +19,7 @@ import {
 import { resolveImageSources } from '../utils/imageResolver.js';
 import { CodeCopyManager } from '../features/codeCopy.js';
 import { SearchBoxManager } from '../features/searchBox.js';
+import { ClipboardEnhancer } from '../features/clipboardEnhancer.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 
 export class MarkdownEditor {
@@ -42,6 +43,7 @@ export class MarkdownEditor {
         // 初始化功能模块
         this.codeCopyManager = null;
         this.searchBoxManager = null;
+        this.clipboardEnhancer = null;
 
         this.init();
     }
@@ -111,6 +113,7 @@ export class MarkdownEditor {
         // 初始化功能管理器
         this.codeCopyManager = new CodeCopyManager(this.element);
         this.searchBoxManager = new SearchBoxManager(this.editor);
+        this.clipboardEnhancer = new ClipboardEnhancer(this.element);
 
         // 添加链接点击处理
         this.setupLinkClickHandler();
@@ -275,6 +278,7 @@ export class MarkdownEditor {
     destroy() {
         this.codeCopyManager?.destroy();
         this.searchBoxManager?.destroy();
+        this.clipboardEnhancer?.destroy();
         if (this.linkClickCleanup) {
             this.linkClickCleanup();
             this.linkClickCleanup = null;
