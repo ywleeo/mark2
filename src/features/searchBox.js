@@ -186,6 +186,31 @@ export class SearchBoxManager {
         }
     }
 
+    // 文档切换时重新触发搜索
+    refreshSearchOnDocumentChange() {
+        // 如果搜索框不可见或没有搜索词，直接返回
+        if (!this.searchBox?.classList.contains('is-visible')) {
+            return;
+        }
+
+        const searchTerm = this.searchInput?.value;
+        if (!searchTerm) {
+            return;
+        }
+
+        // 重新触发搜索（基于新文档重新计算匹配结果）
+        const { type, editor } = this.getActiveEditor();
+        if (!editor) return;
+
+        if (type === 'markdown') {
+            editor.commands.setSearchTerm(searchTerm);
+            this.updateSearchInfo();
+        } else {
+            const result = editor.setSearchTerm(searchTerm);
+            this.updateSearchInfoFromResult(result);
+        }
+    }
+
     // 销毁
     destroy() {
         // 清理事件监听器

@@ -1358,6 +1358,8 @@ async function loadFile(filePath, options = {}) {
                 if (fileData.hasChanges) {
                     codeEditor.isDirty = true;
                 }
+                // 文档切换时，重新触发搜索（如果搜索框还开着）
+                editor?.refreshSearch?.();
             }
 
             // 在加载完成后再次确认并设置 hasUnsavedChanges

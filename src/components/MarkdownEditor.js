@@ -256,6 +256,11 @@ export class MarkdownEditor {
         const isNewFile = this.currentFile !== filePath;
         this.currentFile = filePath;
         await this.setContent(content, isNewFile);
+
+        // 文档切换时，重新触发搜索（如果搜索框还开着）
+        if (isNewFile && this.searchBoxManager) {
+            this.searchBoxManager.refreshSearchOnDocumentChange();
+        }
     }
 
     // AI 生成内容插入
@@ -272,6 +277,11 @@ export class MarkdownEditor {
     // 设置代码编辑器引用
     setCodeEditor(codeEditor) {
         this.searchBoxManager?.setCodeEditor(codeEditor);
+    }
+
+    // 刷新搜索（文档切换时调用）
+    refreshSearch() {
+        this.searchBoxManager?.refreshSearchOnDocumentChange();
     }
 
     // 销毁编辑器
