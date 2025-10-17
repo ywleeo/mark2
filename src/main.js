@@ -1,8 +1,19 @@
 import { invoke } from '@tauri-apps/api/core';
-import { open, save, message, confirm } from '@tauri-apps/plugin-dialog';
+import { open, confirm } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
-import { desktopDir, join } from '@tauri-apps/api/path';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { detectLanguageForPath, getViewModeForPath } from './utils/fileTypeUtils.js';
+import {
+    applyEditorSettings,
+    defaultEditorSettings,
+    loadEditorSettings,
+    normalizeEditorSettings,
+    saveEditorSettings,
+} from './utils/editorSettings.js';
+import { normalizeFsPath, normalizeSelectedPaths } from './utils/pathUtils.js';
+import { setupKeyboardShortcuts } from './utils/shortcuts.js';
+import { setupSidebarResizer } from './utils/sidebarResizer.js';
+import { exportCurrentViewToImage, exportCurrentViewToPdf } from './modules/menuExports.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -66,174 +77,17 @@ let settingsDialog = null;
 let isOpeningFromLink = false;
 let hasUnsavedChanges = false;
 let fileContentCache = new Map(); // 缓存文件的编辑内容和状态
-let editorSettings = {
-    theme: 'default',
-    fontSize: 16,
-    lineHeight: 1.6,
-    fontFamily: '',
-    fontWeight: 400,
-    codeFontSize: 14,
-    codeLineHeight: 1.5,
-    codeFontFamily: '',
-    codeFontWeight: 400,
-};
+let editorSettings = { ...defaultEditorSettings };
 let availableFontFamilies = [];
 let markdownPaneElement = null;
 let codeEditorPaneElement = null;
 let imagePaneElement = null;
 let activeViewMode = 'markdown';
+let keyboardShortcutCleanup = null;
+let sidebarResizerCleanup = null;
 
 const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
-const SETTINGS_STORAGE_KEY = 'mark2:editorSettings';
-const defaultEditorSettings = {
-    theme: 'default',
-    fontSize: 16,
-    lineHeight: 1.6,
-    fontFamily: '',
-    fontWeight: 400,
-    codeFontSize: 14,
-    codeLineHeight: 1.5,
-    codeFontFamily: '',
-    codeFontWeight: 400,
-};
-
-const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
-const CODE_SUFFIX_LANGUAGE_MAP = [
-    ['.d.ts', 'typescript'],
-    ['.d.mts', 'typescript'],
-    ['.d.cts', 'typescript'],
-    ['.dockerfile', 'dockerfile'],
-];
-
-const CODE_EXTENSION_LANGUAGE_MAP = new Map([
-    ['js', 'javascript'],
-    ['mjs', 'javascript'],
-    ['cjs', 'javascript'],
-    ['jsx', 'javascript'],
-    ['ts', 'typescript'],
-    ['tsx', 'typescript'],
-    ['json', 'json'],
-    ['yml', 'yaml'],
-    ['yaml', 'yaml'],
-    ['toml', 'ini'],
-    ['ini', 'ini'],
-    ['conf', 'ini'],
-    ['env', 'ini'],
-    ['properties', 'ini'],
-    ['css', 'css'],
-    ['scss', 'scss'],
-    ['less', 'less'],
-    ['html', 'html'],
-    ['htm', 'html'],
-    ['vue', 'html'],
-    ['svelte', 'html'],
-    ['xml', 'xml'],
-    ['py', 'python'],
-    ['pyw', 'python'],
-    ['go', 'go'],
-    ['rs', 'rust'],
-    ['java', 'java'],
-    ['kt', 'kotlin'],
-    ['kts', 'kotlin'],
-    ['swift', 'swift'],
-    ['rb', 'ruby'],
-    ['php', 'php'],
-    ['cs', 'csharp'],
-    ['cpp', 'cpp'],
-    ['cc', 'cpp'],
-    ['cxx', 'cpp'],
-    ['hpp', 'cpp'],
-    ['hh', 'cpp'],
-    ['hxx', 'cpp'],
-    ['c', 'c'],
-    ['h', 'c'],
-    ['mm', 'objective-c'],
-    ['m', 'objective-c'],
-    ['sql', 'sql'],
-    ['sh', 'shell'],
-    ['bash', 'shell'],
-    ['zsh', 'shell'],
-    ['fish', 'shell'],
-    ['ps1', 'powershell'],
-    ['psm1', 'powershell'],
-    ['bat', 'shell'],
-    ['cmd', 'shell'],
-    ['dock', 'dockerfile'],
-    ['dockerfile', 'dockerfile'],
-    ['diff', 'diff'],
-    ['patch', 'diff'],
-    ['log', 'plaintext'],
-    ['txt', 'plaintext'],
-]);
-
-function normalizeCandidatePath(path) {
-    return typeof path === 'string' ? path.toLowerCase() : '';
-}
-
-function isMarkdownFilePath(filePath) {
-    const normalized = normalizeCandidatePath(filePath);
-    if (!normalized) {
-        return false;
-    }
-
-    if (normalized.endsWith('.md') || normalized.endsWith('.markdown') || normalized.endsWith('.mdx')) {
-        return true;
-    }
-
-    const match = normalized.match(/\.([a-z0-9]+)$/);
-    if (!match) {
-        return false;
-    }
-
-    return MARKDOWN_EXTENSIONS.has(match[1]);
-}
-
-function isImageFilePath(filePath) {
-    const normalized = normalizeCandidatePath(filePath);
-    if (!normalized) {
-        return false;
-    }
-
-    const match = normalized.match(/\.([a-z0-9]+)$/);
-    if (!match) {
-        return false;
-    }
-
-    return IMAGE_EXTENSIONS.has(match[1]);
-}
-
-function detectLanguageForPath(filePath) {
-    const normalized = normalizeCandidatePath(filePath);
-    if (!normalized) {
-        return null;
-    }
-
-    for (const [suffix, language] of CODE_SUFFIX_LANGUAGE_MAP) {
-        if (normalized.endsWith(suffix)) {
-            return language;
-        }
-    }
-
-    const match = normalized.match(/\.([a-z0-9]+)$/);
-    if (!match) {
-        return null;
-    }
-
-    return CODE_EXTENSION_LANGUAGE_MAP.get(match[1]) || null;
-}
-
-function getViewModeForPath(filePath) {
-    if (isMarkdownFilePath(filePath)) {
-        return 'markdown';
-    }
-    if (isImageFilePath(filePath)) {
-        return 'image';
-    }
-    return 'code';
-}
-
 function activateMarkdownView() {
     markdownPaneElement?.classList.add('is-active');
     codeEditorPaneElement?.classList.remove('is-active');
@@ -342,10 +196,15 @@ async function initializeApplication() {
         settingsDialog.setAvailableFonts(availableFontFamilies);
     }
 
-    setupKeyboardShortcuts();
+    keyboardShortcutCleanup = setupKeyboardShortcuts({
+        onOpen: openFileOrFolder,
+        onSave: saveCurrentFile,
+        onCloseTab: closeActiveTab,
+        onFind: () => editor?.showSearch?.(),
+    });
     await setupMenuListeners();
     setupLinkNavigationListener();
-    setupSidebarResizer();
+    sidebarResizerCleanup = setupSidebarResizer();
     setupCleanupHandlers();
 
     loadAvailableFonts();
@@ -567,11 +426,11 @@ async function setupMenuListeners() {
     });
 
     await listen('menu-export-image', async () => {
-        await handleMenuExportImage();
+        await exportCurrentViewToImage({ ensureToPng });
     });
 
     await listen('menu-export-pdf', async () => {
-        await handleMenuExportPdf();
+        await exportCurrentViewToPdf({ activeViewMode });
     });
 }
 
@@ -610,259 +469,6 @@ function setupLinkNavigationListener() {
     });
 }
 
-async function handleMenuExportImage() {
-    try {
-        const defaultPath = await buildDefaultScreenshotPath();
-        const targetPath = await save({
-            title: '保存截图',
-            filters: [
-                {
-                    name: 'PNG 图片',
-                    extensions: ['png'],
-                },
-            ],
-            defaultPath,
-        });
-
-        if (!targetPath) {
-            return;
-        }
-
-        const dataUrl = await captureViewContent();
-        await invoke('capture_screenshot', {
-            destination: targetPath,
-            imageData: dataUrl,
-        });
-        await message('截图已保存至: ' + targetPath, {
-            title: '截图完成',
-            kind: 'info',
-        });
-    } catch (error) {
-        console.error('生成截图失败', error);
-        const reason = error?.message || String(error);
-        await message('生成截图失败: ' + reason, {
-            title: '截图失败',
-            kind: 'error',
-        });
-    }
-}
-
-async function handleMenuExportPdf() {
-    try {
-        const defaultPath = await buildDefaultPdfPath();
-        const targetPath = await save({
-            title: '导出 PDF',
-            filters: [
-                {
-                    name: 'PDF 文件',
-                    extensions: ['pdf'],
-                },
-            ],
-            defaultPath,
-        });
-
-        if (!targetPath) {
-            return;
-        }
-
-        const { htmlContent, cssContent, pageWidth } = await collectContentForPdf();
-        await invoke('export_to_pdf', {
-            destination: targetPath,
-            htmlContent,
-            cssContent,
-            pageWidth,
-        });
-
-        await message('PDF 已保存至: ' + targetPath, {
-            title: '导出完成',
-            kind: 'info',
-        });
-    } catch (error) {
-        console.error('导出 PDF 失败', error);
-        const reason = error?.message || String(error);
-        await message('导出 PDF 失败: ' + reason, {
-            title: '导出失败',
-            kind: 'error',
-        });
-    }
-}
-
-async function buildDefaultScreenshotPath() {
-    const timestamp = formatTimestampForFilename(new Date());
-    const fileName = `Mark2-Screenshot-${timestamp}.png`;
-
-    try {
-        const desktop = await desktopDir();
-        if (desktop && desktop.length > 0) {
-            return await join(desktop, fileName);
-        }
-    } catch (error) {
-        console.warn('无法获取桌面路径，使用默认文件名', error);
-    }
-
-    return fileName;
-}
-
-async function buildDefaultPdfPath() {
-    const timestamp = formatTimestampForFilename(new Date());
-    const fileName = `Mark2-Export-${timestamp}.pdf`;
-
-    try {
-        const desktop = await desktopDir();
-        if (desktop && desktop.length > 0) {
-            return await join(desktop, fileName);
-        }
-    } catch (error) {
-        console.warn('无法获取桌面路径，使用默认文件名', error);
-    }
-
-    return fileName;
-}
-
-function formatTimestampForFilename(date) {
-    const pad = (value) => String(value).padStart(2, '0');
-    const year = date.getFullYear();
-    const month = pad(date.getMonth() + 1);
-    const day = pad(date.getDate());
-    const hours = pad(date.getHours());
-    const minutes = pad(date.getMinutes());
-    const seconds = pad(date.getSeconds());
-    return `${year}${month}${day}-${hours}${minutes}${seconds}`;
-}
-
-async function captureViewContent() {
-    const viewElement = document.getElementById('viewContent');
-    if (!viewElement) {
-        throw new Error('无法找到 viewContent 元素');
-    }
-
-    const captureElement = viewElement.querySelector('.tiptap-editor') || viewElement;
-
-    const transparentValues = new Set(['rgba(0, 0, 0, 0)', 'transparent']);
-    const getBackground = (element) => {
-        const color = window.getComputedStyle(element).backgroundColor;
-        return color && !transparentValues.has(color) ? color : null;
-    };
-
-    const bodyBackground = getBackground(document.body);
-    const backgroundColor =
-        getBackground(captureElement) ||
-        getBackground(viewElement) ||
-        bodyBackground ||
-        '#ffffff';
-    const scale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
-
-    const scrollWidth = Math.ceil(
-        Math.max(
-            captureElement.scrollWidth,
-            captureElement.offsetWidth,
-            captureElement.clientWidth
-        )
-    );
-    const scrollHeight = Math.ceil(captureElement.scrollHeight);
-
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '-100000px';
-    wrapper.style.top = '0';
-    wrapper.style.padding = '0';
-    wrapper.style.margin = '0';
-    wrapper.style.background = backgroundColor;
-    wrapper.style.width = `${scrollWidth}px`;
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.zIndex = '-1';
-
-    captureElement
-        .querySelectorAll('.screenshot-watermark')
-        .forEach(element => element.remove());
-
-    const clone = captureElement.cloneNode(true);
-    clone.style.paddingBottom = '0px';
-    clone.style.marginBottom = '0px';
-    const watermarkElement = createWatermarkElement(backgroundColor || '#ffffff');
-    clone.appendChild(watermarkElement);
-    clone.style.width = `${scrollWidth}px`;
-    clone.style.minHeight = `${scrollHeight}px`;
-    clone.style.boxSizing = 'border-box';
-
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-
-    await new Promise(resolve => requestAnimationFrame(resolve));
-    await new Promise(resolve => requestAnimationFrame(resolve));
-
-    try {
-        const targetWidth = Math.ceil(
-            Math.max(
-                scrollWidth,
-                clone.scrollWidth,
-                clone.offsetWidth,
-                clone.clientWidth
-            )
-        );
-        const targetHeight = Math.ceil(
-            Math.max(
-                scrollHeight,
-                clone.scrollHeight,
-                clone.offsetHeight,
-                clone.clientHeight
-            )
-        );
-
-        wrapper.style.width = `${targetWidth}px`;
-        clone.style.width = `${targetWidth}px`;
-        clone.style.minHeight = `${targetHeight}px`;
-
-        await document.fonts?.ready;
-        const renderToPng = await ensureToPng();
-        const dataUrl = await renderToPng(clone, {
-            backgroundColor,
-            pixelRatio: scale,
-            cacheBust: true,
-            width: targetWidth,
-            height: targetHeight,
-            canvasWidth: Math.ceil(targetWidth * scale),
-            canvasHeight: Math.ceil(targetHeight * scale),
-        });
-        return dataUrl;
-    } finally {
-        if (wrapper.parentNode) {
-            wrapper.parentNode.removeChild(wrapper);
-        }
-    }
-}
-
-function createWatermarkElement(baseBackground) {
-    const container = document.createElement('div');
-    container.className = 'screenshot-watermark';
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.alignItems = 'center';
-    container.style.padding = '2px 0 5px';
-    container.style.background = baseBackground;
-
-    const divider = document.createElement('div');
-    divider.style.width = '100%';
-    divider.style.height = '2px';
-    divider.style.backgroundColor = '#eeeeee';
-    divider.style.margin = '0 0 10px 0';
-
-    const ribbon = document.createElement('span');
-    ribbon.textContent = 'Mark2';
-    ribbon.style.display = 'inline-block';
-    ribbon.style.background = '#ff3b30';
-    ribbon.style.color = '#ffffff';
-    ribbon.style.fontSize = '14px';
-    ribbon.style.fontWeight = '700';
-    ribbon.style.padding = '2px 15px';
-    ribbon.style.letterSpacing = '0.5px';
-
-    container.appendChild(divider);
-    container.appendChild(ribbon);
-
-    return container;
-}
-
 async function openSettingsDialog() {
     await ensureCoreModules();
 
@@ -887,80 +493,6 @@ function handleSettingsSubmit(nextSettings) {
     editorSettings = normalizeEditorSettings(merged);
     applyEditorSettings(editorSettings);
     saveEditorSettings(editorSettings);
-}
-
-function loadEditorSettings() {
-    try {
-        const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
-        if (!stored) {
-            return { ...defaultEditorSettings };
-        }
-
-        const parsed = JSON.parse(stored);
-        return normalizeEditorSettings(parsed);
-    } catch (error) {
-        console.warn('加载编辑器设置失败，使用默认值', error);
-        return { ...defaultEditorSettings };
-    }
-}
-
-function saveEditorSettings(settings) {
-    try {
-        const normalized = normalizeEditorSettings(settings);
-        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(normalized));
-    } catch (error) {
-        console.warn('保存编辑器设置失败', error);
-    }
-}
-
-function applyEditorSettings(settings) {
-    const prefs = normalizeEditorSettings(settings);
-    const root = document.documentElement;
-
-    // 应用主题
-    loadTheme(prefs.theme);
-
-    // 普通模式设置
-    root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
-    root.style.setProperty('--editor-line-height', prefs.lineHeight.toString());
-    root.style.setProperty('--editor-font-weight', prefs.fontWeight.toString());
-
-    if (prefs.fontFamily && prefs.fontFamily.length > 0) {
-        root.style.setProperty('--editor-font-family', prefs.fontFamily);
-    } else {
-        root.style.removeProperty('--editor-font-family');
-    }
-
-    // Code 模式设置
-    root.style.setProperty('--code-font-size', `${prefs.codeFontSize}px`);
-    root.style.setProperty('--code-line-height', prefs.codeLineHeight.toString());
-    root.style.setProperty('--code-font-weight', prefs.codeFontWeight.toString());
-
-    if (prefs.codeFontFamily && prefs.codeFontFamily.length > 0) {
-        root.style.setProperty('--code-font-family', prefs.codeFontFamily);
-    } else {
-        root.style.removeProperty('--code-font-family');
-    }
-}
-
-function loadTheme(themeName) {
-    const theme = themeName || 'default';
-    const themeId = 'markdown-theme-stylesheet';
-
-    // 移除已有的主题样式
-    const existingTheme = document.getElementById(themeId);
-    if (existingTheme) {
-        existingTheme.remove();
-    }
-
-    // 创建新的主题样式链接
-    const link = document.createElement('link');
-    link.id = themeId;
-    link.rel = 'stylesheet';
-    link.href = `/styles/themes/${theme}.css`;
-
-    // 添加到 head 中
-    document.head.appendChild(link);
 }
 
 async function loadAvailableFonts() {
@@ -988,197 +520,12 @@ async function loadAvailableFonts() {
     }
 }
 
-function normalizeEditorSettings(candidate) {
-    const prefs = { ...defaultEditorSettings };
-
-    if (candidate && typeof candidate === 'object') {
-        // 主题设置
-        if (typeof candidate.theme === 'string') {
-            let theme = candidate.theme.trim() || 'default';
-            // 兼容旧主题名
-            if (theme === 'github-dark') {
-                theme = 'emerald';
-            }
-            prefs.theme = theme;
-        }
-
-        // 普通模式设置
-        if (candidate.fontSize !== undefined) {
-            const size = Number(candidate.fontSize);
-            if (Number.isFinite(size)) {
-                prefs.fontSize = clamp(size, 10, 48);
-            }
-        }
-
-        if (candidate.lineHeight !== undefined) {
-            const height = Number(candidate.lineHeight);
-            if (Number.isFinite(height)) {
-                const clampedHeight = clamp(height, 1.0, 3.0);
-                prefs.lineHeight = Number(clampedHeight.toFixed(2));
-            }
-        }
-
-        if (typeof candidate.fontFamily === 'string') {
-            const trimmedFamily = candidate.fontFamily.trim();
-            if (
-                trimmedFamily &&
-                !trimmedFamily.includes(',') &&
-                !/["']/.test(trimmedFamily) &&
-                /\s/.test(trimmedFamily)
-            ) {
-                prefs.fontFamily = `'${trimmedFamily.replace(/'/g, "\\'")}'`;
-            } else {
-                prefs.fontFamily = trimmedFamily;
-            }
-        }
-
-        if (candidate.fontWeight !== undefined) {
-            const weight = Number(candidate.fontWeight);
-            if (Number.isFinite(weight)) {
-                prefs.fontWeight = normalizeFontWeight(weight);
-            }
-        }
-
-        // Code 模式设置
-        if (candidate.codeFontSize !== undefined) {
-            const size = Number(candidate.codeFontSize);
-            if (Number.isFinite(size)) {
-                prefs.codeFontSize = clamp(size, 10, 48);
-            }
-        }
-
-        if (candidate.codeLineHeight !== undefined) {
-            const height = Number(candidate.codeLineHeight);
-            if (Number.isFinite(height)) {
-                const clampedHeight = clamp(height, 1.0, 3.0);
-                prefs.codeLineHeight = Number(clampedHeight.toFixed(2));
-            }
-        }
-
-        if (typeof candidate.codeFontFamily === 'string') {
-            prefs.codeFontFamily = candidate.codeFontFamily.trim();
-        }
-
-        if (candidate.codeFontWeight !== undefined) {
-            const weight = Number(candidate.codeFontWeight);
-            if (Number.isFinite(weight)) {
-                prefs.codeFontWeight = normalizeFontWeight(weight);
-            }
-        }
-    }
-
-    return prefs;
-}
-
-function clamp(value, min, max) {
-    if (!Number.isFinite(value)) {
-        return min;
-    }
-    return Math.min(Math.max(value, min), max);
-}
-
-function normalizeFontWeight(weight) {
-    const allowed = [100, 200, 300, 400, 500, 600, 700, 800, 900];
-    if (allowed.includes(weight)) {
-        return weight;
-    }
-
-    const nearest = allowed.reduce((closest, current) => {
-        return Math.abs(current - weight) < Math.abs(closest - weight) ? current : closest;
-    }, allowed[0]);
-
-    return nearest;
-}
-
 // 设置快捷键
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', async (e) => {
-        // Cmd+O (macOS) 或 Ctrl+O (Windows/Linux)
-        if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
-            e.preventDefault();
-            await openFileOrFolder();
-        }
-
-        // Cmd+S (macOS) 或 Ctrl+S (Windows/Linux) 保存
-        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-            e.preventDefault();
-            await saveCurrentFile();
-        }
-
-        // Cmd+W (macOS) 或 Ctrl+W (Windows/Linux) 关闭当前 tab
-        if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
-            e.preventDefault();
-            await closeActiveTab();
-        }
-
-        // Cmd+F (macOS) 或 Ctrl+F (Windows/Linux) 查找
-        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
-            e.preventDefault();
-            // 统一使用 editor 的 showSearch 方法，它会自动判断当前编辑器
-            if (editor) {
-                editor.showSearch();
-            }
-        }
-    });
-}
-
 async function closeActiveTab() {
     if (!tabManager || !tabManager.activeTabId) {
         return;
     }
     await tabManager.handleTabClose(tabManager.activeTabId);
-}
-
-function setupSidebarResizer() {
-    const sidebar = document.getElementById('sidebar');
-    const resizer = document.getElementById('sidebarResizer');
-
-    if (!sidebar || !resizer) return;
-
-    const minWidth = 180;
-    const maxSidebarWidth = 640;
-    const minContentWidth = 320;
-    let startX = 0;
-    let startWidth = 0;
-    let activePointerId = null;
-
-    const stopResizing = (event) => {
-        if (activePointerId === null || event.pointerId !== activePointerId) return;
-
-        if (resizer.hasPointerCapture(activePointerId)) {
-            resizer.releasePointerCapture(activePointerId);
-        }
-        activePointerId = null;
-        document.body.classList.remove('sidebar-resizing');
-        document.body.style.userSelect = '';
-    };
-
-    resizer.addEventListener('pointerdown', (event) => {
-        if (activePointerId !== null) return;
-
-        startX = event.clientX;
-        startWidth = sidebar.getBoundingClientRect().width;
-        activePointerId = event.pointerId;
-        resizer.setPointerCapture(activePointerId);
-        document.body.classList.add('sidebar-resizing');
-        document.body.style.userSelect = 'none';
-        event.preventDefault();
-    });
-
-    resizer.addEventListener('pointermove', (event) => {
-        if (activePointerId === null || event.pointerId !== activePointerId) return;
-
-        const delta = event.clientX - startX;
-        const bodyWidth = document.body.getBoundingClientRect().width;
-        const maxAvailable = bodyWidth - minContentWidth;
-        const clampedMax = Math.max(minWidth, Math.min(maxSidebarWidth, maxAvailable));
-        const nextWidth = Math.min(Math.max(minWidth, startWidth + delta), clampedMax);
-
-        sidebar.style.width = `${nextWidth}px`;
-    });
-
-    resizer.addEventListener('pointerup', stopResizing);
-    resizer.addEventListener('pointercancel', stopResizing);
 }
 
 // 打开文件或文件夹（自动判断）
@@ -1223,31 +570,6 @@ async function selectPath() {
         }
         throw error;
     }
-}
-
-function normalizeSelectedPaths(selected) {
-    if (!selected) return [];
-
-    const extractPath = (entry) => {
-        if (!entry) return null;
-        if (typeof entry === 'string') return entry;
-        if (typeof entry === 'object') {
-            if ('path' in entry && typeof entry.path === 'string') {
-                return entry.path;
-            }
-            if ('uri' in entry && typeof entry.uri === 'string') {
-                return entry.uri;
-            }
-        }
-        return null;
-    };
-
-    if (Array.isArray(selected)) {
-        return selected.map(extractPath).filter(Boolean);
-    }
-
-    const single = extractPath(selected);
-    return single ? [single] : [];
 }
 
 async function saveCurrentFile() {
@@ -1382,19 +704,6 @@ async function loadFile(filePath, options = {}) {
     }
 }
 
-function normalizeFsPath(path) {
-    if (!path) return path;
-    if (typeof path === 'string' && path.startsWith('file://')) {
-        try {
-            const url = new URL(path);
-            return decodeURI(url.pathname);
-        } catch (error) {
-            console.warn('无法解析文件路径 URL:', path, error);
-        }
-    }
-    return path;
-}
-
 async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
@@ -1502,6 +811,14 @@ function cleanupResources() {
     folderRefreshTimers.clear();
     fileRefreshTimers.forEach((timer) => clearTimeout(timer));
     fileRefreshTimers.clear();
+    if (keyboardShortcutCleanup) {
+        keyboardShortcutCleanup();
+        keyboardShortcutCleanup = null;
+    }
+    if (sidebarResizerCleanup) {
+        sidebarResizerCleanup();
+        sidebarResizerCleanup = null;
+    }
     fileTree?.dispose?.();
     editor?.destroy?.();
     codeEditor?.dispose?.();
@@ -1622,80 +939,4 @@ function scheduleFileRefresh(filePath) {
     }, 50);
 
     fileRefreshTimers.set(normalizedPath, timer);
-}
-
-async function collectContentForPdf() {
-    const viewElement = document.getElementById('viewContent');
-    if (!viewElement) {
-        throw new Error('无法找到 viewContent 元素');
-    }
-
-    // 获取内容元素
-    let contentElement;
-    if (activeViewMode === 'markdown') {
-        contentElement = viewElement.querySelector('.tiptap-editor');
-    } else {
-        contentElement = viewElement.querySelector('.monaco-editor');
-    }
-
-    if (!contentElement) {
-        contentElement = viewElement;
-    }
-
-    // 获取 HTML 内容
-    const htmlContent = contentElement.innerHTML;
-
-    // 收集所有相关的 CSS
-    const cssContent = await collectAllStyles();
-
-    // 获取视图容器的实际宽度
-    const pageWidth = viewElement.clientWidth || 800;
-
-    return { htmlContent, cssContent, pageWidth };
-}
-
-async function collectAllStyles() {
-    const styles = [];
-
-    // 收集所有 <style> 标签
-    const styleTags = document.querySelectorAll('style');
-    styleTags.forEach(tag => {
-        if (tag.textContent) {
-            styles.push(tag.textContent);
-        }
-    });
-
-    // 收集所有外部样式表
-    const linkTags = document.querySelectorAll('link[rel="stylesheet"]');
-    for (const link of linkTags) {
-        try {
-            const href = link.getAttribute('href');
-            if (href) {
-                const response = await fetch(href);
-                const cssText = await response.text();
-                styles.push(cssText);
-            }
-        } catch (error) {
-            console.warn('无法加载样式表:', link.href, error);
-        }
-    }
-
-    // 添加必要的基础样式
-    styles.push(`
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-        }
-        .tiptap-editor {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .code-copy-button {
-            display: none !important;
-        }
-    `);
-
-    return styles.join('\n');
 }
