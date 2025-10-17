@@ -104,6 +104,10 @@ let markdownPaneElement = null;
 let codeEditorPaneElement = null;
 let imagePaneElement = null;
 let unsupportedPaneElement = null;
+let statusBarElement = null;
+let statusBarFilePathElement = null;
+let statusBarWordCountElement = null;
+let statusBarLastModifiedElement = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
@@ -113,6 +117,7 @@ let isRestoringWorkspaceState = false;
 let fileDropCleanup = null;
 let isFileDropHoverActive = false;
 let isSidebarHidden = false;
+let isStatusBarHidden = false;
 
 /**
  * 激活 Markdown 视图并隐藏其余面板。
@@ -204,6 +209,56 @@ function setSidebarVisibility(hidden) {
 
 function toggleSidebarVisibility() {
     setSidebarVisibility(!isSidebarHidden);
+}
+
+function setStatusBarVisibility(hidden) {
+    const body = document.body;
+    if (!body || !statusBarElement) {
+        return;
+    }
+
+    if (hidden) {
+        body.classList.add('is-status-bar-hidden');
+        statusBarElement.setAttribute('aria-hidden', 'true');
+    } else {
+        body.classList.remove('is-status-bar-hidden');
+        statusBarElement.removeAttribute('aria-hidden');
+    }
+
+    isStatusBarHidden = hidden;
+}
+
+function toggleStatusBarVisibility() {
+    setStatusBarVisibility(!isStatusBarHidden);
+}
+
+function updateStatusBar({ filePath, wordCount, lastModified, isDirty } = {}) {
+    if (!statusBarElement || !statusBarFilePathElement || !statusBarWordCountElement || !statusBarLastModifiedElement) {
+        return;
+    }
+
+    if (filePath && typeof filePath === 'string') {
+        statusBarFilePathElement.textContent = filePath;
+        statusBarFilePathElement.title = filePath;
+    } else {
+        statusBarFilePathElement.textContent = '未打开文件';
+        statusBarFilePathElement.removeAttribute('title');
+    }
+
+    let wordCountText = '';
+    if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
+        wordCountText = `${wordCount} 字`;
+    }
+    if (isDirty) {
+        wordCountText = wordCountText.length > 0 ? `${wordCountText}（已编辑）` : '已编辑';
+    }
+    statusBarWordCountElement.textContent = wordCountText;
+
+    if (lastModified && typeof lastModified === 'string') {
+        statusBarLastModifiedElement.textContent = lastModified;
+    } else {
+        statusBarLastModifiedElement.textContent = '';
+    }
 }
 /**
  * 清空所有编辑器内容并重置活动文件。
@@ -454,6 +509,18 @@ async function initializeApplication() {
         throw new Error('视图容器渲染失败');
     }
 
+    statusBarElement = document.getElementById('statusBar');
+    if (!statusBarElement) {
+        throw new Error('未找到状态栏元素 statusBar');
+    }
+    statusBarFilePathElement = document.getElementById('statusBarPath');
+    statusBarWordCountElement = document.getElementById('statusBarWordCount');
+    statusBarLastModifiedElement = document.getElementById('statusBarLastModified');
+    if (!statusBarFilePathElement || !statusBarWordCountElement || !statusBarLastModifiedElement) {
+        throw new Error('状态栏子元素渲染失败');
+    }
+    updateStatusBar();
+
     const editorCallbacks = {
         onContentChange: () => {
             hasUnsavedChanges = editor?.hasUnsavedChanges() || codeEditor?.hasUnsavedChanges() || false;
@@ -530,6 +597,7 @@ async function initializeApplication() {
         onExportImage: () => exportCurrentViewToImage({ ensureToPng }),
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode }),
         onToggleSidebar: toggleSidebarVisibility,
+        onToggleStatusBar: toggleStatusBarVisibility,
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
@@ -1144,16 +1212,18 @@ async function loadFile(filePath, options = {}) {
 async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
-        let title = '';
+        let windowTitle = 'Mark2';
+        let wordCount;
+        let lastModified = '';
 
         if (currentFile) {
             const fileName = currentFile.split('/').pop() || currentFile;
 
             // 获取字数
-            const wordCount = getWordCount();
+            wordCount = getWordCount();
 
             // 获取最后编辑时间
-            const lastModified = await getLastModifiedTime(currentFile);
+            lastModified = (await getLastModifiedTime(currentFile)) ?? '';
 
             // 构建标题
             const parts = [fileName];
@@ -1170,10 +1240,16 @@ async function updateWindowTitle() {
                 parts.push('已编辑');
             }
 
-            title = parts.join(' • ');
+            windowTitle = hasUnsavedChanges ? `${fileName} • 已编辑` : fileName;
         }
 
-        window.setTitle(title);
+        updateStatusBar({
+            filePath: currentFile,
+            wordCount,
+            lastModified,
+            isDirty: hasUnsavedChanges,
+        });
+        await window.setTitle(windowTitle);
     } catch (error) {
         console.error('更新窗口标题失败:', error);
     }

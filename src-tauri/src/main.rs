@@ -273,6 +273,9 @@ fn main() {
                 .accelerator("CmdOrCtrl+B")
                 .build(app)?;
 
+            let toggle_status_bar_item = MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar")
+                .build(app)?;
+
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")
                 .item(&settings_item)
@@ -295,6 +298,7 @@ fn main() {
 
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&toggle_sidebar_item)
+                .item(&toggle_status_bar_item)
                 .build()?;
 
             // Edit 菜单，启用复制/粘贴等系统原生快捷键
@@ -342,6 +346,9 @@ fn main() {
                 } else if event.id().as_ref() == "toggle-sidebar" {
                     println!("发送 menu-toggle-sidebar 事件到前端");
                     let _ = app.emit("menu-toggle-sidebar", ());
+                } else if event.id().as_ref() == "toggle-status-bar" {
+                    println!("发送 menu-toggle-status-bar 事件到前端");
+                    let _ = app.emit("menu-toggle-status-bar", ());
                 }
             });
 

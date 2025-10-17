@@ -2,6 +2,7 @@
 
 :root {
     --titlebar-height: 28px;
+    --status-bar-height: 28px;
     --scrollbar-size: 2px;
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.25);
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.45);
@@ -163,6 +164,46 @@ body.sidebar-resizing .sidebar-resizer {
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+}
+
+.status-bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-height: var(--status-bar-height, 28px);
+    padding: 0 16px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: rgba(21, 23, 26, 0.7);
+    background: rgba(245, 246, 248, 0.94);
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(6px);
+    -webkit-app-region: no-drag;
+}
+
+body.is-status-bar-hidden .status-bar {
+    display: none;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: inherit;
+    white-space: nowrap;
+}
+
+.status-item-path {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-item-word-count,
+.status-item-last-modified {
+    flex: 0 0 auto;
 }
 
 body.is-file-drop-hover {
