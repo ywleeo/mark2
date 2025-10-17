@@ -769,6 +769,35 @@ export class FileTree {
         return normalizedPath ? this.rootPaths.has(normalizedPath) : false;
     }
 
+    getOpenFilePaths() {
+        return [...this.openFiles];
+    }
+
+    restoreOpenFiles(paths = []) {
+        const normalized = [];
+        const seen = new Set();
+
+        paths.forEach((path) => {
+            const normalizedPath = this.normalizePath(path);
+            if (!normalizedPath || seen.has(normalizedPath)) {
+                return;
+            }
+            seen.add(normalizedPath);
+            normalized.push(normalizedPath);
+        });
+
+        // 停止监听不再存在的文件
+        this.openFiles.forEach((path) => {
+            if (!seen.has(path)) {
+                this.stopWatchingFile(path);
+            }
+        });
+
+        this.openFiles = normalized;
+        this.renderOpenFiles();
+        this.onOpenFilesChange?.([...this.openFiles]);
+    }
+
     async restoreState(state = {}) {
         const rootPaths = Array.isArray(state.rootPaths)
             ? state.rootPaths

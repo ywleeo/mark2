@@ -19,6 +19,7 @@ export function createDefaultWorkspaceState() {
     return {
         currentFile: null,
         sidebar: createDefaultSidebarState(),
+        openFiles: [],
     };
 }
 
@@ -64,6 +65,16 @@ export function normalizeWorkspaceState(candidate) {
                 normalized.sidebar.sectionStates.foldersCollapsed = sectionStates.foldersCollapsed;
             }
         }
+    }
+
+    if (Array.isArray(candidate.openFiles)) {
+        normalized.openFiles = Array.from(
+            new Set(
+                candidate.openFiles
+                    .filter(isNonEmptyString)
+                    .map(path => path.trim())
+            )
+        );
     }
 
     return normalized;

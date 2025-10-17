@@ -186,11 +186,10 @@
     margin: 1px 0;
     cursor: pointer;
     font-size: 13px;
-    transition: background-color 0.15s;
 }
 
 .tree-folder-header:hover {
-    background-color: var(--hover-bg-color, #f1f3f4);
+    background-color: var(--hover-bg-color, #e4e5e5);
 }
 
 .tree-folder-header.root {
@@ -270,7 +269,6 @@
     padding: 2px 16px 2px 20px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.15s;
     border-radius: 0;
 }
 

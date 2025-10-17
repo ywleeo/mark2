@@ -186,25 +186,40 @@ function getDefaultSidebarState() {
     return createDefaultWorkspaceState().sidebar;
 }
 
-function persistWorkspaceState(overrides = {}) {
+function persistWorkspaceState(overrides = {}, options = {}) {
+    const forcePersist = options.force === true;
+    if (isRestoringWorkspaceState && !forcePersist) {
+        return;
+    }
+
     try {
-        const defaultSidebar = getDefaultSidebarState();
+        const defaultState = createDefaultWorkspaceState();
         const sidebarState = overrides.sidebar
             ?? fileTree?.getPersistedState?.()
-            ?? defaultSidebar;
+            ?? defaultState.sidebar;
+        const openFilesState = Array.isArray(overrides.openFiles)
+            ? [...overrides.openFiles]
+            : fileTree?.getOpenFilePaths?.()
+                ? [...fileTree.getOpenFilePaths()]
+                : [...defaultState.openFiles];
 
         const nextState = {
             currentFile,
             sidebar: sidebarState,
+            openFiles: openFilesState,
             ...overrides,
         };
 
-        if (!Object.prototype.hasOwnProperty.call(nextState, 'currentFile')) {
+        if (!Object.prototype.hasOwnProperty.call(overrides, 'currentFile')) {
             nextState.currentFile = currentFile;
         }
 
-        if (!nextState.sidebar) {
+        if (!Object.prototype.hasOwnProperty.call(overrides, 'sidebar')) {
             nextState.sidebar = sidebarState;
+        }
+
+        if (!Object.prototype.hasOwnProperty.call(overrides, 'openFiles')) {
+            nextState.openFiles = openFilesState;
         }
 
         saveWorkspaceState(nextState);
@@ -283,6 +298,36 @@ async function sanitizeSidebarState(rawSidebar) {
     return sanitized;
 }
 
+async function sanitizeOpenFiles(rawOpenFiles) {
+    if (!Array.isArray(rawOpenFiles) || rawOpenFiles.length === 0) {
+        return [];
+    }
+
+    const uniquePaths = Array.from(
+        new Set(
+            rawOpenFiles
+                .filter(isNonEmptyString)
+                .map(path => path.trim())
+        )
+    );
+
+    const validFiles = [];
+    for (const path of uniquePaths) {
+        try {
+            const isDirPath = await isDirectory(path);
+            if (isDirPath) {
+                continue;
+            }
+            await getFileMetadata(path);
+            validFiles.push(path);
+        } catch (error) {
+            console.warn('跳过无效的标签页文件', path, error);
+        }
+    }
+
+    return validFiles;
+}
+
 async function restoreWorkspaceStateFromStorage() {
     const stored = loadWorkspaceState();
     if (!stored) {
@@ -290,34 +335,48 @@ async function restoreWorkspaceStateFromStorage() {
     }
 
     const sanitizedSidebar = await sanitizeSidebarState(stored.sidebar);
+    const sanitizedOpenFiles = await sanitizeOpenFiles(stored.openFiles);
 
     isRestoringWorkspaceState = true;
     try {
         if (fileTree) {
             await fileTree.restoreState(sanitizedSidebar);
+            if (typeof fileTree.restoreOpenFiles === 'function') {
+                fileTree.restoreOpenFiles(sanitizedOpenFiles);
+            }
         }
     } finally {
         isRestoringWorkspaceState = false;
     }
 
-    let restoredFile = null;
+    let targetFileToRestore = null;
     if (stored.currentFile && isNonEmptyString(stored.currentFile)) {
         try {
             await getFileMetadata(stored.currentFile);
             const directory = await isDirectory(stored.currentFile);
             if (!directory) {
-                restoredFile = stored.currentFile;
-                fileTree?.selectFile(stored.currentFile);
+                targetFileToRestore = stored.currentFile;
             }
         } catch (error) {
             console.warn('恢复上次打开的文件失败', error);
         }
     }
 
+    if (!targetFileToRestore && sanitizedOpenFiles.length > 0) {
+        targetFileToRestore = sanitizedOpenFiles[sanitizedOpenFiles.length - 1];
+    }
+
+    if (targetFileToRestore) {
+        fileTree?.selectFile(targetFileToRestore);
+    } else {
+        tabManager?.clearSharedTab?.();
+    }
+
     const sidebarSnapshot = fileTree?.getPersistedState?.() ?? sanitizedSidebar;
+    const openFilesSnapshot = fileTree?.getOpenFilePaths?.() ?? sanitizedOpenFiles;
     persistWorkspaceState({
-        currentFile: restoredFile,
         sidebar: sidebarSnapshot,
+        openFiles: openFilesSnapshot,
     });
 }
 
@@ -511,6 +570,9 @@ async function handleFileSelect(filePath) {
  */
 function handleOpenFilesChange(openFilePaths) {
     tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
+    if (!isRestoringWorkspaceState) {
+        persistWorkspaceState({ openFiles: openFilePaths });
+    }
 }
 
 /**
