@@ -21,6 +21,8 @@ import {
     writeFile,
 } from './modules/fileGateway.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
+import { createFileSession } from './modules/fileSession.js';
+import { createFileWatcherController } from './modules/fileWatchers.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -83,7 +85,7 @@ let tabManager = null;
 let settingsDialog = null;
 let isOpeningFromLink = false;
 let hasUnsavedChanges = false;
-let fileContentCache = new Map(); // 缓存文件的编辑内容和状态
+const fileSession = createFileSession({ readFile, getViewModeForPath });
 let editorSettings = { ...defaultEditorSettings };
 let availableFontFamilies = [];
 let markdownPaneElement = null;
@@ -93,9 +95,8 @@ let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
 let menuListenersCleanup = null;
+let fileWatcherController = null;
 
-const folderRefreshTimers = new Map();
-const fileRefreshTimers = new Map();
 function activateMarkdownView() {
     markdownPaneElement?.classList.add('is-active');
     codeEditorPaneElement?.classList.remove('is-active');
@@ -147,19 +148,18 @@ async function initializeApplication() {
     if (!viewContainer) {
         throw new Error('未找到视图容器 viewContent');
     }
-    viewContainer.innerHTML = '';
+    viewContainer.innerHTML = `
+        <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
+        <div class="view-pane code-pane" data-pane="code"></div>
+        <div class="view-pane image-pane" data-pane="image"></div>
+    `;
 
-    markdownPaneElement = document.createElement('div');
-    markdownPaneElement.className = 'view-pane markdown-pane is-active';
-    viewContainer.appendChild(markdownPaneElement);
-
-    codeEditorPaneElement = document.createElement('div');
-    codeEditorPaneElement.className = 'view-pane code-pane';
-    viewContainer.appendChild(codeEditorPaneElement);
-
-    imagePaneElement = document.createElement('div');
-    imagePaneElement.className = 'view-pane image-pane';
-    viewContainer.appendChild(imagePaneElement);
+    markdownPaneElement = viewContainer.querySelector('.markdown-pane');
+    codeEditorPaneElement = viewContainer.querySelector('.code-pane');
+    imagePaneElement = viewContainer.querySelector('.image-pane');
+    if (!markdownPaneElement || !codeEditorPaneElement || !imagePaneElement) {
+        throw new Error('视图容器渲染失败');
+    }
 
     const editorCallbacks = {
         onContentChange: () => {
@@ -181,8 +181,8 @@ async function initializeApplication() {
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
     fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
-        onFolderChange: handleFolderWatcherEvent,
-        onFileChange: handleFileWatcherEvent,
+        onFolderChange: (...args) => fileWatcherController?.handleFolderWatcherEvent(...args),
+        onFileChange: (...args) => fileWatcherController?.handleFileWatcherEvent(...args),
         onOpenFilesChange: handleOpenFilesChange,
     });
 
@@ -190,6 +190,19 @@ async function initializeApplication() {
     tabManager = new TabManagerCtor(tabBarElement, {
         onTabSelect: handleTabSelect,
         onTabClose: handleTabClose,
+    });
+
+    fileWatcherController = createFileWatcherController({
+        fileTree,
+        normalizeFsPath,
+        getCurrentFile: () => currentFile,
+        getActiveViewMode: () => activeViewMode,
+        getEditor: () => editor,
+        getCodeEditor: () => codeEditor,
+        scheduleLoadFile: async (path) => {
+            await loadFile(path, { skipWatchSetup: true, forceReload: true });
+        },
+        fileSession,
     });
 
     editorSettings = loadEditorSettings();
@@ -228,51 +241,17 @@ async function initializeApplication() {
 
 // 保存当前编辑器内容到缓存
 function saveCurrentEditorContentToCache() {
-    if (!currentFile) return;
-
-    const viewMode = activeViewMode;
-    let content = null;
-    let originalContent = null;
-    let hasChanges = false;
-
-    if (viewMode === 'markdown' && editor) {
-        content = editor.getMarkdown();
-        originalContent = editor.originalMarkdown;
-        hasChanges = editor.hasUnsavedChanges();
-    } else if (viewMode === 'code' && codeEditor) {
-        content = codeEditor.getValue();
-        hasChanges = codeEditor.hasUnsavedChanges();
-    }
-
-    if (content !== null) {
-        fileContentCache.set(currentFile, {
-            content,
-            originalContent,
-            hasChanges,
-            viewMode,
-        });
-    }
+    fileSession.saveCurrentEditorContentToCache({
+        currentFile,
+        activeViewMode,
+        editor,
+        codeEditor,
+    });
 }
 
 // 从缓存或磁盘加载文件内容
 async function getFileContent(filePath, options = {}) {
-    const { skipCache = false } = options;
-
-    if (!skipCache) {
-        const cached = fileContentCache.get(filePath);
-        if (cached) {
-            return cached;
-        }
-    }
-
-    // 从磁盘读取
-    const content = await readFile(filePath);
-    const viewMode = getViewModeForPath(filePath);
-    return {
-        content,
-        hasChanges: false,
-        viewMode,
-    };
+    return await fileSession.getFileContent(filePath, options);
 }
 
 // 文件选择回调
@@ -364,7 +343,7 @@ async function handleTabClose(tab) {
             }
 
             // 清除缓存
-            fileContentCache.delete(tab.path);
+            fileSession.clearEntry(tab.path);
         }
 
         fileTree?.closeFile(tab.path);
@@ -395,7 +374,7 @@ async function handleTabClose(tab) {
                     }
                 }
 
-                fileContentCache.delete(tab.path);
+                fileSession.clearEntry(tab.path);
             }
 
             // 如果文件不在打开列表中，停止监听
@@ -424,7 +403,7 @@ async function checkFileHasUnsavedChanges(filePath) {
     }
 
     // 检查缓存
-    const cached = fileContentCache.get(filePath);
+    const cached = fileSession.getCachedEntry(filePath);
     return cached ? cached.hasChanges : false;
 }
 
@@ -565,7 +544,7 @@ async function saveCurrentFile() {
         if (result) {
             hasUnsavedChanges = false;
             // 清除缓存，因为文件已保存
-            fileContentCache.delete(currentFile);
+            fileSession.clearEntry(currentFile);
             updateWindowTitle();
         }
         return result;
@@ -578,7 +557,7 @@ async function saveCurrentFile() {
             codeEditor.markSaved();
             hasUnsavedChanges = false;
             // 清除缓存，因为文件已保存
-            fileContentCache.delete(currentFile);
+            fileSession.clearEntry(currentFile);
             updateWindowTitle();
             return true;
         } catch (error) {
@@ -599,7 +578,7 @@ async function saveFile(filePath) {
     }
 
     // 如果不是当前文件，从缓存获取内容并保存
-    const cached = fileContentCache.get(filePath);
+    const cached = fileSession.getCachedEntry(filePath);
     if (!cached || !cached.hasChanges) {
         return true; // 没有未保存的更改
     }
@@ -607,7 +586,7 @@ async function saveFile(filePath) {
     try {
         await writeFile(filePath, cached.content);
         // 清除缓存
-        fileContentCache.delete(filePath);
+        fileSession.clearEntry(filePath);
         return true;
     } catch (error) {
         console.error('保存文件失败:', error);
@@ -800,124 +779,13 @@ function cleanupResources() {
         sidebarResizerCleanup();
         sidebarResizerCleanup = null;
     }
+    if (fileWatcherController) {
+        fileWatcherController.cleanup();
+        fileWatcherController = null;
+    }
+    fileSession.clearAll();
     fileTree?.dispose?.();
     editor?.destroy?.();
     codeEditor?.dispose?.();
     imageViewer?.dispose?.();
-}
-
-function handleFolderWatcherEvent(watchedPath, event) {
-    if (!fileTree) return;
-
-    const normalizedRoot = normalizeFsPath(watchedPath);
-    if (!normalizedRoot || !fileTree?.hasRoot?.(normalizedRoot)) {
-        return;
-    }
-
-    const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
-
-    eventPaths.forEach((changedPath) => {
-        if (!changedPath) return;
-        if (fileTree?.isFileOpen?.(changedPath)) {
-            const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
-            if (editor && editorPath === changedPath) {
-                if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-                    return;
-                }
-            }
-            scheduleFileRefresh(changedPath);
-        }
-    });
-
-    scheduleFolderRefresh(normalizedRoot);
-}
-
-function handleFileWatcherEvent(filePath) {
-    const normalizedPath = normalizeFsPath(filePath);
-    if (!normalizedPath) return;
-
-    const isOpenFile = fileTree?.isFileOpen?.(normalizedPath);
-    if (!isOpenFile) {
-        // 不在打开列表的文件不需要自动刷新
-        return;
-    }
-
-    const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
-    const currentFilePath = normalizeFsPath(currentFile);
-    const isMarkdownActive = editor && editorPath === normalizedPath;
-    const isCodeActive = activeViewMode === 'code' && currentFilePath === normalizedPath;
-
-    if (isMarkdownActive) {
-        if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-            return;
-        }
-    }
-
-    if (isCodeActive) {
-        if (codeEditor?.hasUnsavedChanges?.()) {
-            return;
-        }
-    }
-
-    if (isMarkdownActive || isCodeActive) {
-        scheduleFileRefresh(normalizedPath);
-    }
-}
-
-function scheduleFolderRefresh(rootPath) {
-    const normalizedRoot = normalizeFsPath(rootPath);
-    if (!normalizedRoot) return;
-
-    const existing = folderRefreshTimers.get(normalizedRoot);
-    if (existing) {
-        clearTimeout(existing);
-    }
-
-    const timer = setTimeout(async () => {
-        folderRefreshTimers.delete(normalizedRoot);
-        if (!fileTree?.hasRoot?.(normalizedRoot)) {
-            return;
-        }
-
-        try {
-            await fileTree.refreshFolder(normalizedRoot);
-        } catch (error) {
-            console.error('刷新目录失败:', error);
-        }
-    }, 100);
-
-    folderRefreshTimers.set(normalizedRoot, timer);
-}
-
-function scheduleFileRefresh(filePath) {
-    const normalizedPath = normalizeFsPath(filePath);
-    if (!normalizedPath) return;
-
-    const existing = fileRefreshTimers.get(normalizedPath);
-    if (existing) {
-        clearTimeout(existing);
-    }
-
-    const timer = setTimeout(async () => {
-        fileRefreshTimers.delete(normalizedPath);
-        if (!fileTree?.isFileOpen?.(normalizedPath)) {
-            return;
-        }
-
-        // 只刷新当前激活的文件，避免切换到其他 tab
-        const currentFilePath = normalizeFsPath(currentFile);
-        if (currentFilePath !== normalizedPath) {
-            // 如果不是当前文件，只清除缓存，下次切换时会重新加载
-            fileContentCache.delete(normalizedPath);
-            return;
-        }
-
-        try {
-            await loadFile(normalizedPath, { skipWatchSetup: true, forceReload: true });
-        } catch (error) {
-            console.error('刷新文件失败:', error);
-        }
-    }, 50);
-
-    fileRefreshTimers.set(normalizedPath, timer);
 }
