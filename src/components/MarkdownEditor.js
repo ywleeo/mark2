@@ -198,6 +198,14 @@ export class MarkdownEditor {
         this.originalMarkdown = markdown;
         this.contentChanged = false;
 
+        const wasFocused = this.editor?.isFocused ?? false;
+        const previousSelection = (!shouldFocusStart && this.editor?.state?.selection)
+            ? {
+                from: this.editor.state.selection.from,
+                to: this.editor.state.selection.to,
+            }
+            : null;
+
         const processed = this.preprocessBold(markdown);
         const html = this.md.render(processed);
         const resolvedHtml = await resolveImageSources(html, this.currentFile);
@@ -210,6 +218,21 @@ export class MarkdownEditor {
             // 只在首次加载文件时将光标移到开头
             if (shouldFocusStart) {
                 this.editor.commands.focus('start');
+            } else if (previousSelection) {
+                const docSize = Math.max(0, this.editor.state.doc?.content?.size ?? 0);
+                const clampPosition = (position) => {
+                    const safePosition = Math.max(0, Math.min(position, docSize));
+                    return Number.isFinite(safePosition) ? safePosition : 0;
+                };
+                const clampedFrom = clampPosition(previousSelection.from);
+                const clampedTo = clampPosition(previousSelection.to);
+                this.editor.commands.setTextSelection({
+                    from: clampedFrom,
+                    to: clampedTo,
+                });
+                if (wasFocused) {
+                    this.editor.commands.focus();
+                }
             }
         } finally {
             this.suppressUpdateEvent = false;
