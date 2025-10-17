@@ -1,6 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
-import { open, confirm } from '@tauri-apps/plugin-dialog';
-import { listen } from '@tauri-apps/api/event';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { detectLanguageForPath, getViewModeForPath } from './utils/fileTypeUtils.js';
 import {
@@ -14,6 +12,15 @@ import { normalizeFsPath, normalizeSelectedPaths } from './utils/pathUtils.js';
 import { setupKeyboardShortcuts } from './utils/shortcuts.js';
 import { setupSidebarResizer } from './utils/sidebarResizer.js';
 import { exportCurrentViewToImage, exportCurrentViewToPdf } from './modules/menuExports.js';
+import {
+    getFileMetadata,
+    isDirectory,
+    listFonts,
+    pickPaths,
+    readFile,
+    writeFile,
+} from './modules/fileGateway.js';
+import { registerMenuListeners } from './modules/menuListeners.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -85,6 +92,7 @@ let imagePaneElement = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
+let menuListenersCleanup = null;
 
 const folderRefreshTimers = new Map();
 const fileRefreshTimers = new Map();
@@ -202,7 +210,12 @@ async function initializeApplication() {
         onCloseTab: closeActiveTab,
         onFind: () => editor?.showSearch?.(),
     });
-    await setupMenuListeners();
+    menuListenersCleanup = await registerMenuListeners({
+        onOpen: openFileOrFolder,
+        onSettings: openSettingsDialog,
+        onExportImage: () => exportCurrentViewToImage({ ensureToPng }),
+        onExportPdf: () => exportCurrentViewToPdf({ activeViewMode }),
+    });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
     setupCleanupHandlers();
@@ -253,7 +266,7 @@ async function getFileContent(filePath, options = {}) {
     }
 
     // 从磁盘读取
-    const content = await invoke('read_file', { path: filePath });
+    const content = await readFile(filePath);
     const viewMode = getViewModeForPath(filePath);
     return {
         content,
@@ -416,24 +429,6 @@ async function checkFileHasUnsavedChanges(filePath) {
 }
 
 // 监听菜单事件
-async function setupMenuListeners() {
-    await listen('menu-open', () => {
-        void openFileOrFolder();
-    });
-
-    await listen('menu-settings', () => {
-        void openSettingsDialog();
-    });
-
-    await listen('menu-export-image', async () => {
-        await exportCurrentViewToImage({ ensureToPng });
-    });
-
-    await listen('menu-export-pdf', async () => {
-        await exportCurrentViewToPdf({ activeViewMode });
-    });
-}
-
 // 监听文档链接导航
 function setupLinkNavigationListener() {
     window.addEventListener('open-file', async (event) => {
@@ -497,7 +492,7 @@ function handleSettingsSubmit(nextSettings) {
 
 async function loadAvailableFonts() {
     try {
-        const fonts = await invoke('list_fonts');
+        const fonts = await listFonts();
         if (!Array.isArray(fonts)) {
             return;
         }
@@ -531,7 +526,7 @@ async function closeActiveTab() {
 // 打开文件或文件夹（自动判断）
 async function openFileOrFolder() {
     try {
-        const selected = await selectPath();
+        const selected = await pickPaths();
         const selections = normalizeSelectedPaths(selected)
             .map(normalizeFsPath)
             .filter(Boolean);
@@ -542,7 +537,7 @@ async function openFileOrFolder() {
 
         for (const resolvedPath of uniqueSelections) {
             try {
-                const isDir = await invoke('is_directory', { path: resolvedPath });
+                const isDir = await isDirectory(resolvedPath);
 
                 if (isDir) {
                     await fileTree?.loadFolder(resolvedPath);
@@ -557,18 +552,6 @@ async function openFileOrFolder() {
     } catch (error) {
         console.error('打开失败:', error);
         alert('打开失败: ' + error);
-    }
-}
-
-async function selectPath() {
-    try {
-        return await invoke('pick_path');
-    } catch (error) {
-        const message = typeof error === 'string' ? error : error?.message;
-        if (message === 'unsupported') {
-            return await open({ multiple: true, directory: false });
-        }
-        throw error;
     }
 }
 
@@ -591,10 +574,7 @@ async function saveCurrentFile() {
     if (activeViewMode === 'code' && codeEditor) {
         try {
             const content = codeEditor.getValue();
-            await invoke('write_file', {
-                path: currentFile,
-                content,
-            });
+            await writeFile(currentFile, content);
             codeEditor.markSaved();
             hasUnsavedChanges = false;
             // 清除缓存，因为文件已保存
@@ -625,10 +605,7 @@ async function saveFile(filePath) {
     }
 
     try {
-        await invoke('write_file', {
-            path: filePath,
-            content: cached.content,
-        });
+        await writeFile(filePath, cached.content);
         // 清除缓存
         fileContentCache.delete(filePath);
         return true;
@@ -777,7 +754,7 @@ function getWordCount() {
 
 async function getLastModifiedTime(filePath) {
     try {
-        const metadata = await invoke('get_file_metadata', { path: filePath });
+        const metadata = await getFileMetadata(filePath);
         if (!metadata || !metadata.modified_time) return null;
 
         const date = new Date(metadata.modified_time * 1000);
@@ -814,6 +791,10 @@ function cleanupResources() {
     if (keyboardShortcutCleanup) {
         keyboardShortcutCleanup();
         keyboardShortcutCleanup = null;
+    }
+    if (menuListenersCleanup) {
+        menuListenersCleanup();
+        menuListenersCleanup = null;
     }
     if (sidebarResizerCleanup) {
         sidebarResizerCleanup();
