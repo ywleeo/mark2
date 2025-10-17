@@ -110,6 +110,8 @@ let sidebarResizerCleanup = null;
 let menuListenersCleanup = null;
 let fileWatcherController = null;
 let isRestoringWorkspaceState = false;
+let fileDropCleanup = null;
+let isFileDropHoverActive = false;
 
 /**
  * 激活 Markdown 视图并隐藏其余面板。
@@ -487,6 +489,7 @@ async function initializeApplication() {
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
+    fileDropCleanup = await setupFileDropListeners();
     setupCleanupHandlers();
 
     loadAvailableFonts();
@@ -721,6 +724,102 @@ function setupLinkNavigationListener() {
 }
 
 /**
+ * 管理拖拽悬停态的样式。
+ */
+function setFileDropHoverState(isActive) {
+    if (isFileDropHoverActive === isActive) {
+        return;
+    }
+
+    const body = document.body;
+    if (!body) {
+        return;
+    }
+
+    isFileDropHoverActive = isActive;
+    body.classList.toggle('is-file-drop-hover', isActive);
+}
+
+/**
+ * 注册系统文件拖拽事件，支持拖入文件/文件夹直接打开。
+ */
+async function setupFileDropListeners() {
+    try {
+        const window = getCurrentWindow();
+        if (typeof window.onDragDropEvent === 'function') {
+            let pendingPaths = [];
+            const unlisten = await window.onDragDropEvent(async (event) => {
+                const { payload } = event;
+                if (!payload) return;
+
+                if (payload.type === 'enter' || payload.type === 'over') {
+                    if (Array.isArray(payload.paths) && payload.paths.length > 0) {
+                        pendingPaths = payload.paths;
+                    }
+                    setFileDropHoverState(true);
+                    return;
+                }
+
+                if (payload.type === 'leave') {
+                    pendingPaths = [];
+                    setFileDropHoverState(false);
+                    return;
+                }
+
+                if (payload.type === 'drop') {
+                    const targetPaths = Array.isArray(payload.paths) && payload.paths.length > 0
+                        ? payload.paths
+                        : pendingPaths;
+                    pendingPaths = [];
+                    setFileDropHoverState(false);
+                    if (Array.isArray(targetPaths) && targetPaths.length > 0) {
+                        try {
+                            await openPathsFromSelection(targetPaths);
+                        } catch (error) {
+                            console.error('处理拖拽文件时出错:', error);
+                        }
+                    }
+                }
+            });
+
+            return () => {
+                unlisten?.();
+                setFileDropHoverState(false);
+                pendingPaths = [];
+            };
+        }
+
+        // fallback for Tauri 1.x event names
+        const [unlistenDrop, unlistenHover, unlistenCancel] = await Promise.all([
+            window.listen('tauri://file-drop', async (event) => {
+                setFileDropHoverState(false);
+                try {
+                    await openPathsFromSelection(event.payload);
+                } catch (error) {
+                    console.error('处理拖拽文件时出错:', error);
+                }
+            }),
+            window.listen('tauri://file-drop-hover', () => {
+                setFileDropHoverState(true);
+            }),
+            window.listen('tauri://file-drop-cancel', () => {
+                setFileDropHoverState(false);
+            }),
+        ]);
+
+        return () => {
+            unlistenDrop?.();
+            unlistenHover?.();
+            unlistenCancel?.();
+            setFileDropHoverState(false);
+        };
+    } catch (error) {
+        console.error('注册拖拽监听失败:', error);
+        return null;
+    }
+}
+
+/**
  * 打开设置对话框并确保依赖加载完毕。
  */
 async function openSettingsDialog() {
@@ -791,33 +890,47 @@ async function closeActiveTab() {
 }
 
 /**
+ * 统一处理需要打开的文件或文件夹路径。
+ */
+async function openPathsFromSelection(rawPaths) {
+    const selections = normalizeSelectedPaths(rawPaths)
+        .map(normalizeFsPath)
+        .filter(Boolean);
+
+    if (selections.length === 0) {
+        return;
+    }
+
+    if (!fileTree) {
+        console.warn('文件树尚未初始化，无法打开拖入的路径');
+        return;
+    }
+
+    const uniqueSelections = Array.from(new Set(selections));
+
+    for (const resolvedPath of uniqueSelections) {
+        try {
+            const isDir = await isDirectory(resolvedPath);
+
+            if (isDir) {
+                await fileTree.loadFolder(resolvedPath);
+            } else {
+                fileTree.addToOpenFiles(resolvedPath);
+                fileTree.selectFile(resolvedPath);
+            }
+        } catch (typeError) {
+            console.error('处理路径失败:', { resolvedPath, error: typeError });
+        }
+    }
+}
+
+/**
  * 选择并打开文件或目录，根据类型分支处理。
  */
 async function openFileOrFolder() {
     try {
         const selected = await pickPaths();
-        const selections = normalizeSelectedPaths(selected)
-            .map(normalizeFsPath)
-            .filter(Boolean);
-
-        if (selections.length === 0) return;
-
-        const uniqueSelections = Array.from(new Set(selections));
-
-        for (const resolvedPath of uniqueSelections) {
-            try {
-                const isDir = await isDirectory(resolvedPath);
-
-                if (isDir) {
-                    await fileTree?.loadFolder(resolvedPath);
-                } else {
-                    fileTree?.addToOpenFiles(resolvedPath);
-                    fileTree?.selectFile(resolvedPath);
-                }
-            } catch (typeError) {
-                console.error('判断路径类型失败:', { resolvedPath, error: typeError });
-            }
-        }
+        await openPathsFromSelection(selected);
     } catch (error) {
         console.error('打开失败:', error);
         alert('打开失败: ' + error);
@@ -1113,6 +1226,12 @@ function cleanupResources() {
     if (sidebarResizerCleanup) {
         sidebarResizerCleanup();
         sidebarResizerCleanup = null;
+    }
+    if (fileDropCleanup) {
+        fileDropCleanup();
+        fileDropCleanup = null;
+    } else {
+        setFileDropHoverState(false);
     }
     if (fileWatcherController) {
         fileWatcherController.cleanup();
