@@ -1586,7 +1586,7 @@ function scheduleFolderRefresh(rootPath) {
         } catch (error) {
             console.error('刷新目录失败:', error);
         }
-    }, 200);
+    }, 100);
 
     folderRefreshTimers.set(normalizedRoot, timer);
 }
@@ -1605,12 +1605,21 @@ function scheduleFileRefresh(filePath) {
         if (!fileTree?.isFileOpen?.(normalizedPath)) {
             return;
         }
+
+        // 只刷新当前激活的文件，避免切换到其他 tab
+        const currentFilePath = normalizeFsPath(currentFile);
+        if (currentFilePath !== normalizedPath) {
+            // 如果不是当前文件，只清除缓存，下次切换时会重新加载
+            fileContentCache.delete(normalizedPath);
+            return;
+        }
+
         try {
             await loadFile(normalizedPath, { skipWatchSetup: true, forceReload: true });
         } catch (error) {
             console.error('刷新文件失败:', error);
         }
-    }, 150);
+    }, 50);
 
     fileRefreshTimers.set(normalizedPath, timer);
 }

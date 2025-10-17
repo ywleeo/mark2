@@ -592,7 +592,7 @@ export class FileTree {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(normalizedPath, (event) => {
                 this.onFolderChange?.(normalizedPath, event);
-            }, { recursive: true, delayMs: 200 });
+            }, { recursive: true, delayMs: 100 });
             this.folderWatchers.set(normalizedPath, unwatch);
         } catch (error) {
             console.error('目录监听失败:', error);
@@ -640,7 +640,7 @@ export class FileTree {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(normalizedPath, (event) => {
                 this.onFileChange?.(normalizedPath, event);
-            }, { recursive: false, delayMs: 150 });
+            }, { recursive: false, delayMs: 50 });
             this.fileWatchers.set(normalizedPath, unwatch);
         } catch (error) {
             console.error('文件监听失败:', error);
