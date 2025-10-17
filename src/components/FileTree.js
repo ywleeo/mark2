@@ -14,6 +14,11 @@ export class FileTree {
         this.onFolderChange = callbacks.onFolderChange;
         this.onFileChange = callbacks.onFileChange;
         this.onOpenFilesChange = callbacks.onOpenFilesChange;
+        this.onStateChange = callbacks.onStateChange;
+        this.sectionStates = {
+            openFilesCollapsed: false,
+            foldersCollapsed: false,
+        };
         this.cleanupFunctions = []; // 存储清理函数
         this.init();
     }
@@ -78,6 +83,7 @@ export class FileTree {
         `;
 
         this.setupEventListeners();
+        this.applySectionStates();
     }
 
     setupEventListeners() {
@@ -91,17 +97,73 @@ export class FileTree {
         });
     }
 
-    toggleSection(contentId) {
-        const content = this.container.querySelector(`#${contentId}`);
-        const header = content.previousElementSibling;
+    applySectionStates() {
+        const openFilesContent = this.container.querySelector('#openFilesContent');
+        const openFilesHeader = this.container.querySelector('#openFilesHeader');
+        const foldersContent = this.container.querySelector('#foldersContent');
+        const foldersHeader = this.container.querySelector('#foldersHeader');
 
-        if (content.classList.contains('collapsed')) {
+        this.applySingleSectionState(openFilesContent, openFilesHeader, this.sectionStates.openFilesCollapsed);
+        this.applySingleSectionState(foldersContent, foldersHeader, this.sectionStates.foldersCollapsed);
+    }
+
+    applySingleSectionState(content, header, collapsed) {
+        if (!content || !header) return;
+
+        if (collapsed) {
+            content.classList.add('collapsed');
+            header.classList.add('collapsed');
+            content.style.display = 'none';
+        } else {
             content.classList.remove('collapsed');
             header.classList.remove('collapsed');
+            content.style.display = 'block';
+        }
+    }
+
+    toggleSection(contentId) {
+        const content = this.container.querySelector(`#${contentId}`);
+        if (!content) return;
+        const header = content.previousElementSibling;
+        if (!header) return;
+
+        const willExpand = content.classList.contains('collapsed');
+
+        if (willExpand) {
+            content.classList.remove('collapsed');
+            header.classList.remove('collapsed');
+            content.style.display = 'block';
+            this.updateSectionCollapsedState(contentId, false);
         } else {
             content.classList.add('collapsed');
             header.classList.add('collapsed');
+            content.style.display = 'none';
+            this.updateSectionCollapsedState(contentId, true);
         }
+
+        this.emitStateChange();
+    }
+
+    updateSectionCollapsedState(contentId, collapsed) {
+        if (contentId === 'openFilesContent') {
+            this.sectionStates.openFilesCollapsed = collapsed;
+        } else if (contentId === 'foldersContent') {
+            this.sectionStates.foldersCollapsed = collapsed;
+        }
+    }
+
+    emitStateChange() {
+        if (typeof this.onStateChange === 'function') {
+            this.onStateChange(this.getPersistedState());
+        }
+    }
+
+    getPersistedState() {
+        return {
+            rootPaths: Array.from(this.rootPaths),
+            expandedFolders: Array.from(this.expandedFolders),
+            sectionStates: { ...this.sectionStates },
+        };
     }
 
     async requestOpenFolder() {
@@ -129,8 +191,10 @@ export class FileTree {
         if (!normalizedPath) return;
 
         const isNewRoot = !this.rootPaths.has(normalizedPath);
+        let stateChanged = false;
         if (isNewRoot) {
             this.rootPaths.add(normalizedPath);
+            stateChanged = true;
         }
 
         try {
@@ -167,7 +231,10 @@ export class FileTree {
             const shouldExpand = isNewRoot || this.expandedFolders.has(folderKey);
 
             if (shouldExpand) {
-                this.expandedFolders.add(folderKey);
+                if (!this.expandedFolders.has(folderKey)) {
+                    this.expandedFolders.add(folderKey);
+                    stateChanged = true;
+                }
                 header?.classList.add('expanded');
                 children.classList.add('expanded');
                 children.style.display = 'block';
@@ -181,6 +248,10 @@ export class FileTree {
             await this.watchFolder(normalizedPath);
         } catch (error) {
             console.error('读取文件夹失败:', error);
+        } finally {
+            if (stateChanged) {
+                this.emitStateChange();
+            }
         }
     }
 
@@ -372,6 +443,8 @@ export class FileTree {
                 await this.loadFolderChildren(path, children);
             }
         }
+
+        this.emitStateChange();
     }
 
     async loadFolderChildren(path, childrenContainer, prefetchedEntries = null) {
@@ -578,6 +651,8 @@ export class FileTree {
                 this.onFileSelect(null);
             }
         }
+
+        this.emitStateChange();
     }
 
     clearSelection() {
@@ -692,6 +767,45 @@ export class FileTree {
     hasRoot(path) {
         const normalizedPath = this.normalizePath(path);
         return normalizedPath ? this.rootPaths.has(normalizedPath) : false;
+    }
+
+    async restoreState(state = {}) {
+        const rootPaths = Array.isArray(state.rootPaths)
+            ? state.rootPaths
+                .map(path => this.normalizePath(path))
+                .filter(path => typeof path === 'string' && path.length > 0)
+            : [];
+
+        const expandedFolders = Array.isArray(state.expandedFolders)
+            ? state.expandedFolders
+                .filter(key => typeof key === 'string' && key.length > 0)
+            : [];
+
+        if (state.sectionStates && typeof state.sectionStates === 'object') {
+            if (typeof state.sectionStates.openFilesCollapsed === 'boolean') {
+                this.sectionStates.openFilesCollapsed = state.sectionStates.openFilesCollapsed;
+            }
+            if (typeof state.sectionStates.foldersCollapsed === 'boolean') {
+                this.sectionStates.foldersCollapsed = state.sectionStates.foldersCollapsed;
+            }
+        }
+
+        this.rootPaths = new Set(rootPaths);
+        this.expandedFolders = new Set(expandedFolders);
+        this.applySectionStates();
+
+        const contentDiv = this.container.querySelector('#foldersContent');
+        if (contentDiv) {
+            contentDiv.innerHTML = '';
+        }
+
+        for (const path of rootPaths) {
+            try {
+                await this.loadFolder(path);
+            } catch (error) {
+                console.warn('恢复文件夹失败:', path, error);
+            }
+        }
     }
 
     dispose() {

@@ -23,6 +23,7 @@ import {
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
+import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -108,6 +109,7 @@ let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
 let menuListenersCleanup = null;
 let fileWatcherController = null;
+let isRestoringWorkspaceState = false;
 
 /**
  * 激活 Markdown 视图并隐藏其余面板。
@@ -173,6 +175,150 @@ function clearActiveFileView() {
     currentFile = null;
     hasUnsavedChanges = false;
     updateWindowTitle();
+    persistWorkspaceState({ currentFile: null });
+}
+
+function isNonEmptyString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function getDefaultSidebarState() {
+    return createDefaultWorkspaceState().sidebar;
+}
+
+function persistWorkspaceState(overrides = {}) {
+    try {
+        const defaultSidebar = getDefaultSidebarState();
+        const sidebarState = overrides.sidebar
+            ?? fileTree?.getPersistedState?.()
+            ?? defaultSidebar;
+
+        const nextState = {
+            currentFile,
+            sidebar: sidebarState,
+            ...overrides,
+        };
+
+        if (!Object.prototype.hasOwnProperty.call(nextState, 'currentFile')) {
+            nextState.currentFile = currentFile;
+        }
+
+        if (!nextState.sidebar) {
+            nextState.sidebar = sidebarState;
+        }
+
+        saveWorkspaceState(nextState);
+    } catch (error) {
+        console.warn('保存工作区状态失败', error);
+    }
+}
+
+function handleSidebarStateChange(sidebarState) {
+    if (isRestoringWorkspaceState) {
+        return;
+    }
+    persistWorkspaceState({ sidebar: sidebarState });
+}
+
+async function sanitizeSidebarState(rawSidebar) {
+    const defaultSidebar = getDefaultSidebarState();
+    const sanitized = {
+        rootPaths: [],
+        expandedFolders: [],
+        sectionStates: { ...defaultSidebar.sectionStates },
+    };
+
+    if (rawSidebar && typeof rawSidebar === 'object') {
+        if (Array.isArray(rawSidebar.rootPaths)) {
+            sanitized.rootPaths = Array.from(
+                new Set(
+                    rawSidebar.rootPaths
+                        .filter(isNonEmptyString)
+                        .map(path => path.trim())
+                )
+            );
+        }
+
+        if (Array.isArray(rawSidebar.expandedFolders)) {
+            sanitized.expandedFolders = Array.from(
+                new Set(
+                    rawSidebar.expandedFolders
+                        .filter(isNonEmptyString)
+                        .map(key => key.trim())
+                )
+            );
+        }
+
+        if (rawSidebar.sectionStates && typeof rawSidebar.sectionStates === 'object') {
+            if (typeof rawSidebar.sectionStates.openFilesCollapsed === 'boolean') {
+                sanitized.sectionStates.openFilesCollapsed = rawSidebar.sectionStates.openFilesCollapsed;
+            }
+            if (typeof rawSidebar.sectionStates.foldersCollapsed === 'boolean') {
+                sanitized.sectionStates.foldersCollapsed = rawSidebar.sectionStates.foldersCollapsed;
+            }
+        }
+    }
+
+    const validRoots = [];
+    for (const rootPath of sanitized.rootPaths) {
+        try {
+            const isDir = await isDirectory(rootPath);
+            if (isDir) {
+                validRoots.push(rootPath);
+            }
+        } catch (error) {
+            console.warn('跳过无效的根目录', rootPath, error);
+        }
+    }
+
+    sanitized.rootPaths = validRoots;
+    if (sanitized.expandedFolders.length > 0 && validRoots.length > 0) {
+        sanitized.expandedFolders = sanitized.expandedFolders.filter((key) => {
+            return validRoots.some(root => key.includes(root));
+        });
+    } else if (validRoots.length === 0) {
+        sanitized.expandedFolders = [];
+    }
+
+    return sanitized;
+}
+
+async function restoreWorkspaceStateFromStorage() {
+    const stored = loadWorkspaceState();
+    if (!stored) {
+        return;
+    }
+
+    const sanitizedSidebar = await sanitizeSidebarState(stored.sidebar);
+
+    isRestoringWorkspaceState = true;
+    try {
+        if (fileTree) {
+            await fileTree.restoreState(sanitizedSidebar);
+        }
+    } finally {
+        isRestoringWorkspaceState = false;
+    }
+
+    let restoredFile = null;
+    if (stored.currentFile && isNonEmptyString(stored.currentFile)) {
+        try {
+            await getFileMetadata(stored.currentFile);
+            const directory = await isDirectory(stored.currentFile);
+            if (!directory) {
+                restoredFile = stored.currentFile;
+                fileTree?.selectFile(stored.currentFile);
+            }
+        } catch (error) {
+            console.warn('恢复上次打开的文件失败', error);
+        }
+    }
+
+    const sidebarSnapshot = fileTree?.getPersistedState?.() ?? sanitizedSidebar;
+    persistWorkspaceState({
+        currentFile: restoredFile,
+        sidebar: sidebarSnapshot,
+    });
 }
 
 // 基础初始化代码
@@ -232,6 +378,7 @@ async function initializeApplication() {
         onFolderChange: (...args) => fileWatcherController?.handleFolderWatcherEvent(...args),
         onFileChange: (...args) => fileWatcherController?.handleFileWatcherEvent(...args),
         onOpenFilesChange: handleOpenFilesChange,
+        onStateChange: handleSidebarStateChange,
     });
 
     const tabBarElement = document.getElementById('tabBar');
@@ -252,6 +399,8 @@ async function initializeApplication() {
         },
         fileSession,
     });
+
+    await restoreWorkspaceStateFromStorage();
 
     editorSettings = loadEditorSettings();
     applyEditorSettings(editorSettings);
@@ -703,6 +852,7 @@ async function loadFile(filePath, options = {}) {
                     console.error('无法监听文件:', error);
                 }
             }
+            persistWorkspaceState();
             return;
         }
 
@@ -718,6 +868,7 @@ async function loadFile(filePath, options = {}) {
             if (!skipWatchSetup) {
                 fileTree?.stopWatchingFile?.(filePath);
             }
+            persistWorkspaceState();
             return;
         }
 
@@ -759,6 +910,7 @@ async function loadFile(filePath, options = {}) {
                 console.error('无法监听文件:', error);
             }
         }
+        persistWorkspaceState();
     } catch (error) {
         console.error('读取文件失败:', error);
         alert('读取文件失败: ' + error);
