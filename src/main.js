@@ -423,6 +423,7 @@ async function initializeApplication() {
 
     editor = new MarkdownEditorCtor(markdownPaneElement, editorCallbacks);
     codeEditor = new CodeEditorCtor(codeEditorPaneElement, editorCallbacks);
+    codeEditor.applyPreferences?.(editorSettings);
     codeEditor.hide();
     imageViewer = new ImageViewerCtor(imagePaneElement);
     imageViewer.hide();
@@ -465,6 +466,7 @@ async function initializeApplication() {
 
     editorSettings = loadEditorSettings();
     applyEditorSettings(editorSettings);
+    codeEditor.applyPreferences?.(editorSettings);
     // 保存一次以更新 localStorage 中的旧数据（如旧主题名）
     saveEditorSettings(editorSettings);
 
@@ -848,6 +850,7 @@ function handleSettingsSubmit(nextSettings) {
 
     editorSettings = normalizeEditorSettings(merged);
     applyEditorSettings(editorSettings);
+    codeEditor?.applyPreferences?.(editorSettings);
     saveEditorSettings(editorSettings);
 }
 

@@ -88,6 +88,7 @@ export class CodeEditor {
         this.isDirty = false;
         this.suppressChange = false;
         this.pendingLayoutFrame = null;
+        this.preferences = null;
 
         this.handleResize = () => this.requestLayout();
         this.tapGuardState = null;
@@ -123,6 +124,7 @@ export class CodeEditor {
                 useShadows: false,
             },
         });
+        this.applyPreferencesToEditor();
 
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
@@ -180,6 +182,58 @@ export class CodeEditor {
         this.showContainer();
         this.requestLayout();
         this.editor.focus();
+    }
+
+    applyPreferences(prefs = null) {
+        if (!prefs || typeof prefs !== 'object') {
+            this.preferences = null;
+            return;
+        }
+
+        const {
+            codeFontSize,
+            codeLineHeight,
+            codeFontFamily,
+            codeFontWeight,
+        } = prefs;
+
+        const parsedFontSize = Number(codeFontSize);
+        const parsedLineHeight = Number(codeLineHeight);
+        const parsedFontWeight = Number(codeFontWeight);
+
+        this.preferences = {
+            fontSize: Number.isFinite(parsedFontSize) ? parsedFontSize : null,
+            lineHeight: Number.isFinite(parsedLineHeight) ? parsedLineHeight : null,
+            fontFamily: typeof codeFontFamily === 'string' ? codeFontFamily.trim() : '',
+            fontWeight: Number.isFinite(parsedFontWeight) ? parsedFontWeight : null,
+        };
+
+        this.applyPreferencesToEditor();
+    }
+
+    applyPreferencesToEditor() {
+        if (!this.editor || !this.preferences) {
+            return;
+        }
+
+        const fallbackFontSize = 14;
+        const fallbackLineHeightRatio = 1.5;
+
+        const fontSize = this.preferences.fontSize || fallbackFontSize;
+        const lineHeightRatio = this.preferences.lineHeight || fallbackLineHeightRatio;
+        const computedLineHeight = Math.max(Math.round(fontSize * lineHeightRatio), fontSize);
+
+        const nextOptions = {
+            fontSize,
+            lineHeight: computedLineHeight,
+            fontWeight: (this.preferences.fontWeight || 400).toString(),
+        };
+
+        if (this.preferences.fontFamily) {
+            nextOptions.fontFamily = this.preferences.fontFamily;
+        }
+
+        this.editor.updateOptions(nextOptions);
     }
 
     attachModel(model, language) {
