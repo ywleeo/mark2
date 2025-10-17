@@ -1,3 +1,23 @@
+const UTF8_ERROR_SNIPPETS = [
+    'valid utf-8',
+    'invalid utf-8',
+    'utf8 error',
+];
+
+function isLikelyBinaryReadError(error) {
+    if (!error) {
+        return false;
+    }
+    const message = typeof error === 'string'
+        ? error
+        : (error.message || error.error || '');
+    if (!message) {
+        return false;
+    }
+    const normalized = message.toLowerCase();
+    return UTF8_ERROR_SNIPPETS.some(snippet => normalized.includes(snippet));
+}
+
 export function createFileSession({ readFile, getViewModeForPath }) {
     if (typeof readFile !== 'function') {
         throw new Error('createFileSession 需要提供 readFile 函数');
@@ -45,13 +65,25 @@ export function createFileSession({ readFile, getViewModeForPath }) {
             }
         }
 
-        const content = await readFile(filePath);
-        const viewMode = getViewModeForPath(filePath);
-        return {
-            content,
-            hasChanges: false,
-            viewMode,
-        };
+        try {
+            const content = await readFile(filePath);
+            const viewMode = getViewModeForPath(filePath);
+            return {
+                content,
+                hasChanges: false,
+                viewMode,
+            };
+        } catch (error) {
+            if (isLikelyBinaryReadError(error)) {
+                return {
+                    content: null,
+                    hasChanges: false,
+                    viewMode: 'unsupported',
+                    error,
+                };
+            }
+            throw error;
+        }
     }
 
     function getCachedEntry(filePath) {
@@ -74,4 +106,3 @@ export function createFileSession({ readFile, getViewModeForPath }) {
         clearAll,
     };
 }
-

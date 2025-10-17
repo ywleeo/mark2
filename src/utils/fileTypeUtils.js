@@ -68,6 +68,16 @@ const CODE_EXTENSION_LANGUAGE_MAP = new Map([
     ['txt', 'plaintext'],
 ]);
 
+const UNSUPPORTED_EXTENSIONS = new Set([
+    'db',
+    'sqlite',
+    'sqlite2',
+    'sqlite3',
+    'db3',
+    'mdb',
+    'accdb',
+]);
+
 function normalizeCandidatePath(path) {
     return typeof path === 'string' ? path.toLowerCase() : '';
 }
@@ -104,6 +114,20 @@ export function isImageFilePath(filePath) {
     return IMAGE_EXTENSIONS.has(match[1]);
 }
 
+export function isUnsupportedFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+
+    return UNSUPPORTED_EXTENSIONS.has(match[1]);
+}
+
 export function detectLanguageForPath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -131,6 +155,13 @@ export function getViewModeForPath(filePath) {
     if (isImageFilePath(filePath)) {
         return 'image';
     }
+    if (isUnsupportedFilePath(filePath)) {
+        return 'unsupported';
+    }
     return 'code';
 }
 
+export function isEditableFilePath(filePath) {
+    const viewMode = getViewModeForPath(filePath);
+    return viewMode === 'markdown' || viewMode === 'code';
+}

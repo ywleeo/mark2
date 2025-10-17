@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { isEditableFilePath } from '../utils/fileTypeUtils.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -443,6 +444,10 @@ export class FileTree {
     addToOpenFiles(path) {
         const normalized = this.normalizePath(path);
         if (!normalized) return;
+
+        if (!isEditableFilePath(normalized)) {
+            return;
+        }
 
         if (this.isInOpenList(normalized)) return;
 

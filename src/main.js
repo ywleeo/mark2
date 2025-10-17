@@ -30,8 +30,12 @@ let ImageViewerCtor = null;
 let FileTreeCtor = null;
 let TabManagerCtor = null;
 let SettingsDialogCtor = null;
+let UnsupportedViewerCtor = null;
 let ensureCoreModulesPromise = null;
 
+/**
+ * 确保核心组件模块只被加载一次，并缓存各构造器引用。
+ */
 async function ensureCoreModules() {
     if (!ensureCoreModulesPromise) {
         ensureCoreModulesPromise = (async () => {
@@ -39,6 +43,7 @@ async function ensureCoreModules() {
                 editorModule,
                 codeEditorModule,
                 imageViewerModule,
+                unsupportedViewerModule,
                 fileTreeModule,
                 tabManagerModule,
                 settingsModule,
@@ -46,6 +51,7 @@ async function ensureCoreModules() {
                 import('./components/MarkdownEditor.js'),
                 import('./components/CodeEditor.js'),
                 import('./components/ImageViewer.js'),
+                import('./components/UnsupportedViewer.js'),
                 import('./components/FileTree.js'),
                 import('./components/TabManager.js'),
                 import('./components/SettingsDialog.js'),
@@ -54,6 +60,7 @@ async function ensureCoreModules() {
             MarkdownEditorCtor = editorModule.MarkdownEditor;
             CodeEditorCtor = codeEditorModule.CodeEditor;
             ImageViewerCtor = imageViewerModule.ImageViewer;
+            UnsupportedViewerCtor = unsupportedViewerModule.UnsupportedViewer;
             FileTreeCtor = fileTreeModule.FileTree;
             TabManagerCtor = tabManagerModule.TabManager;
             SettingsDialogCtor = settingsModule.SettingsDialog;
@@ -65,6 +72,9 @@ async function ensureCoreModules() {
 
 let toPngRenderer = null;
 
+/**
+ * 按需加载 html-to-image 并返回渲染方法。
+ */
 async function ensureToPng() {
     if (!toPngRenderer) {
         const module = await import('html-to-image');
@@ -80,6 +90,7 @@ let currentFile = null;
 let editor = null;
 let codeEditor = null;
 let imageViewer = null;
+let unsupportedViewer = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
@@ -91,43 +102,73 @@ let availableFontFamilies = [];
 let markdownPaneElement = null;
 let codeEditorPaneElement = null;
 let imagePaneElement = null;
+let unsupportedPaneElement = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
 let menuListenersCleanup = null;
 let fileWatcherController = null;
 
+/**
+ * 激活 Markdown 视图并隐藏其余面板。
+ */
 function activateMarkdownView() {
     markdownPaneElement?.classList.add('is-active');
     codeEditorPaneElement?.classList.remove('is-active');
     imagePaneElement?.classList.remove('is-active');
+    unsupportedPaneElement?.classList.remove('is-active');
     codeEditor?.hide?.();
     imageViewer?.hide?.();
+    unsupportedViewer?.hide?.();
     activeViewMode = 'markdown';
 }
-
+/**
+ * 激活代码编辑器视图并隐藏其他面板。
+ */
 function activateCodeView() {
     markdownPaneElement?.classList.remove('is-active');
     codeEditorPaneElement?.classList.add('is-active');
     imagePaneElement?.classList.remove('is-active');
+    unsupportedPaneElement?.classList.remove('is-active');
     imageViewer?.hide?.();
+    unsupportedViewer?.hide?.();
     activeViewMode = 'code';
 }
-
+/**
+ * 激活图片预览视图并隐藏其他面板。
+ */
 function activateImageView() {
     markdownPaneElement?.classList.remove('is-active');
     codeEditorPaneElement?.classList.remove('is-active');
     imagePaneElement?.classList.add('is-active');
+    unsupportedPaneElement?.classList.remove('is-active');
     editor?.clear?.();
     codeEditor?.hide?.();
     imageViewer?.show?.();
+    unsupportedViewer?.hide?.();
     activeViewMode = 'image';
 }
-
+/**
+ * 切换到不受支持文件的提示视图。
+ */
+function activateUnsupportedView() {
+    markdownPaneElement?.classList.remove('is-active');
+    codeEditorPaneElement?.classList.remove('is-active');
+    imagePaneElement?.classList.remove('is-active');
+    unsupportedPaneElement?.classList.add('is-active');
+    editor?.clear?.();
+    codeEditor?.hide?.();
+    imageViewer?.hide?.();
+    activeViewMode = 'unsupported';
+}
+/**
+ * 清空所有编辑器内容并重置活动文件。
+ */
 function clearActiveFileView() {
     editor?.clear?.();
     codeEditor?.clear?.();
     imageViewer?.clear?.();
+    unsupportedViewer?.clear?.();
     activateMarkdownView();
     currentFile = null;
     hasUnsavedChanges = false;
@@ -139,6 +180,9 @@ document.addEventListener('DOMContentLoaded', () => {
     void initializeApplication();
 });
 
+/**
+ * 执行应用初始化流程，构建 UI 并加载配置。
+ */
 async function initializeApplication() {
 
     await ensureCoreModules();
@@ -152,12 +196,14 @@ async function initializeApplication() {
         <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
         <div class="view-pane image-pane" data-pane="image"></div>
+        <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
     `;
 
     markdownPaneElement = viewContainer.querySelector('.markdown-pane');
     codeEditorPaneElement = viewContainer.querySelector('.code-pane');
     imagePaneElement = viewContainer.querySelector('.image-pane');
-    if (!markdownPaneElement || !codeEditorPaneElement || !imagePaneElement) {
+    unsupportedPaneElement = viewContainer.querySelector('.unsupported-pane');
+    if (!markdownPaneElement || !codeEditorPaneElement || !imagePaneElement || !unsupportedPaneElement) {
         throw new Error('视图容器渲染失败');
     }
 
@@ -173,6 +219,8 @@ async function initializeApplication() {
     codeEditor.hide();
     imageViewer = new ImageViewerCtor(imagePaneElement);
     imageViewer.hide();
+    unsupportedViewer = new UnsupportedViewerCtor(unsupportedPaneElement);
+    unsupportedViewer.hide();
     activeViewMode = 'markdown';
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
@@ -239,7 +287,9 @@ async function initializeApplication() {
     updateWindowTitle();
 }
 
-// 保存当前编辑器内容到缓存
+/**
+ * 将当前活跃编辑器内容写入会话缓存。
+ */
 function saveCurrentEditorContentToCache() {
     fileSession.saveCurrentEditorContentToCache({
         currentFile,
@@ -249,12 +299,16 @@ function saveCurrentEditorContentToCache() {
     });
 }
 
-// 从缓存或磁盘加载文件内容
+/**
+ * 从缓存或文件系统获取指定路径的内容。
+ */
 async function getFileContent(filePath, options = {}) {
     return await fileSession.getFileContent(filePath, options);
 }
 
-// 文件选择回调
+/**
+ * 文件树选中文件时触发的加载逻辑。
+ */
 async function handleFileSelect(filePath) {
     if (!filePath) {
         saveCurrentEditorContentToCache();
@@ -303,10 +357,16 @@ async function handleFileSelect(filePath) {
     }
 }
 
+/**
+ * 同步打开文件列表与标签栏状态。
+ */
 function handleOpenFilesChange(openFilePaths) {
     tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
 }
 
+/**
+ * 响应标签栏选择事件并在文件树中聚焦对应项。
+ */
 function handleTabSelect(tab) {
     if (!tab) return;
     if ((tab.type === 'file' || tab.type === 'shared') && tab.path) {
@@ -314,6 +374,9 @@ function handleTabSelect(tab) {
     }
 }
 
+/**
+ * 处理标签关闭逻辑，必要时提醒用户保存更改。
+ */
 async function handleTabClose(tab) {
     if (!tab) return;
 
@@ -390,7 +453,9 @@ async function handleTabClose(tab) {
     }
 }
 
-// 检查文件是否有未保存的更改
+/**
+ * 判断指定文件是否存在未保存的缓存变更。
+ */
 async function checkFileHasUnsavedChanges(filePath) {
     // 如果是当前文件，检查编辑器状态
     if (filePath === currentFile) {
@@ -407,8 +472,9 @@ async function checkFileHasUnsavedChanges(filePath) {
     return cached ? cached.hasChanges : false;
 }
 
-// 监听菜单事件
-// 监听文档链接导航
+/**
+ * 监听自定义 open-file 事件以支持文档内跳转。
+ */
 function setupLinkNavigationListener() {
     window.addEventListener('open-file', async (event) => {
         const { path } = event.detail || {};
@@ -443,6 +509,9 @@ function setupLinkNavigationListener() {
     });
 }
 
+/**
+ * 打开设置对话框并确保依赖加载完毕。
+ */
 async function openSettingsDialog() {
     await ensureCoreModules();
 
@@ -458,6 +527,9 @@ async function openSettingsDialog() {
     settingsDialog.open(editorSettings);
 }
 
+/**
+ * 响应设置提交事件并持久化编辑器偏好。
+ */
 function handleSettingsSubmit(nextSettings) {
     const merged = {
         ...editorSettings,
@@ -469,6 +541,9 @@ function handleSettingsSubmit(nextSettings) {
     saveEditorSettings(editorSettings);
 }
 
+/**
+ * 加载系统字体列表并刷新设置对话框。
+ */
 async function loadAvailableFonts() {
     try {
         const fonts = await listFonts();
@@ -494,7 +569,9 @@ async function loadAvailableFonts() {
     }
 }
 
-// 设置快捷键
+/**
+ * 关闭当前激活的标签页，供快捷键调用。
+ */
 async function closeActiveTab() {
     if (!tabManager || !tabManager.activeTabId) {
         return;
@@ -502,7 +579,9 @@ async function closeActiveTab() {
     await tabManager.handleTabClose(tabManager.activeTabId);
 }
 
-// 打开文件或文件夹（自动判断）
+/**
+ * 选择并打开文件或目录，根据类型分支处理。
+ */
 async function openFileOrFolder() {
     try {
         const selected = await pickPaths();
@@ -534,6 +613,9 @@ async function openFileOrFolder() {
     }
 }
 
+/**
+ * 保存当前活动文件，根据视图模式写回内容。
+ */
 async function saveCurrentFile() {
     if (!currentFile) {
         return false;
@@ -570,7 +652,9 @@ async function saveCurrentFile() {
     return false;
 }
 
-// 保存指定文件（用于关闭 tab 时）
+/**
+ * 保存指定路径的文件，多用于标签关闭确认流程。
+ */
 async function saveFile(filePath) {
     // 如果是当前文件，直接保存
     if (filePath === currentFile) {
@@ -594,14 +678,17 @@ async function saveFile(filePath) {
     }
 }
 
+/**
+ * 加载目标文件并根据类型切换到合适的视图。
+ */
 async function loadFile(filePath, options = {}) {
     const { skipWatchSetup = false, forceReload = false } = options;
 
     try {
         currentFile = filePath;
-        const viewMode = getViewModeForPath(filePath);
+        const initialViewMode = getViewModeForPath(filePath);
 
-        if (viewMode === 'image') {
+        if (initialViewMode === 'image') {
             // 图片文件，直接加载显示
             activateImageView();
             editor?.clear?.();
@@ -609,41 +696,60 @@ async function loadFile(filePath, options = {}) {
             await imageViewer?.loadImage(filePath);
             hasUnsavedChanges = false;
             updateWindowTitle();
-        } else {
-            // 文本文件（Markdown 或代码），从缓存或磁盘获取内容
-            // 如果是强制重新加载（刷新），跳过缓存
-            const fileData = await getFileContent(filePath, { skipCache: forceReload });
-
-            if (viewMode === 'markdown') {
-                activateMarkdownView();
-                if (editor) {
-                    await editor.loadFile(filePath, fileData.content);
-                    // 如果有未保存的更改，需要标记编辑器为已修改状态
-                    if (fileData.hasChanges) {
-                        editor.contentChanged = true;
-                        // 恢复原始内容，这样编辑器才能正确判断是否有修改
-                        if (fileData.originalContent) {
-                            editor.originalMarkdown = fileData.originalContent;
-                        }
-                    }
+            if (!skipWatchSetup) {
+                try {
+                    await fileTree.watchFile(filePath);
+                } catch (error) {
+                    console.error('无法监听文件:', error);
                 }
-            } else {
-                activateCodeView();
-                editor?.clear?.();
-                const language = detectLanguageForPath(filePath);
-                await codeEditor?.show(filePath, fileData.content, language);
+            }
+            return;
+        }
+
+        // 文本或其他文件，从缓存或磁盘获取内容（强制刷新时跳过缓存）
+        const fileData = await getFileContent(filePath, { skipCache: forceReload });
+        const targetViewMode = fileData.viewMode || initialViewMode;
+
+        if (targetViewMode === 'unsupported') {
+            activateUnsupportedView();
+            unsupportedViewer?.show(filePath, fileData.error);
+            hasUnsavedChanges = false;
+            updateWindowTitle();
+            if (!skipWatchSetup) {
+                fileTree?.stopWatchingFile?.(filePath);
+            }
+            return;
+        }
+
+        if (targetViewMode === 'markdown') {
+            activateMarkdownView();
+            if (editor) {
+                await editor.loadFile(filePath, fileData.content);
                 // 如果有未保存的更改，需要标记编辑器为已修改状态
                 if (fileData.hasChanges) {
-                    codeEditor.isDirty = true;
+                    editor.contentChanged = true;
+                    // 恢复原始内容，这样编辑器才能正确判断是否有修改
+                    if (fileData.originalContent) {
+                        editor.originalMarkdown = fileData.originalContent;
+                    }
                 }
-                // 文档切换时，重新触发搜索（如果搜索框还开着）
-                editor?.refreshSearch?.();
             }
-
-            // 在加载完成后再次确认并设置 hasUnsavedChanges
-            hasUnsavedChanges = fileData.hasChanges;
-            updateWindowTitle();
+        } else {
+            activateCodeView();
+            editor?.clear?.();
+            const language = detectLanguageForPath(filePath);
+            await codeEditor?.show(filePath, fileData.content, language);
+            // 如果有未保存的更改，需要标记编辑器为已修改状态
+            if (fileData.hasChanges) {
+                codeEditor.isDirty = true;
+            }
+            // 文档切换时，重新触发搜索（如果搜索框还开着）
+            editor?.refreshSearch?.();
         }
+
+        // 在加载完成后再次确认并设置 hasUnsavedChanges
+        hasUnsavedChanges = fileData.hasChanges;
+        updateWindowTitle();
 
         // 只在首次打开文件时建立监听，刷新时不重新建立
         if (!skipWatchSetup) {
@@ -660,6 +766,9 @@ async function loadFile(filePath, options = {}) {
     }
 }
 
+/**
+ * 根据当前文件状态动态更新窗口标题。
+ */
 async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
@@ -698,6 +807,9 @@ async function updateWindowTitle() {
     }
 }
 
+/**
+ * 计算编辑器内容的字数统计。
+ */
 function getWordCount() {
     try {
         let content = '';
@@ -731,6 +843,9 @@ function getWordCount() {
     }
 }
 
+/**
+ * 获取文件的可读格式最近修改时间。
+ */
 async function getLastModifiedTime(filePath) {
     try {
         const metadata = await getFileMetadata(filePath);
@@ -758,10 +873,16 @@ async function getLastModifiedTime(filePath) {
     }
 }
 
+/**
+ * 注册窗口卸载时的清理钩子。
+ */
 function setupCleanupHandlers() {
     window.addEventListener('beforeunload', cleanupResources);
 }
 
+/**
+ * 清理运行期资源，确保退出时释放引用。
+ */
 function cleanupResources() {
     folderRefreshTimers.forEach((timer) => clearTimeout(timer));
     folderRefreshTimers.clear();

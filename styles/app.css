@@ -66,3 +66,46 @@
     font-size: 13px;
     line-height: 1.6;
 }
+
+.unsupported-viewer {
+    display: none;
+    height: 100%;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    background: var(--content-bg, #ffffff);
+    color: rgba(21, 23, 26, 0.75);
+}
+
+.unsupported-viewer-content {
+    max-width: 420px;
+    text-align: center;
+    padding: 32px;
+}
+
+.unsupported-viewer-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.unsupported-viewer-filename {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: rgba(21, 23, 26, 0.85);
+    word-break: break-all;
+}
+
+.unsupported-viewer-description {
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    color: rgba(21, 23, 26, 0.65);
+}
+
+.unsupported-viewer-error {
+    font-size: 12px;
+    color: rgba(180, 35, 24, 0.85);
+    word-break: break-all;
+}
