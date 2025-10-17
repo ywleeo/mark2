@@ -269,6 +269,10 @@ fn main() {
                 .accelerator("CmdOrCtrl+Shift+P")
                 .build(app)?;
 
+            let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
+                .accelerator("CmdOrCtrl+B")
+                .build(app)?;
+
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")
                 .item(&settings_item)
@@ -287,6 +291,10 @@ fn main() {
                 .item(&open_item)
                 .separator()
                 .item(&export_submenu)
+                .build()?;
+
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .item(&toggle_sidebar_item)
                 .build()?;
 
             // Edit 菜单，启用复制/粘贴等系统原生快捷键
@@ -310,6 +318,7 @@ fn main() {
             let menu = MenuBuilder::new(app)
                 .item(&app_menu)
                 .item(&file_menu)
+                .item(&view_menu)
                 .item(&edit_menu)
                 .build()?;
 
@@ -330,6 +339,9 @@ fn main() {
                 } else if event.id().as_ref() == "export-pdf" {
                     println!("发送 menu-export-pdf 事件到前端");
                     let _ = app.emit("menu-export-pdf", ());
+                } else if event.id().as_ref() == "toggle-sidebar" {
+                    println!("发送 menu-toggle-sidebar 事件到前端");
+                    let _ = app.emit("menu-toggle-sidebar", ());
                 }
             });
 

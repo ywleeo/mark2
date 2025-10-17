@@ -57,6 +57,15 @@ body.sidebar-resizing {
     background: var(--sidebar-bg, #f5f6f8);
 }
 
+body.is-sidebar-hidden #sidebar,
+body.is-sidebar-hidden #sidebarResizer {
+    display: none;
+}
+
+body.is-sidebar-hidden .content-wrapper {
+    width: 100%;
+}
+
 .sidebar-resizer {
     width: 4px;
     flex: 0 0 auto;

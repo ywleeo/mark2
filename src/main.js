@@ -112,6 +112,7 @@ let fileWatcherController = null;
 let isRestoringWorkspaceState = false;
 let fileDropCleanup = null;
 let isFileDropHoverActive = false;
+let isSidebarHidden = false;
 
 /**
  * 激活 Markdown 视图并隐藏其余面板。
@@ -164,6 +165,45 @@ function activateUnsupportedView() {
     codeEditor?.hide?.();
     imageViewer?.hide?.();
     activeViewMode = 'unsupported';
+}
+
+function setSidebarVisibility(hidden) {
+    const body = document.body;
+    const sidebar = document.getElementById('sidebar');
+    const resizer = document.getElementById('sidebarResizer');
+    if (!body || !sidebar || !resizer) {
+        return;
+    }
+
+    if (hidden && !isSidebarHidden) {
+        const currentWidth = sidebar.style.width;
+        sidebar.dataset.previousWidth = currentWidth ?? '';
+    }
+
+    if (hidden) {
+        body.classList.add('is-sidebar-hidden');
+        sidebar.setAttribute('aria-hidden', 'true');
+        resizer.setAttribute('aria-hidden', 'true');
+    } else {
+        body.classList.remove('is-sidebar-hidden');
+        sidebar.removeAttribute('aria-hidden');
+        resizer.removeAttribute('aria-hidden');
+        const previousWidth = sidebar.dataset.previousWidth;
+        if (typeof previousWidth === 'string') {
+            if (previousWidth.length > 0) {
+                sidebar.style.width = previousWidth;
+            } else {
+                sidebar.style.removeProperty('width');
+            }
+        }
+        delete sidebar.dataset.previousWidth;
+    }
+
+    isSidebarHidden = hidden;
+}
+
+function toggleSidebarVisibility() {
+    setSidebarVisibility(!isSidebarHidden);
 }
 /**
  * 清空所有编辑器内容并重置活动文件。
@@ -482,12 +522,14 @@ async function initializeApplication() {
         onSave: saveCurrentFile,
         onCloseTab: closeActiveTab,
         onFind: () => editor?.showSearch?.(),
+        onToggleSidebar: toggleSidebarVisibility,
     });
     menuListenersCleanup = await registerMenuListeners({
         onOpen: openFileOrFolder,
         onSettings: openSettingsDialog,
         onExportImage: () => exportCurrentViewToImage({ ensureToPng }),
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode }),
+        onToggleSidebar: toggleSidebarVisibility,
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();

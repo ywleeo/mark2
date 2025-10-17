@@ -1,4 +1,4 @@
-export function setupKeyboardShortcuts({ onOpen, onSave, onCloseTab, onFind }) {
+export function setupKeyboardShortcuts({ onOpen, onSave, onCloseTab, onFind, onToggleSidebar }) {
     const handler = async (event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'o') {
             event.preventDefault();
@@ -12,6 +12,14 @@ export function setupKeyboardShortcuts({ onOpen, onSave, onCloseTab, onFind }) {
             event.preventDefault();
             if (onSave) {
                 await onSave();
+            }
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
+            event.preventDefault();
+            if (onToggleSidebar) {
+                await onToggleSidebar();
             }
             return;
         }
@@ -35,4 +43,3 @@ export function setupKeyboardShortcuts({ onOpen, onSave, onCloseTab, onFind }) {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
 }
-
