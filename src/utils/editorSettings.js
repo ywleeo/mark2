@@ -37,10 +37,7 @@ export function normalizeEditorSettings(candidate) {
 
     if (candidate && typeof candidate === 'object') {
         if (typeof candidate.theme === 'string') {
-            let theme = candidate.theme.trim() || 'default';
-            if (theme === 'github-dark') {
-                theme = 'emerald';
-            }
+            const theme = candidate.theme.trim() || 'default';
             prefs.theme = theme;
         }
 
@@ -177,4 +174,3 @@ function loadTheme(themeName) {
 
     document.head.appendChild(link);
 }
-
