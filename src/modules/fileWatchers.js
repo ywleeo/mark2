@@ -54,21 +54,22 @@ export function createFileWatcherController({
         const isMarkdownActive = editor && editorPath === normalizedPath;
         const isCodeActive = getActiveViewMode() === 'code' && currentFilePath === normalizedPath;
 
-        if (isMarkdownActive) {
-            if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-                return;
-            }
+        const cachedEntry = fileSession?.getCachedEntry?.(normalizedPath);
+        const hasCachedChanges = cachedEntry?.hasChanges;
+
+        if (isMarkdownActive && typeof editor?.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+            return;
         }
 
-        if (isCodeActive) {
-            if (codeEditor?.hasUnsavedChanges?.()) {
-                return;
-            }
+        if (isCodeActive && codeEditor?.hasUnsavedChanges?.()) {
+            return;
         }
 
-        if (isMarkdownActive || isCodeActive) {
-            handleFileRefresh(normalizedPath);
+        if (!isMarkdownActive && !isCodeActive && hasCachedChanges) {
+            return;
         }
+
+        handleFileRefresh(normalizedPath);
     }
 
     function handleFileRefresh(filePath) {
@@ -144,4 +145,3 @@ export function createFileWatcherController({
         cleanup,
     };
 }
-

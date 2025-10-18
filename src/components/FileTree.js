@@ -1,5 +1,9 @@
+import { invoke } from '@tauri-apps/api/core';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { isEditableFilePath } from '../utils/fileTypeUtils.js';
+
+const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
+const WATCHER_STALE_THRESHOLD_MS = 300000;
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -512,6 +516,10 @@ export class FileTree {
         if (this.onFileSelect) {
             this.onFileSelect(normalized);
         }
+
+        this.ensureFileWatcherHealth(normalized).catch(error => {
+            console.warn('文件监听健康检查失败:', { path: normalized, error });
+        });
     }
 
     addToOpenFiles(path) {
@@ -706,38 +714,159 @@ export class FileTree {
         this.folderWatchers.clear();
     }
 
-    async watchFile(path) {
+    async watchFile(path, options = {}) {
         const normalizedPath = this.normalizePath(path);
         if (!normalizedPath) return;
 
-        // 如果已经在监听，直接返回
-        if (this.fileWatchers.has(normalizedPath)) {
+        // 如果已经在监听，直接更新校验时间
+        const existingState = this.fileWatchers.get(normalizedPath);
+        if (existingState) {
+            existingState.lastVerificationTimestamp = Date.now();
             return;
         }
 
-        // 建立新的监听
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
-            const unwatch = await watch(normalizedPath, (event) => {
-                this.onFileChange?.(normalizedPath, event);
-            }, { recursive: false, delayMs: 50 });
-            this.fileWatchers.set(normalizedPath, unwatch);
+            const unwatch = await watch(
+                normalizedPath,
+                (event) => {
+                    const state = this.fileWatchers.get(normalizedPath);
+                    if (state) {
+                        state.lastEventTimestamp = Date.now();
+                        state.hasReceivedEvent = true;
+                        state.externallyModified = true;
+                    }
+                    this.onFileChange?.(normalizedPath, event);
+                },
+                { recursive: false, delayMs: 50 }
+            );
+
+            const watcherState = {
+                unwatch,
+                hasReceivedEvent: false,
+                lastEventTimestamp: null,
+                lastVerificationTimestamp: Date.now(),
+                lastRebuildTimestamp: Date.now(),
+                pendingVerification: null,
+                externallyModified: false,
+            };
+
+            this.fileWatchers.set(normalizedPath, watcherState);
         } catch (error) {
-            console.error('文件监听失败:', error);
+            console.error('文件监听失败:', { path: normalizedPath, options, error });
             throw error;
         }
     }
 
     stopWatchingFile(path) {
         const normalizedPath = this.normalizePath(path);
-        const unwatch = this.fileWatchers.get(normalizedPath);
-        if (unwatch) {
+        if (!normalizedPath) return;
+
+        const watcherState = this.fileWatchers.get(normalizedPath);
+        if (!watcherState) {
+            return;
+        }
+
+        const { unwatch } = watcherState;
+        if (typeof unwatch === 'function') {
             try {
                 unwatch();
             } catch (error) {
-                console.error('停止文件监听失败:', error);
+                console.error('停止文件监听失败:', { path: normalizedPath, error });
             }
-            this.fileWatchers.delete(normalizedPath);
+        }
+
+        this.fileWatchers.delete(normalizedPath);
+    }
+
+    async ensureFileWatcherHealth(path, options = {}) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath) return;
+
+        const state = this.fileWatchers.get(normalizedPath);
+        if (!state) {
+            await this.watchFile(normalizedPath, { reason: 'ensure-missing' });
+            return;
+        }
+
+        const now = Date.now();
+        if (!options.force) {
+            const sinceLastVerify = now - (state.lastVerificationTimestamp ?? 0);
+            if (sinceLastVerify < WATCHER_VERIFICATION_COOLDOWN_MS) {
+                return;
+            }
+        }
+
+        if (state.pendingVerification) {
+            return;
+        }
+
+        const verificationPromise = (async () => {
+            try {
+                await invoke('ipc_health_check');
+                const verifiedAt = Date.now();
+                state.lastVerificationTimestamp = verifiedAt;
+
+                if (state.hasReceivedEvent) {
+                    const lastEventAt = state.lastEventTimestamp ?? verifiedAt;
+                    const timeSinceLastEvent = verifiedAt - lastEventAt;
+                    if (timeSinceLastEvent > WATCHER_STALE_THRESHOLD_MS) {
+                        await this.restartFileWatcher(normalizedPath, { reason: 'stale-event' });
+                    }
+                }
+            } catch (error) {
+                console.warn('IPC 健康检查失败，准备重建文件监听', { path: normalizedPath, error });
+                await this.restartFileWatcher(normalizedPath, { reason: 'ipc-failed' });
+            }
+        })();
+
+        state.pendingVerification = verificationPromise;
+
+        try {
+            await verificationPromise;
+        } finally {
+            const current = this.fileWatchers.get(normalizedPath);
+            if (current) {
+                current.pendingVerification = null;
+            }
+        }
+    }
+
+    async restartFileWatcher(path, options = {}) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath) return;
+
+        const state = this.fileWatchers.get(normalizedPath);
+        const now = Date.now();
+        if (state && now - (state.lastRebuildTimestamp ?? 0) < WATCHER_VERIFICATION_COOLDOWN_MS) {
+            return;
+        }
+
+        this.stopWatchingFile(normalizedPath);
+
+        try {
+            await this.watchFile(normalizedPath, { ...options, reason: options.reason ?? 'restart' });
+        } catch (error) {
+            console.error('重建文件监听失败:', { path: normalizedPath, error, options });
+        }
+    }
+
+    consumeExternalModification(path) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath) return false;
+        const state = this.fileWatchers.get(normalizedPath);
+        if (!state) return false;
+        const wasModified = Boolean(state.externallyModified);
+        state.externallyModified = false;
+        return wasModified;
+    }
+
+    clearExternalModification(path) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath) return;
+        const state = this.fileWatchers.get(normalizedPath);
+        if (state) {
+            state.externallyModified = false;
         }
     }
 

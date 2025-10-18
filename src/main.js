@@ -660,7 +660,9 @@ async function handleFileSelect(filePath) {
         // 保存当前文件的编辑内容
         saveCurrentEditorContentToCache();
 
-        await loadFile(filePath);
+        const shouldForceReload = Boolean(fileTree?.consumeExternalModification?.(filePath));
+
+        await loadFile(filePath, { forceReload: shouldForceReload });
         // 只有文件加载成功后才更新 tab
         const isOpenTab = fileTree?.isInOpenList?.(filePath);
 
@@ -1140,6 +1142,7 @@ async function loadFile(filePath, options = {}) {
                     console.error('无法监听文件:', error);
                 }
             }
+            fileTree?.clearExternalModification?.(filePath);
             persistWorkspaceState();
             return;
         }
@@ -1156,6 +1159,7 @@ async function loadFile(filePath, options = {}) {
             if (!skipWatchSetup) {
                 fileTree?.stopWatchingFile?.(filePath);
             }
+            fileTree?.clearExternalModification?.(filePath);
             persistWorkspaceState();
             return;
         }
@@ -1198,6 +1202,7 @@ async function loadFile(filePath, options = {}) {
                 console.error('无法监听文件:', error);
             }
         }
+        fileTree?.clearExternalModification?.(filePath);
         persistWorkspaceState();
     } catch (error) {
         console.error('读取文件失败:', error);

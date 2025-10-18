@@ -75,6 +75,11 @@ fn read_dir(path: String) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+fn ipc_health_check() -> Result<(), String> {
+    Ok(())
+}
+
+#[tauri::command]
 fn pick_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
     #[cfg(target_os = "macos")]
     {
@@ -249,7 +254,8 @@ fn main() {
             list_fonts,
             capture_screenshot,
             export_to_pdf,
-            get_file_metadata
+            get_file_metadata,
+            ipc_health_check
         ])
         .setup(|app| {
             // 创建菜单
