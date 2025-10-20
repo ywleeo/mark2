@@ -25,7 +25,11 @@ import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
-import { addClickHandler } from './utils/PointerHelper.js';
+import { createStatusBarController } from './modules/statusBarController.js';
+import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
+import { createFileDropController } from './modules/fileDropController.js';
+import { createWorkspaceController } from './modules/workspaceController.js';
+import { createNavigationController } from './modules/navigationController.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -97,7 +101,6 @@ let unsupportedViewer = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
-let isOpeningFromLink = false;
 let hasUnsavedChanges = false;
 const fileSession = createFileSession({ readFile, getViewModeForPath });
 let editorSettings = { ...defaultEditorSettings };
@@ -106,22 +109,26 @@ let markdownPaneElement = null;
 let codeEditorPaneElement = null;
 let imagePaneElement = null;
 let unsupportedPaneElement = null;
-let statusBarElement = null;
-let statusBarFilePathElement = null;
-let statusBarWordCountElement = null;
-let statusBarLastModifiedElement = null;
-let statusBarPathCleanup = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
 let menuListenersCleanup = null;
 let fileWatcherController = null;
-let isRestoringWorkspaceState = false;
 let fileDropCleanup = null;
-let isFileDropHoverActive = false;
 let isSidebarHidden = false;
-let isStatusBarHidden = false;
-let markdownCodeToggleState = null;
+let statusBarController = null;
+let markdownCodeMode = null;
+let fileDropController = null;
+const workspaceController = createWorkspaceController({
+    getCurrentFile: () => currentFile,
+    getFileTree: () => fileTree,
+    getTabManager: () => tabManager,
+    isDirectory,
+    getFileMetadata,
+    createDefaultWorkspaceState,
+    loadWorkspaceState,
+    saveWorkspaceState,
+});
 
 /**
  * 激活 Markdown 视图并隐藏其余面板。
@@ -215,97 +222,10 @@ function toggleSidebarVisibility() {
     setSidebarVisibility(!isSidebarHidden);
 }
 
-function setStatusBarVisibility(hidden) {
-    const body = document.body;
-    if (!body || !statusBarElement) {
-        return;
-    }
-
-    if (hidden) {
-        body.classList.add('is-status-bar-hidden');
-        statusBarElement.setAttribute('aria-hidden', 'true');
-    } else {
-        body.classList.remove('is-status-bar-hidden');
-        statusBarElement.removeAttribute('aria-hidden');
-    }
-
-    isStatusBarHidden = hidden;
-}
-
 function toggleStatusBarVisibility() {
-    setStatusBarVisibility(!isStatusBarHidden);
+    statusBarController?.toggleStatusBarVisibility();
 }
 
-function updateStatusBar({ filePath, wordCount, lastModified, isDirty } = {}) {
-    if (!statusBarElement || !statusBarFilePathElement || !statusBarWordCountElement || !statusBarLastModifiedElement) {
-        return;
-    }
-
-    if (filePath && typeof filePath === 'string') {
-        statusBarFilePathElement.textContent = filePath;
-        statusBarFilePathElement.title = filePath;
-    } else {
-        statusBarFilePathElement.textContent = '未打开文件';
-        statusBarFilePathElement.removeAttribute('title');
-    }
-
-    let wordCountText = '';
-    if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
-        wordCountText = `${wordCount} 字`;
-    }
-    if (isDirty) {
-        wordCountText = wordCountText.length > 0 ? `${wordCountText}（已编辑）` : '已编辑';
-    }
-    statusBarWordCountElement.textContent = wordCountText;
-
-    if (lastModified && typeof lastModified === 'string') {
-        statusBarLastModifiedElement.textContent = lastModified;
-    } else {
-        statusBarLastModifiedElement.textContent = '';
-    }
-}
-
-function setupStatusBarPathInteraction() {
-    if (!statusBarFilePathElement) {
-        return;
-    }
-
-    if (statusBarPathCleanup) {
-        statusBarPathCleanup();
-        statusBarPathCleanup = null;
-    }
-
-    statusBarPathCleanup = addClickHandler(
-        statusBarFilePathElement,
-        handleStatusBarPathActivate,
-        {
-            shouldHandle: (event) => Boolean(currentFile) && (event.metaKey || event.ctrlKey),
-            preventDefault: true,
-        }
-    );
-}
-
-async function handleStatusBarPathActivate() {
-    if (!currentFile) {
-        return;
-    }
-
-    const normalizedPath = normalizeFsPath(currentFile);
-    if (!normalizedPath) {
-        return;
-    }
-
-    try {
-        await revealInFileManager(normalizedPath);
-    } catch (error) {
-        const message = typeof error === 'string' ? error : error?.message;
-        if (message === 'unsupported') {
-            console.warn('当前平台暂不支持定位此文件:', normalizedPath);
-            return;
-        }
-        console.error('在文件管理器中显示路径失败:', error);
-    }
-}
 /**
  * 清空所有编辑器内容并重置活动文件。
  */
@@ -315,213 +235,51 @@ function clearActiveFileView() {
     imageViewer?.clear?.();
     unsupportedViewer?.clear?.();
     activateMarkdownView();
+    markdownCodeMode?.reset();
     currentFile = null;
     hasUnsavedChanges = false;
     updateWindowTitle();
     persistWorkspaceState({ currentFile: null });
 }
 
-function isNonEmptyString(value) {
-    return typeof value === 'string' && value.trim().length > 0;
-}
-
-function getDefaultSidebarState() {
-    return createDefaultWorkspaceState().sidebar;
-}
-
 function persistWorkspaceState(overrides = {}, options = {}) {
-    const forcePersist = options.force === true;
-    if (isRestoringWorkspaceState && !forcePersist) {
-        return;
-    }
-
-    try {
-        const defaultState = createDefaultWorkspaceState();
-        const sidebarState = overrides.sidebar
-            ?? fileTree?.getPersistedState?.()
-            ?? defaultState.sidebar;
-        const openFilesState = Array.isArray(overrides.openFiles)
-            ? [...overrides.openFiles]
-            : fileTree?.getOpenFilePaths?.()
-                ? [...fileTree.getOpenFilePaths()]
-                : [...defaultState.openFiles];
-
-        const nextState = {
-            currentFile,
-            sidebar: sidebarState,
-            openFiles: openFilesState,
-            ...overrides,
-        };
-
-        if (!Object.prototype.hasOwnProperty.call(overrides, 'currentFile')) {
-            nextState.currentFile = currentFile;
-        }
-
-        if (!Object.prototype.hasOwnProperty.call(overrides, 'sidebar')) {
-            nextState.sidebar = sidebarState;
-        }
-
-        if (!Object.prototype.hasOwnProperty.call(overrides, 'openFiles')) {
-            nextState.openFiles = openFilesState;
-        }
-
-        saveWorkspaceState(nextState);
-    } catch (error) {
-        console.warn('保存工作区状态失败', error);
-    }
+    workspaceController?.persistWorkspaceState(overrides, options);
 }
 
 function handleSidebarStateChange(sidebarState) {
-    if (isRestoringWorkspaceState) {
-        return;
-    }
-    persistWorkspaceState({ sidebar: sidebarState });
-}
-
-async function sanitizeSidebarState(rawSidebar) {
-    const defaultSidebar = getDefaultSidebarState();
-    const sanitized = {
-        rootPaths: [],
-        expandedFolders: [],
-        sectionStates: { ...defaultSidebar.sectionStates },
-    };
-
-    if (rawSidebar && typeof rawSidebar === 'object') {
-        if (Array.isArray(rawSidebar.rootPaths)) {
-            sanitized.rootPaths = Array.from(
-                new Set(
-                    rawSidebar.rootPaths
-                        .filter(isNonEmptyString)
-                        .map(path => path.trim())
-                )
-            );
-        }
-
-        if (Array.isArray(rawSidebar.expandedFolders)) {
-            sanitized.expandedFolders = Array.from(
-                new Set(
-                    rawSidebar.expandedFolders
-                        .filter(isNonEmptyString)
-                        .map(key => key.trim())
-                )
-            );
-        }
-
-        if (rawSidebar.sectionStates && typeof rawSidebar.sectionStates === 'object') {
-            if (typeof rawSidebar.sectionStates.openFilesCollapsed === 'boolean') {
-                sanitized.sectionStates.openFilesCollapsed = rawSidebar.sectionStates.openFilesCollapsed;
-            }
-            if (typeof rawSidebar.sectionStates.foldersCollapsed === 'boolean') {
-                sanitized.sectionStates.foldersCollapsed = rawSidebar.sectionStates.foldersCollapsed;
-            }
-        }
-    }
-
-    const validRoots = [];
-    for (const rootPath of sanitized.rootPaths) {
-        try {
-            const isDir = await isDirectory(rootPath);
-            if (isDir) {
-                validRoots.push(rootPath);
-            }
-        } catch (error) {
-            console.warn('跳过无效的根目录', rootPath, error);
-        }
-    }
-
-    sanitized.rootPaths = validRoots;
-    if (sanitized.expandedFolders.length > 0 && validRoots.length > 0) {
-        sanitized.expandedFolders = sanitized.expandedFolders.filter((key) => {
-            return validRoots.some(root => key.includes(root));
-        });
-    } else if (validRoots.length === 0) {
-        sanitized.expandedFolders = [];
-    }
-
-    return sanitized;
-}
-
-async function sanitizeOpenFiles(rawOpenFiles) {
-    if (!Array.isArray(rawOpenFiles) || rawOpenFiles.length === 0) {
-        return [];
-    }
-
-    const uniquePaths = Array.from(
-        new Set(
-            rawOpenFiles
-                .filter(isNonEmptyString)
-                .map(path => path.trim())
-        )
-    );
-
-    const validFiles = [];
-    for (const path of uniquePaths) {
-        try {
-            const isDirPath = await isDirectory(path);
-            if (isDirPath) {
-                continue;
-            }
-            await getFileMetadata(path);
-            validFiles.push(path);
-        } catch (error) {
-            console.warn('跳过无效的标签页文件', path, error);
-        }
-    }
-
-    return validFiles;
+    workspaceController?.handleSidebarStateChange(sidebarState);
 }
 
 async function restoreWorkspaceStateFromStorage() {
-    const stored = loadWorkspaceState();
-    if (!stored) {
+    if (!workspaceController) {
         return;
     }
-
-    const sanitizedSidebar = await sanitizeSidebarState(stored.sidebar);
-    const sanitizedOpenFiles = await sanitizeOpenFiles(stored.openFiles);
-
-    isRestoringWorkspaceState = true;
-    try {
-        if (fileTree) {
-            await fileTree.restoreState(sanitizedSidebar);
-            if (typeof fileTree.restoreOpenFiles === 'function') {
-                fileTree.restoreOpenFiles(sanitizedOpenFiles);
-            }
-        }
-    } finally {
-        isRestoringWorkspaceState = false;
-    }
-
-    let targetFileToRestore = null;
-    if (stored.currentFile && isNonEmptyString(stored.currentFile)) {
-        try {
-            await getFileMetadata(stored.currentFile);
-            const directory = await isDirectory(stored.currentFile);
-            if (!directory) {
-                targetFileToRestore = stored.currentFile;
-            }
-        } catch (error) {
-            console.warn('恢复上次打开的文件失败', error);
-        }
-    }
-
-    if (!targetFileToRestore && sanitizedOpenFiles.length > 0) {
-        targetFileToRestore = sanitizedOpenFiles[sanitizedOpenFiles.length - 1];
-    }
-
-    if (targetFileToRestore) {
-        fileTree?.selectFile(targetFileToRestore);
-    } else {
-        tabManager?.clearSharedTab?.();
-    }
-
-    const sidebarSnapshot = fileTree?.getPersistedState?.() ?? sanitizedSidebar;
-    const openFilesSnapshot = fileTree?.getOpenFilePaths?.() ?? sanitizedOpenFiles;
-    persistWorkspaceState({
-        sidebar: sidebarSnapshot,
-        openFiles: openFilesSnapshot,
-    });
+    await workspaceController.restoreWorkspaceStateFromStorage();
 }
+
+const {
+    handleFileSelect,
+    handleOpenFilesChange,
+    handleTabSelect,
+    handleTabClose,
+    checkFileHasUnsavedChanges,
+    closeActiveTab,
+    setupLinkNavigationListener,
+} = createNavigationController({
+    getFileTree: () => fileTree,
+    getTabManager: () => tabManager,
+    getCurrentFile: () => currentFile,
+    saveCurrentEditorContentToCache,
+    clearActiveFileView,
+    loadFile,
+    fileSession,
+    persistWorkspaceState,
+    confirm,
+    saveFile,
+    getActiveViewMode: () => activeViewMode,
+    getEditor: () => editor,
+    getCodeEditor: () => codeEditor,
+});
 
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
@@ -555,18 +313,29 @@ async function initializeApplication() {
         throw new Error('视图容器渲染失败');
     }
 
-    statusBarElement = document.getElementById('statusBar');
+    const statusBarElement = document.getElementById('statusBar');
     if (!statusBarElement) {
         throw new Error('未找到状态栏元素 statusBar');
     }
-    statusBarFilePathElement = document.getElementById('statusBarPath');
-    statusBarWordCountElement = document.getElementById('statusBarWordCount');
-    statusBarLastModifiedElement = document.getElementById('statusBarLastModified');
+    const statusBarFilePathElement = document.getElementById('statusBarPath');
+    const statusBarWordCountElement = document.getElementById('statusBarWordCount');
+    const statusBarLastModifiedElement = document.getElementById('statusBarLastModified');
     if (!statusBarFilePathElement || !statusBarWordCountElement || !statusBarLastModifiedElement) {
         throw new Error('状态栏子元素渲染失败');
     }
-    updateStatusBar();
-    setupStatusBarPathInteraction();
+    statusBarController = createStatusBarController({
+        statusBarElement,
+        statusBarFilePathElement,
+        statusBarWordCountElement,
+        statusBarLastModifiedElement,
+        normalizeFsPath,
+        revealInFileManager,
+        getFileMetadata,
+    });
+    statusBarController.updateStatusBar();
+    statusBarController.setupStatusBarPathInteraction({
+        getCurrentFile: () => currentFile,
+    });
 
     const editorCallbacks = {
         onContentChange: () => {
@@ -587,6 +356,13 @@ async function initializeApplication() {
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
     editor.setCodeEditor(codeEditor);
+
+    markdownCodeMode = createMarkdownCodeMode({
+        detectLanguageForPath,
+        isMarkdownFilePath,
+        activateMarkdownView,
+        activateCodeView,
+    });
 
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
@@ -650,7 +426,10 @@ async function initializeApplication() {
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
-    fileDropCleanup = await setupFileDropListeners();
+    fileDropController = createFileDropController({
+        openPathsFromSelection,
+    });
+    fileDropCleanup = await fileDropController.setup();
     setupCleanupHandlers();
 
     loadAvailableFonts();
@@ -676,310 +455,6 @@ function saveCurrentEditorContentToCache() {
  */
 async function getFileContent(filePath, options = {}) {
     return await fileSession.getFileContent(filePath, options);
-}
-
-/**
- * 文件树选中文件时触发的加载逻辑。
- */
-async function handleFileSelect(filePath) {
-    if (!filePath) {
-        saveCurrentEditorContentToCache();
-
-        // 如果有 shared tab，切换到它，而不是清除
-        const sharedTab = tabManager?.sharedTab;
-        if (sharedTab && sharedTab.path) {
-            // 切换到 shared tab
-            try {
-                await loadFile(sharedTab.path);
-                tabManager?.setActiveTab(sharedTab.id, { silent: true });
-            } catch (error) {
-                console.error('切换到 shared tab 失败:', error);
-                currentFile = null;
-                clearActiveFileView();
-            }
-        } else {
-            // 没有 shared tab，清除视图
-            currentFile = null;
-            clearActiveFileView();
-        }
-        return;
-    }
-
-    try {
-        // 保存当前文件的编辑内容
-        saveCurrentEditorContentToCache();
-
-        const shouldForceReload = Boolean(fileTree?.consumeExternalModification?.(filePath));
-
-        await loadFile(filePath, { forceReload: shouldForceReload });
-        // 只有文件加载成功后才更新 tab
-        const isOpenTab = fileTree?.isInOpenList?.(filePath);
-
-        // 如果是从链接打开，强制使用 shared tab
-        if (isOpeningFromLink) {
-            tabManager?.showSharedTab(filePath);
-            isOpeningFromLink = false; // 重置标记
-        } else if (isOpenTab) {
-            tabManager?.setActiveFileTab(filePath, { silent: true });
-        } else {
-            tabManager?.showSharedTab(filePath);
-        }
-    } catch (error) {
-        // 加载失败时不更新 tab，保持当前状态
-        console.error('文件选择失败，保持当前 tab 状态');
-        isOpeningFromLink = false; // 重置标记
-    }
-}
-
-/**
- * 同步打开文件列表与标签栏状态。
- */
-function handleOpenFilesChange(openFilePaths) {
-    tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
-    if (!isRestoringWorkspaceState) {
-        persistWorkspaceState({ openFiles: openFilePaths });
-    }
-}
-
-/**
- * 响应标签栏选择事件并在文件树中聚焦对应项。
- */
-function handleTabSelect(tab) {
-    if (!tab) return;
-    if ((tab.type === 'file' || tab.type === 'shared') && tab.path) {
-        fileTree?.selectFile(tab.path);
-    }
-}
-
-/**
- * 处理标签关闭逻辑，必要时提醒用户保存更改。
- */
-async function handleTabClose(tab) {
-    if (!tab) return;
-
-    if (tab.type === 'file' && tab.path) {
-        // 检查文件是否有未保存的更改
-        const hasChanges = await checkFileHasUnsavedChanges(tab.path);
-
-        if (hasChanges) {
-            // 弹出确认对话框
-            const fileName = tab.path.split('/').pop() || tab.path;
-            const shouldSave = await confirm(
-                `文件 "${fileName}" 有未保存的更改，是否保存？`,
-                {
-                    title: '保存确认',
-                    kind: 'warning',
-                    okLabel: '保存',
-                    cancelLabel: '不保存',
-                }
-            );
-
-            if (shouldSave) {
-                const saved = await saveFile(tab.path);
-                if (!saved) {
-                    // 保存失败，不关闭 tab
-                    return;
-                }
-            }
-
-            // 清除缓存
-            fileSession.clearEntry(tab.path);
-        }
-
-        fileTree?.closeFile(tab.path);
-        return;
-    }
-
-    if (tab.type === 'shared') {
-        // shared tab 关闭时也要检查未保存的更改
-        if (tab.path) {
-            const hasChanges = await checkFileHasUnsavedChanges(tab.path);
-
-            if (hasChanges) {
-                const fileName = tab.path.split('/').pop() || tab.path;
-                const shouldSave = await confirm(
-                    `文件 "${fileName}" 有未保存的更改，是否保存？`,
-                    {
-                        title: '保存确认',
-                        kind: 'warning',
-                        okLabel: '保存',
-                        cancelLabel: '不保存',
-                    }
-                );
-
-                if (shouldSave) {
-                    const saved = await saveFile(tab.path);
-                    if (!saved) {
-                        return;
-                    }
-                }
-
-                fileSession.clearEntry(tab.path);
-            }
-
-            // 如果文件不在打开列表中，停止监听
-            if (!fileTree?.isInOpenList(tab.path)) {
-                fileTree?.stopWatchingFile(tab.path);
-            }
-        }
-
-        if (!tab.fallbackPath) {
-            fileTree?.selectFile(null);
-        }
-        return;
-    }
-}
-
-/**
- * 判断指定文件是否存在未保存的缓存变更。
- */
-async function checkFileHasUnsavedChanges(filePath) {
-    // 如果是当前文件，检查编辑器状态
-    if (filePath === currentFile) {
-        if (activeViewMode === 'markdown' && editor) {
-            return editor.hasUnsavedChanges();
-        }
-        if (activeViewMode === 'code' && codeEditor) {
-            return codeEditor.hasUnsavedChanges();
-        }
-    }
-
-    // 检查缓存
-    const cached = fileSession.getCachedEntry(filePath);
-    return cached ? cached.hasChanges : false;
-}
-
-/**
- * 监听自定义 open-file 事件以支持文档内跳转。
- */
-function setupLinkNavigationListener() {
-    window.addEventListener('open-file', async (event) => {
-        const { path } = event.detail || {};
-        if (!path) {
-            console.error('open-file 事件缺少 path');
-            return;
-        }
-
-        if (!fileTree) {
-            console.error('fileTree 未初始化');
-            return;
-        }
-
-        // 获取当前激活的 tab
-        const activeTab = tabManager?.getAllTabs().find(tab => tab.id === tabManager?.activeTabId);
-
-        // 如果当前有激活的 file tab，用新文件替换它
-        if (activeTab && activeTab.type === 'file' && activeTab.path) {
-            const oldPath = activeTab.path;
-
-            // 先添加新文件到打开列表并选择它
-            fileTree.addToOpenFiles(path);
-            fileTree.selectFile(path);
-
-            // 再移除旧文件（这样不会触发自动选择其他文件）
-            fileTree.closeFile(oldPath);
-        } else {
-            // 如果当前是 shared tab 或没有激活的 tab，使用 shared tab
-            isOpeningFromLink = true;
-            fileTree.selectFile(path);
-        }
-    });
-}
-
-/**
- * 管理拖拽悬停态的样式。
- */
-function setFileDropHoverState(isActive) {
-    if (isFileDropHoverActive === isActive) {
-        return;
-    }
-
-    const body = document.body;
-    if (!body) {
-        return;
-    }
-
-    isFileDropHoverActive = isActive;
-    body.classList.toggle('is-file-drop-hover', isActive);
-}
-
-/**
- * 注册系统文件拖拽事件，支持拖入文件/文件夹直接打开。
- */
-async function setupFileDropListeners() {
-    try {
-        const window = getCurrentWindow();
-        if (typeof window.onDragDropEvent === 'function') {
-            let pendingPaths = [];
-            const unlisten = await window.onDragDropEvent(async (event) => {
-                const { payload } = event;
-                if (!payload) return;
-
-                if (payload.type === 'enter' || payload.type === 'over') {
-                    if (Array.isArray(payload.paths) && payload.paths.length > 0) {
-                        pendingPaths = payload.paths;
-                    }
-                    setFileDropHoverState(true);
-                    return;
-                }
-
-                if (payload.type === 'leave') {
-                    pendingPaths = [];
-                    setFileDropHoverState(false);
-                    return;
-                }
-
-                if (payload.type === 'drop') {
-                    const targetPaths = Array.isArray(payload.paths) && payload.paths.length > 0
-                        ? payload.paths
-                        : pendingPaths;
-                    pendingPaths = [];
-                    setFileDropHoverState(false);
-                    if (Array.isArray(targetPaths) && targetPaths.length > 0) {
-                        try {
-                            await openPathsFromSelection(targetPaths);
-                        } catch (error) {
-                            console.error('处理拖拽文件时出错:', error);
-                        }
-                    }
-                }
-            });
-
-            return () => {
-                unlisten?.();
-                setFileDropHoverState(false);
-                pendingPaths = [];
-            };
-        }
-
-        // fallback for Tauri 1.x event names
-        const [unlistenDrop, unlistenHover, unlistenCancel] = await Promise.all([
-            window.listen('tauri://file-drop', async (event) => {
-                setFileDropHoverState(false);
-                try {
-                    await openPathsFromSelection(event.payload);
-                } catch (error) {
-                    console.error('处理拖拽文件时出错:', error);
-                }
-            }),
-            window.listen('tauri://file-drop-hover', () => {
-                setFileDropHoverState(true);
-            }),
-            window.listen('tauri://file-drop-cancel', () => {
-                setFileDropHoverState(false);
-            }),
-        ]);
-
-        return () => {
-            unlistenDrop?.();
-            unlistenHover?.();
-            unlistenCancel?.();
-            setFileDropHoverState(false);
-        };
-    } catch (error) {
-        console.error('注册拖拽监听失败:', error);
-        return null;
-    }
 }
 
 /**
@@ -1041,16 +516,6 @@ async function loadAvailableFonts() {
     } catch (error) {
         console.warn('加载系统字体列表失败', error);
     }
-}
-
-/**
- * 关闭当前激活的标签页，供快捷键调用。
- */
-async function closeActiveTab() {
-    if (!tabManager || !tabManager.activeTabId) {
-        return;
-    }
-    await tabManager.handleTabClose(tabManager.activeTabId);
 }
 
 /**
@@ -1124,9 +589,7 @@ async function saveCurrentFile() {
         try {
             const content = codeEditor.getValue();
             await writeFile(currentFile, content);
-            if (markdownCodeToggleState) {
-                markdownCodeToggleState.originalMarkdown = content;
-            }
+            markdownCodeMode?.handleCodeSaved(content);
             codeEditor.markSaved();
             hasUnsavedChanges = false;
             // 清除缓存，因为文件已保存
@@ -1179,7 +642,7 @@ async function loadFile(filePath, options = {}) {
         const previousFile = currentFile;
         currentFile = filePath;
         if (previousFile !== filePath) {
-            markdownCodeToggleState = null;
+            markdownCodeMode?.reset();
         }
         const initialViewMode = getViewModeForPath(filePath);
 
@@ -1268,75 +731,32 @@ async function loadFile(filePath, options = {}) {
 }
 
 async function toggleMarkdownCodeMode() {
-    if (!currentFile || !editor || !codeEditor) {
-        return;
-    }
-    if (!isMarkdownFilePath(currentFile)) {
+    if (!markdownCodeMode) {
         return;
     }
 
-    if (activeViewMode === 'markdown') {
-        try {
-            const markdownContent = editor.getMarkdown() || '';
-            const hadUnsavedChanges = editor.hasUnsavedChanges?.() || false;
-            markdownCodeToggleState = {
-                originalMarkdown: editor.originalMarkdown,
-            };
+    const result = await markdownCodeMode.toggle({
+        currentFile,
+        activeViewMode,
+        editor,
+        codeEditor,
+    });
 
-            activateCodeView();
-            const language = detectLanguageForPath(currentFile) || 'plaintext';
-            await codeEditor.show(currentFile, markdownContent, language);
-            editor?.refreshSearch?.();
-
-            if (hadUnsavedChanges) {
-                codeEditor.isDirty = true;
-                codeEditor.callbacks?.onContentChange?.();
-            } else {
-                codeEditor.markSaved();
-            }
-
-            fileSession.saveCurrentEditorContentToCache({
-                currentFile,
-                activeViewMode,
-                editor,
-                codeEditor,
-            });
-            persistWorkspaceState();
-        } catch (error) {
-            console.error('切换到代码视图失败:', error);
-        }
+    if (!result.changed) {
         return;
     }
 
-    if (activeViewMode === 'code') {
-        try {
-            const codeContent = codeEditor.getValue();
-            const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
+    activeViewMode = result.nextViewMode;
+    hasUnsavedChanges = result.hasUnsavedChanges;
 
-            activateMarkdownView();
-            await editor.loadFile(currentFile, codeContent);
-            editor?.refreshSearch?.();
-
-            if (hadUnsavedChanges && markdownCodeToggleState?.originalMarkdown !== undefined) {
-                editor.originalMarkdown = markdownCodeToggleState.originalMarkdown;
-            }
-
-            editor.contentChanged = hadUnsavedChanges;
-            markdownCodeToggleState = null;
-
-            codeEditor.markSaved();
-
-            fileSession.saveCurrentEditorContentToCache({
-                currentFile,
-                activeViewMode,
-                editor,
-                codeEditor,
-            });
-            persistWorkspaceState();
-        } catch (error) {
-            console.error('切换到 Markdown 视图失败:', error);
-        }
-    }
+    fileSession.saveCurrentEditorContentToCache({
+        currentFile,
+        activeViewMode,
+        editor,
+        codeEditor,
+    });
+    persistWorkspaceState();
+    void updateWindowTitle();
 }
 
 /**
@@ -1346,17 +766,21 @@ async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
         let windowTitle = 'Mark2';
-        let wordCount;
+        let wordCount = 0;
         let lastModified = '';
 
         if (currentFile) {
             const fileName = currentFile.split('/').pop() || currentFile;
 
             // 获取字数
-            wordCount = getWordCount();
+            wordCount = statusBarController
+                ? statusBarController.calculateWordCount({ activeViewMode, editor, codeEditor })
+                : 0;
 
             // 获取最后编辑时间
-            lastModified = (await getLastModifiedTime(currentFile)) ?? '';
+            lastModified = statusBarController
+                ? (await statusBarController.getLastModifiedTime(currentFile)) ?? ''
+                : '';
 
             // 构建标题
             const parts = [fileName];
@@ -1376,7 +800,7 @@ async function updateWindowTitle() {
             windowTitle = hasUnsavedChanges ? `${fileName} • 已编辑` : fileName;
         }
 
-        updateStatusBar({
+        statusBarController?.updateStatusBar({
             filePath: currentFile,
             wordCount,
             lastModified,
@@ -1391,69 +815,6 @@ async function updateWindowTitle() {
 /**
  * 计算编辑器内容的字数统计。
  */
-function getWordCount() {
-    try {
-        let content = '';
-
-        if (activeViewMode === 'markdown' && editor) {
-            content = editor.getMarkdown() || '';
-        } else if (activeViewMode === 'code' && codeEditor) {
-            content = codeEditor.getValue() || '';
-        }
-
-        if (!content) return 0;
-
-        // 移除 Markdown 标记和代码块
-        const cleaned = content
-            .replace(/```[\s\S]*?```/g, '') // 移除代码块
-            .replace(/`[^`]+`/g, '') // 移除行内代码
-            .replace(/!\[.*?\]\(.*?\)/g, '') // 移除图片
-            .replace(/\[.*?\]\(.*?\)/g, '') // 移除链接
-            .replace(/[#*_~\->`]/g, '') // 移除 Markdown 标记
-            .replace(/\s+/g, ' ') // 合并空白
-            .trim();
-
-        // 统计中文字符和英文单词
-        const chineseChars = cleaned.match(/[\u4e00-\u9fa5]/g) || [];
-        const englishWords = cleaned.match(/[a-zA-Z]+/g) || [];
-
-        return chineseChars.length + englishWords.length;
-    } catch (error) {
-        console.error('计算字数失败:', error);
-        return 0;
-    }
-}
-
-/**
- * 获取文件的可读格式最近修改时间。
- */
-async function getLastModifiedTime(filePath) {
-    try {
-        const metadata = await getFileMetadata(filePath);
-        if (!metadata || !metadata.modified_time) return null;
-
-        const date = new Date(metadata.modified_time * 1000);
-        const now = new Date();
-
-        // 如果是今天，只显示时间
-        if (date.toDateString() === now.toDateString()) {
-            return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // 如果是今年，显示月日时间
-        if (date.getFullYear() === now.getFullYear()) {
-            return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' +
-                   date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // 否则显示完整日期
-        return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
-    } catch (error) {
-        console.error('获取文件修改时间失败:', error);
-        return null;
-    }
-}
-
 /**
  * 注册窗口卸载时的清理钩子。
  */
@@ -1465,10 +826,6 @@ function setupCleanupHandlers() {
  * 清理运行期资源，确保退出时释放引用。
  */
 function cleanupResources() {
-    folderRefreshTimers.forEach((timer) => clearTimeout(timer));
-    folderRefreshTimers.clear();
-    fileRefreshTimers.forEach((timer) => clearTimeout(timer));
-    fileRefreshTimers.clear();
     if (keyboardShortcutCleanup) {
         keyboardShortcutCleanup();
         keyboardShortcutCleanup = null;
@@ -1481,16 +838,20 @@ function cleanupResources() {
         sidebarResizerCleanup();
         sidebarResizerCleanup = null;
     }
-    if (fileDropCleanup) {
-        fileDropCleanup();
-        fileDropCleanup = null;
-    } else {
-        setFileDropHoverState(false);
+    if (fileDropController) {
+        fileDropController.teardown();
+        fileDropController = null;
+    } else if (fileDropCleanup) {
+        try {
+            fileDropCleanup();
+        } catch (error) {
+            console.warn('清理拖拽监听失败:', error);
+        }
     }
-    if (statusBarPathCleanup) {
-        statusBarPathCleanup();
-        statusBarPathCleanup = null;
-    }
+    fileDropCleanup = null;
+    statusBarController?.teardown?.();
+    statusBarController = null;
+    markdownCodeMode = null;
     if (fileWatcherController) {
         fileWatcherController.cleanup();
         fileWatcherController = null;
