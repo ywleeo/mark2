@@ -1,14 +1,14 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::fs;
-use std::path::Path;
-use std::time::SystemTime;
-use tauri::{menu::*, Emitter};
 use base64::Engine;
 use font_kit::source::SystemSource;
 use headless_chrome::{Browser, LaunchOptions};
 use serde::Serialize;
+use std::fs;
+use std::path::Path;
+use std::time::SystemTime;
+use tauri::{menu::*, Emitter};
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -33,9 +33,7 @@ fn is_directory(path: String) -> Result<bool, String> {
 #[tauri::command]
 fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
     let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
-    let modified = metadata
-        .modified()
-        .map_err(|e| e.to_string())?;
+    let modified = metadata.modified().map_err(|e| e.to_string())?;
     let modified_time = modified
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
@@ -122,9 +120,7 @@ fn pick_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
 #[tauri::command]
 fn list_fonts() -> Result<Vec<String>, String> {
     let source = SystemSource::new();
-    let mut families = source
-        .all_families()
-        .map_err(|err| err.to_string())?;
+    let mut families = source.all_families().map_err(|err| err.to_string())?;
 
     families.sort();
     families.dedup();
@@ -193,8 +189,11 @@ async fn export_to_pdf(
         .map_err(|e| format!("创建标签页失败: {}", e))?;
 
     // 加载 HTML 内容
-    tab.navigate_to(&format!("data:text/html,{}", urlencoding::encode(&full_html)))
-        .map_err(|e| format!("加载 HTML 失败: {}", e))?;
+    tab.navigate_to(&format!(
+        "data:text/html,{}",
+        urlencoding::encode(&full_html)
+    ))
+    .map_err(|e| format!("加载 HTML 失败: {}", e))?;
 
     // 等待页面加载完成
     tab.wait_until_navigated()
@@ -239,6 +238,41 @@ async fn export_to_pdf(
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
+    use std::process::Command;
+
+    let status = Command::new("open")
+        .arg("-R")
+        .arg(path)
+        .status()
+        .map_err(|e| e.to_string())?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("open 命令返回非零状态: {:?}", status.code()))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn reveal_in_file_manager_impl(_path: &str) -> Result<(), String> {
+    Err("unsupported".to_string())
+}
+
+#[tauri::command]
+fn reveal_in_file_manager(path: String) -> Result<(), String> {
+    if path.trim().is_empty() {
+        return Err("路径为空".to_string());
+    }
+
+    if !Path::new(&path).exists() {
+        return Err("路径不存在".to_string());
+    }
+
+    reveal_in_file_manager_impl(&path)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -255,7 +289,8 @@ fn main() {
             capture_screenshot,
             export_to_pdf,
             get_file_metadata,
-            ipc_health_check
+            ipc_health_check,
+            reveal_in_file_manager
         ])
         .setup(|app| {
             // 创建菜单
@@ -279,8 +314,8 @@ fn main() {
                 .accelerator("CmdOrCtrl+B")
                 .build(app)?;
 
-            let toggle_status_bar_item = MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar")
-                .build(app)?;
+            let toggle_status_bar_item =
+                MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar").build(app)?;
 
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")

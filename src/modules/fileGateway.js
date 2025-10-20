@@ -33,3 +33,6 @@ export async function getFileMetadata(path) {
     return await invoke('get_file_metadata', { path });
 }
 
+export async function revealInFileManager(path) {
+    return await invoke('reveal_in_file_manager', { path });
+}

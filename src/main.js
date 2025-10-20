@@ -18,12 +18,14 @@ import {
     listFonts,
     pickPaths,
     readFile,
+    revealInFileManager,
     writeFile,
 } from './modules/fileGateway.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
+import { addClickHandler } from './utils/PointerHelper.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -108,6 +110,7 @@ let statusBarElement = null;
 let statusBarFilePathElement = null;
 let statusBarWordCountElement = null;
 let statusBarLastModifiedElement = null;
+let statusBarPathCleanup = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
@@ -258,6 +261,48 @@ function updateStatusBar({ filePath, wordCount, lastModified, isDirty } = {}) {
         statusBarLastModifiedElement.textContent = lastModified;
     } else {
         statusBarLastModifiedElement.textContent = '';
+    }
+}
+
+function setupStatusBarPathInteraction() {
+    if (!statusBarFilePathElement) {
+        return;
+    }
+
+    if (statusBarPathCleanup) {
+        statusBarPathCleanup();
+        statusBarPathCleanup = null;
+    }
+
+    statusBarPathCleanup = addClickHandler(
+        statusBarFilePathElement,
+        handleStatusBarPathActivate,
+        {
+            shouldHandle: (event) => Boolean(currentFile) && (event.metaKey || event.ctrlKey),
+            preventDefault: true,
+        }
+    );
+}
+
+async function handleStatusBarPathActivate() {
+    if (!currentFile) {
+        return;
+    }
+
+    const normalizedPath = normalizeFsPath(currentFile);
+    if (!normalizedPath) {
+        return;
+    }
+
+    try {
+        await revealInFileManager(normalizedPath);
+    } catch (error) {
+        const message = typeof error === 'string' ? error : error?.message;
+        if (message === 'unsupported') {
+            console.warn('当前平台暂不支持定位此文件:', normalizedPath);
+            return;
+        }
+        console.error('在文件管理器中显示路径失败:', error);
     }
 }
 /**
@@ -520,6 +565,7 @@ async function initializeApplication() {
         throw new Error('状态栏子元素渲染失败');
     }
     updateStatusBar();
+    setupStatusBarPathInteraction();
 
     const editorCallbacks = {
         onContentChange: () => {
@@ -1358,6 +1404,10 @@ function cleanupResources() {
         fileDropCleanup = null;
     } else {
         setFileDropHoverState(false);
+    }
+    if (statusBarPathCleanup) {
+        statusBarPathCleanup();
+        statusBarPathCleanup = null;
     }
     if (fileWatcherController) {
         fileWatcherController.cleanup();
