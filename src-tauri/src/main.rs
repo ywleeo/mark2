@@ -73,6 +73,27 @@ fn read_dir(path: String) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
+fn delete_entry(path: String) -> Result<(), String> {
+    let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+    if metadata.is_dir() {
+        fs::remove_dir_all(&path).map_err(|e| e.to_string())
+    } else {
+        fs::remove_file(&path).map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+fn rename_entry(source: String, destination: String) -> Result<(), String> {
+    let target_path = Path::new(&destination);
+    if let Some(parent) = target_path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    fs::rename(&source, &destination).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn ipc_health_check() -> Result<(), String> {
     Ok(())
 }
@@ -284,6 +305,8 @@ fn main() {
             read_image_base64,
             write_file,
             read_dir,
+            delete_entry,
+            rename_entry,
             pick_path,
             list_fonts,
             capture_screenshot,
@@ -330,11 +353,23 @@ fn main() {
                 .item(&export_pdf_item)
                 .build()?;
 
+            let rename_file_item =
+                MenuItemBuilder::with_id("file-rename", "Rename...").build(app)?;
+            let move_file_item =
+                MenuItemBuilder::with_id("file-move", "Move To...").build(app)?;
+            let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete")
+                .accelerator("CmdOrCtrl+Backspace")
+                .build(app)?;
+
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&open_item)
                 .separator()
                 .item(&export_submenu)
+                .separator()
+                .item(&rename_file_item)
+                .item(&move_file_item)
+                .item(&delete_file_item)
                 .build()?;
 
             let view_menu = SubmenuBuilder::new(app, "View")
@@ -401,6 +436,15 @@ fn main() {
                 } else if event.id().as_ref() == "toggle-markdown-code-view" {
                     println!("发送 menu-toggle-markdown-code-view 事件到前端");
                     let _ = app.emit("menu-toggle-markdown-code-view", ());
+                } else if event.id().as_ref() == "file-delete" {
+                    println!("发送 menu-file-delete 事件到前端");
+                    let _ = app.emit("menu-file-delete", ());
+                } else if event.id().as_ref() == "file-move" {
+                    println!("发送 menu-file-move 事件到前端");
+                    let _ = app.emit("menu-file-move", ());
+                } else if event.id().as_ref() == "file-rename" {
+                    println!("发送 menu-file-rename 事件到前端");
+                    let _ = app.emit("menu-file-rename", ());
                 }
             });
 

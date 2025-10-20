@@ -36,3 +36,11 @@ export async function getFileMetadata(path) {
 export async function revealInFileManager(path) {
     return await invoke('reveal_in_file_manager', { path });
 }
+
+export async function deleteEntry(path) {
+    return await invoke('delete_entry', { path });
+}
+
+export async function renameEntry(source, destination) {
+    return await invoke('rename_entry', { source, destination });
+}

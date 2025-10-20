@@ -20,6 +20,8 @@ import {
     readFile,
     revealInFileManager,
     writeFile,
+    deleteEntry,
+    renameEntry,
 } from './modules/fileGateway.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
@@ -300,6 +302,7 @@ const {
     handleOpenFilesChange,
     handleTabSelect,
     handleTabClose,
+    checkFileHasUnsavedChanges,
     closeActiveTab,
     setupLinkNavigationListener,
 } = createNavigationController({
@@ -414,6 +417,8 @@ async function initializeApplication() {
     tabManager = new TabManagerCtor(tabBarElement, {
         onTabSelect: handleTabSelect,
         onTabClose: handleTabClose,
+        onRenameConfirm: handleTabRenameConfirm,
+        onRenameCancel: handleTabRenameCancel,
     });
 
     fileWatcherController = createFileWatcherController({
@@ -460,6 +465,9 @@ async function initializeApplication() {
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+        onDeleteActiveFile: handleDeleteActiveFile,
+        onMoveActiveFile: handleMoveActiveFile,
+        onRenameActiveFile: handleRenameActiveFile,
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
@@ -518,6 +526,212 @@ function handleSettingsSubmit(nextSettings) {
     applyEditorSettings(editorSettings);
     codeEditor?.applyPreferences?.(editorSettings);
     saveEditorSettings(editorSettings);
+}
+
+async function handleDeleteActiveFile() {
+    if (!currentFile) {
+        return;
+    }
+
+    const targetPath = normalizeFsPath(currentFile);
+    if (!targetPath) {
+        return;
+    }
+
+    const fileName = targetPath.split('/').pop() || targetPath;
+    const shouldDelete = await confirm(`确认删除文件 "${fileName}" 吗？`, {
+        title: '删除文件',
+        kind: 'warning',
+        okLabel: '删除',
+        cancelLabel: '取消',
+    });
+
+    if (!shouldDelete) {
+        return;
+    }
+
+    try {
+        const hasChanges = await checkFileHasUnsavedChanges(targetPath);
+        if (hasChanges) {
+            const confirmDiscard = await confirm(
+                `文件 "${fileName}" 有未保存的更改，删除后将无法恢复，是否继续？`,
+                {
+                    title: '未保存的更改',
+                    kind: 'warning',
+                    okLabel: '继续删除',
+                    cancelLabel: '取消',
+                }
+            );
+            if (!confirmDiscard) {
+                return;
+            }
+        }
+    } catch (error) {
+        console.error('检查未保存更改失败:', error);
+    }
+
+    try {
+        await deleteEntry(targetPath);
+    } catch (error) {
+        console.error('删除文件失败:', error);
+        alert('删除文件失败: ' + (error?.message || error));
+        return;
+    }
+
+    const wasOpenInList = fileTree?.isInOpenList?.(targetPath);
+    const wasSharedTab = tabManager?.sharedTab?.path === targetPath;
+
+    fileSession.clearEntry(targetPath);
+    fileTree?.stopWatchingFile?.(targetPath);
+
+    if (wasOpenInList) {
+        currentFile = null;
+        hasUnsavedChanges = false;
+        fileTree.closeFile(targetPath);
+    } else if (wasSharedTab) {
+        tabManager?.clearSharedTab();
+        clearActiveFileView();
+    } else if (currentFile === targetPath) {
+        clearActiveFileView();
+    }
+
+    updateWindowTitle();
+}
+
+async function handleMoveActiveFile() {
+    if (!currentFile) {
+        return;
+    }
+
+    try {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const selection = await open({
+            directory: true,
+            multiple: false,
+        });
+        const [targetDirectory] = normalizeSelectedPaths(selection);
+        if (!targetDirectory) {
+            return;
+        }
+
+        const { dirname, join, basename } = await import('@tauri-apps/api/path');
+        const currentDir = await dirname(currentFile);
+        const normalizedCurrentDir = normalizeFsPath(currentDir);
+        const normalizedTargetDir = normalizeFsPath(targetDirectory);
+
+        if (!normalizedTargetDir || normalizedTargetDir === normalizedCurrentDir) {
+            return;
+        }
+
+        const fileName = await basename(currentFile);
+        const destinationPath = await join(normalizedTargetDir, fileName);
+        const normalizedDestination = normalizeFsPath(destinationPath);
+        const normalizedCurrent = normalizeFsPath(currentFile);
+
+        if (!normalizedDestination || normalizedDestination === normalizedCurrent) {
+            return;
+        }
+
+        await renameEntry(normalizedCurrent, normalizedDestination);
+        await applyPathChange(normalizedCurrent, normalizedDestination);
+    } catch (error) {
+        console.error('移动文件失败:', error);
+        alert('移动文件失败: ' + (error?.message || error));
+    }
+}
+
+function handleRenameActiveFile() {
+    if (!currentFile || !tabManager) {
+        return;
+    }
+
+    const tabs = tabManager.getAllTabs();
+    const targetTab = tabs.find(tab => tab.path === currentFile);
+
+    if (!targetTab) {
+        return;
+    }
+
+    tabManager.setActiveTab(targetTab.id, { silent: true });
+    tabManager.startRenamingTab(targetTab.id);
+}
+
+async function handleTabRenameConfirm(tab, nextLabel) {
+    if (!tab || !tab.path) {
+        return true;
+    }
+
+    const trimmedLabel = typeof nextLabel === 'string' ? nextLabel.trim() : '';
+    if (trimmedLabel.length === 0) {
+        return false;
+    }
+
+    try {
+        const { dirname, join } = await import('@tauri-apps/api/path');
+        const parentDir = await dirname(tab.path);
+        const destinationPath = await join(parentDir, trimmedLabel);
+        const normalizedCurrent = normalizeFsPath(tab.path);
+        const normalizedDestination = normalizeFsPath(destinationPath);
+
+        if (normalizedCurrent === normalizedDestination) {
+            tabManager.stopRenamingTab();
+            return true;
+        }
+
+        await renameEntry(normalizedCurrent, normalizedDestination);
+        await applyPathChange(normalizedCurrent, normalizedDestination, { tabLabel: trimmedLabel });
+        return true;
+    } catch (error) {
+        console.error('重命名文件失败:', error);
+        alert('重命名文件失败: ' + (error?.message || error));
+        return false;
+    }
+}
+
+function handleTabRenameCancel() {
+    // 取消重命名时无需额外操作
+}
+
+async function applyPathChange(oldPath, newPath, options = {}) {
+    const normalizedOld = normalizeFsPath(oldPath);
+    const normalizedNew = normalizeFsPath(newPath);
+    if (!normalizedOld || !normalizedNew) {
+        return;
+    }
+
+    const tabLabel = typeof options.tabLabel === 'string'
+        ? options.tabLabel
+        : (normalizedNew.split('/').pop() || normalizedNew);
+
+    fileSession.renameEntry(normalizedOld, normalizedNew);
+
+    tabManager?.updateTabPath(normalizedOld, normalizedNew, tabLabel);
+    fileTree?.replaceOpenFilePath?.(normalizedOld, normalizedNew);
+
+    if (editor && editor.currentFile === normalizedOld) {
+        editor.currentFile = normalizedNew;
+    }
+    if (codeEditor && codeEditor.currentFile === normalizedOld) {
+        codeEditor.currentFile = normalizedNew;
+    }
+    if (imageViewer && imageViewer.currentFile === normalizedOld) {
+        imageViewer.currentFile = normalizedNew;
+    }
+    if (unsupportedViewer && unsupportedViewer.currentFile === normalizedOld) {
+        unsupportedViewer.currentFile = normalizedNew;
+    }
+
+    const wasCurrent = normalizeFsPath(currentFile) === normalizedOld;
+    if (wasCurrent) {
+        currentFile = normalizedNew;
+    }
+
+    statusBarController?.updateStatusBar({
+        filePath: currentFile,
+        isDirty: hasUnsavedChanges,
+    });
+    persistWorkspaceState({ currentFile });
+    await updateWindowTitle();
 }
 
 /**

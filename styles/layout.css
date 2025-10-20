@@ -141,6 +141,27 @@ body.sidebar-resizing .sidebar-resizer {
     white-space: nowrap;
 }
 
+.tab.is-renaming {
+    cursor: default;
+}
+
+.tab-rename-input {
+    width: 160px;
+    padding: 2px 6px;
+    font-size: 12px;
+    line-height: 1.2;
+    border: 1px solid rgba(21, 23, 26, 0.25);
+    border-radius: 4px;
+    outline: none;
+    background: #ffffff;
+    color: rgba(21, 23, 26, 0.9);
+}
+
+.tab-rename-input:focus {
+    border-color: #6be275;
+    box-shadow: 0 0 0 2px rgba(107, 226, 117, 0.25);
+}
+
 .tab-close {
     appearance: none;
     border: none;

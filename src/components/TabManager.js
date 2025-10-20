@@ -9,6 +9,7 @@ export class TabManager {
         this.fileTabs = [];
         this.activeTabId = null;
         this.cleanupFunctions = [];
+        this.renamingTabId = null;
         this.render();
     }
 
@@ -194,29 +195,107 @@ export class TabManager {
             tabElement.dataset.tabId = tab.id;
             tabElement.dataset.tabType = tab.type;
 
-            const labelElement = document.createElement('span');
-            labelElement.className = 'tab-label';
-            labelElement.textContent = tab.label;
-            tabElement.appendChild(labelElement);
+            const isRenaming = this.renamingTabId === tab.id;
 
-            const closeButton = document.createElement('button');
-            closeButton.className = 'tab-close';
-            closeButton.type = 'button';
-            closeButton.textContent = '×';
+            if (isRenaming) {
+                tabElement.classList.add('is-renaming');
+                const inputElement = document.createElement('input');
+                inputElement.type = 'text';
+                inputElement.className = 'tab-rename-input';
+                inputElement.value = tab.label;
+                tabElement.appendChild(inputElement);
 
-            // 使用统一的点击处理函数
-            const cleanup1 = addClickHandler(closeButton, (event) => {
-                event.stopPropagation();
-                this.handleTabClose(tab.id);
-            });
-            this.cleanupFunctions.push(cleanup1);
+                let isSubmitting = false;
 
-            tabElement.appendChild(closeButton);
+                const submitRename = async () => {
+                    if (isSubmitting) return;
+                    const nextLabel = inputElement.value.trim();
+                    if (nextLabel.length === 0) {
+                        inputElement.focus();
+                        inputElement.select();
+                        return;
+                    }
+                    if (nextLabel === tab.label) {
+                        this.stopRenamingTab();
+                        return;
+                    }
+                    isSubmitting = true;
+                    inputElement.disabled = true;
+                    try {
+                        const shouldExit = await this.callbacks.onRenameConfirm?.(tab, nextLabel);
+                        if (shouldExit === false) {
+                            isSubmitting = false;
+                            inputElement.disabled = false;
+                            inputElement.focus();
+                            inputElement.select();
+                            return;
+                        }
+                        this.stopRenamingTab();
+                    } catch (error) {
+                        console.error('标签重命名回调失败:', error);
+                        isSubmitting = false;
+                        inputElement.disabled = false;
+                        inputElement.focus();
+                        inputElement.select();
+                    }
+                };
 
-            const cleanup2 = addClickHandler(tabElement, () => {
-                this.setActiveTab(tab.id);
-            });
-            this.cleanupFunctions.push(cleanup2);
+                const handleKeydown = (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void submitRename();
+                    } else if (event.key === 'Escape') {
+                        event.preventDefault();
+                        this.cancelRenamingTab();
+                        this.callbacks.onRenameCancel?.(tab);
+                    }
+                };
+
+                const handleBlur = () => {
+                    if (isSubmitting) {
+                        return;
+                    }
+                    this.cancelRenamingTab();
+                    this.callbacks.onRenameCancel?.(tab);
+                };
+
+                inputElement.addEventListener('keydown', handleKeydown);
+                inputElement.addEventListener('blur', handleBlur);
+
+                this.cleanupFunctions.push(() => {
+                    inputElement.removeEventListener('keydown', handleKeydown);
+                    inputElement.removeEventListener('blur', handleBlur);
+                });
+
+                setTimeout(() => {
+                    inputElement.focus();
+                    inputElement.select();
+                }, 0);
+            } else {
+                const labelElement = document.createElement('span');
+                labelElement.className = 'tab-label';
+                labelElement.textContent = tab.label;
+                tabElement.appendChild(labelElement);
+
+                const closeButton = document.createElement('button');
+                closeButton.className = 'tab-close';
+                closeButton.type = 'button';
+                closeButton.textContent = '×';
+
+                // 使用统一的点击处理函数
+                const cleanup1 = addClickHandler(closeButton, (event) => {
+                    event.stopPropagation();
+                    this.handleTabClose(tab.id);
+                });
+                this.cleanupFunctions.push(cleanup1);
+
+                tabElement.appendChild(closeButton);
+
+                const cleanup2 = addClickHandler(tabElement, () => {
+                    this.setActiveTab(tab.id);
+                });
+                this.cleanupFunctions.push(cleanup2);
+            }
 
             this.container.appendChild(tabElement);
         });
@@ -232,5 +311,74 @@ export class TabManager {
             }
         });
         this.cleanupFunctions = [];
+    }
+
+    startRenamingTab(tabId) {
+        if (!tabId) {
+            return false;
+        }
+        const target = this.getAllTabs().find(tab => tab.id === tabId);
+        if (!target) {
+            return false;
+        }
+        this.renamingTabId = tabId;
+        this.render();
+        return true;
+    }
+
+    cancelRenamingTab() {
+        if (!this.renamingTabId) {
+            return;
+        }
+        this.renamingTabId = null;
+        this.render();
+    }
+
+    stopRenamingTab() {
+        if (!this.renamingTabId) {
+            return;
+        }
+        this.renamingTabId = null;
+        this.render();
+    }
+
+    updateTabPath(oldPath, newPath, newLabel = null) {
+        if (!oldPath || !newPath) {
+            return;
+        }
+
+        let hasChanges = false;
+        if (this.sharedTab && this.sharedTab.path === oldPath) {
+            const label = newLabel ?? (newPath.split('/').pop() || newPath);
+            this.sharedTab = {
+                ...this.sharedTab,
+                path: newPath,
+                label,
+            };
+            hasChanges = true;
+        }
+
+        this.fileTabs = this.fileTabs.map(tab => {
+            if (tab.path !== oldPath) {
+                return tab;
+            }
+            const label = newLabel ?? (newPath.split('/').pop() || newPath);
+            hasChanges = true;
+            return {
+                ...tab,
+                id: newPath,
+                path: newPath,
+                label,
+            };
+        });
+
+        if (this.activeTabId === oldPath) {
+            this.activeTabId = newPath;
+            hasChanges = true;
+        }
+
+        if (hasChanges) {
+            this.render();
+        }
     }
 }

@@ -109,11 +109,36 @@ export function createFileSession({ readFile, getViewModeForPath }) {
         cache.clear();
     }
 
+    function renameEntry(oldPath, newPath) {
+        if (!oldPath || !newPath || oldPath === newPath) {
+            return;
+        }
+        const existing = cache.get(oldPath);
+        if (!existing) {
+            return;
+        }
+        cache.delete(oldPath);
+        const defaultViewMode = getViewModeForPath(newPath);
+        let nextViewMode = existing.viewMode;
+        if (defaultViewMode === 'markdown') {
+            nextViewMode = 'markdown';
+        } else if (defaultViewMode === 'code') {
+            nextViewMode = 'code';
+        } else if (defaultViewMode) {
+            nextViewMode = defaultViewMode;
+        }
+        cache.set(newPath, {
+            ...existing,
+            viewMode: nextViewMode,
+        });
+    }
+
     return {
         saveCurrentEditorContentToCache,
         getFileContent,
         getCachedEntry,
         clearEntry,
         clearAll,
+        renameEntry,
     };
 }

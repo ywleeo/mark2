@@ -540,6 +540,48 @@ export class FileTree {
         this.onOpenFilesChange?.([...this.openFiles]);
     }
 
+    replaceOpenFilePath(oldPath, newPath) {
+        const normalizedOld = this.normalizePath(oldPath);
+        const normalizedNew = this.normalizePath(newPath);
+
+        if (!normalizedOld || !normalizedNew) {
+            return;
+        }
+        if (normalizedOld === normalizedNew) {
+            return;
+        }
+
+        const index = this.openFiles.findIndex(item => item === normalizedOld);
+        this.stopWatchingFile(normalizedOld);
+
+        if (index === -1) {
+            if (this.normalizePath(this.currentFile) === normalizedOld) {
+                this.currentFile = normalizedNew;
+            }
+            this.watchFile(normalizedNew).catch(error => {
+                console.error('监听文件失败:', error);
+            });
+            return;
+        }
+
+        const filtered = this.openFiles.filter(
+            (path, idx) => path !== normalizedOld && (path !== normalizedNew || idx === index)
+        );
+        const insertPosition = Math.min(index, filtered.length);
+        filtered.splice(insertPosition, 0, normalizedNew);
+        this.openFiles = filtered;
+
+        if (this.normalizePath(this.currentFile) === normalizedOld) {
+            this.currentFile = normalizedNew;
+        }
+
+        this.renderOpenFiles();
+        this.watchFile(normalizedNew).catch(error => {
+            console.error('监听文件失败:', error);
+        });
+        this.onOpenFilesChange?.([...this.openFiles]);
+    }
+
     renderOpenFiles() {
         const contentDiv = this.container.querySelector('#openFilesContent');
 

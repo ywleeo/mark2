@@ -20,6 +20,9 @@ export async function registerMenuListeners(handlers) {
     await register('menu-toggle-sidebar', handlers.onToggleSidebar);
     await register('menu-toggle-status-bar', handlers.onToggleStatusBar);
     await register('menu-toggle-markdown-code-view', handlers.onToggleMarkdownCodeView);
+    await register('menu-file-delete', handlers.onDeleteActiveFile);
+    await register('menu-file-move', handlers.onMoveActiveFile);
+    await register('menu-file-rename', handlers.onRenameActiveFile);
 
     return () => {
         while (disposers.length > 0) {
