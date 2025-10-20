@@ -1,6 +1,6 @@
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { detectLanguageForPath, getViewModeForPath } from './utils/fileTypeUtils.js';
+import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
 import {
     applyEditorSettings,
     defaultEditorSettings,
@@ -121,6 +121,7 @@ let fileDropCleanup = null;
 let isFileDropHoverActive = false;
 let isSidebarHidden = false;
 let isStatusBarHidden = false;
+let markdownCodeToggleState = null;
 
 /**
  * 激活 Markdown 视图并隐藏其余面板。
@@ -636,6 +637,7 @@ async function initializeApplication() {
         onCloseTab: closeActiveTab,
         onFind: () => editor?.showSearch?.(),
         onToggleSidebar: toggleSidebarVisibility,
+        onToggleMarkdownCodeView: toggleMarkdownCodeMode,
     });
     menuListenersCleanup = await registerMenuListeners({
         onOpen: openFileOrFolder,
@@ -644,6 +646,7 @@ async function initializeApplication() {
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode }),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
+        onToggleMarkdownCodeView: toggleMarkdownCodeMode,
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
@@ -1121,6 +1124,9 @@ async function saveCurrentFile() {
         try {
             const content = codeEditor.getValue();
             await writeFile(currentFile, content);
+            if (markdownCodeToggleState) {
+                markdownCodeToggleState.originalMarkdown = content;
+            }
             codeEditor.markSaved();
             hasUnsavedChanges = false;
             // 清除缓存，因为文件已保存
@@ -1170,7 +1176,11 @@ async function loadFile(filePath, options = {}) {
     const { skipWatchSetup = false, forceReload = false } = options;
 
     try {
+        const previousFile = currentFile;
         currentFile = filePath;
+        if (previousFile !== filePath) {
+            markdownCodeToggleState = null;
+        }
         const initialViewMode = getViewModeForPath(filePath);
 
         if (initialViewMode === 'image') {
@@ -1254,6 +1264,78 @@ async function loadFile(filePath, options = {}) {
         console.error('读取文件失败:', error);
         alert('读取文件失败: ' + error);
         throw error; // 向上抛出异常，让调用方知道加载失败了
+    }
+}
+
+async function toggleMarkdownCodeMode() {
+    if (!currentFile || !editor || !codeEditor) {
+        return;
+    }
+    if (!isMarkdownFilePath(currentFile)) {
+        return;
+    }
+
+    if (activeViewMode === 'markdown') {
+        try {
+            const markdownContent = editor.getMarkdown() || '';
+            const hadUnsavedChanges = editor.hasUnsavedChanges?.() || false;
+            markdownCodeToggleState = {
+                originalMarkdown: editor.originalMarkdown,
+            };
+
+            activateCodeView();
+            const language = detectLanguageForPath(currentFile) || 'plaintext';
+            await codeEditor.show(currentFile, markdownContent, language);
+            editor?.refreshSearch?.();
+
+            if (hadUnsavedChanges) {
+                codeEditor.isDirty = true;
+                codeEditor.callbacks?.onContentChange?.();
+            } else {
+                codeEditor.markSaved();
+            }
+
+            fileSession.saveCurrentEditorContentToCache({
+                currentFile,
+                activeViewMode,
+                editor,
+                codeEditor,
+            });
+            persistWorkspaceState();
+        } catch (error) {
+            console.error('切换到代码视图失败:', error);
+        }
+        return;
+    }
+
+    if (activeViewMode === 'code') {
+        try {
+            const codeContent = codeEditor.getValue();
+            const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
+
+            activateMarkdownView();
+            await editor.loadFile(currentFile, codeContent);
+            editor?.refreshSearch?.();
+
+            if (hadUnsavedChanges && markdownCodeToggleState?.originalMarkdown !== undefined) {
+                editor.originalMarkdown = markdownCodeToggleState.originalMarkdown;
+            }
+
+            editor.contentChanged = hadUnsavedChanges;
+            markdownCodeToggleState = null;
+
+            codeEditor.markSaved();
+
+            fileSession.saveCurrentEditorContentToCache({
+                currentFile,
+                activeViewMode,
+                editor,
+                codeEditor,
+            });
+            persistWorkspaceState();
+        } catch (error) {
+            console.error('切换到 Markdown 视图失败:', error);
+        }
     }
 }
 

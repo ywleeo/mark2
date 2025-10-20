@@ -19,6 +19,7 @@ export async function registerMenuListeners(handlers) {
     await register('menu-export-pdf', handlers.onExportPdf);
     await register('menu-toggle-sidebar', handlers.onToggleSidebar);
     await register('menu-toggle-status-bar', handlers.onToggleStatusBar);
+    await register('menu-toggle-markdown-code-view', handlers.onToggleMarkdownCodeView);
 
     return () => {
         while (disposers.length > 0) {

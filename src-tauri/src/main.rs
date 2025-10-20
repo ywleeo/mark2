@@ -349,6 +349,12 @@ fn main() {
             let copy_item = PredefinedMenuItem::copy(app, None)?;
             let paste_item = PredefinedMenuItem::paste(app, None)?;
             let select_all_item = PredefinedMenuItem::select_all(app, None)?;
+            let markdown_code_mode_item = MenuItemBuilder::with_id(
+                "toggle-markdown-code-view",
+                "Toggle Markdown Code Mode",
+            )
+            .accelerator("CmdOrCtrl+E")
+            .build(app)?;
 
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .item(&undo_item)
@@ -358,6 +364,8 @@ fn main() {
                 .item(&copy_item)
                 .item(&paste_item)
                 .item(&select_all_item)
+                .separator()
+                .item(&markdown_code_mode_item)
                 .build()?;
 
             let menu = MenuBuilder::new(app)
@@ -390,6 +398,9 @@ fn main() {
                 } else if event.id().as_ref() == "toggle-status-bar" {
                     println!("发送 menu-toggle-status-bar 事件到前端");
                     let _ = app.emit("menu-toggle-status-bar", ());
+                } else if event.id().as_ref() == "toggle-markdown-code-view" {
+                    println!("发送 menu-toggle-markdown-code-view 事件到前端");
+                    let _ = app.emit("menu-toggle-markdown-code-view", ());
                 }
             });
 

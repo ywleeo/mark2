@@ -1,4 +1,11 @@
-export function setupKeyboardShortcuts({ onOpen, onSave, onCloseTab, onFind, onToggleSidebar }) {
+export function setupKeyboardShortcuts({
+    onOpen,
+    onSave,
+    onCloseTab,
+    onFind,
+    onToggleSidebar,
+    onToggleMarkdownCodeView,
+}) {
     const handler = async (event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'o') {
             event.preventDefault();
@@ -20,6 +27,14 @@ export function setupKeyboardShortcuts({ onOpen, onSave, onCloseTab, onFind, onT
             event.preventDefault();
             if (onToggleSidebar) {
                 await onToggleSidebar();
+            }
+            return;
+        }
+
+        if ((event.metaKey || event.ctrlKey) && event.key === 'e') {
+            event.preventDefault();
+            if (onToggleMarkdownCodeView) {
+                await onToggleMarkdownCodeView();
             }
             return;
         }
