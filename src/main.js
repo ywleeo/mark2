@@ -30,6 +30,7 @@ import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
 import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
+import { createFileOperations } from './modules/fileOperations.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -128,6 +129,43 @@ const workspaceController = createWorkspaceController({
     createDefaultWorkspaceState,
     loadWorkspaceState,
     saveWorkspaceState,
+});
+const {
+    openPathsFromSelection,
+    openFileOrFolder,
+    saveCurrentFile,
+    saveFile,
+    loadFile,
+} = createFileOperations({
+    getFileTree: () => fileTree,
+    getEditor: () => editor,
+    getCodeEditor: () => codeEditor,
+    getImageViewer: () => imageViewer,
+    getUnsupportedViewer: () => unsupportedViewer,
+    getMarkdownCodeMode: () => markdownCodeMode,
+    getCurrentFile: () => currentFile,
+    setCurrentFile: (value) => {
+        currentFile = value;
+    },
+    getActiveViewMode: () => activeViewMode,
+    setHasUnsavedChanges: (value) => {
+        hasUnsavedChanges = value;
+    },
+    fileSession,
+    detectLanguageForPath,
+    getViewModeForPath,
+    normalizeFsPath,
+    normalizeSelectedPaths,
+    isDirectory,
+    pickPaths,
+    writeFile,
+    persistWorkspaceState,
+    updateWindowTitle,
+    saveCurrentEditorContentToCache,
+    activateMarkdownView,
+    activateCodeView,
+    activateImageView,
+    activateUnsupportedView,
 });
 
 /**
@@ -262,7 +300,6 @@ const {
     handleOpenFilesChange,
     handleTabSelect,
     handleTabClose,
-    checkFileHasUnsavedChanges,
     closeActiveTab,
     setupLinkNavigationListener,
 } = createNavigationController({
@@ -451,13 +488,6 @@ function saveCurrentEditorContentToCache() {
 }
 
 /**
- * 从缓存或文件系统获取指定路径的内容。
- */
-async function getFileContent(filePath, options = {}) {
-    return await fileSession.getFileContent(filePath, options);
-}
-
-/**
  * 打开设置对话框并确保依赖加载完毕。
  */
 async function openSettingsDialog() {
@@ -515,218 +545,6 @@ async function loadAvailableFonts() {
         }
     } catch (error) {
         console.warn('加载系统字体列表失败', error);
-    }
-}
-
-/**
- * 统一处理需要打开的文件或文件夹路径。
- */
-async function openPathsFromSelection(rawPaths) {
-    const selections = normalizeSelectedPaths(rawPaths)
-        .map(normalizeFsPath)
-        .filter(Boolean);
-
-    if (selections.length === 0) {
-        return;
-    }
-
-    if (!fileTree) {
-        console.warn('文件树尚未初始化，无法打开拖入的路径');
-        return;
-    }
-
-    const uniqueSelections = Array.from(new Set(selections));
-
-    for (const resolvedPath of uniqueSelections) {
-        try {
-            const isDir = await isDirectory(resolvedPath);
-
-            if (isDir) {
-                await fileTree.loadFolder(resolvedPath);
-            } else {
-                fileTree.addToOpenFiles(resolvedPath);
-                fileTree.selectFile(resolvedPath);
-            }
-        } catch (typeError) {
-            console.error('处理路径失败:', { resolvedPath, error: typeError });
-        }
-    }
-}
-
-/**
- * 选择并打开文件或目录，根据类型分支处理。
- */
-async function openFileOrFolder() {
-    try {
-        const selected = await pickPaths();
-        await openPathsFromSelection(selected);
-    } catch (error) {
-        console.error('打开失败:', error);
-        alert('打开失败: ' + error);
-    }
-}
-
-/**
- * 保存当前活动文件，根据视图模式写回内容。
- */
-async function saveCurrentFile() {
-    if (!currentFile) {
-        return false;
-    }
-
-    if (activeViewMode === 'markdown' && editor) {
-        const result = await editor.save();
-        if (result) {
-            hasUnsavedChanges = false;
-            // 清除缓存，因为文件已保存
-            fileSession.clearEntry(currentFile);
-            updateWindowTitle();
-        }
-        return result;
-    }
-
-    if (activeViewMode === 'code' && codeEditor) {
-        try {
-            const content = codeEditor.getValue();
-            await writeFile(currentFile, content);
-            markdownCodeMode?.handleCodeSaved(content);
-            codeEditor.markSaved();
-            hasUnsavedChanges = false;
-            // 清除缓存，因为文件已保存
-            fileSession.clearEntry(currentFile);
-            updateWindowTitle();
-            return true;
-        } catch (error) {
-            console.error('保存失败:', error);
-            alert('保存失败: ' + error);
-            return false;
-        }
-    }
-
-    return false;
-}
-
-/**
- * 保存指定路径的文件，多用于标签关闭确认流程。
- */
-async function saveFile(filePath) {
-    // 如果是当前文件，直接保存
-    if (filePath === currentFile) {
-        return await saveCurrentFile();
-    }
-
-    // 如果不是当前文件，从缓存获取内容并保存
-    const cached = fileSession.getCachedEntry(filePath);
-    if (!cached || !cached.hasChanges) {
-        return true; // 没有未保存的更改
-    }
-
-    try {
-        await writeFile(filePath, cached.content);
-        // 清除缓存
-        fileSession.clearEntry(filePath);
-        return true;
-    } catch (error) {
-        console.error('保存文件失败:', error);
-        return false;
-    }
-}
-
-/**
- * 加载目标文件并根据类型切换到合适的视图。
- */
-async function loadFile(filePath, options = {}) {
-    const { skipWatchSetup = false, forceReload = false } = options;
-
-    try {
-        const previousFile = currentFile;
-        currentFile = filePath;
-        if (previousFile !== filePath) {
-            markdownCodeMode?.reset();
-        }
-        const initialViewMode = getViewModeForPath(filePath);
-
-        if (initialViewMode === 'image') {
-            // 图片文件，直接加载显示
-            activateImageView();
-            editor?.clear?.();
-            codeEditor?.clear?.();
-            await imageViewer?.loadImage(filePath);
-            hasUnsavedChanges = false;
-            updateWindowTitle();
-            if (!skipWatchSetup) {
-                try {
-                    await fileTree.watchFile(filePath);
-                } catch (error) {
-                    console.error('无法监听文件:', error);
-                }
-            }
-            fileTree?.clearExternalModification?.(filePath);
-            persistWorkspaceState();
-            return;
-        }
-
-        // 文本或其他文件，从缓存或磁盘获取内容（强制刷新时跳过缓存）
-        const fileData = await getFileContent(filePath, { skipCache: forceReload });
-        const targetViewMode = fileData.viewMode || initialViewMode;
-
-        if (targetViewMode === 'unsupported') {
-            activateUnsupportedView();
-            unsupportedViewer?.show(filePath, fileData.error);
-            hasUnsavedChanges = false;
-            updateWindowTitle();
-            if (!skipWatchSetup) {
-                fileTree?.stopWatchingFile?.(filePath);
-            }
-            fileTree?.clearExternalModification?.(filePath);
-            persistWorkspaceState();
-            return;
-        }
-
-        if (targetViewMode === 'markdown') {
-            activateMarkdownView();
-            if (editor) {
-                await editor.loadFile(filePath, fileData.content);
-                // 如果有未保存的更改，需要标记编辑器为已修改状态
-                if (fileData.hasChanges) {
-                    editor.contentChanged = true;
-                    // 恢复原始内容，这样编辑器才能正确判断是否有修改
-                    if (fileData.originalContent) {
-                        editor.originalMarkdown = fileData.originalContent;
-                    }
-                }
-            }
-        } else {
-            activateCodeView();
-            editor?.clear?.();
-            const language = detectLanguageForPath(filePath);
-            await codeEditor?.show(filePath, fileData.content, language);
-            // 如果有未保存的更改，需要标记编辑器为已修改状态
-            if (fileData.hasChanges) {
-                codeEditor.isDirty = true;
-            }
-            // 文档切换时，重新触发搜索（如果搜索框还开着）
-            editor?.refreshSearch?.();
-        }
-
-        // 在加载完成后再次确认并设置 hasUnsavedChanges
-        hasUnsavedChanges = fileData.hasChanges;
-        updateWindowTitle();
-
-        // 只在首次打开文件时建立监听，刷新时不重新建立
-        if (!skipWatchSetup) {
-            try {
-                await fileTree.watchFile(filePath);
-            } catch (error) {
-                console.error('无法监听文件:', error);
-            }
-        }
-        fileTree?.clearExternalModification?.(filePath);
-        persistWorkspaceState();
-    } catch (error) {
-        console.error('读取文件失败:', error);
-        alert('读取文件失败: ' + error);
-        throw error; // 向上抛出异常，让调用方知道加载失败了
     }
 }
 
