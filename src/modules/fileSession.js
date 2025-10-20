@@ -32,6 +32,8 @@ export function createFileSession({ readFile, getViewModeForPath }) {
         if (!currentFile) return;
 
         const viewMode = activeViewMode;
+        const defaultViewMode = currentFile ? getViewModeForPath(currentFile) : null;
+        const viewModeToStore = defaultViewMode === 'markdown' ? 'markdown' : viewMode;
         let content = null;
         let originalContent = null;
         let hasChanges = false;
@@ -50,7 +52,7 @@ export function createFileSession({ readFile, getViewModeForPath }) {
                 content,
                 originalContent,
                 hasChanges,
-                viewMode,
+                viewMode: viewModeToStore,
             });
         }
     }
@@ -61,6 +63,15 @@ export function createFileSession({ readFile, getViewModeForPath }) {
         if (!skipCache) {
             const cached = cache.get(filePath);
             if (cached) {
+                const defaultViewMode = getViewModeForPath(filePath);
+                if (defaultViewMode === 'markdown' && cached.viewMode !== 'markdown') {
+                    const coerced = {
+                        ...cached,
+                        viewMode: 'markdown',
+                    };
+                    cache.set(filePath, coerced);
+                    return coerced;
+                }
                 return cached;
             }
         }
