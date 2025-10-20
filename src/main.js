@@ -323,6 +323,7 @@ const {
 });
 
 const {
+    createNewFile: handleCreateNewFile,
     deleteActiveFile: handleDeleteActiveFile,
     moveActiveFile: handleMoveActiveFile,
     renameActiveFile: handleRenameActiveFile,
@@ -334,6 +335,7 @@ const {
     normalizeSelectedPaths,
     checkFileHasUnsavedChanges,
     deleteEntry,
+    writeFile,
     renameEntry,
     getCurrentFile: () => currentFile,
     setCurrentFile: (value) => {
@@ -353,6 +355,7 @@ const {
     getCodeEditor: () => codeEditor,
     getImageViewer: () => imageViewer,
     getUnsupportedViewer: () => unsupportedViewer,
+    getFileMetadata,
     getStatusBarController: () => statusBarController,
 });
 
@@ -493,6 +496,7 @@ async function initializeApplication() {
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
     });
     menuListenersCleanup = await registerMenuListeners({
+        onNewFile: handleCreateNewFile,
         onOpen: openFileOrFolder,
         onSettings: openSettingsDialog,
         onExportImage: () => exportCurrentViewToImage({ ensureToPng }),

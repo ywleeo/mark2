@@ -353,6 +353,10 @@ fn main() {
                 .item(&export_pdf_item)
                 .build()?;
 
+            let new_file_item = MenuItemBuilder::with_id("file-new", "New...")
+                .accelerator("CmdOrCtrl+N")
+                .build(app)?;
+
             let rename_file_item =
                 MenuItemBuilder::with_id("file-rename", "Rename...").build(app)?;
             let move_file_item =
@@ -363,6 +367,7 @@ fn main() {
 
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File")
+                .item(&new_file_item)
                 .item(&open_item)
                 .separator()
                 .item(&export_submenu)
@@ -436,6 +441,9 @@ fn main() {
                 } else if event.id().as_ref() == "toggle-markdown-code-view" {
                     println!("发送 menu-toggle-markdown-code-view 事件到前端");
                     let _ = app.emit("menu-toggle-markdown-code-view", ());
+                } else if event.id().as_ref() == "file-new" {
+                    println!("发送 menu-file-new 事件到前端");
+                    let _ = app.emit("menu-file-new", ());
                 } else if event.id().as_ref() == "file-delete" {
                     println!("发送 menu-file-delete 事件到前端");
                     let _ = app.emit("menu-file-delete", ());

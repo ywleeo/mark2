@@ -5,6 +5,7 @@ export function createFileMenuActions(options = {}) {
         normalizeSelectedPaths,
         checkFileHasUnsavedChanges,
         deleteEntry,
+        writeFile,
         renameEntry,
         getCurrentFile,
         setCurrentFile,
@@ -20,6 +21,7 @@ export function createFileMenuActions(options = {}) {
         getCodeEditor,
         getImageViewer,
         getUnsupportedViewer,
+        getFileMetadata,
         getStatusBarController,
     } = options;
 
@@ -35,7 +37,8 @@ export function createFileMenuActions(options = {}) {
     if (typeof checkFileHasUnsavedChanges !== 'function') {
         throw new Error('createFileMenuActions 需要提供 checkFileHasUnsavedChanges 函数');
     }
-    if (typeof deleteEntry !== 'function' || typeof renameEntry !== 'function') {
+    if (typeof deleteEntry !== 'function' || typeof renameEntry !== 'function'
+        || typeof writeFile !== 'function') {
         throw new Error('createFileMenuActions 需要提供文件操作函数');
     }
     if (typeof getCurrentFile !== 'function' || typeof setCurrentFile !== 'function') {
@@ -65,8 +68,66 @@ export function createFileMenuActions(options = {}) {
     if (typeof getImageViewer !== 'function' || typeof getUnsupportedViewer !== 'function') {
         throw new Error('createFileMenuActions 需要提供预览器访问方法');
     }
+    if (typeof getFileMetadata !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 getFileMetadata 方法');
+    }
     if (typeof getStatusBarController !== 'function') {
         throw new Error('createFileMenuActions 需要提供状态栏访问方法');
+    }
+
+    async function createNewFile() {
+        try {
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const targetPath = await save({
+                title: '创建文件',
+                defaultPath: '',
+            });
+
+            if (!targetPath) {
+                return;
+            }
+
+            const normalizedPath = normalizeFsPath(targetPath);
+            if (!normalizedPath) {
+                return;
+            }
+
+            let exists = false;
+            try {
+                await getFileMetadata(normalizedPath);
+                exists = true;
+            } catch {
+                exists = false;
+            }
+
+            if (exists) {
+                const fileName = normalizedPath.split('/').pop() || normalizedPath;
+                const shouldOverride = await confirm(
+                    `文件 "${fileName}" 已存在，覆盖后将丢失原内容，是否继续？`,
+                    {
+                        title: '覆盖确认',
+                        kind: 'warning',
+                        okLabel: '覆盖',
+                        cancelLabel: '取消',
+                    }
+                );
+                if (!shouldOverride) {
+                    return;
+                }
+            }
+
+            await writeFile(normalizedPath, '');
+            fileSession.clearEntry(normalizedPath);
+
+            const fileTree = getFileTree();
+            if (fileTree) {
+                fileTree.addToOpenFiles(normalizedPath);
+                fileTree.selectFile(normalizedPath);
+            }
+        } catch (error) {
+            console.error('新建文件失败:', error);
+            alert('新建文件失败: ' + (error?.message || error));
+        }
     }
 
     async function deleteActiveFile() {
@@ -288,6 +349,7 @@ export function createFileMenuActions(options = {}) {
     }
 
     return {
+        createNewFile,
         deleteActiveFile,
         moveActiveFile,
         renameActiveFile,
