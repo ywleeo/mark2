@@ -9,11 +9,13 @@ import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
+import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../config/monaco-python.js';
 
 const MODEL_SCHEME = 'inmemory';
 
 let monacoLoader = null;
 let monacoEnvironmentReady = false;
+let pythonLanguageReady = false;
 
 function ensureMonacoEnvironment() {
     if (monacoEnvironmentReady || typeof self === 'undefined') {
@@ -52,6 +54,18 @@ async function ensureMonaco() {
         monacoLoader = import('monaco-editor/esm/vs/editor/editor.api');
     }
     return monacoLoader;
+}
+
+function ensurePythonLanguage(monaco) {
+    if (pythonLanguageReady || !pythonLanguage?.tokenizer) {
+        return;
+    }
+
+    monaco.languages.setMonarchTokensProvider('python', pythonLanguage);
+    if (pythonLanguageConfiguration) {
+        monaco.languages.setLanguageConfiguration('python', pythonLanguageConfiguration);
+    }
+    pythonLanguageReady = true;
 }
 
 const buildModelUri = (monaco, filePath) => {
@@ -102,6 +116,7 @@ export class CodeEditor {
 
         const monacoModule = await ensureMonaco();
         const monaco = monacoModule;
+        ensurePythonLanguage(monaco);
         this.monaco = monaco;
         this.editor = monaco.editor.create(this.editorHost, {
             value: '',
