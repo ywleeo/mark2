@@ -170,6 +170,35 @@ export class FileTree {
         };
     }
 
+    captureScrollPositions() {
+        const elements = [
+            this.container,
+            this.container.querySelector('#foldersContent'),
+            this.container.querySelector('#openFilesContent'),
+        ].filter(Boolean);
+
+        return elements.map((element) => ({
+            element,
+            top: element.scrollTop,
+            left: element.scrollLeft,
+        }));
+    }
+
+    restoreScrollPositions(snapshot = []) {
+        if (!Array.isArray(snapshot) || snapshot.length === 0) {
+            return;
+        }
+        window.requestAnimationFrame(() => {
+            snapshot.forEach(({ element, top, left }) => {
+                if (!element) {
+                    return;
+                }
+                element.scrollTop = top;
+                element.scrollLeft = left;
+            });
+        });
+    }
+
     async requestOpenFolder() {
         const { open } = await import('@tauri-apps/plugin-dialog');
         try {
@@ -201,6 +230,8 @@ export class FileTree {
             stateChanged = true;
         }
 
+        const scrollSnapshot = this.captureScrollPositions();
+
         try {
             const entries = await this.readDirectory(normalizedPath);
             const folderName = normalizedPath.split('/').pop() || normalizedPath;
@@ -231,7 +262,6 @@ export class FileTree {
                 return;
             }
 
-            children.innerHTML = '';
             const shouldExpand = isNewRoot || this.expandedFolders.has(folderKey);
 
             if (shouldExpand) {
@@ -242,17 +272,19 @@ export class FileTree {
                 header?.classList.add('expanded');
                 children.classList.add('expanded');
                 children.style.display = 'block';
-                await this.loadFolderChildren(normalizedPath, children, entries);
             } else {
                 header?.classList.remove('expanded');
                 children.classList.remove('expanded');
                 children.style.display = 'none';
             }
 
+            await this.loadFolderChildren(normalizedPath, children, entries);
+
             await this.watchFolder(normalizedPath);
         } catch (error) {
             console.error('读取文件夹失败:', error);
         } finally {
+            this.restoreScrollPositions(scrollSnapshot);
             if (stateChanged) {
                 this.emitStateChange();
             }
@@ -452,14 +484,18 @@ export class FileTree {
     }
 
     async loadFolderChildren(path, childrenContainer, prefetchedEntries = null) {
-        const entries = Array.isArray(prefetchedEntries) ? prefetchedEntries : await this.readDirectory(path);
+        const entries = Array.isArray(prefetchedEntries)
+            ? prefetchedEntries
+            : await this.readDirectory(path);
+
+        const fragment = document.createDocumentFragment();
 
         for (const entry of entries) {
             const name = entry.path.split('/').pop();
 
             if (entry.isDir) {
                 const folderItem = this.createFolderItem(name, entry.path, [], false, path);
-                childrenContainer.appendChild(folderItem);
+                fragment.appendChild(folderItem);
 
                 const childKey = folderItem.dataset.nodeKey;
 
@@ -475,9 +511,11 @@ export class FileTree {
                 }
             } else {
                 const fileItem = this.createFileItem(name, entry.path);
-                childrenContainer.appendChild(fileItem);
+                fragment.appendChild(fileItem);
             }
         }
+
+        childrenContainer.replaceChildren(fragment);
     }
 
     selectFile(path) {
