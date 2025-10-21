@@ -111,6 +111,7 @@ body.sidebar-resizing .sidebar-resizer {
     gap: 6px;
     padding: 7px 10px;
     border-top: 3px solid #ffa2f9;
+    border-bottom: 1px solid #ddd;
     border-radius: 4px 4px 0 0;
     font-size: 12px;
     line-height: 1;
@@ -130,8 +131,8 @@ body.sidebar-resizing .sidebar-resizer {
 .tab.active {
     background: #ffffff;
     border-color: #6be275;
+    border-bottom: none;
     color: rgba(21, 23, 26, 0.95);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .tab-label {
