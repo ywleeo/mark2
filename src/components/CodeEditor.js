@@ -125,6 +125,7 @@ export class CodeEditor {
             minimap: { enabled: false },
             automaticLayout: false,
             scrollBeyondLastLine: false,
+            dragAndDrop: false,
             smoothScrolling: true,
             fontSize: 14,
             lineNumbers: 'on',
@@ -403,9 +404,28 @@ export class CodeEditor {
             if (!this.tapGuardState || event.pointerId !== this.tapGuardState.pointerId) {
                 return;
             }
-            if (event.buttons & 1) {
+
+            const primaryDown = (event.buttons & 1) === 1;
+            const tapLikeDrag = primaryDown && (event.pressure === 0 || event.pointerType === 'touch');
+            if (primaryDown && !tapLikeDrag) {
                 this.tapGuardState.canceled = true;
+                return;
             }
+            if (!this.editor || !this.monaco) {
+                return;
+            }
+
+            const target = this.editor.getTargetAtClientPoint(event.clientX, event.clientY);
+            const position = target?.position;
+            if (!position) {
+                return;
+            }
+
+            const { lineNumber, column } = position;
+            const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
+
+            this.editor.setPosition(position);
+            this.editor.setSelection(collapsed);
         };
 
         const pointerUp = (event) => {

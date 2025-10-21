@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
 import {
     applyEditorSettings,
+    // 龙来撒来
     defaultEditorSettings,
     loadEditorSettings,
     normalizeEditorSettings,
