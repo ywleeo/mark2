@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { splitThinkAndAnswer } from '../utils/aiStreamUtils.js';
 
 const QUICK_ACTIONS = [];
 
@@ -11,6 +12,7 @@ export class AiSidebar {
         this.isVisible = false;
         this.isBusy = false;
         this.messages = [];
+        this.streamStates = new Map();
         this.currentMode = 'custom';
         this.unsubscribe = null;
 
@@ -100,59 +102,156 @@ export class AiSidebar {
 
         this.unsubscribe = this.controller.subscribe(event => {
             switch (event.type) {
-                case 'task-started':
+                case 'task-started': {
                     this.setBusy(true);
+                    const mode = event.payload?.mode || 'custom';
+                    this.streamStates.set(event.id, { mode });
                     this.appendMessage({
-                        id: event.id,
+                        id: `${event.id}-user`,
                         role: 'user',
-                        mode: event.payload.mode || 'custom',
-                        content: event.payload.prompt,
-                        context: event.payload.context,
+                        mode,
+                        content: event.payload?.prompt || '',
+                        context: event.payload?.context,
                     });
                     break;
+                }
+                case 'task-stream-start': {
+                    const previous = this.streamStates.get(event.id) || {};
+                    const mode = event.request?.mode || previous.mode || 'custom';
+                    this.streamStates.set(event.id, { mode, stream: true });
+                    this.removeMessage(`${event.id}-think`);
+                    this.appendMessage({
+                        id: `${event.id}-answer`,
+                        role: 'assistant',
+                        mode,
+                        content: '',
+                        isStreaming: true,
+                    });
+                    this.appendMessage({
+                        id: `${event.id}-think`,
+                        role: 'assistant',
+                        content: '',
+                        isThink: true,
+                        isStreaming: true,
+                        isHidden: true,
+                        insertBeforeId: `${event.id}-answer`,
+                    });
+                    break;
+                }
+                case 'task-stream-chunk': {
+                    const state = this.streamStates.get(event.id) || {};
+                    const rawBuffer = typeof event.buffer === 'string' ? event.buffer : '';
+                    const { think, answer } = splitThinkAndAnswer(rawBuffer, { trim: false });
+                    const reasoning = typeof event.reasoning === 'string' ? event.reasoning : '';
+                    const aggregatedThink = reasoning || think;
+                    const normalizedThink = aggregatedThink ? aggregatedThink.trim() : '';
+
+                    this.appendMessage({
+                        id: `${event.id}-think`,
+                        role: 'assistant',
+                        content: normalizedThink,
+                        isThink: true,
+                        isStreaming: true,
+                        isHidden: normalizedThink.length === 0,
+                    });
+
+                    this.appendMessage({
+                        id: `${event.id}-answer`,
+                        role: 'assistant',
+                        mode: state.mode,
+                        content: answer,
+                        isStreaming: true,
+                    });
+                    this.scrollMessagesToBottom();
+                    break;
+                }
+                case 'task-stream-end': {
+                    const state = this.streamStates.get(event.id) || {};
+                    const rawBuffer = typeof event.buffer === 'string' ? event.buffer : '';
+                    const { think, answer } = splitThinkAndAnswer(rawBuffer);
+                    const reasoning = typeof event.reasoning === 'string' ? event.reasoning : '';
+                    const aggregatedThink = reasoning || think;
+                    const normalizedThink = aggregatedThink ? aggregatedThink.trim() : '';
+                    this.appendMessage({
+                        id: `${event.id}-think`,
+                        role: 'assistant',
+                        content: normalizedThink,
+                        isThink: true,
+                        isStreaming: false,
+                        isHidden: normalizedThink.length === 0,
+                    });
+                    this.appendMessage({
+                        id: `${event.id}-answer`,
+                        role: 'assistant',
+                        mode: state.mode,
+                        content: answer,
+                        isStreaming: false,
+                    });
+                    this.streamStates.delete(event.id);
+                    this.setBusy(false);
+                    break;
+                }
                 case 'task-completed': {
+                    if (event.stream) {
+                        return;
+                    }
                     this.setBusy(false);
                     const rawContent = typeof event.content === 'string' ? event.content : '';
-                    const { think, answer } = this.splitCompletionContent(rawContent);
-                    if (think) {
-                        const thinkMessage = {
+                    const fallback = splitThinkAndAnswer(rawContent);
+                    const thinkContent = typeof event.reasoning === 'string' && event.reasoning.trim().length > 0
+                        ? event.reasoning
+                        : fallback.think;
+                    const answerContent = fallback.answer;
+                    if (thinkContent) {
+                        this.appendMessage({
                             id: `${event.id}-think`,
                             role: 'assistant',
-                            content: think,
-                            metadata: {
-                                raw: rawContent,
-                                think,
-                                answer,
-                            },
-                        };
-                        this.appendMessage(thinkMessage);
+                            content: thinkContent,
+                            isThink: true,
+                            isStreaming: false,
+                        });
                     }
                     if (typeof this.callbacks.onAutoInsert === 'function') {
                         this.callbacks.onAutoInsert({
                             id: event.id,
-                            content: answer || rawContent,
-                            think,
+                            content: answerContent || rawContent,
+                            think: thinkContent,
                             raw: rawContent,
+                            stream: false,
                         });
                     }
-                    if (answer && this.callbacks.onDisplayAnswer === 'function') {
+                    if (answerContent && this.callbacks.onDisplayAnswer === 'function') {
                         this.callbacks.onDisplayAnswer({
                             id: `${event.id}-answer`,
-                            content: answer,
+                            content: answerContent,
                             raw: rawContent,
+                            think: thinkContent,
+                        });
+                    } else if (!answerContent && typeof this.callbacks.onDisplayAnswer === 'function') {
+                        this.callbacks.onDisplayAnswer({
+                            id: `${event.id}-answer`,
+                            content: rawContent,
+                            raw: rawContent,
+                            think: '',
                         });
                     }
                     break;
                 }
-                case 'task-failed':
+                case 'task-failed': {
                     this.setBusy(false);
+                    this.streamStates.delete(event.id);
+                    this.removeMessage(`${event.id}-think`);
+                    const errorMessage = `⚠️ 请求失败：${event.error?.message || event.error || '未知错误'}`;
                     this.appendMessage({
-                        id: event.id,
+                        id: `${event.id}-answer`,
                         role: 'assistant',
-                        content: `⚠️ 请求失败：${event.error?.message || event.error || '未知错误'}`,
+                        content: errorMessage,
                         isError: true,
+                        isStreaming: false,
                     });
+                    this.updateStatusMessage(errorMessage, 'warning');
                     break;
+                }
                 case 'config':
                     this.updateStatusHint(event.data);
                     break;
@@ -189,25 +288,6 @@ export class AiSidebar {
         });
     }
 
-    splitCompletionContent(text) {
-        if (typeof text !== 'string' || text.length === 0) {
-            return { think: '', answer: '' };
-        }
-
-        const THINK_START = '<think>';
-        const THINK_END = '</think>';
-        const startIndex = text.indexOf(THINK_START);
-        const endIndex = text.indexOf(THINK_END);
-
-        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-            const think = text.slice(startIndex + THINK_START.length, endIndex).trim();
-            const answer = text.slice(endIndex + THINK_END.length).trim();
-            return { think, answer };
-        }
-
-        return { think: '', answer: text.trim() };
-    }
-
     suggestPromptForMode(mode) {
         switch (mode) {
             case 'extend':
@@ -242,6 +322,24 @@ export class AiSidebar {
         if (this.promptField) {
             this.promptField.disabled = isBusy;
         }
+        if (isBusy) {
+            this.updateStatusMessage('AI 正在生成...');
+        } else {
+            this.updateStatusMessage('');
+        }
+    }
+
+    updateStatusMessage(message, variant = 'info') {
+        if (!this.statusLabel) {
+            return;
+        }
+        const text = typeof message === 'string' ? message : '';
+        this.statusLabel.textContent = text;
+        if (variant === 'warning') {
+            this.statusLabel.classList.add('is-warning');
+        } else {
+            this.statusLabel.classList.remove('is-warning');
+        }
     }
 
     show() {
@@ -273,39 +371,177 @@ export class AiSidebar {
     }
 
     clearMessages() {
+        if (Array.isArray(this.messages)) {
+            this.messages.forEach(entry => {
+                if (entry?.element?.parentElement) {
+                    entry.element.parentElement.removeChild(entry.element);
+                }
+            });
+        }
         this.messages = [];
+        this.streamStates.clear();
         if (this.messagesContainer) {
             this.messagesContainer.innerHTML = '';
         }
     }
 
     appendMessage(message) {
-        this.messages.push(message);
-        if (!this.messagesContainer) return;
-
-        const messageElement = document.createElement('div');
-        messageElement.className = `ai-message ai-message--${message.role}`;
-
-        if (message.isError) {
-            messageElement.classList.add('ai-message--error');
+        if (!message) {
+            return null;
+        }
+        const id = message.id || `msg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        const normalizedRole = message.role || 'assistant';
+        const existingIndex = this.messages.findIndex(entry => entry.id === id);
+        if (existingIndex !== -1) {
+            const existing = this.messages[existingIndex];
+            const merged = {
+                ...existing,
+                ...message,
+                id,
+                role: normalizedRole,
+            };
+            delete merged.insertBeforeId;
+            this.messages[existingIndex] = merged;
+            this.renderMessageEntry(merged);
+            return merged;
         }
 
-        const displayContent = typeof message.content === 'string' ? message.content : '';
-
-        messageElement.innerHTML = `
-            <div class="ai-message__header">
-                <span class="ai-message__role">${message.role === 'assistant' ? 'AI' : '我'}</span>
-                ${message.mode ? `<span class="ai-message__mode">${this.describeMode(message.mode)}</span>` : ''}
-            </div>
-            <div class="ai-message__content">${this.escapeHtml(displayContent)}</div>
-        `;
-
-        const contentElement = messageElement.querySelector('.ai-message__content');
-        if (contentElement) {
-            contentElement.innerHTML = this.formatMarkdownLikeHtml(displayContent);
+        const entry = {
+            id,
+            role: normalizedRole,
+            content: '',
+            ...message,
+        };
+        delete entry.insertBeforeId;
+        entry.element = this.buildMessageElement(entry);
+        this.renderMessageEntry(entry);
+        const insertBeforeId = message.insertBeforeId;
+        if (insertBeforeId) {
+            const beforeIndex = this.messages.findIndex(entry => entry.id === insertBeforeId);
+            if (beforeIndex !== -1) {
+                this.messages.splice(beforeIndex, 0, entry);
+            } else {
+                this.messages.push(entry);
+            }
+        } else {
+            this.messages.push(entry);
         }
 
-        this.messagesContainer.appendChild(messageElement);
+        if (this.messagesContainer && entry.element) {
+            if (insertBeforeId) {
+                const beforeEntry = this.messages.find(
+                    item => item.id === insertBeforeId && item.dom?.element
+                );
+                if (beforeEntry?.dom?.element) {
+                    this.messagesContainer.insertBefore(entry.element, beforeEntry.dom.element);
+                } else {
+                    this.messagesContainer.appendChild(entry.element);
+                }
+            } else {
+                this.messagesContainer.appendChild(entry.element);
+            }
+            if (!insertBeforeId) {
+                this.scrollMessagesToBottom();
+            }
+        }
+
+        return entry;
+    }
+
+    buildMessageElement(entry) {
+        const element = document.createElement('div');
+        element.classList.add('ai-message', `ai-message--${entry.role}`);
+        if (entry.isError) {
+            element.classList.add('ai-message--error');
+        }
+        element.dataset.messageId = entry.id;
+
+        const header = document.createElement('div');
+        header.className = 'ai-message__header';
+
+        const roleLabel = document.createElement('span');
+        roleLabel.className = 'ai-message__role';
+        header.appendChild(roleLabel);
+
+        const modeLabel = document.createElement('span');
+        modeLabel.className = 'ai-message__mode';
+        modeLabel.style.display = 'none';
+        header.appendChild(modeLabel);
+
+        const content = document.createElement('div');
+        content.className = 'ai-message__content';
+
+        element.appendChild(header);
+        element.appendChild(content);
+
+        entry.dom = {
+            element,
+            header,
+            roleLabel,
+            modeLabel,
+            content,
+        };
+
+        return element;
+    }
+
+    renderMessageEntry(entry) {
+        if (!entry?.dom?.element) {
+            return;
+        }
+        const { element, roleLabel, modeLabel, content } = entry.dom;
+
+        element.classList.remove('ai-message--user', 'ai-message--assistant');
+        element.classList.add(`ai-message--${entry.role}`);
+        element.classList.toggle('ai-message--error', !!entry.isError);
+        element.classList.toggle('ai-message--streaming', !!entry.isStreaming);
+        element.classList.toggle('is-hidden', !!entry.isHidden);
+
+        if (roleLabel) {
+            roleLabel.textContent = entry.role === 'assistant' ? 'AI' : '我';
+        }
+
+        if (modeLabel) {
+            if (entry.mode) {
+                modeLabel.textContent = this.describeMode(entry.mode);
+                modeLabel.style.display = '';
+            } else {
+                modeLabel.textContent = '';
+                modeLabel.style.display = 'none';
+            }
+        }
+
+        if (content) {
+            if (entry.isThink) {
+                const thinker = this.formatMarkdownLikeHtml(typeof entry.content === 'string' ? entry.content : '');
+                content.innerHTML = `<div class="ai-message__think-title">思考</div><div class="ai-message__think-body">${thinker}</div>`;
+                content.classList.add('ai-message__content--think');
+            } else {
+                const displayContent = typeof entry.content === 'string' ? entry.content : '';
+                content.innerHTML = this.formatMarkdownLikeHtml(displayContent);
+                content.classList.remove('ai-message__content--think');
+            }
+        }
+    }
+
+    removeMessage(messageId) {
+        if (!messageId) {
+            return;
+        }
+        const index = this.messages.findIndex(entry => entry.id === messageId);
+        if (index === -1) {
+            return;
+        }
+        const [entry] = this.messages.splice(index, 1);
+        if (entry?.element?.parentElement) {
+            entry.element.parentElement.removeChild(entry.element);
+        }
+    }
+
+    scrollMessagesToBottom() {
+        if (!this.messagesContainer) {
+            return;
+        }
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 

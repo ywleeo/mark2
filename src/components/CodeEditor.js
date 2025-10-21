@@ -107,6 +107,7 @@ export class CodeEditor {
         this.handleResize = () => this.requestLayout();
         this.tapGuardState = null;
         this.tapGuardCleanup = null;
+        this.aiStreamSessions = new Map();
     }
 
     async ensureEditor(defaultLanguage = 'plaintext') {
@@ -532,6 +533,164 @@ export class CodeEditor {
             },
         ]);
         this.editor.pushUndoStop();
+    }
+
+    beginAiStreamSession(sessionId) {
+        if (!this.editor || !this.monaco || !sessionId) {
+            return null;
+        }
+        const model = this.editor.getModel();
+        if (!model) {
+            return null;
+        }
+
+        let selection = this.editor.getSelection();
+        const hasSelection = selection && !selection.isEmpty();
+        let anchorPosition = hasSelection
+            ? selection.getStartPosition()
+            : this.editor.getPosition();
+
+        if (!anchorPosition) {
+            anchorPosition = model.getPositionAt(0);
+        }
+
+        if (hasSelection) {
+            this.editor.pushUndoStop();
+            this.editor.executeEdits('ai-assistant', [
+                {
+                    range: selection,
+                    text: '',
+                    forceMoveMarkers: true,
+                },
+            ]);
+            this.editor.pushUndoStop();
+        }
+
+        const startOffset = model.getOffsetAt(anchorPosition);
+        const session = {
+            id: sessionId,
+            startOffset,
+            currentOffset: startOffset,
+            buffer: '',
+        };
+        this.aiStreamSessions.set(sessionId, session);
+        return session;
+    }
+
+    appendAiStreamContent(sessionId, delta) {
+        if (!this.editor || !this.monaco || !sessionId) {
+            return;
+        }
+        const session = this.aiStreamSessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+        const chunk = typeof delta === 'string' ? delta : '';
+        if (!chunk) {
+            return;
+        }
+
+        const model = this.editor.getModel();
+        if (!model) {
+            return;
+        }
+
+        const insertPosition = model.getPositionAt(session.currentOffset);
+        const range = new this.monaco.Range(
+            insertPosition.lineNumber,
+            insertPosition.column,
+            insertPosition.lineNumber,
+            insertPosition.column
+        );
+
+        this.editor.focus();
+        this.editor.executeEdits('ai-assistant', [
+            {
+                range,
+                text: chunk,
+                forceMoveMarkers: true,
+            },
+        ]);
+
+        session.currentOffset += chunk.length;
+        session.buffer += chunk;
+    }
+
+    finalizeAiStreamSession(sessionId, content) {
+        if (!this.editor || !this.monaco || !sessionId) {
+            return;
+        }
+        const session = this.aiStreamSessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+
+        const model = this.editor.getModel();
+        if (!model) {
+            return;
+        }
+
+        const finalText = typeof content === 'string' ? content : session.buffer;
+        const startPosition = model.getPositionAt(session.startOffset);
+        const endPosition = model.getPositionAt(session.currentOffset);
+        const range = new this.monaco.Range(
+            startPosition.lineNumber,
+            startPosition.column,
+            endPosition.lineNumber,
+            endPosition.column
+        );
+
+        if (finalText !== session.buffer) {
+            this.editor.focus();
+            this.editor.executeEdits('ai-assistant', [
+                {
+                    range,
+                    text: finalText,
+                    forceMoveMarkers: true,
+                },
+            ]);
+        }
+
+        this.aiStreamSessions.delete(sessionId);
+    }
+
+    abortAiStreamSession(sessionId) {
+        if (!this.editor || !this.monaco || !sessionId) {
+            return;
+        }
+        const session = this.aiStreamSessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+
+        const model = this.editor.getModel();
+        if (!model) {
+            return;
+        }
+
+        const startPosition = model.getPositionAt(session.startOffset);
+        const endPosition = model.getPositionAt(session.currentOffset);
+        const range = new this.monaco.Range(
+            startPosition.lineNumber,
+            startPosition.column,
+            endPosition.lineNumber,
+            endPosition.column
+        );
+
+        this.editor.focus();
+        this.editor.executeEdits('ai-assistant', [
+            {
+                range,
+                text: '',
+                forceMoveMarkers: true,
+            },
+        ]);
+
+        this.aiStreamSessions.delete(sessionId);
+    }
+
+    hasAiStreamSession(sessionId) {
+        return this.aiStreamSessions.has(sessionId);
     }
 
     // 搜索相关方法

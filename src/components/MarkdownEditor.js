@@ -44,6 +44,7 @@ export class MarkdownEditor {
         this.codeCopyManager = null;
         this.searchBoxManager = null;
         this.clipboardEnhancer = null;
+        this.aiStreamSessions = new Map();
 
         this.init();
     }
@@ -343,6 +344,106 @@ export class MarkdownEditor {
     // 刷新搜索（文档切换时调用）
     refreshSearch() {
         this.searchBoxManager?.refreshSearchOnDocumentChange();
+    }
+
+    beginAiStreamSession(sessionId) {
+        if (!this.editor || !sessionId) {
+            return null;
+        }
+
+        const currentSelection = this.editor.state.selection;
+        if (!currentSelection) {
+            return null;
+        }
+
+        let startPosition = Math.min(currentSelection.from, currentSelection.to);
+
+        if (!currentSelection.empty) {
+            this.editor.chain().focus().deleteSelection().run();
+            const collapsedSelection = this.editor.state.selection;
+            startPosition = collapsedSelection.from;
+        }
+
+        const session = {
+            id: sessionId,
+            start: startPosition,
+            current: startPosition,
+            buffer: '',
+        };
+        this.aiStreamSessions.set(sessionId, session);
+        return session;
+    }
+
+    appendAiStreamContent(sessionId, delta) {
+        if (!this.editor || !sessionId) {
+            return;
+        }
+        const session = this.aiStreamSessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+        const chunk = typeof delta === 'string' ? delta : '';
+        if (chunk.length === 0) {
+            return;
+        }
+
+        const { state, view } = this.editor;
+        const tr = state.tr.insertText(chunk, session.current, session.current);
+        view.dispatch(tr);
+
+        session.current += chunk.length;
+        session.buffer += chunk;
+    }
+
+    finalizeAiStreamSession(sessionId, markdown) {
+        if (!this.editor || !sessionId) {
+            return;
+        }
+        const session = this.aiStreamSessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+
+        const start = session.start;
+        const end = session.current;
+        const content = typeof markdown === 'string' ? markdown.trim() : '';
+        let chain = this.editor
+            .chain()
+            .focus()
+            .setTextSelection({ from: start, to: end })
+            .deleteSelection();
+
+        if (content.length > 0) {
+            const html = this.md.render(content);
+            chain = chain.insertContent(html);
+        }
+
+        chain.run();
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.aiStreamSessions.delete(sessionId);
+    }
+
+    abortAiStreamSession(sessionId) {
+        if (!this.editor || !sessionId) {
+            return;
+        }
+        const session = this.aiStreamSessions.get(sessionId);
+        if (!session) {
+            return;
+        }
+        const start = session.start;
+        const end = session.current;
+        this.editor
+            .chain()
+            .focus()
+            .setTextSelection({ from: start, to: end })
+            .deleteSelection()
+            .run();
+        this.aiStreamSessions.delete(sessionId);
+    }
+
+    hasAiStreamSession(sessionId) {
+        return this.aiStreamSessions.has(sessionId);
     }
 
     // 销毁编辑器

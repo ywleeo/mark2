@@ -22,3 +22,18 @@ export async function executeAi(prompt, options = {}) {
 
     return await invoke('ai_execute', { payload });
 }
+
+export async function executeAiStream(taskId, prompt, options = {}) {
+    const payload = {
+        prompt,
+        context: options.context ?? null,
+        system_prompt: options.systemPrompt ?? null,
+        mode: options.mode ?? null,
+    };
+
+    return await invoke('ai_execute_stream', {
+        payload,
+        taskId,
+        task_id: taskId,
+    });
+}

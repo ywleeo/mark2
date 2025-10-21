@@ -141,6 +141,10 @@
     background: rgba(248, 113, 113, 0.1);
 }
 
+.ai-message--streaming {
+    border-style: dashed;
+}
+
 .ai-message__header {
     display: flex;
     align-items: center;
@@ -168,9 +172,37 @@
     word-break: break-word;
 }
 
+.ai-message__content--think {
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #475569;
+}
+
+.ai-message__think-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.ai-message__think-body {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #475569;
+    white-space: pre-wrap;
+}
+
 .ai-message__actions {
     display: flex;
     gap: 8px;
+}
+
+.ai-message.is-hidden {
+    display: none;
 }
 
 .ai-message__action {

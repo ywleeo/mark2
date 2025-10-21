@@ -148,3 +148,14 @@
 - **数据安全**：采用系统 Keychain + 用户提醒，后续考虑加密日志。
 - **前端状态复杂**：侧栏先保持 MVP 功能，逐步迭代；使用稳定的状态管理方案（例如 Zustand/Redux）。
 - **跨平台差异**：Keychain 支持不一致时要有 fallback；WebView/输入法等交互需在 macOS/Windows 双平台验证。
+
+实现像 codex，claude code 一样的对话效果。
+发布有一个任务后，想思考，然后形成一个 todo-list。
+然后按照 todo-list 执行，check 执行的结果。
+完成所有 todo 之后提示用户。
+
+如果目标主要是用类似 vibe code 的模式进行文案工作，包括复杂的文案创作工作。需要使用工作流，知识库参与文案创作和改编或者评判。
+应该怎么设计？
+
+这个过程中的所有操作都要有明确的提示，比如读取文件，形成内容，修改文件等。
+也会使用一些 tools 完成工作，用的比较多的 tools 就是文件的 tools，可以把 app 对文件编辑的能力封装成 tool，用 ai 调用这些 tool 的能力实现对文件的比如 append，replace，read，write，edit 等操作。

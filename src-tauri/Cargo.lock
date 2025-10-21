@@ -2302,6 +2302,7 @@ version = "1.0.0"
 dependencies = [
  "base64 0.21.7",
  "font-kit",
+ "futures-util",
  "headless_chrome",
  "objc2 0.6.3",
  "objc2-app-kit",
@@ -3545,10 +3546,12 @@ dependencies = [
  "system-configuration",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "winreg 0.50.0",
 ]

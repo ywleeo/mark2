@@ -3,6 +3,7 @@
 
 mod ai;
 
+use ai::provider::AiStreamUpdate;
 use base64::Engine;
 use tauri::Manager;
 use font_kit::source::SystemSource;
@@ -23,6 +24,38 @@ use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 #[derive(Serialize)]
 struct FileMetadata {
     modified_time: u64, // Unix timestamp in seconds
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AiStreamStartEvent {
+    id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AiStreamChunkEvent {
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content_delta: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_delta: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AiStreamEndEvent {
+    id: String,
+    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AiStreamErrorEvent {
+    id: String,
+    message: String,
 }
 
 #[tauri::command]
@@ -325,6 +358,72 @@ async fn ai_execute(
     Ok(result.content)
 }
 
+#[tauri::command]
+async fn ai_execute_stream(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, ai::AiState>,
+    payload: ai::AiExecuteRequest,
+    task_id: String,
+) -> Result<ai::provider::AiExecutionResult, String> {
+    let config = state.get_config();
+
+    let _ = app_handle.emit(
+        "ai-stream-start",
+        AiStreamStartEvent {
+            id: task_id.clone(),
+        },
+    );
+
+    let chunk_handle = app_handle.clone();
+    let chunk_task_id = task_id.clone();
+
+    let result = ai::provider::execute_stream(payload, &config, move |update: AiStreamUpdate| {
+        let AiStreamUpdate {
+            content_delta,
+            reasoning_delta,
+            role,
+            finish_reason,
+        } = update;
+
+        let payload = AiStreamChunkEvent {
+            id: chunk_task_id.clone(),
+            content_delta,
+            reasoning_delta,
+            role,
+            finish_reason,
+        };
+        if let Err(error) = chunk_handle.emit("ai-stream-chunk", payload) {
+            eprintln!("广播 AI 流式事件失败: {}", error);
+        }
+        Ok(())
+    })
+    .await;
+
+    match &result {
+        Ok(result) => {
+            let _ = app_handle.emit(
+                "ai-stream-end",
+                AiStreamEndEvent {
+                    id: task_id.clone(),
+                    content: result.content.clone(),
+                    reasoning: result.reasoning.clone(),
+                },
+            );
+        }
+        Err(message) => {
+            let _ = app_handle.emit(
+                "ai-stream-error",
+                AiStreamErrorEvent {
+                    id: task_id.clone(),
+                    message: message.clone(),
+                },
+            );
+        }
+    }
+
+    result
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -348,7 +447,8 @@ fn main() {
             get_ai_config,
             save_ai_config,
             clear_ai_api_key,
-            ai_execute
+            ai_execute,
+            ai_execute_stream
         ])
         .setup(|app| {
             let ai_state = ai::AiState::initialize(&app.handle())
