@@ -5,9 +5,21 @@ export function setupKeyboardShortcuts({
     onFind,
     onToggleSidebar,
     onToggleMarkdownCodeView,
+    onToggleAiSidebar,
 }) {
     const handler = async (event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === 'o') {
+        const isMeta = event.metaKey || event.ctrlKey;
+        const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+
+        if (isMeta && event.shiftKey && key === 'a') {
+            event.preventDefault();
+            if (onToggleAiSidebar) {
+                await onToggleAiSidebar();
+            }
+            return;
+        }
+
+        if (isMeta && key === 'o') {
             event.preventDefault();
             if (onOpen) {
                 await onOpen();
@@ -15,7 +27,7 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+        if (isMeta && key === 's') {
             event.preventDefault();
             if (onSave) {
                 await onSave();
@@ -23,7 +35,7 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if ((event.metaKey || event.ctrlKey) && event.key === 'b') {
+        if (isMeta && key === 'b') {
             event.preventDefault();
             if (onToggleSidebar) {
                 await onToggleSidebar();
@@ -31,7 +43,7 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if ((event.metaKey || event.ctrlKey) && event.key === 'e') {
+        if (isMeta && key === 'e') {
             event.preventDefault();
             if (onToggleMarkdownCodeView) {
                 await onToggleMarkdownCodeView();
@@ -39,7 +51,7 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if ((event.metaKey || event.ctrlKey) && event.key === 'w') {
+        if (isMeta && key === 'w') {
             event.preventDefault();
             if (onCloseTab) {
                 await onCloseTab();
@@ -47,7 +59,7 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if ((event.metaKey || event.ctrlKey) && event.key === 'f') {
+        if (isMeta && key === 'f') {
             event.preventDefault();
             if (onFind) {
                 await onFind();

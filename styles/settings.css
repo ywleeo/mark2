@@ -182,6 +182,57 @@
     background: rgba(148, 163, 184, 0.12);
 }
 
+.settings-input-with-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-input-with-action input {
+    flex: 1;
+}
+
+.settings-footer .btn,
+.settings-input-with-action .btn {
+    font-family: inherit;
+}
+
+.settings-input-with-action .btn.tertiary {
+    min-width: auto;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(51, 65, 85, 0.08);
+    color: #1e293b;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.settings-input-with-action .btn.tertiary:hover {
+    background: rgba(51, 65, 85, 0.16);
+}
+
+.settings-hint {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.settings-hint.is-warning {
+    color: #dc2626;
+}
+
+.settings-checkbox .settings-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.settings-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
 @media (max-width: 520px) {
     .settings-dialog {
         width: 100%;

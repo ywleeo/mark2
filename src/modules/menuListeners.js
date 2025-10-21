@@ -20,6 +20,8 @@ export async function registerMenuListeners(handlers) {
     await register('menu-toggle-sidebar', handlers.onToggleSidebar);
     await register('menu-toggle-status-bar', handlers.onToggleStatusBar);
     await register('menu-toggle-markdown-code-view', handlers.onToggleMarkdownCodeView);
+    await register('menu-toggle-ai-assistant', handlers.onToggleAiAssistant);
+    await register('menu-open-ai-settings', handlers.onOpenAiSettings);
     await register('menu-file-new', handlers.onNewFile);
     await register('menu-file-delete', handlers.onDeleteActiveFile);
     await register('menu-file-move', handlers.onMoveActiveFile);

@@ -35,6 +35,7 @@ import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
 import { createFileOperations } from './modules/fileOperations.js';
 import { createFileMenuActions } from './modules/fileMenuActions.js';
+import { createAiController } from './modules/aiController.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -44,6 +45,8 @@ let TabManagerCtor = null;
 let SettingsDialogCtor = null;
 let UnsupportedViewerCtor = null;
 let ensureCoreModulesPromise = null;
+let AiSidebarCtor = null;
+let AiConfigManagerCtor = null;
 
 /**
  * 确保核心组件模块只被加载一次，并缓存各构造器引用。
@@ -59,6 +62,8 @@ async function ensureCoreModules() {
                 fileTreeModule,
                 tabManagerModule,
                 settingsModule,
+                aiSidebarModule,
+                aiConfigManagerModule,
             ] = await Promise.all([
                 import('./components/MarkdownEditor.js'),
                 import('./components/CodeEditor.js'),
@@ -67,6 +72,8 @@ async function ensureCoreModules() {
                 import('./components/FileTree.js'),
                 import('./components/TabManager.js'),
                 import('./components/SettingsDialog.js'),
+                import('./components/AiSidebar.js'),
+                import('./components/AiConfigManager.js'),
             ]);
 
             MarkdownEditorCtor = editorModule.MarkdownEditor;
@@ -76,6 +83,8 @@ async function ensureCoreModules() {
             FileTreeCtor = fileTreeModule.FileTree;
             TabManagerCtor = tabManagerModule.TabManager;
             SettingsDialogCtor = settingsModule.SettingsDialog;
+            AiSidebarCtor = aiSidebarModule.AiSidebar;
+            AiConfigManagerCtor = aiConfigManagerModule.AiConfigManager;
         })();
     }
 
@@ -124,6 +133,17 @@ let isSidebarHidden = false;
 let statusBarController = null;
 let markdownCodeMode = null;
 let fileDropController = null;
+const aiController = createAiController();
+let aiSidebar = null;
+let aiConfigManager = null;
+let aiConfigSnapshot = null;
+
+aiController.subscribe((event) => {
+    if (event?.type === 'config') {
+        aiConfigSnapshot = event.data;
+        aiConfigManager?.setConfig?.(aiConfigSnapshot);
+    }
+});
 const workspaceController = createWorkspaceController({
     getCurrentFile: () => currentFile,
     getFileTree: () => fileTree,
@@ -372,6 +392,13 @@ async function initializeApplication() {
 
     await ensureCoreModules();
 
+    try {
+        aiConfigSnapshot = await aiController.ensureConfig();
+    } catch (error) {
+        console.warn('加载 AI 配置失败', error);
+        aiConfigSnapshot = null;
+    }
+
     // 初始化主视图容器
     const viewContainer = document.getElementById('viewContent');
     if (!viewContainer) {
@@ -430,8 +457,8 @@ async function initializeApplication() {
     imageViewer = new ImageViewerCtor(imagePaneElement);
     imageViewer.hide();
     unsupportedViewer = new UnsupportedViewerCtor(unsupportedPaneElement);
-    unsupportedViewer.hide();
-    activeViewMode = 'markdown';
+   unsupportedViewer.hide();
+   activeViewMode = 'markdown';
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
     editor.setCodeEditor(codeEditor);
@@ -442,6 +469,16 @@ async function initializeApplication() {
         activateMarkdownView,
         activateCodeView,
     });
+
+    const aiSidebarElement = document.getElementById('aiSidebar');
+    if (AiSidebarCtor && aiSidebarElement) {
+        aiSidebar = new AiSidebarCtor(aiSidebarElement, aiController, {
+            onRequestContext: requestActiveEditorContext,
+            onOpenSettings: openAiSettingsDialog,
+            onAutoInsert: handleAiAutoInsert,
+            onDisplayAnswer: handleAiDisplayAnswer,
+        });
+    }
 
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
@@ -488,6 +525,13 @@ async function initializeApplication() {
         settingsDialog.setAvailableFonts(availableFontFamilies);
     }
 
+    aiConfigManager = new AiConfigManagerCtor({
+        onSubmit: handleAiConfigSubmit,
+    });
+    if (aiConfigSnapshot) {
+        aiConfigManager.setConfig(aiConfigSnapshot);
+    }
+
     keyboardShortcutCleanup = setupKeyboardShortcuts({
         onOpen: openFileOrFolder,
         onSave: saveCurrentFile,
@@ -495,6 +539,7 @@ async function initializeApplication() {
         onFind: () => editor?.showSearch?.(),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+        onToggleAiSidebar: toggleAiSidebarVisibility,
     });
     menuListenersCleanup = await registerMenuListeners({
         onNewFile: handleCreateNewFile,
@@ -505,6 +550,8 @@ async function initializeApplication() {
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+        onToggleAiAssistant: toggleAiSidebarVisibility,
+        onOpenAiSettings: openAiSettingsDialog,
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
         onRenameActiveFile: handleRenameActiveFile,
@@ -556,7 +603,7 @@ async function openSettingsDialog() {
 /**
  * 响应设置提交事件并持久化编辑器偏好。
  */
-function handleSettingsSubmit(nextSettings) {
+async function handleSettingsSubmit(nextSettings) {
     const merged = {
         ...editorSettings,
         ...nextSettings,
@@ -566,6 +613,36 @@ function handleSettingsSubmit(nextSettings) {
     applyEditorSettings(editorSettings);
     codeEditor?.applyPreferences?.(editorSettings);
     saveEditorSettings(editorSettings);
+}
+
+async function openAiSettingsDialog() {
+    await ensureCoreModules();
+
+    if (!aiConfigManager) {
+        aiConfigManager = new AiConfigManagerCtor({
+            onSubmit: handleAiConfigSubmit,
+        });
+    }
+
+    let latestConfig = aiConfigSnapshot;
+    try {
+        latestConfig = await aiController.ensureConfig();
+        aiConfigSnapshot = latestConfig;
+    } catch (error) {
+        console.warn('刷新 AI 配置失败', error);
+    }
+
+    aiConfigManager.setConfig(latestConfig);
+    aiConfigManager.open(latestConfig);
+}
+
+async function handleAiConfigSubmit(payload) {
+    try {
+        aiConfigSnapshot = await aiController.saveConfig(payload);
+        aiConfigManager?.setConfig(aiConfigSnapshot);
+    } catch (error) {
+        console.error('保存 AI 配置失败', error);
+    }
 }
 
 /**
@@ -678,6 +755,100 @@ async function updateWindowTitle() {
     }
 }
 
+async function requestActiveEditorContext() {
+    const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
+
+    if (activeViewMode === 'code') {
+        const codeSelection = normalize(codeEditor?.getSelectionText?.());
+        if (codeSelection) {
+            return codeSelection;
+        }
+        const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
+        if (markdownSelection) {
+            return markdownSelection;
+        }
+        const fullCode = normalize(codeEditor?.getValue?.());
+        if (fullCode) {
+            return fullCode;
+        }
+        const fullMarkdown = normalize(editor?.getMarkdown?.());
+        return fullMarkdown;
+    }
+
+    const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
+    if (markdownSelection) {
+        return markdownSelection;
+    }
+
+    const fullMarkdown = normalize(editor?.getMarkdown?.());
+    if (fullMarkdown) {
+        return fullMarkdown;
+    }
+
+    const codeSelection = normalize(codeEditor?.getSelectionText?.());
+    if (codeSelection) {
+        return codeSelection;
+    }
+
+    return normalize(codeEditor?.getValue?.());
+}
+
+function showAiSidebar() {
+    aiSidebar?.show?.();
+}
+
+function hideAiSidebar() {
+    aiSidebar?.hide?.();
+}
+
+function toggleAiSidebarVisibility() {
+    if (!aiSidebar) {
+        return;
+    }
+    aiSidebar.toggle();
+}
+
+function handleAiAutoInsert(message) {
+    if (!message) {
+        return;
+    }
+    const content = typeof message.content === 'string' ? message.content : '';
+    applyAiGeneratedContent(content);
+}
+
+function handleAiSuggestionAction(payload) {
+    if (!payload || !payload.message) {
+        return;
+    }
+    const answer = payload.message?.metadata?.answer;
+    const content = typeof answer === 'string' && answer.trim().length > 0
+        ? answer
+        : (typeof payload.message.content === 'string' ? payload.message.content : '');
+    applyAiGeneratedContent(content);
+}
+
+function applyAiGeneratedContent(content) {
+    const trimmed = typeof content === 'string' ? content.trim() : '';
+    if (!trimmed) {
+        return;
+    }
+
+    if (activeViewMode === 'code') {
+        if (!codeEditor) {
+            return;
+        }
+        codeEditor.insertTextAtCursor(trimmed);
+    } else {
+        if (!editor) {
+            return;
+        }
+        editor.insertAIContent(trimmed, { replace: false });
+    }
+
+    hasUnsavedChanges = true;
+    updateWindowTitle();
+}
+
 /**
  * 计算编辑器内容的字数统计。
  */
@@ -722,9 +893,27 @@ function cleanupResources() {
         fileWatcherController.cleanup();
         fileWatcherController = null;
     }
+    if (aiConfigManager) {
+        aiConfigManager.close?.(false);
+        aiConfigManager = null;
+    }
     fileSession.clearAll();
     fileTree?.dispose?.();
     editor?.destroy?.();
     codeEditor?.dispose?.();
     imageViewer?.dispose?.();
+}
+function handleAiDisplayAnswer(message) {
+    if (!message || typeof message.content !== 'string') {
+        return;
+    }
+    if (!aiSidebar || !aiSidebar.messagesContainer) {
+        return;
+    }
+    const answerMessage = {
+        id: message.id,
+        role: 'assistant',
+        content: message.content,
+    };
+    aiSidebar.appendMessage(answerMessage);
 }

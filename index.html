@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/styles/code-editor.css">
     <link rel="stylesheet" href="/styles/image-viewer.css">
     <link rel="stylesheet" href="/styles/search.css">
+    <link rel="stylesheet" href="/styles/ai.css">
 </head>
 <body>
     <!-- 侧边栏 -->
@@ -32,7 +33,10 @@
 
         <!-- 编辑器/预览区 -->
         <div id="contentArea" class="content-area">
-            <div id="viewContent" class="view-content"></div>
+            <div class="content-main">
+                <div id="viewContent" class="view-content"></div>
+            </div>
+            <div id="aiSidebar" class="ai-sidebar"></div>
         </div>
 
         <!-- 状态栏 -->

@@ -1,7 +1,10 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
+
 use base64::Engine;
+use tauri::Manager;
 use font_kit::source::SystemSource;
 use headless_chrome::{Browser, LaunchOptions};
 use serde::Serialize;
@@ -294,6 +297,34 @@ fn reveal_in_file_manager(path: String) -> Result<(), String> {
     reveal_in_file_manager_impl(&path)
 }
 
+#[tauri::command]
+fn get_ai_config(state: tauri::State<'_, ai::AiState>) -> Result<ai::AiConfigSnapshot, String> {
+    Ok(state.snapshot())
+}
+
+#[tauri::command]
+fn save_ai_config(
+    state: tauri::State<'_, ai::AiState>,
+    payload: ai::AiConfigUpdate,
+) -> Result<(), String> {
+    state.update_config(payload)
+}
+
+#[tauri::command]
+fn clear_ai_api_key(state: tauri::State<'_, ai::AiState>) -> Result<(), String> {
+    state.clear_api_key()
+}
+
+#[tauri::command]
+async fn ai_execute(
+    state: tauri::State<'_, ai::AiState>,
+    payload: ai::AiExecuteRequest,
+) -> Result<String, String> {
+    let config = state.get_config();
+    let result = ai::provider::execute(payload, &config).await?;
+    Ok(result.content)
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -313,9 +344,17 @@ fn main() {
             export_to_pdf,
             get_file_metadata,
             ipc_health_check,
-            reveal_in_file_manager
+            reveal_in_file_manager,
+            get_ai_config,
+            save_ai_config,
+            clear_ai_api_key,
+            ai_execute
         ])
         .setup(|app| {
+            let ai_state = ai::AiState::initialize(&app.handle())
+                .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+            app.manage(ai_state);
+
             // 创建菜单
             let open_item = MenuItemBuilder::with_id("open", "Open...")
                 .accelerator("CmdOrCtrl+O")
@@ -339,6 +378,17 @@ fn main() {
 
             let toggle_status_bar_item =
                 MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar").build(app)?;
+
+            let toggle_ai_assistant_item = MenuItemBuilder::with_id(
+                "toggle-ai-assistant",
+                "Toggle AI Assistant",
+            )
+            .accelerator("CmdOrCtrl+Shift+A")
+            .build(app)?;
+
+            let ai_settings_item = MenuItemBuilder::with_id("open-ai-settings", "AI Settings...")
+                .accelerator("CmdOrCtrl+Shift+,")
+                .build(app)?;
 
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")
@@ -382,6 +432,11 @@ fn main() {
                 .item(&toggle_status_bar_item)
                 .build()?;
 
+            let ai_menu = SubmenuBuilder::new(app, "AI")
+                .item(&toggle_ai_assistant_item)
+                .item(&ai_settings_item)
+                .build()?;
+
             // Edit 菜单，启用复制/粘贴等系统原生快捷键
             let undo_item = PredefinedMenuItem::undo(app, None)?;
             let redo_item = PredefinedMenuItem::redo(app, None)?;
@@ -412,6 +467,7 @@ fn main() {
                 .item(&app_menu)
                 .item(&file_menu)
                 .item(&view_menu)
+                .item(&ai_menu)
                 .item(&edit_menu)
                 .build()?;
 
@@ -438,6 +494,12 @@ fn main() {
                 } else if event.id().as_ref() == "toggle-status-bar" {
                     println!("发送 menu-toggle-status-bar 事件到前端");
                     let _ = app.emit("menu-toggle-status-bar", ());
+                } else if event.id().as_ref() == "toggle-ai-assistant" {
+                    println!("发送 menu-toggle-ai-assistant 事件到前端");
+                    let _ = app.emit("menu-toggle-ai-assistant", ());
+                } else if event.id().as_ref() == "open-ai-settings" {
+                    println!("发送 menu-open-ai-settings 事件到前端");
+                    let _ = app.emit("menu-open-ai-settings", ());
                 } else if event.id().as_ref() == "toggle-markdown-code-view" {
                     println!("发送 menu-toggle-markdown-code-view 事件到前端");
                     let _ = app.emit("menu-toggle-markdown-code-view", ());

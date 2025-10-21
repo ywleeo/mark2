@@ -470,6 +470,70 @@ export class CodeEditor {
         this.editor.setSelection(selection);
     }
 
+    getSelectionText() {
+        if (!this.editor) {
+            return '';
+        }
+        const model = this.editor.getModel();
+        const selection = this.editor.getSelection();
+        if (!model || !selection || selection.isEmpty()) {
+            return '';
+        }
+        return model.getValueInRange(selection);
+    }
+
+    replaceSelectionWithText(text) {
+        if (!this.editor || !this.monaco) {
+            return;
+        }
+        const model = this.editor.getModel();
+        const selection = this.editor.getSelection();
+        if (!model || !selection) {
+            return;
+        }
+
+        const nextText = typeof text === 'string' ? text : '';
+        this.editor.focus();
+        this.editor.pushUndoStop();
+        this.editor.executeEdits('ai-assistant', [
+            {
+                range: selection,
+                text: nextText,
+                forceMoveMarkers: true,
+            },
+        ]);
+        this.editor.pushUndoStop();
+    }
+
+    insertTextAtCursor(text) {
+        if (!this.editor || !this.monaco) {
+            return;
+        }
+        const position = this.editor.getPosition();
+        if (!position) {
+            return;
+        }
+
+        const nextText = typeof text === 'string' ? text : '';
+        const range = new this.monaco.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column
+        );
+
+        this.editor.focus();
+        this.editor.pushUndoStop();
+        this.editor.executeEdits('ai-assistant', [
+            {
+                range,
+                text: nextText,
+                forceMoveMarkers: true,
+            },
+        ]);
+        this.editor.pushUndoStop();
+    }
+
     // 搜索相关方法
     findMatches(searchTerm) {
         if (!this.editor || !this.currentModel) return [];

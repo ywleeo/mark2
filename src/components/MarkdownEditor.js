@@ -290,9 +290,44 @@ export class MarkdownEditor {
     }
 
     // AI 生成内容插入
-    insertAIContent(content) {
-        this.editor.commands.insertContent(content);
+    insertAIContent(markdown, options = {}) {
+        if (!this.editor) {
+            return;
+        }
+        const content = typeof markdown === 'string' ? markdown : '';
+        const html = this.md.render(content);
+
+        const { state } = this.editor;
+        const selection = state?.selection;
+
+        const chain = this.editor.chain().focus();
+        if (selection && !selection.empty) {
+            chain.deleteSelection();
+        }
+        chain.insertContent(html).run();
+
+        if (selection && !selection.empty) {
+            const docSize = this.editor.state.doc?.content?.size ?? 0;
+            const position = Math.min(selection.from + html.length, docSize);
+            this.editor.commands.setTextSelection({ from: position, to: position });
+        }
+
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+    }
+
+    replaceSelectionWithAIContent(markdown) {
+        this.insertAIContent(markdown, { replace: true });
+    }
+
+    getSelectedMarkdown() {
+        if (!this.editor) {
+            return '';
+        }
+        const { state } = this.editor;
+        if (!state || state.selection.empty) {
+            return '';
+        }
+        return state.doc.textBetween(state.selection.from, state.selection.to, '\n');
     }
 
     // 显示查找框

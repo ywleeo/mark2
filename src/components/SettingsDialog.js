@@ -44,7 +44,7 @@ export class SettingsDialog {
             <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsDialogTitle">
                 <form class="settings-form">
                     <header class="settings-header">
-                        <h2 id="settingsDialogTitle">编辑器设置</h2>
+                        <h2 id="settingsDialogTitle">应用设置</h2>
                         <nav class="settings-tabs">
                             <button type="button" class="settings-tab active" data-tab="editor">普通模式</button>
                             <button type="button" class="settings-tab" data-tab="code">代码模式</button>
@@ -154,6 +154,7 @@ export class SettingsDialog {
         this.codeLineHeightInput = this.form.querySelector('input[name="codeLineHeight"]');
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
 
+        // AI 设置字段
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
         this.saveButton = this.form.querySelector('button[type="submit"]');
 
@@ -231,20 +232,20 @@ export class SettingsDialog {
     }
 
     open(settings) {
-        const prefs = settings || {};
+        const editorPrefs = settings || {};
 
         // 编辑器设置
-        this.themeSelect.value = prefs.theme || 'default';
-        this.syncFontSelection(prefs.fontFamily || '');
-        this.fontSizeInput.value = Number(prefs.fontSize) || 16;
-        this.lineHeightInput.value = Number(prefs.lineHeight) || 1.6;
-        this.syncFontWeight(prefs.fontWeight);
+        this.themeSelect.value = editorPrefs.theme || 'default';
+        this.syncFontSelection(editorPrefs.fontFamily || '');
+        this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
+        this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
+        this.syncFontWeight(editorPrefs.fontWeight);
 
         // Code 模式设置
-        this.codeFontFamilySelect.value = prefs.codeFontFamily || '';
-        this.codeFontSizeInput.value = Number(prefs.codeFontSize) || 14;
-        this.codeLineHeightInput.value = Number(prefs.codeLineHeight) || 1.5;
-        this.codeFontWeightSelect.value = String(prefs.codeFontWeight || 400);
+        this.codeFontFamilySelect.value = editorPrefs.codeFontFamily || '';
+        this.codeFontSizeInput.value = Number(editorPrefs.codeFontSize) || 14;
+        this.codeLineHeightInput.value = Number(editorPrefs.codeLineHeight) || 1.5;
+        this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
 
         // 重置到第一个 tab
         this.switchTab('editor');
