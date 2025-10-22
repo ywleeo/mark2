@@ -473,6 +473,10 @@ export class AiSidebar {
             content,
         };
 
+        if (entry.isThink) {
+            entry.isThinkExpanded = false;
+        }
+
         return element;
     }
 
@@ -504,15 +508,105 @@ export class AiSidebar {
 
         if (content) {
             if (entry.isThink) {
-                const thinker = this.formatMarkdownLikeHtml(typeof entry.content === 'string' ? entry.content : '');
-                content.innerHTML = `<div class="ai-message__think-title">思考</div><div class="ai-message__think-body">${thinker}</div>`;
-                content.classList.add('ai-message__content--think');
+                this.renderThinkMessage(entry);
             } else {
                 const displayContent = typeof entry.content === 'string' ? entry.content : '';
                 content.innerHTML = this.formatMarkdownLikeHtml(displayContent);
                 content.classList.remove('ai-message__content--think');
+                if (entry.dom.think) {
+                    entry.dom.think = null;
+                }
             }
         }
+    }
+
+    renderThinkMessage(entry) {
+        const { content } = entry.dom;
+        if (!content) {
+            return;
+        }
+
+        const thinkDom = this.ensureThinkDom(entry);
+        const thinkContent = typeof entry.content === 'string' ? entry.content : '';
+        const formattedFull = this.formatMarkdownLikeHtml(thinkContent);
+        const lines = thinkContent ? thinkContent.split(/\r?\n/) : [];
+        const previewLines = lines.slice(Math.max(0, lines.length - 3));
+        const formattedPreview = this.formatMarkdownLikeHtml(previewLines.join('\n'));
+        const hiddenLineCount = Math.max(0, lines.length - previewLines.length);
+
+        thinkDom.preview.innerHTML = formattedPreview;
+        thinkDom.full.innerHTML = formattedFull;
+
+        if (hiddenLineCount === 0) {
+            thinkDom.preview.style.display = 'none';
+            thinkDom.full.style.display = '';
+            thinkDom.toggle.style.display = 'none';
+            thinkDom.toggle.setAttribute('aria-expanded', 'false');
+            return;
+        }
+
+        thinkDom.toggle.style.display = '';
+        if (entry.isThinkExpanded) {
+            thinkDom.preview.style.display = 'none';
+            thinkDom.full.style.display = '';
+            thinkDom.toggle.textContent = '收起';
+            thinkDom.toggle.setAttribute('aria-expanded', 'true');
+        } else {
+            thinkDom.preview.style.display = '';
+            thinkDom.full.style.display = 'none';
+            thinkDom.toggle.textContent = `展开全部（剩余 ${hiddenLineCount} 行）`;
+            thinkDom.toggle.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    ensureThinkDom(entry) {
+        const { content } = entry.dom;
+        content.classList.add('ai-message__content--think');
+        if (entry.dom.think) {
+            return entry.dom.think;
+        }
+
+        content.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.className = 'ai-message__think-title';
+        title.textContent = '思考';
+
+        const body = document.createElement('div');
+        body.className = 'ai-message__think-body';
+
+        const preview = document.createElement('div');
+        preview.className = 'ai-message__think-preview';
+
+        const full = document.createElement('div');
+        full.className = 'ai-message__think-full';
+
+        body.appendChild(preview);
+        body.appendChild(full);
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'ai-message__think-toggle';
+        toggle.textContent = '展开全部';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.addEventListener('click', () => {
+            entry.isThinkExpanded = !entry.isThinkExpanded;
+            this.renderThinkMessage(entry);
+        });
+
+        content.appendChild(title);
+        content.appendChild(body);
+        content.appendChild(toggle);
+
+        entry.dom.think = {
+            title,
+            body,
+            preview,
+            full,
+            toggle,
+        };
+
+        return entry.dom.think;
     }
 
     removeMessage(messageId) {
