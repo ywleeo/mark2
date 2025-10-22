@@ -30,7 +30,19 @@ export class AiSidebar {
                     <p class="ai-sidebar__subtitle">与当前文档协同创作</p>
                 </div>
                 <div class="ai-sidebar__header-actions">
-                    <button type="button" class="ai-sidebar__settings" title="AI 设置">⚙</button>
+                    <button
+                        type="button"
+                        class="ai-sidebar__clear"
+                        data-role="clear-messages"
+                        title="清空对话"
+                        aria-label="清空对话"
+                    >
+                        <svg class="ai-sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 20h16" />
+                            <path d="M9 15l3-9 8 8-3 3" />
+                            <path d="M5 16l4 4" />
+                        </svg>
+                    </button>
                     <button type="button" class="ai-sidebar__close" title="关闭">×</button>
                 </div>
             </div>
@@ -38,12 +50,6 @@ export class AiSidebar {
             <div class="ai-sidebar__messages" data-role="messages"></div>
 
             <div class="ai-sidebar__footer">
-                <div class="ai-sidebar__context">
-                    <label>
-                        <input type="checkbox" data-role="use-selection" checked />
-                        优先使用当前选中内容
-                    </label>
-                </div>
                 <div class="ai-sidebar__input">
                     <textarea data-role="prompt-input" placeholder="告诉 AI 你想做什么，比如：‘请润色这一段，让语气更柔和’"></textarea>
                     <div class="ai-sidebar__actions">
@@ -59,8 +65,7 @@ export class AiSidebar {
         this.promptField = this.container.querySelector('[data-role="prompt-input"]');
         this.statusLabel = this.container.querySelector('[data-role="status"]');
         this.closeButton = this.container.querySelector('.ai-sidebar__close');
-        this.settingsButton = this.container.querySelector('.ai-sidebar__settings');
-        this.useSelectionToggle = this.container.querySelector('[data-role="use-selection"]');
+        this.clearButton = this.container.querySelector('[data-role="clear-messages"]');
         this.quickButtons = [];
     }
 
@@ -85,13 +90,15 @@ export class AiSidebar {
             this.closeButton.dataset.cleanup = cleanup;
         }
 
-        if (this.settingsButton) {
-            const cleanup = addClickHandler(this.settingsButton, () => {
-                if (typeof this.callbacks.onOpenSettings === 'function') {
-                    this.callbacks.onOpenSettings();
+        if (this.clearButton) {
+            const cleanup = addClickHandler(this.clearButton, () => {
+                this.clearMessages();
+                if (typeof this.callbacks.onClearMessages === 'function') {
+                    this.callbacks.onClearMessages();
                 }
+                this.updateStatusMessage('');
             });
-            this.settingsButton.dataset.cleanup = cleanup;
+            this.clearButton.dataset.cleanup = cleanup;
         }
     }
 
@@ -263,7 +270,7 @@ export class AiSidebar {
         });
         this.quickButtons = [];
 
-        [this.closeButton, this.settingsButton].forEach((button) => {
+        [this.closeButton, this.clearButton].forEach((button) => {
             if (!button) return;
             const cleanup = button.dataset?.cleanup;
             if (typeof cleanup === 'function') {
@@ -576,7 +583,7 @@ export class AiSidebar {
             await this.runtime.runTask({
                 prompt,
                 mode: this.currentMode,
-                useSelection: this.useSelectionToggle?.checked,
+                useSelection: true,
             });
             if (this.promptField) {
                 this.promptField.value = '';

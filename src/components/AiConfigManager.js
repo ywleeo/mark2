@@ -56,12 +56,6 @@ export class AiConfigManager {
                                 <input type="number" name="aiTemperature" min="0" max="2" step="0.1" />
                             </label>
                         </div>
-                        <label class="settings-field settings-checkbox">
-                            <span class="settings-label">
-                                <input type="checkbox" name="aiStream" />
-                                启用流式响应（实验性）
-                            </span>
-                        </label>
                     </section>
 
                     <footer class="settings-footer">
@@ -82,7 +76,6 @@ export class AiConfigManager {
         this.rateLimitInput = this.form.querySelector('input[name="aiRateLimit"]');
         this.concurrencyInput = this.form.querySelector('input[name="aiConcurrency"]');
         this.temperatureInput = this.form.querySelector('input[name="aiTemperature"]');
-        this.streamCheckbox = this.form.querySelector('input[name="aiStream"]');
         this.keyHintElement = this.form.querySelector('[data-role="ai-key-hint"]');
 
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
@@ -154,7 +147,6 @@ export class AiConfigManager {
         const rateLimit = Number(effective.max_requests_per_minute) || 20;
         const concurrency = Number(effective.max_concurrent_requests) || 2;
         const temperature = Number(effective.temperature);
-        const stream = Boolean(effective.stream);
         const hasKey = Boolean(effective.has_api_key);
 
         if (this.modelInput) this.modelInput.value = model;
@@ -169,7 +161,6 @@ export class AiConfigManager {
             const validTemp = Number.isFinite(temperature) ? this.clamp(temperature, 0, 2) : 0.7;
             this.temperatureInput.value = validTemp;
         }
-        if (this.streamCheckbox) this.streamCheckbox.checked = stream;
 
         if (this.apiKeyInput) {
             this.apiKeyInput.value = '';
@@ -246,7 +237,6 @@ export class AiConfigManager {
         const rateLimit = Number(this.rateLimitInput?.value) || 20;
         const concurrency = Number(this.concurrencyInput?.value) || 2;
         const temperature = Number(this.temperatureInput?.value);
-        const stream = Boolean(this.streamCheckbox?.checked);
         const apiKeyInput = (this.apiKeyInput?.value || '').trim();
 
         const typedNewKey = apiKeyInput.length > 0;
@@ -264,7 +254,7 @@ export class AiConfigManager {
             max_requests_per_minute: this.clamp(rateLimit, 1, 120),
             max_concurrent_requests: this.clamp(concurrency, 1, 10),
             temperature: Number.isFinite(temperature) ? this.clamp(temperature, 0, 2) : 0.7,
-            stream,
+            stream: true,
             keep_existing_api_key: keepExistingKey,
         };
 

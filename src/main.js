@@ -499,9 +499,7 @@ async function initializeApplication() {
 
     const aiSidebarElement = document.getElementById('aiSidebar');
     if (AiSidebarCtor && aiSidebarElement) {
-        aiSidebar = new AiSidebarCtor(aiSidebarElement, aiRuntime, {
-            onOpenSettings: openAiSettingsDialog,
-        });
+        aiSidebar = new AiSidebarCtor(aiSidebarElement, aiRuntime);
     }
 
     // 初始化文件树

@@ -43,7 +43,7 @@
     gap: 8px;
 }
 
-.ai-sidebar__settings,
+.ai-sidebar__clear,
 .ai-sidebar__close {
     appearance: none;
     border: none;
@@ -58,16 +58,22 @@
     transition: background 0.2s ease;
 }
 
-.ai-sidebar__settings:hover,
+.ai-sidebar__clear:hover,
 .ai-sidebar__close:hover {
     background: rgba(148, 163, 184, 0.35);
 }
 
-.ai-sidebar__settings {
+.ai-sidebar__clear {
     font-size: 14px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+.ai-sidebar__header-actions .ai-sidebar__icon {
+    width: 16px;
+    height: 16px;
+    display: block;
 }
 
 .ai-sidebar__quick-actions {
@@ -226,11 +232,6 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-}
-
-.ai-sidebar__context {
-    font-size: 12px;
-    color: #475569;
 }
 
 .ai-sidebar__input textarea {
