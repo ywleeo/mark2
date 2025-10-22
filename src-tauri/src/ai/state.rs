@@ -1,11 +1,15 @@
 use crate::ai::config::{load_config, save_config, AiConfig, AiConfigSnapshot, AiConfigUpdate};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use std::path::PathBuf;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 
 pub struct AiState {
     inner: RwLock<AiConfig>,
     config_path: PathBuf,
+    active_tasks: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl AiState {
@@ -31,6 +35,7 @@ impl AiState {
         Ok(Self {
             inner: RwLock::new(config),
             config_path,
+            active_tasks: Mutex::new(HashMap::new()),
         })
     }
 
@@ -59,5 +64,26 @@ impl AiState {
             save_config(&self.config_path, &guard)?;
         }
         Ok(())
+    }
+
+    pub fn register_task(&self, task_id: &str) -> Arc<AtomicBool> {
+        let flag = Arc::new(AtomicBool::new(false));
+        self.active_tasks
+            .lock()
+            .insert(task_id.to_string(), flag.clone());
+        flag
+    }
+
+    pub fn cancel_task(&self, task_id: &str) -> bool {
+        if let Some(flag) = self.active_tasks.lock().get(task_id) {
+            flag.store(true, Ordering::Relaxed);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn unregister_task(&self, task_id: &str) {
+        self.active_tasks.lock().remove(task_id);
     }
 }

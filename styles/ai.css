@@ -315,6 +315,14 @@
     transform: translateY(-1px);
 }
 
+.ai-sidebar__send-btn.is-interrupt {
+    background: #f97316;
+}
+
+.ai-sidebar__send-btn.is-interrupt:hover {
+    background: #ea580c;
+}
+
 .ai-sidebar__send-btn:disabled {
     background: rgba(148, 163, 184, 0.45);
     cursor: wait;

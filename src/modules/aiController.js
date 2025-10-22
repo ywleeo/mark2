@@ -1,5 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
-import { clearAiApiKey, executeAi, executeAiStream, fetchAiConfig, persistAiConfig } from './aiGateway.js';
+import { cancelAiTask, clearAiApiKey, executeAi, executeAiStream, fetchAiConfig, persistAiConfig } from './aiGateway.js';
 
 export function createAiController() {
     let configSnapshot = null;
@@ -32,6 +32,13 @@ export function createAiController() {
             });
         }
         return activeTasks.get(taskId);
+    };
+
+    const isCancellationError = (error) => {
+        const message = typeof error === 'string'
+            ? error
+            : (error?.message || error?.toString?.() || '');
+        return typeof message === 'string' && message.trim().toLowerCase() === 'cancelled';
     };
 
     async function ensureStreamListeners() {
@@ -146,7 +153,24 @@ export function createAiController() {
                 activeTasks.delete(id);
             });
 
-            streamUnsubscribes.push(handleStart, handleChunk, handleEnd, handleError);
+            const handleCancelled = await listen('ai-stream-cancelled', (event) => {
+                const payload = event?.payload ?? {};
+                const { id } = payload;
+                const task = ensureTaskEntry(id);
+                if (!task) {
+                    return;
+                }
+                task.status = 'cancelled';
+                notify({
+                    type: 'task-cancelled',
+                    id,
+                    request: task.metadata,
+                    stream: task.isStream === true,
+                });
+                activeTasks.delete(id);
+            });
+
+            streamUnsubscribes.push(handleStart, handleChunk, handleEnd, handleError, handleCancelled);
         })();
 
         await streamListenersReady;
@@ -224,6 +248,18 @@ export function createAiController() {
                 }
                 return { id: taskId, content: result?.content ?? '', reasoning: finalReasoning };
             } catch (error) {
+                if (isCancellationError(error)) {
+                    if (activeTasks.has(taskId)) {
+                        activeTasks.delete(taskId);
+                    }
+                    notify({
+                        type: 'task-cancelled',
+                        id: taskId,
+                        request: prepared,
+                        stream: true,
+                    });
+                    return { id: taskId, cancelled: true };
+                }
                 if (activeTasks.has(taskId)) {
                     activeTasks.delete(taskId);
                     notify({
@@ -266,6 +302,23 @@ export function createAiController() {
         resetApiKey,
         runTask,
         subscribe,
+        async cancelTask(taskId) {
+            if (!taskId) {
+                return false;
+            }
+            const task = activeTasks.get(taskId);
+            if (!task || (task.status !== 'streaming' && task.status !== 'pending')) {
+                return false;
+            }
+            task.status = 'cancelling';
+            try {
+                await cancelAiTask(taskId);
+                return true;
+            } catch (error) {
+                console.warn('取消 AI 任务失败', error);
+                return false;
+            }
+        },
         getCurrentConfig() {
             return configSnapshot;
         },

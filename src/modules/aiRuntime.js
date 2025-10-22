@@ -70,6 +70,7 @@ export function createAiRuntime({
                     mode: event.payload?.mode || 'custom',
                     preferredViewMode,
                     stream: true,
+                    status: 'pending',
                 });
                 emit(event);
                 break;
@@ -80,6 +81,7 @@ export function createAiRuntime({
                         ? getActiveViewMode()
                         : 'markdown',
                 };
+                taskInfo.status = 'streaming';
                 const adapterKey = resolveAdapterKey(taskInfo.preferredViewMode);
                 const adapter = getAdapterByKey(adapterKey);
                 if (adapter?.beginSession) {
@@ -122,6 +124,10 @@ export function createAiRuntime({
                     markDocumentDirty?.();
                 }
                 cleanupStreamSession(event.id);
+                const taskInfo = tasks.get(event.id);
+                if (taskInfo) {
+                    taskInfo.status = 'completed';
+                }
                 emit({
                     ...event,
                     reasoning,
@@ -157,6 +163,25 @@ export function createAiRuntime({
                     const adapter = getAdapterByKey(session.adapterKey);
                     adapter?.abortSession?.(event.id);
                     cleanupStreamSession(event.id);
+                }
+                const taskInfo = tasks.get(event.id);
+                if (taskInfo) {
+                    taskInfo.status = 'failed';
+                }
+                tasks.delete(event.id);
+                emit(event);
+                break;
+            }
+            case 'task-cancelled': {
+                const session = streamSessions.get(event.id);
+                if (session) {
+                    const adapter = getAdapterByKey(session.adapterKey);
+                    adapter?.abortSession?.(event.id);
+                    cleanupStreamSession(event.id);
+                }
+                const taskInfo = tasks.get(event.id);
+                if (taskInfo) {
+                    taskInfo.status = 'cancelled';
                 }
                 tasks.delete(event.id);
                 emit(event);
@@ -201,6 +226,16 @@ export function createAiRuntime({
     return {
         subscribe,
         runTask,
+        async cancelActiveTask() {
+            const entries = Array.from(tasks.values())
+                .filter(task => task.stream && task.status !== 'completed' && task.status !== 'failed' && task.status !== 'cancelled');
+            if (entries.length === 0) {
+                return false;
+            }
+            const target = entries[entries.length - 1];
+            const success = await controller.cancelTask(target.id);
+            return success;
+        },
         ensureConfig: (...args) => controller.ensureConfig(...args),
         refreshConfig: (...args) => controller.refreshConfig(...args),
         saveConfig: (...args) => controller.saveConfig(...args),

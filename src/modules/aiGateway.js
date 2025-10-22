@@ -37,3 +37,13 @@ export async function executeAiStream(taskId, prompt, options = {}) {
         task_id: taskId,
     });
 }
+
+export async function cancelAiTask(taskId) {
+    if (!taskId) {
+        return;
+    }
+    await invoke('ai_cancel_task', {
+        taskId,
+        task_id: taskId,
+    });
+}

@@ -12,6 +12,7 @@ use serde::Serialize;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
+use std::sync::atomic::Ordering;
 use tauri::{menu::*, Emitter};
 
 #[cfg(target_os = "macos")]
@@ -56,6 +57,11 @@ struct AiStreamEndEvent {
 struct AiStreamErrorEvent {
     id: String,
     message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AiStreamCancelledEvent {
+    id: String,
 }
 
 #[tauri::command]
@@ -366,6 +372,7 @@ async fn ai_execute_stream(
     task_id: String,
 ) -> Result<ai::provider::AiExecutionResult, String> {
     let config = state.get_config();
+    let cancel_flag = state.register_task(&task_id);
 
     let _ = app_handle.emit(
         "ai-stream-start",
@@ -376,8 +383,13 @@ async fn ai_execute_stream(
 
     let chunk_handle = app_handle.clone();
     let chunk_task_id = task_id.clone();
+    let cancel_flag_for_update = cancel_flag.clone();
 
     let result = ai::provider::execute_stream(payload, &config, move |update: AiStreamUpdate| {
+        if cancel_flag_for_update.load(Ordering::Relaxed) {
+            return Err("__cancelled__".to_string());
+        }
+
         let AiStreamUpdate {
             content_delta,
             reasoning_delta,
@@ -399,6 +411,8 @@ async fn ai_execute_stream(
     })
     .await;
 
+    state.unregister_task(&task_id);
+
     match &result {
         Ok(result) => {
             let _ = app_handle.emit(
@@ -411,6 +425,15 @@ async fn ai_execute_stream(
             );
         }
         Err(message) => {
+            if message == "__cancelled__" {
+                let _ = app_handle.emit(
+                    "ai-stream-cancelled",
+                    AiStreamCancelledEvent {
+                        id: task_id.clone(),
+                    },
+                );
+                return Err("cancelled".to_string());
+            }
             let _ = app_handle.emit(
                 "ai-stream-error",
                 AiStreamErrorEvent {
@@ -422,6 +445,12 @@ async fn ai_execute_stream(
     }
 
     result
+}
+
+#[tauri::command]
+fn ai_cancel_task(state: tauri::State<'_, ai::AiState>, task_id: String) -> Result<(), String> {
+    state.cancel_task(&task_id);
+    Ok(())
 }
 
 fn main() {
@@ -448,7 +477,8 @@ fn main() {
             save_ai_config,
             clear_ai_api_key,
             ai_execute,
-            ai_execute_stream
+            ai_execute_stream,
+            ai_cancel_task
         ])
         .setup(|app| {
             let ai_state = ai::AiState::initialize(&app.handle())

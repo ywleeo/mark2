@@ -71,12 +71,18 @@ export class AiSidebar {
 
     bindEvents() {
         if (this.sendButton) {
-            this.sendButton.addEventListener('click', () => this.handleSend());
+            this.sendButton.addEventListener('click', () => {
+                if (this.isBusy) {
+                    void this.handleInterrupt();
+                } else {
+                    this.handleSend();
+                }
+            });
         }
 
         if (this.promptField) {
             this.promptField.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !this.isBusy) {
                     event.preventDefault();
                     this.handleSend();
                 }
@@ -246,6 +252,11 @@ export class AiSidebar {
                 case 'config':
                     this.updateStatusHint(event.data);
                     break;
+                case 'task-cancelled': {
+                    this.setBusy(false);
+                    this.updateStatusMessage('生成已终止');
+                    break;
+                }
                 default:
                     break;
             }
@@ -307,8 +318,9 @@ export class AiSidebar {
     setBusy(isBusy) {
         this.isBusy = isBusy;
         if (this.sendButton) {
-            this.sendButton.disabled = isBusy;
-            this.sendButton.textContent = isBusy ? '生成中...' : '发送';
+            this.sendButton.disabled = false;
+            this.sendButton.textContent = isBusy ? '打断' : '发送';
+            this.sendButton.classList.toggle('is-interrupt', isBusy);
         }
         if (this.promptField) {
             this.promptField.disabled = isBusy;
@@ -497,7 +509,8 @@ export class AiSidebar {
         }
 
         if (modeLabel) {
-            if (entry.mode) {
+            const hasMode = typeof entry.mode === 'string' && entry.mode.length > 0 && entry.mode !== 'custom';
+            if (hasMode) {
                 modeLabel.textContent = this.describeMode(entry.mode);
                 modeLabel.style.display = '';
             } else {
@@ -690,6 +703,22 @@ export class AiSidebar {
                 content: `⚠️ ${message}`,
                 isError: true,
             });
+        }
+    }
+
+    async handleInterrupt() {
+        if (!this.runtime?.cancelActiveTask) {
+            return;
+        }
+        this.updateStatusMessage('正在尝试打断...');
+        try {
+            const success = await this.runtime.cancelActiveTask();
+            if (!success) {
+                this.updateStatusMessage('没有正在执行的任务', 'warning');
+            }
+        } catch (error) {
+            console.warn('打断 AI 会话失败', error);
+            this.updateStatusMessage('打断失败', 'warning');
         }
     }
 }
