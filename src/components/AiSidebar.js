@@ -397,16 +397,13 @@ export class AiSidebar {
         const existingIndex = this.messages.findIndex(entry => entry.id === id);
         if (existingIndex !== -1) {
             const existing = this.messages[existingIndex];
-            const merged = {
-                ...existing,
-                ...message,
-                id,
-                role: normalizedRole,
-            };
-            delete merged.insertBeforeId;
-            this.messages[existingIndex] = merged;
-            this.renderMessageEntry(merged);
-            return merged;
+            const updates = { ...message };
+            delete updates.insertBeforeId;
+            Object.assign(existing, updates);
+            existing.id = id;
+            existing.role = normalizedRole;
+            this.renderMessageEntry(existing);
+            return existing;
         }
 
         const entry = {
