@@ -4,9 +4,9 @@ import { splitThinkAndAnswer } from '../utils/aiStreamUtils.js';
 const QUICK_ACTIONS = [];
 
 export class AiSidebar {
-    constructor(containerElement, controller, callbacks = {}) {
+    constructor(containerElement, runtime, callbacks = {}) {
         this.container = containerElement;
-        this.controller = controller;
+        this.runtime = runtime;
         this.callbacks = callbacks;
 
         this.isVisible = false;
@@ -96,11 +96,11 @@ export class AiSidebar {
     }
 
     attachController() {
-        if (!this.controller) {
+        if (!this.runtime) {
             return;
         }
 
-        this.unsubscribe = this.controller.subscribe(event => {
+        this.unsubscribe = this.runtime.subscribe(event => {
             switch (event.type) {
                 case 'task-started': {
                     this.setBusy(true);
@@ -202,6 +202,7 @@ export class AiSidebar {
                         ? event.reasoning
                         : fallback.think;
                     const answerContent = fallback.answer;
+                    const mode = event.request?.mode || 'custom';
                     if (thinkContent) {
                         this.appendMessage({
                             id: `${event.id}-think`,
@@ -211,30 +212,13 @@ export class AiSidebar {
                             isStreaming: false,
                         });
                     }
-                    if (typeof this.callbacks.onAutoInsert === 'function') {
-                        this.callbacks.onAutoInsert({
-                            id: event.id,
-                            content: answerContent || rawContent,
-                            think: thinkContent,
-                            raw: rawContent,
-                            stream: false,
-                        });
-                    }
-                    if (answerContent && this.callbacks.onDisplayAnswer === 'function') {
-                        this.callbacks.onDisplayAnswer({
-                            id: `${event.id}-answer`,
-                            content: answerContent,
-                            raw: rawContent,
-                            think: thinkContent,
-                        });
-                    } else if (!answerContent && typeof this.callbacks.onDisplayAnswer === 'function') {
-                        this.callbacks.onDisplayAnswer({
-                            id: `${event.id}-answer`,
-                            content: rawContent,
-                            raw: rawContent,
-                            think: '',
-                        });
-                    }
+                    this.appendMessage({
+                        id: `${event.id}-answer`,
+                        role: 'assistant',
+                        mode,
+                        content: answerContent || rawContent,
+                        isStreaming: false,
+                    });
                     break;
                 }
                 case 'task-failed': {
@@ -260,7 +244,7 @@ export class AiSidebar {
             }
         });
 
-        this.controller.ensureConfig().catch(error => {
+        this.runtime.ensureConfig().catch(error => {
             console.warn('加载 AI 配置失败', error);
             this.updateStatusHint(null);
         });
@@ -572,7 +556,7 @@ export class AiSidebar {
     }
 
     async handleSend() {
-        if (!this.controller) {
+        if (!this.runtime) {
             return;
         }
         if (this.isBusy) {
@@ -588,15 +572,11 @@ export class AiSidebar {
         this.statusLabel.textContent = '';
         this.statusLabel.classList.remove('is-warning');
 
-        const context = this.useSelectionToggle?.checked && typeof this.callbacks.onRequestContext === 'function'
-            ? await this.callbacks.onRequestContext()
-            : null;
-
         try {
-            await this.controller.runTask({
+            await this.runtime.runTask({
                 prompt,
-                context,
                 mode: this.currentMode,
+                useSelection: this.useSelectionToggle?.checked,
             });
             if (this.promptField) {
                 this.promptField.value = '';

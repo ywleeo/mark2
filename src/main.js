@@ -36,7 +36,9 @@ import { createNavigationController } from './modules/navigationController.js';
 import { createFileOperations } from './modules/fileOperations.js';
 import { createFileMenuActions } from './modules/fileMenuActions.js';
 import { createAiController } from './modules/aiController.js';
-import { splitThinkAndAnswer } from './utils/aiStreamUtils.js';
+import { createAiRuntime } from './modules/aiRuntime.js';
+import { createMarkdownAdapter } from './modules/aiAdapters/markdownAdapter.js';
+import { createCodeAdapter } from './modules/aiAdapters/codeAdapter.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -135,44 +137,14 @@ let statusBarController = null;
 let markdownCodeMode = null;
 let fileDropController = null;
 const aiController = createAiController();
+const aiMarkdownAdapter = createMarkdownAdapter();
+const aiCodeAdapter = createCodeAdapter();
+let aiRuntime = null;
 let aiSidebar = null;
 let aiConfigManager = null;
 let aiConfigSnapshot = null;
-const aiTaskStates = new Map();
-const aiStreamSessions = new Map();
+let aiRuntimeSubscription = null;
 
-aiController.subscribe((event) => {
-    if (!event || !event.type) {
-        return;
-    }
-
-    switch (event.type) {
-        case 'config':
-            aiConfigSnapshot = event.data;
-            aiConfigManager?.setConfig?.(aiConfigSnapshot);
-            break;
-        case 'task-started':
-            handleAiTaskStarted(event);
-            break;
-        case 'task-stream-start':
-            handleAiStreamStarted(event);
-            break;
-        case 'task-stream-chunk':
-            handleAiStreamChunk(event);
-            break;
-        case 'task-stream-end':
-            handleAiStreamCompleted(event);
-            break;
-        case 'task-failed':
-            handleAiTaskFailed(event);
-            break;
-        case 'task-completed':
-            handleAiTaskCompleted(event);
-            break;
-        default:
-            break;
-    }
-});
 const workspaceController = createWorkspaceController({
     getCurrentFile: () => currentFile,
     getFileTree: () => fileTree,
@@ -492,6 +464,32 @@ async function initializeApplication() {
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
     editor.setCodeEditor(codeEditor);
 
+    aiMarkdownAdapter.setEditor(editor);
+    aiCodeAdapter.setEditor(codeEditor);
+
+    if (!aiRuntime) {
+        aiRuntime = createAiRuntime({
+            controller: aiController,
+            getActiveViewMode: () => activeViewMode,
+            getEditorContext: requestActiveEditorContext,
+            adapters: {
+                markdown: aiMarkdownAdapter,
+                code: aiCodeAdapter,
+            },
+            markDocumentDirty: () => {
+                hasUnsavedChanges = true;
+                updateWindowTitle();
+            },
+        });
+
+        aiRuntimeSubscription = aiRuntime.subscribe((event) => {
+            if (event?.type === 'config') {
+                aiConfigSnapshot = event.data;
+                aiConfigManager?.setConfig?.(aiConfigSnapshot);
+            }
+        });
+    }
+
     markdownCodeMode = createMarkdownCodeMode({
         detectLanguageForPath,
         isMarkdownFilePath,
@@ -501,11 +499,8 @@ async function initializeApplication() {
 
     const aiSidebarElement = document.getElementById('aiSidebar');
     if (AiSidebarCtor && aiSidebarElement) {
-        aiSidebar = new AiSidebarCtor(aiSidebarElement, aiController, {
-            onRequestContext: requestActiveEditorContext,
+        aiSidebar = new AiSidebarCtor(aiSidebarElement, aiRuntime, {
             onOpenSettings: openAiSettingsDialog,
-            onAutoInsert: handleAiAutoInsert,
-            onDisplayAnswer: handleAiDisplayAnswer,
         });
     }
 
@@ -784,17 +779,20 @@ async function updateWindowTitle() {
     }
 }
 
-async function requestActiveEditorContext() {
+async function requestActiveEditorContext(options = {}) {
+    const preferSelection = options?.preferSelection !== false;
     const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
 
     if (activeViewMode === 'code') {
-        const codeSelection = normalize(codeEditor?.getSelectionText?.());
-        if (codeSelection) {
-            return codeSelection;
-        }
-        const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
-        if (markdownSelection) {
-            return markdownSelection;
+        if (preferSelection) {
+            const codeSelection = normalize(codeEditor?.getSelectionText?.());
+            if (codeSelection) {
+                return codeSelection;
+            }
+            const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
+            if (markdownSelection) {
+                return markdownSelection;
+            }
         }
         const fullCode = normalize(codeEditor?.getValue?.());
         if (fullCode) {
@@ -804,9 +802,11 @@ async function requestActiveEditorContext() {
         return fullMarkdown;
     }
 
-    const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
-    if (markdownSelection) {
-        return markdownSelection;
+    if (preferSelection) {
+        const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
+        if (markdownSelection) {
+            return markdownSelection;
+        }
     }
 
     const fullMarkdown = normalize(editor?.getMarkdown?.());
@@ -814,9 +814,11 @@ async function requestActiveEditorContext() {
         return fullMarkdown;
     }
 
-    const codeSelection = normalize(codeEditor?.getSelectionText?.());
-    if (codeSelection) {
-        return codeSelection;
+    if (preferSelection) {
+        const codeSelection = normalize(codeEditor?.getSelectionText?.());
+        if (codeSelection) {
+            return codeSelection;
+        }
     }
 
     return normalize(codeEditor?.getValue?.());
@@ -835,214 +837,6 @@ function toggleAiSidebarVisibility() {
         return;
     }
     aiSidebar.toggle();
-}
-
-function handleAiTaskStarted(event) {
-    if (!event?.id) {
-        return;
-    }
-    aiTaskStates.set(event.id, {
-        id: event.id,
-        mode: event.payload?.mode || null,
-        prompt: event.payload?.prompt || '',
-        viewMode: activeViewMode,
-        stream: false,
-    });
-}
-
-function handleAiStreamStarted(event) {
-    if (!event?.id) {
-        return;
-    }
-    const previous = aiTaskStates.get(event.id) || {
-        id: event.id,
-        mode: event.request?.mode || null,
-        prompt: event.request?.prompt || '',
-        viewMode: activeViewMode,
-        stream: false,
-    };
-    if (event.request?.mode) {
-        previous.mode = event.request.mode;
-    }
-    previous.stream = true;
-    aiTaskStates.set(event.id, previous);
-
-    if (aiStreamSessions.has(event.id)) {
-        return;
-    }
-
-    const target = selectAiStreamTarget(previous.viewMode);
-    if (target === 'code') {
-        codeEditor?.beginAiStreamSession(event.id);
-    } else if (target === 'markdown') {
-        editor?.beginAiStreamSession(event.id);
-    } else {
-        console.warn('未找到可用的编辑器以进行流式插入');
-    }
-
-    aiStreamSessions.set(event.id, {
-        id: event.id,
-        target,
-        answer: '',
-        think: '',
-        raw: '',
-    });
-}
-
-function handleAiStreamChunk(event) {
-    if (!event?.id) {
-        return;
-    }
-    const session = aiStreamSessions.get(event.id);
-    if (!session || !session.target) {
-        return;
-    }
-
-    const { think, answer } = splitThinkAndAnswer(event.buffer || '', { trim: false });
-    const reasoning = typeof event.reasoning === 'string' ? event.reasoning : '';
-    const combinedThink = reasoning || think;
-    const previousAnswer = session.answer || '';
-    if (answer.length >= previousAnswer.length) {
-        const delta = answer.slice(previousAnswer.length);
-        if (delta.length > 0) {
-            if (session.target === 'code') {
-                codeEditor?.appendAiStreamContent(event.id, delta);
-            } else {
-                editor?.appendAiStreamContent(event.id, delta);
-            }
-        }
-        session.answer = answer;
-    }
-    session.think = combinedThink;
-    session.raw = event.buffer || '';
-}
-
-function handleAiStreamCompleted(event) {
-    if (!event?.id) {
-        return;
-    }
-    const session = aiStreamSessions.get(event.id);
-    const { think, answer } = splitThinkAndAnswer(event.buffer || '', { trim: false });
-    const reasoning = typeof event.reasoning === 'string' ? event.reasoning : '';
-    const combinedThink = reasoning || think;
-
-    if (!session || !session.target) {
-        const fallbackAnswer = answer.trim();
-        if (fallbackAnswer.length > 0) {
-            applyAiGeneratedContent(fallbackAnswer);
-        }
-        aiStreamSessions.delete(event.id);
-        return;
-    }
-
-    if (session && session.target) {
-        const normalizedAnswer = answer.trim();
-        if (session.target === 'code') {
-            codeEditor?.finalizeAiStreamSession(event.id, normalizedAnswer);
-        } else {
-            editor?.finalizeAiStreamSession(event.id, normalizedAnswer);
-        }
-        hasUnsavedChanges = true;
-        updateWindowTitle();
-    }
-
-    if (session) {
-        session.answer = answer;
-        session.think = combinedThink;
-        session.raw = event.buffer || '';
-    }
-
-    aiStreamSessions.delete(event.id);
-}
-
-function handleAiTaskFailed(event) {
-    if (!event?.id) {
-        return;
-    }
-    if (event.stream) {
-        abortAiStreamSession(event.id);
-    }
-    aiTaskStates.delete(event.id);
-}
-
-function handleAiTaskCompleted(event) {
-    if (!event?.id) {
-        return;
-    }
-    if (event.stream) {
-        aiTaskStates.delete(event.id);
-        aiStreamSessions.delete(event.id);
-        return;
-    }
-    aiTaskStates.delete(event.id);
-}
-
-function abortAiStreamSession(taskId) {
-    const session = aiStreamSessions.get(taskId);
-    if (!session) {
-        return;
-    }
-    if (session.target === 'code') {
-        codeEditor?.abortAiStreamSession(taskId);
-    } else if (session.target === 'markdown') {
-        editor?.abortAiStreamSession(taskId);
-    }
-    aiStreamSessions.delete(taskId);
-}
-
-function selectAiStreamTarget(preferredView) {
-    let target = preferredView;
-    if (target === 'code' && !codeEditor) {
-        target = editor ? 'markdown' : null;
-    } else if (target === 'markdown' && !editor) {
-        target = codeEditor ? 'code' : null;
-    }
-
-    if (!target) {
-        target = editor ? 'markdown' : (codeEditor ? 'code' : null);
-    }
-    return target;
-}
-
-function handleAiAutoInsert(message) {
-    if (!message) {
-        return;
-    }
-    const content = typeof message.content === 'string' ? message.content : '';
-    applyAiGeneratedContent(content);
-}
-
-function handleAiSuggestionAction(payload) {
-    if (!payload || !payload.message) {
-        return;
-    }
-    const answer = payload.message?.metadata?.answer;
-    const content = typeof answer === 'string' && answer.trim().length > 0
-        ? answer
-        : (typeof payload.message.content === 'string' ? payload.message.content : '');
-    applyAiGeneratedContent(content);
-}
-
-function applyAiGeneratedContent(content) {
-    const trimmed = typeof content === 'string' ? content.trim() : '';
-    if (!trimmed) {
-        return;
-    }
-
-    if (activeViewMode === 'code') {
-        if (!codeEditor) {
-            return;
-        }
-        codeEditor.insertTextAtCursor(trimmed);
-    } else {
-        if (!editor) {
-            return;
-        }
-        editor.insertAIContent(trimmed, { replace: false });
-    }
-
-    hasUnsavedChanges = true;
-    updateWindowTitle();
 }
 
 /**
@@ -1093,23 +887,19 @@ function cleanupResources() {
         aiConfigManager.close?.(false);
         aiConfigManager = null;
     }
+    if (aiRuntimeSubscription) {
+        aiRuntimeSubscription();
+        aiRuntimeSubscription = null;
+    }
+    if (aiRuntime) {
+        aiRuntime.dispose?.();
+        aiRuntime = null;
+    }
+    aiMarkdownAdapter.setEditor(null);
+    aiCodeAdapter.setEditor(null);
     fileSession.clearAll();
     fileTree?.dispose?.();
     editor?.destroy?.();
     codeEditor?.dispose?.();
     imageViewer?.dispose?.();
-}
-function handleAiDisplayAnswer(message) {
-    if (!message || typeof message.content !== 'string') {
-        return;
-    }
-    if (!aiSidebar || !aiSidebar.messagesContainer) {
-        return;
-    }
-    const answerMessage = {
-        id: message.id,
-        role: 'assistant',
-        content: message.content,
-    };
-    aiSidebar.appendMessage(answerMessage);
 }
