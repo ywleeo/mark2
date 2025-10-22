@@ -813,46 +813,99 @@ async function updateWindowTitle() {
 async function requestActiveEditorContext(options = {}) {
     const preferSelection = options?.preferSelection !== false;
     const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
+    const activeFile = currentFile;
+
+    if (!activeFile) {
+        return '';
+    }
+
+    const readFromSession = async () => {
+        try {
+            const data = await fileSession.getFileContent(activeFile);
+            return normalize(data?.content ?? '');
+        } catch (_error) {
+            return '';
+        }
+    };
+
+    const readMarkdownSelection = () => {
+        if (editor?.currentFile !== activeFile) {
+            return '';
+        }
+        return normalize(editor?.getSelectedMarkdown?.());
+    };
+
+    const readMarkdownFull = () => {
+        if (editor?.currentFile !== activeFile) {
+            return '';
+        }
+        return normalize(editor?.getMarkdown?.());
+    };
+
+    const readCodeSelection = () => {
+        if (codeEditor?.currentFile !== activeFile) {
+            return '';
+        }
+        return normalize(codeEditor?.getSelectionText?.());
+    };
+
+    const readCodeFull = () => {
+        if (codeEditor?.currentFile !== activeFile) {
+            return '';
+        }
+        return normalize(codeEditor?.getValue?.());
+    };
 
     if (activeViewMode === 'code') {
         if (preferSelection) {
-            const codeSelection = normalize(codeEditor?.getSelectionText?.());
+            const codeSelection = readCodeSelection();
             if (codeSelection) {
                 return codeSelection;
             }
-            const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
+            const markdownSelection = readMarkdownSelection();
             if (markdownSelection) {
                 return markdownSelection;
             }
         }
-        const fullCode = normalize(codeEditor?.getValue?.());
+
+        const fullCode = readCodeFull();
         if (fullCode) {
             return fullCode;
         }
-        const fullMarkdown = normalize(editor?.getMarkdown?.());
-        return fullMarkdown;
+
+        const markdownFallback = readMarkdownFull();
+        if (markdownFallback) {
+            return markdownFallback;
+        }
+
+        return await readFromSession();
     }
 
     if (preferSelection) {
-        const markdownSelection = normalize(editor?.getSelectedMarkdown?.());
+        const markdownSelection = readMarkdownSelection();
         if (markdownSelection) {
             return markdownSelection;
         }
     }
 
-    const fullMarkdown = normalize(editor?.getMarkdown?.());
+    const fullMarkdown = readMarkdownFull();
     if (fullMarkdown) {
         return fullMarkdown;
     }
 
     if (preferSelection) {
-        const codeSelection = normalize(codeEditor?.getSelectionText?.());
+        const codeSelection = readCodeSelection();
         if (codeSelection) {
             return codeSelection;
         }
     }
 
-    return normalize(codeEditor?.getValue?.());
+    const codeFallback = readCodeFull();
+    if (codeFallback) {
+        return codeFallback;
+    }
+
+    return await readFromSession();
 }
 
 function showAiSidebar() {

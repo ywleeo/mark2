@@ -494,7 +494,12 @@ export class AiSidebar {
         element.classList.add(`ai-message--${entry.role}`);
         element.classList.toggle('ai-message--error', !!entry.isError);
         element.classList.toggle('ai-message--streaming', !!entry.isStreaming);
-        element.classList.toggle('is-hidden', !!entry.isHidden);
+        const shouldHide = !!entry.isHidden
+            || (entry.role === 'assistant'
+                && !entry.isThink
+                && typeof entry.content === 'string'
+                && entry.content.trim().length === 0);
+        element.classList.toggle('is-hidden', shouldHide);
 
         if (modeLabel) {
             const hasMode = typeof entry.mode === 'string' && entry.mode.length > 0 && entry.mode !== 'custom';
