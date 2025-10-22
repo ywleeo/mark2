@@ -459,10 +459,6 @@ export class AiSidebar {
         const header = document.createElement('div');
         header.className = 'ai-message__header';
 
-        const roleLabel = document.createElement('span');
-        roleLabel.className = 'ai-message__role';
-        header.appendChild(roleLabel);
-
         const modeLabel = document.createElement('span');
         modeLabel.className = 'ai-message__mode';
         modeLabel.style.display = 'none';
@@ -477,7 +473,6 @@ export class AiSidebar {
         entry.dom = {
             element,
             header,
-            roleLabel,
             modeLabel,
             content,
         };
@@ -493,7 +488,7 @@ export class AiSidebar {
         if (!entry?.dom?.element) {
             return;
         }
-        const { element, roleLabel, modeLabel, content } = entry.dom;
+        const { element, header, modeLabel, content } = entry.dom;
 
         element.classList.remove('ai-message--user', 'ai-message--assistant');
         element.classList.add(`ai-message--${entry.role}`);
@@ -501,18 +496,20 @@ export class AiSidebar {
         element.classList.toggle('ai-message--streaming', !!entry.isStreaming);
         element.classList.toggle('is-hidden', !!entry.isHidden);
 
-        if (roleLabel) {
-            roleLabel.textContent = entry.role === 'assistant' ? 'AI' : '我';
-        }
-
         if (modeLabel) {
             const hasMode = typeof entry.mode === 'string' && entry.mode.length > 0 && entry.mode !== 'custom';
             if (hasMode) {
                 modeLabel.textContent = this.describeMode(entry.mode);
                 modeLabel.style.display = '';
+                if (header) {
+                    header.style.display = '';
+                }
             } else {
                 modeLabel.textContent = '';
                 modeLabel.style.display = 'none';
+                if (header) {
+                    header.style.display = 'none';
+                }
             }
         }
 
@@ -539,10 +536,17 @@ export class AiSidebar {
         const thinkDom = this.ensureThinkDom(entry);
         const thinkContent = typeof entry.content === 'string' ? entry.content : '';
         const formattedFull = this.formatMarkdownLikeHtml(thinkContent);
-        const lines = thinkContent ? thinkContent.split(/\r?\n/) : [];
-        const previewLines = lines.slice(Math.max(0, lines.length - 3));
-        const formattedPreview = this.formatMarkdownLikeHtml(previewLines.join('\n'));
-        const hiddenLineCount = Math.max(0, lines.length - previewLines.length);
+        const trimmedContent = thinkContent.replace(/[\s\n\r]+$/, '');
+        const lines = trimmedContent ? trimmedContent.split(/\r?\n/) : [];
+        const PREVIEW_LINE_LIMIT = 3;
+        const previewSlice = lines.slice(-PREVIEW_LINE_LIMIT);
+        const PREVIEW_CHAR_LIMIT = 320;
+        let previewText = previewSlice.join('\n');
+        if (previewText.length > PREVIEW_CHAR_LIMIT) {
+            previewText = `...${previewText.slice(-PREVIEW_CHAR_LIMIT)}`;
+        }
+        const formattedPreview = this.formatMarkdownLikeHtml(previewText);
+        const hiddenLineCount = Math.max(0, lines.length - previewSlice.length);
 
         thinkDom.preview.innerHTML = formattedPreview;
         thinkDom.full.innerHTML = formattedFull;
