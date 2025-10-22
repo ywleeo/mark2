@@ -145,6 +145,79 @@ let aiConfigManager = null;
 let aiConfigSnapshot = null;
 let aiRuntimeSubscription = null;
 
+function requireElementById(id, errorMessage) {
+    const element = document.getElementById(id);
+    if (!element) {
+        throw new Error(errorMessage || `未找到元素 id=${id}`);
+    }
+    return element;
+}
+
+function requireElementWithin(container, selector, errorMessage) {
+    const element = container.querySelector(selector);
+    if (!element) {
+        throw new Error(errorMessage || `未在容器中找到元素 ${selector}`);
+    }
+    return element;
+}
+
+const VIEW_MODE_BEHAVIORS = {
+    markdown: {
+        getPane: () => markdownPaneElement,
+        onEnter: () => {
+            codeEditor?.hide?.();
+            imageViewer?.hide?.();
+            unsupportedViewer?.hide?.();
+        },
+    },
+    code: {
+        getPane: () => codeEditorPaneElement,
+        onEnter: () => {
+            imageViewer?.hide?.();
+            unsupportedViewer?.hide?.();
+        },
+    },
+    image: {
+        getPane: () => imagePaneElement,
+        onEnter: () => {
+            editor?.clear?.();
+            codeEditor?.hide?.();
+            imageViewer?.show?.();
+            unsupportedViewer?.hide?.();
+        },
+    },
+    unsupported: {
+        getPane: () => unsupportedPaneElement,
+        onEnter: () => {
+            editor?.clear?.();
+            codeEditor?.hide?.();
+            imageViewer?.hide?.();
+        },
+    },
+};
+
+function setActiveViewMode(nextMode) {
+    const config = VIEW_MODE_BEHAVIORS[nextMode];
+    if (!config) {
+        return;
+    }
+
+    Object.entries(VIEW_MODE_BEHAVIORS).forEach(([mode, entry]) => {
+        const pane = entry.getPane?.();
+        if (!pane) {
+            return;
+        }
+        if (mode === nextMode) {
+            pane.classList.add('is-active');
+        } else {
+            pane.classList.remove('is-active');
+        }
+    });
+
+    config.onEnter?.();
+    activeViewMode = nextMode;
+}
+
 const workspaceController = createWorkspaceController({
     getCurrentFile: () => currentFile,
     getFileTree: () => fileTree,
@@ -197,53 +270,25 @@ const {
  * 激活 Markdown 视图并隐藏其余面板。
  */
 function activateMarkdownView() {
-    markdownPaneElement?.classList.add('is-active');
-    codeEditorPaneElement?.classList.remove('is-active');
-    imagePaneElement?.classList.remove('is-active');
-    unsupportedPaneElement?.classList.remove('is-active');
-    codeEditor?.hide?.();
-    imageViewer?.hide?.();
-    unsupportedViewer?.hide?.();
-    activeViewMode = 'markdown';
+    setActiveViewMode('markdown');
 }
 /**
  * 激活代码编辑器视图并隐藏其他面板。
  */
 function activateCodeView() {
-    markdownPaneElement?.classList.remove('is-active');
-    codeEditorPaneElement?.classList.add('is-active');
-    imagePaneElement?.classList.remove('is-active');
-    unsupportedPaneElement?.classList.remove('is-active');
-    imageViewer?.hide?.();
-    unsupportedViewer?.hide?.();
-    activeViewMode = 'code';
+    setActiveViewMode('code');
 }
 /**
  * 激活图片预览视图并隐藏其他面板。
  */
 function activateImageView() {
-    markdownPaneElement?.classList.remove('is-active');
-    codeEditorPaneElement?.classList.remove('is-active');
-    imagePaneElement?.classList.add('is-active');
-    unsupportedPaneElement?.classList.remove('is-active');
-    editor?.clear?.();
-    codeEditor?.hide?.();
-    imageViewer?.show?.();
-    unsupportedViewer?.hide?.();
-    activeViewMode = 'image';
+    setActiveViewMode('image');
 }
 /**
  * 切换到不受支持文件的提示视图。
  */
 function activateUnsupportedView() {
-    markdownPaneElement?.classList.remove('is-active');
-    codeEditorPaneElement?.classList.remove('is-active');
-    imagePaneElement?.classList.remove('is-active');
-    unsupportedPaneElement?.classList.add('is-active');
-    editor?.clear?.();
-    codeEditor?.hide?.();
-    imageViewer?.hide?.();
-    activeViewMode = 'unsupported';
+    setActiveViewMode('unsupported');
 }
 
 function setSidebarVisibility(hidden) {
@@ -401,10 +446,7 @@ async function initializeApplication() {
     }
 
     // 初始化主视图容器
-    const viewContainer = document.getElementById('viewContent');
-    if (!viewContainer) {
-        throw new Error('未找到视图容器 viewContent');
-    }
+    const viewContainer = requireElementById('viewContent', '未找到视图容器 viewContent');
     viewContainer.innerHTML = `
         <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
@@ -412,24 +454,15 @@ async function initializeApplication() {
         <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
     `;
 
-    markdownPaneElement = viewContainer.querySelector('.markdown-pane');
-    codeEditorPaneElement = viewContainer.querySelector('.code-pane');
-    imagePaneElement = viewContainer.querySelector('.image-pane');
-    unsupportedPaneElement = viewContainer.querySelector('.unsupported-pane');
-    if (!markdownPaneElement || !codeEditorPaneElement || !imagePaneElement || !unsupportedPaneElement) {
-        throw new Error('视图容器渲染失败');
-    }
+    markdownPaneElement = requireElementWithin(viewContainer, '.markdown-pane', '视图容器缺少 markdown-pane');
+    codeEditorPaneElement = requireElementWithin(viewContainer, '.code-pane', '视图容器缺少 code-pane');
+    imagePaneElement = requireElementWithin(viewContainer, '.image-pane', '视图容器缺少 image-pane');
+    unsupportedPaneElement = requireElementWithin(viewContainer, '.unsupported-pane', '视图容器缺少 unsupported-pane');
 
-    const statusBarElement = document.getElementById('statusBar');
-    if (!statusBarElement) {
-        throw new Error('未找到状态栏元素 statusBar');
-    }
-    const statusBarFilePathElement = document.getElementById('statusBarPath');
-    const statusBarWordCountElement = document.getElementById('statusBarWordCount');
-    const statusBarLastModifiedElement = document.getElementById('statusBarLastModified');
-    if (!statusBarFilePathElement || !statusBarWordCountElement || !statusBarLastModifiedElement) {
-        throw new Error('状态栏子元素渲染失败');
-    }
+    const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
+    const statusBarFilePathElement = requireElementById('statusBarPath', '状态栏缺少文件路径区域');
+    const statusBarWordCountElement = requireElementById('statusBarWordCount', '状态栏缺少字数区域');
+    const statusBarLastModifiedElement = requireElementById('statusBarLastModified', '状态栏缺少更新日期区域');
     statusBarController = createStatusBarController({
         statusBarElement,
         statusBarFilePathElement,
