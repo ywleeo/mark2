@@ -1,12 +1,15 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { splitThinkAndAnswer } from '../utils/aiStreamUtils.js';
+import { TodoList } from './TodoList.js';
+import { createAiSessionManager } from '../modules/aiSession.js';
+import { aiService } from '../modules/aiService.js';
 
 const QUICK_ACTIONS = [];
 
 export class AiSidebar {
-    constructor(containerElement, runtime, callbacks = {}) {
+    constructor(containerElement, getEditorContext, callbacks = {}) {
         this.container = containerElement;
-        this.runtime = runtime;
+        this.getEditorContext = getEditorContext;  // 直接保存获取编辑器上下文的函数
         this.callbacks = callbacks;
 
         this.isVisible = false;
@@ -15,10 +18,30 @@ export class AiSidebar {
         this.streamStates = new Map();
         this.currentMode = 'custom';
         this.unsubscribe = null;
+        this.todoList = null; // TodoList 实例
+        this.useTaskMode = false; // 是否启用任务模式
+
+        // 初始化会话管理器
+        this.sessionManager = createAiSessionManager();
+        this.sessionManager.createSession({
+            maxTokens: 128000,
+            warningThreshold: 0.8,
+            model: 'claude-3.5-sonnet',
+        });
+
+        // 订阅会话事件
+        this.sessionManager.subscribe((event) => {
+            if (event.type === 'context-warning') {
+                this.showContextWarning(event);
+            }
+        });
 
         this.render();
         this.bindEvents();
         this.attachController();
+
+        // 初始化上下文使用情况显示
+        this.updateContextUsage();
     }
 
     render() {
@@ -49,9 +72,14 @@ export class AiSidebar {
 
             <div class="ai-sidebar__messages" data-role="messages"></div>
 
+            <div class="ai-sidebar__todos" data-role="todos"></div>
+
             <div class="ai-sidebar__footer">
+                <div class="ai-sidebar__context-info" data-role="context-info">
+                    <span class="ai-sidebar__context-usage" data-role="context-usage"></span>
+                </div>
                 <div class="ai-sidebar__input">
-                    <textarea data-role="prompt-input" placeholder="告诉 AI 你想做什么，比如：‘请润色这一段，让语气更柔和’"></textarea>
+                    <textarea data-role="prompt-input" placeholder="告诉 AI 你想做什么，比如：'请润色这一段，让语气更柔和'"></textarea>
                     <div class="ai-sidebar__actions">
                         <span class="ai-sidebar__status" data-role="status"></span>
                         <button type="button" class="ai-sidebar__send-btn" data-role="send">发送</button>
@@ -61,12 +89,19 @@ export class AiSidebar {
         `;
 
         this.messagesContainer = this.container.querySelector('[data-role="messages"]');
+        this.todosContainer = this.container.querySelector('[data-role="todos"]');
         this.sendButton = this.container.querySelector('[data-role="send"]');
         this.promptField = this.container.querySelector('[data-role="prompt-input"]');
         this.statusLabel = this.container.querySelector('[data-role="status"]');
         this.closeButton = this.container.querySelector('.ai-sidebar__close');
         this.clearButton = this.container.querySelector('[data-role="clear-messages"]');
+        this.contextUsageLabel = this.container.querySelector('[data-role="context-usage"]');
         this.quickButtons = [];
+
+        // 初始化 TodoList
+        if (this.todosContainer) {
+            this.todoList = new TodoList(this.todosContainer);
+        }
     }
 
     bindEvents() {
@@ -99,24 +134,40 @@ export class AiSidebar {
         if (this.clearButton) {
             const cleanup = addClickHandler(this.clearButton, () => {
                 this.clearMessages();
+                // 清除 TODO UI
+                if (this.todoList) {
+                    this.todoList.clear();
+                }
+                // 清除会话历史并创建新会话
+                if (this.sessionManager) {
+                    this.sessionManager.createSession({
+                        maxTokens: 128000,
+                        warningThreshold: 0.8,
+                        model: 'claude-3.5-sonnet',
+                    });
+                }
                 if (typeof this.callbacks.onClearMessages === 'function') {
                     this.callbacks.onClearMessages();
                 }
                 this.updateStatusMessage('');
+                this.updateContextUsage();
             });
             this.clearButton.dataset.cleanup = cleanup;
         }
     }
 
     attachController() {
-        if (!this.runtime) {
-            return;
-        }
-
-        this.unsubscribe = this.runtime.subscribe(event => {
+        // 订阅 aiService 的事件
+        this.unsubscribe = aiService.subscribe(event => {
             switch (event.type) {
                 case 'task-started': {
                     this.setBusy(true);
+
+                    // 清除上一次的 TODO UI
+                    if (this.todoList) {
+                        this.todoList.clear();
+                    }
+
                     const mode = event.payload?.mode || 'custom';
                     this.streamStates.set(event.id, { mode });
                     this.appendMessage({
@@ -126,6 +177,15 @@ export class AiSidebar {
                         content: event.payload?.prompt || '',
                         context: event.payload?.context,
                     });
+                    // 添加一个"正在思考"的提示消息
+                    this.appendMessage({
+                        id: `${event.id}-thinking`,
+                        role: 'assistant',
+                        content: '⠋ 正在分析任务...',
+                        isThinking: true,
+                    });
+                    // 启动动画定时器
+                    this.startThinkingAnimation(event.id);
                     break;
                 }
                 case 'task-stream-start': {
@@ -200,6 +260,14 @@ export class AiSidebar {
                         content: answer,
                         isStreaming: false,
                     });
+
+                    // 添加助手响应到会话历史
+                    if (this.sessionManager && answer) {
+                        console.log('[AiSidebar] Adding assistant message:', answer.substring(0, 100));
+                        this.sessionManager.addMessage('assistant', answer);
+                        this.updateContextUsage();
+                    }
+
                     this.streamStates.delete(event.id);
                     this.setBusy(false);
                     break;
@@ -232,13 +300,23 @@ export class AiSidebar {
                         content: answerContent || rawContent,
                         isStreaming: false,
                     });
+
+                    // 添加助手响应到会话历史
+                    const assistantContent = answerContent || rawContent;
+                    if (this.sessionManager && assistantContent) {
+                        this.sessionManager.addMessage('assistant', assistantContent);
+                        this.updateContextUsage();
+                    }
                     break;
                 }
                 case 'task-failed': {
                     this.setBusy(false);
                     this.streamStates.delete(event.id);
                     this.removeMessage(`${event.id}-think`);
-                    const errorMessage = `⚠️ 请求失败：${event.error?.message || event.error || '未知错误'}`;
+                    // 停止动画并移除 thinking 消息
+                    this.stopThinkingAnimation();
+                    this.removeMessage(`${event.id}-thinking`);
+                    const errorMessage = `请求失败：${event.error?.message || event.error || '未知错误'}`;
                     this.appendMessage({
                         id: `${event.id}-answer`,
                         role: 'assistant',
@@ -246,7 +324,6 @@ export class AiSidebar {
                         isError: true,
                         isStreaming: false,
                     });
-                    this.updateStatusMessage(errorMessage, 'warning');
                     break;
                 }
                 case 'config':
@@ -254,7 +331,88 @@ export class AiSidebar {
                     break;
                 case 'task-cancelled': {
                     this.setBusy(false);
-                    this.updateStatusMessage('生成已终止');
+                    // 停止动画并移除 thinking 消息
+                    this.stopThinkingAnimation();
+                    this.removeMessage(`${event.id}-thinking`);
+                    // 在聊天框显示取消消息
+                    this.appendMessage({
+                        id: `${event.id}-cancelled`,
+                        role: 'assistant',
+                        content: '已取消',
+                        isError: true,
+                        isStreaming: false,
+                    });
+                    break;
+                }
+                case 'task-intent': {
+                    // 任务意图识别完成
+                    console.log('[AiSidebar] task-intent:', event);
+                    if (event.intent === 'task') {
+                        this.useTaskMode = true;
+                    }
+                    break;
+                }
+                case 'task-todo-list': {
+                    // 收到 TODO 列表，移除"正在思考"消息
+                    this.stopThinkingAnimation();
+                    this.removeMessage(`${event.id}-thinking`);
+                    console.log('[AiSidebar] task-todo-list:', event);
+                    console.log('[AiSidebar] todoList instance:', this.todoList);
+                    console.log('[AiSidebar] todos data:', event.todos);
+                    if (this.todoList && event.todos) {
+                        this.todoList.updateTodos(event.todos);
+                        console.log('[AiSidebar] updateTodos called, container display:', this.todosContainer?.style?.display);
+                    }
+                    break;
+                }
+                case 'task-todo-update': {
+                    // TODO 状态更新
+                    console.log('[AiSidebar] task-todo-update:', event);
+                    if (this.todoList && event.todoId) {
+                        this.todoList.updateTodoStatus(event.todoId, event.status, event.output);
+                    }
+
+                    // 如果任务失败，停止动画并在聊天框显示错误
+                    if (event.status === 'failed' && event.output) {
+                        this.setBusy(false);
+                        this.stopThinkingAnimation();
+                        this.removeMessage(`${event.id}-thinking`);
+                        this.appendMessage({
+                            id: `${event.id}-error`,
+                            role: 'assistant',
+                            content: `请求失败：${event.output}`,
+                            isError: true,
+                            isStreaming: false,
+                        });
+                    }
+                    break;
+                }
+                case 'task-summary': {
+                    // 任务完成总结
+                    this.setBusy(false);
+                    this.useTaskMode = false;
+
+                    // 停止动画并移除"正在分析任务"消息
+                    this.stopThinkingAnimation();
+                    this.removeMessage(`${event.id}-thinking`);
+
+                    const summaryContent = event.message || event.summary;
+                    // 只有当总结内容不是默认的"任务执行完成"时才显示
+                    if (summaryContent && summaryContent !== '任务执行完成') {
+                        this.appendMessage({
+                            id: `${event.id}-summary`,
+                            role: 'assistant',
+                            content: summaryContent,
+                            isStreaming: false,
+                        });
+
+                        // 添加助手响应到会话历史
+                        if (this.sessionManager && summaryContent) {
+                            console.log('[AiSidebar] Adding task summary to session:', summaryContent.substring(0, 100));
+                            this.sessionManager.addMessage('assistant', summaryContent);
+                            this.updateContextUsage();
+                        }
+                    }
                     break;
                 }
                 default:
@@ -262,7 +420,7 @@ export class AiSidebar {
             }
         });
 
-        this.runtime.ensureConfig().catch(error => {
+        aiService.ensureConfig().catch(error => {
             console.warn('加载 AI 配置失败', error);
             this.updateStatusHint(null);
         });
@@ -325,11 +483,7 @@ export class AiSidebar {
         if (this.promptField) {
             this.promptField.disabled = isBusy;
         }
-        if (isBusy) {
-            this.updateStatusMessage('AI 正在生成...');
-        } else {
-            this.updateStatusMessage('');
-        }
+        // 移除了 "AI 正在生成..." 的状态提示
     }
 
     updateStatusMessage(message, variant = 'info') {
@@ -494,6 +648,7 @@ export class AiSidebar {
         element.classList.add(`ai-message--${entry.role}`);
         element.classList.toggle('ai-message--error', !!entry.isError);
         element.classList.toggle('ai-message--streaming', !!entry.isStreaming);
+        element.classList.toggle('is-thinking', !!entry.isThinking);
         const shouldHide = !!entry.isHidden
             || (entry.role === 'assistant'
                 && !entry.isThink
@@ -676,9 +831,6 @@ export class AiSidebar {
     }
 
     async handleSend() {
-        if (!this.runtime) {
-            return;
-        }
         if (this.isBusy) {
             return;
         }
@@ -693,11 +845,43 @@ export class AiSidebar {
         this.statusLabel.classList.remove('is-warning');
 
         try {
-            await this.runtime.runTask({
-                prompt,
-                mode: this.currentMode,
-                useSelection: true,
+            // 添加用户消息到会话历史
+            if (this.sessionManager) {
+                this.sessionManager.addMessage('user', prompt);
+                this.updateContextUsage();
+            }
+
+            // 获取编辑器上下文（文件内容）
+            let context = null;
+            if (typeof this.getEditorContext === 'function') {
+                context = await this.getEditorContext({
+                    preferSelection: true,  // 优先获取选中内容
+                });
+            }
+
+            // 获取对话历史
+            const history = this.sessionManager ? this.sessionManager.getHistory({ maxMessages: 20 }) : [];
+
+            console.log('[AiSidebar] 发送请求:', {
+                hasContext: !!context,
+                contextLength: context?.length,
+                hasHistory: !!history,
+                historyLength: history?.length,
             });
+
+            // 直接调用 aiService - 简化！
+            await aiService.runTask({
+                prompt,
+                context,
+                systemPrompt: null,
+                mode: this.currentMode,
+                history,
+            }, {
+                useTaskMode: true,
+                currentFile: window.currentFile || null,
+                workspaceRoot: null,
+            });
+
             if (this.promptField) {
                 this.promptField.value = '';
             }
@@ -706,25 +890,115 @@ export class AiSidebar {
             this.appendMessage({
                 id: `${Date.now()}`,
                 role: 'assistant',
-                content: `⚠️ ${message}`,
+                content: `${message}`,
                 isError: true,
             });
         }
     }
 
     async handleInterrupt() {
-        if (!this.runtime?.cancelActiveTask) {
-            return;
-        }
         this.updateStatusMessage('正在尝试打断...');
         try {
-            const success = await this.runtime.cancelActiveTask();
-            if (!success) {
+            // 取消所有活动任务
+            const activeTasks = Array.from(aiService.activeTasks.keys());
+            if (activeTasks.length === 0) {
                 this.updateStatusMessage('没有正在执行的任务', 'warning');
+                return;
+            }
+
+            const taskId = activeTasks[activeTasks.length - 1];
+            const success = await aiService.cancelTask(taskId);
+            if (!success) {
+                this.updateStatusMessage('打断失败', 'warning');
             }
         } catch (error) {
             console.warn('打断 AI 会话失败', error);
             this.updateStatusMessage('打断失败', 'warning');
+        }
+    }
+
+    startThinkingAnimation(taskId) {
+        const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+        let frameIndex = 0;
+
+        this.thinkingAnimationTimer = setInterval(() => {
+            const messageId = `${taskId}-thinking`;
+            const message = this.messages.find(m => m.id === messageId);
+            if (message) {
+                message.content = `${frames[frameIndex]} 正在分析任务...`;
+                // 直接更新 DOM
+                if (message.dom?.content) {
+                    message.dom.content.textContent = message.content;
+                }
+                frameIndex = (frameIndex + 1) % frames.length;
+            } else {
+                this.stopThinkingAnimation();
+            }
+        }, 80);
+    }
+
+    stopThinkingAnimation() {
+        if (this.thinkingAnimationTimer) {
+            clearInterval(this.thinkingAnimationTimer);
+            this.thinkingAnimationTimer = null;
+        }
+    }
+
+    /**
+     * 显示上下文警告
+     */
+    showContextWarning(event) {
+        const usage = Math.round(event.usage * 100);
+        this.updateStatusMessage(event.message || `对话上下文已使用${usage}%`, 'warning');
+    }
+
+    /**
+     * 更新上下文使用情况显示
+     */
+    updateContextUsage() {
+        if (!this.contextUsageLabel || !this.sessionManager) {
+            console.log('[AiSidebar] updateContextUsage: 缺少必要组件', {
+                hasLabel: !!this.contextUsageLabel,
+                hasManager: !!this.sessionManager
+            });
+            return;
+        }
+
+        const snapshot = this.sessionManager.getSessionSnapshot();
+        console.log('[AiSidebar] Session snapshot:', snapshot);
+
+        if (!snapshot) {
+            this.contextUsageLabel.textContent = '';
+            return;
+        }
+
+        const usage = Math.round((snapshot.totalTokens / snapshot.maxTokens) * 100);
+
+        // 格式化 token 数量显示
+        let tokensDisplay, maxTokensDisplay;
+        if (snapshot.totalTokens < 1000) {
+            tokensDisplay = `${snapshot.totalTokens}`;
+        } else {
+            tokensDisplay = `${(snapshot.totalTokens / 1000).toFixed(1)}k`;
+        }
+
+        if (snapshot.maxTokens < 1000) {
+            maxTokensDisplay = `${snapshot.maxTokens}`;
+        } else {
+            maxTokensDisplay = `${Math.round(snapshot.maxTokens / 1000)}k`;
+        }
+
+        const displayText = `${usage}% (${tokensDisplay} / ${maxTokensDisplay} tokens)`;
+        console.log('[AiSidebar] Updating context usage:', displayText);
+        this.contextUsageLabel.textContent = displayText;
+
+        // 根据使用率改变颜色
+        if (usage >= 80) {
+            this.contextUsageLabel.style.color = '#f44336'; // 红色警告
+        } else if (usage >= 60) {
+            this.contextUsageLabel.style.color = '#ff9800'; // 橙色提示
+        } else {
+            this.contextUsageLabel.style.color = '#999'; // 正常灰色
         }
     }
 }

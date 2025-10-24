@@ -320,6 +320,17 @@ export class MarkdownEditor {
         this.insertAIContent(markdown, { replace: true });
     }
 
+    insertTextAtCursor(text) {
+        if (!this.editor || !text) {
+            return;
+        }
+        const { state } = this.editor;
+        const { from } = state.selection;
+        const transaction = state.tr.insertText(text, from);
+        this.editor.view.dispatch(transaction);
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+    }
+
     getSelectedMarkdown() {
         if (!this.editor) {
             return '';

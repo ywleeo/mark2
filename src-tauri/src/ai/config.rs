@@ -22,6 +22,10 @@ pub struct AiConfig {
     pub temperature: f32,
     #[serde(default)]
     pub stream: bool,
+    #[serde(default)]
+    pub fast_model: Option<String>,
+    #[serde(default)]
+    pub think_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -34,6 +38,8 @@ pub struct AiConfigSnapshot {
     pub temperature: f32,
     pub stream: bool,
     pub has_api_key: bool,
+    pub fast_model: Option<String>,
+    pub think_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -54,6 +60,10 @@ pub struct AiConfigUpdate {
     pub api_key: Option<String>,
     #[serde(default)]
     pub keep_existing_api_key: bool,
+    #[serde(default)]
+    pub fast_model: Option<String>,
+    #[serde(default)]
+    pub think_model: Option<String>,
 }
 
 fn default_model() -> String {
@@ -87,6 +97,8 @@ impl Default for AiConfig {
             max_concurrent_requests: default_concurrent_requests(),
             temperature: default_temperature(),
             stream: true,
+            fast_model: None,
+            think_model: None,
         }
     }
 }
@@ -102,6 +114,8 @@ impl From<&AiConfig> for AiConfigSnapshot {
             temperature: value.temperature,
             stream: value.stream,
             has_api_key: value.api_key.as_ref().map(|s| !s.is_empty()).unwrap_or(false),
+            fast_model: value.fast_model.clone(),
+            think_model: value.think_model.clone(),
         }
     }
 }
@@ -115,6 +129,8 @@ impl AiConfig {
         self.max_concurrent_requests = update.max_concurrent_requests.max(1);
         self.temperature = update.temperature.clamp(0.0, 2.0);
         self.stream = update.stream;
+        self.fast_model = update.fast_model.filter(|s| !s.trim().is_empty());
+        self.think_model = update.think_model.filter(|s| !s.trim().is_empty());
 
         if update.keep_existing_api_key && update.api_key.as_deref().map(|s| s.trim().is_empty()).unwrap_or(true) {
             // do nothing, keep existing key
@@ -129,6 +145,15 @@ impl AiConfig {
                         Some(trimmed)
                     }
                 });
+        }
+    }
+
+    /// 根据任务类型选择合适的模型
+    pub fn get_model_for_task(&self, task_type: &str) -> String {
+        match task_type {
+            "fast" => self.fast_model.clone().unwrap_or_else(|| self.model.clone()),
+            "think" => self.think_model.clone().unwrap_or_else(|| self.model.clone()),
+            _ => self.model.clone(),
         }
     }
 }
@@ -151,6 +176,10 @@ struct StoredAiConfig {
     temperature: f32,
     #[serde(default)]
     stream: bool,
+    #[serde(default)]
+    fast_model: Option<String>,
+    #[serde(default)]
+    think_model: Option<String>,
 }
 
 impl From<AiConfig> for StoredAiConfig {
@@ -164,6 +193,8 @@ impl From<AiConfig> for StoredAiConfig {
             max_concurrent_requests,
             temperature,
             stream,
+            fast_model,
+            think_model,
         } = value;
 
         let encoded_key = api_key
@@ -178,6 +209,8 @@ impl From<AiConfig> for StoredAiConfig {
             max_concurrent_requests,
             temperature,
             stream,
+            fast_model,
+            think_model,
         }
     }
 }
@@ -200,6 +233,8 @@ impl From<StoredAiConfig> for AiConfig {
             max_concurrent_requests: value.max_concurrent_requests,
             temperature: value.temperature,
             stream: value.stream,
+            fast_model: value.fast_model,
+            think_model: value.think_model,
         }
     }
 }

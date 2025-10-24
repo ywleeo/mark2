@@ -121,11 +121,16 @@
     gap: 12px;
 }
 
+.ai-sidebar__todos {
+    flex: 0 0 auto;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
 .ai-message {
-    padding: 12px 14px;
-    border-radius: 12px;
+    padding: 3px 7px;
+    border-radius: 4px;
     background: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
     border: 1px solid rgba(15, 23, 42, 0.06);
     display: flex;
     flex-direction: column;
@@ -143,8 +148,24 @@
 }
 
 .ai-message--error {
-    border-color: rgba(220, 38, 38, 0.35);
-    background: rgba(248, 113, 113, 0.1);
+    border: none;
+    background: transparent;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #ef4444;
+}
+
+.ai-message--error .ai-message__content {
+    color: #ef4444;
+}
+
+.ai-message.is-thinking {
+    border: none;
+    background: transparent;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #64748b;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
 }
 
 .ai-message--streaming {
@@ -339,4 +360,45 @@
     .ai-sidebar {
         width: 100%;
     }
+}
+
+/* ==================== TODO List Styles ==================== */
+.todo-list {
+    margin: 12px;
+    padding: 0px 5px;
+    font-size: 11px;
+}
+
+/* TODO Item */
+.todo-item {
+    color: #64748b;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.todo-item--in_progress {
+    color: #3b82f6;
+}
+
+.todo-item--completed {
+    color: #64748b;
+}
+
+.todo-item--failed {
+    color: #ef4444;
+}
+
+/* ==================== Context Info Styles ==================== */
+.ai-sidebar__context-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-sidebar__context-usage {
+    font-size: 11px;
+    color: #999;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
 }

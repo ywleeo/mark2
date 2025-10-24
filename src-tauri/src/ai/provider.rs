@@ -5,6 +5,12 @@ use serde::Deserialize;
 use serde_json::json;
 use std::time::Duration;
 
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct AiExecuteRequest {
     pub prompt: String,
@@ -14,6 +20,8 @@ pub struct AiExecuteRequest {
     pub system_prompt: Option<String>,
     #[serde(default)]
     pub mode: Option<String>,
+    #[serde(default)]
+    pub history: Option<Vec<ChatMessage>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -55,6 +63,7 @@ pub async fn execute(
         request.context.as_deref(),
         request.system_prompt.as_deref(),
         request.mode.as_deref(),
+        request.history.as_deref(),
     );
 
     let payload = json!({
@@ -153,6 +162,7 @@ where
         request.context.as_deref(),
         request.system_prompt.as_deref(),
         request.mode.as_deref(),
+        request.history.as_deref(),
     );
 
     let payload = json!({
@@ -290,6 +300,7 @@ fn build_chat_messages(
     context: Option<&str>,
     system_prompt: Option<&str>,
     mode: Option<&str>,
+    history: Option<&[ChatMessage]>,
 ) -> Vec<serde_json::Value> {
     let mut messages = vec![];
 
@@ -302,6 +313,13 @@ fn build_chat_messages(
         "content": system_prompt
     }));
 
+    // 打印 context 信息
+    if let Some(ctx) = context {
+        println!("[provider] Context provided: {} chars", ctx.len());
+    } else {
+        println!("[provider] No context provided");
+    }
+
     if let Some(context) = context {
         let trimmed = context.trim();
         if !trimmed.is_empty() {
@@ -310,6 +328,20 @@ fn build_chat_messages(
                 "content": format!("下面是补充上下文，请在处理后续指令时予以考虑：\n\n{}", trimmed)
             }));
         }
+    }
+
+    // 添加对话历史
+    if let Some(history_messages) = history {
+        println!("[provider] Adding {} history messages to request", history_messages.len());
+        for msg in history_messages {
+            println!("[provider] History message: role={}, content={}", msg.role, &msg.content[..msg.content.len().min(50)]);
+            messages.push(json!({
+                "role": msg.role,
+                "content": msg.content
+            }));
+        }
+    } else {
+        println!("[provider] No history messages provided");
     }
 
     messages.push(json!({

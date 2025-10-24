@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod ai;
+mod file_tools;
 
 use ai::provider::AiStreamUpdate;
 use base64::Engine;
@@ -453,6 +454,18 @@ fn ai_cancel_task(state: tauri::State<'_, ai::AiState>, task_id: String) -> Resu
     Ok(())
 }
 
+#[tauri::command]
+async fn ai_execute_task(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, ai::AiState>,
+    payload: ai::AiExecuteRequest,
+    task_id: String,
+    workspace_root: Option<String>,
+) -> Result<String, String> {
+    let config = state.get_config();
+    ai::execute_task(&app_handle, payload, task_id, workspace_root, &config).await
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -478,7 +491,13 @@ fn main() {
             clear_ai_api_key,
             ai_execute,
             ai_execute_stream,
-            ai_cancel_task
+            ai_cancel_task,
+            ai_execute_task,
+            file_tools::ai_read_file,
+            file_tools::ai_write_file,
+            file_tools::ai_replace_content,
+            file_tools::ai_insert_content,
+            file_tools::ai_get_editor_context
         ])
         .setup(|app| {
             let ai_state = ai::AiState::initialize(&app.handle())

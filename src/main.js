@@ -35,10 +35,10 @@ import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
 import { createFileOperations } from './modules/fileOperations.js';
 import { createFileMenuActions } from './modules/fileMenuActions.js';
-import { createAiController } from './modules/aiController.js';
-import { createAiRuntime } from './modules/aiRuntime.js';
+import { aiService } from './modules/aiService.js';
 import { createMarkdownAdapter } from './modules/aiAdapters/markdownAdapter.js';
 import { createCodeAdapter } from './modules/aiAdapters/codeAdapter.js';
+import { createAiEventHandler } from './modules/aiEventHandler.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -136,14 +136,12 @@ let isSidebarHidden = false;
 let statusBarController = null;
 let markdownCodeMode = null;
 let fileDropController = null;
-const aiController = createAiController();
 const aiMarkdownAdapter = createMarkdownAdapter();
 const aiCodeAdapter = createCodeAdapter();
-let aiRuntime = null;
+const aiEventHandler = createAiEventHandler();
 let aiSidebar = null;
 let aiConfigManager = null;
 let aiConfigSnapshot = null;
-let aiRuntimeSubscription = null;
 
 function requireElementById(id, errorMessage) {
     const element = document.getElementById(id);
@@ -244,6 +242,7 @@ const {
     getCurrentFile: () => currentFile,
     setCurrentFile: (value) => {
         currentFile = value;
+        window.currentFile = value;  // 同时导出到 window
     },
     getActiveViewMode: () => activeViewMode,
     setHasUnsavedChanges: (value) => {
@@ -345,6 +344,7 @@ function clearActiveFileView() {
     activateMarkdownView();
     markdownCodeMode?.reset();
     currentFile = null;
+    window.currentFile = null;
     hasUnsavedChanges = false;
     updateWindowTitle();
     persistWorkspaceState({ currentFile: null });
@@ -407,6 +407,7 @@ const {
     getCurrentFile: () => currentFile,
     setCurrentFile: (value) => {
         currentFile = value;
+        window.currentFile = value;  // 同时导出到 window
     },
     getHasUnsavedChanges: () => hasUnsavedChanges,
     setHasUnsavedChanges: (value) => {
@@ -439,7 +440,7 @@ async function initializeApplication() {
     await ensureCoreModules();
 
     try {
-        aiConfigSnapshot = await aiController.ensureConfig();
+        aiConfigSnapshot = await aiService.ensureConfig();
     } catch (error) {
         console.warn('加载 AI 配置失败', error);
         aiConfigSnapshot = null;
@@ -500,28 +501,13 @@ async function initializeApplication() {
     aiMarkdownAdapter.setEditor(editor);
     aiCodeAdapter.setEditor(codeEditor);
 
-    if (!aiRuntime) {
-        aiRuntime = createAiRuntime({
-            controller: aiController,
-            getActiveViewMode: () => activeViewMode,
-            getEditorContext: requestActiveEditorContext,
-            adapters: {
-                markdown: aiMarkdownAdapter,
-                code: aiCodeAdapter,
-            },
-            markDocumentDirty: () => {
-                hasUnsavedChanges = true;
-                updateWindowTitle();
-            },
-        });
-
-        aiRuntimeSubscription = aiRuntime.subscribe((event) => {
-            if (event?.type === 'config') {
-                aiConfigSnapshot = event.data;
-                aiConfigManager?.setConfig?.(aiConfigSnapshot);
-            }
-        });
-    }
+    // 订阅 aiService 的配置更新事件
+    aiService.subscribe((event) => {
+        if (event?.type === 'config') {
+            aiConfigSnapshot = event.data;
+            aiConfigManager?.setConfig?.(aiConfigSnapshot);
+        }
+    });
 
     markdownCodeMode = createMarkdownCodeMode({
         detectLanguageForPath,
@@ -532,7 +518,8 @@ async function initializeApplication() {
 
     const aiSidebarElement = document.getElementById('aiSidebar');
     if (AiSidebarCtor && aiSidebarElement) {
-        aiSidebar = new AiSidebarCtor(aiSidebarElement, aiRuntime);
+        // 直接传递 getEditorContext 函数，不再需要 aiRuntime
+        aiSidebar = new AiSidebarCtor(aiSidebarElement, requestActiveEditorContext);
     }
 
     // 初始化文件树
@@ -623,6 +610,17 @@ async function initializeApplication() {
 
     // 初始化时清空窗口标题
     updateWindowTitle();
+
+    // 初始化AI事件处理器
+    await aiEventHandler.initialize({
+        getEditor: () => editor,
+        getCodeEditor: () => codeEditor,
+        getActiveViewMode: () => activeViewMode,
+        updateWindowTitle,
+        markDocumentDirty: () => {
+            hasUnsavedChanges = true;
+        }
+    });
 }
 
 /**
@@ -681,7 +679,7 @@ async function openAiSettingsDialog() {
 
     let latestConfig = aiConfigSnapshot;
     try {
-        latestConfig = await aiController.ensureConfig();
+        latestConfig = await aiService.ensureConfig();
         aiConfigSnapshot = latestConfig;
     } catch (error) {
         console.warn('刷新 AI 配置失败', error);
@@ -693,7 +691,7 @@ async function openAiSettingsDialog() {
 
 async function handleAiConfigSubmit(payload) {
     try {
-        aiConfigSnapshot = await aiController.saveConfig(payload);
+        aiConfigSnapshot = await aiService.saveConfig(payload);
         aiConfigManager?.setConfig(aiConfigSnapshot);
     } catch (error) {
         console.error('保存 AI 配置失败', error);
@@ -971,13 +969,8 @@ function cleanupResources() {
         aiConfigManager.close?.(false);
         aiConfigManager = null;
     }
-    if (aiRuntimeSubscription) {
-        aiRuntimeSubscription();
-        aiRuntimeSubscription = null;
-    }
-    if (aiRuntime) {
-        aiRuntime.dispose?.();
-        aiRuntime = null;
+    if (aiEventHandler) {
+        aiEventHandler.destroy();
     }
     aiMarkdownAdapter.setEditor(null);
     aiCodeAdapter.setEditor(null);
