@@ -4,7 +4,7 @@
 mod plugin_loader;
 
 use base64::Engine;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 use font_kit::source::SystemSource;
 use std::fs;
 use std::path::Path;
@@ -345,17 +345,6 @@ fn main() {
             let toggle_status_bar_item =
                 MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar").build(app)?;
 
-            let toggle_ai_assistant_item = MenuItemBuilder::with_id(
-                "toggle-ai-assistant",
-                "Toggle AI Assistant",
-            )
-            .accelerator("CmdOrCtrl+Shift+A")
-            .build(app)?;
-
-            let ai_settings_item = MenuItemBuilder::with_id("open-ai-settings", "AI Settings...")
-                .accelerator("CmdOrCtrl+Shift+,")
-                .build(app)?;
-
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")
                 .item(&settings_item)
@@ -398,10 +387,58 @@ fn main() {
                 .item(&toggle_status_bar_item)
                 .build()?;
 
-            let ai_menu = SubmenuBuilder::new(app, "AI")
-                .item(&toggle_ai_assistant_item)
-                .item(&ai_settings_item)
-                .build()?;
+            // 动态加载插件菜单
+            let plugins = plugin_loader::scan_plugins().unwrap_or_default();
+            let mut plugins_menu_builder = SubmenuBuilder::new(app, "Plugins");
+
+            for plugin in &plugins {
+                let plugin_id = &plugin.id;
+                let mut submenu_builder = SubmenuBuilder::new(app, &plugin.name);
+
+                // 从 manifest 读取菜单配置
+                if let Some(menu_config) = &plugin.menu {
+                    // Toggle 菜单项
+                    if let Some(toggle_config) = &menu_config.toggle {
+                        let default_label = format!("Toggle {}", plugin.name);
+                        let label = toggle_config.label.as_ref()
+                            .map(|s| s.as_str())
+                            .unwrap_or(&default_label);
+                        let accelerator = toggle_config.accelerator.as_deref().unwrap_or("");
+
+                        let toggle_item = MenuItemBuilder::with_id(
+                            format!("plugin-{}-toggle", plugin_id),
+                            label,
+                        )
+                        .accelerator(accelerator)
+                        .build(app)?;
+
+                        submenu_builder = submenu_builder.item(&toggle_item);
+                    }
+
+                    // Settings 菜单项
+                    if let Some(settings_config) = &menu_config.settings {
+                        let default_label = format!("{} Settings...", plugin.name);
+                        let label = settings_config.label.as_ref()
+                            .map(|s| s.as_str())
+                            .unwrap_or(&default_label);
+                        let accelerator = settings_config.accelerator.as_deref().unwrap_or("");
+
+                        let settings_item = MenuItemBuilder::with_id(
+                            format!("plugin-{}-settings", plugin_id),
+                            label,
+                        )
+                        .accelerator(accelerator)
+                        .build(app)?;
+
+                        submenu_builder = submenu_builder.item(&settings_item);
+                    }
+                }
+
+                let plugin_submenu = submenu_builder.build()?;
+                plugins_menu_builder = plugins_menu_builder.item(&plugin_submenu);
+            }
+
+            let plugins_menu = plugins_menu_builder.build()?;
 
             // Edit 菜单，启用复制/粘贴等系统原生快捷键
             let undo_item = PredefinedMenuItem::undo(app, None)?;
@@ -433,55 +470,30 @@ fn main() {
                 .item(&app_menu)
                 .item(&file_menu)
                 .item(&view_menu)
-                .item(&ai_menu)
                 .item(&edit_menu)
+                .item(&plugins_menu)
                 .build()?;
 
             app.set_menu(menu)?;
 
             // 监听菜单事件
             app.on_menu_event(|app, event| {
-                println!("菜单事件: {:?}", event.id());
-                if event.id().as_ref() == "open" {
-                    println!("发送 menu-open 事件到前端");
-                    let _ = app.emit("menu-open", ());
-                } else if event.id().as_ref() == "settings" {
-                    println!("发送 menu-settings 事件到前端");
-                    let _ = app.emit("menu-settings", ());
-                } else if event.id().as_ref() == "export-image" {
-                    println!("发送 menu-export-image 事件到前端");
-                    let _ = app.emit("menu-export-image", ());
-                } else if event.id().as_ref() == "export-pdf" {
-                    println!("发送 menu-export-pdf 事件到前端");
-                    let _ = app.emit("menu-export-pdf", ());
-                } else if event.id().as_ref() == "toggle-sidebar" {
-                    println!("发送 menu-toggle-sidebar 事件到前端");
-                    let _ = app.emit("menu-toggle-sidebar", ());
-                } else if event.id().as_ref() == "toggle-status-bar" {
-                    println!("发送 menu-toggle-status-bar 事件到前端");
-                    let _ = app.emit("menu-toggle-status-bar", ());
-                } else if event.id().as_ref() == "toggle-ai-assistant" {
-                    println!("发送 menu-toggle-ai-assistant 事件到前端");
-                    let _ = app.emit("menu-toggle-ai-assistant", ());
-                } else if event.id().as_ref() == "open-ai-settings" {
-                    println!("发送 menu-open-ai-settings 事件到前端");
-                    let _ = app.emit("menu-open-ai-settings", ());
-                } else if event.id().as_ref() == "toggle-markdown-code-view" {
-                    println!("发送 menu-toggle-markdown-code-view 事件到前端");
-                    let _ = app.emit("menu-toggle-markdown-code-view", ());
-                } else if event.id().as_ref() == "file-new" {
-                    println!("发送 menu-file-new 事件到前端");
-                    let _ = app.emit("menu-file-new", ());
-                } else if event.id().as_ref() == "file-delete" {
-                    println!("发送 menu-file-delete 事件到前端");
-                    let _ = app.emit("menu-file-delete", ());
-                } else if event.id().as_ref() == "file-move" {
-                    println!("发送 menu-file-move 事件到前端");
-                    let _ = app.emit("menu-file-move", ());
-                } else if event.id().as_ref() == "file-rename" {
-                    println!("发送 menu-file-rename 事件到前端");
-                    let _ = app.emit("menu-file-rename", ());
+                let event_id = event.id().as_ref();
+                println!("菜单事件: {:?}", event_id);
+
+                // 处理插件菜单事件 (plugin-{id}-toggle 或 plugin-{id}-settings)
+                if event_id.starts_with("plugin-") {
+                    // 直接转发到前端，保持原格式
+                    let menu_event_name = format!("menu-{}", event_id);
+                    println!("发送 {} 事件到前端", menu_event_name);
+                    let _ = app.emit(&menu_event_name, ());
+                    return;
                 }
+
+                // 处理其他标准菜单项
+                let menu_event_name = format!("menu-{}", event_id);
+                println!("发送 {} 事件到前端", menu_event_name);
+                let _ = app.emit(&menu_event_name, ());
             });
 
             Ok(())

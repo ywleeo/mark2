@@ -15,6 +15,24 @@ pub struct PluginManifest {
     pub backend: Option<BackendConfig>,
     #[serde(default)]
     pub permissions: Vec<String>,
+    #[serde(default)]
+    pub menu: Option<MenuConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuConfig {
+    #[serde(default)]
+    pub toggle: Option<MenuItemConfig>,
+    #[serde(default)]
+    pub settings: Option<MenuItemConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MenuItemConfig {
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub accelerator: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,8 +50,8 @@ pub struct BackendConfig {
 
 /// 扫描 plugins 目录，读取所有 manifest.json
 pub fn scan_plugins() -> Result<Vec<PluginManifest>, String> {
-    // 获取项目根目录下的 plugins 目录
-    let plugins_dir = PathBuf::from("plugins");
+    // 获取项目根目录下的 plugins 目录（相对于 src-tauri 目录）
+    let plugins_dir = PathBuf::from("../plugins");
 
     if !plugins_dir.exists() {
         println!("[PluginLoader] plugins 目录不存在，创建空目录");

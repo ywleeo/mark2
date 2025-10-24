@@ -20,12 +20,22 @@ export async function registerMenuListeners(handlers) {
     await register('menu-toggle-sidebar', handlers.onToggleSidebar);
     await register('menu-toggle-status-bar', handlers.onToggleStatusBar);
     await register('menu-toggle-markdown-code-view', handlers.onToggleMarkdownCodeView);
-    await register('menu-toggle-ai-assistant', handlers.onToggleAiAssistant);
-    await register('menu-open-ai-settings', handlers.onOpenAiSettings);
     await register('menu-file-new', handlers.onNewFile);
     await register('menu-file-delete', handlers.onDeleteActiveFile);
     await register('menu-file-move', handlers.onMoveActiveFile);
     await register('menu-file-rename', handlers.onRenameActiveFile);
+
+    // 动态注册插件菜单事件 (plugin-{id}-toggle, plugin-{id}-settings)
+    // 通过 EventBus 转发给插件系统
+    const pluginEventUnlisten = await listen('menu-plugin-ai-assistant-toggle', () => {
+        handlers.onToggleAiAssistant?.();
+    });
+    disposers.push(pluginEventUnlisten);
+
+    const pluginSettingsUnlisten = await listen('menu-plugin-ai-assistant-settings', () => {
+        handlers.onOpenAiSettings?.();
+    });
+    disposers.push(pluginSettingsUnlisten);
 
     return () => {
         while (disposers.length > 0) {

@@ -32,7 +32,14 @@ export class AiSidebar {
                         class="ai-sidebar__clear"
                         data-role="clear-messages"
                         title="清空对话"
-                    >清空</button>
+                        aria-label="清空对话"
+                    >
+                        <svg class="ai-sidebar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 20h16" />
+                            <path d="M9 15l3-9 8 8-3 3" />
+                            <path d="M5 16l4 4" />
+                        </svg>
+                    </button>
                     <button type="button" class="ai-sidebar__close" title="关闭">×</button>
                 </div>
             </div>
@@ -101,12 +108,6 @@ export class AiSidebar {
                         role: 'user',
                         content: event.payload?.prompt || '',
                     });
-                    this.appendMessage({
-                        id: `${event.id}-assistant`,
-                        role: 'assistant',
-                        content: '',
-                        isStreaming: true,
-                    });
                     break;
 
                 case 'task-stream-start':
@@ -114,13 +115,16 @@ export class AiSidebar {
                     break;
 
                 case 'task-stream-chunk':
-                    this.appendMessage({
-                        id: `${event.id}-assistant`,
-                        role: 'assistant',
-                        content: event.buffer || '',
-                        isStreaming: true,
-                    });
-                    this.scrollMessagesToBottom();
+                    // 只有当有内容时才显示 assistant 消息
+                    if (event.buffer && event.buffer.trim()) {
+                        this.appendMessage({
+                            id: `${event.id}-assistant`,
+                            role: 'assistant',
+                            content: event.buffer,
+                            isStreaming: true,
+                        });
+                        this.scrollMessagesToBottom();
+                    }
                     break;
 
                 case 'task-stream-end':

@@ -2,7 +2,7 @@
   "id": "ai-assistant",
   "name": "AI 写作助手",
   "version": "1.0.0",
-  "description": "基于 LLM 的智能写作助手，支持对话、任务型工作流和文件操作",
+  "description": "基于 LLM 的智能写作助手，支持流式对话",
   "author": "Mark2 Team",
 
   "frontend": {
@@ -10,26 +10,18 @@
     "enabled": true
   },
 
-  "backend": {
-    "enabled": true,
-    "commands": [
-      "ai_execute",
-      "ai_execute_stream",
-      "ai_execute_task",
-      "ai_cancel_task",
-      "get_ai_config",
-      "save_ai_config",
-      "clear_ai_api_key",
-      "ai_read_file",
-      "ai_write_file",
-      "ai_replace_content",
-      "ai_insert_content"
-    ]
+  "menu": {
+    "toggle": {
+      "label": "Toggle AI 写作助手",
+      "accelerator": "CmdOrCtrl+Shift+A"
+    },
+    "settings": {
+      "label": "AI 写作助手 Settings...",
+      "accelerator": "CmdOrCtrl+Shift+,"
+    }
   },
 
   "permissions": [
-    "fs:read",
-    "fs:write",
     "network:request"
   ]
 }

@@ -8,8 +8,6 @@ export class AiConfigManager {
         this.cleanupFunctions = [];
 
         this.currentConfig = null;
-        this.hasExistingKey = false;
-        this.keyCleared = false;
 
         this.root = document.createElement('div');
         this.root.className = 'settings-modal hidden';
@@ -18,44 +16,24 @@ export class AiConfigManager {
                 <form class="settings-form">
                     <header class="settings-header">
                         <h2 id="aiConfigDialogTitle">AI 设置</h2>
-                        <p class="settings-subtitle">配置模型、API Key 以及请求参数。</p>
+                        <p class="settings-subtitle">配置 OpenAI API Key 和模型参数</p>
                     </header>
 
                     <section class="settings-body">
                         <label class="settings-field">
-                            <span class="settings-label">模型名称</span>
-                            <input type="text" name="aiModel" placeholder="例如 gpt-4o-mini" />
+                            <span class="settings-label">API Key</span>
+                            <input type="password" name="apiKey" autocomplete="off" placeholder="sk-..." />
+                            <span class="settings-hint">输入你的 OpenAI API Key</span>
                         </label>
                         <label class="settings-field">
-                            <span class="settings-label">API Key</span>
-                            <div class="settings-input-with-action">
-                                <input type="password" name="aiApiKey" autocomplete="off" placeholder="sk-..." />
-                                <button type="button" class="btn tertiary" data-action="ai-clear-key">清除</button>
-                            </div>
-                            <span class="settings-hint" data-role="ai-key-hint"></span>
+                            <span class="settings-label">模型名称</span>
+                            <input type="text" name="model" placeholder="gpt-4o-mini" />
                         </label>
                         <label class="settings-field">
                             <span class="settings-label">Base URL</span>
-                            <input type="text" name="aiBaseUrl" placeholder="默认：https://api.openai.com/v1/chat/completions" />
+                            <input type="text" name="baseUrl" placeholder="https://api.openai.com/v1" />
+                            <span class="settings-hint">可选，默认使用 OpenAI 官方地址</span>
                         </label>
-                        <div class="settings-grid">
-                            <label class="settings-field">
-                                <span class="settings-label">请求超时 (毫秒)</span>
-                                <input type="number" name="aiTimeout" min="5000" max="180000" step="1000" />
-                            </label>
-                            <label class="settings-field">
-                                <span class="settings-label">每分钟请求上限</span>
-                                <input type="number" name="aiRateLimit" min="1" max="120" step="1" />
-                            </label>
-                            <label class="settings-field">
-                                <span class="settings-label">并发请求数</span>
-                                <input type="number" name="aiConcurrency" min="1" max="10" step="1" />
-                            </label>
-                            <label class="settings-field">
-                                <span class="settings-label">温度 (0-2)</span>
-                                <input type="number" name="aiTemperature" min="0" max="2" step="0.1" />
-                            </label>
-                        </div>
                     </section>
 
                     <footer class="settings-footer">
@@ -69,23 +47,16 @@ export class AiConfigManager {
         document.body.appendChild(this.root);
 
         this.form = this.root.querySelector('.settings-form');
-        this.modelInput = this.form.querySelector('input[name="aiModel"]');
-        this.apiKeyInput = this.form.querySelector('input[name="aiApiKey"]');
-        this.baseUrlInput = this.form.querySelector('input[name="aiBaseUrl"]');
-        this.timeoutInput = this.form.querySelector('input[name="aiTimeout"]');
-        this.rateLimitInput = this.form.querySelector('input[name="aiRateLimit"]');
-        this.concurrencyInput = this.form.querySelector('input[name="aiConcurrency"]');
-        this.temperatureInput = this.form.querySelector('input[name="aiTemperature"]');
-        this.keyHintElement = this.form.querySelector('[data-role="ai-key-hint"]');
+        this.apiKeyInput = this.form.querySelector('input[name="apiKey"]');
+        this.modelInput = this.form.querySelector('input[name="model"]');
+        this.baseUrlInput = this.form.querySelector('input[name="baseUrl"]');
 
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
-        this.clearKeyButton = this.form.querySelector('[data-action="ai-clear-key"]');
         this.saveButton = this.form.querySelector('button[type="submit"]');
 
         this.handleSubmit = this.handleSubmit.bind(this);
         this.handleKeydown = this.handleKeydown.bind(this);
         this.handleBackdropClick = this.handleBackdropClick.bind(this);
-        this.handleClearKey = this.handleClearKey.bind(this);
 
         this.form.addEventListener('submit', this.handleSubmit);
         this.root.addEventListener('mousedown', this.handleBackdropClick);
@@ -93,26 +64,6 @@ export class AiConfigManager {
         if (this.cancelButton) {
             const cleanup = addClickHandler(this.cancelButton, () => this.close(true));
             this.cleanupFunctions.push(cleanup);
-        }
-        if (this.saveButton) {
-            const cleanup = addClickHandler(this.saveButton, () => this.form.requestSubmit());
-            this.cleanupFunctions.push(cleanup);
-        }
-        if (this.clearKeyButton) {
-            const cleanup = addClickHandler(this.clearKeyButton, this.handleClearKey);
-            this.cleanupFunctions.push(cleanup);
-        }
-
-        if (this.apiKeyInput) {
-            this.apiKeyInput.addEventListener('input', () => {
-                if (this.apiKeyInput.value.trim().length > 0) {
-                    this.keyCleared = false;
-                    this.hasExistingKey = false;
-                    this.updateKeyHint('保存后将更新密钥');
-                } else if (!this.hasExistingKey) {
-                    this.updateKeyHint('');
-                }
-            });
         }
     }
 
@@ -141,35 +92,16 @@ export class AiConfigManager {
 
         const effective = this.currentConfig || {};
 
-        const model = effective.model || 'gpt-4o-mini';
-        const baseUrl = effective.base_url || '';
-        const timeout = Number(effective.request_timeout_ms) || 60000;
-        const rateLimit = Number(effective.max_requests_per_minute) || 20;
-        const concurrency = Number(effective.max_concurrent_requests) || 2;
-        const temperature = Number(effective.temperature);
-        const hasKey = Boolean(effective.has_api_key);
-
-        if (this.modelInput) this.modelInput.value = model;
-        if (this.baseUrlInput) {
-            this.baseUrlInput.value = baseUrl;
-            this.baseUrlInput.placeholder = '默认：https://api.openai.com/v1/chat/completions';
-        }
-        if (this.timeoutInput) this.timeoutInput.value = timeout;
-        if (this.rateLimitInput) this.rateLimitInput.value = rateLimit;
-        if (this.concurrencyInput) this.concurrencyInput.value = concurrency;
-        if (this.temperatureInput) {
-            const validTemp = Number.isFinite(temperature) ? this.clamp(temperature, 0, 2) : 0.7;
-            this.temperatureInput.value = validTemp;
-        }
-
+        // 从 localStorage 格式读取
         if (this.apiKeyInput) {
-            this.apiKeyInput.value = '';
-            this.apiKeyInput.placeholder = hasKey ? '已配置，保存时可保留当前密钥' : 'sk-...';
+            this.apiKeyInput.value = effective.apiKey || '';
         }
-
-        this.hasExistingKey = hasKey;
-        this.keyCleared = false;
-        this.updateKeyHint();
+        if (this.modelInput) {
+            this.modelInput.value = effective.model || 'gpt-4o-mini';
+        }
+        if (this.baseUrlInput) {
+            this.baseUrlInput.value = effective.baseUrl || 'https://api.openai.com/v1';
+        }
 
         if (!this.isOpen) {
             document.addEventListener('keydown', this.handleKeydown);
@@ -191,80 +123,18 @@ export class AiConfigManager {
         }
     }
 
-    updateKeyHint(message = '') {
-        if (!this.keyHintElement) {
-            return;
-        }
-        if (this.keyCleared) {
-            this.keyHintElement.textContent = message || '保存后将移除已保存的密钥';
-            this.keyHintElement.classList.add('is-warning');
-            return;
-        }
-        if (this.hasExistingKey) {
-            this.keyHintElement.textContent = message || '当前密钥已保存，留空可保持不变';
-            this.keyHintElement.classList.remove('is-warning');
-            return;
-        }
-        this.keyHintElement.textContent = message;
-        this.keyHintElement.classList.remove('is-warning');
-    }
-
-    handleClearKey() {
-        this.hasExistingKey = false;
-        this.keyCleared = true;
-        if (this.apiKeyInput) {
-            this.apiKeyInput.value = '';
-            this.apiKeyInput.placeholder = 'sk-...';
-            this.apiKeyInput.focus();
-        }
-        this.updateKeyHint();
-    }
-
-    clamp(value, min, max) {
-        const number = Number(value);
-        if (!Number.isFinite(number)) {
-            return min;
-        }
-        return Math.min(Math.max(number, min), max);
-    }
-
     handleSubmit(event) {
         event.preventDefault();
 
+        const apiKey = (this.apiKeyInput?.value || '').trim();
         const model = (this.modelInput?.value || '').trim() || 'gpt-4o-mini';
-        const baseUrl = (this.baseUrlInput?.value || '').trim();
-        const timeout = Number(this.timeoutInput?.value) || 60000;
-        const rateLimit = Number(this.rateLimitInput?.value) || 20;
-        const concurrency = Number(this.concurrencyInput?.value) || 2;
-        const temperature = Number(this.temperatureInput?.value);
-        const apiKeyInput = (this.apiKeyInput?.value || '').trim();
-
-        const typedNewKey = apiKeyInput.length > 0;
-        const clearedManually = this.keyCleared && !typedNewKey;
-
-        let keepExistingKey = false;
-        if (!typedNewKey && this.hasExistingKey && !clearedManually) {
-            keepExistingKey = true;
-        }
+        const baseUrl = (this.baseUrlInput?.value || '').trim() || 'https://api.openai.com/v1';
 
         const payload = {
+            apiKey,
             model,
-            base_url: baseUrl || null,
-            request_timeout_ms: this.clamp(timeout, 5000, 180000),
-            max_requests_per_minute: this.clamp(rateLimit, 1, 120),
-            max_concurrent_requests: this.clamp(concurrency, 1, 10),
-            temperature: Number.isFinite(temperature) ? this.clamp(temperature, 0, 2) : 0.7,
-            stream: true,
-            keep_existing_api_key: keepExistingKey,
+            baseUrl,
         };
-
-        if (typedNewKey) {
-            payload.api_key = apiKeyInput;
-            payload.keep_existing_api_key = false;
-        } else if (clearedManually) {
-            payload.api_key = null;
-            payload.keep_existing_api_key = false;
-        }
 
         if (typeof this.onSubmit === 'function') {
             this.onSubmit(payload);
