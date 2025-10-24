@@ -1,0 +1,35 @@
+{
+  "id": "ai-assistant",
+  "name": "AI 写作助手",
+  "version": "1.0.0",
+  "description": "基于 LLM 的智能写作助手，支持对话、任务型工作流和文件操作",
+  "author": "Mark2 Team",
+
+  "frontend": {
+    "entry": "./frontend/index.js",
+    "enabled": true
+  },
+
+  "backend": {
+    "enabled": true,
+    "commands": [
+      "ai_execute",
+      "ai_execute_stream",
+      "ai_execute_task",
+      "ai_cancel_task",
+      "get_ai_config",
+      "save_ai_config",
+      "clear_ai_api_key",
+      "ai_read_file",
+      "ai_write_file",
+      "ai_replace_content",
+      "ai_insert_content"
+    ]
+  },
+
+  "permissions": [
+    "fs:read",
+    "fs:write",
+    "network:request"
+  ]
+}

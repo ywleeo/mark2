@@ -1,20 +1,15 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod ai;
-mod file_tools;
+mod plugin_loader;
 
-use ai::provider::AiStreamUpdate;
 use base64::Engine;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use font_kit::source::SystemSource;
-use headless_chrome::{Browser, LaunchOptions};
-use serde::Serialize;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
-use std::sync::atomic::Ordering;
-use tauri::{menu::*, Emitter};
+use tauri::menu::*;
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -23,46 +18,12 @@ use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 
+use serde::Serialize;
+use headless_chrome::{Browser, LaunchOptions};
+
 #[derive(Serialize)]
 struct FileMetadata {
     modified_time: u64, // Unix timestamp in seconds
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct AiStreamStartEvent {
-    id: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct AiStreamChunkEvent {
-    id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content_delta: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning_delta: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    role: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    finish_reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct AiStreamEndEvent {
-    id: String,
-    content: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct AiStreamErrorEvent {
-    id: String,
-    message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct AiStreamCancelledEvent {
-    id: String,
 }
 
 #[tauri::command]
@@ -337,135 +298,6 @@ fn reveal_in_file_manager(path: String) -> Result<(), String> {
     reveal_in_file_manager_impl(&path)
 }
 
-#[tauri::command]
-fn get_ai_config(state: tauri::State<'_, ai::AiState>) -> Result<ai::AiConfigSnapshot, String> {
-    Ok(state.snapshot())
-}
-
-#[tauri::command]
-fn save_ai_config(
-    state: tauri::State<'_, ai::AiState>,
-    payload: ai::AiConfigUpdate,
-) -> Result<(), String> {
-    state.update_config(payload)
-}
-
-#[tauri::command]
-fn clear_ai_api_key(state: tauri::State<'_, ai::AiState>) -> Result<(), String> {
-    state.clear_api_key()
-}
-
-#[tauri::command]
-async fn ai_execute(
-    state: tauri::State<'_, ai::AiState>,
-    payload: ai::AiExecuteRequest,
-) -> Result<String, String> {
-    let config = state.get_config();
-    let result = ai::provider::execute(payload, &config).await?;
-    Ok(result.content)
-}
-
-#[tauri::command]
-async fn ai_execute_stream(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, ai::AiState>,
-    payload: ai::AiExecuteRequest,
-    task_id: String,
-) -> Result<ai::provider::AiExecutionResult, String> {
-    let config = state.get_config();
-    let cancel_flag = state.register_task(&task_id);
-
-    let _ = app_handle.emit(
-        "ai-stream-start",
-        AiStreamStartEvent {
-            id: task_id.clone(),
-        },
-    );
-
-    let chunk_handle = app_handle.clone();
-    let chunk_task_id = task_id.clone();
-    let cancel_flag_for_update = cancel_flag.clone();
-
-    let result = ai::provider::execute_stream(payload, &config, move |update: AiStreamUpdate| {
-        if cancel_flag_for_update.load(Ordering::Relaxed) {
-            return Err("__cancelled__".to_string());
-        }
-
-        let AiStreamUpdate {
-            content_delta,
-            reasoning_delta,
-            role,
-            finish_reason,
-        } = update;
-
-        let payload = AiStreamChunkEvent {
-            id: chunk_task_id.clone(),
-            content_delta,
-            reasoning_delta,
-            role,
-            finish_reason,
-        };
-        if let Err(error) = chunk_handle.emit("ai-stream-chunk", payload) {
-            eprintln!("广播 AI 流式事件失败: {}", error);
-        }
-        Ok(())
-    })
-    .await;
-
-    state.unregister_task(&task_id);
-
-    match &result {
-        Ok(result) => {
-            let _ = app_handle.emit(
-                "ai-stream-end",
-                AiStreamEndEvent {
-                    id: task_id.clone(),
-                    content: result.content.clone(),
-                    reasoning: result.reasoning.clone(),
-                },
-            );
-        }
-        Err(message) => {
-            if message == "__cancelled__" {
-                let _ = app_handle.emit(
-                    "ai-stream-cancelled",
-                    AiStreamCancelledEvent {
-                        id: task_id.clone(),
-                    },
-                );
-                return Err("cancelled".to_string());
-            }
-            let _ = app_handle.emit(
-                "ai-stream-error",
-                AiStreamErrorEvent {
-                    id: task_id.clone(),
-                    message: message.clone(),
-                },
-            );
-        }
-    }
-
-    result
-}
-
-#[tauri::command]
-fn ai_cancel_task(state: tauri::State<'_, ai::AiState>, task_id: String) -> Result<(), String> {
-    state.cancel_task(&task_id);
-    Ok(())
-}
-
-#[tauri::command]
-async fn ai_execute_task(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, ai::AiState>,
-    payload: ai::AiExecuteRequest,
-    task_id: String,
-    workspace_root: Option<String>,
-) -> Result<String, String> {
-    let config = state.get_config();
-    ai::execute_task(&app_handle, payload, task_id, workspace_root, &config).await
-}
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -486,24 +318,9 @@ fn main() {
             get_file_metadata,
             ipc_health_check,
             reveal_in_file_manager,
-            get_ai_config,
-            save_ai_config,
-            clear_ai_api_key,
-            ai_execute,
-            ai_execute_stream,
-            ai_cancel_task,
-            ai_execute_task,
-            file_tools::ai_read_file,
-            file_tools::ai_write_file,
-            file_tools::ai_replace_content,
-            file_tools::ai_insert_content,
-            file_tools::ai_get_editor_context
+            plugin_loader::list_plugins
         ])
         .setup(|app| {
-            let ai_state = ai::AiState::initialize(&app.handle())
-                .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
-            app.manage(ai_state);
-
             // 创建菜单
             let open_item = MenuItemBuilder::with_id("open", "Open...")
                 .accelerator("CmdOrCtrl+O")
