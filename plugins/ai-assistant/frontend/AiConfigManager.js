@@ -1,4 +1,4 @@
-import { addClickHandler } from '../utils/PointerHelper.js';
+import { addClickHandler } from '../../../src/utils/PointerHelper.js';
 
 export class AiConfigManager {
     constructor(options = {}) {

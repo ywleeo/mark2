@@ -2,9 +2,9 @@
  * AI 助手插件
  * 完全解耦的 AI 功能模块
  */
-import { AiSidebar } from '../../../src/components/AiSidebar.js';
-import { AiConfigManager } from '../../../src/components/AiConfigManager.js';
-import { aiService } from '../../../src/modules/aiService.js';
+import { AiSidebar } from './AiSidebar.js';
+import { AiConfigManager } from './AiConfigManager.js';
+import { aiService } from './aiService.js';
 
 export const metadata = {
     id: 'ai-assistant',

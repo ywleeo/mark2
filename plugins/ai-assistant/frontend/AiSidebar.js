@@ -1,5 +1,5 @@
-import { addClickHandler } from '../utils/PointerHelper.js';
-import { aiService } from '../modules/aiService.js';
+import { addClickHandler } from '../../../src/utils/PointerHelper.js';
+import { aiService } from './aiService.js';
 
 export class AiSidebar {
     constructor(containerElement, getEditorContext, callbacks = {}) {

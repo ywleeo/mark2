@@ -1,5 +1,6 @@
 import { eventBus } from './EventBus.js';
 import { invoke } from '@tauri-apps/api/core';
+import { AppBridge } from './AppBridge.js';
 
 /**
  * 插件管理器 - 负责插件的自动扫描、加载、激活、卸载
@@ -9,7 +10,12 @@ export class PluginManager {
         this.eventBus = options.eventBus || eventBus;
         this.plugins = new Map();
         this.pluginContexts = new Map();
-        this.appContext = options.appContext || {};
+
+        // 创建 AppBridge 实例
+        this.appBridge = new AppBridge({
+            eventBus: this.eventBus,
+            appContext: options.appContext || {},
+        });
     }
 
     /**
@@ -173,8 +179,8 @@ export class PluginManager {
                 emitAsync: (...args) => this.eventBus.emitAsync(...args),
             },
 
-            // 应用上下文（主应用提供的接口）
-            app: this.appContext,
+            // 应用能力接口（通过 AppBridge 提供）
+            app: this.appBridge,
 
             // 获取其他插件的 API
             getPluginApi: (id) => {
