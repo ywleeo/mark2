@@ -462,6 +462,11 @@ async function initializeApplication() {
         normalizeFsPath,
         revealInFileManager,
         getFileMetadata,
+        onVisibilityChange: () => {
+            window.requestAnimationFrame(() => {
+                codeEditor?.requestLayout?.();
+            });
+        },
     });
     statusBarController.updateStatusBar();
     statusBarController.setupStatusBarPathInteraction({

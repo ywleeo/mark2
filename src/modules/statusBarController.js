@@ -8,6 +8,7 @@ export function createStatusBarController({
     normalizeFsPath,
     revealInFileManager,
     getFileMetadata,
+    onVisibilityChange,
 }) {
     if (!statusBarElement
         || !statusBarFilePathElement
@@ -25,7 +26,9 @@ export function createStatusBarController({
             return;
         }
 
-        if (hidden) {
+        const nextHidden = Boolean(hidden);
+
+        if (nextHidden) {
             body.classList.add('is-status-bar-hidden');
             statusBarElement.setAttribute('aria-hidden', 'true');
         } else {
@@ -33,7 +36,12 @@ export function createStatusBarController({
             statusBarElement.removeAttribute('aria-hidden');
         }
 
-        isStatusBarHidden = hidden;
+        const visibilityChanged = nextHidden !== isStatusBarHidden;
+        isStatusBarHidden = nextHidden;
+
+        if (visibilityChanged && typeof onVisibilityChange === 'function') {
+            onVisibilityChange({ hidden: nextHidden });
+        }
     }
 
     function toggleStatusBarVisibility() {
