@@ -51,7 +51,8 @@
     padding: 0;
 }
 
-.settings-tab {
+.settings-tab,
+.tab-button {
     flex: 1;
     padding: 10px 16px;
     font-size: 14px;
@@ -65,13 +66,23 @@
     outline: none;
 }
 
-.settings-tab:hover {
+.settings-tab:hover,
+.tab-button:hover {
     color: #475569;
 }
 
-.settings-tab.active {
+.settings-tab.active,
+.tab-button.active {
     color: #2563eb;
     border-bottom-color: #2563eb;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
 }
 
 .settings-subtitle {
@@ -106,7 +117,8 @@
 }
 
 .settings-field input,
-.settings-field select {
+.settings-field select,
+.settings-field textarea {
     border: 1px solid #cbd5f5;
     border-radius: 8px;
     padding: 10px 12px;
@@ -115,6 +127,13 @@
     background: #f8fafc;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    font-family: inherit;
+}
+
+.settings-field textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.6;
 }
 
 .settings-field select {
@@ -137,7 +156,8 @@
 }
 
 .settings-field input:focus,
-.settings-field select:focus {
+.settings-field select:focus,
+.settings-field textarea:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
     background: #ffffff;

@@ -23,5 +23,10 @@
 
   "permissions": [
     "network:request"
-  ]
+  ],
+
+  "config": {
+    "rolePrompt": "你是一个专业的写作助手",
+    "outputStyle": "简洁直接，要点分明"
+  }
 }

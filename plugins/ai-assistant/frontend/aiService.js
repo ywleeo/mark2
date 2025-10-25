@@ -22,6 +22,8 @@ class AiService {
             apiKey: '',
             model: 'gpt-4o-mini',
             baseUrl: 'https://api.openai.com/v1',
+            rolePrompt: '',
+            outputStyle: '',
         };
     }
 
@@ -114,8 +116,22 @@ class AiService {
             // 构建消息列表
             const messages = [];
 
-            if (request.systemPrompt) {
-                messages.push({ role: 'system', content: request.systemPrompt });
+            // 构建系统提示词
+            let systemPrompt = request.systemPrompt || '';
+
+            // 如果配置了角色提示词，添加到 system prompt
+            if (this.config.rolePrompt?.trim()) {
+                systemPrompt = this.config.rolePrompt.trim();
+            }
+
+            // 如果配置了输出风格，追加到 system prompt
+            if (this.config.outputStyle?.trim()) {
+                const stylePrompt = `\n\n输出要求：${this.config.outputStyle.trim()}`;
+                systemPrompt += stylePrompt;
+            }
+
+            if (systemPrompt) {
+                messages.push({ role: 'system', content: systemPrompt });
             }
 
             if (request.history) {
