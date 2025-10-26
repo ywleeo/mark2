@@ -3,3 +3,4 @@ node_modules
 /src-tauri/target
 /dist
 /test-workspace
+AGENTS.md
