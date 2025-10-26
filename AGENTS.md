@@ -13,6 +13,8 @@ Mark2 pairs a Vite-driven interface with a Rust/Tauri shell. Front-end entry poi
 ## Coding Style & Naming Conventions
 Use ES modules with four-space indentation and trailing semicolons for JavaScript files. Prefer PascalCase for React-style components, camelCase for functions and variables, and kebab-case for filesystem paths. For Rust modules, follow standard `rustfmt` defaults with `snake_case` identifiers. Avoid introducing new global singletons; expose features via small composable classes or functions.
 
+Always include succinct, high-signal code comments when implementing new logic so future maintainers understand the intent without reverse-engineering the code.
+
 ## Testing Guidelines
 There is no automated JavaScript test suite yet; add Vitest or Playwright coverage alongside features (`src/__tests__/` or `tests/`) and document new commands. For the Rust side, co-locate unit tests inside `#[cfg(test)]` modules, and run them with `cargo test` from `src-tauri`. Before opening a PR, exercise critical flows manually in `npm run tauri:dev`, focusing on file watching, Markdown rendering, and menu actions.
 
