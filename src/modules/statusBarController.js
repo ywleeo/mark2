@@ -79,14 +79,41 @@ export function createStatusBarController({
             statusBarPathCleanup = null;
         }
 
-        statusBarPathCleanup = addClickHandler(
+        let pointerDownWithMetaKey = false;
+
+        const resetPointerMetaState = () => {
+            pointerDownWithMetaKey = false;
+        };
+
+        const handlePointerDown = (event) => {
+            pointerDownWithMetaKey = Boolean(event.metaKey || event.ctrlKey);
+        };
+
+        statusBarFilePathElement.addEventListener('pointerdown', handlePointerDown);
+        statusBarFilePathElement.addEventListener('pointercancel', resetPointerMetaState);
+
+        const cleanupClickHandler = addClickHandler(
             statusBarFilePathElement,
             () => handleStatusBarPathActivate(getCurrentFile),
             {
-                shouldHandle: (event) => Boolean(getCurrentFile()) && (event.metaKey || event.ctrlKey),
+                shouldHandle: (event) => {
+                    const hasFile = Boolean(getCurrentFile());
+                    const hasMetaKey = Boolean(event.metaKey || event.ctrlKey);
+                    const shouldHandleEvent = hasFile && hasMetaKey && pointerDownWithMetaKey;
+                    if (event.type === 'pointerup' || event.type === 'click') {
+                        resetPointerMetaState();
+                    }
+                    return shouldHandleEvent;
+                },
                 preventDefault: true,
             }
         );
+
+        statusBarPathCleanup = () => {
+            cleanupClickHandler?.();
+            statusBarFilePathElement.removeEventListener('pointerdown', handlePointerDown);
+            statusBarFilePathElement.removeEventListener('pointercancel', resetPointerMetaState);
+        };
     }
 
     async function handleStatusBarPathActivate(getCurrentFile) {
