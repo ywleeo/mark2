@@ -78,9 +78,30 @@ export function createFileMenuActions(options = {}) {
     async function createNewFile() {
         try {
             const { save } = await import('@tauri-apps/plugin-dialog');
+            // 默认定位到当前活动标签所在文件的父目录，辅助用户在相同目录下建新文件
+            let defaultPath = '';
+            try {
+                const tabManager = getTabManager?.();
+                const activeTabId = tabManager?.activeTabId;
+                if (tabManager && activeTabId) {
+                    const activeTab = tabManager.getAllTabs?.()
+                        ?.find(tab => tab.id === activeTabId);
+                    const normalizedActivePath = normalizeFsPath(activeTab?.path);
+                    if (normalizedActivePath) {
+                        const { dirname } = await import('@tauri-apps/api/path');
+                        const parentDir = await dirname(normalizedActivePath);
+                        const normalizedParent = normalizeFsPath(parentDir);
+                        if (normalizedParent) {
+                            defaultPath = normalizedParent;
+                        }
+                    }
+                }
+            } catch (pathError) {
+                console.warn('获取新建文件默认目录失败:', pathError);
+            }
             const targetPath = await save({
                 title: '创建文件',
-                defaultPath: '',
+                defaultPath: defaultPath || undefined,
             });
 
             if (!targetPath) {
