@@ -24,6 +24,20 @@ export async function activate(context) {
 
     let aiSidebar = null;
     let aiConfigManager = null;
+    let editorRefs = {
+        markdownEditor: null,
+        codeEditor: null,
+    };
+
+    const detachEditorReady = context.eventBus.on('editor:ready', (payload) => {
+        editorRefs = {
+            markdownEditor: payload?.markdownEditor || null,
+            codeEditor: payload?.monacoEditor || null,
+        };
+        if (aiSidebar) {
+            aiSidebar.setEditorReferences(editorRefs);
+        }
+    });
 
     // 导出插件 API
     const api = {
@@ -38,11 +52,22 @@ export async function activate(context) {
                     return;
                 }
 
-                aiSidebar = new AiSidebar(container, async (options) => {
-                    // 获取编辑器上下文
-                    const context = await app.getEditorContext?.(options);
-                    return context || '';
+                aiSidebar = new AiSidebar(container, {
+                    app,
+                    getEditorContext: async (options) => {
+                        const editorContext = await app.getEditorContext?.(options);
+                        return editorContext || '';
+                    },
+                    getDocumentContent: async () => {
+                        const documentContent = await app.getDocumentContent?.();
+                        return documentContent || '';
+                    },
+                    getActiveViewMode: async () => {
+                        const mode = await app.getActiveViewMode?.();
+                        return mode || 'markdown';
+                    },
                 });
+                aiSidebar.setEditorReferences(editorRefs);
             }
             aiSidebar.show();
         },
@@ -97,6 +122,9 @@ export async function activate(context) {
     context.onCleanup(() => {
         aiSidebar?.destroy?.();
         aiConfigManager?.close?.(false);
+        if (typeof detachEditorReady === 'function') {
+            detachEditorReady();
+        }
     });
 
     console.log('[AI Plugin] 激活完成');
