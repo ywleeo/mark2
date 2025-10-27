@@ -322,15 +322,17 @@ function toggleStatusBarVisibility() {
  * 清空所有编辑器内容并重置活动文件。
  */
 function clearActiveFileView() {
+    // 先重置文件状态，避免清理编辑器时触发的更新回调使用旧路径更新窗口标题
+    currentFile = null;
+    window.currentFile = null;
+    hasUnsavedChanges = false;
+
     editor?.clear?.();
     codeEditor?.clear?.();
     imageViewer?.clear?.();
     unsupportedViewer?.clear?.();
     activateMarkdownView();
     markdownCodeMode?.reset();
-    currentFile = null;
-    window.currentFile = null;
-    hasUnsavedChanges = false;
     updateWindowTitle();
     persistWorkspaceState({ currentFile: null });
 }
