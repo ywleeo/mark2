@@ -13,11 +13,25 @@ export class DualAgentOrchestrator {
     constructor(options = {}) {
         this.coordinator = options.coordinator || new CoordinatorAgent(options.coordinatorOptions);
         this.executor = options.executor || new ExecutorAgent(options.executorOptions);
-        this.getDocumentContent = options.getDocumentContent;
+        this.document = options.document || null;
+        this.fallbackReadDocument = options.fallbackReadDocument || null;
         this.maxIterations = options.maxIterations || DEFAULT_MAX_ITERATIONS;
         this.chunkSize = options.chunkSize || DEFAULT_CHUNK_SIZE;
         this.executeWithStreaming = options.executeWithStreaming || null;
         this.onAction = typeof options.onAction === 'function' ? options.onAction : null;
+        this.availableActions = ['read_document', 'delegate_to_executor', 'finish'];
+
+        if (this.document) {
+            if (typeof this.document.insertAfter === 'function') {
+                this.availableActions.push('insert_after_range');
+            }
+            if (typeof this.document.replaceRange === 'function') {
+                this.availableActions.push('replace_range');
+            }
+            if (typeof this.document.append === 'function') {
+                this.availableActions.push('append_to_document');
+            }
+        }
     }
 
     async runSession(params) {
@@ -25,7 +39,7 @@ export class DualAgentOrchestrator {
 
         for (let iteration = 0; iteration < this.maxIterations; iteration += 1) {
             const statePayload = this.buildCoordinatorState(session);
-            const decision = await this.coordinator.planNextAction(statePayload);
+        const decision = await this.coordinator.planNextAction(statePayload);
 
             session.steps.push({
                 type: 'coordinator',
@@ -42,14 +56,53 @@ export class DualAgentOrchestrator {
                 case 'delegate_to_executor':
                     await this.handleDelegateToExecutor(session, decision.payload);
                     break;
-                case 'finish':
+                case 'insert_after_range':
+                    await this.handleInsertAfterRange(session, decision.payload);
+                    break;
+                case 'replace_range':
+                    await this.handleReplaceRange(session, decision.payload);
+                    break;
+                case 'append_to_document':
+                    await this.handleAppendToDocument(session, decision.payload);
+                    break;
+                case 'finish': {
+                    if (!decision.payload) {
+                        decision.payload = {};
+                    }
+
+                    const hasExecutorAnswer =
+                        typeof session.lastExecutorAnswer === 'string' && session.lastExecutorAnswer.trim().length > 0;
+                    const alreadyDelegated = session.steps.some(step => step.type === 'executor_result');
+
+                    if (!alreadyDelegated || !hasExecutorAnswer) {
+                        const fallbackPayload = {
+                            ...decision.payload,
+                            prompt: decision.payload.prompt || session.userPrompt,
+                        };
+                        await this.handleDelegateToExecutor(session, fallbackPayload);
+                    }
+
+
+                    if (!decision.payload.answer || !decision.payload.answer.trim?.()) {
+                        decision.payload.answer = session.lastExecutorAnswer || '';
+                    }
+
                     session.status = 'finished';
-                    session.finalAnswer = decision.payload?.answer || session.lastExecutorAnswer || '';
+                    const finishAnswer = decision.payload?.answer;
+                    const metadataReasoning = decision.metadata?.reasoning;
+                    session.finalAnswer = typeof finishAnswer === 'string' && finishAnswer.trim()
+                        ? finishAnswer.trim()
+                        : (
+                            session.lastExecutorAnswer?.trim
+                                ? session.lastExecutorAnswer.trim()
+                                : (typeof metadataReasoning === 'string' ? metadataReasoning.trim() : '')
+                        );
                     session.finishMetadata = {
                         notes: decision.payload?.notes,
                         metadata: decision.metadata || {},
                     };
                     return session;
+                }
                 default:
                     throw new Error(`Unsupported action: ${decision.action}`);
             }
@@ -106,27 +159,47 @@ export class DualAgentOrchestrator {
                         confidence: step.decision?.metadata?.confidence,
                     };
                 }
+                if (step.type === 'document_mutation') {
+                    return {
+                        type: 'document_mutation',
+                        action: step.action,
+                        range: step.result?.appliedRange || step.payload?.range || null,
+                        preview: trimTextPreview(step.content || step.result?.preview || '', 160),
+                    };
+                }
                 return step;
             }),
             constraints: {
-                availableActions: ['read_document', 'delegate_to_executor', 'finish'],
+                availableActions: this.availableActions.slice(),
                 chunkSize: this.chunkSize,
                 remainingIterations: Math.max(0, this.maxIterations - session.steps.filter(step => step.type === 'coordinator').length),
+                documentState: {
+                    cursor: session.documentState?.cursor ?? 0,
+                    totalLines: session.documentState?.totalLines ?? null,
+                },
+                documentCapabilities: {
+                    canWrite: !!this.document,
+                    supportedMutations: this.availableActions.filter(action => (
+                        action === 'insert_after_range'
+                        || action === 'replace_range'
+                        || action === 'append_to_document'
+                    )),
+                },
             },
             lastExecutorAnswer: session.lastExecutorAnswer,
         };
     }
 
-    async ensureDocumentState(session) {
+    async ensureFallbackDocumentState(session) {
         if (session.documentState) {
             return session.documentState;
         }
 
-        if (!this.getDocumentContent) {
+        if (!this.fallbackReadDocument) {
             throw new Error('未提供读取文档的能力');
         }
 
-        const documentContent = await this.getDocumentContent();
+        const documentContent = await this.fallbackReadDocument();
         const normalized = (documentContent || '').replace(/\r\n/g, '\n');
         const lines = normalized.split('\n');
 
@@ -166,7 +239,15 @@ export class DualAgentOrchestrator {
     }
 
     async handleReadDocument(session, payload = {}) {
-        const documentState = await this.ensureDocumentState(session);
+        if (this.document && typeof this.document.readRange === 'function') {
+            await this.handleReadDocumentViaDocumentIO(session, payload);
+            return;
+        }
+        await this.handleReadDocumentViaFallback(session, payload);
+    }
+
+    async handleReadDocumentViaFallback(session, payload = {}) {
+        const documentState = await this.ensureFallbackDocumentState(session);
         const range = this.nextChunkRange(documentState, payload.range || null);
 
         if (!range) {
@@ -207,6 +288,82 @@ export class DualAgentOrchestrator {
         this.emitAction('read_document', { range, contextId, preview: contextEntry.summary }, session);
     }
 
+    async handleReadDocumentViaDocumentIO(session, payload = {}) {
+        const state = session.documentState || { cursor: 0, totalLines: null };
+        session.documentState = state;
+
+        let requestedRange = null;
+        if (payload?.range && typeof payload.range.startLine === 'number') {
+            const specifiedEnd = typeof payload.range.endLine === 'number'
+                ? payload.range.endLine
+                : payload.range.startLine + this.chunkSize - 1;
+            requestedRange = {
+                startLine: Math.max(1, Math.floor(payload.range.startLine)),
+                endLine: Math.max(Math.floor(payload.range.startLine), Math.floor(specifiedEnd)),
+            };
+        } else {
+            const startLine = Math.max(1, (state.cursor || 0) + 1);
+            const endLine = startLine + this.chunkSize - 1;
+            requestedRange = { startLine, endLine };
+        }
+
+        let result;
+        try {
+            result = await this.document.readRange({ range: requestedRange });
+        } catch (error) {
+            if (this.fallbackReadDocument) {
+                console.warn('[DualAgentOrchestrator] DocumentIO 读取失败，回退到本地实现:', error);
+                await this.handleReadDocumentViaFallback(session, payload);
+                return;
+            }
+            throw error;
+        }
+
+        const effectiveRange = result?.range || requestedRange;
+        const snippet = result?.content || '';
+        const totalLines = typeof result?.totalLines === 'number' ? result.totalLines : state.totalLines;
+
+        if ((!snippet || !snippet.trim()) && totalLines) {
+            if (!payload.range && effectiveRange?.endLine) {
+                state.cursor = effectiveRange.endLine;
+            }
+            session.steps.push({
+                type: 'read_document',
+                input: payload,
+                contextId: null,
+                preview: '没有新的内容可读取。',
+            });
+            this.emitAction('read_document', { range: effectiveRange, message: 'empty' }, session);
+            return;
+        }
+
+        const contextId = `doc-${session.contextPool.length + 1}`;
+        const summary = trimTextPreview(snippet, 200);
+
+        session.contextPool.push({
+            id: contextId,
+            type: 'document',
+            range: effectiveRange,
+            content: snippet,
+            summary,
+        });
+        session.steps.push({
+            type: 'read_document',
+            input: payload,
+            contextId,
+            preview: summary,
+        });
+
+        if (!payload.range && effectiveRange?.endLine) {
+            state.cursor = effectiveRange.endLine;
+        }
+        if (typeof totalLines === 'number') {
+            state.totalLines = totalLines;
+        }
+
+        this.emitAction('read_document', { range: effectiveRange, contextId, preview: summary }, session);
+    }
+
     async handleDelegateToExecutor(session, payload = {}) {
         const contextEntries = this.prepareExecutorContexts(session, payload);
 
@@ -234,6 +391,154 @@ export class DualAgentOrchestrator {
         });
 
         this.emitAction('delegate_to_executor', { requestOptions, taskId: result?.id }, session);
+    }
+
+    resolveContentForMutation(session, payload = {}) {
+        if (Object.prototype.hasOwnProperty.call(payload || {}, 'content') && typeof payload.content === 'string') {
+            return payload.content;
+        }
+
+        const collected = [];
+
+        if (typeof payload?.contextId === 'string') {
+            collected.push(payload.contextId);
+        }
+
+        if (Array.isArray(payload?.contextIds)) {
+            collected.push(...payload.contextIds.filter(id => typeof id === 'string'));
+        }
+
+        if (Array.isArray(payload?.context)) {
+            payload.context.forEach(entry => {
+                if (typeof entry === 'string') {
+                    collected.push(entry);
+                } else if (entry && typeof entry === 'object' && typeof entry.id === 'string') {
+                    collected.push(entry.id);
+                }
+            });
+        }
+
+        for (const contextId of collected) {
+            const matched = session.contextPool.find(item => item.id === contextId);
+            if (matched?.content) {
+                return matched.content;
+            }
+        }
+
+        const useLastAnswer = payload?.useLastExecutorAnswer !== false || payload?.source === 'last_executor_answer';
+        if (useLastAnswer && session.lastExecutorAnswer && session.lastExecutorAnswer.trim()) {
+            return session.lastExecutorAnswer;
+        }
+
+        return '';
+    }
+
+    updateDocumentStateAfterMutation(session, result) {
+        if (!session.documentState) {
+            session.documentState = { cursor: 0, totalLines: null };
+        }
+
+        if (result?.appliedRange?.endLine) {
+            session.documentState.cursor = result.appliedRange.endLine;
+        }
+
+        if (typeof result?.totalLines === 'number') {
+            session.documentState.totalLines = result.totalLines;
+        }
+    }
+
+    async handleInsertAfterRange(session, payload = {}) {
+        if (!this.document || typeof this.document.insertAfter !== 'function') {
+            throw new Error('当前模式不支持 insert_after_range');
+        }
+
+        const content = this.resolveContentForMutation(session, payload);
+        if (!content || !content.trim()) {
+            throw new Error('insert_after_range 缺少可插入的内容');
+        }
+
+        const preview = trimTextPreview(content, 160);
+        const result = await this.document.insertAfter({
+            range: payload.range,
+            content,
+            justification: payload.justification,
+            preview: payload.preview || preview,
+        });
+
+        session.steps.push({
+            type: 'document_mutation',
+            action: 'insert_after_range',
+            payload,
+            content,
+            result,
+        });
+        this.updateDocumentStateAfterMutation(session, result);
+        this.emitAction('insert_after_range', {
+            range: payload.range || null,
+            appliedRange: result?.appliedRange || null,
+            preview,
+        }, session);
+    }
+
+    async handleReplaceRange(session, payload = {}) {
+        if (!this.document || typeof this.document.replaceRange !== 'function') {
+            throw new Error('当前模式不支持 replace_range');
+        }
+
+        const content = this.resolveContentForMutation(session, payload);
+        const preview = trimTextPreview(content || '(空)', 160);
+
+        const result = await this.document.replaceRange({
+            range: payload.range,
+            content,
+            justification: payload.justification,
+            preview: payload.preview || preview,
+        });
+
+        session.steps.push({
+            type: 'document_mutation',
+            action: 'replace_range',
+            payload,
+            content,
+            result,
+        });
+        this.updateDocumentStateAfterMutation(session, result);
+        this.emitAction('replace_range', {
+            range: payload.range || null,
+            appliedRange: result?.appliedRange || null,
+            preview,
+        }, session);
+    }
+
+    async handleAppendToDocument(session, payload = {}) {
+        if (!this.document || typeof this.document.append !== 'function') {
+            throw new Error('当前模式不支持 append_to_document');
+        }
+
+        const content = this.resolveContentForMutation(session, payload);
+        if (!content || !content.trim()) {
+            throw new Error('append_to_document 缺少可写入的内容');
+        }
+
+        const preview = trimTextPreview(content, 160);
+        const result = await this.document.append({
+            content,
+            justification: payload.justification,
+            preview: payload.preview || preview,
+        });
+
+        session.steps.push({
+            type: 'document_mutation',
+            action: 'append_to_document',
+            payload,
+            content,
+            result,
+        });
+        this.updateDocumentStateAfterMutation(session, result);
+        this.emitAction('append_to_document', {
+            appliedRange: result?.appliedRange || null,
+            preview,
+        }, session);
     }
 
     prepareExecutorContexts(session, payload) {

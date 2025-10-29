@@ -17,6 +17,7 @@ export class AiSidebar {
             this.getEditorContext = contextOptionsOrGetEditorContext;
             this.getDocumentContent = contextOptionsOrGetEditorContext;
             this.getActiveViewMode = async () => 'markdown';
+            this.documentApi = null;
         } else {
             const options = contextOptionsOrGetEditorContext || {};
             this.app = options.app || null;
@@ -38,6 +39,11 @@ export class AiSidebar {
                 }
                 return 'markdown';
             });
+            this.documentApi = options.documentApi || null;
+        }
+
+        if (!this.documentApi && this.app?.document) {
+            this.documentApi = this.app.document;
         }
 
         this.isVisible = false;
@@ -56,15 +62,16 @@ export class AiSidebar {
             codeEditor: null,
         };
         this.orchestrator = new DualAgentOrchestrator({
-            getDocumentContent: async () => {
+            document: this.documentApi,
+            executeWithStreaming: (request, requestOptions) => this.executeExecutorRequest(request, requestOptions),
+            executor: this.executorAgent,
+            onAction: action => this.handleOrchestratorAction(action),
+            fallbackReadDocument: async () => {
                 if (typeof this.getDocumentContent === 'function') {
                     return await this.getDocumentContent({ preferSelection: false });
                 }
                 return '';
             },
-            executeWithStreaming: (request, requestOptions) => this.executeExecutorRequest(request, requestOptions),
-            executor: this.executorAgent,
-            onAction: action => this.handleOrchestratorAction(action),
         });
 
         this.render();
@@ -465,8 +472,9 @@ export class AiSidebar {
 
         try {
             const conversationHistory = this.buildConversationHistory();
+            const normalizedPrompt = prompt;
             const session = await this.orchestrator.runSession({
-                userPrompt: prompt,
+                userPrompt: normalizedPrompt,
                 conversationHistory,
             });
 
@@ -502,6 +510,29 @@ export class AiSidebar {
         }
 
         if (session.status === 'finished') {
+            const answerCandidate = session.finalAnswer ?? session.lastExecutorAnswer ?? '';
+            let finalAnswer = typeof answerCandidate === 'string'
+                ? answerCandidate.trim()
+                : (answerCandidate && typeof answerCandidate === 'object'
+                    ? JSON.stringify(answerCandidate)
+                    : '');
+
+            if (!finalAnswer) {
+                const reasoning = session.finishMetadata?.metadata?.reasoning;
+                if (typeof reasoning === 'string' && reasoning.trim()) {
+                    finalAnswer = reasoning.trim();
+                } else {
+                    finalAnswer = '（本次调度未生成回答，请重试或补充指令。）';
+                }
+            }
+
+            if (finalAnswer) {
+                this.appendMessage({
+                    role: 'assistant',
+                    content: finalAnswer,
+                });
+            }
+
             const notes = session.finishMetadata?.notes || '✅ 调度完成';
             if (notes) {
                 this.appendMessage({
@@ -556,7 +587,13 @@ export class AiSidebar {
             case 'read_document': {
                 const { range, preview } = actionEvent.payload || {};
                 let content = '📄 调度请求读取文档';
-                if (range) {
+                if (actionEvent.payload?.message === 'empty') {
+                    if (range) {
+                        content = `📄 第 ${range.startLine}-${range.endLine} 行暂无可用内容`;
+                    } else {
+                        content = '📄 当前范围没有可用内容';
+                    }
+                } else if (range) {
                     content = `📄 读取文档第 ${range.startLine}-${range.endLine} 行`;
                 } else if (actionEvent.payload?.message === 'reached_end') {
                     content = '📄 已到达文档末尾，无法继续读取';
@@ -575,6 +612,47 @@ export class AiSidebar {
                 this.appendMessage({
                     role: 'assistant',
                     content: '🤖 正在交由解答 AI 生成答案...',
+                    isMeta: true,
+                });
+                break;
+            }
+
+            case 'insert_after_range': {
+                const { range, appliedRange, preview } = actionEvent.payload || {};
+                const target = appliedRange || range;
+                const label = target
+                    ? `第 ${target.startLine}-${target.endLine} 行`
+                    : '文档末尾';
+                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
+                this.appendMessage({
+                    role: 'assistant',
+                    content: `✏️ 已在 ${label} 后插入内容${suffix}`,
+                    isMeta: true,
+                });
+                break;
+            }
+
+            case 'replace_range': {
+                const { range, appliedRange, preview } = actionEvent.payload || {};
+                const target = range || appliedRange;
+                const label = target
+                    ? `第 ${target.startLine}-${target.endLine} 行`
+                    : '指定范围';
+                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
+                this.appendMessage({
+                    role: 'assistant',
+                    content: `✏️ 已替换 ${label} 的内容${suffix}`,
+                    isMeta: true,
+                });
+                break;
+            }
+
+            case 'append_to_document': {
+                const { preview } = actionEvent.payload || {};
+                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
+                this.appendMessage({
+                    role: 'assistant',
+                    content: `✏️ 已追加内容到文档结尾${suffix}`,
                     isMeta: true,
                 });
                 break;

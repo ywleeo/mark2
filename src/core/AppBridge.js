@@ -12,6 +12,14 @@ export class AppBridge {
     constructor(options = {}) {
         this.eventBus = options.eventBus;
         this.appContext = options.appContext || {};
+        this.document = {
+            getCapabilities: () => this.invokeDocumentIOMethod('getCapabilities'),
+            read: (options) => this.invokeDocumentIOMethod('readDocument', options),
+            readRange: (options) => this.invokeDocumentIOMethod('readRange', options),
+            append: (options) => this.invokeDocumentIOMethod('appendToDocument', options),
+            insertAfter: (options) => this.invokeDocumentIOMethod('insertAfterRange', options),
+            replaceRange: (options) => this.invokeDocumentIOMethod('replaceRange', options),
+        };
     }
 
     // ============ UI 能力 ============
@@ -111,6 +119,23 @@ export class AppBridge {
      */
     async replaceSelection(text) {
         return await this.insertText(text, { position: 'replace' });
+    }
+
+    // ============ 文档 I/O 能力 ============
+
+    getDocumentIO() {
+        if (typeof this.appContext.getDocumentIO === 'function') {
+            return this.appContext.getDocumentIO();
+        }
+        return null;
+    }
+
+    invokeDocumentIOMethod(method, payload) {
+        const documentIO = this.getDocumentIO();
+        if (!documentIO || typeof documentIO[method] !== 'function') {
+            throw new Error(`DocumentIO 方法不可用: ${method}`);
+        }
+        return documentIO[method](payload);
     }
 
     // ============ 存储能力 ============

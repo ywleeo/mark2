@@ -37,6 +37,7 @@ import { createFileOperations } from './modules/fileOperations.js';
 import { createFileMenuActions } from './modules/fileMenuActions.js';
 import { PluginManager } from './core/PluginManager.js';
 import { eventBus } from './core/EventBus.js';
+import { createDocumentIO } from './core/DocumentIO.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -127,6 +128,7 @@ let statusBarController = null;
 let markdownCodeMode = null;
 let fileDropController = null;
 let pluginManager = null;
+let documentIO = null;
 
 function requireElementById(id, errorMessage) {
     const element = document.getElementById(id);
@@ -248,6 +250,21 @@ const {
     activateCodeView,
     activateImageView,
     activateUnsupportedView,
+});
+
+documentIO = createDocumentIO({
+    eventBus,
+    getCurrentFile: () => currentFile,
+    getEditor: () => editor,
+    getCodeEditor: () => codeEditor,
+    getActiveViewMode: () => activeViewMode,
+    setHasUnsavedChanges: (value) => {
+        hasUnsavedChanges = value;
+    },
+    saveCurrentEditorContentToCache,
+    fileSession,
+    updateWindowTitle,
+    persistWorkspaceState,
 });
 
 /**
@@ -432,6 +449,7 @@ async function initializeApplication() {
         appContext: {
             getActiveViewMode: () => activeViewMode,
             getEditorContext: requestActiveEditorContext,
+            getDocumentIO: () => documentIO,
         },
     });
 

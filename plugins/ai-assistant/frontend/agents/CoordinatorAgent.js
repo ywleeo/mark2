@@ -8,7 +8,7 @@ const COORDINATOR_SYSTEM_PROMPT = [
     '1. 只能输出一个 JSON 对象，不允许额外的解释、Markdown 代码块以外的文本或自然语言回复。',
     '2. JSON 结构需符合下列 Schema：',
     '{',
-    '  "action": "read_document" | "delegate_to_executor" | "finish",',
+    '  "action": "read_document" | "delegate_to_executor" | "insert_after_range" | "replace_range" | "append_to_document" | "finish",',
     '  "payload": { ... },',
     '  "metadata": {',
     '    "reasoning": "简要说明为何采取该动作",',
@@ -28,9 +28,31 @@ const COORDINATOR_SYSTEM_PROMPT = [
     '    "context": [ { "id": string } 或 { "label": string, "content": string } ... ],',
     '    "expectedFormat": "可选，对输出格式的额外约束"',
     '  }',
+    '- 当 action === "insert_after_range" 时，payload 必须包含：',
+    '  {',
+    '    "range": { "startLine": number, "endLine": number } (可选，缺省则视为文档末尾),',
+    '    "content": "要插入的文本" 或 `useLastExecutorAnswer: true`,',
+    '    "justification": "说明插入原因",',
+    '    "preview": "可选，简短预览"',
+    '  }',
+    '- 当 action === "replace_range" 时，payload 必须包含：',
+    '  {',
+    '    "range": { "startLine": number, "endLine": number },',
+    '    "content": "新的文本内容" （可引用 last_executor_answer 或上下文片段）,',
+    '    "justification": "说明替换原因",',
+    '    "preview": "可选，简短预览"',
+    '  }',
+    '- 当 action === "append_to_document" 时，payload 必须包含：',
+    '  {',
+    '    "content": "追加到文末的文本",',
+    '    "justification": "说明追加原因",',
+    '    "preview": "可选，简短预览"',
+    '  }',
     '- 当 action === "finish" 时，payload 必须包含 { "answer": string }，可选 "notes": string。',
     '',
-    '提供的上下文中可能包含 contextPool 数组（含 id 和 content）。如需复用这些上下文，请在 context 数组中引用对应 id；如需要新内容，请先使用 read_document 动作获取。',
+    '只允许使用 constraints.availableActions 中列出的动作类型。',
+    '提供的上下文中包含 contextPool（id 与 content）。如需复用这些片段，可在 payload 中引用 id；若需要最新的文档内容，请先使用 read_document 动作按需读取。',
+    '如需插入或替换上一轮解答的结果，可设置 `useLastExecutorAnswer: true`，系统会自动使用最新的解答文本。',
     '在无法推进或需要用户澄清时，应使用 finish，并在 answer 字段中说明情况。',
 ].join('\n');
 
@@ -79,4 +101,3 @@ export class CoordinatorAgent {
         };
     }
 }
-

@@ -66,6 +66,7 @@ export async function activate(context) {
                         const mode = await app.getActiveViewMode?.();
                         return mode || 'markdown';
                     },
+                    documentApi: app.document,
                 });
                 aiSidebar.setEditorReferences(editorRefs);
             }
