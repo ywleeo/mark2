@@ -11,6 +11,46 @@ class AiService {
     }
 
     /**
+     * 构建完整对话消息（可复用）
+     */
+    composeMessages(request, options = {}) {
+        const {
+            includeConfigPrompts = true,
+            systemPromptOverride = null,
+        } = options;
+
+        const messages = [];
+        let systemPrompt = systemPromptOverride ?? request.systemPrompt ?? '';
+
+        if (includeConfigPrompts) {
+            if (this.config.rolePrompt?.trim()) {
+                systemPrompt = this.config.rolePrompt.trim();
+            }
+            if (this.config.outputStyle?.trim()) {
+                const stylePrompt = `\n\n输出要求：${this.config.outputStyle.trim()}`;
+                systemPrompt = `${systemPrompt || ''}${stylePrompt}`;
+            }
+        }
+
+        if (systemPrompt) {
+            messages.push({ role: 'system', content: systemPrompt });
+        }
+
+        if (Array.isArray(request.history) && request.history.length > 0) {
+            const validHistory = request.history
+                .filter(entry => !!entry?.role && !!entry?.content)
+                .map(entry => ({
+                    role: entry.role,
+                    content: entry.content,
+                }));
+            messages.push(...validHistory);
+        }
+
+        messages.push({ role: 'user', content: request.prompt });
+        return messages;
+    }
+
+    /**
      * 从 localStorage 加载配置
      */
     loadConfig() {
@@ -113,32 +153,7 @@ class AiService {
         });
 
         try {
-            // 构建消息列表
-            const messages = [];
-
-            // 构建系统提示词
-            let systemPrompt = request.systemPrompt || '';
-
-            // 如果配置了角色提示词，添加到 system prompt
-            if (this.config.rolePrompt?.trim()) {
-                systemPrompt = this.config.rolePrompt.trim();
-            }
-
-            // 如果配置了输出风格，追加到 system prompt
-            if (this.config.outputStyle?.trim()) {
-                const stylePrompt = `\n\n输出要求：${this.config.outputStyle.trim()}`;
-                systemPrompt += stylePrompt;
-            }
-
-            if (systemPrompt) {
-                messages.push({ role: 'system', content: systemPrompt });
-            }
-
-            if (request.history) {
-                messages.push(...request.history);
-            }
-
-            messages.push({ role: 'user', content: request.prompt });
+            const messages = this.composeMessages(request, { includeConfigPrompts: true });
 
             // 调用 OpenAI API
             const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
@@ -237,6 +252,75 @@ class AiService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 调用 AI，无需事件驱动（用于调度/工具类任务）
+     */
+    async callAgent(request, options = {}) {
+        if (!request?.prompt?.trim()) {
+            throw new Error('请求内容为空');
+        }
+
+        if (!this.config.apiKey) {
+            throw new Error('请先配置 API Key');
+        }
+
+        const taskId = this.generateTaskId();
+        const {
+            includeConfigPrompts = true,
+            systemPromptOverride = null,
+            responseFormat = null,
+            maxOutputTokens = null,
+            temperature = null,
+            model = null,
+        } = options;
+
+        const messages = this.composeMessages(request, {
+            includeConfigPrompts,
+            systemPromptOverride,
+        });
+
+        const body = {
+            model: model || this.config.model,
+            messages,
+            stream: false,
+        };
+
+        if (responseFormat) {
+            body.response_format = responseFormat;
+        }
+
+        if (typeof maxOutputTokens === 'number') {
+            body.max_output_tokens = maxOutputTokens;
+        }
+
+        if (typeof temperature === 'number') {
+            body.temperature = temperature;
+        }
+
+        const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.config.apiKey}`,
+            },
+            body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API 请求失败: ${response.status} ${errorText}`);
+        }
+
+        const result = await response.json();
+        const message = result?.choices?.[0]?.message?.content ?? '';
+
+        return {
+            id: taskId,
+            content: message,
+            raw: result,
+        };
     }
 }
 
