@@ -339,7 +339,7 @@ fn main() {
                 .build(app)?;
 
             let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
-                .accelerator("CmdOrCtrl+B")
+                .accelerator("CmdOrCtrl+K")
                 .build(app)?;
 
             let toggle_status_bar_item =

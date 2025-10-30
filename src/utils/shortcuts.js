@@ -35,7 +35,7 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if (isMeta && key === 'b') {
+        if (isMeta && key === 'k') {
             event.preventDefault();
             if (onToggleSidebar) {
                 await onToggleSidebar();
