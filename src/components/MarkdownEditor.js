@@ -244,7 +244,24 @@ export class MarkdownEditor {
 
     // 预处理加粗标记
     preprocessBold(markdown) {
-        return markdown.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        if (!markdown) {
+            return '';
+        }
+        // 先处理四个星号的组合，避免被三重匹配截断
+        const withQuadrupleResolved = markdown.replace(
+            /\*\*\*\*([\s\S]+?)\*\*\*\*/g,
+            '<strong>$1</strong>'
+        );
+        // 再处理三重星号，保持 <em><strong> 正确嵌套
+        const withCombinedEmphasis = withQuadrupleResolved.replace(
+            /\*\*\*([\s\S]+?)\*\*\*/g,
+            '<em><strong>$1</strong></em>'
+        );
+        // 再处理普通加粗，确保不会吞掉属于斜体的星号
+        return withCombinedEmphasis.replace(
+            /(^|[^*])\*\*([\s\S]+?)\*\*(?!\*)/g,
+            (match, prefix, content) => `${prefix}<strong>${content}</strong>`
+        );
     }
 
     // 获取 Markdown 格式的内容
