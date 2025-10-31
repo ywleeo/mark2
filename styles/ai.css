@@ -197,6 +197,7 @@
     line-height: 1.55;
     color: #1f2937;
     word-break: break-word;
+    white-space: pre-wrap;
 }
 
 .ai-message__content--think {
@@ -221,6 +222,14 @@
     line-height: 1.5;
     color: #475569;
     margin-bottom: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+
+.ai-message__think-hint {
+    font-size: 11px;
+    color: #94a3b8;
 }
 
 .ai-message__think-preview {
@@ -249,6 +258,23 @@
 
 .ai-message__think-toggle:hover {
     background: rgba(37, 99, 235, 0.12);
+}
+
+.ai-message--think {
+    cursor: pointer;
+}
+
+.ai-message--think .ai-message__content--think {
+    cursor: pointer;
+}
+
+.ai-message--think.is-expanded .ai-message__think-hint {
+    color: #64748b;
+}
+
+.ai-message--think:not(.is-expanded) .ai-message__think-body {
+    max-height: calc(1.5em * 3);
+    overflow: hidden;
 }
 
 .ai-message__actions {

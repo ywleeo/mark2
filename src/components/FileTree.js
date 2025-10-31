@@ -816,7 +816,10 @@ export class FileTree {
                         state.hasReceivedEvent = true;
                         state.externallyModified = true;
                     }
-                    this.onFileChange?.(normalizedPath, event);
+
+                    requestAnimationFrame(() => {
+                        this.onFileChange?.(normalizedPath, event);
+                    });
                 },
                 { recursive: false, delayMs: 50 }
             );

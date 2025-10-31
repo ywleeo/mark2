@@ -64,6 +64,7 @@ class AiService {
             baseUrl: 'https://api.openai.com/v1',
             rolePrompt: '',
             outputStyle: '',
+            thinkBuffer: '',
         };
     }
 
@@ -142,6 +143,7 @@ class AiService {
             request,
             buffer: '',
             status: 'pending',
+            thinkBuffer: '',
         };
         this.activeTasks.set(taskId, task);
 
@@ -155,6 +157,9 @@ class AiService {
         try {
             const messages = this.composeMessages(request, { includeConfigPrompts: true });
 
+            const controller = new AbortController();
+            task.abortController = controller;
+
             // 调用 OpenAI API
             const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
                 method: 'POST',
@@ -167,6 +172,7 @@ class AiService {
                     messages,
                     stream: true,
                 }),
+                signal: controller.signal,
             });
 
             if (!response.ok) {
@@ -199,14 +205,71 @@ class AiService {
 
                         try {
                             const parsed = JSON.parse(data);
-                            const delta = parsed.choices[0]?.delta?.content;
+                            console.log('[aiService] streaming payload:', parsed);
+                            const choiceDelta = parsed.choices?.[0]?.delta || {};
 
-                            if (delta) {
-                                task.buffer += delta;
+                            const contentNode = choiceDelta.content;
+                            let answerDelta = '';
+                            let reasoningDelta = '';
+
+                            if (Array.isArray(contentNode)) {
+                                contentNode.forEach((part) => {
+                                    const text = part?.text ?? part?.content ?? '';
+                                    if (!text) return;
+                                    const type = part?.type || '';
+                                    if (type.includes('reason') || type === 'thinking') {
+                                        reasoningDelta += text;
+                                    } else {
+                                        answerDelta += text;
+                                    }
+                                });
+                            } else if (typeof contentNode === 'string') {
+                                answerDelta = contentNode;
+                            } else if (contentNode?.text) {
+                                answerDelta = contentNode.text;
+                            }
+
+                            const reasoningNode = choiceDelta.reasoning;
+                            if (Array.isArray(reasoningNode)) {
+                                reasoningNode.forEach((part) => {
+                                    if (typeof part?.text === 'string') {
+                                        reasoningDelta += part.text;
+                                    }
+                                });
+                            } else if (typeof reasoningNode?.text === 'string') {
+                                reasoningDelta += reasoningNode.text;
+                            }
+
+                            if (typeof choiceDelta.reasoning_content === 'string') {
+                                reasoningDelta += choiceDelta.reasoning_content;
+                            } else if (Array.isArray(choiceDelta.reasoning_content)) {
+                                choiceDelta.reasoning_content.forEach((part) => {
+                                    if (typeof part === 'string') {
+                                        reasoningDelta += part;
+                                    } else if (part && typeof part.text === 'string') {
+                                        reasoningDelta += part.text;
+                                    }
+                                });
+                            }
+
+                            if (reasoningDelta) {
+                                task.thinkBuffer += reasoningDelta;
+                                console.log('[aiService] think delta:', reasoningDelta);
+                                this.notify({
+                                    type: 'task-stream-think',
+                                    id: taskId,
+                                    delta: reasoningDelta,
+                                    buffer: task.thinkBuffer,
+                                });
+                            }
+
+                            if (answerDelta) {
+                                task.buffer += answerDelta;
+                                console.log('[aiService] content delta:', answerDelta);
                                 this.notify({
                                     type: 'task-stream-chunk',
                                     id: taskId,
-                                    delta,
+                                    delta: answerDelta,
                                     buffer: task.buffer,
                                 });
                             }
@@ -222,19 +285,36 @@ class AiService {
                 type: 'task-stream-end',
                 id: taskId,
                 buffer: task.buffer,
+                thinkBuffer: task.thinkBuffer,
+            });
+            console.log('[aiService] stream finished', {
+                id: taskId,
+                contentLength: task.buffer.length,
+                thinkLength: task.thinkBuffer.length,
             });
 
             this.activeTasks.delete(taskId);
-            return { id: taskId, content: task.buffer };
+            return { id: taskId, content: task.buffer, thinking: task.thinkBuffer };
 
         } catch (error) {
+            const isAborted = task.abortController?.signal?.aborted || error?.name === 'AbortError';
             this.activeTasks.delete(taskId);
-            this.notify({
-                type: 'task-failed',
-                id: taskId,
-                error: error.message || error,
-            });
-            throw error;
+            if (isAborted) {
+                if (!task.cancelledNotified) {
+                    this.notify({
+                        type: 'task-cancelled',
+                        id: taskId,
+                    });
+                }
+                throw new Error('请求已取消');
+            } else {
+                this.notify({
+                    type: 'task-failed',
+                    id: taskId,
+                    error: error.message || error,
+                });
+                throw error;
+            }
         }
     }
 
@@ -244,11 +324,15 @@ class AiService {
     async cancelTask(taskId) {
         const task = this.activeTasks.get(taskId);
         if (task) {
+            if (task.abortController && !task.abortController.signal.aborted) {
+                task.abortController.abort();
+            }
             this.activeTasks.delete(taskId);
             this.notify({
                 type: 'task-cancelled',
                 id: taskId,
             });
+            task.cancelledNotified = true;
             return true;
         }
         return false;

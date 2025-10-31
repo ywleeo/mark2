@@ -1,8 +1,6 @@
 import { addClickHandler } from '../../../src/utils/PointerHelper.js';
 import { aiService } from './aiService.js';
-import { DualAgentOrchestrator } from './agents/DualAgentOrchestrator.js';
 import { ExecutorAgent } from './agents/ExecutorAgent.js';
-import { trimTextPreview } from './utils/textPreview.js';
 
 const STATUS_HINT_DEFAULT = '可输入消息或让 AI 阅读当前文档';
 const STATUS_HINT_MISSING_KEY = '请先在设置中配置 API Key';
@@ -54,25 +52,12 @@ export class AiSidebar {
         this.pendingTaskQueue = [];
         this.taskContexts = new Map();
         this.executorAgent = new ExecutorAgent();
-        this.activeSessionToken = null;
-        this.sessionLog = [];
+        this.thinkStates = new Map();
         this.statusHintText = STATUS_HINT_DEFAULT;
         this.editorRefs = {
             markdownEditor: null,
             codeEditor: null,
         };
-        this.orchestrator = new DualAgentOrchestrator({
-            document: this.documentApi,
-            executeWithStreaming: (request, requestOptions) => this.executeExecutorRequest(request, requestOptions),
-            executor: this.executorAgent,
-            onAction: action => this.handleOrchestratorAction(action),
-            fallbackReadDocument: async () => {
-                if (typeof this.getDocumentContent === 'function') {
-                    return await this.getDocumentContent({ preferSelection: false });
-                }
-                return '';
-            },
-        });
 
         this.render();
         this.bindEvents();
@@ -90,7 +75,7 @@ export class AiSidebar {
             <div class="ai-sidebar__header">
                 <div>
                     <h3 class="ai-sidebar__title">AI 助手</h3>
-                    <p class="ai-sidebar__subtitle">双智能体调度模式</p>
+                    <p class="ai-sidebar__subtitle">单次问答模式</p>
                 </div>
                 <div class="ai-sidebar__header-actions">
                     <button
@@ -135,7 +120,7 @@ export class AiSidebar {
         if (this.sendButton) {
             this.sendButton.addEventListener('click', () => {
                 if (this.isBusy) {
-                    this.handleInterrupt();
+                    void this.handleInterrupt();
                 } else {
                     void this.handleSend();
                 }
@@ -168,37 +153,31 @@ export class AiSidebar {
             switch (event.type) {
                 case 'task-started': {
                     const pending = this.pendingTaskQueue.shift() || null;
-                    const fallbackPrompt = pending?.requestOptions?.prompt || pending?.context?.originalPrompt || '';
+                    const fallbackPrompt = pending?.requestOptions?.prompt || '';
                     const taskContext = pending?.context || {
                         originalPrompt: fallbackPrompt,
                         runCount: 0,
-                        displayPrompt: pending?.displayPrompt !== false,
+                        displayPrompt: false,
                     };
 
                     taskContext.currentTaskId = event.id;
                     taskContext.lastRequestOptions = pending?.requestOptions || event.payload || {};
-                    taskContext.displayMessage = pending?.displayMessage ?? taskContext.originalPrompt ?? fallbackPrompt;
+                    taskContext.displayPrompt = pending?.displayPrompt === true;
+                    taskContext.displayMessage = pending?.displayMessage ?? null;
                     taskContext.runCount = (taskContext.runCount || 0) + 1;
-                    taskContext.displayPrompt = pending?.displayPrompt !== false;
                     this.taskContexts.set(event.id, taskContext);
 
                     this.setBusy(true);
-
-                    if (taskContext.displayPrompt) {
-                        const messageContent = pending?.displayMessage ?? taskContext.originalPrompt ?? event.payload?.prompt ?? '';
-                        if (messageContent) {
-                            this.appendMessage({
-                                id: `${event.id}-user`,
-                                role: 'user',
-                                content: messageContent,
-                            });
-                        }
-                    }
+                    this.updateStatusMessage('AI 正在生成回答…');
                     break;
                 }
 
                 case 'task-stream-start':
                     this.streamStates.set(event.id, { streaming: true });
+                    break;
+
+                case 'task-stream-think':
+                    this.updateThinkStream(event.id, typeof event.buffer === 'string' ? event.buffer : (event.delta || ''));
                     break;
 
                 case 'task-stream-chunk':
@@ -222,6 +201,9 @@ export class AiSidebar {
                     });
                     this.streamStates.delete(event.id);
                     this.cleanupTaskContext(event.id);
+                    this.finalizeThinkBlock(event.id, event.thinkBuffer || '');
+                    this.setBusy(false);
+                    this.updateStatusMessage('');
                     break;
 
                 case 'task-failed':
@@ -233,7 +215,9 @@ export class AiSidebar {
                     });
                     this.streamStates.delete(event.id);
                     this.cleanupTaskContext(event.id);
+                    this.finalizeThinkBlock(event.id);
                     this.setBusy(false);
+                    this.updateStatusMessage(event.error || '请求失败');
                     break;
 
                 case 'task-cancelled':
@@ -244,7 +228,9 @@ export class AiSidebar {
                         isError: true,
                     });
                     this.cleanupTaskContext(event.id);
+                    this.finalizeThinkBlock(event.id);
                     this.setBusy(false);
+                    this.updateStatusMessage('已取消');
                     break;
 
                 case 'config':
@@ -267,6 +253,12 @@ export class AiSidebar {
         }
         this.pendingTaskQueue = [];
         this.taskContexts.clear();
+        this.thinkStates.forEach(state => {
+            if (state?.element?.parentElement) {
+                state.element.parentElement.removeChild(state.element);
+            }
+        });
+        this.thinkStates.clear();
     }
 
     updateStatusHint(config) {
@@ -339,7 +331,12 @@ export class AiSidebar {
         this.streamStates.clear();
         this.pendingTaskQueue = [];
         this.taskContexts.clear();
-        this.sessionLog = [];
+        this.thinkStates.forEach(state => {
+            if (state?.element?.parentElement) {
+                state.element.parentElement.removeChild(state.element);
+            }
+        });
+        this.thinkStates.clear();
         if (this.messagesContainer) {
             this.messagesContainer.innerHTML = '';
         }
@@ -362,9 +359,8 @@ export class AiSidebar {
             id,
             role: message.role || 'assistant',
             content: message.content || '',
-            isStreaming: message.isStreaming || false,
-            isError: message.isError || false,
-            isMeta: message.isMeta || false,
+            isStreaming: !!message.isStreaming,
+            isError: !!message.isError,
         };
 
         entry.element = this.buildMessageElement(entry);
@@ -399,11 +395,141 @@ export class AiSidebar {
 
         element.classList.toggle('ai-message--error', !!entry.isError);
         element.classList.toggle('ai-message--streaming', !!entry.isStreaming);
-        element.classList.toggle('ai-message--meta', !!entry.isMeta);
 
         if (content) {
             content.textContent = entry.content || '';
         }
+    }
+
+    updateThinkStream(taskId, buffer) {
+        if (!buffer) {
+            return;
+        }
+        let state = this.thinkStates.get(taskId);
+        if (!state) {
+            state = this.createThinkBlock(taskId);
+            this.thinkStates.set(taskId, state);
+        }
+        state.buffer = buffer;
+        state.complete = false;
+        this.refreshThinkBlock(state);
+        this.scrollMessagesToBottom();
+    }
+
+    finalizeThinkBlock(taskId, finalBuffer = null) {
+        const state = this.thinkStates.get(taskId);
+        if (!state && (finalBuffer || finalBuffer === '')) {
+            if (finalBuffer) {
+                const newState = this.createThinkBlock(taskId);
+                newState.buffer = finalBuffer;
+                newState.complete = true;
+                this.thinkStates.set(taskId, newState);
+                this.refreshThinkBlock(newState);
+            }
+            return;
+        }
+        if (!state) return;
+
+        if (typeof finalBuffer === 'string') {
+            state.buffer = finalBuffer;
+        }
+        state.complete = true;
+        this.refreshThinkBlock(state);
+    }
+
+    createThinkBlock(taskId) {
+        const state = {
+            id: taskId,
+            buffer: '',
+            expanded: false,
+            complete: false,
+            element: null,
+            body: null,
+            hint: null,
+        };
+
+        const element = document.createElement('div');
+        element.classList.add('ai-message', 'ai-message--assistant', 'ai-message--think');
+        element.dataset.taskId = taskId;
+
+        const content = document.createElement('div');
+        content.className = 'ai-message__content ai-message__content--think';
+
+        const title = document.createElement('div');
+        title.className = 'ai-message__think-title';
+        title.textContent = '🤔 模型思考';
+
+        const body = document.createElement('pre');
+        body.className = 'ai-message__think-body';
+        body.textContent = '';
+
+        const hint = document.createElement('div');
+        hint.className = 'ai-message__think-hint';
+
+        content.appendChild(title);
+        content.appendChild(body);
+        content.appendChild(hint);
+        element.appendChild(content);
+
+        element.addEventListener('click', () => {
+            state.expanded = !state.expanded;
+            this.refreshThinkBlock(state);
+        });
+
+        state.element = element;
+        state.body = body;
+        state.hint = hint;
+
+        if (this.messagesContainer) {
+            this.messagesContainer.appendChild(element);
+            this.scrollMessagesToBottom();
+        }
+
+        return state;
+    }
+
+    refreshThinkBlock(state) {
+        if (!state?.body) {
+            return;
+        }
+        const fullText = state.buffer || '';
+        const preview = this.getThinkPreview(fullText);
+        const displayText = state.expanded ? fullText : preview;
+        state.body.textContent = displayText || '(无思考内容)';
+        if (state.hint) {
+            if (state.expanded) {
+                state.hint.textContent = '点击收起思考';
+            } else if (state.complete && fullText && fullText !== preview) {
+                state.hint.textContent = '点击展开查看完整思考';
+            } else if (state.complete) {
+                state.hint.textContent = '思考完成';
+            } else {
+                state.hint.textContent = '思考生成中…点击展开查看完整思考';
+            }
+        }
+        if (state.element) {
+            state.element.classList.toggle('is-expanded', !!state.expanded);
+        }
+    }
+
+    getThinkPreview(text) {
+        if (!text) {
+            return '';
+        }
+        const normalized = text.replace(/\r/g, '');
+        const lines = normalized.split('\n');
+
+        // 去掉末尾连续空行
+        while (lines.length > 0 && !lines[lines.length - 1].trim()) {
+            lines.pop();
+        }
+
+        if (lines.length === 0) {
+            return '';
+        }
+
+        const previewLines = lines.slice(-3);
+        return previewLines.join('\n');
     }
 
     scrollMessagesToBottom() {
@@ -419,17 +545,15 @@ export class AiSidebar {
     }
 
     async executeExecutorRequest(request, options = {}) {
-        const taskContext = {
-            originalPrompt: options.prompt || '',
-            displayPrompt: options.displayPrompt ?? false,
-            displayMessage: options.displayMessage ?? null,
-        };
-
         const pendingEntry = {
-            context: taskContext,
+            context: {
+                originalPrompt: options.prompt || '',
+                displayPrompt: options.displayPrompt === true,
+                displayMessage: options.displayMessage ?? null,
+            },
             requestOptions: request,
-            displayPrompt: taskContext.displayPrompt,
-            displayMessage: taskContext.displayMessage,
+            displayPrompt: options.displayPrompt === true,
+            displayMessage: options.displayMessage ?? null,
         };
 
         this.pendingTaskQueue.push(pendingEntry);
@@ -447,7 +571,9 @@ export class AiSidebar {
     }
 
     async handleSend() {
-        if (this.isBusy) return;
+        if (this.isBusy) {
+            return;
+        }
 
         const prompt = (this.promptField?.value || '').trim();
         if (!prompt) {
@@ -464,202 +590,28 @@ export class AiSidebar {
             this.promptField.value = '';
         }
 
-        const sessionToken = Symbol('session');
-        this.activeSessionToken = sessionToken;
-        this.sessionLog = [];
-        this.updateStatusMessage('调度中…');
+        const conversationHistory = this.buildConversationHistory();
+        const request = this.executorAgent.buildRequest({
+            prompt,
+            history: conversationHistory,
+        });
+
+        this.updateStatusMessage('AI 正在生成回答…');
         this.setBusy(true);
 
         try {
-            const conversationHistory = this.buildConversationHistory();
-            const normalizedPrompt = prompt;
-            const session = await this.orchestrator.runSession({
-                userPrompt: normalizedPrompt,
-                conversationHistory,
+            await this.executeExecutorRequest(request, {
+                prompt,
+                displayPrompt: false,
             });
-
-            if (this.activeSessionToken !== sessionToken) {
-                return;
-            }
-
-            this.handleSessionCompletion(session);
         } catch (error) {
-            if (this.activeSessionToken === sessionToken) {
-                const errorMessage = `错误: ${error.message}`;
-                const lastMessage = this.messages[this.messages.length - 1];
-                if (!lastMessage || lastMessage.content !== errorMessage) {
-                    this.appendMessage({
-                        role: 'assistant',
-                        content: errorMessage,
-                        isError: true,
-                    });
-                }
-                this.updateStatusMessage(errorMessage);
-            }
-        } finally {
-            if (this.activeSessionToken === sessionToken) {
-                this.setBusy(false);
-                this.activeSessionToken = null;
-            }
-        }
-    }
-
-    handleSessionCompletion(session) {
-        if (!session) {
-            return;
-        }
-
-        if (session.status === 'finished') {
-            const answerCandidate = session.finalAnswer ?? session.lastExecutorAnswer ?? '';
-            let finalAnswer = typeof answerCandidate === 'string'
-                ? answerCandidate.trim()
-                : (answerCandidate && typeof answerCandidate === 'object'
-                    ? JSON.stringify(answerCandidate)
-                    : '');
-
-            if (!finalAnswer) {
-                const reasoning = session.finishMetadata?.metadata?.reasoning;
-                if (typeof reasoning === 'string' && reasoning.trim()) {
-                    finalAnswer = reasoning.trim();
-                } else {
-                    finalAnswer = '（本次调度未生成回答，请重试或补充指令。）';
-                }
-            }
-
-            if (finalAnswer) {
-                this.appendMessage({
-                    role: 'assistant',
-                    content: finalAnswer,
-                });
-            }
-
-            const notes = session.finishMetadata?.notes || '✅ 调度完成';
-            if (notes) {
-                this.appendMessage({
-                    role: 'assistant',
-                    content: notes,
-                    isMeta: true,
-                });
-            }
-            this.updateStatusMessage('调度完成');
-            return;
-        }
-
-        if (session.status === 'max_iterations') {
             this.appendMessage({
                 role: 'assistant',
-                content: '已达到最大调度轮数，结果可能不完整。',
+                content: `错误: ${error.message}`,
                 isError: true,
             });
-            this.updateStatusMessage('调度超时');
-            return;
-        }
-
-        if (session.status === 'running') {
-            this.updateStatusMessage('调度进行中');
-        }
-    }
-
-    handleOrchestratorAction(actionEvent) {
-        if (!actionEvent) {
-            return;
-        }
-
-        this.sessionLog.push(actionEvent);
-
-        switch (actionEvent.event) {
-            case 'coordinator_decision': {
-                const { decision } = actionEvent.payload || {};
-                if (!decision) break;
-                const action = decision.action || 'unknown';
-                const reasoning = decision.metadata?.reasoning || '';
-                const confidence = decision.metadata?.confidence ? `（置信度：${decision.metadata.confidence}）` : '';
-                const parts = [`🧭 调度动作：${action}`, reasoning ? `理由：${reasoning}` : null, confidence || null];
-                const content = parts.filter(Boolean).join(' ');
-                this.appendMessage({
-                    role: 'assistant',
-                    content,
-                    isMeta: true,
-                });
-                break;
-            }
-
-            case 'read_document': {
-                const { range, preview } = actionEvent.payload || {};
-                let content = '📄 调度请求读取文档';
-                if (actionEvent.payload?.message === 'empty') {
-                    if (range) {
-                        content = `📄 第 ${range.startLine}-${range.endLine} 行暂无可用内容`;
-                    } else {
-                        content = '📄 当前范围没有可用内容';
-                    }
-                } else if (range) {
-                    content = `📄 读取文档第 ${range.startLine}-${range.endLine} 行`;
-                } else if (actionEvent.payload?.message === 'reached_end') {
-                    content = '📄 已到达文档末尾，无法继续读取';
-                }
-
-                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
-                this.appendMessage({
-                    role: 'assistant',
-                    content: `${content}${suffix}`,
-                    isMeta: true,
-                });
-                break;
-            }
-
-            case 'delegate_to_executor': {
-                this.appendMessage({
-                    role: 'assistant',
-                    content: '🤖 正在交由解答 AI 生成答案...',
-                    isMeta: true,
-                });
-                break;
-            }
-
-            case 'insert_after_range': {
-                const { range, appliedRange, preview } = actionEvent.payload || {};
-                const target = appliedRange || range;
-                const label = target
-                    ? `第 ${target.startLine}-${target.endLine} 行`
-                    : '文档末尾';
-                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
-                this.appendMessage({
-                    role: 'assistant',
-                    content: `✏️ 已在 ${label} 后插入内容${suffix}`,
-                    isMeta: true,
-                });
-                break;
-            }
-
-            case 'replace_range': {
-                const { range, appliedRange, preview } = actionEvent.payload || {};
-                const target = range || appliedRange;
-                const label = target
-                    ? `第 ${target.startLine}-${target.endLine} 行`
-                    : '指定范围';
-                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
-                this.appendMessage({
-                    role: 'assistant',
-                    content: `✏️ 已替换 ${label} 的内容${suffix}`,
-                    isMeta: true,
-                });
-                break;
-            }
-
-            case 'append_to_document': {
-                const { preview } = actionEvent.payload || {};
-                const suffix = preview ? `：${trimTextPreview(preview, 80)}` : '';
-                this.appendMessage({
-                    role: 'assistant',
-                    content: `✏️ 已追加内容到文档结尾${suffix}`,
-                    isMeta: true,
-                });
-                break;
-            }
-
-            default:
-                break;
+            this.updateStatusMessage(error.message || '请求失败');
+            this.setBusy(false);
         }
     }
 
