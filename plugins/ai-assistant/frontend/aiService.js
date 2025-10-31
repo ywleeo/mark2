@@ -223,7 +223,6 @@ class AiService {
 
                         try {
                             const parsed = JSON.parse(data);
-                            console.log('[aiService] streaming payload:', parsed);
                             const choiceDelta = parsed.choices?.[0]?.delta || {};
 
                             const contentNode = choiceDelta.content;
@@ -272,7 +271,6 @@ class AiService {
 
                             if (reasoningDelta) {
                                 task.thinkBuffer += reasoningDelta;
-                                console.log('[aiService] think delta:', reasoningDelta);
                                 this.notify({
                                     type: 'task-stream-think',
                                     id: taskId,
@@ -283,7 +281,6 @@ class AiService {
 
                             if (answerDelta) {
                                 task.buffer += answerDelta;
-                                console.log('[aiService] content delta:', answerDelta);
                                 this.notify({
                                     type: 'task-stream-chunk',
                                     id: taskId,
@@ -304,11 +301,6 @@ class AiService {
                 id: taskId,
                 buffer: task.buffer,
                 thinkBuffer: task.thinkBuffer,
-            });
-            console.log('[aiService] stream finished', {
-                id: taskId,
-                contentLength: task.buffer.length,
-                thinkLength: task.thinkBuffer.length,
             });
 
             this.activeTasks.delete(taskId);
