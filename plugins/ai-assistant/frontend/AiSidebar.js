@@ -165,6 +165,7 @@ export class AiSidebar {
                     taskContext.displayPrompt = pending?.displayPrompt === true;
                     taskContext.displayMessage = pending?.displayMessage ?? null;
                     taskContext.runCount = (taskContext.runCount || 0) + 1;
+                    taskContext.userMessageId = pending?.userMessageId || null;
                     this.taskContexts.set(event.id, taskContext);
 
                     this.setBusy(true);
@@ -180,7 +181,8 @@ export class AiSidebar {
                     this.updateThinkStream(event.id, typeof event.buffer === 'string' ? event.buffer : (event.delta || ''));
                     break;
 
-                case 'task-stream-chunk':
+                case 'task-stream-chunk': {
+                    const taskContext = this.taskContexts.get(event.id);
                     if (event.buffer && event.buffer.trim()) {
                         this.appendMessage({
                             id: `${event.id}-assistant`,
@@ -191,8 +193,10 @@ export class AiSidebar {
                         this.scrollMessagesToBottom();
                     }
                     break;
+                }
 
-                case 'task-stream-end':
+                case 'task-stream-end': {
+                    const taskContext = this.taskContexts.get(event.id);
                     this.appendMessage({
                         id: `${event.id}-assistant`,
                         role: 'assistant',
@@ -200,13 +204,18 @@ export class AiSidebar {
                         isStreaming: false,
                     });
                     this.streamStates.delete(event.id);
+                    if (taskContext?.userMessageId) {
+                        this.resolvePendingConversation(taskContext.userMessageId);
+                    }
                     this.cleanupTaskContext(event.id);
                     this.finalizeThinkBlock(event.id, event.thinkBuffer || '');
                     this.setBusy(false);
                     this.updateStatusMessage('');
                     break;
+                }
 
-                case 'task-failed':
+                case 'task-failed': {
+                    const taskContext = this.taskContexts.get(event.id);
                     this.appendMessage({
                         id: `${event.id}-assistant`,
                         role: 'assistant',
@@ -214,24 +223,33 @@ export class AiSidebar {
                         isError: true,
                     });
                     this.streamStates.delete(event.id);
+                    if (taskContext?.userMessageId) {
+                        this.resolvePendingConversation(taskContext.userMessageId);
+                    }
                     this.cleanupTaskContext(event.id);
                     this.finalizeThinkBlock(event.id);
                     this.setBusy(false);
                     this.updateStatusMessage(event.error || '请求失败');
                     break;
+                }
 
-                case 'task-cancelled':
+                case 'task-cancelled': {
+                    const taskContext = this.taskContexts.get(event.id);
                     this.appendMessage({
                         id: `${event.id}-cancelled`,
                         role: 'assistant',
                         content: '已取消',
                         isError: true,
                     });
+                    if (taskContext?.userMessageId) {
+                        this.resolvePendingConversation(taskContext.userMessageId);
+                    }
                     this.cleanupTaskContext(event.id);
                     this.finalizeThinkBlock(event.id);
                     this.setBusy(false);
                     this.updateStatusMessage('已取消');
                     break;
+                }
 
                 case 'config':
                     this.updateStatusHint(event.data);
@@ -532,14 +550,22 @@ export class AiSidebar {
         return previewLines.join('\n');
     }
 
+    resolvePendingConversation(messageId) {
+        if (!messageId) return;
+        const message = this.messages.find(entry => entry.id === messageId);
+        if (message) {
+            message.isPendingConversation = false;
+        }
+    }
+
     scrollMessagesToBottom() {
         if (!this.messagesContainer) return;
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 
-    buildConversationHistory() {
+    buildConversationHistory({ includePending = false } = {}) {
         return this.messages
-            .filter(m => m.role && m.content && !m.isError)
+            .filter(m => m.role && m.content && !m.isError && (includePending || !m.isPendingConversation))
             .slice(-10)
             .map(m => ({ role: m.role, content: m.content }));
     }
@@ -554,6 +580,7 @@ export class AiSidebar {
             requestOptions: request,
             displayPrompt: options.displayPrompt === true,
             displayMessage: options.displayMessage ?? null,
+            userMessageId: options.userMessageId || null,
         };
 
         this.pendingTaskQueue.push(pendingEntry);
@@ -581,16 +608,19 @@ export class AiSidebar {
             return;
         }
 
-        this.appendMessage({
+        const userEntry = this.appendMessage({
             role: 'user',
             content: prompt,
         });
+        if (userEntry) {
+            userEntry.isPendingConversation = true;
+        }
 
         if (this.promptField) {
             this.promptField.value = '';
         }
 
-        const conversationHistory = this.buildConversationHistory();
+        const conversationHistory = this.buildConversationHistory({ includePending: false });
         const request = this.executorAgent.buildRequest({
             prompt,
             history: conversationHistory,
@@ -603,6 +633,7 @@ export class AiSidebar {
             await this.executeExecutorRequest(request, {
                 prompt,
                 displayPrompt: false,
+                userMessageId: userEntry?.id || null,
             });
         } catch (error) {
             this.appendMessage({
@@ -612,6 +643,9 @@ export class AiSidebar {
             });
             this.updateStatusMessage(error.message || '请求失败');
             this.setBusy(false);
+            if (userEntry?.id) {
+                this.resolvePendingConversation(userEntry.id);
+            }
         }
     }
 

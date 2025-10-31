@@ -150,7 +150,6 @@
 .ai-message--error {
     border: none;
     background: transparent;
-    padding: 4px 12px;
     font-size: 12px;
     color: #ef4444;
 }
@@ -201,7 +200,10 @@
 }
 
 .ai-message__content--think {
-    background: rgba(15, 23, 42, 0.04);
+    padding: 0;
+}
+
+.ai-message--think .ai-message__content {
     border-radius: 8px;
     padding: 8px 10px;
     font-size: 12px;
@@ -220,7 +222,7 @@
 .ai-message__think-body {
     font-size: 12px;
     line-height: 1.5;
-    color: #475569;
+    color: #798fb0;
     margin-bottom: 6px;
     white-space: pre-wrap;
     word-break: break-word;
@@ -359,7 +361,6 @@
 
 .ai-sidebar__send-btn:hover {
     background: #1d4ed8;
-    transform: translateY(-1px);
 }
 
 .ai-sidebar__send-btn.is-interrupt {
