@@ -53,6 +53,7 @@ export class AiSidebar {
         this.taskContexts = new Map();
         this.executorAgent = new ExecutorAgent();
         this.thinkStates = new Map();
+        this.copyFeedbackTimer = null;
         this.statusHintText = STATUS_HINT_DEFAULT;
         this.editorRefs = {
             markdownEditor: null,
@@ -534,14 +535,27 @@ export class AiSidebar {
             return;
         }
 
-        if (typeof this.app?.insertText === 'function') {
-            try {
+        try {
+            const markdownEditor = this.editorRefs?.markdownEditor;
+            console.log('[AiSidebar] insertAnswerAtCursor editorRefs', this.editorRefs);
+            if (markdownEditor?.insertTextAtCursor) {
+                console.log('[AiSidebar] calling insertTextAtCursor');
+                markdownEditor.insertTextAtCursor(text);
+                this.showToast('已插入到光标位置', 'success');
+                return;
+            }
+        } catch (error) {
+            console.warn('[AiSidebar] markdownEditor.insertTextAtCursor 调用失败', error);
+        }
+
+        try {
+            if (typeof this.app?.insertText === 'function') {
                 await this.app.insertText(text, { position: 'cursor' });
                 this.showToast('已插入到光标位置', 'success');
                 return;
-            } catch (error) {
-                console.warn('[AiSidebar] insertText 调用失败', error);
             }
+        } catch (error) {
+            console.warn('[AiSidebar] insertText 调用失败', error);
         }
 
         this.showToast('无法插入内容，请检查编辑器状态', 'error');

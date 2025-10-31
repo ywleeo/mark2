@@ -339,12 +339,23 @@ export class MarkdownEditor {
 
     insertTextAtCursor(text) {
         if (!this.editor || !text) {
+            console.warn('[MarkdownEditor] insertTextAtCursor skipped: editor or text missing', {
+                hasEditor: !!this.editor,
+                textLength: text?.length ?? 0,
+            });
             return;
         }
-        const { state } = this.editor;
-        const { from } = state.selection;
-        const transaction = state.tr.insertText(text, from);
-        this.editor.view.dispatch(transaction);
+        this.editor.commands.focus();
+        const { state, view } = this.editor;
+        const { from, to } = state.selection;
+        const docSize = state.doc?.content?.size ?? state.doc?.nodeSize ?? 0;
+        console.log('[MarkdownEditor] insertTextAtCursor', {
+            from,
+            to,
+            docSize,
+        });
+        const transaction = state.tr.insertText(text, from, to);
+        view.dispatch(transaction);
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
     }
 
