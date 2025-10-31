@@ -570,6 +570,46 @@ export class AiSidebar {
             .map(m => ({ role: m.role, content: m.content }));
     }
 
+    async buildDocumentContext() {
+        if (typeof this.getDocumentContent !== 'function') {
+            return null;
+        }
+
+        try {
+            const mode = typeof this.getActiveViewMode === 'function'
+                ? await this.getActiveViewMode()
+                : 'markdown';
+
+            const rawContent = await this.getDocumentContent({ preferSelection: false });
+            const content = typeof rawContent === 'string' ? rawContent.trim() : '';
+            if (!content) {
+                return null;
+            }
+
+            const normalized = content.replace(/\r\n/g, '\n');
+            const MAX_CONTEXT_LENGTH = 6000;
+            let truncated = false;
+            let snippet = normalized;
+            if (normalized.length > MAX_CONTEXT_LENGTH) {
+                snippet = normalized.slice(0, MAX_CONTEXT_LENGTH);
+                truncated = true;
+            }
+
+            const labelBase = mode === 'markdown' ? '当前 Markdown 文档' : '当前文档';
+            const label = truncated
+                ? `${labelBase}（截取前 ${MAX_CONTEXT_LENGTH} 字）`
+                : labelBase;
+
+            return {
+                label,
+                content: snippet,
+            };
+        } catch (error) {
+            console.warn('[AiSidebar] 读取文档内容失败', error);
+            return null;
+        }
+    }
+
     async executeExecutorRequest(request, options = {}) {
         const pendingEntry = {
             context: {
@@ -621,9 +661,12 @@ export class AiSidebar {
         }
 
         const conversationHistory = this.buildConversationHistory({ includePending: false });
+        const documentContext = await this.buildDocumentContext();
+
         const request = this.executorAgent.buildRequest({
             prompt,
             history: conversationHistory,
+            context: documentContext ? [documentContext] : [],
         });
 
         this.updateStatusMessage('AI 正在生成回答…');
