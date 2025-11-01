@@ -3,6 +3,8 @@ import { aiService } from './aiService.js';
 import { ExecutorAgent } from './agents/ExecutorAgent.js';
 import { AnswerActions } from './sidebar/AnswerActions.js';
 import { SidebarRenderer } from './sidebar/SidebarRenderer.js';
+import MarkdownIt from 'markdown-it';
+import markdownItTaskLists from 'markdown-it-task-lists';
 
 const STATUS_HINT_DEFAULT = '可输入消息或让 AI 阅读当前文档';
 const STATUS_HINT_MISSING_KEY = '请先在设置中配置 API Key';
@@ -63,6 +65,7 @@ export class AiSidebar {
         this.relayoutFrame = null;
         this.answerActions = new AnswerActions(this);
         this.renderer = new SidebarRenderer(this.container);
+        this.markdownRenderer = this.createMarkdownRenderer();
 
         this.render();
         this.bindEvents();
@@ -83,6 +86,55 @@ export class AiSidebar {
         this.statusLabel = refs.statusLabel;
         this.closeButton = refs.closeButton;
         this.clearButton = refs.clearButton;
+    }
+
+    createMarkdownRenderer() {
+        // Use markdown-it to render assistant replies with a controlled feature set.
+        const md = new MarkdownIt({
+            html: false,
+            linkify: true,
+            breaks: true,
+        });
+
+        md.use(markdownItTaskLists, {
+            enabled: true,
+            label: true,
+            labelAfter: true,
+        });
+
+        const defaultRender =
+            md.renderer.rules.link_open ||
+            ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
+
+        // Keep assistant links from hijacking the current window.
+        md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+            const targetIndex = tokens[idx].attrIndex('target');
+            if (targetIndex < 0) {
+                tokens[idx].attrPush(['target', '_blank']);
+            } else {
+                tokens[idx].attrs[targetIndex][1] = '_blank';
+            }
+            tokens[idx].attrSet('rel', 'noopener noreferrer');
+            return defaultRender(tokens, idx, options, env, self);
+        };
+
+        return md;
+    }
+
+    renderMarkdown(markdownText) {
+        if (!this.markdownRenderer) {
+            return null;
+        }
+        const text = typeof markdownText === 'string' ? markdownText : '';
+        if (!text.trim()) {
+            return '';
+        }
+        try {
+            return this.markdownRenderer.render(text);
+        } catch (error) {
+            console.warn('[AiSidebar] Markdown 渲染失败', error);
+            return null;
+        }
     }
 
     bindEvents() {
@@ -390,7 +442,19 @@ export class AiSidebar {
         element.classList.toggle('ai-message--streaming', !!entry.isStreaming);
 
         if (content) {
-            content.textContent = entry.content || '';
+            if (entry.role === 'assistant' && !entry.isError) {
+                const rendered = this.renderMarkdown(entry.content || '');
+                if (rendered !== null) {
+                    content.innerHTML = rendered;
+                    content.classList.add('ai-message__content--markdown');
+                } else {
+                    content.textContent = entry.content || '';
+                    content.classList.remove('ai-message__content--markdown');
+                }
+            } else {
+                content.textContent = entry.content || '';
+                content.classList.remove('ai-message__content--markdown');
+            }
         }
 
         if (entry.role === 'assistant' && !entry.isError) {
@@ -457,7 +521,7 @@ export class AiSidebar {
         title.className = 'ai-message__think-title';
         title.textContent = '🤔 模型思考';
 
-        const body = document.createElement('pre');
+        const body = document.createElement('div');
         body.className = 'ai-message__think-body';
         body.textContent = '';
 
@@ -493,7 +557,28 @@ export class AiSidebar {
         const fullText = state.buffer || '';
         const preview = this.getThinkPreview(fullText);
         const displayText = state.expanded ? fullText : preview;
-        state.body.textContent = displayText || '(无思考内容)';
+
+        const hasContent = !!(displayText && displayText.trim());
+
+        if (state.expanded) {
+            if (hasContent) {
+                const rendered = this.renderMarkdown(displayText);
+                if (rendered !== null) {
+                    state.body.innerHTML = rendered;
+                    state.body.classList.add('ai-message__content--markdown');
+                } else {
+                    state.body.textContent = displayText;
+                    state.body.classList.remove('ai-message__content--markdown');
+                }
+            } else {
+                state.body.textContent = '(无思考内容)';
+                state.body.classList.remove('ai-message__content--markdown');
+            }
+        } else {
+            state.body.textContent = hasContent ? displayText : '(无思考内容)';
+            state.body.classList.remove('ai-message__content--markdown');
+        }
+
         if (state.hint) {
             if (state.expanded) {
                 state.hint.textContent = '点击收起思考';

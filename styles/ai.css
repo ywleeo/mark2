@@ -196,6 +196,68 @@
     white-space: pre-wrap;
 }
 
+.ai-message__content--markdown {
+    white-space: normal;
+}
+
+.ai-message__content--markdown p {
+    margin: 0 0 0.75em;
+}
+
+.ai-message__content--markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-message__content--markdown ul,
+.ai-message__content--markdown ol {
+    margin: 0 0 0.75em;
+    padding-left: 1.25em;
+}
+
+.ai-message__content--markdown li {
+    margin: 0.25em 0;
+}
+
+.ai-message__content--markdown pre {
+    margin: 0 0 0.75em;
+    padding: 10px 12px;
+    background-color: #f4f4f5;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.ai-message__content--markdown code {
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    background-color: rgba(15, 23, 42, 0.06);
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.ai-message__content--markdown pre code {
+    padding: 0;
+    background: transparent;
+}
+
+.ai-message__content--markdown blockquote {
+    margin: 0 0 0.75em;
+    padding-left: 12px;
+    border-left: 3px solid rgba(148, 163, 184, 0.6);
+    color: #475569;
+}
+
+.ai-message__content--markdown a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.ai-message__content--markdown a:hover {
+    text-decoration: underline;
+}
+
 .ai-message__content--think {
     padding: 0;
     background-color: #f4f4f4;
@@ -225,6 +287,12 @@
     white-space: pre-wrap;
     word-break: break-word;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+
+.ai-message__think-body.ai-message__content--markdown {
+    white-space: normal;
+    font-family: inherit;
+    color: #475569;
 }
 
 .ai-message__think-hint {
