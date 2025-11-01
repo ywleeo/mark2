@@ -1,7 +1,7 @@
 // 代码块复制功能模块
 
 // 常量配置
-const COPY_BUTTON_ICON = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M9 9.75A2.25 2.25 0 0 1 11.25 7.5h7.5A2.25 2.25 0 0 1 21 9.75v7.5A2.25 2.25 0 0 1 18.75 19.5h-7.5A2.25 2.25 0 0 1 9 17.25v-7.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"></path><path d="M6 6.75A2.25 2.25 0 0 1 8.25 4.5h7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path><path d="M6 6.75A2.25 2.25 0 0 0 3.75 9v7.5A2.25 2.25 0 0 0 6 18.75h7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path></svg>';
+const COPY_BUTTON_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fcfcfcff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 const COPY_FEEDBACK_DURATION = 1600;
 const COPY_BUTTON_OFFSET = 8;
 const COPY_BUTTON_SIZE = 28;
