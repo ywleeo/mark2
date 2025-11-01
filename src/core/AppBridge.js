@@ -106,6 +106,11 @@ export class AppBridge {
      * @returns {Promise<void>}
      */
     async insertText(text, options = {}) {
+        if (typeof this.appContext?.insertText === 'function') {
+            await this.appContext.insertText(text, options);
+            return;
+        }
+
         this.eventBus?.emit('app:editor:insert', {
             text,
             position: options.position || 'cursor',

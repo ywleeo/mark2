@@ -146,6 +146,115 @@ function requireElementWithin(container, selector, errorMessage) {
     return element;
 }
 
+async function insertTextIntoActiveEditor(text, options = {}) {
+    const nextText = typeof text === 'string' ? text : '';
+    const position = options?.position || 'cursor';
+    const mode = activeViewMode || 'markdown';
+
+    const tryInsertIntoMarkdownEditor = () => {
+        if (!editor?.editor) {
+            return false;
+        }
+
+        const tiptapEditor = editor.editor;
+        if (!tiptapEditor) {
+            return false;
+        }
+
+        if (position === 'replace') {
+            if (typeof editor.insertTextAtCursor !== 'function') {
+                return false;
+            }
+            editor.insertTextAtCursor(nextText);
+            return true;
+        }
+
+        if (position === 'end') {
+            const docSize = tiptapEditor.state?.doc?.content?.size ?? tiptapEditor.state?.doc?.nodeSize ?? 0;
+            if (typeof tiptapEditor.commands?.setTextSelection === 'function' && docSize >= 0) {
+                tiptapEditor.commands.setTextSelection({ from: docSize, to: docSize });
+            }
+            if (typeof editor.insertTextAtCursor !== 'function') {
+                return false;
+            }
+            editor.insertTextAtCursor(nextText);
+            return true;
+        }
+
+        if (position === 'cursor') {
+            if (typeof editor.insertTextAtCursor !== 'function') {
+                return false;
+            }
+            editor.insertTextAtCursor(nextText);
+            return true;
+        }
+
+        return false;
+    };
+
+    const tryInsertIntoCodeEditor = () => {
+        if (!codeEditor) {
+            return false;
+        }
+
+        if (position === 'replace') {
+            if (typeof codeEditor.replaceSelectionWithText === 'function') {
+                codeEditor.replaceSelectionWithText(nextText);
+                return true;
+            }
+            if (typeof codeEditor.insertTextAtCursor === 'function') {
+                codeEditor.insertTextAtCursor(nextText);
+                return true;
+            }
+            return false;
+        }
+
+        if (position === 'end') {
+            const instance = codeEditor.editor;
+            const monaco = codeEditor.monaco;
+            const model = instance?.getModel?.();
+            if (instance && monaco && model) {
+                const lineNumber = model.getLineCount();
+                const column = model.getLineMaxColumn(lineNumber);
+                instance.setPosition({ lineNumber, column });
+                if (typeof codeEditor.insertTextAtCursor === 'function') {
+                    codeEditor.insertTextAtCursor(nextText);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (position === 'cursor') {
+            if (typeof codeEditor.insertTextAtCursor !== 'function') {
+                return false;
+            }
+            codeEditor.insertTextAtCursor(nextText);
+            return true;
+        }
+
+        return false;
+    };
+
+    if (mode === 'code' && tryInsertIntoCodeEditor()) {
+        return;
+    }
+
+    if (mode === 'markdown' && tryInsertIntoMarkdownEditor()) {
+        return;
+    }
+
+    if (tryInsertIntoMarkdownEditor()) {
+        return;
+    }
+
+    if (tryInsertIntoCodeEditor()) {
+        return;
+    }
+
+    console.warn('[Main] 插入文本失败：未找到可用编辑器', { position, mode });
+}
+
 const VIEW_MODE_BEHAVIORS = {
     markdown: {
         getPane: () => markdownPaneElement,
@@ -450,6 +559,7 @@ async function initializeApplication() {
             getActiveViewMode: () => activeViewMode,
             getEditorContext: requestActiveEditorContext,
             getDocumentIO: () => documentIO,
+            insertText: insertTextIntoActiveEditor,
         },
     });
 
