@@ -1,3 +1,5 @@
+import { addClickHandler } from '../../../../src/utils/PointerHelper.js';
+
 const COPY_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#747474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
 const INSERT_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#747474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 const REPLACE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#747474" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>';
@@ -38,11 +40,9 @@ export class AnswerActions {
             btn.innerHTML = icon;
             btn.setAttribute('aria-label', label);
             btn.title = label;
-            btn.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
+            addClickHandler(btn, () => {
                 void onClick(btn);
-            });
+            }, { preventDefault: true });
             actions.appendChild(btn);
         });
     }
