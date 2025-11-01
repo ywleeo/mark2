@@ -60,6 +60,7 @@ export class AiSidebar {
             markdownEditor: null,
             codeEditor: null,
         };
+        this.relayoutFrame = null;
         this.answerActions = new AnswerActions(this);
         this.renderer = new SidebarRenderer(this.container);
 
@@ -237,6 +238,10 @@ export class AiSidebar {
             this.unsubscribe();
             this.unsubscribe = null;
         }
+        if (this.relayoutFrame !== null) {
+            cancelAnimationFrame(this.relayoutFrame);
+            this.relayoutFrame = null;
+        }
         this.pendingTaskQueue = [];
         this.taskContexts.clear();
         this.thinkStates.forEach(state => {
@@ -289,11 +294,13 @@ export class AiSidebar {
             this.promptField.disabled = false;
             this.promptField.focus();
         }
+        this.scheduleEditorRelayout();
     }
 
     hide() {
         this.container.classList.remove('is-visible');
         this.isVisible = false;
+        this.scheduleEditorRelayout();
         if (typeof this.callbacks.onClose === 'function') {
             this.callbacks.onClose();
         }
@@ -389,14 +396,6 @@ export class AiSidebar {
         if (entry.role === 'assistant' && !entry.isError) {
             element.classList.add('ai-message--answer');
             this.answerActions.render(entry);
-        }
-    }
-
-    showToast(message, type = 'info') {
-        if (this.app?.showNotification) {
-            this.app.showNotification({ message, type, duration: 2200 });
-        } else {
-            console.log(`[AI Sidebar ${type}] ${message}`);
         }
     }
 
@@ -698,6 +697,21 @@ export class AiSidebar {
         } else {
             console.log(`[AI Sidebar ${type}] ${message}`);
         }
+    }
+
+    scheduleEditorRelayout() {
+        if (this.relayoutFrame !== null) {
+            cancelAnimationFrame(this.relayoutFrame);
+        }
+        this.relayoutFrame = window.requestAnimationFrame(() => {
+            this.relayoutFrame = null;
+            const codeEditor = this.editorRefs.codeEditor;
+            if (codeEditor?.requestLayout) {
+                codeEditor.requestLayout();
+            } else if (codeEditor?.editor?.layout) {
+                codeEditor.editor.layout();
+            }
+        });
     }
 
 }
