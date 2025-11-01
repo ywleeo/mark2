@@ -11,13 +11,23 @@ export class SearchBoxManager {
         this.searchInput = null;
         this.searchInfo = null;
         this.cleanupFunctions = []; // 存储清理函数
+        this.codeEditorChangeCleanup = null;
 
         this.initSearchBox();
     }
 
     // 设置代码编辑器引用
     setCodeEditor(codeEditor) {
+        if (this.codeEditorChangeCleanup) {
+            this.codeEditorChangeCleanup();
+            this.codeEditorChangeCleanup = null;
+        }
         this.codeEditor = codeEditor;
+        if (this.codeEditor?.onDidChangeContent) {
+            this.codeEditorChangeCleanup = this.codeEditor.onDidChangeContent(() => {
+                this.handleContentMutated('code');
+            });
+        }
     }
 
     // 获取当前激活的编辑器
@@ -211,6 +221,50 @@ export class SearchBoxManager {
         }
     }
 
+    handleContentMutated(source = null) {
+        if (!this.searchBox?.classList.contains('is-visible')) {
+            return;
+        }
+
+        const searchTerm = this.searchInput?.value;
+        if (!searchTerm) {
+            return;
+        }
+
+        if (source === 'code') {
+            if (!this.codeEditor) {
+                return;
+            }
+            const result = typeof this.codeEditor.refreshSearchMatches === 'function'
+                ? this.codeEditor.refreshSearchMatches()
+                : this.codeEditor.setSearchTerm(searchTerm);
+            if (this.codeEditor.isVisible) {
+                this.updateSearchInfoFromResult(result);
+            }
+            return;
+        }
+
+        if (source === 'markdown') {
+            this.updateSearchInfo();
+            return;
+        }
+
+        const { type, editor } = this.getActiveEditor();
+        if (!editor) {
+            return;
+        }
+
+        if (type === 'markdown') {
+            this.updateSearchInfo();
+        } else if (typeof editor.refreshSearchMatches === 'function') {
+            const result = editor.refreshSearchMatches();
+            this.updateSearchInfoFromResult(result);
+        } else {
+            const result = editor.setSearchTerm(searchTerm);
+            this.updateSearchInfoFromResult(result);
+        }
+    }
+
     // 销毁
     destroy() {
         // 清理事件监听器
@@ -225,6 +279,11 @@ export class SearchBoxManager {
         if (this.globalKeyHandler) {
             document.removeEventListener('keydown', this.globalKeyHandler);
             this.globalKeyHandler = null;
+        }
+
+        if (this.codeEditorChangeCleanup) {
+            this.codeEditorChangeCleanup();
+            this.codeEditorChangeCleanup = null;
         }
 
         // 清理引用

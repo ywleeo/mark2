@@ -108,6 +108,7 @@ export class MarkdownEditor {
                 }
                 this.contentChanged = true;
                 this.callbacks.onContentChange?.();
+                this.searchBoxManager?.handleContentMutated('markdown');
             },
         });
 

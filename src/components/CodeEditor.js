@@ -108,6 +108,11 @@ export class CodeEditor {
         this.tapGuardState = null;
         this.tapGuardCleanup = null;
         this.aiStreamSessions = new Map();
+        this.searchTerm = '';
+        this.searchMatches = null;
+        this.searchDecorations = null;
+        this.currentMatchIndex = -1;
+        this.contentChangeListeners = new Set();
     }
 
     async ensureEditor(defaultLanguage = 'plaintext') {
@@ -280,6 +285,27 @@ export class CodeEditor {
             const currentVersion = model.getAlternativeVersionId();
             this.isDirty = currentVersion !== this.baseVersion;
             this.callbacks.onContentChange?.();
+            this.notifyContentMutation();
+        });
+    }
+
+    onDidChangeContent(handler) {
+        if (typeof handler !== 'function') {
+            return () => {};
+        }
+        this.contentChangeListeners.add(handler);
+        return () => {
+            this.contentChangeListeners.delete(handler);
+        };
+    }
+
+    notifyContentMutation() {
+        this.contentChangeListeners.forEach(handler => {
+            try {
+                handler();
+            } catch (error) {
+                console.error('[CodeEditor] 内容变更通知失败', error);
+            }
         });
     }
 
@@ -292,6 +318,7 @@ export class CodeEditor {
         this.currentFile = null;
         this.currentLanguage = null;
         this.isDirty = false;
+        this.clearSearch();
         if (this.modelDisposer) {
             this.modelDisposer.dispose();
             this.modelDisposer = null;
@@ -695,7 +722,9 @@ export class CodeEditor {
 
     // 搜索相关方法
     findMatches(searchTerm) {
-        if (!this.editor || !this.currentModel) return [];
+        if (!this.editor || !this.currentModel || !searchTerm) {
+            return [];
+        }
 
         const matches = this.currentModel.findMatches(
             searchTerm,
@@ -710,23 +739,87 @@ export class CodeEditor {
     }
 
     setSearchTerm(searchTerm) {
-        if (!this.editor) return;
+        if (!this.editor) {
+            return { total: 0, current: -1 };
+        }
 
+        if (!searchTerm) {
+            this.clearSearch();
+            return { total: 0, current: -1 };
+        }
+
+        this.searchTerm = searchTerm;
         const matches = this.findMatches(searchTerm);
         this.searchMatches = matches;
         this.currentMatchIndex = matches.length > 0 ? 0 : -1;
 
-        // 高亮所有匹配项
-        if (matches.length > 0) {
-            this.highlightMatches(matches, 0);
-            this.scrollToMatch(0);
+        if (matches.length === 0) {
+            this.clearSearchDecorations();
+            return { total: 0, current: -1 };
         }
+
+        this.highlightMatches(matches, this.currentMatchIndex);
+        this.scrollToMatch(this.currentMatchIndex);
 
         return { total: matches.length, current: this.currentMatchIndex };
     }
 
+    refreshSearchMatches() {
+        if (!this.editor || !this.searchTerm) {
+            this.clearSearch();
+            return { total: 0, current: -1 };
+        }
+
+        const previousMatches = this.searchMatches || [];
+        const previousMatch = this.currentMatchIndex >= 0 ? previousMatches[this.currentMatchIndex] : null;
+
+        const matches = this.findMatches(this.searchTerm);
+        this.searchMatches = matches;
+
+        if (matches.length === 0) {
+            this.currentMatchIndex = -1;
+            this.clearSearchDecorations();
+            return { total: 0, current: -1 };
+        }
+
+        let nextIndex = -1;
+        if (previousMatch) {
+            nextIndex = matches.findIndex(match => this.isSameRange(match.range, previousMatch.range));
+        }
+
+        if (nextIndex === -1 && this.currentMatchIndex >= 0) {
+            nextIndex = Math.min(this.currentMatchIndex, matches.length - 1);
+        }
+
+        if (nextIndex === -1) {
+            nextIndex = 0;
+        }
+
+        this.currentMatchIndex = nextIndex;
+        this.highlightMatches(matches, this.currentMatchIndex);
+
+        return { total: matches.length, current: this.currentMatchIndex };
+    }
+
+    isSameRange(rangeA, rangeB) {
+        if (!rangeA || !rangeB) {
+            return false;
+        }
+        return rangeA.startLineNumber === rangeB.startLineNumber
+            && rangeA.endLineNumber === rangeB.endLineNumber
+            && rangeA.startColumn === rangeB.startColumn
+            && rangeA.endColumn === rangeB.endColumn;
+    }
+
     highlightMatches(matches, currentIndex) {
-        if (!this.editor || !this.monaco) return;
+        if (!this.editor || !this.monaco) {
+            return;
+        }
+
+        if (!matches || matches.length === 0) {
+            this.clearSearchDecorations();
+            return;
+        }
 
         const decorations = matches.map((match, index) => ({
             range: match.range,
@@ -756,7 +849,9 @@ export class CodeEditor {
     }
 
     nextSearchResult() {
-        if (!this.searchMatches || this.searchMatches.length === 0) return null;
+        if (!this.searchMatches || this.searchMatches.length === 0) {
+            return null;
+        }
 
         this.currentMatchIndex = (this.currentMatchIndex + 1) % this.searchMatches.length;
         this.highlightMatches(this.searchMatches, this.currentMatchIndex);
@@ -766,7 +861,9 @@ export class CodeEditor {
     }
 
     prevSearchResult() {
-        if (!this.searchMatches || this.searchMatches.length === 0) return null;
+        if (!this.searchMatches || this.searchMatches.length === 0) {
+            return null;
+        }
 
         this.currentMatchIndex = this.currentMatchIndex <= 0
             ? this.searchMatches.length - 1
@@ -777,13 +874,25 @@ export class CodeEditor {
         return { total: this.searchMatches.length, current: this.currentMatchIndex };
     }
 
-    clearSearch() {
-        if (!this.editor) return;
-
+    clearSearchDecorations() {
+        if (!this.editor) {
+            return;
+        }
         if (this.searchDecorations) {
             this.editor.deltaDecorations(this.searchDecorations, []);
             this.searchDecorations = null;
         }
+    }
+
+    clearSearch() {
+        if (!this.editor) {
+            this.searchTerm = '';
+            this.searchMatches = null;
+            this.currentMatchIndex = -1;
+            return;
+        }
+        this.clearSearchDecorations();
+        this.searchTerm = '';
         this.searchMatches = null;
         this.currentMatchIndex = -1;
     }

@@ -58,10 +58,60 @@ export const SearchExtension = Extension.create({
                     },
                     apply(tr, value) {
                         const meta = tr.getMeta(searchPluginKey);
+                        let nextState = value;
+
                         if (meta) {
-                            return { ...value, ...meta };
+                            nextState = { ...value, ...meta };
                         }
-                        return value;
+
+                        if (tr.docChanged) {
+                            const searchTerm = nextState.searchTerm;
+                            if (!searchTerm) {
+                                if (nextState.results.length !== 0 || nextState.currentIndex !== -1) {
+                                    nextState = {
+                                        ...nextState,
+                                        results: [],
+                                        currentIndex: -1,
+                                    };
+                                }
+                                return nextState;
+                            }
+
+                            const previousResults = meta?.results ?? value.results;
+                            const previousIndex = meta?.currentIndex ?? value.currentIndex;
+                            const updatedResults = findMatches(tr.doc, searchTerm, nextState.caseSensitive);
+
+                            let currentIndex = previousIndex;
+                            if (updatedResults.length === 0) {
+                                currentIndex = -1;
+                            } else if (currentIndex >= 0) {
+                                const previousMatch = previousResults?.[previousIndex] ?? null;
+                                if (previousMatch) {
+                                    const matchIndex = updatedResults.findIndex(result => {
+                                        return result.from === previousMatch.from && result.to === previousMatch.to;
+                                    });
+                                    if (matchIndex !== -1) {
+                                        currentIndex = matchIndex;
+                                    } else if (currentIndex >= updatedResults.length) {
+                                        currentIndex = updatedResults.length - 1;
+                                    }
+                                } else if (currentIndex >= updatedResults.length) {
+                                    currentIndex = updatedResults.length - 1;
+                                }
+                            }
+
+                            if (currentIndex < 0 && updatedResults.length > 0) {
+                                currentIndex = 0;
+                            }
+
+                            nextState = {
+                                ...nextState,
+                                results: updatedResults,
+                                currentIndex,
+                            };
+                        }
+
+                        return nextState;
                     },
                 },
                 props: {
