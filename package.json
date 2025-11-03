@@ -39,6 +39,7 @@
     "lowlight": "^3.3.0",
     "markdown-it": "^14.1.0",
     "markdown-it-task-lists": "^2.1.1",
+    "mermaid": "^11.12.1",
     "monaco-editor": "^0.50.0",
     "prosemirror-markdown": "^1.13.2",
     "turndown": "^7.2.1",
@@ -46,6 +47,6 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.3.0",
-    "vite": "^5.0.0"
+    "vite": "^7.1.12"
   }
 }

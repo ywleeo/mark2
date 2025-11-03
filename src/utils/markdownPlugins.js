@@ -225,6 +225,23 @@ export function createConfiguredMarkdownIt() {
         };
     };
 
+    const defaultFenceRenderer = md.renderer.rules.fence || ((tokens, idx, options, env, self) => {
+        return self.renderToken(tokens, idx, options);
+    });
+
+    md.renderer.rules.fence = function(tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        const info = (token.info || '').trim().toLowerCase();
+
+        if (info.startsWith('mermaid')) {
+            const rawContent = (token.content || '').replace(/\r\n?/g, '\n');
+            const encoded = encodeURIComponent(rawContent);
+            return `<div class="mermaid" data-mermaid-code="${encoded}"></div>`;
+        }
+
+        return defaultFenceRenderer(tokens, idx, options, env, self);
+    };
+
     md.renderer.rules.fence = trimCodeRenderer(md.renderer.rules.fence);
     md.renderer.rules.code_block = trimCodeRenderer(md.renderer.rules.code_block);
 
@@ -248,6 +265,44 @@ export function createConfiguredTurndownService() {
     turndownService.escape = function(string) {
         return string;
     };
+
+    const hasClass = (node, className) => {
+        if (!node) return false;
+        if (node.classList && typeof node.classList.contains === 'function') {
+            return node.classList.contains(className);
+        }
+        const classAttr = node.getAttribute ? node.getAttribute('class') : null;
+        if (!classAttr) return false;
+        return classAttr.split(/\s+/).includes(className);
+    };
+
+    // Mermaid 图表导出规则
+    turndownService.addRule('mermaidBlock', {
+        filter: node => {
+            if (!node || node.nodeName !== 'DIV') {
+                return false;
+            }
+            return hasClass(node, 'mermaid');
+        },
+        replacement: (_content, node) => {
+            const codeAttr = node.getAttribute ? node.getAttribute('data-mermaid-code') : '';
+            let text = '';
+            if (codeAttr) {
+                try {
+                    text = decodeURIComponent(codeAttr);
+                } catch (_error) {
+                    text = codeAttr;
+                }
+            } else {
+                text = node.textContent || '';
+            }
+            text = text.trim();
+            if (!text) {
+                return '';
+            }
+            return `\n\`\`\`mermaid\n${text}\n\`\`\`\n`;
+        },
+    });
 
     // 保留图片的原始 src 属性
     turndownService.addRule('preserveImageOriginalSrc', {

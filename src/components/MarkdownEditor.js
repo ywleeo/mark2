@@ -21,6 +21,8 @@ import { CodeCopyManager } from '../features/codeCopy.js';
 import { SearchBoxManager } from '../features/searchBox.js';
 import { ClipboardEnhancer } from '../features/clipboardEnhancer.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { renderMermaidIn } from '../utils/mermaidRenderer.js';
+import { MermaidBlock } from '../extensions/MermaidBlock.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}) {
@@ -45,6 +47,8 @@ export class MarkdownEditor {
         this.searchBoxManager = null;
         this.clipboardEnhancer = null;
         this.aiStreamSessions = new Map();
+        this.pendingMermaidRender = null;
+        this.mermaidRenderFrame = null;
 
         this.init();
     }
@@ -69,6 +73,7 @@ export class MarkdownEditor {
                 CustomTaskItem.configure({
                     nested: true,
                 }),
+                MermaidBlock,
                 CodeBlockLowlight.configure({
                     lowlight: this.lowlight,
                     HTMLAttributes: {
@@ -241,6 +246,7 @@ export class MarkdownEditor {
         }
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.callbacks.onContentChange?.();
+        this.scheduleMermaidRender();
     }
 
     // 预处理加粗标记
@@ -332,6 +338,7 @@ export class MarkdownEditor {
         }
 
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
     }
 
     replaceSelectionWithAIContent(markdown) {
@@ -460,6 +467,7 @@ export class MarkdownEditor {
 
         chain.run();
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
         this.aiStreamSessions.delete(sessionId);
     }
 
@@ -495,6 +503,10 @@ export class MarkdownEditor {
             this.linkClickCleanup();
             this.linkClickCleanup = null;
         }
+        if (this.mermaidRenderFrame !== null && typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this.mermaidRenderFrame);
+            this.mermaidRenderFrame = null;
+        }
         if (this.editor) {
             this.editor.destroy();
         }
@@ -521,5 +533,35 @@ export class MarkdownEditor {
 
     hasUnsavedChanges() {
         return !!this.contentChanged;
+    }
+
+    // 调度 Mermaid 渲染，避免重复加载模块
+    scheduleMermaidRender() {
+        if (!this.element) {
+            return;
+        }
+        if (this.pendingMermaidRender || this.mermaidRenderFrame !== null) {
+            return;
+        }
+        if (typeof requestAnimationFrame === 'function') {
+            this.mermaidRenderFrame = requestAnimationFrame(() => {
+                this.mermaidRenderFrame = null;
+                this.pendingMermaidRender = renderMermaidIn(this.element)
+                    .catch(error => {
+                        console.warn('[MarkdownEditor] Mermaid 渲染失败', error);
+                    })
+                    .finally(() => {
+                        this.pendingMermaidRender = null;
+                    });
+            });
+        } else {
+            this.pendingMermaidRender = renderMermaidIn(this.element)
+                .catch(error => {
+                    console.warn('[MarkdownEditor] Mermaid 渲染失败', error);
+                })
+                .finally(() => {
+                    this.pendingMermaidRender = null;
+                });
+        }
     }
 }
