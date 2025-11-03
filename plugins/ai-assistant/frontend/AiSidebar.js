@@ -3,6 +3,7 @@ import { aiService } from './aiService.js';
 import { ExecutorAgent } from './agents/ExecutorAgent.js';
 import { AnswerActions } from './sidebar/AnswerActions.js';
 import { SidebarRenderer } from './sidebar/SidebarRenderer.js';
+import { ThinkBlockManager } from './sidebar/ThinkBlockManager.js';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 
@@ -56,7 +57,6 @@ export class AiSidebar {
         this.pendingTaskQueue = [];
         this.taskContexts = new Map();
         this.executorAgent = new ExecutorAgent();
-        this.thinkStates = new Map();
         this.statusHintText = STATUS_HINT_DEFAULT;
         this.editorRefs = {
             markdownEditor: null,
@@ -73,6 +73,12 @@ export class AiSidebar {
 
         this.render();
         this.bindEvents();
+        this.thinkBlockManager = new ThinkBlockManager({
+            getMessagesContainer: () => this.messagesContainer,
+            renderMarkdown: (markdown) => this.renderMarkdown(markdown),
+            applyMarkdown: (target, text, options) => this.applyMarkdownToElement(target, text, options),
+            scrollMessagesToBottom: () => this.scrollMessagesToBottom(),
+        });
         this.attachController();
     }
 
@@ -207,7 +213,10 @@ export class AiSidebar {
                     break;
 
                 case 'task-stream-think':
-                    this.updateThinkStream(event.id, typeof event.buffer === 'string' ? event.buffer : (event.delta || ''));
+                    this.thinkBlockManager.updateStream(
+                        event.id,
+                        typeof event.buffer === 'string' ? event.buffer : (event.delta || '')
+                    );
                     break;
 
                 case 'task-stream-chunk': {
@@ -237,7 +246,7 @@ export class AiSidebar {
                         this.resolvePendingConversation(taskContext.userMessageId);
                     }
                     this.cleanupTaskContext(event.id);
-                    this.finalizeThinkBlock(event.id, event.thinkBuffer || '');
+                    this.thinkBlockManager.finalize(event.id, event.thinkBuffer || '');
                     this.setBusy(false);
                     this.updateStatusMessage('');
                     break;
@@ -256,7 +265,7 @@ export class AiSidebar {
                         this.resolvePendingConversation(taskContext.userMessageId);
                     }
                     this.cleanupTaskContext(event.id);
-                    this.finalizeThinkBlock(event.id);
+                    this.thinkBlockManager.finalize(event.id);
                     this.setBusy(false);
                     this.updateStatusMessage(event.error || '请求失败');
                     break;
@@ -274,7 +283,7 @@ export class AiSidebar {
                         this.resolvePendingConversation(taskContext.userMessageId);
                     }
                     this.cleanupTaskContext(event.id);
-                    this.finalizeThinkBlock(event.id);
+                    this.thinkBlockManager.finalize(event.id);
                     this.setBusy(false);
                     this.updateStatusMessage('已取消');
                     break;
@@ -375,12 +384,7 @@ export class AiSidebar {
         }
         this.pendingTaskQueue = [];
         this.taskContexts.clear();
-        this.thinkStates.forEach(state => {
-            if (state?.element?.parentElement) {
-                state.element.parentElement.removeChild(state.element);
-            }
-        });
-        this.thinkStates.clear();
+        this.thinkBlockManager?.destroy();
     }
 
     updateStatusHint(config) {
@@ -484,12 +488,7 @@ export class AiSidebar {
         this.streamStates.clear();
         this.pendingTaskQueue = [];
         this.taskContexts.clear();
-        this.thinkStates.forEach(state => {
-            if (state?.element?.parentElement) {
-                state.element.parentElement.removeChild(state.element);
-            }
-        });
-        this.thinkStates.clear();
+        this.thinkBlockManager?.clearAll();
         if (this.messagesContainer) {
             this.messagesContainer.innerHTML = '';
         }
@@ -597,152 +596,6 @@ export class AiSidebar {
         target.textContent = content;
         target.classList.remove('ai-message__content--markdown');
         return false;
-    }
-
-    updateThinkStream(taskId, buffer) {
-        if (!buffer) {
-            return;
-        }
-        let state = this.thinkStates.get(taskId);
-        if (!state) {
-            state = this.createThinkBlock(taskId);
-            this.thinkStates.set(taskId, state);
-        }
-        state.buffer = buffer;
-        state.complete = false;
-        this.refreshThinkBlock(state);
-        this.scrollMessagesToBottom();
-    }
-
-    finalizeThinkBlock(taskId, finalBuffer = null) {
-        const state = this.thinkStates.get(taskId);
-        if (!state && (finalBuffer || finalBuffer === '')) {
-            if (finalBuffer) {
-                const newState = this.createThinkBlock(taskId);
-                newState.buffer = finalBuffer;
-                newState.complete = true;
-                this.thinkStates.set(taskId, newState);
-                this.refreshThinkBlock(newState);
-            }
-            return;
-        }
-        if (!state) return;
-
-        if (typeof finalBuffer === 'string') {
-            state.buffer = finalBuffer;
-        }
-        state.complete = true;
-        this.refreshThinkBlock(state);
-    }
-
-    createThinkBlock(taskId) {
-        const state = {
-            id: taskId,
-            buffer: '',
-            expanded: false,
-            complete: false,
-            element: null,
-            body: null,
-            hint: null,
-        };
-
-        const element = document.createElement('div');
-        element.classList.add('ai-message', 'ai-message--assistant', 'ai-message--think');
-        element.dataset.taskId = taskId;
-
-        const content = document.createElement('div');
-        content.className = 'ai-message__content ai-message__content--think';
-
-        const title = document.createElement('div');
-        title.className = 'ai-message__think-title';
-        title.textContent = '🤔 模型思考';
-
-        const body = document.createElement('div');
-        body.className = 'ai-message__think-body';
-        body.textContent = '';
-
-        const hint = document.createElement('div');
-        hint.className = 'ai-message__think-hint';
-
-        content.appendChild(title);
-        content.appendChild(body);
-        content.appendChild(hint);
-        element.appendChild(content);
-
-        element.addEventListener('click', () => {
-            state.expanded = !state.expanded;
-            this.refreshThinkBlock(state);
-        });
-
-        state.element = element;
-        state.body = body;
-        state.hint = hint;
-
-        if (this.messagesContainer) {
-            this.messagesContainer.appendChild(element);
-            this.scrollMessagesToBottom();
-        }
-
-        return state;
-    }
-
-    refreshThinkBlock(state) {
-        if (!state?.body) {
-            return;
-        }
-        const fullText = state.buffer || '';
-        const preview = this.getThinkPreview(fullText);
-        const displayText = state.expanded ? fullText : preview;
-
-        const hasContent = !!(displayText && displayText.trim());
-
-        const fallback = '(无思考内容)';
-        if (hasContent) {
-            this.applyMarkdownToElement(state.body, displayText, {
-                allowMarkdown: true,
-                fallbackText: fallback,
-            });
-        } else {
-            this.applyMarkdownToElement(state.body, '', {
-                allowMarkdown: false,
-                fallbackText: fallback,
-            });
-        }
-
-        if (state.hint) {
-            if (state.expanded) {
-                state.hint.textContent = '点击收起思考';
-            } else if (state.complete && fullText && fullText !== preview) {
-                state.hint.textContent = '点击展开查看完整思考';
-            } else if (state.complete) {
-                state.hint.textContent = '思考完成';
-            } else {
-                state.hint.textContent = '思考生成中…点击展开查看完整思考';
-            }
-        }
-        if (state.element) {
-            state.element.classList.toggle('is-expanded', !!state.expanded);
-        }
-    }
-
-    getThinkPreview(text) {
-        if (!text) {
-            return '';
-        }
-        const normalized = text.replace(/\r/g, '');
-        const lines = normalized.split('\n');
-
-        // 去掉末尾连续空行
-        while (lines.length > 0 && !lines[lines.length - 1].trim()) {
-            lines.pop();
-        }
-
-        if (lines.length === 0) {
-            return '';
-        }
-
-        const previewLines = lines.slice(-3);
-        return previewLines.join('\n');
     }
 
     resolvePendingConversation(messageId) {

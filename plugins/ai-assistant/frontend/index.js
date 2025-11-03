@@ -8,7 +8,7 @@ import { aiService } from './aiService.js';
 
 export const metadata = {
     id: 'ai-assistant',
-    name: 'AI 写作助手',
+    name: 'AI 助手',
     version: '1.0.0',
     description: '基于 LLM 的智能写作助手',
 };

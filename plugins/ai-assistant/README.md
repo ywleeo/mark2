@@ -49,11 +49,11 @@ plugins/ai-assistant/
 ```json
 "menu": {
   "toggle": {
-    "label": "Toggle AI 写作助手",
+    "label": "Toggle AI 助手",
     "accelerator": "CmdOrCtrl+Shift+A"
   },
   "settings": {
-    "label": "AI 写作助手 Settings...",
+    "label": "AI 助手 Settings...",
     "accelerator": "CmdOrCtrl+Shift+,"
   }
 }
