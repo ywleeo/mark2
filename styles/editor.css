@@ -83,8 +83,6 @@
 .tiptap-editor .mermaid {
     margin: 1.2em 0;
     padding: 16px;
-    border-radius: 6px;
-    background: var(--theme-code-block-bg, #f5f5f5);
     overflow-x: auto;
     position: relative;
 }
