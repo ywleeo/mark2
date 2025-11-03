@@ -266,6 +266,33 @@ export function createConfiguredTurndownService() {
         return string;
     };
 
+    // 保留编辑器内需要写回 Markdown 的原始 HTML 标签
+    const preservedInlineTags = [
+        'span',
+        'kbd',
+        'small',
+        'mark',
+        'abbr',
+        'cite',
+        'time',
+        'var',
+        'samp',
+        'dfn',
+        'ins',
+        'del',
+    ];
+    const preservedBlockTags = ['div'];
+    [...preservedInlineTags, ...preservedBlockTags].forEach(tagName => {
+        turndownService.keep(tagName);
+    });
+    turndownService.keep(node => {
+        if (!node || node.nodeType !== 1) {
+            return false;
+        }
+        const tagName = (node.nodeName || '').toLowerCase();
+        return tagName.includes('-');
+    });
+
     const hasClass = (node, className) => {
         if (!node) return false;
         if (node.classList && typeof node.classList.contains === 'function') {
