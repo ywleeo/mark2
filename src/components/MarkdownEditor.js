@@ -25,7 +25,7 @@ import { renderMermaidIn } from '../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../extensions/MermaidBlock.js';
 
 export class MarkdownEditor {
-    constructor(element, callbacks = {}) {
+    constructor(element, callbacks = {}, options = {}) {
         this.element = element;
         this.editor = null;
         this.currentFile = null;
@@ -34,6 +34,13 @@ export class MarkdownEditor {
         this.suppressUpdateEvent = false;
         this.linkClickCleanup = null;
         this.callbacks = callbacks;
+        this.autoSaveDelayMs = Number.isFinite(options.autoSaveDelayMs)
+            ? Math.max(500, options.autoSaveDelayMs)
+            : 3000;
+        this.autoSaveTimer = null;
+        this.isSaving = false;
+        this.activeSavePromise = null;
+        this.lastSaveError = null;
 
         // 初始化 Markdown 和 Turndown 服务
         this.md = createConfiguredMarkdownIt();
@@ -114,6 +121,7 @@ export class MarkdownEditor {
                 this.contentChanged = true;
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
+                this.scheduleAutoSave();
             },
         });
 
@@ -204,6 +212,7 @@ export class MarkdownEditor {
     async setContent(markdown, shouldFocusStart = true) {
         this.originalMarkdown = markdown;
         this.contentChanged = false;
+        this.clearAutoSaveTimer();
 
         const wasFocused = this.editor?.isFocused ?? false;
         const previousSelection = (!shouldFocusStart && this.editor?.state?.selection)
@@ -280,26 +289,102 @@ export class MarkdownEditor {
         return this.turndownService.turndown(html);
     }
 
-    // 手动保存
-    async save() {
-        if (!this.currentFile) return;
+    clearAutoSaveTimer() {
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+            this.autoSaveTimer = null;
+        }
+    }
 
-        try {
-            const { invoke } = await import('@tauri-apps/api/core');
-            const markdown = this.getMarkdown();
-            await invoke('write_file', {
-                path: this.currentFile,
-                content: markdown
-            });
-            this.originalMarkdown = markdown;
-            this.contentChanged = false;
-            this.callbacks.onContentChange?.();
-            console.log('保存成功');
-            return true;
-        } catch (error) {
-            console.error('保存失败:', error);
+    scheduleAutoSave() {
+        if (!this.autoSaveDelayMs || this.autoSaveDelayMs < 0) {
+            return;
+        }
+        this.clearAutoSaveTimer();
+        this.autoSaveTimer = setTimeout(() => {
+            this.autoSaveTimer = null;
+            void this.handleAutoSaveTrigger();
+        }, this.autoSaveDelayMs);
+    }
+
+    async handleAutoSaveTrigger() {
+        if (!this.contentChanged || !this.currentFile) {
+            return;
+        }
+        if (this.isSaving) {
+            this.scheduleAutoSave();
+            return;
+        }
+        const result = await this.save({ reason: 'auto' });
+        if (!result && this.contentChanged) {
+            // 如果保存失败且仍有改动，稍后再试一次
+            this.scheduleAutoSave();
+        }
+    }
+
+    // 手动保存
+    async save(options = {}) {
+        const { force = false, reason = 'manual' } = options;
+        if (!this.currentFile) {
             return false;
         }
+
+        if (!force && !this.contentChanged) {
+            if (reason === 'auto') {
+                Promise.resolve(this.callbacks.onAutoSaveSuccess?.({ skipped: true })).catch(error => {
+                    console.warn('[MarkdownEditor] 自动保存回调失败', error);
+                });
+            }
+            return true;
+        }
+
+        if (this.isSaving) {
+            return this.activeSavePromise ?? false;
+        }
+
+        this.clearAutoSaveTimer();
+        this.isSaving = true;
+        this.lastSaveError = null;
+
+        const savePromise = (async () => {
+            try {
+                const { invoke } = await import('@tauri-apps/api/core');
+                const markdown = this.getMarkdown();
+                await invoke('write_file', {
+                    path: this.currentFile,
+                    content: markdown
+                });
+                this.originalMarkdown = markdown;
+                this.contentChanged = false;
+                this.callbacks.onContentChange?.();
+                console.log('保存成功');
+                return true;
+            } catch (error) {
+                this.lastSaveError = error;
+                console.error('保存失败:', error);
+                return false;
+            } finally {
+                this.isSaving = false;
+                this.activeSavePromise = null;
+            }
+        })();
+
+        this.activeSavePromise = savePromise;
+        const result = await savePromise;
+
+        if (reason === 'auto') {
+            if (result) {
+                Promise.resolve(this.callbacks.onAutoSaveSuccess?.({ skipped: false })).catch(error => {
+                    console.warn('[MarkdownEditor] 自动保存回调失败', error);
+                });
+            } else {
+                Promise.resolve(this.callbacks.onAutoSaveError?.(this.lastSaveError)).catch(error => {
+                    console.warn('[MarkdownEditor] 自动保存错误回调失败', error);
+                });
+            }
+        }
+
+        return result;
     }
 
     // 加载文件
@@ -499,6 +584,7 @@ export class MarkdownEditor {
         this.codeCopyManager?.destroy();
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
+        this.clearAutoSaveTimer();
         if (this.linkClickCleanup) {
             this.linkClickCleanup();
             this.linkClickCleanup = null;
@@ -516,6 +602,7 @@ export class MarkdownEditor {
         this.currentFile = null;
         this.originalMarkdown = '';
         this.contentChanged = false;
+        this.clearAutoSaveTimer();
         if (!this.editor) {
             return;
         }

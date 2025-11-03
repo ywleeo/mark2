@@ -606,8 +606,22 @@ async function initializeApplication() {
     const editorCallbacks = {
         onContentChange: () => {
             hasUnsavedChanges = editor?.hasUnsavedChanges() || codeEditor?.hasUnsavedChanges() || false;
-            updateWindowTitle();
-        }
+            void updateWindowTitle();
+        },
+        onAutoSaveSuccess: async ({ skipped }) => {
+            const activeFile = currentFile;
+            if (!activeFile) {
+                return;
+            }
+            if (!skipped) {
+                hasUnsavedChanges = false;
+                fileSession.clearEntry(activeFile);
+            }
+            await updateWindowTitle();
+        },
+        onAutoSaveError: (error) => {
+            console.error('自动保存失败:', error);
+        },
     };
 
     editor = new MarkdownEditorCtor(markdownPaneElement, editorCallbacks);

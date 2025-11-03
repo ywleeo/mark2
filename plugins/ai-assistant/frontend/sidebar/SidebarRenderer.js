@@ -1,8 +1,8 @@
 const TEMPLATE = `
     <div class="ai-sidebar__header">
-        <div>
+        <div class="ai-sidebar__title-row">
             <h3 class="ai-sidebar__title">AI 助手</h3>
-            <p class="ai-sidebar__subtitle">单次问答模式</p>
+            <select class="ai-sidebar__role-select" data-role="role-select"></select>
         </div>
         <div class="ai-sidebar__header-actions">
             <button
@@ -51,6 +51,7 @@ export class SidebarRenderer {
             statusLabel: this.container.querySelector('[data-role="status"]'),
             closeButton: this.container.querySelector('.ai-sidebar__close'),
             clearButton: this.container.querySelector('[data-role="clear-messages"]'),
+            roleSelect: this.container.querySelector('[data-role="role-select"]'),
         };
     }
 }

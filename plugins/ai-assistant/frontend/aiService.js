@@ -1,5 +1,10 @@
 import { composeMessages } from './services/promptComposer.js';
 import { parseStreamData } from './services/streamParser.js';
+import {
+    cloneRole,
+    normalizeRoles,
+    DEFAULT_ROLE_ID,
+} from './utils/roleUtils.js';
 
 /**
  * AI 服务 - 直接调用 OpenAI API
@@ -18,24 +23,23 @@ class AiService {
      */
     loadConfig() {
         const stored = localStorage.getItem('ai-config');
+        let raw = {};
         if (stored) {
-            return JSON.parse(stored);
+            try {
+                raw = JSON.parse(stored) || {};
+            } catch (error) {
+                console.warn('[aiService] 无法解析已保存的配置，使用默认值', error);
+            }
         }
-        return {
-            apiKey: '',
-            model: 'gpt-4o-mini',
-            baseUrl: 'https://api.openai.com/v1',
-            rolePrompt: '',
-            outputStyle: '',
-            thinkBuffer: '',
-        };
+        return this.normalizeConfig(raw);
     }
 
     /**
      * 保存配置到 localStorage
      */
     saveConfig(config) {
-        this.config = { ...this.config, ...config };
+        const merged = { ...this.config, ...config };
+        this.config = this.normalizeConfig(merged);
         localStorage.setItem('ai-config', JSON.stringify(this.config));
         this.notify({ type: 'config', data: this.config });
         return this.config;
@@ -46,6 +50,11 @@ class AiService {
      */
     getConfig() {
         return this.config;
+    }
+
+    getActiveRole() {
+        const { roles = [], activeRoleId } = this.config || {};
+        return roles.find(role => role.id === activeRoleId) || roles[0] || null;
     }
 
     /**
@@ -98,12 +107,14 @@ class AiService {
         }
 
         if (!this.config.apiKey) {
-            throw new Error('请先配置 API Key');
+                throw new Error('请先配置 API Key');
         }
+
+        const roleId = request.roleId || this.config.activeRoleId || DEFAULT_ROLE_ID;
 
         // 初始化任务
         const task = {
-            request,
+            request: { ...request, roleId },
             buffer: '',
             status: 'pending',
             thinkBuffer: '',
@@ -118,7 +129,11 @@ class AiService {
         });
 
         try {
-            const messages = composeMessages(request, this.config, { includeConfigPrompts: true });
+            const messages = composeMessages(
+                { ...request, roleId },
+                this.config,
+                { includeConfigPrompts: true }
+            );
 
             const controller = new AbortController();
             task.abortController = controller;
@@ -226,6 +241,43 @@ class AiService {
                 throw error;
             }
         }
+    }
+
+    normalizeConfig(config) {
+        const base = {
+            apiKey: '',
+            model: 'gpt-4o-mini',
+            baseUrl: 'https://api.openai.com/v1',
+            roles: [],
+            activeRoleId: DEFAULT_ROLE_ID,
+            rolePrompt: '',
+            outputStyle: '',
+            thinkBuffer: '',
+        };
+
+        const merged = { ...base, ...config };
+        const roles = normalizeRoles(merged.roles, {
+            legacyPrompt: merged.rolePrompt,
+            legacyStyle: merged.outputStyle,
+        }).map(role => cloneRole(role));
+
+        let activeRoleId = merged.activeRoleId;
+        if (!activeRoleId || !roles.some(role => role.id === activeRoleId)) {
+            activeRoleId = roles[0]?.id || DEFAULT_ROLE_ID;
+        }
+
+        const activeRole = roles.find(role => role.id === activeRoleId) || roles[0] || null;
+
+        return {
+            apiKey: merged.apiKey,
+            model: merged.model,
+            baseUrl: merged.baseUrl,
+            roles,
+            activeRoleId,
+            rolePrompt: activeRole?.rolePrompt || '',
+            outputStyle: activeRole?.outputStyle || '',
+            thinkBuffer: merged.thinkBuffer || '',
+        };
     }
 
     /**

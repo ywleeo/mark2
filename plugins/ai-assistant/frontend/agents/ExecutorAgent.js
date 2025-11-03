@@ -37,7 +37,7 @@ function buildExecutorPrompt({ prompt, context = [], expectedFormat = null }) {
  * 解答智能体：调用底层 AI 生成最终回答
  */
 export class ExecutorAgent {
-    buildRequest({ prompt, context = [], expectedFormat = null, history = [] }) {
+    buildRequest({ prompt, context = [], expectedFormat = null, history = [], roleId = null }) {
         const normalizedHistory = Array.isArray(history) ? history : [];
         const finalPrompt = buildExecutorPrompt({ prompt, context, expectedFormat });
 
@@ -45,11 +45,18 @@ export class ExecutorAgent {
             prompt: finalPrompt,
             history: normalizedHistory,
             systemPrompt: EXECUTOR_SYSTEM_PROMPT,
+            roleId: roleId || null,
         };
     }
 
     async runTask(options) {
         const request = this.buildRequest(options);
+        if (!request.roleId) {
+            const activeRole = aiService.getConfig()?.activeRoleId;
+            if (activeRole) {
+                request.roleId = activeRole;
+            }
+        }
         const result = await aiService.runTask(request);
         return result;
     }

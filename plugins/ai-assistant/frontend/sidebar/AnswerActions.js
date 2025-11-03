@@ -48,20 +48,21 @@ export class AnswerActions {
     }
 
     async copyAnswer(answerText, button) {
-        const text = (answerText || '').trim();
-        if (!text) {
+        const raw = typeof answerText === 'string' ? answerText : '';
+        const normalized = raw.replace(/\r\n/g, '\n');
+        if (!normalized.trim()) {
             this.sidebar.showToast('没有可复制的内容', 'warning');
             return;
         }
 
         try {
             if (window?.navigator?.clipboard?.writeText) {
-                await window.navigator.clipboard.writeText(text);
+                await window.navigator.clipboard.writeText(normalized);
             } else if (window?.__TAURI__?.clipboard?.writeText) {
-                await window.__TAURI__.clipboard.writeText(text);
+                await window.__TAURI__.clipboard.writeText(normalized);
             } else {
                 const textarea = document.createElement('textarea');
-                textarea.value = text;
+                textarea.value = normalized;
                 textarea.setAttribute('readonly', '');
                 textarea.style.position = 'absolute';
                 textarea.style.left = '-9999px';
@@ -80,28 +81,35 @@ export class AnswerActions {
     }
 
     async insertAnswer(answerText) {
-        const text = (answerText || '').trim();
-        if (!text) {
+        const raw = typeof answerText === 'string' ? answerText : '';
+        const normalized = raw.replace(/\r\n/g, '\n');
+        if (!normalized.trim()) {
             this.sidebar.showToast('没有可插入的内容', 'warning');
             return;
         }
 
-        try {
-            const markdownEditor = this.sidebar.editorRefs?.markdownEditor;
-            console.log('[AnswerActions] insertAnswer editorRefs', this.sidebar.editorRefs);
-            if (markdownEditor?.insertTextAtCursor) {
-                console.log('[AnswerActions] calling insertTextAtCursor');
-                markdownEditor.insertTextAtCursor(text);
+        const markdownEditor = this.sidebar.editorRefs?.markdownEditor;
+        if (markdownEditor?.insertAIContent) {
+            try {
+                markdownEditor.insertAIContent(normalized);
                 this.sidebar.showToast('已插入到光标位置', 'success');
                 return;
+            } catch (error) {
+                console.warn('[AnswerActions] markdownEditor.insertAIContent 调用失败', error);
             }
-        } catch (error) {
-            console.warn('[AnswerActions] markdownEditor.insertTextAtCursor 调用失败', error);
+        } else if (markdownEditor?.insertTextAtCursor) {
+            try {
+                markdownEditor.insertTextAtCursor(normalized);
+                this.sidebar.showToast('已插入到光标位置', 'success');
+                return;
+            } catch (error) {
+                console.warn('[AnswerActions] markdownEditor.insertTextAtCursor 调用失败', error);
+            }
         }
 
         try {
             if (typeof this.sidebar.app?.insertText === 'function') {
-                await this.sidebar.app.insertText(text, { position: 'cursor' });
+                await this.sidebar.app.insertText(normalized, { position: 'cursor' });
                 this.sidebar.showToast('已插入到光标位置', 'success');
                 return;
             }
@@ -112,11 +120,36 @@ export class AnswerActions {
         this.sidebar.showToast('无法插入内容，请检查编辑器状态', 'error');
     }
 
-    async replaceSelection(answerText) {
-        const text = (answerText || '').trim();
-        if (!text) {
+   async replaceSelection(answerText) {
+        const raw = typeof answerText === 'string' ? answerText : '';
+        const normalized = raw.replace(/\r\n/g, '\n');
+        if (!normalized.trim()) {
             this.sidebar.showToast('没有可替换的内容', 'warning');
             return;
+        }
+
+        const markdownEditor = this.sidebar.editorRefs?.markdownEditor;
+        if (markdownEditor?.replaceSelectionWithAIContent) {
+            try {
+                const hasSelection = markdownEditor.getSelectedMarkdown?.()?.length > 0;
+                if (!hasSelection) {
+                    this.sidebar.showToast('请先在文档中选中需要替换的内容', 'warning');
+                    return;
+                }
+                markdownEditor.replaceSelectionWithAIContent(normalized);
+                this.sidebar.showToast('已替换选中文本', 'success');
+                return;
+            } catch (error) {
+                console.warn('[AnswerActions] markdownEditor.replaceSelectionWithAIContent 调用失败', error);
+            }
+        } else if (markdownEditor?.insertTextAtCursor) {
+            try {
+                markdownEditor.insertTextAtCursor(normalized);
+                this.sidebar.showToast('已插入到光标位置', 'success');
+                return;
+            } catch (error) {
+                console.warn('[AnswerActions] markdownEditor.insertTextAtCursor 调用失败', error);
+            }
         }
 
         if (typeof this.sidebar.app?.replaceSelection === 'function') {
@@ -128,7 +161,7 @@ export class AnswerActions {
                         return;
                     }
                 }
-                await this.sidebar.app.replaceSelection(text);
+                await this.sidebar.app.replaceSelection(normalized);
                 this.sidebar.showToast('已替换选中文本', 'success');
                 return;
             } catch (error) {

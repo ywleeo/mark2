@@ -11,6 +11,7 @@ export function composeMessages(request, config, options = {}) {
     const {
         includeConfigPrompts = true,
         systemPromptOverride = null,
+        roleId: overrideRoleId = null,
     } = options;
 
     const messages = [];
@@ -22,13 +23,25 @@ export function composeMessages(request, config, options = {}) {
         systemPromptSegments.push(request.systemPrompt.trim());
     }
 
+    const roles = Array.isArray(config?.roles) ? config.roles : [];
+    const selectedRoleId =
+        request.roleId ||
+        overrideRoleId ||
+        config?.activeRoleId ||
+        (roles[0]?.id ?? null);
+
+    const selectedRole = roles.find(role => role.id === selectedRoleId) || null;
+
     if (includeConfigPrompts) {
-        const rolePrompt = config.rolePrompt?.trim();
-        const outputStyle = config.outputStyle?.trim();
+        const rolePrompt =
+            (selectedRole?.rolePrompt ?? config.rolePrompt ?? '').trim();
+        const outputStyle =
+            (selectedRole?.outputStyle ?? config.outputStyle ?? '').trim();
 
         if (rolePrompt) {
+            const roleName = selectedRole?.name?.trim();
             const roleInstruction = [
-                '角色设定：',
+                roleName ? `角色「${roleName}」设定：` : '角色设定：',
                 rolePrompt,
                 '',
                 '请先判断用户输入是否与上述角色设定相关：',

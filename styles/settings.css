@@ -132,7 +132,7 @@
 
 .settings-field textarea {
     resize: vertical;
-    min-height: 100px;
+    min-height: 50px;
     line-height: 1.6;
 }
 
@@ -143,6 +143,110 @@
     background-position: right 10px center;
     background-size: 16px 16px;
     padding-right: 40px;
+}
+
+.ai-config-modal .ai-config-dialog {
+    width: 780px;
+    max-width: 92vw;
+}
+
+.ai-config-modal .settings-body {
+    max-height: calc(82vh - 180px);
+    overflow-y: auto;
+}
+
+.ai-role-sidebar {
+    width: 220px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ai-role-sidebar__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-role-sidebar__controls {
+    display: flex;
+    gap: 6px;
+}
+
+.ai-role-list select {
+    width: 100%;
+    min-height: 260px;
+    border: 1px solid #cbd5f5;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 8px;
+    font-size: 13px;
+    color: #1f2937;
+}
+
+.ai-role-sidebar__hint {
+    margin: 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.ai-role-detail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.ai-role-manager {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-role-manager select {
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-role-manager__actions {
+    display: flex;
+    gap: 6px;
+}
+
+.ai-role-manager__btn {
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    background: rgba(37, 99, 235, 0.08);
+    color: #1d4ed8;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.12s ease;
+}
+
+.ai-role-manager__btn:hover {
+    border-color: rgba(37, 99, 235, 0.45);
+    background: rgba(37, 99, 235, 0.16);
+    transform: translateY(-0.5px);
+}
+
+.ai-role-manager__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ai-role-manager__btn.danger {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(248, 113, 113, 0.12);
+    color: #b91c1c;
+}
+
+.ai-role-manager__btn.danger:hover {
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(248, 113, 113, 0.22);
 }
 
 .settings-field input[type="number"] {

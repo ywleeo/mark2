@@ -6,7 +6,7 @@ import { SidebarRenderer } from './sidebar/SidebarRenderer.js';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 
-const STATUS_HINT_DEFAULT = '可输入消息或让 AI 阅读当前文档';
+const STATUS_HINT_DEFAULT = '';
 const STATUS_HINT_MISSING_KEY = '请先在设置中配置 API Key';
 
 export class AiSidebar {
@@ -66,6 +66,10 @@ export class AiSidebar {
         this.answerActions = new AnswerActions(this);
         this.renderer = new SidebarRenderer(this.container);
         this.markdownRenderer = this.createMarkdownRenderer();
+        this.roles = [];
+        this.selectedRoleId = null;
+        this.config = null;
+        this.handleRoleSelectChange = this.handleRoleSelectChange.bind(this);
 
         this.render();
         this.bindEvents();
@@ -86,6 +90,10 @@ export class AiSidebar {
         this.statusLabel = refs.statusLabel;
         this.closeButton = refs.closeButton;
         this.clearButton = refs.clearButton;
+        this.roleSelect = refs.roleSelect;
+        if (this.roleSelect) {
+            this.roleSelect.addEventListener('change', this.handleRoleSelectChange);
+        }
     }
 
     createMarkdownRenderer() {
@@ -273,7 +281,7 @@ export class AiSidebar {
                 }
 
                 case 'config':
-                    this.updateStatusHint(event.data);
+                    this.applyConfig(event.data);
                     break;
 
                 default:
@@ -282,13 +290,84 @@ export class AiSidebar {
         });
 
         const config = aiService.getConfig();
-        this.updateStatusHint(config);
+        this.applyConfig(config);
+    }
+
+    applyConfig(config = null) {
+        if (config) {
+            this.config = config;
+        }
+        const effectiveConfig = config || this.config || { roles: [], activeRoleId: null };
+        this.roles = Array.isArray(effectiveConfig.roles)
+            ? effectiveConfig.roles.map(role => ({
+                ...role,
+                name: role?.name || '未命名角色',
+            }))
+            : [];
+
+        const preferredId = effectiveConfig.activeRoleId;
+        if (preferredId && this.roles.some(role => role.id === preferredId)) {
+            this.selectedRoleId = preferredId;
+        } else {
+            this.selectedRoleId = this.roles[0]?.id || null;
+        }
+
+        this.populateRoleSelector();
+        this.updateStatusHint(effectiveConfig);
+    }
+
+    populateRoleSelector() {
+        if (!this.roleSelect) {
+            return;
+        }
+        if (!Array.isArray(this.roles) || this.roles.length === 0) {
+            this.roleSelect.innerHTML = '';
+            this.roleSelect.disabled = true;
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        this.roles.forEach(role => {
+            const option = document.createElement('option');
+            const baseLabel = role.name || '未命名角色';
+            option.value = role.id;
+            option.textContent = role.isDefault ? `${baseLabel}` : baseLabel;
+            fragment.appendChild(option);
+        });
+
+        this.roleSelect.innerHTML = '';
+        this.roleSelect.appendChild(fragment);
+
+        const hasSelected = this.selectedRoleId && this.roles.some(role => role.id === this.selectedRoleId);
+        const activeId = hasSelected ? this.selectedRoleId : this.roles[0].id;
+        this.selectedRoleId = activeId;
+        this.roleSelect.value = activeId;
+        this.roleSelect.disabled = false;
+    }
+
+    getActiveRole() {
+        if (!Array.isArray(this.roles) || this.roles.length === 0) {
+            return null;
+        }
+        const activeId = this.selectedRoleId && this.roles.some(role => role.id === this.selectedRoleId)
+            ? this.selectedRoleId
+            : this.roles[0].id;
+        return this.roles.find(role => role.id === activeId) || this.roles[0] || null;
+    }
+
+    getActiveRoleId() {
+        const role = this.getActiveRole();
+        return role?.id || null;
     }
 
     destroy() {
         if (this.unsubscribe) {
             this.unsubscribe();
             this.unsubscribe = null;
+        }
+        if (this.roleSelect) {
+            this.roleSelect.removeEventListener('change', this.handleRoleSelectChange);
+            this.roleSelect = null;
         }
         if (this.relayoutFrame !== null) {
             cancelAnimationFrame(this.relayoutFrame);
@@ -309,13 +388,40 @@ export class AiSidebar {
 
         if (!config || !config.apiKey) {
             this.statusHintText = STATUS_HINT_MISSING_KEY;
-            this.statusLabel.classList.add('is-warning');
-        } else {
-            this.statusHintText = STATUS_HINT_DEFAULT;
-            this.statusLabel.classList.remove('is-warning');
+            this.statusLabel?.classList.add('is-warning');
+            this.statusLabel.textContent = this.statusHintText;
+            return;
         }
 
-        this.statusLabel.textContent = this.statusHintText;
+        this.statusHintText = '';
+        this.statusLabel?.classList.remove('is-warning');
+        if (this.statusLabel) {
+            this.statusLabel.textContent = '';
+        }
+    }
+
+    handleRoleSelectChange(event) {
+        const nextId = event?.target?.value || null;
+        if (!nextId || nextId === this.selectedRoleId) {
+            return;
+        }
+        if (!this.roles.some(role => role.id === nextId)) {
+            return;
+        }
+
+        const previousId = this.selectedRoleId;
+        this.selectedRoleId = nextId;
+        if (this.config) {
+            this.config.activeRoleId = nextId;
+        }
+        this.updateStatusHint(this.config || aiService.getConfig());
+
+        if (previousId !== nextId) {
+            const updated = aiService.saveConfig({ activeRoleId: nextId });
+            if (updated) {
+                this.config = updated;
+            }
+        }
     }
 
     setBusy(isBusy) {
@@ -334,6 +440,8 @@ export class AiSidebar {
         if (!this.statusLabel) return;
         if (message) {
             this.statusLabel.textContent = message;
+        } else if (!this.statusHintText) {
+            this.statusLabel.textContent = '';
         } else {
             this.statusLabel.textContent = this.statusHintText;
         }
@@ -463,6 +571,34 @@ export class AiSidebar {
         }
     }
 
+    applyMarkdownToElement(target, text, options = {}) {
+        if (!target) {
+            return false;
+        }
+        const {
+            allowMarkdown = true,
+            fallbackText = '',
+        } = options;
+        const content = typeof text === 'string' ? text.trim() : '';
+        if (!content) {
+            const fallback = typeof fallbackText === 'string' ? fallbackText : '';
+            target.textContent = fallback;
+            target.classList.remove('ai-message__content--markdown');
+            return false;
+        }
+        if (allowMarkdown) {
+            const rendered = this.renderMarkdown(content);
+            if (rendered !== null) {
+                target.innerHTML = rendered;
+                target.classList.add('ai-message__content--markdown');
+                return true;
+            }
+        }
+        target.textContent = content;
+        target.classList.remove('ai-message__content--markdown');
+        return false;
+    }
+
     updateThinkStream(taskId, buffer) {
         if (!buffer) {
             return;
@@ -560,23 +696,17 @@ export class AiSidebar {
 
         const hasContent = !!(displayText && displayText.trim());
 
-        if (state.expanded) {
-            if (hasContent) {
-                const rendered = this.renderMarkdown(displayText);
-                if (rendered !== null) {
-                    state.body.innerHTML = rendered;
-                    state.body.classList.add('ai-message__content--markdown');
-                } else {
-                    state.body.textContent = displayText;
-                    state.body.classList.remove('ai-message__content--markdown');
-                }
-            } else {
-                state.body.textContent = '(无思考内容)';
-                state.body.classList.remove('ai-message__content--markdown');
-            }
+        const fallback = '(无思考内容)';
+        if (hasContent) {
+            this.applyMarkdownToElement(state.body, displayText, {
+                allowMarkdown: true,
+                fallbackText: fallback,
+            });
         } else {
-            state.body.textContent = hasContent ? displayText : '(无思考内容)';
-            state.body.classList.remove('ai-message__content--markdown');
+            this.applyMarkdownToElement(state.body, '', {
+                allowMarkdown: false,
+                fallbackText: fallback,
+            });
         }
 
         if (state.hint) {
@@ -677,6 +807,10 @@ export class AiSidebar {
     }
 
     async executeExecutorRequest(request, options = {}) {
+        const activeRoleId = this.getActiveRoleId();
+        if (activeRoleId && !request.roleId) {
+            request.roleId = activeRoleId;
+        }
         const pendingEntry = {
             context: {
                 originalPrompt: options.prompt || '',
@@ -733,6 +867,7 @@ export class AiSidebar {
             prompt,
             history: conversationHistory,
             context: documentContext ? [documentContext] : [],
+            roleId: this.getActiveRoleId(),
         });
 
         this.updateStatusMessage('AI 正在生成回答…');
