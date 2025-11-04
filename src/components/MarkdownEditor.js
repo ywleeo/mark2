@@ -23,6 +23,7 @@ import { ClipboardEnhancer } from '../features/clipboardEnhancer.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { renderMermaidIn } from '../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../extensions/MermaidBlock.js';
+import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortcut.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -87,6 +88,7 @@ export class MarkdownEditor {
                         class: 'code-block hljs',
                     },
                 }),
+                DisableInlineCodeShortcut,
                 Table.configure({
                     resizable: true,
                 }),
