@@ -239,6 +239,64 @@ body.is-status-bar-hidden .status-bar {
     flex: 0 0 auto;
 }
 
+.status-item-progress {
+    flex: 0 0 auto;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    color: inherit;
+    transition: opacity 0.15s ease;
+}
+
+.status-item-progress.is-active {
+    display: inline-flex;
+}
+
+.status-progress-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(107, 226, 117, 0.25);
+    border-top-color: rgba(107, 226, 117, 0.85);
+    animation: status-progress-spin 0.75s linear infinite;
+}
+
+.status-item-progress.is-success .status-progress-indicator,
+.status-item-progress.is-error .status-progress-indicator {
+    animation: none;
+    border: none;
+    width: auto;
+    height: auto;
+    font-size: 12px;
+}
+
+.status-item-progress.is-success .status-progress-indicator::before {
+    content: '✓';
+    color: rgba(107, 226, 117, 0.85);
+}
+
+.status-item-progress.is-error .status-progress-indicator::before {
+    content: '!';
+    font-weight: 600;
+    color: rgba(255, 99, 71, 0.8);
+}
+
+.status-progress-text {
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@keyframes status-progress-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 body.is-file-drop-hover {
     cursor: copy;
 }

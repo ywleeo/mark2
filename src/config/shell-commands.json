@@ -12,6 +12,12 @@
         "make", "cmake", "ninja", "cargo", "go", "gradle", "mvn",
         "code", "open", "osascript",
         "export", "ls", "cd",
-        "rg", "fd", "bat", "exa", "jq", "fzf"
+        "rg", "fd", "bat", "exa", "jq", "fzf", "claude", "gemini", "xcode-select", "nvm",
+        "install", "update", "upgrade", "remove", "uninstall", "search", "list", "security",
+        "python", "node", "ruby", "java", "rustc", "golang", "perl",
+        "ssh-keygen", "ssh-copy-id",
+        "tar", "zip", "unzip", "gzip", "gunzip",
+        "df", "du", "free", "uptime",
+        "date", "cal", "time"
     ]
 }

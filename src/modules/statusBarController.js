@@ -5,6 +5,8 @@ export function createStatusBarController({
     statusBarFilePathElement,
     statusBarWordCountElement,
     statusBarLastModifiedElement,
+    statusBarProgressElement,
+    statusBarProgressTextElement,
     normalizeFsPath,
     revealInFileManager,
     getFileMetadata,
@@ -13,12 +15,14 @@ export function createStatusBarController({
     if (!statusBarElement
         || !statusBarFilePathElement
         || !statusBarWordCountElement
-        || !statusBarLastModifiedElement) {
+        || !statusBarLastModifiedElement
+        || !statusBarProgressElement) {
         throw new Error('缺少状态栏元素，无法初始化状态栏控制器');
     }
 
     let isStatusBarHidden = false;
     let statusBarPathCleanup = null;
+    let progressHideTimer = null;
 
     function setStatusBarVisibility(hidden) {
         const body = document.body;
@@ -41,6 +45,59 @@ export function createStatusBarController({
 
         if (visibilityChanged && typeof onVisibilityChange === 'function') {
             onVisibilityChange({ hidden: nextHidden });
+        }
+    }
+
+    function showProgress(message = '正在处理...', { state } = {}) {
+        if (!statusBarProgressElement) {
+            return;
+        }
+
+        window.clearTimeout(progressHideTimer);
+        progressHideTimer = null;
+
+        statusBarProgressElement.classList.add('is-active');
+        statusBarProgressElement.classList.remove('is-success', 'is-error');
+        if (state === 'success') {
+            statusBarProgressElement.classList.add('is-success');
+        }
+        if (state === 'error') {
+            statusBarProgressElement.classList.add('is-error');
+        }
+        statusBarProgressElement.removeAttribute('aria-hidden');
+
+        if (statusBarProgressTextElement) {
+            statusBarProgressTextElement.textContent = message;
+        } else {
+            statusBarProgressElement.textContent = message;
+        }
+    }
+
+    function hideProgress({ delay = 0 } = {}) {
+        if (!statusBarProgressElement) {
+            return;
+        }
+
+        const clearState = () => {
+            statusBarProgressElement.classList.remove('is-active', 'is-success', 'is-error');
+            statusBarProgressElement.setAttribute('aria-hidden', 'true');
+            if (statusBarProgressTextElement) {
+                statusBarProgressTextElement.textContent = '';
+            } else {
+                statusBarProgressElement.textContent = '';
+            }
+        };
+
+        if (delay && delay > 0) {
+            window.clearTimeout(progressHideTimer);
+            progressHideTimer = window.setTimeout(() => {
+                clearState();
+                progressHideTimer = null;
+            }, delay);
+        } else {
+            window.clearTimeout(progressHideTimer);
+            progressHideTimer = null;
+            clearState();
         }
     }
 
@@ -204,11 +261,21 @@ export function createStatusBarController({
         }
     }
 
+    function teardownProgress() {
+        if (!statusBarProgressElement) {
+            return;
+        }
+        window.clearTimeout(progressHideTimer);
+        progressHideTimer = null;
+        hideProgress();
+    }
+
     function teardown() {
         if (statusBarPathCleanup) {
             statusBarPathCleanup();
             statusBarPathCleanup = null;
         }
+        teardownProgress();
     }
 
     return {
@@ -219,6 +286,8 @@ export function createStatusBarController({
         calculateWordCount,
         getLastModifiedTime,
         teardown,
+        showProgress,
+        hideProgress,
         isHidden: () => isStatusBarHidden,
     };
 }

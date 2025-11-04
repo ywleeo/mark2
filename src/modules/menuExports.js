@@ -7,7 +7,8 @@ import {
     collectContentForPdf,
 } from '../utils/exportUtils.js';
 
-export async function exportCurrentViewToImage({ ensureToPng }) {
+export async function exportCurrentViewToImage({ ensureToPng, statusBarController }) {
+    let progressShown = false;
     try {
         const defaultPath = await buildDefaultScreenshotPath();
         const targetPath = await save({
@@ -25,26 +26,38 @@ export async function exportCurrentViewToImage({ ensureToPng }) {
             return;
         }
 
+        statusBarController?.showProgress?.('正在导出 PNG…');
+        progressShown = true;
+
         const dataUrl = await captureViewContent(ensureToPng);
         await invoke('capture_screenshot', {
             destination: targetPath,
             imageData: dataUrl,
         });
-        await message('截图已保存至: ' + targetPath, {
-            title: '截图完成',
-            kind: 'info',
-        });
+
+        statusBarController?.showProgress?.('PNG 已保存：' + targetPath, { state: 'success' });
+        statusBarController?.hideProgress?.({ delay: 2200 });
+        progressShown = false;
     } catch (error) {
         console.error('生成截图失败', error);
+        if (progressShown) {
+            statusBarController?.hideProgress?.();
+            progressShown = false;
+        }
         const reason = error?.message || String(error);
         await message('生成截图失败: ' + reason, {
             title: '截图失败',
             kind: 'error',
         });
+    } finally {
+        if (progressShown) {
+            statusBarController?.hideProgress?.();
+        }
     }
 }
 
-export async function exportCurrentViewToPdf({ activeViewMode }) {
+export async function exportCurrentViewToPdf({ activeViewMode, statusBarController }) {
+    let progressShown = false;
     try {
         const defaultPath = await buildDefaultPdfPath();
         const targetPath = await save({
@@ -62,6 +75,9 @@ export async function exportCurrentViewToPdf({ activeViewMode }) {
             return;
         }
 
+        statusBarController?.showProgress?.('正在导出 PDF…');
+        progressShown = true;
+
         const { htmlContent, cssContent, pageWidth } = await collectContentForPdf(activeViewMode);
         await invoke('export_to_pdf', {
             destination: targetPath,
@@ -70,17 +86,23 @@ export async function exportCurrentViewToPdf({ activeViewMode }) {
             pageWidth,
         });
 
-        await message('PDF 已保存至: ' + targetPath, {
-            title: '导出完成',
-            kind: 'info',
-        });
+        statusBarController?.showProgress?.('PDF 已保存：' + targetPath, { state: 'success' });
+        statusBarController?.hideProgress?.({ delay: 2200 });
+        progressShown = false;
     } catch (error) {
         console.error('导出 PDF 失败', error);
+        if (progressShown) {
+            statusBarController?.hideProgress?.();
+            progressShown = false;
+        }
         const reason = error?.message || String(error);
         await message('导出 PDF 失败: ' + reason, {
             title: '导出失败',
             kind: 'error',
         });
+    } finally {
+        if (progressShown) {
+            statusBarController?.hideProgress?.();
+        }
     }
 }
-

@@ -582,6 +582,8 @@ async function initializeApplication() {
 
     const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
     const statusBarFilePathElement = requireElementById('statusBarPath', '状态栏缺少文件路径区域');
+    const statusBarProgressElement = requireElementById('statusBarProgress', '状态栏缺少进度区域');
+    const statusBarProgressTextElement = requireElementById('statusBarProgressText', '状态栏缺少进度文本区域');
     const statusBarWordCountElement = requireElementById('statusBarWordCount', '状态栏缺少字数区域');
     const statusBarLastModifiedElement = requireElementById('statusBarLastModified', '状态栏缺少更新日期区域');
     statusBarController = createStatusBarController({
@@ -589,6 +591,8 @@ async function initializeApplication() {
         statusBarFilePathElement,
         statusBarWordCountElement,
         statusBarLastModifiedElement,
+        statusBarProgressElement,
+        statusBarProgressTextElement,
         normalizeFsPath,
         revealInFileManager,
         getFileMetadata,
@@ -708,8 +712,8 @@ async function initializeApplication() {
         onNewFile: handleCreateNewFile,
         onOpen: openFileOrFolder,
         onSettings: openSettingsDialog,
-        onExportImage: () => exportCurrentViewToImage({ ensureToPng }),
-        onExportPdf: () => exportCurrentViewToPdf({ activeViewMode }),
+        onExportImage: () => exportCurrentViewToImage({ ensureToPng, statusBarController }),
+        onExportPdf: () => exportCurrentViewToPdf({ activeViewMode, statusBarController }),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
