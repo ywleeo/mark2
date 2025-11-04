@@ -4,12 +4,12 @@
 mod plugin_loader;
 
 use base64::Engine;
-use tauri::Emitter;
 use font_kit::source::SystemSource;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 use tauri::menu::*;
+use tauri::Emitter;
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -18,8 +18,8 @@ use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 
-use serde::Serialize;
 use headless_chrome::{Browser, LaunchOptions};
+use serde::Serialize;
 
 #[derive(Serialize)]
 struct FileMetadata {
@@ -364,10 +364,8 @@ fn main() {
 
             let rename_file_item =
                 MenuItemBuilder::with_id("file-rename", "Rename...").build(app)?;
-            let move_file_item =
-                MenuItemBuilder::with_id("file-move", "Move To...").build(app)?;
-            let delete_file_item =
-                MenuItemBuilder::with_id("file-delete", "Delete").build(app)?;
+            let move_file_item = MenuItemBuilder::with_id("file-move", "Move To...").build(app)?;
+            let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete").build(app)?;
 
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File")
@@ -399,17 +397,17 @@ fn main() {
                     // Toggle 菜单项
                     if let Some(toggle_config) = &menu_config.toggle {
                         let default_label = format!("Toggle {}", plugin.name);
-                        let label = toggle_config.label.as_ref()
+                        let label = toggle_config
+                            .label
+                            .as_ref()
                             .map(|s| s.as_str())
                             .unwrap_or(&default_label);
                         let accelerator = toggle_config.accelerator.as_deref().unwrap_or("");
 
-                        let toggle_item = MenuItemBuilder::with_id(
-                            format!("plugin-{}-toggle", plugin_id),
-                            label,
-                        )
-                        .accelerator(accelerator)
-                        .build(app)?;
+                        let toggle_item =
+                            MenuItemBuilder::with_id(format!("plugin-{}-toggle", plugin_id), label)
+                                .accelerator(accelerator)
+                                .build(app)?;
 
                         submenu_builder = submenu_builder.item(&toggle_item);
                     }
@@ -417,7 +415,9 @@ fn main() {
                     // Settings 菜单项
                     if let Some(settings_config) = &menu_config.settings {
                         let default_label = format!("{} Settings...", plugin.name);
-                        let label = settings_config.label.as_ref()
+                        let label = settings_config
+                            .label
+                            .as_ref()
                             .map(|s| s.as_str())
                             .unwrap_or(&default_label);
                         let accelerator = settings_config.accelerator.as_deref().unwrap_or("");
@@ -446,12 +446,10 @@ fn main() {
             let copy_item = PredefinedMenuItem::copy(app, None)?;
             let paste_item = PredefinedMenuItem::paste(app, None)?;
             let select_all_item = PredefinedMenuItem::select_all(app, None)?;
-            let markdown_code_mode_item = MenuItemBuilder::with_id(
-                "toggle-markdown-code-view",
-                "Toggle Markdown Code Mode",
-            )
-            .accelerator("CmdOrCtrl+E")
-            .build(app)?;
+            let markdown_code_mode_item =
+                MenuItemBuilder::with_id("toggle-markdown-code-view", "Toggle Markdown Code Mode")
+                    .accelerator("CmdOrCtrl+E")
+                    .build(app)?;
 
             let edit_menu = SubmenuBuilder::new(app, "Edit")
                 .item(&undo_item)

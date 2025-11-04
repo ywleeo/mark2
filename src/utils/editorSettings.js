@@ -158,6 +158,19 @@ export function applyEditorSettings(settings) {
     }
 }
 
+const themeAssets = import.meta.glob('../../styles/themes/*.css', {
+    as: 'url',
+    eager: true,
+});
+
+const themeUrlByName = Object.entries(themeAssets).reduce((acc, [path, url]) => {
+    const match = path.match(/\/([^/]+)\.css$/);
+    if (match && match[1]) {
+        acc[match[1]] = url;
+    }
+    return acc;
+}, {});
+
 function loadTheme(themeName) {
     const theme = themeName || 'default';
     const themeId = 'markdown-theme-stylesheet';
@@ -167,10 +180,12 @@ function loadTheme(themeName) {
         existingTheme.remove();
     }
 
+    const href = themeUrlByName[theme] || themeUrlByName.default || `/styles/themes/${theme}.css`;
+
     const link = document.createElement('link');
     link.id = themeId;
     link.rel = 'stylesheet';
-    link.href = `/styles/themes/${theme}.css`;
+    link.href = href;
 
     document.head.appendChild(link);
 }
