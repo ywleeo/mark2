@@ -166,3 +166,19 @@ export class Component {
 - 回调函数：`onXxx` 或 `handleXxx`
 - 布尔值：`isXxx` 或 `hasXxx`
 - 异步函数：使用 `async/await`
+
+## MAS 发布自动化
+
+- 使用 `scripts/mas-release.sh` 自动完成签名、打包、校验与上传。运行前请确认钥匙串已导入 `Mac App Distribution` 与 `Mac Installer Distribution` 证书，并准备好 MAS 描述文件。
+- 必填环境变量：`APPLE_SIGNING_IDENTITY`、`APPLE_INSTALLER_IDENTITY`、`APPLE_PROVISIONING_PROFILE`。上传至 App Store Connect 时任选其一：`APP_STORE_CONNECT_API_KEY` + `APP_STORE_CONNECT_API_ISSUER`，或 `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD`。
+- 示例命令：
+  ```bash
+  APPLE_SIGNING_IDENTITY="Mac App Distribution: Example Corp (ABC12345XY)" \
+  APPLE_INSTALLER_IDENTITY="Mac Installer Distribution: Example Corp (ABC12345XY)" \
+  APPLE_PROVISIONING_PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/Mark2.mas.provisionprofile" \
+  APP_STORE_CONNECT_API_KEY="ABC123DEFG" \
+  APP_STORE_CONNECT_API_ISSUER="11223344-5566-7788-99aa-bbccddeeff00" \
+  ./scripts/mas-release.sh
+  ```
+- 脚本会自动读取钥匙串中的 `Mac App Distribution`、`Mac Installer Distribution` 证书，并尝试在 `~/Library/MobileDevice/Provisioning Profiles/` 匹配应用的描述文件；若自动匹配失败，再通过参数或环境变量覆盖。
+- 如果只想生成本地产物，可加上 `--skip-upload`；已编译好的 `.app` 也可以配合 `--skip-build` 复用。打包结果默认输出到 `./artifacts/`。
