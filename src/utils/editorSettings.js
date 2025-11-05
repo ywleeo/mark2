@@ -159,7 +159,8 @@ export function applyEditorSettings(settings) {
 }
 
 const themeAssets = import.meta.glob('../../styles/themes/*.css', {
-    as: 'url',
+    query: '?url',
+    import: 'default',
     eager: true,
 });
 
