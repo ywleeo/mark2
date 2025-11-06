@@ -156,7 +156,14 @@ fn default_candidate_dirs() -> Vec<PathBuf> {
 /// 默认使用候选目录扫描插件（供菜单等场景使用）
 pub fn scan_plugins() -> Result<Vec<PluginManifest>, String> {
     let candidates = default_candidate_dirs();
-    scan_plugins_from_candidates(&candidates)
+    let mut builtins = builtin_plugins();
+    let mut externals = scan_plugins_from_candidates(&candidates)?;
+
+    let builtin_ids: HashSet<String> = builtins.iter().map(|p| p.id.clone()).collect();
+    externals.retain(|manifest| !builtin_ids.contains(&manifest.id));
+
+    builtins.append(&mut externals);
+    Ok(builtins)
 }
 
 /// Tauri 命令：列出所有插件
@@ -174,5 +181,38 @@ pub fn list_plugins(app_handle: tauri::AppHandle) -> Result<Vec<PluginManifest>,
     // 追加默认候选路径
     candidates.extend(default_candidate_dirs());
 
-    scan_plugins_from_candidates(&candidates)
+    let mut builtins = builtin_plugins();
+    let mut externals = scan_plugins_from_candidates(&candidates)?;
+
+    let builtin_ids: HashSet<String> = builtins.iter().map(|p| p.id.clone()).collect();
+    externals.retain(|manifest| !builtin_ids.contains(&manifest.id));
+
+    builtins.append(&mut externals);
+    Ok(builtins)
+}
+
+fn builtin_plugins() -> Vec<PluginManifest> {
+    let builtin_manifests: &[&str] = &[
+        include_str!("../../plugins/ai-assistant/manifest.json"),
+    ];
+
+    let mut manifests = Vec::new();
+
+    for manifest_str in builtin_manifests {
+        match serde_json::from_str::<PluginManifest>(manifest_str) {
+            Ok(mut manifest) => {
+                // 内置插件的前端文件随应用打包，因此 entry 可保持不变。
+                manifest.frontend = manifest.frontend.take().map(|frontend| FrontendConfig {
+                    entry: frontend.entry,
+                    enabled: frontend.enabled,
+                });
+                manifests.push(manifest);
+            }
+            Err(err) => {
+                eprintln!("[PluginLoader] 解析内置插件 manifest 失败: {}", err);
+            }
+        }
+    }
+
+    manifests
 }

@@ -1,6 +1,7 @@
 import { eventBus } from './EventBus.js';
 import { invoke } from '@tauri-apps/api/core';
 import { AppBridge } from './AppBridge.js';
+import { builtinPlugins } from '../config/builtin-plugins.js';
 
 /**
  * 插件管理器 - 负责插件的自动扫描、加载、激活、卸载
@@ -22,38 +23,65 @@ export class PluginManager {
      * 自动扫描并加载所有插件
      */
     async scanAndLoadPlugins() {
-        try {
-            // 1. 通过 Tauri 命令获取插件列表
-            const manifests = await invoke('list_plugins');
-            console.log(`[PluginManager] 发现 ${manifests.length} 个插件`);
+        const preloadedModules = import.meta.glob('/plugins/*/frontend/index.js');
+        const loadedPluginIds = new Set();
 
-            // 2. 使用 Vite glob import 预加载所有插件模块
-            const modules = import.meta.glob('/plugins/*/frontend/index.js');
-
-            // 3. 依次加载每个插件
-            for (const manifest of manifests) {
-                if (!manifest.frontend?.enabled) {
-                    console.log(`[PluginManager] 跳过禁用的插件: ${manifest.id}`);
-                    continue;
-                }
-
-                try {
-                    const modulePath = `/plugins/${manifest.id}/frontend/index.js`;
-                    console.log(`[PluginManager] 加载插件: ${manifest.id} (${modulePath})`);
-
-                    if (modules[modulePath]) {
-                        const pluginModule = await modules[modulePath]();
-                        await this.register(manifest.id, pluginModule);
-                        await this.activate(manifest.id);
-                    } else {
-                        console.warn(`[PluginManager] 插件 "${manifest.id}" 的前端入口文件不存在: ${modulePath}`);
-                    }
-                } catch (error) {
-                    console.error(`[PluginManager] 加载插件 "${manifest.id}" 失败:`, error);
-                }
+        // 1. 先加载内置插件
+        for (const builtin of builtinPlugins) {
+            const { manifest, module } = builtin;
+            if (!manifest?.id || !module) {
+                console.warn('[PluginManager] 内置插件定义缺少 manifest 或 module，跳过');
+                continue;
             }
+            try {
+                console.log(`[PluginManager] 加载内置插件: ${manifest.id}`);
+                await this.register(manifest.id, module, manifest);
+                await this.activate(manifest.id);
+                loadedPluginIds.add(manifest.id);
+            } catch (error) {
+                console.error(`[PluginManager] 加载内置插件 "${manifest.id}" 失败:`, error);
+            }
+        }
+
+        // 2. 尝试从后端读取可扩展插件列表（目录扫描）
+        let manifests = [];
+        try {
+            manifests = await invoke('list_plugins');
+            console.log(`[PluginManager] 目录中发现 ${manifests.length} 个插件`);
         } catch (error) {
-            console.error('[PluginManager] 扫描插件失败:', error);
+            console.error('[PluginManager] 扫描插件目录失败:', error);
+        }
+
+        // 3. 动态加载目录插件（跳过已加载的内置插件）
+        for (const manifest of manifests) {
+            if (!manifest?.id) {
+                continue;
+            }
+
+            if (loadedPluginIds.has(manifest.id)) {
+                console.log(`[PluginManager] 插件 ${manifest.id} 已作为内置插件加载，跳过目录版本`);
+                continue;
+            }
+
+            if (!manifest.frontend?.enabled) {
+                console.log(`[PluginManager] 跳过禁用的插件: ${manifest.id}`);
+                continue;
+            }
+
+            try {
+                const modulePath = `/plugins/${manifest.id}/frontend/index.js`;
+                console.log(`[PluginManager] 加载插件: ${manifest.id} (${modulePath})`);
+
+                if (preloadedModules[modulePath]) {
+                    const pluginModule = await preloadedModules[modulePath]();
+                    await this.register(manifest.id, pluginModule, manifest);
+                    await this.activate(manifest.id);
+                } else {
+                    console.warn(`[PluginManager] 插件 "${manifest.id}" 的前端入口文件不存在: ${modulePath}`);
+                }
+            } catch (error) {
+                console.error(`[PluginManager] 加载插件 "${manifest.id}" 失败:`, error);
+            }
         }
     }
 
@@ -62,7 +90,7 @@ export class PluginManager {
      * @param {string} id - 插件唯一 ID
      * @param {Object} plugin - 插件模块
      */
-    async register(id, plugin) {
+    async register(id, plugin, manifest) {
         if (this.plugins.has(id)) {
             console.warn(`[PluginManager] 插件 "${id}" 已存在，跳过注册`);
             return;
@@ -77,7 +105,7 @@ export class PluginManager {
             id,
             module: plugin,
             active: false,
-            metadata: plugin.metadata || {},
+            metadata: manifest || plugin.metadata || {},
         });
 
         console.log(`[PluginManager] 已注册插件: ${id}`);

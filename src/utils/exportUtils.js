@@ -1,4 +1,5 @@
 import { desktopDir, join } from '@tauri-apps/api/path';
+import { getBundledStyles } from '../config/bundled-styles.js';
 
 export function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
@@ -162,7 +163,7 @@ export async function collectContentForPdf(activeViewMode) {
         contentElement = viewElement;
     }
 
-    const htmlContent = contentElement.innerHTML;
+    const htmlContent = `<div class="mark2-export-wrapper">${contentElement.outerHTML}</div>`;
     const cssContent = await collectAllStyles();
     const pageWidth = viewElement.clientWidth || 800;
 
@@ -172,25 +173,9 @@ export async function collectContentForPdf(activeViewMode) {
 async function collectAllStyles() {
     const styles = [];
 
-    const styleTags = document.querySelectorAll('style');
-    styleTags.forEach(tag => {
-        if (tag.textContent) {
-            styles.push(tag.textContent);
-        }
-    });
-
-    const linkTags = document.querySelectorAll('link[rel="stylesheet"]');
-    for (const link of linkTags) {
-        try {
-            const href = link.getAttribute('href');
-            if (href) {
-                const response = await fetch(href);
-                const cssText = await response.text();
-                styles.push(cssText);
-            }
-        } catch (error) {
-            console.warn('无法加载样式表:', link.href, error);
-        }
+    const bundledStyles = getBundledStyles();
+    if (bundledStyles) {
+        styles.push(bundledStyles);
     }
 
     styles.push(`
