@@ -86,15 +86,10 @@ export async function captureViewContent(ensureToPng) {
     wrapper.style.pointerEvents = 'none';
     wrapper.style.zIndex = '-1';
 
-    captureElement
-        .querySelectorAll('.screenshot-watermark')
-        .forEach(element => element.remove());
-
     const clone = captureElement.cloneNode(true);
     clone.style.paddingBottom = '0px';
     clone.style.marginBottom = '0px';
-    const watermarkElement = createWatermarkElement(backgroundColor || '#ffffff');
-    clone.appendChild(watermarkElement);
+    
     clone.style.width = `${scrollWidth}px`;
     clone.style.minHeight = `${scrollHeight}px`;
     clone.style.boxSizing = 'border-box';
@@ -179,51 +174,40 @@ async function collectAllStyles() {
     }
 
     styles.push(`
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-        }
-        .tiptap-editor {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .code-copy-button {
-            display: none !important;
-        }
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    background: #ffffff;
+}
+.mark2-export-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 12px 12px;
+}
+.mark2-export-wrapper .tiptap-editor,
+.mark2-export-wrapper .ProseMirror,
+.mark2-export-wrapper .monaco-editor {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box;
+}
+.mark2-export-wrapper > *:first-child,
+.mark2-export-wrapper .tiptap-editor > *:first-child,
+.mark2-export-wrapper .ProseMirror > *:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+.code-copy-button {
+    display: none !important;
+}
+@page {
+    margin: 20mm 6mm 20mm 6mm;
+}
     `);
 
     return styles.join('\\n');
-}
-
-function createWatermarkElement(baseBackground) {
-    const container = document.createElement('div');
-    container.className = 'screenshot-watermark';
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.alignItems = 'center';
-    container.style.padding = '2px 0 5px';
-    container.style.background = baseBackground;
-
-    const divider = document.createElement('div');
-    divider.style.width = '100%';
-    divider.style.height = '2px';
-    divider.style.backgroundColor = '#eeeeee';
-    divider.style.margin = '0 0 10px 0';
-
-    const ribbon = document.createElement('span');
-    ribbon.textContent = 'Mark2';
-    ribbon.style.display = 'inline-block';
-    ribbon.style.background = '#ff3b30';
-    ribbon.style.color = '#ffffff';
-    ribbon.style.fontSize = '14px';
-    ribbon.style.fontWeight = '700';
-    ribbon.style.padding = '2px 15px';
-    ribbon.style.letterSpacing = '0.5px';
-
-    container.appendChild(divider);
-    container.appendChild(ribbon);
-
-    return container;
 }

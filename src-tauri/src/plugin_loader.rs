@@ -192,9 +192,7 @@ pub fn list_plugins(app_handle: tauri::AppHandle) -> Result<Vec<PluginManifest>,
 }
 
 fn builtin_plugins() -> Vec<PluginManifest> {
-    let builtin_manifests: &[&str] = &[
-        include_str!("../../plugins/ai-assistant/manifest.json"),
-    ];
+    let builtin_manifests: &[&str] = &[include_str!("../../plugins/ai-assistant/manifest.json")];
 
     let mut manifests = Vec::new();
 

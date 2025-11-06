@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
@@ -129,6 +130,24 @@ let markdownCodeMode = null;
 let fileDropController = null;
 let pluginManager = null;
 let documentIO = null;
+let exportMenuEnabledState = null;
+
+async function updateExportMenuState() {
+    const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
+    const shouldEnable = activeViewMode === 'markdown' && hasMarkdownFile;
+
+    if (exportMenuEnabledState === shouldEnable) {
+        return;
+    }
+
+    exportMenuEnabledState = shouldEnable;
+
+    try {
+        await invoke('set_export_menu_enabled', { enabled: shouldEnable });
+    } catch (error) {
+        console.warn('更新导出菜单状态失败:', error);
+    }
+}
 
 function requireElementById(id, errorMessage) {
     const element = document.getElementById(id);
@@ -310,6 +329,7 @@ function setActiveViewMode(nextMode) {
 
     config.onEnter?.();
     activeViewMode = nextMode;
+    void updateExportMenuState();
 }
 
 const workspaceController = createWorkspaceController({
@@ -339,6 +359,7 @@ const {
     setCurrentFile: (value) => {
         currentFile = value;
         window.currentFile = value;  // 同时导出到 window
+        void updateExportMenuState();
     },
     getActiveViewMode: () => activeViewMode,
     setHasUnsavedChanges: (value) => {
@@ -738,6 +759,7 @@ async function initializeApplication() {
 
     // 发布应用初始化完成事件
     eventBus.emit('app:initialized');
+    void updateExportMenuState();
 }
 
 /**

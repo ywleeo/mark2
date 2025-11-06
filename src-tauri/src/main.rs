@@ -7,9 +7,10 @@ use base64::Engine;
 use font_kit::source::SystemSource;
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 use std::time::SystemTime;
 use tauri::menu::*;
-use tauri::Emitter;
+use tauri::{Emitter, Manager, Wry};
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -24,6 +25,23 @@ use serde::Serialize;
 #[derive(Serialize)]
 struct FileMetadata {
     modified_time: u64, // Unix timestamp in seconds
+}
+
+struct ExportMenuHandles {
+    image: MenuItem<Wry>,
+    pdf: MenuItem<Wry>,
+}
+
+struct ExportMenuState {
+    handles: Mutex<ExportMenuHandles>,
+}
+
+impl ExportMenuState {
+    fn new(image: MenuItem<Wry>, pdf: MenuItem<Wry>) -> Self {
+        Self {
+            handles: Mutex::new(ExportMenuHandles { image, pdf }),
+        }
+    }
 }
 
 #[tauri::command]
@@ -179,7 +197,7 @@ async fn export_to_pdf(
     destination: String,
     html_content: String,
     css_content: String,
-    page_width: Option<f64>,
+    _page_width: Option<f64>,
 ) -> Result<(), String> {
     if let Some(parent) = Path::new(&destination).parent() {
         if !parent.exists() {
@@ -227,26 +245,32 @@ async fn export_to_pdf(
     // 配置 PDF 选项
     use headless_chrome::types::PrintToPdfOptions;
 
-    let width_inches = page_width
-        .map(|w| w / 96.0) // 将像素转换为英寸 (96 DPI)
-        .unwrap_or(8.5); // 默认 8.5 英寸 (Letter 宽度)
+    let header_template =
+        "<div style=\"width:100%;font-size:0;margin:0;padding:0;\">&nbsp;</div>".to_string();
+    let footer_template = r#"
+        <div style="width:100%;padding:6px 0 0 0;display:flex;justify-content:center;align-items:center;gap:12px;font-size:11px;color:#999;">
+            <span style="flex:1;height:1px;background:#e5e5e5;"></span>
+            <span style="display:inline-block;background:#ff3b30;color:#ffffff;font-weight:700;font-size:12px;letter-spacing:0.4px;padding:2px 14px;border-radius:4px;">Mark2</span>
+            <span style="flex:1;height:1px;background:#e5e5e5;"></span>
+        </div>
+    "#.to_string();
 
     let pdf_options = PrintToPdfOptions {
         landscape: Some(false),
-        display_header_footer: Some(false),
+        display_header_footer: Some(true),
         print_background: Some(true),
         scale: Some(1.0),
-        paper_width: Some(width_inches),
-        paper_height: None, // 自动高度
-        margin_top: Some(0.4),
-        margin_bottom: Some(0.4),
-        margin_left: Some(0.4),
-        margin_right: Some(0.4),
+        paper_width: None,
+        paper_height: None,
+        margin_top: None,
+        margin_bottom: None,
+        margin_left: None,
+        margin_right: None,
         page_ranges: None,
         ignore_invalid_page_ranges: None,
-        header_template: None,
-        footer_template: None,
-        prefer_css_page_size: Some(false),
+        header_template: Some(header_template),
+        footer_template: Some(footer_template),
+        prefer_css_page_size: Some(true),
         transfer_mode: None,
         generate_document_outline: None,
         generate_tagged_pdf: None,
@@ -298,6 +322,26 @@ fn reveal_in_file_manager(path: String) -> Result<(), String> {
     reveal_in_file_manager_impl(&path)
 }
 
+#[tauri::command]
+fn set_export_menu_enabled(
+    state: tauri::State<ExportMenuState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let handles = state
+        .handles
+        .lock()
+        .map_err(|_| "failed to lock export menu state")?;
+    handles
+        .image
+        .set_enabled(enabled)
+        .map_err(|e| e.to_string())?;
+    handles
+        .pdf
+        .set_enabled(enabled)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -318,6 +362,7 @@ fn main() {
             get_file_metadata,
             ipc_health_check,
             reveal_in_file_manager,
+            set_export_menu_enabled,
             plugin_loader::list_plugins
         ])
         .setup(|app| {
@@ -383,6 +428,11 @@ fn main() {
                 .item(&toggle_sidebar_item)
                 .item(&toggle_status_bar_item)
                 .build()?;
+
+            app.manage(ExportMenuState::new(
+                export_image_item.clone(),
+                export_pdf_item.clone(),
+            ));
 
             // 动态加载插件菜单
             let plugins = plugin_loader::scan_plugins().unwrap_or_default();
