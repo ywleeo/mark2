@@ -42,6 +42,7 @@ export class PdfViewer {
         this.emptyStateElement = null;
         this.resizeTimer = null;
         this.resizeObserver = null;
+        this.pageElements = new Map();
         this.handleWindowResize = this.handleWindowResize.bind(this);
         window.addEventListener('resize', this.handleWindowResize);
         if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
@@ -79,6 +80,7 @@ export class PdfViewer {
         this.setEmptyState(true);
         this.callbacks.onPageInfoChange?.('');
         void this.destroyPdfDocument();
+        this.clearPages();
         window.clearTimeout(this.resizeTimer);
         this.resizeTimer = null;
         this.fitScale = DEFAULT_SCALE;
@@ -109,6 +111,7 @@ export class PdfViewer {
 
     async loadDocument(filePath, base64Data) {
         await this.destroyPdfDocument();
+        this.clearPages();
         this.currentFile = filePath;
         this.setEmptyState(true);
 
@@ -125,7 +128,7 @@ export class PdfViewer {
             this.manualScale = DEFAULT_SCALE;
             await this.updateFitScale({ rerender: false });
             this.callbacks.onPageInfoChange?.(`共 ${this.pdfDocument.numPages} 页`);
-            await this.renderAllPages();
+            await this.renderAllPages({ resetPages: true });
             this.setEmptyState(false);
             this.show();
             this.emitZoomChange();
@@ -179,12 +182,14 @@ export class PdfViewer {
         }
     }
 
-    async renderAllPages() {
+    async renderAllPages({ resetPages = false } = {}) {
         if (!this.pdfDocument || !this.pagesContainer) {
             return;
         }
+        if (resetPages) {
+            this.clearPages();
+        }
         const previousScrollTop = this.pagesContainer.scrollTop;
-        this.pagesContainer.innerHTML = '';
         const totalPages = this.pdfDocument.numPages;
         for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
             await this.renderSinglePage(pageNumber);
@@ -199,7 +204,26 @@ export class PdfViewer {
             const pixelRatio = window.devicePixelRatio || 1;
             const outputScale = Math.max(1, pixelRatio);
 
-            const canvas = document.createElement('canvas');
+            let pageEntry = this.pageElements.get(pageNumber);
+            if (!pageEntry) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'pdf-viewer__page';
+                const canvasElement = document.createElement('canvas');
+                canvasElement.classList.add('pdf-viewer__canvas');
+                wrapper.appendChild(canvasElement);
+                this.pageElements.set(pageNumber, { wrapper, canvas: canvasElement });
+                this.pagesContainer.appendChild(wrapper);
+                pageEntry = this.pageElements.get(pageNumber);
+            }
+            let { wrapper: pageWrapper, canvas } = pageEntry || {};
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                canvas.classList.add('pdf-viewer__canvas');
+                pageWrapper.innerHTML = '';
+                pageWrapper.appendChild(canvas);
+                pageEntry.canvas = canvas;
+            }
+
             const context = canvas.getContext('2d', { alpha: false });
             if (!context) {
                 console.warn('无法获取 PDF canvas 上下文');
@@ -210,7 +234,6 @@ export class PdfViewer {
             canvas.height = Math.floor(viewport.height * outputScale);
             canvas.style.width = `${viewport.width}px`;
             canvas.style.height = `${viewport.height}px`;
-            canvas.classList.add('pdf-viewer__canvas');
             context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
 
             const renderTask = page.render({
@@ -218,14 +241,16 @@ export class PdfViewer {
                 viewport,
             });
             await renderTask.promise;
-
-            const pageWrapper = document.createElement('div');
-            pageWrapper.className = 'pdf-viewer__page';
-            pageWrapper.appendChild(canvas);
-            this.pagesContainer.appendChild(pageWrapper);
         } catch (error) {
             console.error(`渲染第 ${pageNumber} 页失败:`, error);
         }
+    }
+
+    clearPages() {
+        if (this.pagesContainer) {
+            this.pagesContainer.innerHTML = '';
+        }
+        this.pageElements.clear();
     }
 
     clampManualScale(value) {
