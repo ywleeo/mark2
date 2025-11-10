@@ -59,8 +59,5 @@
     font-size: var(--code-font-size, 14px) !important;
     line-height: var(--code-line-height, 1.5) !important;
     font-weight: var(--code-font-weight, 400) !important;
-}
-
-.code-editor-pane .monaco-editor {
     font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace) !important;
 }

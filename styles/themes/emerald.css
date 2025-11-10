@@ -17,7 +17,7 @@
 
 /* 基础编辑器样式 */
 .tiptap-editor {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif;
+    font-family: var(--editor-font-family, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif);
     color: var(--text-color);
 }
 
