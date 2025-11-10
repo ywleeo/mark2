@@ -137,6 +137,11 @@ let imagePaneElement = null;
 let unsupportedPaneElement = null;
 let spreadsheetPaneElement = null;
 let pdfPaneElement = null;
+let pdfZoomState = {
+    zoomValue: 1,
+    canZoomIn: true,
+    canZoomOut: true,
+};
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
@@ -377,13 +382,8 @@ function applyContentZoom() {
         root.style.setProperty('--editor-zoom-scale', contentZoom.toString());
     }
     codeEditor?.setZoomScale?.(contentZoom);
-    pdfViewer?.setZoomScale?.(contentZoom);
     imageViewer?.setZoomScale?.(contentZoom);
-    statusBarController?.updateZoomDisplay?.({
-        zoomValue: contentZoom,
-        canZoomIn: contentZoom < ZOOM_MAX - 0.001,
-        canZoomOut: contentZoom > ZOOM_MIN + 0.001,
-    });
+    updateZoomDisplayForActiveView();
 }
 
 function setContentZoom(nextZoom, { silent } = {}) {
@@ -397,6 +397,28 @@ function setContentZoom(nextZoom, { silent } = {}) {
 
 function adjustContentZoom(delta) {
     setContentZoom(contentZoom + delta);
+}
+
+function updateZoomDisplayForActiveView() {
+    if (activeViewMode === 'pdf') {
+        const zoomState = pdfViewer?.getZoomState?.() || pdfZoomState;
+        pdfZoomState = zoomState || pdfZoomState;
+        statusBarController?.updateZoomDisplay?.(pdfZoomState);
+        return;
+    }
+    statusBarController?.updateZoomDisplay?.({
+        zoomValue: contentZoom,
+        canZoomIn: contentZoom < ZOOM_MAX - 0.001,
+        canZoomOut: contentZoom > ZOOM_MIN + 0.001,
+    });
+}
+
+function handleZoomControl(delta) {
+    if (activeViewMode === 'pdf') {
+        void pdfViewer?.adjustZoomScale?.(delta);
+        return;
+    }
+    adjustContentZoom(delta);
 }
 
 function setActiveViewMode(nextMode) {
@@ -422,6 +444,7 @@ function setActiveViewMode(nextMode) {
         statusBarController?.setPageInfo?.('');
     }
     activeViewMode = nextMode;
+    updateZoomDisplayForActiveView();
     void updateExportMenuState();
 }
 
@@ -753,14 +776,10 @@ async function initializeApplication() {
         getCurrentFile: () => currentFile,
     });
     statusBarController.setupZoomControls({
-        onZoomIn: () => adjustContentZoom(ZOOM_STEP),
-        onZoomOut: () => adjustContentZoom(-ZOOM_STEP),
+        onZoomIn: () => handleZoomControl(ZOOM_STEP),
+        onZoomOut: () => handleZoomControl(-ZOOM_STEP),
     });
-    statusBarController.updateZoomDisplay({
-        zoomValue: contentZoom,
-        canZoomIn: contentZoom < ZOOM_MAX,
-        canZoomOut: contentZoom > ZOOM_MIN,
-    });
+    updateZoomDisplayForActiveView();
     statusBarController.setPageInfo('');
 
     const editorCallbacks = {
@@ -794,6 +813,15 @@ async function initializeApplication() {
     spreadsheetViewer.hide();
     pdfViewer = new PdfViewerCtor(pdfPaneElement, {
         onPageInfoChange: (text) => statusBarController?.setPageInfo?.(text || ''),
+        onZoomChange: (state) => {
+            if (!state) {
+                return;
+            }
+            pdfZoomState = state;
+            if (activeViewMode === 'pdf') {
+                statusBarController?.updateZoomDisplay?.(pdfZoomState);
+            }
+        },
     });
     pdfViewer.hide();
     unsupportedViewer = new UnsupportedViewerCtor(unsupportedPaneElement);
@@ -802,7 +830,6 @@ async function initializeApplication() {
 
     codeEditor?.setZoomScale?.(contentZoom);
     imageViewer?.setZoomScale?.(contentZoom);
-    pdfViewer?.setZoomScale?.(contentZoom);
     setContentZoom(contentZoom, { silent: true });
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器

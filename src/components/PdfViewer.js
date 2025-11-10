@@ -4,6 +4,7 @@ import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 const DEFAULT_SCALE = 1;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.5;
+const SCALE_EPSILON = 0.01;
 
 if (pdfWorkerSrc && GlobalWorkerOptions.workerSrc !== pdfWorkerSrc) {
     GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
@@ -34,10 +35,21 @@ export class PdfViewer {
         this.pdfDocument = null;
         this.loadingTask = null;
         this.callbacks = typeof callbacks === 'object' ? callbacks : {};
-        this.externalScale = DEFAULT_SCALE;
+        this.fitScale = DEFAULT_SCALE;
+        this.manualScale = DEFAULT_SCALE;
         this.scale = DEFAULT_SCALE;
         this.pagesContainer = null;
         this.emptyStateElement = null;
+        this.resizeTimer = null;
+        this.resizeObserver = null;
+        this.handleWindowResize = this.handleWindowResize.bind(this);
+        window.addEventListener('resize', this.handleWindowResize);
+        if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+            this.resizeObserver = new window.ResizeObserver(() => {
+                this.scheduleFitUpdate();
+            });
+            this.resizeObserver.observe(this.container);
+        }
         this.init();
     }
 
@@ -67,6 +79,12 @@ export class PdfViewer {
         this.setEmptyState(true);
         this.callbacks.onPageInfoChange?.('');
         void this.destroyPdfDocument();
+        window.clearTimeout(this.resizeTimer);
+        this.resizeTimer = null;
+        this.fitScale = DEFAULT_SCALE;
+        this.manualScale = DEFAULT_SCALE;
+        this.scale = DEFAULT_SCALE;
+        this.emitZoomChange();
         this.hide();
     }
 
@@ -104,11 +122,13 @@ export class PdfViewer {
         try {
             this.loadingTask = getDocument({ data: fileBytes });
             this.pdfDocument = await this.loadingTask.promise;
-            this.scale = this.clampScale(this.externalScale);
+            this.manualScale = DEFAULT_SCALE;
+            await this.updateFitScale({ rerender: false });
             this.callbacks.onPageInfoChange?.(`共 ${this.pdfDocument.numPages} 页`);
             await this.renderAllPages();
             this.setEmptyState(false);
             this.show();
+            this.emitZoomChange();
         } catch (error) {
             console.error('加载 PDF 失败:', error);
             this.callbacks.onPageInfoChange?.('');
@@ -124,16 +144,27 @@ export class PdfViewer {
     }
 
     async setZoomScale(scale) {
-        this.externalScale = this.clampScale(scale);
+        const clampedScale = this.clampScale(scale);
         if (!this.pdfDocument) {
-            this.scale = this.externalScale;
+            this.scale = clampedScale;
+            this.emitZoomChange();
             return;
         }
-        if (Math.abs(this.externalScale - this.scale) < 0.01) {
+        const baseScale = this.fitScale > 0 ? this.fitScale : DEFAULT_SCALE;
+        this.manualScale = this.clampManualScale(clampedScale / baseScale);
+        if (Math.abs(clampedScale - this.scale) < SCALE_EPSILON) {
+            this.scale = clampedScale;
+            this.emitZoomChange();
             return;
         }
-        this.scale = this.externalScale;
+        this.scale = clampedScale;
         await this.renderAllPages();
+        this.emitZoomChange();
+    }
+
+    async adjustZoomScale(delta) {
+        const nextScale = this.clampScale(this.scale + delta);
+        await this.setZoomScale(nextScale);
     }
 
     setEmptyState(isEmpty, message) {
@@ -152,11 +183,13 @@ export class PdfViewer {
         if (!this.pdfDocument || !this.pagesContainer) {
             return;
         }
+        const previousScrollTop = this.pagesContainer.scrollTop;
         this.pagesContainer.innerHTML = '';
         const totalPages = this.pdfDocument.numPages;
         for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
             await this.renderSinglePage(pageNumber);
         }
+        this.pagesContainer.scrollTop = Math.min(previousScrollTop, this.pagesContainer.scrollHeight);
     }
 
     async renderSinglePage(pageNumber) {
@@ -193,5 +226,98 @@ export class PdfViewer {
         } catch (error) {
             console.error(`渲染第 ${pageNumber} 页失败:`, error);
         }
+    }
+
+    clampManualScale(value) {
+        if (!Number.isFinite(value) || value <= 0) {
+            return 1;
+        }
+        if (this.fitScale <= 0) {
+            return value;
+        }
+        const minManual = MIN_SCALE / this.fitScale;
+        const maxManual = MAX_SCALE / this.fitScale;
+        return Math.min(maxManual, Math.max(minManual, value));
+    }
+
+    async calculateFitScale() {
+        if (!this.pdfDocument) {
+            return null;
+        }
+        const availableWidth = this.getAvailableWidth();
+        if (!availableWidth || availableWidth <= 0) {
+            return null;
+        }
+        try {
+            const page = await this.pdfDocument.getPage(1);
+            const viewport = page.getViewport({ scale: 1 });
+            if (!viewport?.width) {
+                return null;
+            }
+            return this.clampScale(availableWidth / viewport.width);
+        } catch (error) {
+            console.warn('计算 PDF 自适应宽度失败:', error);
+            return null;
+        }
+    }
+
+    getAvailableWidth() {
+        if (!this.pagesContainer) {
+            return this.container?.clientWidth || window.innerWidth || 0;
+        }
+        const containerWidth = this.pagesContainer.clientWidth || 0;
+        if (!containerWidth) {
+            return this.container?.clientWidth || window.innerWidth || 0;
+        }
+        const styles = window.getComputedStyle(this.pagesContainer);
+        const paddingLeft = parseFloat(styles?.paddingLeft) || 0;
+        const paddingRight = parseFloat(styles?.paddingRight) || 0;
+        return Math.max(0, containerWidth - paddingLeft - paddingRight);
+    }
+
+    async updateFitScale({ rerender = true } = {}) {
+        const nextFitScale = await this.calculateFitScale();
+        if (!nextFitScale) {
+            return;
+        }
+        this.fitScale = nextFitScale;
+        const nextScale = this.clampScale(this.fitScale * this.clampManualScale(this.manualScale));
+        const shouldRender = rerender && Math.abs(nextScale - this.scale) > SCALE_EPSILON;
+        this.scale = nextScale;
+        this.manualScale = this.fitScale > 0 ? this.scale / this.fitScale : 1;
+        if (shouldRender) {
+            await this.renderAllPages();
+        }
+        this.emitZoomChange();
+    }
+
+    handleWindowResize() {
+        this.scheduleFitUpdate();
+    }
+
+    scheduleFitUpdate() {
+        if (!this.pdfDocument) {
+            return;
+        }
+        window.clearTimeout(this.resizeTimer);
+        this.resizeTimer = window.setTimeout(() => {
+            this.resizeTimer = null;
+            if (!this.pdfDocument) {
+                return;
+            }
+            void this.updateFitScale();
+        }, 150);
+    }
+
+    getZoomState() {
+        return {
+            zoomValue: this.scale,
+            canZoomIn: this.scale < MAX_SCALE - SCALE_EPSILON,
+            canZoomOut: this.scale > MIN_SCALE + SCALE_EPSILON,
+        };
+    }
+
+    emitZoomChange() {
+        this.callbacks.onZoomChange?.(this.getZoomState());
     }
 }
