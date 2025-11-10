@@ -8,7 +8,7 @@ export class UnsupportedViewer {
     }
 
     init() {
-        this.container.className = 'unsupported-viewer';
+        this.container.classList.add('unsupported-viewer');
         this.container.innerHTML = `
             <div class="unsupported-viewer-content">
                 <div class="unsupported-viewer-title">无法预览该文件</div>

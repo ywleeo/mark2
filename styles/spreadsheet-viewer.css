@@ -1,5 +1,14 @@
 .spreadsheet-pane {
     display: flex;
+    position: relative;
+}
+
+.spreadsheet-pane:not(.is-active) {
+    display: none;
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .spreadsheet-viewer {

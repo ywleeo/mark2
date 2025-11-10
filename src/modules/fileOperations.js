@@ -224,7 +224,7 @@ export function createFileOperations({
                 codeEditor?.hide?.();
                 imageViewer?.hide?.();
                 unsupportedViewer?.hide?.();
-                await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content);
+                await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content, { forceReload });
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
                 if (!skipWatchSetup) {

@@ -9,7 +9,7 @@ export class ImageViewer {
     }
 
     init() {
-        this.container.className = 'image-viewer';
+        this.container.classList.add('image-viewer');
         this.container.innerHTML = `
             <div class="image-viewer-content">
                 <img class="image-viewer-img" alt="图片加载中..." />

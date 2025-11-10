@@ -44,11 +44,8 @@ export class PdfViewer {
         this.resizeObserver = null;
         this.pageElements = new Map();
         this.pageInfoText = '';
-        this.lastScrollTop = 0;
-        this.shouldRestoreScroll = false;
         this.loadingElement = null;
         this.handleWindowResize = this.handleWindowResize.bind(this);
-        this.handlePagesScroll = this.handlePagesScroll.bind(this);
         window.addEventListener('resize', this.handleWindowResize);
         if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
             this.resizeObserver = new window.ResizeObserver(() => {
@@ -75,33 +72,14 @@ export class PdfViewer {
         this.pagesContainer = this.container.querySelector('.pdf-viewer__pages');
         this.emptyStateElement = this.container.querySelector('.pdf-viewer__empty');
         this.loadingElement = this.container.querySelector('.pdf-viewer__loading');
-        this.pagesContainer?.addEventListener('scroll', this.handlePagesScroll);
     }
 
     hide() {
-        if (this.pagesContainer) {
-            this.lastScrollTop = this.pagesContainer.scrollTop;
-            this.shouldRestoreScroll = true;
-        }
-        this.container.style.display = 'none';
+        this.container?.setAttribute('aria-hidden', 'true');
     }
 
     show() {
-        const needsRestore = this.shouldRestoreScroll;
-        if (needsRestore) {
-            this.restoreScrollPosition({ immediate: true, finalize: false });
-            this.container.style.visibility = 'hidden';
-        }
-        this.container.style.display = 'flex';
-        if (needsRestore) {
-            window.requestAnimationFrame(() => {
-                this.restoreScrollPosition({ immediate: true });
-                this.container.style.visibility = '';
-            });
-        } else {
-            this.container.style.visibility = '';
-            this.shouldRestoreScroll = false;
-        }
+        this.container?.removeAttribute('aria-hidden');
     }
 
     clear() {
@@ -117,8 +95,6 @@ export class PdfViewer {
         this.fitScale = DEFAULT_SCALE;
         this.manualScale = DEFAULT_SCALE;
         this.scale = DEFAULT_SCALE;
-        this.lastScrollTop = 0;
-        this.shouldRestoreScroll = false;
         this.emitZoomChange();
         this.hide();
     }
@@ -160,8 +136,6 @@ export class PdfViewer {
         this.currentFile = filePath;
         this.setEmptyState(false);
         this.setLoadingState(true, '正在渲染 PDF…');
-        this.lastScrollTop = 0;
-        this.shouldRestoreScroll = false;
 
         const fileBytes = base64ToUint8Array(base64Data);
         if (!fileBytes.length) {
@@ -321,38 +295,6 @@ export class PdfViewer {
             this.pagesContainer.scrollTop = 0;
         }
         this.pageElements.clear();
-    }
-
-    handlePagesScroll() {
-        if (!this.pagesContainer) {
-            return;
-        }
-        this.lastScrollTop = this.pagesContainer.scrollTop;
-        this.shouldRestoreScroll = false;
-    }
-
-    restoreScrollPosition({ immediate = false, finalize = true } = {}) {
-        if (!this.pagesContainer) {
-            return;
-        }
-        const target = Math.max(0, this.lastScrollTop);
-        this.pagesContainer.scrollTop = target;
-        if (!immediate) {
-            window.requestAnimationFrame(() => {
-                if (!this.pagesContainer) {
-                    if (finalize) {
-                        this.shouldRestoreScroll = false;
-                    }
-                    return;
-                }
-                this.pagesContainer.scrollTop = target;
-                if (finalize) {
-                    this.shouldRestoreScroll = false;
-                }
-            });
-        } else if (finalize) {
-            this.shouldRestoreScroll = false;
-        }
     }
 
     clampManualScale(value) {

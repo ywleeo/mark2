@@ -42,6 +42,7 @@
 }
 
 .view-content {
+    position: relative;
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
@@ -50,13 +51,26 @@
 }
 
 .view-pane {
+    position: relative;
     height: 100%;
     width: 100%;
-    display: none;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.view-pane:not(.is-active) {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .view-pane.is-active {
-    display: block;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .view-content pre {

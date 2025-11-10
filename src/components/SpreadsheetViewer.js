@@ -83,7 +83,12 @@ export class SpreadsheetViewer {
         this.hide();
     }
 
-    async loadWorkbook(filePath, workbookData) {
+    async loadWorkbook(filePath, workbookData, options = {}) {
+        const { forceReload = false } = options;
+        if (!forceReload && this.currentFile === filePath && this.sheets.length > 0) {
+            this.show();
+            return;
+        }
         this.currentFile = filePath;
         this.sheets = Array.isArray(workbookData?.sheets) ? workbookData.sheets : [];
         this.activeSheetIndex = 0;

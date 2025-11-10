@@ -87,20 +87,24 @@ export function createFileSession({ readFile, readSpreadsheet, readBinaryBase64,
         try {
             if (viewMode === 'spreadsheet') {
                 const workbook = await readSpreadsheet(filePath);
-                return {
+                const result = {
                     content: workbook,
                     hasChanges: false,
                     viewMode,
                 };
+                cache.set(filePath, result);
+                return result;
             }
 
             if (viewMode === 'pdf') {
                 const base64 = await readBinaryBase64(filePath);
-                return {
+                const result = {
                     content: base64,
                     hasChanges: false,
                     viewMode,
                 };
+                cache.set(filePath, result);
+                return result;
             }
 
             const content = await readFile(filePath);
