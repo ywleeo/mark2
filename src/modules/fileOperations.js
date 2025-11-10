@@ -4,6 +4,7 @@ export function createFileOperations({
     getCodeEditor,
     getImageViewer,
     getSpreadsheetViewer,
+    getPdfViewer,
     getUnsupportedViewer,
     getMarkdownCodeMode,
     getCurrentFile,
@@ -25,6 +26,7 @@ export function createFileOperations({
     activateCodeView,
     activateImageView,
     activateSpreadsheetView,
+    activatePdfView,
     activateUnsupportedView,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
@@ -32,6 +34,7 @@ export function createFileOperations({
     if (typeof getCodeEditor !== 'function') throw new Error('fileOperations 需要 getCodeEditor');
     if (typeof getImageViewer !== 'function') throw new Error('fileOperations 需要 getImageViewer');
     if (typeof getSpreadsheetViewer !== 'function') throw new Error('fileOperations 需要 getSpreadsheetViewer');
+    if (typeof getPdfViewer !== 'function') throw new Error('fileOperations 需要 getPdfViewer');
     if (typeof getUnsupportedViewer !== 'function') throw new Error('fileOperations 需要 getUnsupportedViewer');
     if (typeof getMarkdownCodeMode !== 'function') throw new Error('fileOperations 需要 getMarkdownCodeMode');
     if (typeof getCurrentFile !== 'function') throw new Error('fileOperations 需要 getCurrentFile');
@@ -54,6 +57,7 @@ export function createFileOperations({
     if (typeof activateCodeView !== 'function') throw new Error('fileOperations 需要 activateCodeView');
     if (typeof activateImageView !== 'function') throw new Error('fileOperations 需要 activateImageView');
     if (typeof activateSpreadsheetView !== 'function') throw new Error('fileOperations 需要 activateSpreadsheetView');
+    if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
     async function openPathsFromSelection(rawPaths) {
@@ -178,6 +182,7 @@ export function createFileOperations({
             const codeEditor = getCodeEditor();
             const imageViewer = getImageViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
+            const pdfViewer = getPdfViewer();
             const unsupportedViewer = getUnsupportedViewer();
             const fileTree = getFileTree();
 
@@ -210,6 +215,28 @@ export function createFileOperations({
                 imageViewer?.hide?.();
                 unsupportedViewer?.hide?.();
                 await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content);
+                setHasUnsavedChanges(false);
+                await updateWindowTitle();
+                if (!skipWatchSetup) {
+                    try {
+                        await fileTree?.watchFile(filePath);
+                    } catch (error) {
+                        console.error('无法监听文件:', error);
+                    }
+                }
+                fileTree?.clearExternalModification?.(filePath);
+                persistWorkspaceState();
+                return;
+            }
+
+            if (targetViewMode === 'pdf') {
+                activatePdfView();
+                editor?.clear?.();
+                codeEditor?.hide?.();
+                imageViewer?.hide?.();
+                spreadsheetViewer?.hide?.();
+                unsupportedViewer?.hide?.();
+                await pdfViewer?.loadDocument?.(filePath, fileData.content);
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
                 if (!skipWatchSetup) {

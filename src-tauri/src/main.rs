@@ -82,10 +82,20 @@ fn read_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn read_image_base64(path: String) -> Result<String, String> {
-    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+fn encode_file_base64(path: &str) -> Result<String, String> {
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
     let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
     Ok(encoded)
+}
+
+#[tauri::command]
+fn read_image_base64(path: String) -> Result<String, String> {
+    encode_file_base64(&path)
+}
+
+#[tauri::command]
+fn read_binary_base64(path: String) -> Result<String, String> {
+    encode_file_base64(&path)
 }
 
 fn data_type_to_string(cell: &Data) -> String {
@@ -406,6 +416,7 @@ fn main() {
             is_directory,
             read_file,
             read_image_base64,
+            read_binary_base64,
             read_spreadsheet,
             write_file,
             read_dir,

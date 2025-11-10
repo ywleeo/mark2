@@ -8,6 +8,7 @@ const SPREADSHEET_EXTENSIONS = new Set([
     'xltx',
     'xltm',
 ]);
+const PDF_EXTENSIONS = new Set(['pdf']);
 const CODE_SUFFIX_LANGUAGE_MAP = [
     ['.d.ts', 'typescript'],
     ['.d.mts', 'typescript'],
@@ -136,6 +137,18 @@ export function isSpreadsheetFilePath(filePath) {
     return SPREADSHEET_EXTENSIONS.has(match[1]);
 }
 
+export function isPdfFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+    return PDF_EXTENSIONS.has(match[1]);
+}
+
 export function isUnsupportedFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -179,6 +192,9 @@ export function getViewModeForPath(filePath) {
     }
     if (isSpreadsheetFilePath(filePath)) {
         return 'spreadsheet';
+    }
+    if (isPdfFilePath(filePath)) {
+        return 'pdf';
     }
     if (isUnsupportedFilePath(filePath)) {
         return 'unsupported';

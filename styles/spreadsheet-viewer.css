@@ -10,6 +10,7 @@
     background: var(--content-bg, #ffffff);
     color: #1f2937;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    font-size: calc(13px * var(--content-zoom, 1));
 }
 
 .spreadsheet-viewer__toolbar {

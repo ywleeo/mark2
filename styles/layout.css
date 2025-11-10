@@ -13,6 +13,8 @@
     --editor-line-height: 1.6;
     --editor-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     --editor-font-weight: 400;
+    --content-zoom: 1;
+    --editor-zoom-scale: 1;
 }
 
 body {
@@ -237,6 +239,55 @@ body.is-status-bar-hidden .status-bar {
 .status-item-word-count,
 .status-item-last-modified {
     flex: 0 0 auto;
+}
+
+.status-item-page {
+    min-width: 80px;
+    flex: 0 0 auto;
+    color: rgba(21, 23, 26, 0.6);
+}
+
+.status-item-zoom {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(226, 232, 240, 0.7);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.status-zoom-btn {
+    border: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    color: rgba(21, 23, 26, 0.85);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.status-zoom-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.status-zoom-btn:not(:disabled):hover {
+    background-color: #f0f0f0;
+}
+
+.status-zoom-value {
+    min-width: 42px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: rgba(21, 23, 26, 0.8);
 }
 
 .status-item-progress {

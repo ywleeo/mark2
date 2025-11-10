@@ -4,6 +4,7 @@ export class ImageViewer {
     constructor(containerElement) {
         this.container = containerElement;
         this.currentFile = null;
+        this.zoomScale = 1;
         this.init();
     }
 
@@ -20,6 +21,9 @@ export class ImageViewer {
 
         this.imgElement = this.container.querySelector('.image-viewer-img');
         this.filenameElement = this.container.querySelector('.image-viewer-filename');
+        if (this.imgElement) {
+            this.imgElement.style.transformOrigin = 'center top';
+        }
     }
 
     async loadImage(filePath) {
@@ -64,6 +68,8 @@ export class ImageViewer {
             console.error('加载图片失败:', error);
             throw error;
         }
+
+        this.applyZoomScale();
     }
 
     clear() {
@@ -71,6 +77,8 @@ export class ImageViewer {
         this.imgElement.src = '';
         this.imgElement.alt = '';
         this.filenameElement.textContent = '';
+        this.zoomScale = 1;
+        this.applyZoomScale();
     }
 
     hide() {
@@ -79,6 +87,21 @@ export class ImageViewer {
 
     show() {
         this.container.style.display = 'flex';
+    }
+
+    setZoomScale(scale) {
+        if (!Number.isFinite(scale)) {
+            return;
+        }
+        const clamped = Math.min(3, Math.max(0.5, scale));
+        this.zoomScale = clamped;
+        this.applyZoomScale();
+    }
+
+    applyZoomScale() {
+        if (this.imgElement) {
+            this.imgElement.style.transform = `scale(${this.zoomScale})`;
+        }
     }
 
     dispose() {

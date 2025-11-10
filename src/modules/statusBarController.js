@@ -7,6 +7,11 @@ export function createStatusBarController({
     statusBarLastModifiedElement,
     statusBarProgressElement,
     statusBarProgressTextElement,
+    statusBarZoomElement = null,
+    statusBarZoomValueElement = null,
+    statusBarZoomInButton = null,
+    statusBarZoomOutButton = null,
+    statusBarPageInfoElement = null,
     normalizeFsPath,
     revealInFileManager,
     getFileMetadata,
@@ -23,6 +28,7 @@ export function createStatusBarController({
     let isStatusBarHidden = false;
     let statusBarPathCleanup = null;
     let progressHideTimer = null;
+    let zoomControlsCleanup = null;
 
     function setStatusBarVisibility(hidden) {
         const body = document.body;
@@ -196,6 +202,58 @@ export function createStatusBarController({
         }
     }
 
+    function setupZoomControls({ onZoomIn, onZoomOut } = {}) {
+        if (zoomControlsCleanup) {
+            zoomControlsCleanup();
+            zoomControlsCleanup = null;
+        }
+        if (!statusBarZoomInButton || !statusBarZoomOutButton) {
+            return;
+        }
+        const handleZoomIn = (event) => {
+            event.preventDefault();
+            onZoomIn?.();
+        };
+        const handleZoomOut = (event) => {
+            event.preventDefault();
+            onZoomOut?.();
+        };
+
+        statusBarZoomInButton.addEventListener('click', handleZoomIn);
+        statusBarZoomOutButton.addEventListener('click', handleZoomOut);
+
+        zoomControlsCleanup = () => {
+            statusBarZoomInButton.removeEventListener('click', handleZoomIn);
+            statusBarZoomOutButton.removeEventListener('click', handleZoomOut);
+        };
+    }
+
+    function updateZoomDisplay({ zoomValue = 1, canZoomIn = true, canZoomOut = true } = {}) {
+        if (statusBarZoomValueElement) {
+            const percent = Math.round((Number(zoomValue) || 1) * 100);
+            statusBarZoomValueElement.textContent = `${percent}%`;
+        }
+        if (statusBarZoomInButton) {
+            statusBarZoomInButton.disabled = !canZoomIn;
+        }
+        if (statusBarZoomOutButton) {
+            statusBarZoomOutButton.disabled = !canZoomOut;
+        }
+    }
+
+    function setPageInfo(text = '') {
+        if (!statusBarPageInfoElement) {
+            return;
+        }
+        if (text && text.length > 0) {
+            statusBarPageInfoElement.textContent = text;
+            statusBarPageInfoElement.style.display = '';
+        } else {
+            statusBarPageInfoElement.textContent = '';
+            statusBarPageInfoElement.style.display = 'none';
+        }
+    }
+
     function calculateWordCount({ activeViewMode, editor, codeEditor }) {
         try {
             let content = '';
@@ -275,6 +333,10 @@ export function createStatusBarController({
             statusBarPathCleanup();
             statusBarPathCleanup = null;
         }
+        if (zoomControlsCleanup) {
+            zoomControlsCleanup();
+            zoomControlsCleanup = null;
+        }
         teardownProgress();
     }
 
@@ -283,6 +345,9 @@ export function createStatusBarController({
         toggleStatusBarVisibility,
         updateStatusBar,
         setupStatusBarPathInteraction,
+        setupZoomControls,
+        updateZoomDisplay,
+        setPageInfo,
         calculateWordCount,
         getLastModifiedTime,
         teardown,

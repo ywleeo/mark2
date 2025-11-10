@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/styles/code-editor.css">
     <link rel="stylesheet" href="/styles/image-viewer.css">
     <link rel="stylesheet" href="/styles/spreadsheet-viewer.css">
+    <link rel="stylesheet" href="/styles/pdf-viewer.css">
     <link rel="stylesheet" href="/styles/search.css">
     <link rel="stylesheet" href="/styles/ai.css">
 </head>
@@ -47,6 +48,12 @@
                 <span class="status-progress-indicator" aria-hidden="true"></span>
                 <span id="statusBarProgressText" class="status-progress-text"></span>
             </div>
+            <div id="statusBarZoom" class="status-item status-item-zoom">
+                <button type="button" class="status-zoom-btn" data-zoom="out" aria-label="缩小">−</button>
+                <span id="statusBarZoomValue" class="status-zoom-value">100%</span>
+                <button type="button" class="status-zoom-btn" data-zoom="in" aria-label="放大">＋</button>
+            </div>
+            <div id="statusBarPageInfo" class="status-item status-item-page"></div>
             <div id="statusBarWordCount" class="status-item status-item-word-count"></div>
             <div id="statusBarLastModified" class="status-item status-item-last-modified"></div>
         </div>

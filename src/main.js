@@ -21,6 +21,7 @@ import {
     pickPaths,
     readFile,
     readSpreadsheet,
+    readBinaryBase64,
     revealInFileManager,
     writeFile,
     deleteEntry,
@@ -45,6 +46,7 @@ let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
 let ImageViewerCtor = null;
 let SpreadsheetViewerCtor = null;
+let PdfViewerCtor = null;
 let FileTreeCtor = null;
 let TabManagerCtor = null;
 let SettingsDialogCtor = null;
@@ -62,6 +64,7 @@ async function ensureCoreModules() {
                 codeEditorModule,
                 imageViewerModule,
                 spreadsheetViewerModule,
+                pdfViewerModule,
                 unsupportedViewerModule,
                 fileTreeModule,
                 tabManagerModule,
@@ -71,6 +74,7 @@ async function ensureCoreModules() {
                 import('./components/CodeEditor.js'),
                 import('./components/ImageViewer.js'),
                 import('./components/SpreadsheetViewer.js'),
+                import('./components/PdfViewer.js'),
                 import('./components/UnsupportedViewer.js'),
                 import('./components/FileTree.js'),
                 import('./components/TabManager.js'),
@@ -81,6 +85,7 @@ async function ensureCoreModules() {
             CodeEditorCtor = codeEditorModule.CodeEditor;
             ImageViewerCtor = imageViewerModule.ImageViewer;
             SpreadsheetViewerCtor = spreadsheetViewerModule.SpreadsheetViewer;
+            PdfViewerCtor = pdfViewerModule.PdfViewer;
             UnsupportedViewerCtor = unsupportedViewerModule.UnsupportedViewer;
             FileTreeCtor = fileTreeModule.FileTree;
             TabManagerCtor = tabManagerModule.TabManager;
@@ -112,12 +117,18 @@ let editor = null;
 let codeEditor = null;
 let imageViewer = null;
 let spreadsheetViewer = null;
+let pdfViewer = null;
 let unsupportedViewer = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
 let hasUnsavedChanges = false;
-const fileSession = createFileSession({ readFile, readSpreadsheet, getViewModeForPath });
+const fileSession = createFileSession({
+    readFile,
+    readSpreadsheet,
+    readBinaryBase64,
+    getViewModeForPath,
+});
 let editorSettings = { ...defaultEditorSettings };
 let availableFontFamilies = [];
 let markdownPaneElement = null;
@@ -125,6 +136,7 @@ let codeEditorPaneElement = null;
 let imagePaneElement = null;
 let unsupportedPaneElement = null;
 let spreadsheetPaneElement = null;
+let pdfPaneElement = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
@@ -138,6 +150,11 @@ let fileDropController = null;
 let pluginManager = null;
 let documentIO = null;
 let exportMenuEnabledState = null;
+const ZOOM_DEFAULT = 1;
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 2.4;
+const ZOOM_STEP = 0.1;
+let contentZoom = ZOOM_DEFAULT;
 
 async function updateExportMenuState() {
     const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
@@ -288,6 +305,7 @@ const VIEW_MODE_BEHAVIORS = {
             codeEditor?.hide?.();
             imageViewer?.hide?.();
             spreadsheetViewer?.hide?.();
+            pdfViewer?.hide?.();
             unsupportedViewer?.hide?.();
         },
     },
@@ -296,6 +314,7 @@ const VIEW_MODE_BEHAVIORS = {
         onEnter: () => {
             imageViewer?.hide?.();
             spreadsheetViewer?.hide?.();
+            pdfViewer?.hide?.();
             unsupportedViewer?.hide?.();
         },
     },
@@ -306,6 +325,7 @@ const VIEW_MODE_BEHAVIORS = {
             codeEditor?.hide?.();
             imageViewer?.show?.();
             spreadsheetViewer?.hide?.();
+            pdfViewer?.hide?.();
             unsupportedViewer?.hide?.();
         },
     },
@@ -315,8 +335,20 @@ const VIEW_MODE_BEHAVIORS = {
             editor?.clear?.();
             codeEditor?.hide?.();
             imageViewer?.hide?.();
+            pdfViewer?.hide?.();
             unsupportedViewer?.hide?.();
             spreadsheetViewer?.show?.();
+        },
+    },
+    pdf: {
+        getPane: () => pdfPaneElement,
+        onEnter: () => {
+            editor?.clear?.();
+            codeEditor?.hide?.();
+            imageViewer?.hide?.();
+            spreadsheetViewer?.hide?.();
+            unsupportedViewer?.hide?.();
+            pdfViewer?.show?.();
         },
     },
     unsupported: {
@@ -326,9 +358,46 @@ const VIEW_MODE_BEHAVIORS = {
             codeEditor?.hide?.();
             imageViewer?.hide?.();
             spreadsheetViewer?.hide?.();
+            pdfViewer?.hide?.();
         },
     },
 };
+
+function clampZoomValue(value) {
+    if (!Number.isFinite(value)) {
+        return ZOOM_DEFAULT;
+    }
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+}
+
+function applyContentZoom() {
+    const root = document.documentElement;
+    if (root) {
+        root.style.setProperty('--content-zoom', contentZoom.toString());
+        root.style.setProperty('--editor-zoom-scale', contentZoom.toString());
+    }
+    codeEditor?.setZoomScale?.(contentZoom);
+    pdfViewer?.setZoomScale?.(contentZoom);
+    imageViewer?.setZoomScale?.(contentZoom);
+    statusBarController?.updateZoomDisplay?.({
+        zoomValue: contentZoom,
+        canZoomIn: contentZoom < ZOOM_MAX - 0.001,
+        canZoomOut: contentZoom > ZOOM_MIN + 0.001,
+    });
+}
+
+function setContentZoom(nextZoom, { silent } = {}) {
+    const clamped = clampZoomValue(nextZoom);
+    if (Math.abs(clamped - contentZoom) < 0.001 && !silent) {
+        return;
+    }
+    contentZoom = clamped;
+    applyContentZoom();
+}
+
+function adjustContentZoom(delta) {
+    setContentZoom(contentZoom + delta);
+}
 
 function setActiveViewMode(nextMode) {
     const config = VIEW_MODE_BEHAVIORS[nextMode];
@@ -349,6 +418,9 @@ function setActiveViewMode(nextMode) {
     });
 
     config.onEnter?.();
+    if (nextMode !== 'pdf') {
+        statusBarController?.setPageInfo?.('');
+    }
     activeViewMode = nextMode;
     void updateExportMenuState();
 }
@@ -375,6 +447,7 @@ const {
     getCodeEditor: () => codeEditor,
     getImageViewer: () => imageViewer,
     getSpreadsheetViewer: () => spreadsheetViewer,
+    getPdfViewer: () => pdfViewer,
     getUnsupportedViewer: () => unsupportedViewer,
     getMarkdownCodeMode: () => markdownCodeMode,
     getCurrentFile: () => currentFile,
@@ -402,6 +475,7 @@ const {
     activateCodeView,
     activateImageView,
     activateSpreadsheetView,
+    activatePdfView,
     activateUnsupportedView,
 });
 
@@ -443,6 +517,12 @@ function activateImageView() {
  */
 function activateSpreadsheetView() {
     setActiveViewMode('spreadsheet');
+}
+/**
+ * 激活 PDF 视图。
+ */
+function activatePdfView() {
+    setActiveViewMode('pdf');
 }
 /**
  * 切换到不受支持文件的提示视图。
@@ -507,6 +587,7 @@ function clearActiveFileView() {
     codeEditor?.clear?.();
     imageViewer?.clear?.();
     spreadsheetViewer?.clear?.();
+    pdfViewer?.clear?.();
     unsupportedViewer?.clear?.();
     activateMarkdownView();
     markdownCodeMode?.reset();
@@ -624,6 +705,7 @@ async function initializeApplication() {
         <div class="view-pane code-pane" data-pane="code"></div>
         <div class="view-pane image-pane" data-pane="image"></div>
         <div class="view-pane spreadsheet-pane" data-pane="spreadsheet"></div>
+        <div class="view-pane pdf-pane" data-pane="pdf"></div>
         <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
     `;
 
@@ -631,6 +713,7 @@ async function initializeApplication() {
     codeEditorPaneElement = requireElementWithin(viewContainer, '.code-pane', '视图容器缺少 code-pane');
     imagePaneElement = requireElementWithin(viewContainer, '.image-pane', '视图容器缺少 image-pane');
     spreadsheetPaneElement = requireElementWithin(viewContainer, '.spreadsheet-pane', '视图容器缺少 spreadsheet-pane');
+    pdfPaneElement = requireElementWithin(viewContainer, '.pdf-pane', '视图容器缺少 pdf-pane');
     unsupportedPaneElement = requireElementWithin(viewContainer, '.unsupported-pane', '视图容器缺少 unsupported-pane');
 
     const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
@@ -639,6 +722,11 @@ async function initializeApplication() {
     const statusBarProgressTextElement = requireElementById('statusBarProgressText', '状态栏缺少进度文本区域');
     const statusBarWordCountElement = requireElementById('statusBarWordCount', '状态栏缺少字数区域');
     const statusBarLastModifiedElement = requireElementById('statusBarLastModified', '状态栏缺少更新日期区域');
+    const statusBarZoomElement = requireElementById('statusBarZoom', '状态栏缺少缩放控件');
+    const statusBarZoomValueElement = requireElementById('statusBarZoomValue', '状态栏缺少缩放显示');
+    const statusBarZoomOutButton = requireElementWithin(statusBarZoomElement, '[data-zoom="out"]', '状态栏缺少缩小按钮');
+    const statusBarZoomInButton = requireElementWithin(statusBarZoomElement, '[data-zoom="in"]', '状态栏缺少放大按钮');
+    const statusBarPageInfoElement = requireElementById('statusBarPageInfo', '状态栏缺少页码区域');
     statusBarController = createStatusBarController({
         statusBarElement,
         statusBarFilePathElement,
@@ -646,6 +734,11 @@ async function initializeApplication() {
         statusBarLastModifiedElement,
         statusBarProgressElement,
         statusBarProgressTextElement,
+        statusBarZoomElement,
+        statusBarZoomValueElement,
+        statusBarZoomInButton,
+        statusBarZoomOutButton,
+        statusBarPageInfoElement,
         normalizeFsPath,
         revealInFileManager,
         getFileMetadata,
@@ -659,6 +752,16 @@ async function initializeApplication() {
     statusBarController.setupStatusBarPathInteraction({
         getCurrentFile: () => currentFile,
     });
+    statusBarController.setupZoomControls({
+        onZoomIn: () => adjustContentZoom(ZOOM_STEP),
+        onZoomOut: () => adjustContentZoom(-ZOOM_STEP),
+    });
+    statusBarController.updateZoomDisplay({
+        zoomValue: contentZoom,
+        canZoomIn: contentZoom < ZOOM_MAX,
+        canZoomOut: contentZoom > ZOOM_MIN,
+    });
+    statusBarController.setPageInfo('');
 
     const editorCallbacks = {
         onContentChange: () => {
@@ -689,9 +792,18 @@ async function initializeApplication() {
     imageViewer.hide();
     spreadsheetViewer = new SpreadsheetViewerCtor(spreadsheetPaneElement);
     spreadsheetViewer.hide();
+    pdfViewer = new PdfViewerCtor(pdfPaneElement, {
+        onPageInfoChange: (text) => statusBarController?.setPageInfo?.(text || ''),
+    });
+    pdfViewer.hide();
     unsupportedViewer = new UnsupportedViewerCtor(unsupportedPaneElement);
    unsupportedViewer.hide();
    activeViewMode = 'markdown';
+
+    codeEditor?.setZoomScale?.(contentZoom);
+    imageViewer?.setZoomScale?.(contentZoom);
+    pdfViewer?.setZoomScale?.(contentZoom);
+    setContentZoom(contentZoom, { silent: true });
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
     editor.setCodeEditor(codeEditor);
