@@ -287,6 +287,16 @@
     color: #475569;
 }
 
+.ai-message__content--markdown img {
+    max-width: calc(100% - 16px);
+    height: auto;
+    display: block;
+    margin: 0.75em auto;
+    border-radius: 6px;
+    object-fit: contain;
+    box-sizing: border-box;
+}
+
 .ai-message__content--markdown a {
     color: #2563eb;
     text-decoration: none;
