@@ -5,6 +5,10 @@ export async function readFile(path) {
     return await invoke('read_file', { path });
 }
 
+export async function readSpreadsheet(path) {
+    return await invoke('read_spreadsheet', { path });
+}
+
 export async function writeFile(path, content) {
     return await invoke('write_file', { path, content });
 }

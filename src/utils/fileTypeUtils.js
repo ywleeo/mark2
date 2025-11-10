@@ -1,5 +1,13 @@
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+const SPREADSHEET_EXTENSIONS = new Set([
+    'xls',
+    'xlsx',
+    'xlsm',
+    'xlt',
+    'xltx',
+    'xltm',
+]);
 const CODE_SUFFIX_LANGUAGE_MAP = [
     ['.d.ts', 'typescript'],
     ['.d.mts', 'typescript'],
@@ -114,6 +122,20 @@ export function isImageFilePath(filePath) {
     return IMAGE_EXTENSIONS.has(match[1]);
 }
 
+export function isSpreadsheetFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+
+    return SPREADSHEET_EXTENSIONS.has(match[1]);
+}
+
 export function isUnsupportedFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -154,6 +176,9 @@ export function getViewModeForPath(filePath) {
     }
     if (isImageFilePath(filePath)) {
         return 'image';
+    }
+    if (isSpreadsheetFilePath(filePath)) {
+        return 'spreadsheet';
     }
     if (isUnsupportedFilePath(filePath)) {
         return 'unsupported';

@@ -4,6 +4,7 @@
 mod plugin_loader;
 
 use base64::Engine;
+use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
 use std::fs;
 use std::path::Path;
@@ -25,6 +26,17 @@ use serde::Serialize;
 #[derive(Serialize)]
 struct FileMetadata {
     modified_time: u64, // Unix timestamp in seconds
+}
+
+#[derive(Serialize)]
+struct SpreadsheetSheet {
+    name: String,
+    rows: Vec<Vec<String>>,
+}
+
+#[derive(Serialize)]
+struct SpreadsheetData {
+    sheets: Vec<SpreadsheetSheet>,
 }
 
 struct ExportMenuHandles {
@@ -74,6 +86,49 @@ fn read_image_base64(path: String) -> Result<String, String> {
     let bytes = fs::read(&path).map_err(|e| e.to_string())?;
     let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
     Ok(encoded)
+}
+
+fn data_type_to_string(cell: &Data) -> String {
+    match cell {
+        Data::Empty => String::new(),
+        _ => cell.to_string(),
+    }
+}
+
+#[tauri::command]
+fn read_spreadsheet(path: String) -> Result<SpreadsheetData, String> {
+    let mut workbook = open_workbook_auto(&path).map_err(|e| e.to_string())?;
+    let sheet_names = workbook.sheet_names().to_owned();
+
+    if sheet_names.is_empty() {
+        return Err("工作簿中没有可用的工作表".to_string());
+    }
+
+    let mut sheets = Vec::new();
+
+    for sheet_name in sheet_names {
+        match workbook.worksheet_range(&sheet_name) {
+            Ok(range) => {
+                let rows = range
+                    .rows()
+                    .map(|row| row.iter().map(data_type_to_string).collect())
+                    .collect();
+                sheets.push(SpreadsheetSheet {
+                    name: sheet_name,
+                    rows,
+                });
+            }
+            Err(err) => {
+                return Err(format!("读取工作表 {} 失败: {}", sheet_name, err));
+            }
+        }
+    }
+
+    if sheets.is_empty() {
+        return Err("未能从工作簿中读取任何数据".to_string());
+    }
+
+    Ok(SpreadsheetData { sheets })
 }
 
 #[tauri::command]
@@ -351,6 +406,7 @@ fn main() {
             is_directory,
             read_file,
             read_image_base64,
+            read_spreadsheet,
             write_file,
             read_dir,
             delete_entry,

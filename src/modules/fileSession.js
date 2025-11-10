@@ -18,9 +18,12 @@ function isLikelyBinaryReadError(error) {
     return UTF8_ERROR_SNIPPETS.some(snippet => normalized.includes(snippet));
 }
 
-export function createFileSession({ readFile, getViewModeForPath }) {
+export function createFileSession({ readFile, readSpreadsheet, getViewModeForPath }) {
     if (typeof readFile !== 'function') {
         throw new Error('createFileSession 需要提供 readFile 函数');
+    }
+    if (typeof readSpreadsheet !== 'function') {
+        throw new Error('createFileSession 需要提供 readSpreadsheet 函数');
     }
     if (typeof getViewModeForPath !== 'function') {
         throw new Error('createFileSession 需要提供 getViewModeForPath 函数');
@@ -76,16 +79,26 @@ export function createFileSession({ readFile, getViewModeForPath }) {
             }
         }
 
+        const viewMode = getViewModeForPath(filePath);
+
         try {
+            if (viewMode === 'spreadsheet') {
+                const workbook = await readSpreadsheet(filePath);
+                return {
+                    content: workbook,
+                    hasChanges: false,
+                    viewMode,
+                };
+            }
+
             const content = await readFile(filePath);
-            const viewMode = getViewModeForPath(filePath);
             return {
                 content,
                 hasChanges: false,
                 viewMode,
             };
         } catch (error) {
-            if (isLikelyBinaryReadError(error)) {
+            if (viewMode === 'spreadsheet' || isLikelyBinaryReadError(error)) {
                 return {
                     content: null,
                     hasChanges: false,

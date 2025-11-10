@@ -20,6 +20,7 @@ import {
     listFonts,
     pickPaths,
     readFile,
+    readSpreadsheet,
     revealInFileManager,
     writeFile,
     deleteEntry,
@@ -43,6 +44,7 @@ import { createDocumentIO } from './core/DocumentIO.js';
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
 let ImageViewerCtor = null;
+let SpreadsheetViewerCtor = null;
 let FileTreeCtor = null;
 let TabManagerCtor = null;
 let SettingsDialogCtor = null;
@@ -59,6 +61,7 @@ async function ensureCoreModules() {
                 editorModule,
                 codeEditorModule,
                 imageViewerModule,
+                spreadsheetViewerModule,
                 unsupportedViewerModule,
                 fileTreeModule,
                 tabManagerModule,
@@ -67,6 +70,7 @@ async function ensureCoreModules() {
                 import('./components/MarkdownEditor.js'),
                 import('./components/CodeEditor.js'),
                 import('./components/ImageViewer.js'),
+                import('./components/SpreadsheetViewer.js'),
                 import('./components/UnsupportedViewer.js'),
                 import('./components/FileTree.js'),
                 import('./components/TabManager.js'),
@@ -76,6 +80,7 @@ async function ensureCoreModules() {
             MarkdownEditorCtor = editorModule.MarkdownEditor;
             CodeEditorCtor = codeEditorModule.CodeEditor;
             ImageViewerCtor = imageViewerModule.ImageViewer;
+            SpreadsheetViewerCtor = spreadsheetViewerModule.SpreadsheetViewer;
             UnsupportedViewerCtor = unsupportedViewerModule.UnsupportedViewer;
             FileTreeCtor = fileTreeModule.FileTree;
             TabManagerCtor = tabManagerModule.TabManager;
@@ -106,18 +111,20 @@ let currentFile = null;
 let editor = null;
 let codeEditor = null;
 let imageViewer = null;
+let spreadsheetViewer = null;
 let unsupportedViewer = null;
 let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
 let hasUnsavedChanges = false;
-const fileSession = createFileSession({ readFile, getViewModeForPath });
+const fileSession = createFileSession({ readFile, readSpreadsheet, getViewModeForPath });
 let editorSettings = { ...defaultEditorSettings };
 let availableFontFamilies = [];
 let markdownPaneElement = null;
 let codeEditorPaneElement = null;
 let imagePaneElement = null;
 let unsupportedPaneElement = null;
+let spreadsheetPaneElement = null;
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
@@ -280,6 +287,7 @@ const VIEW_MODE_BEHAVIORS = {
         onEnter: () => {
             codeEditor?.hide?.();
             imageViewer?.hide?.();
+            spreadsheetViewer?.hide?.();
             unsupportedViewer?.hide?.();
         },
     },
@@ -287,6 +295,7 @@ const VIEW_MODE_BEHAVIORS = {
         getPane: () => codeEditorPaneElement,
         onEnter: () => {
             imageViewer?.hide?.();
+            spreadsheetViewer?.hide?.();
             unsupportedViewer?.hide?.();
         },
     },
@@ -296,7 +305,18 @@ const VIEW_MODE_BEHAVIORS = {
             editor?.clear?.();
             codeEditor?.hide?.();
             imageViewer?.show?.();
+            spreadsheetViewer?.hide?.();
             unsupportedViewer?.hide?.();
+        },
+    },
+    spreadsheet: {
+        getPane: () => spreadsheetPaneElement,
+        onEnter: () => {
+            editor?.clear?.();
+            codeEditor?.hide?.();
+            imageViewer?.hide?.();
+            unsupportedViewer?.hide?.();
+            spreadsheetViewer?.show?.();
         },
     },
     unsupported: {
@@ -305,6 +325,7 @@ const VIEW_MODE_BEHAVIORS = {
             editor?.clear?.();
             codeEditor?.hide?.();
             imageViewer?.hide?.();
+            spreadsheetViewer?.hide?.();
         },
     },
 };
@@ -353,6 +374,7 @@ const {
     getEditor: () => editor,
     getCodeEditor: () => codeEditor,
     getImageViewer: () => imageViewer,
+    getSpreadsheetViewer: () => spreadsheetViewer,
     getUnsupportedViewer: () => unsupportedViewer,
     getMarkdownCodeMode: () => markdownCodeMode,
     getCurrentFile: () => currentFile,
@@ -379,6 +401,7 @@ const {
     activateMarkdownView,
     activateCodeView,
     activateImageView,
+    activateSpreadsheetView,
     activateUnsupportedView,
 });
 
@@ -414,6 +437,12 @@ function activateCodeView() {
  */
 function activateImageView() {
     setActiveViewMode('image');
+}
+/**
+ * 激活表格视图。
+ */
+function activateSpreadsheetView() {
+    setActiveViewMode('spreadsheet');
 }
 /**
  * 切换到不受支持文件的提示视图。
@@ -477,6 +506,7 @@ function clearActiveFileView() {
     editor?.clear?.();
     codeEditor?.clear?.();
     imageViewer?.clear?.();
+    spreadsheetViewer?.clear?.();
     unsupportedViewer?.clear?.();
     activateMarkdownView();
     markdownCodeMode?.reset();
@@ -593,12 +623,14 @@ async function initializeApplication() {
         <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
         <div class="view-pane image-pane" data-pane="image"></div>
+        <div class="view-pane spreadsheet-pane" data-pane="spreadsheet"></div>
         <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
     `;
 
     markdownPaneElement = requireElementWithin(viewContainer, '.markdown-pane', '视图容器缺少 markdown-pane');
     codeEditorPaneElement = requireElementWithin(viewContainer, '.code-pane', '视图容器缺少 code-pane');
     imagePaneElement = requireElementWithin(viewContainer, '.image-pane', '视图容器缺少 image-pane');
+    spreadsheetPaneElement = requireElementWithin(viewContainer, '.spreadsheet-pane', '视图容器缺少 spreadsheet-pane');
     unsupportedPaneElement = requireElementWithin(viewContainer, '.unsupported-pane', '视图容器缺少 unsupported-pane');
 
     const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
@@ -655,6 +687,8 @@ async function initializeApplication() {
     codeEditor.hide();
     imageViewer = new ImageViewerCtor(imagePaneElement);
     imageViewer.hide();
+    spreadsheetViewer = new SpreadsheetViewerCtor(spreadsheetPaneElement);
+    spreadsheetViewer.hide();
     unsupportedViewer = new UnsupportedViewerCtor(unsupportedPaneElement);
    unsupportedViewer.hide();
    activeViewMode = 'markdown';
