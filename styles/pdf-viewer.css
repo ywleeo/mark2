@@ -37,6 +37,7 @@
     display: block;
 }
 
+.pdf-viewer__loading,
 .pdf-viewer__empty {
     position: absolute;
     inset: 0;
@@ -45,8 +46,36 @@
     justify-content: center;
     color: rgba(17, 24, 39, 0.6);
     font-size: 14px;
+    background: rgba(229, 231, 235, 0.9);
+    flex-direction: column;
+    gap: 12px;
 }
 
+.pdf-viewer__loading.is-visible,
 .pdf-viewer__empty.is-visible {
     display: flex;
+}
+
+.pdf-viewer__spinner {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid rgba(107, 114, 128, 0.3);
+    border-top-color: rgba(59, 130, 246, 0.85);
+    animation: pdf-viewer-spin 0.9s linear infinite;
+}
+
+.pdf-viewer__loading-text {
+    color: rgba(17, 24, 39, 0.75);
+    font-size: 13px;
+    letter-spacing: 0.2px;
+}
+
+@keyframes pdf-viewer-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }

@@ -43,7 +43,12 @@ export class PdfViewer {
         this.resizeTimer = null;
         this.resizeObserver = null;
         this.pageElements = new Map();
+        this.pageInfoText = '';
+        this.lastScrollTop = 0;
+        this.shouldRestoreScroll = false;
+        this.loadingElement = null;
         this.handleWindowResize = this.handleWindowResize.bind(this);
+        this.handlePagesScroll = this.handlePagesScroll.bind(this);
         window.addEventListener('resize', this.handleWindowResize);
         if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
             this.resizeObserver = new window.ResizeObserver(() => {
@@ -59,33 +64,61 @@ export class PdfViewer {
         this.container.innerHTML = `
             <div class="pdf-viewer__body">
                 <div class="pdf-viewer__pages" aria-live="polite"></div>
+                <div class="pdf-viewer__loading" aria-live="polite">
+                    <span class="pdf-viewer__spinner" aria-hidden="true"></span>
+                    <span class="pdf-viewer__loading-text">正在渲染 PDF…</span>
+                </div>
                 <div class="pdf-viewer__empty" aria-hidden="true">无法显示 PDF 内容</div>
             </div>
         `;
 
         this.pagesContainer = this.container.querySelector('.pdf-viewer__pages');
         this.emptyStateElement = this.container.querySelector('.pdf-viewer__empty');
+        this.loadingElement = this.container.querySelector('.pdf-viewer__loading');
+        this.pagesContainer?.addEventListener('scroll', this.handlePagesScroll);
     }
 
     hide() {
+        if (this.pagesContainer) {
+            this.lastScrollTop = this.pagesContainer.scrollTop;
+            this.shouldRestoreScroll = true;
+        }
         this.container.style.display = 'none';
     }
 
     show() {
+        const needsRestore = this.shouldRestoreScroll;
+        if (needsRestore) {
+            this.restoreScrollPosition({ immediate: true, finalize: false });
+            this.container.style.visibility = 'hidden';
+        }
         this.container.style.display = 'flex';
+        if (needsRestore) {
+            window.requestAnimationFrame(() => {
+                this.restoreScrollPosition({ immediate: true });
+                this.container.style.visibility = '';
+            });
+        } else {
+            this.container.style.visibility = '';
+            this.shouldRestoreScroll = false;
+        }
     }
 
     clear() {
         this.currentFile = null;
         this.setEmptyState(true);
         this.callbacks.onPageInfoChange?.('');
+        this.pageInfoText = '';
         void this.destroyPdfDocument();
         this.clearPages();
+        this.setLoadingState(false);
         window.clearTimeout(this.resizeTimer);
         this.resizeTimer = null;
         this.fitScale = DEFAULT_SCALE;
         this.manualScale = DEFAULT_SCALE;
         this.scale = DEFAULT_SCALE;
+        this.lastScrollTop = 0;
+        this.shouldRestoreScroll = false;
         this.emitZoomChange();
         this.hide();
     }
@@ -109,11 +142,26 @@ export class PdfViewer {
         }
     }
 
-    async loadDocument(filePath, base64Data) {
+    async loadDocument(filePath, base64Data, options = {}) {
+        const { forceReload = false } = options;
+        if (!forceReload && this.pdfDocument && this.currentFile === filePath) {
+            this.setEmptyState(false);
+            this.setLoadingState(false);
+            if (this.pageInfoText) {
+                this.callbacks.onPageInfoChange?.(this.pageInfoText);
+            }
+            this.show();
+            this.emitZoomChange();
+            return;
+        }
+
         await this.destroyPdfDocument();
         this.clearPages();
         this.currentFile = filePath;
-        this.setEmptyState(true);
+        this.setEmptyState(false);
+        this.setLoadingState(true, '正在渲染 PDF…');
+        this.lastScrollTop = 0;
+        this.shouldRestoreScroll = false;
 
         const fileBytes = base64ToUint8Array(base64Data);
         if (!fileBytes.length) {
@@ -127,15 +175,19 @@ export class PdfViewer {
             this.pdfDocument = await this.loadingTask.promise;
             this.manualScale = DEFAULT_SCALE;
             await this.updateFitScale({ rerender: false });
-            this.callbacks.onPageInfoChange?.(`共 ${this.pdfDocument.numPages} 页`);
+            this.pageInfoText = `共 ${this.pdfDocument.numPages} 页`;
+            this.callbacks.onPageInfoChange?.(this.pageInfoText);
             await this.renderAllPages({ resetPages: true });
             this.setEmptyState(false);
+            this.setLoadingState(false);
             this.show();
             this.emitZoomChange();
         } catch (error) {
             console.error('加载 PDF 失败:', error);
             this.callbacks.onPageInfoChange?.('');
+            this.pageInfoText = '';
             this.setEmptyState(true, 'PDF 加载失败');
+            this.setLoadingState(false);
         }
     }
 
@@ -179,6 +231,23 @@ export class PdfViewer {
             this.emptyStateElement.classList.add('is-visible');
         } else {
             this.emptyStateElement.classList.remove('is-visible');
+        }
+    }
+
+    setLoadingState(isLoading, message) {
+        if (!this.loadingElement) {
+            return;
+        }
+        const textElement = this.loadingElement.querySelector('.pdf-viewer__loading-text');
+        if (textElement && message) {
+            textElement.textContent = message;
+        }
+        if (isLoading) {
+            this.loadingElement.classList.add('is-visible');
+            this.loadingElement.removeAttribute('aria-hidden');
+        } else {
+            this.loadingElement.classList.remove('is-visible');
+            this.loadingElement.setAttribute('aria-hidden', 'true');
         }
     }
 
@@ -249,8 +318,41 @@ export class PdfViewer {
     clearPages() {
         if (this.pagesContainer) {
             this.pagesContainer.innerHTML = '';
+            this.pagesContainer.scrollTop = 0;
         }
         this.pageElements.clear();
+    }
+
+    handlePagesScroll() {
+        if (!this.pagesContainer) {
+            return;
+        }
+        this.lastScrollTop = this.pagesContainer.scrollTop;
+        this.shouldRestoreScroll = false;
+    }
+
+    restoreScrollPosition({ immediate = false, finalize = true } = {}) {
+        if (!this.pagesContainer) {
+            return;
+        }
+        const target = Math.max(0, this.lastScrollTop);
+        this.pagesContainer.scrollTop = target;
+        if (!immediate) {
+            window.requestAnimationFrame(() => {
+                if (!this.pagesContainer) {
+                    if (finalize) {
+                        this.shouldRestoreScroll = false;
+                    }
+                    return;
+                }
+                this.pagesContainer.scrollTop = target;
+                if (finalize) {
+                    this.shouldRestoreScroll = false;
+                }
+            });
+        } else if (finalize) {
+            this.shouldRestoreScroll = false;
+        }
     }
 
     clampManualScale(value) {

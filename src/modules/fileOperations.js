@@ -22,6 +22,8 @@ export function createFileOperations({
     persistWorkspaceState,
     updateWindowTitle,
     saveCurrentEditorContentToCache,
+    rememberMarkdownScrollPosition,
+    restoreMarkdownScrollPosition,
     activateMarkdownView,
     activateCodeView,
     activateImageView,
@@ -53,6 +55,10 @@ export function createFileOperations({
     if (typeof updateWindowTitle !== 'function') throw new Error('fileOperations 需要 updateWindowTitle');
     if (typeof saveCurrentEditorContentToCache !== 'function')
         throw new Error('fileOperations 需要 saveCurrentEditorContentToCache');
+    if (typeof rememberMarkdownScrollPosition !== 'function')
+        throw new Error('fileOperations 需要 rememberMarkdownScrollPosition');
+    if (typeof restoreMarkdownScrollPosition !== 'function')
+        throw new Error('fileOperations 需要 restoreMarkdownScrollPosition');
     if (typeof activateMarkdownView !== 'function') throw new Error('fileOperations 需要 activateMarkdownView');
     if (typeof activateCodeView !== 'function') throw new Error('fileOperations 需要 activateCodeView');
     if (typeof activateImageView !== 'function') throw new Error('fileOperations 需要 activateImageView');
@@ -171,6 +177,10 @@ export function createFileOperations({
 
         try {
             const previousFile = getCurrentFile();
+            const previousViewMode = getActiveViewMode();
+            if (previousFile) {
+                rememberMarkdownScrollPosition(previousFile, previousViewMode);
+            }
             if (previousFile !== filePath) {
                 const markdownCodeMode = getMarkdownCodeMode();
                 markdownCodeMode?.reset();
@@ -236,7 +246,7 @@ export function createFileOperations({
                 imageViewer?.hide?.();
                 spreadsheetViewer?.hide?.();
                 unsupportedViewer?.hide?.();
-                await pdfViewer?.loadDocument?.(filePath, fileData.content);
+                await pdfViewer?.loadDocument?.(filePath, fileData.content, { forceReload });
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
                 if (!skipWatchSetup) {
@@ -268,6 +278,7 @@ export function createFileOperations({
                 activateMarkdownView();
                 if (editor) {
                     await editor.loadFile(filePath, fileData.content);
+                    restoreMarkdownScrollPosition(filePath);
                     if (fileData.hasChanges) {
                         editor.contentChanged = true;
                         if (fileData.originalContent) {

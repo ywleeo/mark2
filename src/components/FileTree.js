@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { addClickHandler } from '../utils/PointerHelper.js';
-import { isEditableFilePath } from '../utils/fileTypeUtils.js';
+import { isEditableFilePath, getViewModeForPath } from '../utils/fileTypeUtils.js';
 
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
@@ -564,17 +564,17 @@ export class FileTree {
         const normalized = this.normalizePath(path);
         if (!normalized) return;
 
-        if (!isEditableFilePath(normalized)) {
-            return;
-        }
-
         if (this.isInOpenList(normalized)) return;
 
         this.openFiles.push(normalized);
         this.renderOpenFiles();
-        this.watchFile(normalized).catch(error => {
-            console.error('监听文件失败:', error);
-        });
+        const viewMode = getViewModeForPath(normalized);
+        const shouldWatch = viewMode === 'markdown' || viewMode === 'code';
+        if (shouldWatch) {
+            this.watchFile(normalized).catch(error => {
+                console.error('监听文件失败:', error);
+            });
+        }
         this.onOpenFilesChange?.([...this.openFiles]);
     }
 

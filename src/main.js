@@ -137,11 +137,13 @@ let imagePaneElement = null;
 let unsupportedPaneElement = null;
 let spreadsheetPaneElement = null;
 let pdfPaneElement = null;
+let viewContainerElement = null;
 let pdfZoomState = {
     zoomValue: 1,
     canZoomIn: true,
     canZoomOut: true,
 };
+const markdownScrollPositions = new Map();
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
@@ -303,6 +305,31 @@ async function insertTextIntoActiveEditor(text, options = {}) {
     console.warn('[Main] 插入文本失败：未找到可用编辑器', { position, mode });
 }
 
+function rememberMarkdownScrollPosition(filePath = currentFile, viewMode = activeViewMode) {
+    if (!filePath || !viewContainerElement) {
+        return;
+    }
+    if (viewMode !== 'markdown') {
+        return;
+    }
+    const scrollTop = viewContainerElement.scrollTop || 0;
+    markdownScrollPositions.set(filePath, scrollTop);
+}
+
+function restoreMarkdownScrollPosition(filePath) {
+    if (!filePath || !viewContainerElement) {
+        return;
+    }
+    const target = markdownScrollPositions.get(filePath) ?? 0;
+    viewContainerElement.scrollTop = target;
+    window.requestAnimationFrame(() => {
+        if (!viewContainerElement) {
+            return;
+        }
+        viewContainerElement.scrollTop = target;
+    });
+}
+
 const VIEW_MODE_BEHAVIORS = {
     markdown: {
         getPane: () => markdownPaneElement,
@@ -426,6 +453,9 @@ function setActiveViewMode(nextMode) {
     if (!config) {
         return;
     }
+    if (activeViewMode === 'markdown' && nextMode !== 'markdown') {
+        rememberMarkdownScrollPosition(currentFile, activeViewMode);
+    }
 
     Object.entries(VIEW_MODE_BEHAVIORS).forEach(([mode, entry]) => {
         const pane = entry.getPane?.();
@@ -494,6 +524,8 @@ const {
     persistWorkspaceState,
     updateWindowTitle,
     saveCurrentEditorContentToCache,
+    rememberMarkdownScrollPosition,
+    restoreMarkdownScrollPosition,
     activateMarkdownView,
     activateCodeView,
     activateImageView,
@@ -723,6 +755,7 @@ async function initializeApplication() {
 
     // 初始化主视图容器
     const viewContainer = requireElementById('viewContent', '未找到视图容器 viewContent');
+    viewContainerElement = viewContainer;
     viewContainer.innerHTML = `
         <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
