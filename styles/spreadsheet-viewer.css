@@ -11,6 +11,7 @@
     color: #1f2937;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
     font-size: calc(13px * var(--content-zoom, 1));
+    --spreadsheet-zoom: 1;
 }
 
 .spreadsheet-viewer__toolbar {
@@ -36,7 +37,15 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+
+.spreadsheet-viewer__tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .spreadsheet-viewer__tabs-placeholder {
@@ -53,6 +62,8 @@
     font-size: 12px;
     cursor: pointer;
     transition: all 0.15s ease;
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .spreadsheet-viewer__tab.is-active {
@@ -88,14 +99,14 @@
     background: #fff;
     border: 1px solid rgba(226, 232, 240, 0.9);
     box-shadow: 0 5px 18px rgba(15, 23, 42, 0.1);
-    font-size: 13px;
+    font-size: calc(13px * var(--spreadsheet-zoom, 1));
 }
 
 .spreadsheet-viewer__table th,
 .spreadsheet-viewer__table td {
     border: 1px solid rgba(226, 232, 240, 0.9);
-    padding: 6px 10px;
-    min-width: 80px;
+    padding: calc(6px * var(--spreadsheet-zoom, 1)) calc(10px * var(--spreadsheet-zoom, 1));
+    min-width: calc(80px * var(--spreadsheet-zoom, 1));
     text-align: left;
 }
 

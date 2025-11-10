@@ -114,6 +114,7 @@ export class AiConfigManager {
         document.body.appendChild(this.root);
 
         this.form = this.root.querySelector('.settings-form');
+        this.dialogElement = this.root.querySelector('.ai-config-dialog');
         this.apiKeyInput = this.form.querySelector('input[name="apiKey"]');
         this.modelInput = this.form.querySelector('input[name="model"]');
         this.baseUrlInput = this.form.querySelector('input[name="baseUrl"]');
@@ -149,6 +150,15 @@ export class AiConfigManager {
 
         this.form.addEventListener('submit', this.handleSubmit);
         this.root.addEventListener('mousedown', this.handleBackdropClick);
+        if (this.dialogElement) {
+            const stopDialogMouseDown = (event) => {
+                event.stopPropagation();
+            };
+            this.dialogElement.addEventListener('mousedown', stopDialogMouseDown);
+            this.cleanupFunctions.push(() => {
+                this.dialogElement.removeEventListener('mousedown', stopDialogMouseDown);
+            });
+        }
 
         // 绑定 tab 切换事件
         this.tabButtons.forEach(button => {
@@ -407,7 +417,7 @@ export class AiConfigManager {
     }
 
     handleBackdropClick(event) {
-        if (event.target === this.root) {
+        if (!this.dialogElement || !this.dialogElement.contains(event.target)) {
             this.close(true);
         }
     }

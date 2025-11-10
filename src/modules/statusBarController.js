@@ -241,6 +241,13 @@ export function createStatusBarController({
         }
     }
 
+    function setZoomVisibility(isVisible = true) {
+        if (!statusBarZoomElement) {
+            return;
+        }
+        statusBarZoomElement.style.display = isVisible ? '' : 'none';
+    }
+
     function setPageInfo(text = '') {
         if (!statusBarPageInfoElement) {
             return;
@@ -347,6 +354,7 @@ export function createStatusBarController({
         setupStatusBarPathInteraction,
         setupZoomControls,
         updateZoomDisplay,
+        setZoomVisibility,
         setPageInfo,
         calculateWordCount,
         getLastModifiedTime,

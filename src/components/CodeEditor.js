@@ -12,6 +12,10 @@ import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
 import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../config/monaco-python.js';
 
 const MODEL_SCHEME = 'inmemory';
+const DEFAULT_CODE_FONT_SIZE = 14;
+const DEFAULT_LINE_HEIGHT_RATIO = 1.5;
+const MIN_ZOOM_SCALE = 0.6;
+const MAX_ZOOM_SCALE = 2.4;
 
 let monacoLoader = null;
 let monacoEnvironmentReady = false;
@@ -113,6 +117,13 @@ export class CodeEditor {
         this.searchDecorations = null;
         this.currentMatchIndex = -1;
         this.contentChangeListeners = new Set();
+        this.zoomScale = 1;
+        this.baseFontSize = DEFAULT_CODE_FONT_SIZE;
+        this.baseLineHeightRatio = DEFAULT_LINE_HEIGHT_RATIO;
+        this.baseLineHeight = Math.max(
+            Math.round(this.baseFontSize * this.baseLineHeightRatio),
+            this.baseFontSize
+        );
     }
 
     async ensureEditor(defaultLanguage = 'plaintext') {
@@ -209,6 +220,7 @@ export class CodeEditor {
     applyPreferences(prefs = null) {
         if (!prefs || typeof prefs !== 'object') {
             this.preferences = null;
+            this.applyPreferencesToEditor();
             return;
         }
 
@@ -234,28 +246,33 @@ export class CodeEditor {
     }
 
     applyPreferencesToEditor() {
-        if (!this.editor || !this.preferences) {
+        if (!this.editor) {
             return;
         }
 
-        const fallbackFontSize = 14;
-        const fallbackLineHeightRatio = 1.5;
+        const prefs = this.preferences || {};
+        const fallbackFontSize = DEFAULT_CODE_FONT_SIZE;
+        const fallbackLineHeightRatio = DEFAULT_LINE_HEIGHT_RATIO;
 
-        const fontSize = this.preferences.fontSize || fallbackFontSize;
-        const lineHeightRatio = this.preferences.lineHeight || fallbackLineHeightRatio;
+        const fontSize = Number.isFinite(prefs.fontSize) ? prefs.fontSize : fallbackFontSize;
+        const lineHeightRatio = Number.isFinite(prefs.lineHeight)
+            ? prefs.lineHeight
+            : fallbackLineHeightRatio;
         const computedLineHeight = Math.max(Math.round(fontSize * lineHeightRatio), fontSize);
 
         const nextOptions = {
-            fontSize,
-            lineHeight: computedLineHeight,
-            fontWeight: (this.preferences.fontWeight || 400).toString(),
+            fontWeight: (prefs.fontWeight || 400).toString(),
         };
 
-        if (this.preferences.fontFamily) {
-            nextOptions.fontFamily = this.preferences.fontFamily;
+        if (prefs.fontFamily) {
+            nextOptions.fontFamily = prefs.fontFamily;
         }
 
         this.editor.updateOptions(nextOptions);
+        this.baseFontSize = fontSize;
+        this.baseLineHeightRatio = lineHeightRatio;
+        this.baseLineHeight = computedLineHeight;
+        this.applyZoomOptions();
     }
 
     attachModel(model, language) {
@@ -307,6 +324,44 @@ export class CodeEditor {
                 console.error('[CodeEditor] 内容变更通知失败', error);
             }
         });
+    }
+
+    clampZoomScale(value) {
+        if (!Number.isFinite(value)) {
+            return 1;
+        }
+        return Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, value));
+    }
+
+    applyZoomOptions() {
+        if (!this.editor) {
+            return;
+        }
+        const baseFontSize = this.baseFontSize || DEFAULT_CODE_FONT_SIZE;
+        const baseLineHeight = this.baseLineHeight
+            || Math.max(Math.round(baseFontSize * this.baseLineHeightRatio), baseFontSize);
+        const zoomedFontSize = Math.max(
+            8,
+            Math.round(baseFontSize * this.zoomScale * 100) / 100
+        );
+        const zoomedLineHeight = Math.max(
+            Math.round(baseLineHeight * this.zoomScale),
+            Math.ceil(zoomedFontSize)
+        );
+        this.editor.updateOptions({
+            fontSize: zoomedFontSize,
+            lineHeight: zoomedLineHeight,
+        });
+        this.requestLayout();
+    }
+
+    setZoomScale(scale) {
+        const clamped = this.clampZoomScale(scale);
+        if (Math.abs(clamped - this.zoomScale) < 0.01) {
+            return;
+        }
+        this.zoomScale = clamped;
+        this.applyZoomOptions();
     }
 
     hide() {

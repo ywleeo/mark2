@@ -161,6 +161,7 @@ const ZOOM_DEFAULT = 1;
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.4;
 const ZOOM_STEP = 0.1;
+const ZOOM_SUPPORTED_VIEWS = new Set(['markdown', 'code', 'image', 'pdf', 'spreadsheet']);
 let contentZoom = ZOOM_DEFAULT;
 
 async function updateExportMenuState() {
@@ -402,6 +403,10 @@ function clampZoomValue(value) {
     return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
 }
 
+function isZoomSupportedView(mode) {
+    return ZOOM_SUPPORTED_VIEWS.has(mode);
+}
+
 function applyContentZoom() {
     const root = document.documentElement;
     if (root) {
@@ -410,6 +415,7 @@ function applyContentZoom() {
     }
     codeEditor?.setZoomScale?.(contentZoom);
     imageViewer?.setZoomScale?.(contentZoom);
+    spreadsheetViewer?.setZoomScale?.(contentZoom);
     updateZoomDisplayForActiveView();
 }
 
@@ -427,6 +433,11 @@ function adjustContentZoom(delta) {
 }
 
 function updateZoomDisplayForActiveView() {
+    const supported = isZoomSupportedView(activeViewMode);
+    statusBarController?.setZoomVisibility?.(supported);
+    if (!supported) {
+        return;
+    }
     if (activeViewMode === 'pdf') {
         const zoomState = pdfViewer?.getZoomState?.() || pdfZoomState;
         pdfZoomState = zoomState || pdfZoomState;

@@ -426,3 +426,6 @@ body.is-file-drop-hover .content-wrapper::after {
 .view-content::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover-color, #d0d2d6);
 }
+#foldersContent{
+    padding-bottom: 20px;
+}

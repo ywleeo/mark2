@@ -1,5 +1,8 @@
 import * as XLSX from 'xlsx';
 
+const MIN_ZOOM_SCALE = 0.6;
+const MAX_ZOOM_SCALE = 2.4;
+
 function normalizeRows(rows) {
     if (!Array.isArray(rows)) {
         return [];
@@ -27,7 +30,9 @@ export class SpreadsheetViewer {
         this.tableWrapperElement = null;
         this.filenameElement = null;
         this.emptyStateElement = null;
+        this.zoomScale = 1;
         this.init();
+        this.applyZoom();
     }
 
     init() {
@@ -160,8 +165,32 @@ export class SpreadsheetViewer {
         if (table) {
             table.classList.add('spreadsheet-viewer__table');
             this.tableWrapperElement.appendChild(table);
+            this.applyZoom();
         } else {
             this.emptyStateElement.classList.remove('is-hidden');
         }
+    }
+
+    clampZoomScale(value) {
+        if (!Number.isFinite(value)) {
+            return 1;
+        }
+        return Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, value));
+    }
+
+    applyZoom() {
+        if (!this.container) {
+            return;
+        }
+        this.container.style.setProperty('--spreadsheet-zoom', this.zoomScale.toString());
+    }
+
+    setZoomScale(scale) {
+        const clamped = this.clampZoomScale(scale);
+        if (Math.abs(clamped - this.zoomScale) < 0.01) {
+            return;
+        }
+        this.zoomScale = clamped;
+        this.applyZoom();
     }
 }
