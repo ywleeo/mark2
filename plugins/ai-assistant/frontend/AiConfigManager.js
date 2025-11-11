@@ -138,8 +138,6 @@ export class AiConfigManager {
         this.selectedRoleId = null;
 
         this.handleSubmit = this.handleSubmit.bind(this);
-        this.handleKeydown = this.handleKeydown.bind(this);
-        this.handleBackdropClick = this.handleBackdropClick.bind(this);
         this.handleTabClick = this.handleTabClick.bind(this);
         this.handleRoleChange = this.handleRoleChange.bind(this);
         this.handleRoleNameInput = this.handleRoleNameInput.bind(this);
@@ -149,7 +147,6 @@ export class AiConfigManager {
         this.handleRemoveRole = this.handleRemoveRole.bind(this);
 
         this.form.addEventListener('submit', this.handleSubmit);
-        this.root.addEventListener('mousedown', this.handleBackdropClick);
         if (this.dialogElement) {
             const stopDialogMouseDown = (event) => {
                 event.stopPropagation();
@@ -208,7 +205,6 @@ export class AiConfigManager {
         });
         this.cleanupFunctions = [];
         this.form.removeEventListener('submit', this.handleSubmit);
-        this.root.removeEventListener('mousedown', this.handleBackdropClick);
         if (this.roleSelect) {
             this.roleSelect.removeEventListener('change', this.handleRoleChange);
         }
@@ -359,10 +355,6 @@ export class AiConfigManager {
 
         this.loadRolesFromConfig(effective);
 
-        if (!this.isOpen) {
-            document.addEventListener('keydown', this.handleKeydown);
-        }
-
         this.root.classList.remove('hidden');
         this.isOpen = true;
     }
@@ -372,7 +364,6 @@ export class AiConfigManager {
             return;
         }
         this.root.classList.add('hidden');
-        document.removeEventListener('keydown', this.handleKeydown);
         this.isOpen = false;
         if (triggerCancel && typeof this.onCancel === 'function') {
             this.onCancel();
@@ -408,18 +399,6 @@ export class AiConfigManager {
         }
 
         this.close(false);
-    }
-
-    handleKeydown(event) {
-        if (event.key === 'Escape') {
-            this.close(true);
-        }
-    }
-
-    handleBackdropClick(event) {
-        if (!this.dialogElement || !this.dialogElement.contains(event.target)) {
-            this.close(true);
-        }
     }
 
     handleTabClick(tabName) {
