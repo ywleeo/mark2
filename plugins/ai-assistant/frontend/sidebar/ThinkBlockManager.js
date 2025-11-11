@@ -46,7 +46,11 @@ export class ThinkBlockManager {
             return;
         }
         let state = this.getState(taskId);
-        if (!state && (finalBuffer || finalBuffer === '')) {
+        const hasFinalText = typeof finalBuffer === 'string' && finalBuffer.trim().length > 0;
+        if (!state) {
+            if (!hasFinalText) {
+                return;
+            }
             state = this.createThinkBlock(taskId);
             this.thinkStates.set(taskId, state);
         }
