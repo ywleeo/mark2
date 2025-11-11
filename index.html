@@ -61,8 +61,15 @@
 
     <!-- 搜索框 -->
     <div class="search-box">
-        <input type="text" placeholder="查找...">
+        <input type="text" class="search-input" placeholder="查找...">
+        <input type="text" class="replace-input" placeholder="替换为...">
         <span class="search-info"></span>
+        <button class="search-button multi-btn" title="批量选中 / 全部替换（⌘+Shift+L）" aria-label="批量选中 / 全部替换">
+            <svg viewBox="0 0 24 24" class="multi-icon" aria-hidden="true" focusable="false">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+        </button>
         <button class="search-button prev-btn" title="上一个">↑</button>
         <button class="search-button next-btn" title="下一个">↓</button>
         <button class="search-button close-btn" title="关闭">×</button>

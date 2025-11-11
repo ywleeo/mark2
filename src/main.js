@@ -942,6 +942,7 @@ async function initializeApplication() {
         onSave: saveCurrentFile,
         onCloseTab: closeActiveTab,
         onFind: () => editor?.showSearch?.(),
+        onSelectSearchMatches: () => editor?.selectAllSearchMatches?.(),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleAiSidebar: toggleAiSidebarVisibility,

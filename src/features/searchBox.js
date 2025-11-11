@@ -9,6 +9,7 @@ export class SearchBoxManager {
         this.codeEditor = codeEditor; // 代码编辑器
         this.searchBox = null;
         this.searchInput = null;
+        this.replaceInput = null;
         this.searchInfo = null;
         this.cleanupFunctions = []; // 存储清理函数
         this.codeEditorChangeCleanup = null;
@@ -48,14 +49,16 @@ export class SearchBoxManager {
         this.searchBox = document.querySelector('.search-box');
         if (!this.searchBox) return;
 
-        this.searchInput = this.searchBox.querySelector('input[type="text"]');
+        this.searchInput = this.searchBox.querySelector('.search-input');
+        this.replaceInput = this.searchBox.querySelector('.replace-input');
         this.searchInfo = this.searchBox.querySelector('.search-info');
 
         const prevBtn = this.searchBox.querySelector('.prev-btn');
         const nextBtn = this.searchBox.querySelector('.next-btn');
         const closeBtn = this.searchBox.querySelector('.close-btn');
+        const multiBtn = this.searchBox.querySelector('.multi-btn');
 
-        if (!this.searchInput || !closeBtn || !prevBtn || !nextBtn) return;
+        if (!this.searchInput || !this.replaceInput || !closeBtn || !prevBtn || !nextBtn || !multiBtn) return;
 
         // 绑定事件
         this.searchInput.addEventListener('input', () => this.handleSearchInput());
@@ -66,6 +69,14 @@ export class SearchBoxManager {
                 } else {
                     this.searchNext();
                 }
+            } else if (e.key === 'Escape') {
+                this.hideSearch();
+            }
+        });
+
+        this.replaceInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                this.selectAllMatches();
             } else if (e.key === 'Escape') {
                 this.hideSearch();
             }
@@ -83,8 +94,9 @@ export class SearchBoxManager {
         const closeBtnCleanup = addClickHandler(closeBtn, () => this.hideSearch());
         const prevBtnCleanup = addClickHandler(prevBtn, () => this.searchPrev());
         const nextBtnCleanup = addClickHandler(nextBtn, () => this.searchNext());
+        const multiBtnCleanup = addClickHandler(multiBtn, () => this.selectAllMatches());
 
-        this.cleanupFunctions.push(closeBtnCleanup, prevBtnCleanup, nextBtnCleanup);
+        this.cleanupFunctions.push(closeBtnCleanup, prevBtnCleanup, nextBtnCleanup, multiBtnCleanup);
     }
 
     // 显示查找框
@@ -164,6 +176,73 @@ export class SearchBoxManager {
         }
     }
 
+    // 批量选中所有匹配（多光标编辑）
+    selectAllMatches() {
+        if (!this.searchBox?.classList.contains('is-visible')) {
+            this.showInfoMessage('请先使用 ⌘+F 打开查找');
+            return;
+        }
+
+        const searchTerm = this.searchInput?.value || '';
+        if (!searchTerm) {
+            this.showInfoMessage('请输入关键词');
+            return;
+        }
+
+        const { type, editor } = this.getActiveEditor();
+        if (!editor) {
+            return;
+        }
+
+        if (type === 'code' && typeof editor.selectAllSearchMatches === 'function') {
+            const result = editor.selectAllSearchMatches();
+            if (result?.applied && result.total > 0) {
+                this.showInfoMessage(`多光标 × ${result.total}`);
+            } else {
+                this.showInfoMessage('无结果');
+            }
+            return;
+        }
+
+        const replacedCount = this.replaceMarkdownMatches(this.replaceInput?.value ?? '');
+        if (replacedCount > 0) {
+            this.showInfoMessage(`已替换 ${replacedCount} 处`);
+        } else {
+            this.showInfoMessage('无结果');
+        }
+    }
+
+    replaceMarkdownMatches(replacementText = '') {
+        if (!this.editor) {
+            return 0;
+        }
+
+        const pluginState = searchPluginKey.getState(this.editor.state);
+        const results = pluginState?.results || [];
+        if (results.length === 0) {
+            return 0;
+        }
+
+        const { state, view } = this.editor;
+        if (!state || !view) {
+            return 0;
+        }
+
+        const replacement = typeof replacementText === 'string'
+            ? replacementText
+            : String(replacementText ?? '');
+        const tr = state.tr;
+        for (let i = results.length - 1; i >= 0; i -= 1) {
+            const { from, to } = results[i];
+            tr.insertText(replacement, from, to);
+        }
+
+        this.editor.commands.focus();
+        view.dispatch(tr);
+        this.updateSearchInfo();
+        return results.length;
+    }
+
     // 更新搜索信息 (Markdown 编辑器)
     updateSearchInfo() {
         if (!this.editor || !this.searchInfo) return;
@@ -193,6 +272,12 @@ export class SearchBoxManager {
             this.searchInfo.textContent = '无结果';
         } else {
             this.searchInfo.textContent = '';
+        }
+    }
+
+    showInfoMessage(message) {
+        if (this.searchInfo) {
+            this.searchInfo.textContent = message;
         }
     }
 
@@ -289,6 +374,7 @@ export class SearchBoxManager {
         // 清理引用
         this.searchBox = null;
         this.searchInput = null;
+        this.replaceInput = null;
         this.searchInfo = null;
     }
 }

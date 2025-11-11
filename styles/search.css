@@ -14,15 +14,17 @@
     display: none;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 .search-box.is-visible {
     display: flex;
 }
 
-.search-box input[type="text"] {
+.search-box .search-input,
+.search-box .replace-input {
     flex: 1;
-    min-width: 200px;
+    min-width: 180px;
     padding: 7px 12px;
     background: rgba(255, 255, 255, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -33,13 +35,20 @@
     transition: all 0.2s;
 }
 
-.search-box input[type="text"]:focus {
+.search-box .search-input:focus,
+.search-box .replace-input:focus {
     background: rgba(255, 255, 255, 1);
     border-color: rgba(255, 255, 255, 0.5);
 }
 
-.search-box input[type="text"]::placeholder {
+.search-box .search-input::placeholder,
+.search-box .replace-input::placeholder {
     color: rgba(0, 0, 0, 0.4);
+}
+
+.search-box .replace-input {
+    flex: 0 0 auto;
+    min-width: 160px;
 }
 
 .search-info {
@@ -69,6 +78,23 @@
     line-height: 1;
 }
 
+.search-button.multi-btn {
+    padding: 0 6px;
+}
+
+.search-button .multi-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.search-button .multi-icon path,
+.search-button .multi-icon polyline {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
 .search-button:hover {
     background: rgba(255, 255, 255, 0.3);
     border-color: rgba(255, 255, 255, 0.4);

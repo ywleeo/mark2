@@ -3,6 +3,7 @@ export function setupKeyboardShortcuts({
     onSave,
     onCloseTab,
     onFind,
+    onSelectSearchMatches,
     onToggleSidebar,
     onToggleMarkdownCodeView,
     onToggleAiSidebar,
@@ -23,6 +24,14 @@ export function setupKeyboardShortcuts({
             event.preventDefault();
             if (onOpen) {
                 await onOpen();
+            }
+            return;
+        }
+
+        if (isMeta && event.shiftKey && key === 'l') {
+            event.preventDefault();
+            if (onSelectSearchMatches) {
+                await onSelectSearchMatches();
             }
             return;
         }

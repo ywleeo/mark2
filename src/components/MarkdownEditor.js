@@ -470,6 +470,10 @@ export class MarkdownEditor {
         this.searchBoxManager?.showSearch();
     }
 
+    selectAllSearchMatches() {
+        this.searchBoxManager?.selectAllMatches();
+    }
+
     // 设置代码编辑器引用
     setCodeEditor(codeEditor) {
         this.searchBoxManager?.setCodeEditor(codeEditor);

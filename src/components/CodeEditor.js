@@ -929,6 +929,31 @@ export class CodeEditor {
         return { total: this.searchMatches.length, current: this.currentMatchIndex };
     }
 
+    selectAllSearchMatches() {
+        if (!this.editor || !this.searchMatches || this.searchMatches.length === 0) {
+            return { applied: false, total: 0 };
+        }
+
+        const selections = this.searchMatches.map(match => {
+            const { startLineNumber, startColumn, endLineNumber, endColumn } = match.range;
+            return {
+                selectionStartLineNumber: startLineNumber,
+                selectionStartColumn: startColumn,
+                positionLineNumber: endLineNumber,
+                positionColumn: endColumn,
+            };
+        });
+
+        this.editor.setSelections(selections);
+        this.editor.focus();
+        const firstRange = this.searchMatches[0]?.range;
+        if (firstRange) {
+            this.editor.revealRangeInCenter(firstRange);
+        }
+
+        return { applied: true, total: this.searchMatches.length };
+    }
+
     clearSearchDecorations() {
         if (!this.editor) {
             return;
