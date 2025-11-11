@@ -1,7 +1,7 @@
 /* Notion 风格主题 */
 
 /* 基础颜色 */
-:root {
+:root[data-theme-appearance='light'] {
     --theme-bg: #ffffff;
     --theme-text: #37352f;
     --theme-text-secondary: #787774;
@@ -13,31 +13,49 @@
     --theme-heading-border: #e9e9e7;
     --theme-quote-border: #d3d1cb;
     --theme-quote-text: #787774;
+    --theme-quote-background: #f7f6f3;
     --theme-table-header-bg: #f7f6f3;
     --theme-table-border: #e9e9e7;
+    --theme-inline-code-color: #eb5757;
+    --theme-accent: #0b6e99;
+}
+
+:root[data-theme-appearance='dark'] {
+    --theme-bg: #262930;
+    --theme-text: #f8f7f1;
+    --theme-text-secondary: #d7d5cb;
+    --theme-border: #434447;
+    --theme-border-strong: #555659;
+    --theme-code-bg: #313238;
+    --theme-code-block-bg: #313238;
+    --theme-link: #80caff;
+    --theme-heading-border: #4a4b50;
+    --theme-quote-border: #5a5b5f;
+    --theme-quote-text: #e0ded6;
+    --theme-quote-background: #2f3036;
+    --theme-table-header-bg: #323338;
+    --theme-table-border: #4b4c50;
+    --theme-inline-code-color: #ffc3ac;
+    --theme-accent: #7f9cff;
 }
 
 /* 标题颜色 */
-.tiptap-editor h1 {
-    color: #37352f;
-    font-weight: 700;
-}
-
-.tiptap-editor h2 {
-    color: #37352f;
-    font-weight: 600;
-    border-bottom: none;
-}
-
-.tiptap-editor h3 {
-    color: #37352f;
-    font-weight: 600;
-}
-
+.tiptap-editor h1,
+.tiptap-editor h2,
+.tiptap-editor h3,
 .tiptap-editor h4,
 .tiptap-editor h5,
 .tiptap-editor h6 {
-    color: #37352f;
+    color: var(--theme-text);
+    font-weight: 600;
+}
+
+.tiptap-editor h1 {
+    font-weight: 700;
+}
+
+.tiptap-editor h2,
+.tiptap-editor h3 {
     font-weight: 600;
 }
 
@@ -54,7 +72,7 @@
 
 .tiptap-editor code {
     background: var(--theme-code-bg);
-    color: #eb5757;
+    color: var(--theme-inline-code-color, var(--theme-text));
     padding: 3px 6px;
 }
 
@@ -62,7 +80,7 @@
 .tiptap-editor blockquote {
     border-left: 3px solid var(--theme-quote-border);
     color: var(--theme-quote-text);
-    background: #f7f6f3;
+    background: var(--theme-quote-background, transparent);
     padding: 4px 16px;
 }
 
@@ -93,52 +111,102 @@
 }
 
 /* 代码高亮 - Notion 风格 */
-.hljs {
+:root[data-theme-appearance='light'] .hljs {
     background: #f7f6f3;
     color: #37352f;
 }
 
-.hljs-comment,
-.hljs-quote {
+:root[data-theme-appearance='light'] .hljs-comment,
+:root[data-theme-appearance='light'] .hljs-quote {
     color: #9b9a97;
     font-style: italic;
 }
 
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-subst {
+:root[data-theme-appearance='light'] .hljs-keyword,
+:root[data-theme-appearance='light'] .hljs-selector-tag,
+:root[data-theme-appearance='light'] .hljs-subst {
     color: #cf222e;
 }
 
-.hljs-literal,
-.hljs-number,
-.hljs-addition,
-.hljs-attribute,
-.hljs-built_in,
-.hljs-symbol,
-.hljs-meta,
-.hljs-meta .hljs-keyword {
+:root[data-theme-appearance='light'] .hljs-literal,
+:root[data-theme-appearance='light'] .hljs-number,
+:root[data-theme-appearance='light'] .hljs-addition,
+:root[data-theme-appearance='light'] .hljs-attribute,
+:root[data-theme-appearance='light'] .hljs-built_in,
+:root[data-theme-appearance='light'] .hljs-symbol,
+:root[data-theme-appearance='light'] .hljs-meta,
+:root[data-theme-appearance='light'] .hljs-meta .hljs-keyword {
     color: #0969da;
 }
 
-.hljs-string,
-.hljs-doctag,
-.hljs-regexp,
-.hljs-template-variable,
-.hljs-variable,
-.hljs-attribute .hljs-string,
-.hljs-meta .hljs-string {
+:root[data-theme-appearance='light'] .hljs-string,
+:root[data-theme-appearance='light'] .hljs-doctag,
+:root[data-theme-appearance='light'] .hljs-regexp,
+:root[data-theme-appearance='light'] .hljs-template-variable,
+:root[data-theme-appearance='light'] .hljs-variable,
+:root[data-theme-appearance='light'] .hljs-attribute .hljs-string,
+:root[data-theme-appearance='light'] .hljs-meta .hljs-string {
     color: #0a3069;
 }
 
-.hljs-title,
-.hljs-name,
-.hljs-section,
-.hljs-selector-id,
-.hljs-selector-class {
+:root[data-theme-appearance='light'] .hljs-title,
+:root[data-theme-appearance='light'] .hljs-name,
+:root[data-theme-appearance='light'] .hljs-section,
+:root[data-theme-appearance='light'] .hljs-selector-id,
+:root[data-theme-appearance='light'] .hljs-selector-class {
     color: #8250df;
 }
 
-.hljs-deletion {
+:root[data-theme-appearance='light'] .hljs-deletion {
     color: #a40e26;
+}
+
+:root[data-theme-appearance='dark'] .hljs {
+    background: #323338;
+    color: #f8f7f1;
+}
+
+:root[data-theme-appearance='dark'] .hljs-comment,
+:root[data-theme-appearance='dark'] .hljs-quote {
+    color: #c3c0b6;
+    font-style: italic;
+}
+
+:root[data-theme-appearance='dark'] .hljs-keyword,
+:root[data-theme-appearance='dark'] .hljs-selector-tag,
+:root[data-theme-appearance='dark'] .hljs-subst {
+    color: #ff9a90;
+}
+
+:root[data-theme-appearance='dark'] .hljs-literal,
+:root[data-theme-appearance='dark'] .hljs-number,
+:root[data-theme-appearance='dark'] .hljs-addition,
+:root[data-theme-appearance='dark'] .hljs-attribute,
+:root[data-theme-appearance='dark'] .hljs-built_in,
+:root[data-theme-appearance='dark'] .hljs-symbol,
+:root[data-theme-appearance='dark'] .hljs-meta,
+:root[data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
+    color: #95d4ff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-string,
+:root[data-theme-appearance='dark'] .hljs-doctag,
+:root[data-theme-appearance='dark'] .hljs-regexp,
+:root[data-theme-appearance='dark'] .hljs-template-variable,
+:root[data-theme-appearance='dark'] .hljs-variable,
+:root[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
+:root[data-theme-appearance='dark'] .hljs-meta .hljs-string {
+    color: #bfe4d6;
+}
+
+:root[data-theme-appearance='dark'] .hljs-title,
+:root[data-theme-appearance='dark'] .hljs-name,
+:root[data-theme-appearance='dark'] .hljs-section,
+:root[data-theme-appearance='dark'] .hljs-selector-id,
+:root[data-theme-appearance='dark'] .hljs-selector-class {
+    color: #e3cbff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-deletion {
+    color: #ffcfbf;
 }

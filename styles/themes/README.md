@@ -32,13 +32,19 @@
 
 ### CSS 变量
 ```css
-:root {
-    --theme-bg: #ffffff;           /* 背景色 */
-    --theme-text: #333;            /* 文本颜色 */
-    --theme-link: #0066cc;         /* 链接颜色 */
-    --theme-code-bg: #f0f0f0;      /* 行内代码背景 */
-    --theme-code-block-bg: #f6f8fa; /* 代码块背景 */
-    /* ... 更多变量 */
+:root[data-theme-appearance='light'] {
+    --theme-bg: #ffffff;              /* 背景色 */
+    --theme-text: #333333;            /* 主文本颜色 */
+    --theme-text-secondary: #666666;  /* 次要文本，例如占位符 */
+    --theme-link: #0066cc;            /* 链接颜色，同时也会影响任务复选框等高亮 */
+    --theme-code-bg: #f0f0f0;         /* 行内代码背景 */
+    --theme-code-block-bg: #f6f8fa;   /* 代码块背景 */
+    --theme-accent: #3fb950;          /* 复选框选中、拖拽指示器等强调色 */
+    /* ... 其他变量 */
+}
+
+:root[data-theme-appearance='dark'] {
+    /* 深色模式下的变量值 */
 }
 ```
 
@@ -59,3 +65,5 @@
 - 主题 CSS 会覆盖 `editor.css` 和 `highlight.css` 中的相关样式
 - 保持主题文件简洁，只定义颜色和必要的样式差异
 - 建议使用 CSS 变量来保持一致性
+- 记得同时提供 `[data-theme-appearance='light']` 与 `[data-theme-appearance='dark']` 两套变量值，以便设置中的浅色/深色/跟随系统正确切换
+- 如果需要针对不同模式做差异化细节，可使用 `:root[data-theme-appearance="..."]` 选择器追加额外样式

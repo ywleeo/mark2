@@ -1,3 +1,67 @@
+:root {
+    --settings-backdrop: rgba(0, 0, 0, 0.35);
+    --settings-surface: #ffffff;
+    --settings-surface-contrast: #111827;
+    --settings-divider: rgba(15, 23, 42, 0.08);
+    --settings-muted: #64748b;
+    --settings-field-bg: #f8fafc;
+    --settings-field-border: #cbd5f5;
+    --settings-field-text: #1f2937;
+    --settings-primary: #2563eb;
+    --settings-primary-hover: #1d4ed8;
+    --settings-primary-text: #ffffff;
+    --settings-secondary-text: #1e293b;
+    --settings-secondary-hover: rgba(148, 163, 184, 0.12);
+    --settings-danger: #b91c1c;
+    --settings-danger-hover: rgba(248, 113, 113, 0.22);
+    --settings-select-icon-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8L10 12L14 8' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --settings-focus-ring: rgba(37, 99, 235, 0.2);
+    --settings-primary-ghost-border: rgba(37, 99, 235, 0.25);
+    --settings-primary-ghost-bg: rgba(37, 99, 235, 0.08);
+    --settings-primary-ghost-hover-border: rgba(37, 99, 235, 0.45);
+    --settings-primary-ghost-hover-bg: rgba(37, 99, 235, 0.16);
+    --settings-danger-ghost-border: rgba(239, 68, 68, 0.35);
+    --settings-danger-ghost-bg: rgba(248, 113, 113, 0.12);
+    --settings-danger-ghost-hover-border: rgba(239, 68, 68, 0.6);
+    --settings-danger-ghost-hover-bg: rgba(248, 113, 113, 0.22);
+    --settings-footer-bg: #f8fafc;
+    --settings-secondary-hover: rgba(148, 163, 184, 0.12);
+    --settings-tertiary-bg: rgba(51, 65, 85, 0.08);
+    --settings-tertiary-hover: rgba(51, 65, 85, 0.16);
+}
+
+:root[data-theme-appearance='dark'] {
+    --settings-backdrop: rgba(0, 0, 0, 0.55);
+    --settings-surface: #212b3a;
+    --settings-surface-contrast: #f4f7fb;
+    --settings-divider: rgba(255, 255, 255, 0.08);
+    --settings-muted: #a5b4cb;
+    --settings-field-bg: rgba(17, 24, 39, 0.7);
+    --settings-field-border: rgba(148, 163, 184, 0.55);
+    --settings-field-text: #f4f7fb;
+    --settings-primary: #4cc9ff;
+    --settings-primary-hover: #3ab9ef;
+    --settings-primary-text: #0f172a;
+    --settings-secondary-text: rgba(244, 247, 251, 0.9);
+    --settings-secondary-hover: rgba(148, 163, 184, 0.25);
+    --settings-danger: #fda4af;
+    --settings-danger-hover: rgba(255, 149, 165, 0.32);
+    --settings-select-icon-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8L10 12L14 8' stroke='%23b7c4dd' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --settings-focus-ring: rgba(76, 201, 255, 0.3);
+    --settings-primary-ghost-border: rgba(76, 201, 255, 0.35);
+    --settings-primary-ghost-bg: rgba(76, 201, 255, 0.12);
+    --settings-primary-ghost-hover-border: rgba(76, 201, 255, 0.55);
+    --settings-primary-ghost-hover-bg: rgba(76, 201, 255, 0.22);
+    --settings-danger-ghost-border: rgba(255, 149, 165, 0.35);
+    --settings-danger-ghost-bg: rgba(255, 149, 165, 0.12);
+    --settings-danger-ghost-hover-border: rgba(255, 149, 165, 0.55);
+    --settings-danger-ghost-hover-bg: rgba(255, 149, 165, 0.22);
+    --settings-footer-bg: rgba(17, 24, 39, 0.85);
+    --settings-secondary-hover: rgba(148, 163, 184, 0.25);
+    --settings-tertiary-bg: rgba(148, 163, 184, 0.18);
+    --settings-tertiary-hover: rgba(148, 163, 184, 0.32);
+}
+
 .settings-modal {
     position: fixed;
     inset: 0;
@@ -5,7 +69,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--settings-backdrop);
     z-index: 1000;
 }
 
@@ -25,23 +89,23 @@
 .settings-dialog {
     width: 420px;
     max-width: 100%;
-    background: #ffffff;
+    background: var(--settings-surface);
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(14, 18, 27, 0.25);
     overflow: hidden;
-    color: #1f2933;
+    color: var(--settings-field-text, #1f2933);
 }
 
 .settings-header {
     padding: 20px 24px 0 24px;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    border-bottom: 1px solid var(--settings-divider, rgba(15, 23, 42, 0.08));
 }
 
 .settings-header h2 {
     margin: 0 0 16px 0;
     font-size: 18px;
     font-weight: 600;
-    color: #111827;
+    color: var(--settings-surface-contrast, #111827);
 }
 
 .settings-tabs {
@@ -57,7 +121,7 @@
     padding: 10px 16px;
     font-size: 14px;
     font-weight: 500;
-    color: #64748b;
+    color: var(--settings-muted, #64748b);
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -68,13 +132,13 @@
 
 .settings-tab:hover,
 .tab-button:hover {
-    color: #475569;
+    color: color-mix(in srgb, var(--settings-muted, #64748b) 80%, #ffffff);
 }
 
 .settings-tab.active,
 .tab-button.active {
-    color: #2563eb;
-    border-bottom-color: #2563eb;
+    color: var(--settings-primary, #2563eb);
+    border-bottom-color: var(--settings-primary, #2563eb);
 }
 
 .tab-content {
@@ -88,7 +152,7 @@
 .settings-subtitle {
     margin: 0 0 16px 0;
     font-size: 13px;
-    color: #64748b;
+    color: var(--settings-muted, #64748b);
 }
 
 .settings-body {
@@ -113,18 +177,18 @@
 .settings-label {
     font-size: 13px;
     font-weight: 500;
-    color: #1f2937;
+    color: var(--settings-field-text, #1f2937);
 }
 
 .settings-field input,
 .settings-field select,
 .settings-field textarea {
-    border: 1px solid #cbd5f5;
+    border: 1px solid var(--settings-field-border, #cbd5f5);
     border-radius: 8px;
     padding: 10px 12px;
     font-size: 14px;
-    color: #1f2937;
-    background: #f8fafc;
+    color: var(--settings-field-text, #1f2937);
+    background: var(--settings-field-bg, #f8fafc);
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     font-family: inherit;
@@ -138,7 +202,7 @@
 
 .settings-field select {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 8L10 12L14 8' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: var(--settings-select-icon-image);
     background-repeat: no-repeat;
     background-position: right 10px center;
     background-size: 16px 16px;
@@ -177,18 +241,18 @@
 .ai-role-list select {
     width: 100%;
     min-height: 260px;
-    border: 1px solid #cbd5f5;
+    border: 1px solid var(--settings-field-border, #cbd5f5);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--settings-surface, #ffffff);
     padding: 8px;
     font-size: 13px;
-    color: #1f2937;
+    color: var(--settings-field-text, #1f2937);
 }
 
 .ai-role-sidebar__hint {
     margin: 0;
     font-size: 12px;
-    color: #64748b;
+    color: var(--settings-muted, #64748b);
 }
 
 .ai-role-detail {
@@ -215,9 +279,9 @@
 }
 
 .ai-role-manager__btn {
-    border: 1px solid rgba(37, 99, 235, 0.25);
-    background: rgba(37, 99, 235, 0.08);
-    color: #1d4ed8;
+    border: 1px solid var(--settings-primary-ghost-border, rgba(37, 99, 235, 0.25));
+    background: var(--settings-primary-ghost-bg, rgba(37, 99, 235, 0.08));
+    color: var(--settings-primary, #2563eb);
     border-radius: 6px;
     padding: 6px 12px;
     font-size: 12px;
@@ -227,8 +291,8 @@
 }
 
 .ai-role-manager__btn:hover {
-    border-color: rgba(37, 99, 235, 0.45);
-    background: rgba(37, 99, 235, 0.16);
+    border-color: var(--settings-primary-ghost-hover-border, rgba(37, 99, 235, 0.45));
+    background: var(--settings-primary-ghost-hover-bg, rgba(37, 99, 235, 0.16));
     transform: translateY(-0.5px);
 }
 
@@ -239,14 +303,14 @@
 }
 
 .ai-role-manager__btn.danger {
-    border-color: rgba(239, 68, 68, 0.35);
-    background: rgba(248, 113, 113, 0.12);
-    color: #b91c1c;
+    border-color: var(--settings-danger-ghost-border, rgba(239, 68, 68, 0.35));
+    background: var(--settings-danger-ghost-bg, rgba(248, 113, 113, 0.12));
+    color: var(--settings-danger, #b91c1c);
 }
 
 .ai-role-manager__btn.danger:hover {
-    border-color: rgba(239, 68, 68, 0.6);
-    background: rgba(248, 113, 113, 0.22);
+    border-color: var(--settings-danger-ghost-hover-border, rgba(239, 68, 68, 0.6));
+    background: var(--settings-danger-ghost-hover-bg, rgba(248, 113, 113, 0.22));
 }
 
 .settings-field input[type="number"] {
@@ -262,9 +326,9 @@
 .settings-field input:focus,
 .settings-field select:focus,
 .settings-field textarea:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
-    background: #ffffff;
+    border-color: var(--settings-primary, #2563eb);
+    box-shadow: 0 0 0 2px var(--settings-focus-ring, rgba(37, 99, 235, 0.2));
+    background: var(--settings-surface, #ffffff);
 }
 
 .settings-footer {
@@ -272,8 +336,8 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    border-top: 1px solid rgba(15, 23, 42, 0.08);
-    background: #f8fafc;
+    border-top: 1px solid var(--settings-divider, rgba(15, 23, 42, 0.08));
+    background: var(--settings-footer-bg, #f8fafc);
 }
 
 .settings-footer .btn {
@@ -288,22 +352,22 @@
 }
 
 .settings-footer .btn.primary {
-    background: #2563eb;
-    color: #ffffff;
+    background: var(--settings-primary, #2563eb);
+    color: var(--settings-primary-text, #ffffff);
     box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
 }
 
 .settings-footer .btn.primary:hover {
-    background: #1d4ed8;
+    background: var(--settings-primary-hover, #1d4ed8);
 }
 
 .settings-footer .btn.secondary {
     background: transparent;
-    color: #1e293b;
+    color: var(--settings-secondary-text, #1e293b);
 }
 
 .settings-footer .btn.secondary:hover {
-    background: rgba(148, 163, 184, 0.12);
+    background: var(--settings-secondary-hover, rgba(148, 163, 184, 0.12));
 }
 
 .settings-input-with-action {
@@ -325,15 +389,15 @@
     min-width: auto;
     padding: 8px 12px;
     border-radius: 8px;
-    background: rgba(51, 65, 85, 0.08);
-    color: #1e293b;
+    background: var(--settings-tertiary-bg, rgba(51, 65, 85, 0.08));
+    color: var(--settings-secondary-text, #1e293b);
     border: none;
     cursor: pointer;
     transition: background 0.2s ease;
 }
 
 .settings-input-with-action .btn.tertiary:hover {
-    background: rgba(51, 65, 85, 0.16);
+    background: var(--settings-tertiary-hover, rgba(51, 65, 85, 0.16));
 }
 
 .settings-hint {

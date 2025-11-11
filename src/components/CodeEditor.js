@@ -273,6 +273,12 @@ export class CodeEditor {
         this.baseLineHeightRatio = lineHeightRatio;
         this.baseLineHeight = computedLineHeight;
         this.applyZoomOptions();
+
+        const appearance = document?.documentElement?.dataset?.themeAppearance;
+        const monacoTheme = appearance === 'dark' ? 'vs-dark' : 'vs';
+        if (this.monaco?.editor) {
+            this.monaco.editor.setTheme(monacoTheme);
+        }
     }
 
     attachModel(model, language) {

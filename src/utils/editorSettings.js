@@ -1,7 +1,10 @@
 export const SETTINGS_STORAGE_KEY = 'mark2:editorSettings';
 
+const VALID_APPEARANCES = new Set(['light', 'dark', 'system']);
+
 export const defaultEditorSettings = {
     theme: 'default',
+    appearance: 'system',
     fontSize: 16,
     lineHeight: 1.6,
     fontFamily: '',
@@ -39,6 +42,13 @@ export function normalizeEditorSettings(candidate) {
         if (typeof candidate.theme === 'string') {
             const theme = candidate.theme.trim() || 'default';
             prefs.theme = theme;
+        }
+
+        if (typeof candidate.appearance === 'string') {
+            const normalizedAppearance = candidate.appearance.trim().toLowerCase();
+            if (VALID_APPEARANCES.has(normalizedAppearance)) {
+                prefs.appearance = normalizedAppearance;
+            }
         }
 
         if (candidate.fontSize !== undefined) {
@@ -135,6 +145,17 @@ export function applyEditorSettings(settings) {
     const prefs = normalizeEditorSettings(settings);
     const root = document.documentElement;
 
+    lastAppliedSettings = { ...prefs };
+    ensureSystemAppearanceListener();
+
+    const appearancePreference = prefs.appearance || 'system';
+    const resolvedAppearance = resolveAppearance(appearancePreference);
+    currentAppearancePreference = appearancePreference;
+
+    root.dataset.themeAppearance = resolvedAppearance;
+    root.dataset.themeAppearancePreference = appearancePreference;
+    root.style.setProperty('color-scheme', resolvedAppearance);
+
     loadTheme(prefs.theme);
 
     root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
@@ -156,7 +177,17 @@ export function applyEditorSettings(settings) {
     } else {
         root.style.removeProperty('--code-font-family');
     }
+
+    notifyAppearanceChange(resolvedAppearance, appearancePreference);
 }
+
+let prefersDarkMediaQuery = null;
+let prefersDarkMediaQueryHandler = null;
+let lastAppliedSettings = { ...defaultEditorSettings };
+let currentAppearancePreference = defaultEditorSettings.appearance;
+let lastNotifiedAppearance = null;
+let lastNotifiedPreference = null;
+const appearanceListeners = new Set();
 
 const themeAssets = import.meta.glob('../../styles/themes/*.css', {
     query: '?url',
@@ -171,6 +202,81 @@ const themeUrlByName = Object.entries(themeAssets).reduce((acc, [path, url]) => 
     }
     return acc;
 }, {});
+
+function resolveAppearance(preference) {
+    if (preference === 'light' || preference === 'dark') {
+        return preference;
+    }
+    return getSystemAppearance();
+}
+
+function getSystemAppearance() {
+    if (!prefersDarkMediaQuery && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        prefersDarkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    }
+
+    if (!prefersDarkMediaQuery) {
+        return 'light';
+    }
+
+    return prefersDarkMediaQuery.matches ? 'dark' : 'light';
+}
+
+function ensureSystemAppearanceListener() {
+    if (prefersDarkMediaQuery && prefersDarkMediaQueryHandler) {
+        return;
+    }
+
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function' && !prefersDarkMediaQuery) {
+        prefersDarkMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    }
+
+    if (!prefersDarkMediaQuery || prefersDarkMediaQueryHandler) {
+        return;
+    }
+
+    prefersDarkMediaQueryHandler = () => {
+        if (currentAppearancePreference === 'system') {
+            applyEditorSettings(lastAppliedSettings);
+        }
+    };
+
+    if (typeof prefersDarkMediaQuery.addEventListener === 'function') {
+        prefersDarkMediaQuery.addEventListener('change', prefersDarkMediaQueryHandler);
+    } else if (typeof prefersDarkMediaQuery.addListener === 'function') {
+        prefersDarkMediaQuery.addListener(prefersDarkMediaQueryHandler);
+    }
+}
+
+function notifyAppearanceChange(resolvedAppearance, preference) {
+    if (
+        resolvedAppearance === lastNotifiedAppearance &&
+        preference === lastNotifiedPreference
+    ) {
+        return;
+    }
+
+    lastNotifiedAppearance = resolvedAppearance;
+    lastNotifiedPreference = preference;
+
+    appearanceListeners.forEach(listener => {
+        try {
+            listener({ appearance: resolvedAppearance, preference });
+        } catch (error) {
+            console.warn('appearance listener error', error);
+        }
+    });
+}
+
+export function onEditorAppearanceChange(listener) {
+    if (typeof listener !== 'function') {
+        return () => {};
+    }
+    appearanceListeners.add(listener);
+    return () => {
+        appearanceListeners.delete(listener);
+    };
+}
 
 function loadTheme(themeName) {
     const theme = themeName || 'default';

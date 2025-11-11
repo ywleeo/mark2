@@ -1,24 +1,85 @@
 /* 竹林清风主题 - Emerald */
 
 /* 基础颜色 */
-:root {
-    --text-color: #374151;
-    --border-color: #e5e7eb;
-    --h1-border-color: #3498db;
-    --h4-text-color: #374151;
-    --inline-code-background: rgba(99, 102, 241, 0.1);
-    --inline-code-color: #6366f1;
-    --code-accent-color: #10b981;
-    --code-background-color: #f8fafc;
-    --quote-accent-color: #a2fb24;
-    --quote-background-color: rgba(245, 158, 11, 0.05);
-    --delete-color: #f8717180;
+:root[data-theme-appearance='light'] {
+    --theme-bg: #ffffff;
+    --theme-text: #374151;
+    --theme-text-secondary: #6b7280;
+    --theme-border: #e5e7eb;
+    --theme-border-strong: #d4dae5;
+    --theme-code-bg: rgba(99, 102, 241, 0.1);
+    --theme-code-block-bg: #f8fafc;
+    --theme-link: #36b5a8;
+    --theme-heading-border: #3498db;
+    --theme-quote-border: #a2fb24;
+    --theme-quote-text: #6b7280;
+    --theme-table-header-bg: #f8fafc;
+    --theme-table-border: #e5e7eb;
+    --theme-accent: #10b981;
+    --emerald-h1-border: #3498db;
+    --emerald-h2-bg: #f9fff1;
+    --emerald-h3-border: #608bdf;
+    --emerald-h4-text: #374151;
+    --emerald-inline-code-bg: rgba(99, 102, 241, 0.1);
+    --emerald-inline-code-color: #6366f1;
+    --emerald-code-accent: #10b981;
+    --emerald-code-background: #f8fafc;
+    --emerald-quote-accent: #a2fb24;
+    --emerald-quote-bg: rgba(245, 158, 11, 0.05);
+    --emerald-quote-nested-1: rgba(245, 158, 11, 0.03);
+    --emerald-quote-nested-2: rgba(245, 158, 11, 0.02);
+    --emerald-delete-color: #f8717180;
+    --emerald-strong-bg: rgba(86, 175, 180, 0.15);
+    --emerald-list-bullet: #319227;
+    --emerald-ordered-color: #36b5a8;
+}
+
+:root[data-theme-appearance='dark'] {
+    --theme-bg: #262626;
+    --theme-text: #e8e8e8;
+    --theme-text-secondary: #b3d4c6;
+    --theme-border: #24352c;
+    --theme-border-strong: #929292;
+    --theme-code-bg: rgba(79, 209, 197, 0.22);
+    --theme-code-block-bg: #19291f;
+    --theme-link: #7df3d5;
+    --theme-heading-border: #4ade80;
+    --theme-quote-border: #8bf19b;
+    --theme-quote-text: #dcffe9;
+    --theme-table-header-bg: #1c2d22;
+    --theme-table-border: #2a3c33;
+    --theme-accent: #4ade80;
+    --emerald-h1-border: #4c69dc;
+    --emerald-h2-bg: rgba(58, 78, 66, 0.18);
+    --emerald-h3-border: #5da9ff;
+    --emerald-h4-text: #d5ffef;
+    --emerald-inline-code-bg: rgba(79, 209, 197, 0.28);
+    --emerald-inline-code-color: #a0ffe8;
+    --emerald-code-accent: #418868;
+    --emerald-code-background: #4548467b;
+    --emerald-quote-accent: #8bf19b;
+    --emerald-quote-bg: rgba(34, 197, 94, 0.12);
+    --emerald-quote-nested-1: rgba(34, 197, 94, 0.08);
+    --emerald-quote-nested-2: rgba(34, 197, 94, 0.06);
+    --emerald-delete-color: #fecdd3;
+    --emerald-strong-bg: rgba(38, 226, 255, 0.147);
+    --emerald-list-bullet: #b7ffd1;
+    --emerald-ordered-color: #b7ffd1;
 }
 
 /* 基础编辑器样式 */
 .tiptap-editor {
-    font-family: var(--editor-font-family, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'SimHei', sans-serif);
-    color: var(--text-color);
+    font-family: var(
+        --editor-font-family,
+        'Inter',
+        -apple-system,
+        BlinkMacSystemFont,
+        'Segoe UI',
+        'Microsoft YaHei',
+        'SimHei',
+        sans-serif
+    );
+    color: var(--theme-text);
 }
 
 /* 段落 */
@@ -31,7 +92,7 @@
 /* 水平线 */
 .tiptap-editor hr {
     border: none;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--theme-border);
     margin: 20px 0;
 }
 
@@ -39,7 +100,7 @@
 .tiptap-editor h1 {
     font-size: 2em !important;
     margin: 15px 0;
-    border-bottom: 3px solid var(--h1-border-color);
+    border-bottom: 3px solid var(--emerald-h1-border, var(--theme-heading-border));
     padding-bottom: 10px;
     font-family: inherit;
 }
@@ -49,7 +110,7 @@
     font-size: 1.5em !important;
     margin-bottom: 15px;
     padding: 8px 0;
-    background-color: #f9fff1;
+    background-color: var(--emerald-h2-bg, transparent);
     border-radius: 4px;
     border-bottom: none;
     font-family: inherit;
@@ -59,7 +120,7 @@
 .tiptap-editor h3 {
     font-size: 1.25em !important;
     padding-left: 12px;
-    border-left: 3px solid #608bdf;
+    border-left: 3px solid var(--emerald-h3-border, var(--theme-heading-border));
     font-family: inherit;
 }
 
@@ -67,7 +128,7 @@
 .tiptap-editor h4 {
     font-size: 1.125em !important;
     margin: 15px 0 12px 0;
-    color: var(--h4-text-color);
+    color: var(--emerald-h4-text, var(--theme-text));
     font-family: inherit;
 }
 
@@ -88,8 +149,8 @@
     padding: 2px 4px;
     border-radius: 4px;
     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-    background-color: var(--inline-code-background);
-    color: var(--inline-code-color);
+    background-color: var(--emerald-inline-code-bg, var(--theme-code-bg));
+    color: var(--emerald-inline-code-color, var(--theme-text));
     font-size: 0.9em;
 }
 
@@ -99,8 +160,8 @@
     margin: 15px 0 !important;
     border-radius: 0 5px 5px 0;
     overflow-x: auto;
-    border-left: 3px solid var(--code-accent-color);
-    background-color: var(--code-background-color);
+    border-left: 3px solid var(--emerald-code-accent, var(--theme-accent));
+    background-color: var(--emerald-code-background, var(--theme-code-block-bg));
     white-space: pre-wrap;
     word-wrap: break-word;
 }
@@ -116,14 +177,14 @@
 
 /* 删除线 */
 .tiptap-editor del {
-    color: var(--delete-color);
+    color: var(--emerald-delete-color);
     font-style: italic;
 }
 
 /* 加粗 */
 .tiptap-editor strong,
 .tiptap-editor b {
-    background-color: rgba(122, 252, 255, 0.15);
+    background-color: var(--emerald-strong-bg, rgba(122, 252, 255, 0.15));
     padding: 0px 2px;
     border-radius: 2px;
     font-weight: 600;
@@ -132,11 +193,11 @@
 
 /* 引用块 */
 .tiptap-editor blockquote {
-    border-left: 4px solid var(--quote-accent-color);
+    border-left: 4px solid var(--emerald-quote-accent, var(--theme-quote-border));
     padding: 8px 20px;
     margin: 20px 0;
     font-style: italic;
-    background-color: var(--quote-background-color);
+    background-color: var(--emerald-quote-bg);
     border-radius: 0 4px 4px 0;
     font-family: inherit;
 }
@@ -146,16 +207,16 @@
     margin: 10px 0;
     padding: 8px 16px;
     border-left-width: 3px;
-    opacity: 0.8;
-    background-color: rgba(245, 158, 11, 0.03);
+    opacity: 0.9;
+    background-color: var(--emerald-quote-nested-1);
 }
 
 .tiptap-editor blockquote blockquote blockquote {
     margin: 5px 0;
     padding: 6px 12px;
     border-left-width: 2px;
-    opacity: 0.6;
-    background-color: rgba(245, 158, 11, 0.02);
+    opacity: 0.75;
+    background-color: var(--emerald-quote-nested-2);
 }
 
 /* 列表基础样式 */
@@ -194,7 +255,7 @@
 /* 第一层：实心圆 */
 .tiptap-editor ul > li::before {
     content: '•';
-    color: #319227;
+    color: var(--emerald-list-bullet, var(--theme-accent));
     position: absolute;
     left: -20px;
     top: 0;
@@ -203,7 +264,7 @@
 /* 第二层：空心圆 */
 .tiptap-editor ul ul > li::before {
     content: '◦';
-    color: #319227;
+    color: var(--emerald-list-bullet, var(--theme-accent));
     position: absolute;
     left: -20px;
     top: 0;
@@ -213,7 +274,7 @@
 /* 第三层：实心方块 */
 .tiptap-editor ul ul ul > li::before {
     content: '▪';
-    color: #319227;
+    color: var(--emerald-list-bullet, var(--theme-accent));
     position: absolute;
     left: -20px;
     top: 0;
@@ -223,7 +284,7 @@
 /* 第四层：小三角 */
 .tiptap-editor ul ul ul ul > li::before {
     content: '▸';
-    color: #319227;
+    color: var(--emerald-list-bullet, var(--theme-accent));
     position: absolute;
     left: -20px;
     top: 0;
@@ -254,7 +315,7 @@
 
 .tiptap-editor ol > li::before {
     content: counter(ol-counter) '.';
-    color: #36b5a8;
+    color: var(--emerald-ordered-color, var(--theme-link));
     font-weight: 600;
     position: absolute;
     left: -24px;
@@ -263,66 +324,116 @@
 
 /* 链接 */
 .tiptap-editor a {
-    color: #0066cc;
+    color: var(--theme-link);
 }
 
 /* 表格 */
 .tiptap-editor table td,
 .tiptap-editor table th {
-    border-color: var(--border-color);
+    border-color: var(--theme-border);
 }
 
 .tiptap-editor table th {
-    background-color: #f8fafc;
+    background-color: var(--theme-table-header-bg);
 }
 
 /* 代码高亮 */
-.hljs {
+:root[data-theme-appearance='light'] .hljs {
     background: #f8fafc;
     color: #374151;
 }
 
-.hljs-comment,
-.hljs-quote {
+:root[data-theme-appearance='light'] .hljs-comment,
+:root[data-theme-appearance='light'] .hljs-quote {
     color: #6b7280;
     font-style: italic;
 }
 
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-subst {
+:root[data-theme-appearance='light'] .hljs-keyword,
+:root[data-theme-appearance='light'] .hljs-selector-tag,
+:root[data-theme-appearance='light'] .hljs-subst {
     color: #d73a49;
 }
 
-.hljs-literal,
-.hljs-number,
-.hljs-addition,
-.hljs-attribute,
-.hljs-built_in,
-.hljs-symbol,
-.hljs-meta,
-.hljs-meta .hljs-keyword {
+:root[data-theme-appearance='light'] .hljs-literal,
+:root[data-theme-appearance='light'] .hljs-number,
+:root[data-theme-appearance='light'] .hljs-addition,
+:root[data-theme-appearance='light'] .hljs-attribute,
+:root[data-theme-appearance='light'] .hljs-built_in,
+:root[data-theme-appearance='light'] .hljs-symbol,
+:root[data-theme-appearance='light'] .hljs-meta,
+:root[data-theme-appearance='light'] .hljs-meta .hljs-keyword {
     color: #005cc5;
 }
 
-.hljs-string,
-.hljs-doctag,
-.hljs-regexp,
-.hljs-template-variable,
-.hljs-variable,
-.hljs-attribute .hljs-string,
-.hljs-meta .hljs-string {
+:root[data-theme-appearance='light'] .hljs-string,
+:root[data-theme-appearance='light'] .hljs-doctag,
+:root[data-theme-appearance='light'] .hljs-regexp,
+:root[data-theme-appearance='light'] .hljs-template-variable,
+:root[data-theme-appearance='light'] .hljs-variable,
+:root[data-theme-appearance='light'] .hljs-attribute .hljs-string,
+:root[data-theme-appearance='light'] .hljs-meta .hljs-string {
     color: #032f62;
 }
 
-.hljs-title,
-.hljs-name,
-.hljs-section,
-.hljs-selector-id,
-.hljs-selector-class {
+:root[data-theme-appearance='light'] .hljs-title,
+:root[data-theme-appearance='light'] .hljs-name,
+:root[data-theme-appearance='light'] .hljs-section,
+:root[data-theme-appearance='light'] .hljs-selector-id,
+:root[data-theme-appearance='light'] .hljs-selector-class {
     color: #6f42c1;
 }
 
-.hljs-deletion {
+:root[data-theme-appearance='light'] .hljs-deletion {
     color: #b31d28;
+}
+
+:root[data-theme-appearance='dark'] .hljs {
+    background: #2d383273;
+    color: #f0fff4;
+}
+
+:root[data-theme-appearance='dark'] .hljs-comment,
+:root[data-theme-appearance='dark'] .hljs-quote {
+    color: #c4e3d6;
+    font-style: italic;
+}
+
+:root[data-theme-appearance='dark'] .hljs-keyword,
+:root[data-theme-appearance='dark'] .hljs-selector-tag,
+:root[data-theme-appearance='dark'] .hljs-subst {
+    color: #ffae85;
+}
+
+:root[data-theme-appearance='dark'] .hljs-literal,
+:root[data-theme-appearance='dark'] .hljs-number,
+:root[data-theme-appearance='dark'] .hljs-addition,
+:root[data-theme-appearance='dark'] .hljs-attribute,
+:root[data-theme-appearance='dark'] .hljs-built_in,
+:root[data-theme-appearance='dark'] .hljs-symbol,
+:root[data-theme-appearance='dark'] .hljs-meta,
+:root[data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
+    color: #99d4ff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-string,
+:root[data-theme-appearance='dark'] .hljs-doctag,
+:root[data-theme-appearance='dark'] .hljs-regexp,
+:root[data-theme-appearance='dark'] .hljs-template-variable,
+:root[data-theme-appearance='dark'] .hljs-variable,
+:root[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
+:root[data-theme-appearance='dark'] .hljs-meta .hljs-string {
+    color: #c3f4e7;
+}
+
+:root[data-theme-appearance='dark'] .hljs-title,
+:root[data-theme-appearance='dark'] .hljs-name,
+:root[data-theme-appearance='dark'] .hljs-section,
+:root[data-theme-appearance='dark'] .hljs-selector-id,
+:root[data-theme-appearance='dark'] .hljs-selector-class {
+    color: #e8cfff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-deletion {
+    color: #ffd3c4;
 }

@@ -63,6 +63,14 @@ export class SettingsDialog {
                             </select>
                         </label>
                         <label class="settings-field">
+                            <span class="settings-label">颜色模式</span>
+                            <select name="appearance">
+                                <option value="system">跟随系统 (默认)</option>
+                                <option value="light">浅色</option>
+                                <option value="dark">深色</option>
+                            </select>
+                        </label>
+                        <label class="settings-field">
                             <span class="settings-label">字体</span>
                             <select name="fontFamily"></select>
                         </label>
@@ -143,6 +151,7 @@ export class SettingsDialog {
 
         // 编辑器设置字段
         this.themeSelect = this.form.querySelector('select[name="theme"]');
+        this.appearanceSelect = this.form.querySelector('select[name="appearance"]');
         this.fontFamilySelect = this.form.querySelector('select[name="fontFamily"]');
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
         this.lineHeightInput = this.form.querySelector('input[name="lineHeight"]');
@@ -236,6 +245,9 @@ export class SettingsDialog {
 
         // 编辑器设置
         this.themeSelect.value = editorPrefs.theme || 'default';
+        if (this.appearanceSelect) {
+            this.appearanceSelect.value = editorPrefs.appearance || 'system';
+        }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
         this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
@@ -277,6 +289,7 @@ export class SettingsDialog {
 
         // 编辑器设置
         const theme = this.themeSelect.value || 'default';
+        const appearance = (this.appearanceSelect?.value || 'system').toLowerCase();
         const fontSize = Number(this.fontSizeInput.value);
         const lineHeight = Number(this.lineHeightInput.value);
         const fontFamily = (this.fontFamilySelect.value || '').trim();
@@ -296,6 +309,7 @@ export class SettingsDialog {
 
         const sanitized = {
             theme: theme,
+            appearance: ['light', 'dark', 'system'].includes(appearance) ? appearance : 'system',
             fontSize: normalizedSize,
             lineHeight: Number(normalizedLineHeight.toFixed(2)),
             fontFamily: fontFamily || '',

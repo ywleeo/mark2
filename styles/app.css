@@ -1,8 +1,30 @@
 /* 应用基础样式 */
 
+:root {
+    --app-accent: #007aff;
+    --app-accent-hover: #0051d5;
+    --app-sidebar-divider: #ddd;
+    --app-sidebar-hover-bg: rgba(0, 0, 0, 0.05);
+    --app-text-regular: rgba(21, 23, 26, 0.75);
+    --app-text-strong: rgba(21, 23, 26, 0.85);
+    --app-text-muted: rgba(21, 23, 26, 0.65);
+    --app-danger-text: rgba(180, 35, 24, 0.85);
+}
+
+:root[data-theme-appearance='dark'] {
+    --app-accent: #4cc9ff;
+    --app-accent-hover: #3a9cd1;
+    --app-sidebar-divider: rgba(255, 255, 255, 0.12);
+    --app-sidebar-hover-bg: rgba(148, 163, 184, 0.18);
+    --app-text-regular: rgba(228, 233, 246, 0.9);
+    --app-text-strong: rgba(250, 252, 255, 0.96);
+    --app-text-muted: rgba(175, 187, 205, 0.88);
+    --app-danger-text: rgba(252, 165, 165, 0.95);
+}
+
 .open-folder-btn {
     padding: 6px 12px;
-    background-color: #007AFF;
+    background-color: var(--app-accent, #007AFF);
     color: white;
     border: none;
     border-radius: 4px;
@@ -12,7 +34,7 @@
 }
 
 .open-folder-btn:hover {
-    background-color: #0051D5;
+    background-color: var(--app-accent-hover, #0051D5);
 }
 
 .file-tree-item {
@@ -24,7 +46,7 @@
 }
 
 .file-tree-item:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: var(--app-sidebar-hover-bg, rgba(0, 0, 0, 0.05));
 }
 
 .sidebar-header {
@@ -32,7 +54,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid var(--app-sidebar-divider, #ddd);
+    color: var(--app-text-regular, rgba(21, 23, 26, 0.85));
 }
 
 .sidebar-header h3 {
@@ -88,7 +111,7 @@
     align-items: center;
     justify-content: center;
     background: var(--content-bg, #ffffff);
-    color: rgba(21, 23, 26, 0.75);
+    color: var(--app-text-regular, rgba(21, 23, 26, 0.75));
 }
 
 .unsupported-viewer-content {
@@ -101,13 +124,14 @@
     font-size: 18px;
     font-weight: 600;
     margin-bottom: 12px;
+    color: var(--app-text-strong, rgba(21, 23, 26, 0.85));
 }
 
 .unsupported-viewer-filename {
     font-size: 14px;
     font-weight: 500;
     margin-bottom: 8px;
-    color: rgba(21, 23, 26, 0.85);
+    color: var(--app-text-strong, rgba(21, 23, 26, 0.85));
     word-break: break-all;
 }
 
@@ -115,11 +139,11 @@
     font-size: 13px;
     line-height: 1.6;
     margin-bottom: 12px;
-    color: rgba(21, 23, 26, 0.65);
+    color: var(--app-text-muted, rgba(21, 23, 26, 0.65));
 }
 
 .unsupported-viewer-error {
     font-size: 12px;
-    color: rgba(180, 35, 24, 0.85);
+    color: var(--app-danger-text, rgba(180, 35, 24, 0.85));
     word-break: break-all;
 }

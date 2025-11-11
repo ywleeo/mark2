@@ -8,6 +8,7 @@ import {
     defaultEditorSettings,
     loadEditorSettings,
     normalizeEditorSettings,
+    onEditorAppearanceChange,
     saveEditorSettings,
 } from './utils/editorSettings.js';
 import { normalizeFsPath, normalizeSelectedPaths } from './utils/pathUtils.js';
@@ -163,6 +164,11 @@ const ZOOM_MAX = 2.4;
 const ZOOM_STEP = 0.1;
 const ZOOM_SUPPORTED_VIEWS = new Set(['markdown', 'code', 'image', 'pdf', 'spreadsheet']);
 let contentZoom = ZOOM_DEFAULT;
+let appearanceChangeCleanup = null;
+
+appearanceChangeCleanup = onEditorAppearanceChange(() => {
+    codeEditor?.applyPreferences?.(editorSettings);
+});
 
 async function updateExportMenuState() {
     const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
@@ -1306,4 +1312,8 @@ function cleanupResources() {
     editor?.destroy?.();
     codeEditor?.dispose?.();
     imageViewer?.dispose?.();
+    if (appearanceChangeCleanup) {
+        appearanceChangeCleanup();
+        appearanceChangeCleanup = null;
+    }
 }

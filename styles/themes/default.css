@@ -1,20 +1,38 @@
 /* 默认主题 - GitHub 风格 */
 
 /* 基础颜色 */
-:root {
+:root[data-theme-appearance='light'] {
     --theme-bg: #ffffff;
-    --theme-text: #333;
-    --theme-text-secondary: #666;
-    --theme-border: #eee;
-    --theme-border-strong: #ddd;
+    --theme-text: #24292f;
+    --theme-text-secondary: #57606a;
+    --theme-border: #e1e4e8;
+    --theme-border-strong: #d0d7de;
     --theme-code-bg: #f0f0f0;
     --theme-code-block-bg: #f6f8fa;
-    --theme-link: #0066cc;
-    --theme-heading-border: #eee;
-    --theme-quote-border: #ddd;
-    --theme-quote-text: #666;
+    --theme-link: #0969da;
+    --theme-heading-border: #d0d7de;
+    --theme-quote-border: #d8dee4;
+    --theme-quote-text: #57606a;
     --theme-table-header-bg: #f6f8fa;
-    --theme-table-border: #ddd;
+    --theme-table-border: #d0d7de;
+    --theme-accent: #3fb950;
+}
+
+:root[data-theme-appearance='dark'] {
+    --theme-bg: #151c25;
+    --theme-text: #f0f3f8;
+    --theme-text-secondary: #b5bdc9;
+    --theme-border: #2c3542;
+    --theme-border-strong: #404a59;
+    --theme-code-bg: #1f2632;
+    --theme-code-block-bg: #222a38;
+    --theme-link: #58a6ff;
+    --theme-heading-border: #2f3847;
+    --theme-quote-border: #3f5166;
+    --theme-quote-text: #c6d5ed;
+    --theme-table-header-bg: #222a38;
+    --theme-table-border: #333d4f;
+    --theme-accent: #3fb950;
 }
 
 /* 标题颜色 */
@@ -73,52 +91,102 @@
 }
 
 /* 代码高亮 - GitHub 风格 */
-.hljs {
+:root[data-theme-appearance='light'] .hljs {
     background: #f6f8fa;
     color: #24292e;
 }
 
-.hljs-comment,
-.hljs-quote {
+:root[data-theme-appearance='light'] .hljs-comment,
+:root[data-theme-appearance='light'] .hljs-quote {
     color: #6a737d;
     font-style: italic;
 }
 
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-subst {
+:root[data-theme-appearance='light'] .hljs-keyword,
+:root[data-theme-appearance='light'] .hljs-selector-tag,
+:root[data-theme-appearance='light'] .hljs-subst {
     color: #d73a49;
 }
 
-.hljs-literal,
-.hljs-number,
-.hljs-addition,
-.hljs-attribute,
-.hljs-built_in,
-.hljs-symbol,
-.hljs-meta,
-.hljs-meta .hljs-keyword {
+:root[data-theme-appearance='light'] .hljs-literal,
+:root[data-theme-appearance='light'] .hljs-number,
+:root[data-theme-appearance='light'] .hljs-addition,
+:root[data-theme-appearance='light'] .hljs-attribute,
+:root[data-theme-appearance='light'] .hljs-built_in,
+:root[data-theme-appearance='light'] .hljs-symbol,
+:root[data-theme-appearance='light'] .hljs-meta,
+:root[data-theme-appearance='light'] .hljs-meta .hljs-keyword {
     color: #005cc5;
 }
 
-.hljs-string,
-.hljs-doctag,
-.hljs-regexp,
-.hljs-template-variable,
-.hljs-variable,
-.hljs-attribute .hljs-string,
-.hljs-meta .hljs-string {
+:root[data-theme-appearance='light'] .hljs-string,
+:root[data-theme-appearance='light'] .hljs-doctag,
+:root[data-theme-appearance='light'] .hljs-regexp,
+:root[data-theme-appearance='light'] .hljs-template-variable,
+:root[data-theme-appearance='light'] .hljs-variable,
+:root[data-theme-appearance='light'] .hljs-attribute .hljs-string,
+:root[data-theme-appearance='light'] .hljs-meta .hljs-string {
     color: #032f62;
 }
 
-.hljs-title,
-.hljs-name,
-.hljs-section,
-.hljs-selector-id,
-.hljs-selector-class {
+:root[data-theme-appearance='light'] .hljs-title,
+:root[data-theme-appearance='light'] .hljs-name,
+:root[data-theme-appearance='light'] .hljs-section,
+:root[data-theme-appearance='light'] .hljs-selector-id,
+:root[data-theme-appearance='light'] .hljs-selector-class {
     color: #6f42c1;
 }
 
-.hljs-deletion {
+:root[data-theme-appearance='light'] .hljs-deletion {
     color: #b31d28;
+}
+
+:root[data-theme-appearance='dark'] .hljs {
+    background: #1e2633;
+    color: #eff4fc;
+}
+
+:root[data-theme-appearance='dark'] .hljs-comment,
+:root[data-theme-appearance='dark'] .hljs-quote {
+    color: #a5afbe;
+    font-style: italic;
+}
+
+:root[data-theme-appearance='dark'] .hljs-keyword,
+:root[data-theme-appearance='dark'] .hljs-selector-tag,
+:root[data-theme-appearance='dark'] .hljs-subst {
+    color: #ff9b8c;
+}
+
+:root[data-theme-appearance='dark'] .hljs-literal,
+:root[data-theme-appearance='dark'] .hljs-number,
+:root[data-theme-appearance='dark'] .hljs-addition,
+:root[data-theme-appearance='dark'] .hljs-attribute,
+:root[data-theme-appearance='dark'] .hljs-built_in,
+:root[data-theme-appearance='dark'] .hljs-symbol,
+:root[data-theme-appearance='dark'] .hljs-meta,
+:root[data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
+    color: #8cc5ff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-string,
+:root[data-theme-appearance='dark'] .hljs-doctag,
+:root[data-theme-appearance='dark'] .hljs-regexp,
+:root[data-theme-appearance='dark'] .hljs-template-variable,
+:root[data-theme-appearance='dark'] .hljs-variable,
+:root[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
+:root[data-theme-appearance='dark'] .hljs-meta .hljs-string {
+    color: #b8e4ff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-title,
+:root[data-theme-appearance='dark'] .hljs-name,
+:root[data-theme-appearance='dark'] .hljs-section,
+:root[data-theme-appearance='dark'] .hljs-selector-id,
+:root[data-theme-appearance='dark'] .hljs-selector-class {
+    color: #e1c8ff;
+}
+
+:root[data-theme-appearance='dark'] .hljs-deletion {
+    color: #ffc0b9;
 }
