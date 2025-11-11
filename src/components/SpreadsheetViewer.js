@@ -1,7 +1,8 @@
-import * as XLSX from 'xlsx';
-
 const MIN_ZOOM_SCALE = 0.6;
 const MAX_ZOOM_SCALE = 2.4;
+const BASE_ROW_HEIGHT = 32;
+const ROW_BUFFER = 6;
+const ROW_INDEX_COLUMN_WIDTH = 60;
 
 function normalizeRows(rows) {
     if (!Array.isArray(rows)) {
@@ -28,8 +29,17 @@ export class SpreadsheetViewer {
         this.activeSheetIndex = 0;
         this.sheetTabsElement = null;
         this.tableWrapperElement = null;
-        this.filenameElement = null;
         this.emptyStateElement = null;
+        this.gridElement = null;
+        this.headerWrapperElement = null;
+        this.headerElement = null;
+        this.viewportElement = null;
+        this.visibleRowsElement = null;
+        this.spacerElement = null;
+        this.virtualState = null;
+        this.scrollAnimationFrame = null;
+        this.handleViewportScroll = this.handleViewportScroll.bind(this);
+        this.viewportResizeObserver = null;
         this.zoomScale = 1;
         this.init();
         this.applyZoom();
@@ -39,7 +49,6 @@ export class SpreadsheetViewer {
         this.container.classList.add('spreadsheet-viewer');
         this.container.innerHTML = `
             <div class="spreadsheet-viewer__toolbar">
-                <div class="spreadsheet-viewer__filename"></div>
                 <div class="spreadsheet-viewer__tabs" role="tablist" aria-label="工作表"></div>
             </div>
             <div class="spreadsheet-viewer__body">
@@ -52,7 +61,6 @@ export class SpreadsheetViewer {
 
         this.sheetTabsElement = this.container.querySelector('.spreadsheet-viewer__tabs');
         this.tableWrapperElement = this.container.querySelector('.spreadsheet-viewer__table-wrapper');
-        this.filenameElement = this.container.querySelector('.spreadsheet-viewer__filename');
         this.emptyStateElement = this.container.querySelector('.spreadsheet-viewer__empty-state');
     }
 
@@ -68,14 +76,26 @@ export class SpreadsheetViewer {
         this.currentFile = null;
         this.sheets = [];
         this.activeSheetIndex = 0;
+        this.disposeViewportObserver();
+        if (this.viewportElement) {
+            this.viewportElement.removeEventListener('scroll', this.handleViewportScroll);
+        }
+        if (this.scrollAnimationFrame) {
+            window.cancelAnimationFrame(this.scrollAnimationFrame);
+            this.scrollAnimationFrame = null;
+        }
+        this.gridElement = null;
+        this.headerWrapperElement = null;
+        this.headerElement = null;
+        this.viewportElement = null;
+        this.visibleRowsElement = null;
+        this.spacerElement = null;
+        this.virtualState = null;
         if (this.sheetTabsElement) {
             this.sheetTabsElement.innerHTML = '';
         }
         if (this.tableWrapperElement) {
             this.tableWrapperElement.innerHTML = '';
-        }
-        if (this.filenameElement) {
-            this.filenameElement.textContent = '';
         }
         if (this.emptyStateElement) {
             this.emptyStateElement.classList.remove('is-hidden');
@@ -92,18 +112,9 @@ export class SpreadsheetViewer {
         this.currentFile = filePath;
         this.sheets = Array.isArray(workbookData?.sheets) ? workbookData.sheets : [];
         this.activeSheetIndex = 0;
-        this.renderFilename();
         this.renderSheetTabs();
         this.renderActiveSheet();
         this.show();
-    }
-
-    renderFilename() {
-        if (!this.filenameElement) {
-            return;
-        }
-        const fileName = this.currentFile?.split('/').pop() || this.currentFile || '';
-        this.filenameElement.textContent = fileName;
     }
 
     renderSheetTabs() {
@@ -150,30 +161,33 @@ export class SpreadsheetViewer {
         const activeSheet = this.sheets[this.activeSheetIndex];
         if (!activeSheet || !Array.isArray(activeSheet.rows) || activeSheet.rows.length === 0) {
             this.tableWrapperElement.innerHTML = '';
+            this.disposeViewportObserver();
+            if (this.viewportElement) {
+                this.viewportElement.removeEventListener('scroll', this.handleViewportScroll);
+            }
+            if (this.scrollAnimationFrame) {
+                window.cancelAnimationFrame(this.scrollAnimationFrame);
+                this.scrollAnimationFrame = null;
+            }
+            this.gridElement = null;
+            this.headerWrapperElement = null;
+            this.headerElement = null;
+            this.viewportElement = null;
+            this.visibleRowsElement = null;
+            this.spacerElement = null;
+            this.virtualState = null;
             this.emptyStateElement.classList.remove('is-hidden');
             return;
         }
 
         this.emptyStateElement.classList.add('is-hidden');
         const normalizedRows = normalizeRows(activeSheet.rows);
-        const worksheet = XLSX.utils.aoa_to_sheet(normalizedRows);
-        const html = XLSX.utils.sheet_to_html(worksheet, {
-            editable: false,
-            header: '',
-            footer: '',
-        });
-
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        const table = temp.querySelector('table');
-        this.tableWrapperElement.innerHTML = '';
-        if (table) {
-            table.classList.add('spreadsheet-viewer__table');
-            this.tableWrapperElement.appendChild(table);
-            this.applyZoom();
-        } else {
-            this.emptyStateElement.classList.remove('is-hidden');
-        }
+        this.setupGridStructure();
+        this.virtualState = this.buildVirtualState(normalizedRows);
+        this.renderGridHeader();
+        this.updateSpacerHeight();
+        this.resetViewportScroll();
+        this.renderVisibleRows(true);
     }
 
     clampZoomScale(value) {
@@ -188,6 +202,10 @@ export class SpreadsheetViewer {
             return;
         }
         this.container.style.setProperty('--spreadsheet-zoom', this.zoomScale.toString());
+        if (this.virtualState) {
+            this.updateSpacerHeight();
+            this.renderVisibleRows(true);
+        }
     }
 
     setZoomScale(scale) {
@@ -197,5 +215,195 @@ export class SpreadsheetViewer {
         }
         this.zoomScale = clamped;
         this.applyZoom();
+    }
+
+    setupGridStructure() {
+        if (!this.tableWrapperElement) {
+            return;
+        }
+        this.disposeViewportObserver();
+        if (this.viewportElement) {
+            this.viewportElement.removeEventListener('scroll', this.handleViewportScroll);
+        }
+        this.tableWrapperElement.innerHTML = `
+            <div class="spreadsheet-grid">
+                <div class="spreadsheet-grid__header-wrapper">
+                    <div class="spreadsheet-grid__header"></div>
+                </div>
+                <div class="spreadsheet-grid__viewport" role="grid">
+                    <div class="spreadsheet-grid__spacer"></div>
+                    <div class="spreadsheet-grid__visible"></div>
+                </div>
+            </div>
+        `;
+        this.gridElement = this.tableWrapperElement.querySelector('.spreadsheet-grid');
+        this.headerWrapperElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__header-wrapper');
+        this.headerElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__header');
+        if (this.headerElement) {
+            this.headerElement.style.transform = 'translateX(0)';
+        }
+        this.viewportElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__viewport');
+        this.spacerElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__spacer');
+        this.visibleRowsElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__visible');
+        this.visibleRowsElement.innerHTML = '';
+        this.visibleRowsElement.style.transform = 'translateY(0)';
+        if (this.viewportElement) {
+            this.viewportElement.addEventListener('scroll', this.handleViewportScroll, { passive: true });
+        }
+        if (typeof window !== 'undefined' && 'ResizeObserver' in window && this.viewportElement) {
+            this.viewportResizeObserver = new window.ResizeObserver(() => {
+                this.renderVisibleRows(true);
+            });
+            this.viewportResizeObserver.observe(this.viewportElement);
+        }
+    }
+
+    disposeViewportObserver() {
+        if (this.viewportResizeObserver) {
+            this.viewportResizeObserver.disconnect();
+            this.viewportResizeObserver = null;
+        }
+    }
+
+    buildVirtualState(rows) {
+        const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+        const columnWidths = new Array(columnCount).fill(120);
+        rows.forEach((row) => {
+            row.forEach((cell, columnIndex) => {
+                const length = cell?.length || 0;
+                const approx = Math.min(320, Math.max(80, 16 + (length * 7)));
+                columnWidths[columnIndex] = Math.max(columnWidths[columnIndex], approx);
+            });
+        });
+        return {
+            rows,
+            columnCount,
+            columnWidths,
+            renderedRange: { start: -1, end: -1 },
+        };
+    }
+
+    renderGridHeader() {
+        if (!this.headerElement || !this.virtualState) {
+            return;
+        }
+        const { columnCount, columnWidths } = this.virtualState;
+        const fragments = [];
+        fragments.push(this.createHeaderCell('#', { isIndex: true }));
+        for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+            const label = this.getColumnLabel(columnIndex);
+            fragments.push(this.createHeaderCell(label, { width: columnWidths[columnIndex] }));
+        }
+        this.headerElement.innerHTML = '';
+        fragments.forEach(cell => this.headerElement.appendChild(cell));
+    }
+
+    createHeaderCell(text, options = {}) {
+        const { width = null, isIndex = false } = options;
+        const cell = document.createElement('div');
+        cell.className = 'spreadsheet-grid__cell spreadsheet-grid__cell--header';
+        if (isIndex) {
+            cell.classList.add('spreadsheet-grid__cell--index');
+            cell.style.setProperty('--col-width', `${ROW_INDEX_COLUMN_WIDTH}px`);
+        } else {
+            cell.style.setProperty('--col-width', `${Number.isFinite(width) ? width : 120}px`);
+        }
+        cell.textContent = text;
+        return cell;
+    }
+
+    getColumnLabel(index) {
+        const letters = [];
+        let current = index;
+        do {
+            letters.unshift(String.fromCharCode(65 + (current % 26)));
+            current = Math.floor(current / 26) - 1;
+        } while (current >= 0);
+        return letters.join('');
+    }
+
+    getRowHeight() {
+        return Math.max(24, Math.round(BASE_ROW_HEIGHT * this.zoomScale));
+    }
+
+    updateSpacerHeight() {
+        if (!this.spacerElement || !this.virtualState) {
+            return;
+        }
+        const totalHeight = this.virtualState.rows.length * this.getRowHeight();
+        this.spacerElement.style.height = `${totalHeight}px`;
+    }
+
+    resetViewportScroll() {
+        if (this.viewportElement) {
+            this.viewportElement.scrollTop = 0;
+            this.viewportElement.scrollLeft = 0;
+        }
+        if (this.headerElement) {
+            this.headerElement.style.transform = 'translateX(0)';
+        }
+    }
+
+    handleViewportScroll() {
+        if (this.scrollAnimationFrame) {
+            window.cancelAnimationFrame(this.scrollAnimationFrame);
+        }
+        if (this.headerElement && this.viewportElement) {
+            const scrollLeft = this.viewportElement.scrollLeft || 0;
+            this.headerElement.style.transform = `translateX(${-scrollLeft}px)`;
+        }
+        this.scrollAnimationFrame = window.requestAnimationFrame(() => {
+            this.renderVisibleRows();
+        });
+    }
+
+    renderVisibleRows(force = false) {
+        if (!this.virtualState || !this.viewportElement || !this.visibleRowsElement) {
+            return;
+        }
+        const { rows, columnCount, columnWidths, renderedRange } = this.virtualState;
+        if (!rows.length) {
+            this.visibleRowsElement.innerHTML = '';
+            return;
+        }
+        const rowHeight = this.getRowHeight();
+        const scrollTop = this.viewportElement.scrollTop || 0;
+        const viewportHeight = this.viewportElement.clientHeight || 0;
+        const start = Math.max(0, Math.floor(scrollTop / rowHeight) - ROW_BUFFER);
+        const end = Math.min(rows.length, start + Math.ceil(viewportHeight / rowHeight) + (ROW_BUFFER * 2));
+
+        if (!force && renderedRange.start === start && renderedRange.end === end) {
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+        for (let rowIndex = start; rowIndex < end; rowIndex += 1) {
+            fragment.appendChild(this.renderRow(rowIndex, rows[rowIndex], columnCount, columnWidths));
+        }
+        this.visibleRowsElement.innerHTML = '';
+        this.visibleRowsElement.appendChild(fragment);
+        this.visibleRowsElement.style.transform = `translateY(${start * rowHeight}px)`;
+        this.virtualState.renderedRange = { start, end };
+    }
+
+    renderRow(rowIndex, rowData, columnCount, columnWidths) {
+        const rowElement = document.createElement('div');
+        rowElement.className = 'spreadsheet-grid__row';
+        rowElement.setAttribute('role', 'row');
+        const indexCell = document.createElement('div');
+        indexCell.className = 'spreadsheet-grid__cell spreadsheet-grid__cell--index';
+        indexCell.textContent = (rowIndex + 1).toString();
+        indexCell.style.setProperty('--col-width', `${ROW_INDEX_COLUMN_WIDTH}px`);
+        rowElement.appendChild(indexCell);
+
+        for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+            const cell = document.createElement('div');
+            cell.className = 'spreadsheet-grid__cell';
+            cell.style.setProperty('--col-width', `${columnWidths[columnIndex] || 120}px`);
+            const value = rowData?.[columnIndex] ?? '';
+            cell.textContent = value;
+            rowElement.appendChild(cell);
+        }
+        return rowElement;
     }
 }
