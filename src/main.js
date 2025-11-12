@@ -481,6 +481,17 @@ function setActiveViewMode(nextMode) {
     });
 
     config.onEnter?.();
+
+    if (viewContainerElement) {
+        const shouldHideContainerScroll = nextMode === 'code';
+        viewContainerElement.style.overflowY = shouldHideContainerScroll ? 'hidden' : '';
+        if (nextMode === 'markdown') {
+            restoreMarkdownScrollPosition(currentFile);
+        } else {
+            viewContainerElement.scrollTop = 0;
+        }
+    }
+
     if (nextMode !== 'pdf') {
         statusBarController?.setPageInfo?.('');
     }
