@@ -18,18 +18,29 @@ function isLikelyBinaryReadError(error) {
     return UTF8_ERROR_SNIPPETS.some(snippet => normalized.includes(snippet));
 }
 
-export function createFileSession({ readFile, readSpreadsheet, readBinaryBase64, getViewModeForPath }) {
-    if (typeof readFile !== 'function') {
-        throw new Error('createFileSession 需要提供 readFile 函数');
-    }
-    if (typeof readSpreadsheet !== 'function') {
-        throw new Error('createFileSession 需要提供 readSpreadsheet 函数');
-    }
-    if (typeof readBinaryBase64 !== 'function') {
-        throw new Error('createFileSession 需要提供 readBinaryBase64 函数');
-    }
+export function createFileSession({
+    fileService,
+    readFile,
+    readSpreadsheet,
+    readBinaryBase64,
+    getViewModeForPath,
+}) {
     if (typeof getViewModeForPath !== 'function') {
         throw new Error('createFileSession 需要提供 getViewModeForPath 函数');
+    }
+
+    const readText = fileService?.readText || readFile;
+    const readSpreadsheetFn = fileService?.readSpreadsheet || readSpreadsheet;
+    const readBinaryBase64Fn = fileService?.readBinaryBase64 || readBinaryBase64;
+
+    if (typeof readText !== 'function') {
+        throw new Error('createFileSession 需要提供 readText 函数');
+    }
+    if (typeof readSpreadsheetFn !== 'function') {
+        throw new Error('createFileSession 需要提供 readSpreadsheet 函数');
+    }
+    if (typeof readBinaryBase64Fn !== 'function') {
+        throw new Error('createFileSession 需要提供 readBinaryBase64 函数');
     }
 
     const cache = new Map();
@@ -86,7 +97,7 @@ export function createFileSession({ readFile, readSpreadsheet, readBinaryBase64,
 
         try {
             if (viewMode === 'spreadsheet') {
-                const workbook = await readSpreadsheet(filePath);
+                const workbook = await readSpreadsheetFn(filePath);
                 const result = {
                     content: workbook,
                     hasChanges: false,
@@ -97,7 +108,7 @@ export function createFileSession({ readFile, readSpreadsheet, readBinaryBase64,
             }
 
             if (viewMode === 'pdf') {
-                const base64 = await readBinaryBase64(filePath);
+                const base64 = await readBinaryBase64Fn(filePath);
                 const result = {
                     content: base64,
                     hasChanges: false,
@@ -107,7 +118,7 @@ export function createFileSession({ readFile, readSpreadsheet, readBinaryBase64,
                 return result;
             }
 
-            const content = await readFile(filePath);
+            const content = await readText(filePath);
             return {
                 content,
                 hasChanges: false,

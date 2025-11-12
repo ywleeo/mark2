@@ -16,9 +16,7 @@ export function createFileOperations({
     getViewModeForPath,
     normalizeFsPath,
     normalizeSelectedPaths,
-    isDirectory,
-    pickPaths,
-    writeFile,
+    fileService,
     persistWorkspaceState,
     updateWindowTitle,
     saveCurrentEditorContentToCache,
@@ -48,9 +46,7 @@ export function createFileOperations({
     if (typeof getViewModeForPath !== 'function') throw new Error('fileOperations 需要 getViewModeForPath');
     if (typeof normalizeFsPath !== 'function') throw new Error('fileOperations 需要 normalizeFsPath');
     if (typeof normalizeSelectedPaths !== 'function') throw new Error('fileOperations 需要 normalizeSelectedPaths');
-    if (typeof isDirectory !== 'function') throw new Error('fileOperations 需要 isDirectory');
-    if (typeof pickPaths !== 'function') throw new Error('fileOperations 需要 pickPaths');
-    if (typeof writeFile !== 'function') throw new Error('fileOperations 需要 writeFile');
+    if (!fileService) throw new Error('fileOperations 需要 fileService');
     if (typeof persistWorkspaceState !== 'function') throw new Error('fileOperations 需要 persistWorkspaceState');
     if (typeof updateWindowTitle !== 'function') throw new Error('fileOperations 需要 updateWindowTitle');
     if (typeof saveCurrentEditorContentToCache !== 'function')
@@ -85,7 +81,7 @@ export function createFileOperations({
 
         for (const resolvedPath of uniqueSelections) {
             try {
-                const isDir = await isDirectory(resolvedPath);
+                const isDir = await fileService.isDirectory(resolvedPath);
 
                 if (isDir) {
                     await fileTree.loadFolder(resolvedPath);
@@ -101,7 +97,7 @@ export function createFileOperations({
 
     async function openFileOrFolder() {
         try {
-            const selected = await pickPaths();
+            const selected = await fileService.pick();
             await openPathsFromSelection(selected);
         } catch (error) {
             console.error('打开失败:', error);
@@ -132,7 +128,7 @@ export function createFileOperations({
         if (activeViewMode === 'code' && codeEditor) {
             try {
                 const content = codeEditor.getValue();
-                await writeFile(currentFile, content);
+                await fileService.writeText(currentFile, content);
                 const markdownCodeMode = getMarkdownCodeMode();
                 markdownCodeMode?.handleCodeSaved(content);
                 codeEditor.markSaved();
@@ -163,7 +159,7 @@ export function createFileOperations({
         }
 
         try {
-            await writeFile(filePath, cached.content);
+            await fileService.writeText(filePath, cached.content);
             fileSession.clearEntry(filePath);
             return true;
         } catch (error) {

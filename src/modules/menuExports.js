@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 import { save, message } from '@tauri-apps/plugin-dialog';
 import {
     buildDefaultPdfPath,
@@ -6,6 +5,7 @@ import {
     captureViewContent,
     collectContentForPdf,
 } from '../utils/exportUtils.js';
+import { captureScreenshot, exportToPdf } from '../api/native.js';
 
 export async function exportCurrentViewToImage({ ensureToPng, statusBarController }) {
     let progressShown = false;
@@ -30,10 +30,7 @@ export async function exportCurrentViewToImage({ ensureToPng, statusBarControlle
         progressShown = true;
 
         const dataUrl = await captureViewContent(ensureToPng);
-        await invoke('capture_screenshot', {
-            destination: targetPath,
-            imageData: dataUrl,
-        });
+        await captureScreenshot(targetPath, dataUrl);
 
         statusBarController?.showProgress?.('PNG 已保存：' + targetPath, { state: 'success' });
         statusBarController?.hideProgress?.({ delay: 2200 });
@@ -79,7 +76,7 @@ export async function exportCurrentViewToPdf({ activeViewMode, statusBarControll
         progressShown = true;
 
         const { htmlContent, cssContent, pageWidth } = await collectContentForPdf(activeViewMode);
-        await invoke('export_to_pdf', {
+        await exportToPdf({
             destination: targetPath,
             htmlContent,
             cssContent,

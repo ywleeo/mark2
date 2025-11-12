@@ -15,10 +15,11 @@ import * as aiPlugin from './plugins/ai-assistant/index.js';
 
 const pluginManager = new PluginManager({
     eventBus,
+    services: createAppServices(),
     appContext: {
         getActiveViewMode: () => activeViewMode,
         getEditorContext: requestActiveEditorContext,
-        getDocumentIO: () => documentIO,
+        documentApi: getDocumentApi(),
         insertText: insertTextIntoActiveEditor,
         replaceSelection: replaceSelectionInEditor,
         version: APP_VERSION,
@@ -99,6 +100,7 @@ export async function deactivate() {
 | `pluginId` | string | 插件唯一 ID（来自 manifest 或注册时指定） |
 | `eventBus` | `{ on, once, emit, emitAsync }` | 事件总线包装，自动处理卸载时的取消订阅 |
 | `app` | [`AppBridge`](./AppBridge.README.md) | 主应用能力封装 |
+| `services` | `{ filesystem, document, native }` | 统一 I/O 服务（基于 `src/api`），可直接调用底层能力 |
 | `getPluginApi(id)` | Function | 获取其他插件公开的 API |
 | `onCleanup(fn)` | Function | 注册清理函数（卸载时按注册顺序执行） |
 
@@ -190,3 +192,16 @@ await pluginManager.scanAndLoadPlugins();
 ---
 
 更多 App 能力与扩展指引，参见 [`AppBridge.README.md`](./AppBridge.README.md)。
+例如：
+
+```javascript
+export async function activate(context) {
+    const { services } = context;
+    const exists = await services.file.exists('/tmp/demo.md');
+    if (!exists) {
+        await services.file.createFile('/tmp/demo.md', { content: '# Hello' });
+    }
+    const doc = await services.document.read();
+    console.log('当前文档内容', doc.content);
+}
+```

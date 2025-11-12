@@ -1,7 +1,7 @@
 import { eventBus } from './EventBus.js';
-import { invoke } from '@tauri-apps/api/core';
 import { AppBridge } from './AppBridge.js';
 import { builtinPlugins } from '../config/builtin-plugins.js';
+import { listPlugins } from '../api/native.js';
 
 /**
  * 插件管理器 - 负责插件的自动扫描、加载、激活、卸载
@@ -11,6 +11,7 @@ export class PluginManager {
         this.eventBus = options.eventBus || eventBus;
         this.plugins = new Map();
         this.pluginContexts = new Map();
+        this.services = options.services || null;
 
         // 创建 AppBridge 实例
         this.appBridge = new AppBridge({
@@ -46,7 +47,7 @@ export class PluginManager {
         // 2. 尝试从后端读取可扩展插件列表（目录扫描）
         let manifests = [];
         try {
-            manifests = await invoke('list_plugins');
+            manifests = await listPlugins();
             console.log(`[PluginManager] 目录中发现 ${manifests.length} 个插件`);
         } catch (error) {
             console.error('[PluginManager] 扫描插件目录失败:', error);
@@ -209,6 +210,9 @@ export class PluginManager {
 
             // 应用能力接口（通过 AppBridge 提供）
             app: this.appBridge,
+
+            // 统一服务集合（文件、文档、原生命令等）
+            services: this.services,
 
             // 获取其他插件的 API
             getPluginApi: (id) => {

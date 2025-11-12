@@ -24,7 +24,7 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { renderMermaidIn } from '../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../extensions/MermaidBlock.js';
 import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortcut.js';
-import { writeFile } from '../api/filesystem.js';
+import { getAppServices } from '../services/appServices.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -352,7 +352,8 @@ export class MarkdownEditor {
         const savePromise = (async () => {
             try {
                 const markdown = this.getMarkdown();
-                await writeFile(this.currentFile, markdown);
+                const services = getAppServices();
+                await services.file.writeText(this.currentFile, markdown);
                 this.originalMarkdown = markdown;
                 this.contentChanged = false;
                 this.callbacks.onContentChange?.();

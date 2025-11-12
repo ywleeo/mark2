@@ -4,9 +4,7 @@ export function createFileMenuActions(options = {}) {
         normalizeFsPath,
         normalizeSelectedPaths,
         checkFileHasUnsavedChanges,
-        deleteEntry,
-        writeFile,
-        renameEntry,
+        fileService,
         getCurrentFile,
         setCurrentFile,
         getHasUnsavedChanges,
@@ -21,7 +19,6 @@ export function createFileMenuActions(options = {}) {
         getCodeEditor,
         getImageViewer,
         getUnsupportedViewer,
-        getFileMetadata,
         getStatusBarController,
     } = options;
 
@@ -37,9 +34,8 @@ export function createFileMenuActions(options = {}) {
     if (typeof checkFileHasUnsavedChanges !== 'function') {
         throw new Error('createFileMenuActions 需要提供 checkFileHasUnsavedChanges 函数');
     }
-    if (typeof deleteEntry !== 'function' || typeof renameEntry !== 'function'
-        || typeof writeFile !== 'function') {
-        throw new Error('createFileMenuActions 需要提供文件操作函数');
+    if (!fileService) {
+        throw new Error('createFileMenuActions 需要提供 fileService');
     }
     if (typeof getCurrentFile !== 'function' || typeof setCurrentFile !== 'function') {
         throw new Error('createFileMenuActions 需要提供文件状态访问方法');
@@ -67,9 +63,6 @@ export function createFileMenuActions(options = {}) {
     }
     if (typeof getImageViewer !== 'function' || typeof getUnsupportedViewer !== 'function') {
         throw new Error('createFileMenuActions 需要提供预览器访问方法');
-    }
-    if (typeof getFileMetadata !== 'function') {
-        throw new Error('createFileMenuActions 需要提供 getFileMetadata 方法');
     }
     if (typeof getStatusBarController !== 'function') {
         throw new Error('createFileMenuActions 需要提供状态栏访问方法');
@@ -113,13 +106,7 @@ export function createFileMenuActions(options = {}) {
                 return;
             }
 
-            let exists = false;
-            try {
-                await getFileMetadata(normalizedPath);
-                exists = true;
-            } catch {
-                exists = false;
-            }
+            const exists = await fileService.exists(normalizedPath);
 
             if (exists) {
                 const fileName = normalizedPath.split('/').pop() || normalizedPath;
@@ -137,7 +124,7 @@ export function createFileMenuActions(options = {}) {
                 }
             }
 
-            await writeFile(normalizedPath, '');
+            await fileService.writeText(normalizedPath, '');
             fileSession.clearEntry(normalizedPath);
 
             const fileTree = getFileTree();
@@ -190,7 +177,7 @@ export function createFileMenuActions(options = {}) {
         }
 
         try {
-            await deleteEntry(currentFile);
+            await fileService.remove(currentFile);
         } catch (error) {
             console.error('删除文件失败:', error);
             alert('删除文件失败: ' + (error?.message || error));
@@ -254,7 +241,7 @@ export function createFileMenuActions(options = {}) {
                 return;
             }
 
-            await renameEntry(currentFile, normalizedDestination);
+            await fileService.move(currentFile, normalizedDestination);
             await applyPathChange(currentFile, normalizedDestination);
         } catch (error) {
             console.error('移动文件失败:', error);
@@ -305,7 +292,7 @@ export function createFileMenuActions(options = {}) {
                 return true;
             }
 
-            await renameEntry(normalizedCurrent, normalizedDestination);
+            await fileService.move(normalizedCurrent, normalizedDestination);
             await applyPathChange(normalizedCurrent, normalizedDestination, { tabLabel: trimmedLabel });
             return true;
         } catch (error) {

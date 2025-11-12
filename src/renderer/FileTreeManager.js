@@ -1,10 +1,13 @@
 import { open } from '@tauri-apps/plugin-dialog';
-import { listDirectory } from '../api/filesystem.js';
+import { getAppServices } from '../services/appServices.js';
 
 export class FileTreeManager {
     constructor() {
         this.currentFolder = null;
         this.fileTree = document.getElementById('fileTree');
+        this.services = null;
+        this.fileService = null;
+        this.ensureFileService();
     }
 
     async openFolder() {
@@ -25,8 +28,9 @@ export class FileTreeManager {
 
     async loadFileTree(folderPath) {
         try {
-            const entries = await listDirectory(folderPath);
-            this.renderFileTree(entries);
+            const { entries = [] } = await this.ensureFileService().list(folderPath);
+            const paths = entries.map(entry => entry.path);
+            this.renderFileTree(paths);
         } catch (error) {
             console.error('读取文件夹失败:', error);
         }
@@ -56,5 +60,26 @@ export class FileTreeManager {
         window.dispatchEvent(new CustomEvent('file-selected', {
             detail: { path: filePath }
         }));
+    }
+
+    ensureFileService() {
+        if (this.fileService) {
+            return this.fileService;
+        }
+        try {
+            this.services = getAppServices();
+        } catch (error) {
+            const fallback = typeof window !== 'undefined' ? window.__MARK2_SERVICES__ : null;
+            if (fallback) {
+                this.services = fallback;
+            } else {
+                throw error;
+            }
+        }
+        if (!this.services?.file) {
+            throw new Error('文件服务未初始化');
+        }
+        this.fileService = this.services.file;
+        return this.fileService;
     }
 }

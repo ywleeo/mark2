@@ -14,7 +14,7 @@ export function createStatusBarController({
     statusBarPageInfoElement = null,
     normalizeFsPath,
     revealInFileManager,
-    getFileMetadata,
+    fileService,
     onVisibilityChange,
 }) {
     if (!statusBarElement
@@ -23,6 +23,9 @@ export function createStatusBarController({
         || !statusBarLastModifiedElement
         || !statusBarProgressElement) {
         throw new Error('缺少状态栏元素，无法初始化状态栏控制器');
+    }
+    if (!fileService) {
+        throw new Error('缺少 fileService，无法初始化状态栏控制器');
     }
 
     let isStatusBarHidden = false;
@@ -298,7 +301,7 @@ export function createStatusBarController({
         }
 
         try {
-            const metadata = await getFileMetadata(filePath);
+            const metadata = await fileService.metadata(filePath);
             if (!metadata || !metadata.modified_time) return null;
 
             const date = new Date(metadata.modified_time * 1000);

@@ -3,7 +3,7 @@
 :root {
     --titlebar-height: 28px;
     --status-bar-height: 28px;
-    --scrollbar-size: 2px;
+    --scrollbar-size: 6px;
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.25);
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.45);
     --scrollbar-track-color: rgba(255, 255, 255, 0.12);
@@ -125,7 +125,7 @@ body {
     font-weight: 300;
     overflow: hidden;
     overscroll-behavior: none;
-    scrollbar-width: thin;
+    /* scrollbar-width: thin; */
     scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
     background: var(--sidebar-bg, #f5f6f8);
     color: var(--body-text-color, #1f242d);
@@ -482,7 +482,7 @@ body.is-file-drop-hover .content-wrapper::after {
 .markdown-content pre,
 .editor-textarea,
 .view-content {
-    scrollbar-width: thin;
+    /* scrollbar-width: thin; */
     scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
 }
 

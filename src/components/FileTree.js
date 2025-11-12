@@ -1,10 +1,6 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { isEditableFilePath, getViewModeForPath } from '../utils/fileTypeUtils.js';
-import {
-    ipcHealthCheck,
-    isDirectory as checkIsDirectory,
-    listDirectory,
-} from '../api/filesystem.js';
+import { getAppServices } from '../services/appServices.js';
 
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
@@ -13,6 +9,8 @@ export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
+        this.services = null;
+        this.fileService = null;
         this.rootPaths = new Set();
         this.expandedFolders = new Set();
         this.currentFile = null;
@@ -29,6 +27,7 @@ export class FileTree {
         };
         this.cleanupFunctions = []; // 存储清理函数
         this.init();
+        this.ensureFileService();
     }
 
     normalizePath(path) {
@@ -308,32 +307,20 @@ export class FileTree {
     }
 
     async readDirectory(path) {
-        const entries = await listDirectory(path);
+        const fileService = this.ensureFileService();
+        const { directories = [], files = [] } = await fileService.list(path);
 
-        // 分类并排序：文件夹在前，文件在后
-        const folders = [];
-        const files = [];
-
-        for (const entry of entries) {
-            const name = entry.split('/').pop() || entry.split('\\').pop();
-
-            // 过滤掉系统文件
-            if (this.shouldIgnoreFile(name)) {
-                continue;
-            }
-
-            const isDir = await checkIsDirectory(entry);
-            if (isDir) {
-                folders.push({ path: entry, isDir: true });
-            } else {
-                files.push({ path: entry, isDir: false });
-            }
-        }
+        const folders = directories
+            .filter(entry => !this.shouldIgnoreFile(entry.name))
+            .map(entry => ({ path: entry.path, isDir: true }));
+        const regularFiles = files
+            .filter(entry => !this.shouldIgnoreFile(entry.name))
+            .map(entry => ({ path: entry.path, isDir: false }));
 
         folders.sort((a, b) => a.path.localeCompare(b.path));
-        files.sort((a, b) => a.path.localeCompare(b.path));
+        regularFiles.sort((a, b) => a.path.localeCompare(b.path));
 
-        return [...folders, ...files];
+        return [...folders, ...regularFiles];
     }
 
     createFolderItem(name, path, entries, isRoot = false, parentPath = null) {
@@ -889,7 +876,7 @@ export class FileTree {
 
         const verificationPromise = (async () => {
             try {
-                await ipcHealthCheck();
+                await this.ensureFileService().ipcHealthCheck?.();
                 const verifiedAt = Date.now();
                 state.lastVerificationTimestamp = verifiedAt;
 
@@ -1050,6 +1037,27 @@ export class FileTree {
                 console.warn('恢复文件夹失败:', path, error);
             }
         }
+    }
+
+    ensureFileService() {
+        if (this.fileService) {
+            return this.fileService;
+        }
+        try {
+            this.services = getAppServices();
+        } catch (error) {
+            const fallback = typeof window !== 'undefined' ? window.__MARK2_SERVICES__ : null;
+            if (fallback) {
+                this.services = fallback;
+            } else {
+                throw error;
+            }
+        }
+        if (!this.services?.file) {
+            throw new Error('文件服务未初始化');
+        }
+        this.fileService = this.services.file;
+        return this.fileService;
     }
 
     dispose() {

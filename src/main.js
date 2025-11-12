@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
@@ -16,18 +15,13 @@ import { setupKeyboardShortcuts } from './utils/shortcuts.js';
 import { setupSidebarResizer } from './utils/sidebarResizer.js';
 import { exportCurrentViewToImage, exportCurrentViewToPdf } from './modules/menuExports.js';
 import {
-    deleteEntry,
-    getFileMetadata,
-    isDirectory,
     listFonts,
-    pickPaths,
-    readBinaryBase64,
-    readFile,
-    readSpreadsheet,
-    renameEntry,
     revealInFileManager,
-    writeFile,
 } from './api/filesystem.js';
+import { registerDocumentIO, getDocumentApi } from './api/document.js';
+import { setExportMenuEnabled } from './api/native.js';
+import { createAppServices } from './services/appServices.js';
+import { createFileService } from './services/fileService.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
@@ -124,10 +118,9 @@ let fileTree = null;
 let tabManager = null;
 let settingsDialog = null;
 let hasUnsavedChanges = false;
+const fileService = createFileService();
 const fileSession = createFileSession({
-    readFile,
-    readSpreadsheet,
-    readBinaryBase64,
+    fileService,
     getViewModeForPath,
 });
 let editorSettings = { ...defaultEditorSettings };
@@ -158,6 +151,7 @@ let fileDropController = null;
 let pluginManager = null;
 let documentIO = null;
 let exportMenuEnabledState = null;
+let appServices = null;
 const ZOOM_DEFAULT = 1;
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.4;
@@ -181,7 +175,7 @@ async function updateExportMenuState() {
     exportMenuEnabledState = shouldEnable;
 
     try {
-        await invoke('set_export_menu_enabled', { enabled: shouldEnable });
+        await setExportMenuEnabled(shouldEnable);
     } catch (error) {
         console.warn('更新导出菜单状态失败:', error);
     }
@@ -495,12 +489,28 @@ function setActiveViewMode(nextMode) {
     void updateExportMenuState();
 }
 
+documentIO = createDocumentIO({
+    eventBus,
+    getCurrentFile: () => currentFile,
+    getEditor: () => editor,
+    getCodeEditor: () => codeEditor,
+    getActiveViewMode: () => activeViewMode,
+    setHasUnsavedChanges: (value) => {
+        hasUnsavedChanges = value;
+    },
+    saveCurrentEditorContentToCache,
+    fileSession,
+    updateWindowTitle,
+    persistWorkspaceState,
+});
+registerDocumentIO(documentIO);
+appServices = createAppServices({ fileService });
+
 const workspaceController = createWorkspaceController({
     getCurrentFile: () => currentFile,
     getFileTree: () => fileTree,
     getTabManager: () => tabManager,
-    isDirectory,
-    getFileMetadata,
+    fileService: appServices.file,
     createDefaultWorkspaceState,
     loadWorkspaceState,
     saveWorkspaceState,
@@ -535,9 +545,7 @@ const {
     getViewModeForPath,
     normalizeFsPath,
     normalizeSelectedPaths,
-    isDirectory,
-    pickPaths,
-    writeFile,
+    fileService: appServices.file,
     persistWorkspaceState,
     updateWindowTitle,
     saveCurrentEditorContentToCache,
@@ -549,21 +557,6 @@ const {
     activateSpreadsheetView,
     activatePdfView,
     activateUnsupportedView,
-});
-
-documentIO = createDocumentIO({
-    eventBus,
-    getCurrentFile: () => currentFile,
-    getEditor: () => editor,
-    getCodeEditor: () => codeEditor,
-    getActiveViewMode: () => activeViewMode,
-    setHasUnsavedChanges: (value) => {
-        hasUnsavedChanges = value;
-    },
-    saveCurrentEditorContentToCache,
-    fileSession,
-    updateWindowTitle,
-    persistWorkspaceState,
 });
 
 /**
@@ -718,9 +711,7 @@ const {
     normalizeFsPath,
     normalizeSelectedPaths,
     checkFileHasUnsavedChanges,
-    deleteEntry,
-    writeFile,
-    renameEntry,
+    fileService: appServices.file,
     getCurrentFile: () => currentFile,
     setCurrentFile: (value) => {
         currentFile = value;
@@ -740,7 +731,6 @@ const {
     getCodeEditor: () => codeEditor,
     getImageViewer: () => imageViewer,
     getUnsupportedViewer: () => unsupportedViewer,
-    getFileMetadata,
     getStatusBarController: () => statusBarController,
 });
 
@@ -759,9 +749,11 @@ async function initializeApplication() {
     // 初始化插件系统
     pluginManager = new PluginManager({
         eventBus,
+        services: appServices,
         appContext: {
             getActiveViewMode: () => activeViewMode,
             getEditorContext: requestActiveEditorContext,
+            documentApi: getDocumentApi(),
             getDocumentIO: () => documentIO,
             insertText: insertTextIntoActiveEditor,
         },
@@ -811,15 +803,15 @@ async function initializeApplication() {
         statusBarZoomValueElement,
         statusBarZoomInButton,
         statusBarZoomOutButton,
-        statusBarPageInfoElement,
-        normalizeFsPath,
-        revealInFileManager,
-        getFileMetadata,
-        onVisibilityChange: () => {
-            window.requestAnimationFrame(() => {
-                codeEditor?.requestLayout?.();
-            });
-        },
+    statusBarPageInfoElement,
+    normalizeFsPath,
+    revealInFileManager,
+    fileService: appServices.file,
+    onVisibilityChange: () => {
+        window.requestAnimationFrame(() => {
+            codeEditor?.requestLayout?.();
+        });
+    },
     });
     statusBarController.updateStatusBar();
     statusBarController.setupStatusBarPathInteraction({

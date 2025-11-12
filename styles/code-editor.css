@@ -30,7 +30,7 @@
 
 .code-editor-pane .monaco-scrollable-element > .scrollbar > .slider {
     background: var(--scrollbar-thumb-color, rgba(148, 163, 184, 0.35)) !important;
-    border-radius: 4px !important;
+    border-radius: 2px !important;
     opacity: 0.7 !important;
     visibility: visible !important;
     transition: opacity 0.2s ease, background 0.2s ease;

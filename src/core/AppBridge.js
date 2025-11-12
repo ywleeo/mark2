@@ -12,7 +12,31 @@ export class AppBridge {
     constructor(options = {}) {
         this.eventBus = options.eventBus;
         this.appContext = options.appContext || {};
-        this.document = {
+        this.document = this.createDocumentInterface();
+    }
+
+    createDocumentInterface() {
+        const documentApi = this.appContext?.documentApi;
+        const hasDocumentApi = documentApi
+            && typeof documentApi.getCapabilities === 'function'
+            && typeof documentApi.read === 'function'
+            && typeof documentApi.readRange === 'function'
+            && typeof documentApi.append === 'function'
+            && typeof documentApi.insertAfter === 'function'
+            && typeof documentApi.replaceRange === 'function';
+
+        if (hasDocumentApi) {
+            return {
+                getCapabilities: () => documentApi.getCapabilities(),
+                read: (options) => documentApi.read(options),
+                readRange: (options) => documentApi.readRange(options),
+                append: (options) => documentApi.append(options),
+                insertAfter: (options) => documentApi.insertAfter(options),
+                replaceRange: (options) => documentApi.replaceRange(options),
+            };
+        }
+
+        return {
             getCapabilities: () => this.invokeDocumentIOMethod('getCapabilities'),
             read: (options) => this.invokeDocumentIOMethod('readDocument', options),
             readRange: (options) => this.invokeDocumentIOMethod('readRange', options),

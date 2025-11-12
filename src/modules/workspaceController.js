@@ -2,8 +2,7 @@ export function createWorkspaceController({
     getCurrentFile,
     getFileTree,
     getTabManager,
-    isDirectory,
-    getFileMetadata,
+    fileService,
     createDefaultWorkspaceState,
     loadWorkspaceState,
     saveWorkspaceState,
@@ -17,11 +16,8 @@ export function createWorkspaceController({
     if (typeof getTabManager !== 'function') {
         throw new Error('workspaceController 需要提供 getTabManager');
     }
-    if (typeof isDirectory !== 'function') {
-        throw new Error('workspaceController 需要提供 isDirectory');
-    }
-    if (typeof getFileMetadata !== 'function') {
-        throw new Error('workspaceController 需要提供 getFileMetadata');
+    if (!fileService) {
+        throw new Error('workspaceController 需要提供 fileService');
     }
     if (typeof createDefaultWorkspaceState !== 'function') {
         throw new Error('workspaceController 需要提供 createDefaultWorkspaceState');
@@ -138,7 +134,7 @@ export function createWorkspaceController({
         const validRoots = [];
         for (const rootPath of sanitized.rootPaths) {
             try {
-                const isDir = await isDirectory(rootPath);
+                const isDir = await fileService.isDirectory(rootPath);
                 if (isDir) {
                     validRoots.push(rootPath);
                 }
@@ -175,11 +171,11 @@ export function createWorkspaceController({
         const validFiles = [];
         for (const path of uniquePaths) {
             try {
-                const isDirPath = await isDirectory(path);
+                const isDirPath = await fileService.isDirectory(path);
                 if (isDirPath) {
                     continue;
                 }
-                await getFileMetadata(path);
+                await fileService.metadata(path);
                 validFiles.push(path);
             } catch (error) {
                 console.warn('跳过无效的标签页文件', path, error);
@@ -216,8 +212,8 @@ export function createWorkspaceController({
         let targetFileToRestore = null;
         if (stored.currentFile && isNonEmptyString(stored.currentFile)) {
             try {
-                await getFileMetadata(stored.currentFile);
-                const directory = await isDirectory(stored.currentFile);
+                await fileService.metadata(stored.currentFile);
+                const directory = await fileService.isDirectory(stored.currentFile);
                 if (!directory) {
                     targetFileToRestore = stored.currentFile;
                 }

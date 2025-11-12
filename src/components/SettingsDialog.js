@@ -57,9 +57,9 @@ export class SettingsDialog {
                         <label class="settings-field">
                             <span class="settings-label">主题</span>
                             <select name="theme">
-                                <option value="default">GitHub 浅色</option>
+                                <option value="default">GitHub</option>
                                 <option value="emerald">竹林清风</option>
-                                <option value="notion">Notion 风格</option>
+                                <option value="notion">Notion</option>
                             </select>
                         </label>
                         <label class="settings-field">
