@@ -389,8 +389,8 @@
 }
 
 :root[data-theme-appearance='dark'] .hljs {
-    background: #2d383273;
-    color: #f0fff4;
+    background: #2b424e21;
+    color: #f8fff0;
 }
 
 :root[data-theme-appearance='dark'] .hljs-comment,
@@ -423,7 +423,7 @@
 :root[data-theme-appearance='dark'] .hljs-variable,
 :root[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
 :root[data-theme-appearance='dark'] .hljs-meta .hljs-string {
-    color: #c3f4e7;
+    color: #f4f2c3;
 }
 
 :root[data-theme-appearance='dark'] .hljs-title,
