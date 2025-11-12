@@ -1,11 +1,13 @@
 import { addClickHandler } from '../../../src/utils/PointerHelper.js';
 import { aiService } from './aiService.js';
 import { ExecutorAgent } from './agents/ExecutorAgent.js';
+import { McpToolAgent } from './agents/McpToolAgent.js';
 import { AnswerActions } from './sidebar/AnswerActions.js';
 import { SidebarRenderer } from './sidebar/SidebarRenderer.js';
 import { ThinkBlockManager } from './sidebar/ThinkBlockManager.js';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
+import { mcpClient } from './services/mcpClient.js';
 
 const STATUS_HINT_DEFAULT = '';
 const STATUS_HINT_MISSING_KEY = '请先在设置中配置 API Key';
@@ -31,6 +33,17 @@ export class AiSidebar {
                 return '';
             });
             this.getDocumentContent = options.getDocumentContent || (async () => {
+                try {
+                    const doc = await mcpClient.call('documentRead');
+                    if (doc?.content) {
+                        return doc.content;
+                    }
+                    if (doc?.document?.content) {
+                        return doc.document.content;
+                    }
+                } catch (error) {
+                    console.warn('[AiSidebar] 通过 MCP 获取文档失败，尝试 AppBridge', error);
+                }
                 if (this.app?.getDocumentContent) {
                     return await this.app.getDocumentContent();
                 }
@@ -57,6 +70,7 @@ export class AiSidebar {
         this.pendingTaskQueue = [];
         this.taskContexts = new Map();
         this.executorAgent = new ExecutorAgent();
+        this.mcpToolAgent = new McpToolAgent();
         this.statusHintText = STATUS_HINT_DEFAULT;
         this.editorRefs = {
             markdownEditor: null,
@@ -611,6 +625,77 @@ export class AiSidebar {
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 
+    analyzePromptForMcp(rawPrompt) {
+        const trimmed = (rawPrompt || '').trim();
+        if (!trimmed) {
+            return { useMcp: false, forceMcp: false, normalizedPrompt: '' };
+        }
+
+        const lower = trimmed.toLowerCase();
+        let force = false;
+        let normalized = trimmed;
+        if (lower.startsWith('!mcp')) {
+            force = true;
+            normalized = trimmed.replace(/^!mcp\s*/i, '').trim();
+        }
+
+        const keywordHits = [
+            '文件',
+            '目录',
+            '路径',
+            'workspace',
+            'folder',
+            '重命名',
+            'rename',
+            '删除',
+            'delete',
+            '移动',
+            'move',
+            '列出',
+            'list',
+            '读取',
+            'read',
+            '写入',
+            'write',
+        ].some(keyword => trimmed.includes(keyword) || lower.includes(keyword));
+
+        return {
+            useMcp: force || keywordHits,
+            forceMcp: force,
+            normalizedPrompt: normalized,
+        };
+    }
+
+    async tryHandleWithMcpFlow({ prompt, conversationHistory, documentContext, userEntry, force = false }) {
+        try {
+            const result = await this.mcpToolAgent.run({
+                prompt,
+                history: conversationHistory,
+                documentContext,
+            });
+            if (!result?.success) {
+                return false;
+            }
+            if (!result.usedTools && !force) {
+                return false;
+            }
+
+            this.appendMessage({
+                role: 'assistant',
+                content: result.finalAnswer || '（未返回任何内容）',
+            });
+            if (userEntry?.id) {
+                this.resolvePendingConversation(userEntry.id);
+            }
+            this.updateStatusMessage('');
+            this.setBusy(false);
+            return true;
+        } catch (error) {
+            console.warn('[AiSidebar] MCP flow 失败', error);
+            return false;
+        }
+    }
+
     buildConversationHistory({ includePending = false } = {}) {
         return this.messages
             .filter(m => m.role && m.content && !m.isError && (includePending || !m.isPendingConversation))
@@ -715,9 +800,11 @@ export class AiSidebar {
 
         const conversationHistory = this.buildConversationHistory({ includePending: false });
         const documentContext = await this.buildDocumentContext();
+        const { useMcp, forceMcp, normalizedPrompt } = this.analyzePromptForMcp(prompt);
+        const effectivePrompt = normalizedPrompt || prompt;
 
         const request = this.executorAgent.buildRequest({
-            prompt,
+            prompt: effectivePrompt,
             history: conversationHistory,
             context: documentContext ? [documentContext] : [],
             roleId: this.getActiveRoleId(),
@@ -727,8 +814,23 @@ export class AiSidebar {
         this.setBusy(true);
 
         try {
+            if (useMcp && this.mcpToolAgent) {
+                this.updateStatusMessage('AI 正在通过 MCP 处理…');
+                const handled = await this.tryHandleWithMcpFlow({
+                    prompt: effectivePrompt,
+                    conversationHistory,
+                    documentContext,
+                    userEntry,
+                    force: forceMcp,
+                });
+                if (handled) {
+                    return;
+                }
+                this.updateStatusMessage('AI 正在生成回答…');
+            }
+
             await this.executeExecutorRequest(request, {
-                prompt,
+                prompt: effectivePrompt,
                 displayPrompt: false,
                 userMessageId: userEntry?.id || null,
             });

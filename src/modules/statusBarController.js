@@ -13,7 +13,6 @@ export function createStatusBarController({
     statusBarZoomOutButton = null,
     statusBarPageInfoElement = null,
     normalizeFsPath,
-    revealInFileManager,
     fileService,
     onVisibilityChange,
 }) {
@@ -194,7 +193,7 @@ export function createStatusBarController({
         }
 
         try {
-            await revealInFileManager(normalizedPath);
+            await fileService.reveal(normalizedPath);
         } catch (error) {
             const message = typeof error === 'string' ? error : error?.message;
             if (message === 'unsupported') {

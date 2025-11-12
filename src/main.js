@@ -16,12 +16,12 @@ import { setupSidebarResizer } from './utils/sidebarResizer.js';
 import { exportCurrentViewToImage, exportCurrentViewToPdf } from './modules/menuExports.js';
 import {
     listFonts,
-    revealInFileManager,
 } from './api/filesystem.js';
 import { registerDocumentIO, getDocumentApi } from './api/document.js';
 import { setExportMenuEnabled } from './api/native.js';
 import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
+import { createMcpHandler } from './mcp/handler.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
@@ -152,6 +152,7 @@ let pluginManager = null;
 let documentIO = null;
 let exportMenuEnabledState = null;
 let appServices = null;
+let mcpHandler = null;
 const ZOOM_DEFAULT = 1;
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 2.4;
@@ -570,6 +571,21 @@ const {
     activateUnsupportedView,
 });
 
+mcpHandler = createMcpHandler({
+    services: appServices,
+    fileOperations: {
+        openPathsFromSelection,
+        saveCurrentFile,
+        saveFile,
+        loadFile,
+    },
+    documentApi: appServices.document,
+});
+
+if (typeof window !== 'undefined') {
+    window.__MARK2_MCP__ = mcpHandler;
+}
+
 /**
  * 激活 Markdown 视图并隐藏其余面板。
  */
@@ -814,14 +830,13 @@ async function initializeApplication() {
         statusBarZoomValueElement,
         statusBarZoomInButton,
         statusBarZoomOutButton,
-    statusBarPageInfoElement,
-    normalizeFsPath,
-    revealInFileManager,
-    fileService: appServices.file,
-    onVisibilityChange: () => {
-        window.requestAnimationFrame(() => {
-            codeEditor?.requestLayout?.();
-        });
+        statusBarPageInfoElement,
+        normalizeFsPath,
+        fileService: appServices.file,
+        onVisibilityChange: () => {
+            window.requestAnimationFrame(() => {
+                codeEditor?.requestLayout?.();
+            });
     },
     });
     statusBarController.updateStatusBar();
