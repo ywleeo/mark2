@@ -187,6 +187,24 @@ export function createFileMenuActions(options = {}) {
         const fileTree = getFileTree();
         const tabManager = getTabManager();
 
+        const openFilePaths = fileTree?.getOpenFilePaths?.() || [];
+        const currentIndex = openFilePaths.findIndex(path => path === currentFile);
+        const fallbackPath = (() => {
+            if (currentIndex === -1) {
+                return openFilePaths.length > 0 ? openFilePaths[openFilePaths.length - 1] : null;
+            }
+            if (openFilePaths.length <= 1) {
+                return null;
+            }
+            if (currentIndex < openFilePaths.length - 1) {
+                return openFilePaths[currentIndex + 1];
+            }
+            if (currentIndex > 0) {
+                return openFilePaths[currentIndex - 1];
+            }
+            return null;
+        })();
+
         const wasOpenInList = fileTree?.isInOpenList?.(currentFile);
         const wasSharedTab = tabManager?.sharedTab?.path === currentFile;
 
@@ -194,9 +212,18 @@ export function createFileMenuActions(options = {}) {
         fileTree?.stopWatchingFile?.(currentFile);
 
         if (wasOpenInList) {
-            setCurrentFile(null);
             setHasUnsavedChanges(false);
-            fileTree.closeFile(currentFile);
+            fileTree.closeFile(currentFile, { suppressActivate: true });
+
+            if (fallbackPath) {
+                const normalizedFallback = fileTree?.normalizePath?.(fallbackPath) || fallbackPath;
+                // 让 TabManager 走正常的 tab 激活流程，触发 handleTabSelect -> selectFile -> loadFile
+                tabManager?.setActiveFileTab(normalizedFallback);
+            } else {
+                clearActiveFileView();
+                void updateWindowTitle();
+            }
+            return;
         } else if (wasSharedTab) {
             tabManager?.clearSharedTab();
             clearActiveFileView();

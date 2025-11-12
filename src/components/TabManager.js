@@ -96,7 +96,7 @@ export class TabManager {
         } else if (this.activeTabId && !this.getAllTabs().some(tab => tab.id === this.activeTabId)) {
             const fallback = this.fileTabs[this.fileTabs.length - 1] || this.sharedTab;
             if (fallback) {
-                this.setActiveTab(fallback.id, { silent: true });
+                this.setActiveTab(fallback.id);
             } else {
                 this.activeTabId = null;
             }

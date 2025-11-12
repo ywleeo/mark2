@@ -668,7 +668,7 @@ export class FileTree {
         });
     }
 
-    closeFile(path) {
+    closeFile(path, options = {}) {
         const normalizedTarget = this.normalizePath(path);
         const index = this.openFiles.findIndex(item => item === normalizedTarget);
         if (index > -1) {
@@ -681,9 +681,9 @@ export class FileTree {
             if (wasActive) {
                 const fallbackIndex = Math.min(index, this.openFiles.length - 1);
                 const fallback = fallbackIndex >= 0 ? this.openFiles[fallbackIndex] : null;
-                if (fallback) {
+                if (fallback && !options.suppressActivate) {
                     this.selectFile(fallback);
-                } else {
+                } else if (!fallback) {
                     this.clearSelection();
                     if (this.onFileSelect) {
                         this.onFileSelect(null);
