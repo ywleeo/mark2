@@ -516,7 +516,10 @@ documentIO = createDocumentIO({
     persistWorkspaceState,
 });
 registerDocumentIO(documentIO);
-appServices = createAppServices({ fileService });
+appServices = createAppServices({
+    fileService,
+    getCurrentFile: () => currentFile,
+});
 
 const workspaceController = createWorkspaceController({
     getCurrentFile: () => currentFile,

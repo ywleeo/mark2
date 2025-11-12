@@ -19,6 +19,7 @@ export class AiSidebar {
 
         if (typeof contextOptionsOrGetEditorContext === 'function') {
             this.app = null;
+            this.services = null;
             this.getEditorContext = contextOptionsOrGetEditorContext;
             this.getDocumentContent = contextOptionsOrGetEditorContext;
             this.getActiveViewMode = async () => 'markdown';
@@ -26,6 +27,7 @@ export class AiSidebar {
         } else {
             const options = contextOptionsOrGetEditorContext || {};
             this.app = options.app || null;
+            this.services = options.services || null;
             this.getEditorContext = options.getEditorContext || (async (innerOptions = {}) => {
                 if (this.app?.getEditorContext) {
                     return await this.app.getEditorContext(innerOptions);
@@ -666,12 +668,13 @@ export class AiSidebar {
         };
     }
 
-    async tryHandleWithMcpFlow({ prompt, conversationHistory, documentContext, userEntry, force = false }) {
+    async tryHandleWithMcpFlow({ prompt, conversationHistory, documentContext, workspaceContext, userEntry, force = false }) {
         try {
             const result = await this.mcpToolAgent.run({
                 prompt,
                 history: conversationHistory,
                 documentContext,
+                workspaceContext,
             });
             if (!result?.success) {
                 return false;
@@ -694,6 +697,18 @@ export class AiSidebar {
             console.warn('[AiSidebar] MCP flow 失败', error);
             return false;
         }
+    }
+
+    getWorkspaceContext() {
+        try {
+            const context = this.services?.workspace?.getContext?.();
+            if (context) {
+                return context;
+            }
+        } catch (error) {
+            console.warn('[AiSidebar] 读取 workspace context 失败', error);
+        }
+        return null;
     }
 
     buildConversationHistory({ includePending = false } = {}) {
@@ -800,6 +815,7 @@ export class AiSidebar {
 
         const conversationHistory = this.buildConversationHistory({ includePending: false });
         const documentContext = await this.buildDocumentContext();
+        const workspaceContext = this.getWorkspaceContext();
         const { useMcp, forceMcp, normalizedPrompt } = this.analyzePromptForMcp(prompt);
         const effectivePrompt = normalizedPrompt || prompt;
 
@@ -820,6 +836,7 @@ export class AiSidebar {
                     prompt: effectivePrompt,
                     conversationHistory,
                     documentContext,
+                    workspaceContext,
                     userEntry,
                     force: forceMcp,
                 });

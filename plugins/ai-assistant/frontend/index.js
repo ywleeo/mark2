@@ -20,7 +20,7 @@ export const metadata = {
 export async function activate(context) {
     console.log('[AI Plugin] 正在激活...');
 
-    const { app } = context;
+    const { app, services } = context;
 
     let aiSidebar = null;
     let aiConfigManager = null;
@@ -54,6 +54,7 @@ export async function activate(context) {
 
                 aiSidebar = new AiSidebar(container, {
                     app,
+                    services,
                     getEditorContext: async (options) => {
                         const editorContext = await app.getEditorContext?.(options);
                         return editorContext || '';
