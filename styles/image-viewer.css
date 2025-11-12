@@ -7,9 +7,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--bg-color, #ffffff);
+    background: var(--content-bg, #ffffff);
     overflow: auto;
     padding: 20px;
+    color: var(--body-text-color, #333333);
 }
 
 .image-viewer-content {
@@ -34,7 +35,7 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: var(--text-color, #333333);
+    color: var(--body-text-color, #333333);
 }
 
 .image-viewer-filename {
@@ -44,6 +45,10 @@
     text-align: center;
     word-break: break-all;
     max-width: 600px;
+}
+
+body[data-theme-appearance='dark'] .image-viewer {
+    background: var(--content-bg, #1f1f1f);
 }
 
 /* 图片 pane */
