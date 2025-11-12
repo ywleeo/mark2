@@ -213,21 +213,24 @@ export function createStatusBarController({
         if (!statusBarZoomInButton || !statusBarZoomOutButton) {
             return;
         }
-        const handleZoomIn = (event) => {
-            event.preventDefault();
-            onZoomIn?.();
-        };
-        const handleZoomOut = (event) => {
-            event.preventDefault();
-            onZoomOut?.();
-        };
-
-        statusBarZoomInButton.addEventListener('click', handleZoomIn);
-        statusBarZoomOutButton.addEventListener('click', handleZoomOut);
+        const cleanupZoomIn = addClickHandler(
+            statusBarZoomInButton,
+            () => {
+                onZoomIn?.();
+            },
+            { preventDefault: true }
+        );
+        const cleanupZoomOut = addClickHandler(
+            statusBarZoomOutButton,
+            () => {
+                onZoomOut?.();
+            },
+            { preventDefault: true }
+        );
 
         zoomControlsCleanup = () => {
-            statusBarZoomInButton.removeEventListener('click', handleZoomIn);
-            statusBarZoomOutButton.removeEventListener('click', handleZoomOut);
+            cleanupZoomIn?.();
+            cleanupZoomOut?.();
         };
     }
 
