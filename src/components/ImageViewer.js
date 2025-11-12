@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { readImageBase64 } from '../api/filesystem.js';
 
 export class ImageViewer {
     constructor(containerElement) {
@@ -36,7 +36,7 @@ export class ImageViewer {
             this.currentFile = filePath;
 
             // 读取图片文件为 base64
-            const base64Data = await invoke('read_image_base64', { path: filePath });
+            const base64Data = await readImageBase64(filePath);
 
             // 根据文件扩展名确定 MIME 类型
             const ext = filePath.toLowerCase().split('.').pop();

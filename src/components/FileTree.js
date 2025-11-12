@@ -1,6 +1,10 @@
-import { invoke } from '@tauri-apps/api/core';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { isEditableFilePath, getViewModeForPath } from '../utils/fileTypeUtils.js';
+import {
+    ipcHealthCheck,
+    isDirectory as checkIsDirectory,
+    listDirectory,
+} from '../api/filesystem.js';
 
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
@@ -304,8 +308,7 @@ export class FileTree {
     }
 
     async readDirectory(path) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const entries = await invoke('read_dir', { path });
+        const entries = await listDirectory(path);
 
         // 分类并排序：文件夹在前，文件在后
         const folders = [];
@@ -319,7 +322,7 @@ export class FileTree {
                 continue;
             }
 
-            const isDir = await invoke('is_directory', { path: entry });
+            const isDir = await checkIsDirectory(entry);
             if (isDir) {
                 folders.push({ path: entry, isDir: true });
             } else {
@@ -886,7 +889,7 @@ export class FileTree {
 
         const verificationPromise = (async () => {
             try {
-                await invoke('ipc_health_check');
+                await ipcHealthCheck();
                 const verifiedAt = Date.now();
                 state.lastVerificationTimestamp = verifiedAt;
 

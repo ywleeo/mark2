@@ -1,5 +1,5 @@
-import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { listDirectory } from '../api/filesystem.js';
 
 export class FileTreeManager {
     constructor() {
@@ -25,7 +25,7 @@ export class FileTreeManager {
 
     async loadFileTree(folderPath) {
         try {
-            const entries = await invoke('read_dir', { path: folderPath });
+            const entries = await listDirectory(folderPath);
             this.renderFileTree(entries);
         } catch (error) {
             console.error('读取文件夹失败:', error);

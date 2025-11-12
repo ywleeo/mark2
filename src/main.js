@@ -16,18 +16,18 @@ import { setupKeyboardShortcuts } from './utils/shortcuts.js';
 import { setupSidebarResizer } from './utils/sidebarResizer.js';
 import { exportCurrentViewToImage, exportCurrentViewToPdf } from './modules/menuExports.js';
 import {
+    deleteEntry,
     getFileMetadata,
     isDirectory,
     listFonts,
     pickPaths,
+    readBinaryBase64,
     readFile,
     readSpreadsheet,
-    readBinaryBase64,
+    renameEntry,
     revealInFileManager,
     writeFile,
-    deleteEntry,
-    renameEntry,
-} from './modules/fileGateway.js';
+} from './api/filesystem.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';

@@ -24,6 +24,7 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { renderMermaidIn } from '../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../extensions/MermaidBlock.js';
 import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortcut.js';
+import { writeFile } from '../api/filesystem.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -350,12 +351,8 @@ export class MarkdownEditor {
 
         const savePromise = (async () => {
             try {
-                const { invoke } = await import('@tauri-apps/api/core');
                 const markdown = this.getMarkdown();
-                await invoke('write_file', {
-                    path: this.currentFile,
-                    content: markdown
-                });
+                await writeFile(this.currentFile, markdown);
                 this.originalMarkdown = markdown;
                 this.contentChanged = false;
                 this.callbacks.onContentChange?.();
