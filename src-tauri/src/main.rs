@@ -22,7 +22,7 @@ use objc2::MainThreadMarker;
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 
 use headless_chrome::{Browser, LaunchOptions};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 struct FileMetadata {
@@ -56,6 +56,29 @@ impl ExportMenuState {
         }
     }
 }
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceContextPayload {
+    pub current_file: Option<String>,
+    pub current_directory: Option<String>,
+    pub workspace_roots: Vec<String>,
+}
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocumentSnapshotPayload {
+    pub file_path: Option<String>,
+    pub content: Option<String>,
+    pub total_lines: Option<u32>,
+    pub updated_at: Option<u64>,
+}
+
+#[derive(Default)]
+pub struct WorkspaceState(pub Mutex<WorkspaceContextPayload>);
+
+#[derive(Default)]
+pub struct DocumentState(pub Mutex<DocumentSnapshotPayload>);
 
 #[tauri::command]
 fn is_directory(path: String) -> Result<bool, String> {
@@ -183,6 +206,32 @@ fn rename_entry(source: String, destination: String) -> Result<(), String> {
 
 #[tauri::command]
 fn ipc_health_check() -> Result<(), String> {
+    Ok(())
+}
+
+#[tauri::command]
+fn update_workspace_context(
+    state: tauri::State<'_, WorkspaceState>,
+    context: WorkspaceContextPayload,
+) -> Result<(), String> {
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|err| format!("workspace context lock poisoned: {err}"))?;
+    *guard = context;
+    Ok(())
+}
+
+#[tauri::command]
+fn update_document_snapshot(
+    state: tauri::State<'_, DocumentState>,
+    snapshot: DocumentSnapshotPayload,
+) -> Result<(), String> {
+    let mut guard = state
+        .0
+        .lock()
+        .map_err(|err| format!("document snapshot lock poisoned: {err}"))?;
+    *guard = snapshot;
     Ok(())
 }
 
@@ -410,6 +459,8 @@ fn set_export_menu_enabled(
 
 fn main() {
     tauri::Builder::default()
+        .manage(WorkspaceState::default())
+        .manage(DocumentState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -429,6 +480,8 @@ fn main() {
             export_to_pdf,
             get_file_metadata,
             ipc_health_check,
+            update_workspace_context,
+            update_document_snapshot,
             reveal_in_file_manager,
             set_export_menu_enabled,
             plugin_loader::list_plugins

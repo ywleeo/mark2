@@ -1,5 +1,6 @@
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
 import {
     applyEditorSettings,
@@ -164,6 +165,66 @@ let appearanceChangeCleanup = null;
 appearanceChangeCleanup = onEditorAppearanceChange(() => {
     codeEditor?.applyPreferences?.(editorSettings);
 });
+
+let workspaceSyncTimer = null;
+let documentSyncTimer = null;
+
+async function syncWorkspaceContext() {
+    if (!appServices?.workspace || typeof invoke !== 'function') {
+        return;
+    }
+    try {
+        const context = appServices.workspace.getContext();
+        await invoke('update_workspace_context', {
+            context: {
+                currentFile: context?.currentFile || null,
+                currentDirectory: context?.currentDirectory || null,
+                workspaceRoots: context?.workspaceRoots || [],
+            },
+        });
+    } catch (error) {
+        console.warn('[WorkspaceSync] 更新失败', error);
+    }
+}
+
+function scheduleWorkspaceContextSync() {
+    if (workspaceSyncTimer) {
+        clearTimeout(workspaceSyncTimer);
+    }
+    workspaceSyncTimer = window.setTimeout(() => {
+        workspaceSyncTimer = null;
+        void syncWorkspaceContext();
+    }, 200);
+}
+
+async function syncDocumentSnapshot() {
+    if (!documentIO?.readDocument || typeof invoke !== 'function') {
+        return;
+    }
+    try {
+        const snapshot = documentIO.readDocument();
+        await invoke('update_document_snapshot', {
+            snapshot: {
+                filePath: snapshot?.filePath || null,
+                content: snapshot?.content || '',
+                totalLines: snapshot?.totalLines || 0,
+                updatedAt: Date.now(),
+            },
+        });
+    } catch (error) {
+        console.warn('[DocumentSync] 更新失败', error);
+    }
+}
+
+function scheduleDocumentSnapshotSync() {
+    if (documentSyncTimer) {
+        clearTimeout(documentSyncTimer);
+    }
+    documentSyncTimer = window.setTimeout(() => {
+        documentSyncTimer = null;
+        void syncDocumentSnapshot();
+    }, 250);
+}
 
 async function updateExportMenuState() {
     const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
@@ -516,10 +577,12 @@ documentIO = createDocumentIO({
     persistWorkspaceState,
 });
 registerDocumentIO(documentIO);
+scheduleDocumentSnapshotSync();
 appServices = createAppServices({
     fileService,
     getCurrentFile: () => currentFile,
 });
+scheduleWorkspaceContextSync();
 
 const workspaceController = createWorkspaceController({
     getCurrentFile: () => currentFile,
@@ -549,6 +612,8 @@ const {
     setCurrentFile: (value) => {
         currentFile = value;
         window.currentFile = value;  // 同时导出到 window
+        scheduleWorkspaceContextSync();
+        scheduleDocumentSnapshotSync();
         void updateExportMenuState();
     },
     getActiveViewMode: () => activeViewMode,
@@ -688,10 +753,13 @@ function clearActiveFileView() {
     markdownCodeMode?.reset();
     updateWindowTitle();
     persistWorkspaceState({ currentFile: null });
+    scheduleWorkspaceContextSync();
+    scheduleDocumentSnapshotSync();
 }
 
 function persistWorkspaceState(overrides = {}, options = {}) {
     workspaceController?.persistWorkspaceState(overrides, options);
+    scheduleWorkspaceContextSync();
 }
 
 function handleSidebarStateChange(sidebarState) {
@@ -703,6 +771,7 @@ async function restoreWorkspaceStateFromStorage() {
         return;
     }
     await workspaceController.restoreWorkspaceStateFromStorage();
+    scheduleWorkspaceContextSync();
 }
 
 const {
@@ -746,6 +815,8 @@ const {
     setCurrentFile: (value) => {
         currentFile = value;
         window.currentFile = value;  // 同时导出到 window
+        scheduleWorkspaceContextSync();
+        scheduleDocumentSnapshotSync();
     },
     getHasUnsavedChanges: () => hasUnsavedChanges,
     setHasUnsavedChanges: (value) => {
@@ -857,6 +928,7 @@ async function initializeApplication() {
         onContentChange: () => {
             hasUnsavedChanges = editor?.hasUnsavedChanges() || codeEditor?.hasUnsavedChanges() || false;
             void updateWindowTitle();
+            scheduleDocumentSnapshotSync();
         },
         onAutoSaveSuccess: async ({ skipped }) => {
             const activeFile = currentFile;
@@ -868,6 +940,7 @@ async function initializeApplication() {
                 fileSession.clearEntry(activeFile);
             }
             await updateWindowTitle();
+            scheduleDocumentSnapshotSync();
         },
         onAutoSaveError: (error) => {
             console.error('自动保存失败:', error);
