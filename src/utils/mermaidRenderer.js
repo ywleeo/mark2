@@ -86,11 +86,17 @@ export async function renderMermaidIn(rootElement) {
 
         try {
             element.classList.remove('mermaid--failed');
-            element.textContent = code;
-            await mermaid.run({ nodes: [element] });
-            const hasError = element.querySelector('.errorText');
-            if (hasError) {
-                throw new Error('Mermaid syntax error');
+            const uniqueId =
+                element.getAttribute('data-mermaid-id') ||
+                `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+            element.setAttribute('data-mermaid-id', uniqueId);
+            const { svg } = await mermaid.render(uniqueId, code);
+            element.innerHTML = svg;
+            const svgElement = element.querySelector('svg');
+            if (svgElement) {
+                svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                svgElement.style.overflow = 'visible';
+                svgElement.style.display = 'block';
             }
             element.setAttribute('data-processed', 'true');
         } catch (error) {

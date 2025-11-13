@@ -84,7 +84,7 @@
 
 .tiptap-editor .mermaid {
     margin: 1.2em 0;
-    padding: 16px;
+    padding: 16px 24px;
     overflow-x: auto;
     position: relative;
 }
@@ -94,8 +94,13 @@
 }
 
 .tiptap-editor .mermaid svg {
+    display: block;
     max-width: 100%;
     height: auto;
+    overflow: visible;
+    padding: 16px 24px 32px 32px;
+    box-sizing: content-box;
+    background: #fff;
 }
 
 .tiptap-editor .mermaid-fallback {
