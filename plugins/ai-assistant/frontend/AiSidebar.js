@@ -8,6 +8,10 @@ import { ThinkBlockManager } from './sidebar/ThinkBlockManager.js';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import { mcpClient } from './services/mcpClient.js';
+import { analyzePrompt } from './workers/mcpPromptAnalyzer.js';
+import { executeMcpWorkflow } from './workers/mcpWorkflow.js';
+import { buildConversationHistory } from './utils/conversationHelpers.js';
+import { createAiTaskController } from './controllers/aiTaskController.js';
 
 const STATUS_HINT_DEFAULT = '';
 const STATUS_HINT_MISSING_KEY = '请先在设置中配置 API Key';
@@ -68,7 +72,7 @@ export class AiSidebar {
         this.isBusy = false;
         this.messages = [];
         this.streamStates = new Map();
-        this.unsubscribe = null;
+        this.detachTaskController = null;
         this.pendingTaskQueue = [];
         this.taskContexts = new Map();
         this.executorAgent = new ExecutorAgent();
@@ -95,7 +99,7 @@ export class AiSidebar {
             applyMarkdown: (target, text, options) => this.applyMarkdownToElement(target, text, options),
             scrollMessagesToBottom: () => this.scrollMessagesToBottom(),
         });
-        this.attachController();
+        this.detachTaskController = createAiTaskController(this);
     }
 
     setEditorReferences(refs = {}) {
@@ -199,125 +203,6 @@ export class AiSidebar {
         }
     }
 
-    attachController() {
-        this.unsubscribe = aiService.subscribe(event => {
-            switch (event.type) {
-                case 'task-started': {
-                    const pending = this.pendingTaskQueue.shift() || null;
-                    const fallbackPrompt = pending?.requestOptions?.prompt || '';
-                    const taskContext = pending?.context || {
-                        originalPrompt: fallbackPrompt,
-                        runCount: 0,
-                        displayPrompt: false,
-                    };
-
-                    taskContext.currentTaskId = event.id;
-                    taskContext.lastRequestOptions = pending?.requestOptions || event.payload || {};
-                    taskContext.displayPrompt = pending?.displayPrompt === true;
-                    taskContext.displayMessage = pending?.displayMessage ?? null;
-                    taskContext.runCount = (taskContext.runCount || 0) + 1;
-                    taskContext.userMessageId = pending?.userMessageId || null;
-                    this.taskContexts.set(event.id, taskContext);
-
-                    this.setBusy(true);
-                    this.updateStatusMessage('AI 正在生成回答…');
-                    break;
-                }
-
-                case 'task-stream-start':
-                    this.streamStates.set(event.id, { streaming: true });
-                    break;
-
-                case 'task-stream-think':
-                    this.thinkBlockManager.updateStream(
-                        event.id,
-                        typeof event.buffer === 'string' ? event.buffer : (event.delta || '')
-                    );
-                    break;
-
-                case 'task-stream-chunk': {
-                    const taskContext = this.taskContexts.get(event.id);
-                    if (event.buffer && event.buffer.trim()) {
-                        this.appendMessage({
-                            id: `${event.id}-assistant`,
-                            role: 'assistant',
-                            content: event.buffer,
-                            isStreaming: true,
-                        });
-                        this.scrollMessagesToBottom();
-                    }
-                    break;
-                }
-
-                case 'task-stream-end': {
-                    const taskContext = this.taskContexts.get(event.id);
-                    this.appendMessage({
-                        id: `${event.id}-assistant`,
-                        role: 'assistant',
-                        content: event.buffer || '',
-                        isStreaming: false,
-                    });
-                    this.streamStates.delete(event.id);
-                    if (taskContext?.userMessageId) {
-                        this.resolvePendingConversation(taskContext.userMessageId);
-                    }
-                    this.cleanupTaskContext(event.id);
-                    this.thinkBlockManager.finalize(event.id, event.thinkBuffer || '');
-                    this.setBusy(false);
-                    this.updateStatusMessage('');
-                    break;
-                }
-
-                case 'task-failed': {
-                    const taskContext = this.taskContexts.get(event.id);
-                    this.appendMessage({
-                        id: `${event.id}-assistant`,
-                        role: 'assistant',
-                        content: `错误: ${event.error}`,
-                        isError: true,
-                    });
-                    this.streamStates.delete(event.id);
-                    if (taskContext?.userMessageId) {
-                        this.resolvePendingConversation(taskContext.userMessageId);
-                    }
-                    this.cleanupTaskContext(event.id);
-                    this.thinkBlockManager.finalize(event.id);
-                    this.setBusy(false);
-                    this.updateStatusMessage(event.error || '请求失败');
-                    break;
-                }
-
-                case 'task-cancelled': {
-                    const taskContext = this.taskContexts.get(event.id);
-                    this.appendMessage({
-                        id: `${event.id}-cancelled`,
-                        role: 'assistant',
-                        content: '已取消',
-                        isError: true,
-                    });
-                    if (taskContext?.userMessageId) {
-                        this.resolvePendingConversation(taskContext.userMessageId);
-                    }
-                    this.cleanupTaskContext(event.id);
-                    this.thinkBlockManager.finalize(event.id);
-                    this.setBusy(false);
-                    this.updateStatusMessage('已取消');
-                    break;
-                }
-
-                case 'config':
-                    this.applyConfig(event.data);
-                    break;
-
-                default:
-                    break;
-            }
-        });
-
-        const config = aiService.getConfig();
-        this.applyConfig(config);
-    }
-
     applyConfig(config = null) {
         if (config) {
             this.config = config;
@@ -386,9 +271,9 @@ export class AiSidebar {
     }
 
     destroy() {
-        if (this.unsubscribe) {
-            this.unsubscribe();
-            this.unsubscribe = null;
+        if (this.detachTaskController) {
+            this.detachTaskController();
+            this.detachTaskController = null;
         }
         if (this.roleSelect) {
             this.roleSelect.removeEventListener('change', this.handleRoleSelectChange);
@@ -627,76 +512,30 @@ export class AiSidebar {
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 
-    analyzePromptForMcp(rawPrompt) {
-        const trimmed = (rawPrompt || '').trim();
-        if (!trimmed) {
-            return { useMcp: false, forceMcp: false, normalizedPrompt: '' };
-        }
-
-        const lower = trimmed.toLowerCase();
-        let force = false;
-        let normalized = trimmed;
-        if (lower.startsWith('!mcp')) {
-            force = true;
-            normalized = trimmed.replace(/^!mcp\s*/i, '').trim();
-        }
-
-        const keywordHits = [
-            '文件',
-            '目录',
-            '路径',
-            'workspace',
-            'folder',
-            '重命名',
-            'rename',
-            '删除',
-            'delete',
-            '移动',
-            'move',
-            '列出',
-            'list',
-            '读取',
-            'read',
-            '写入',
-            'write',
-        ].some(keyword => trimmed.includes(keyword) || lower.includes(keyword));
-
-        return {
-            useMcp: force || keywordHits,
-            forceMcp: force,
-            normalizedPrompt: normalized,
-        };
-    }
-
     async tryHandleWithMcpFlow({ prompt, conversationHistory, documentContext, workspaceContext, userEntry, force = false }) {
-        try {
-            const result = await this.mcpToolAgent.run({
-                prompt,
-                history: conversationHistory,
-                documentContext,
-                workspaceContext,
-            });
-            if (!result?.success) {
-                return false;
-            }
-            if (!result.usedTools && !force) {
-                return false;
-            }
+        const result = await executeMcpWorkflow({
+            toolAgent: this.mcpToolAgent,
+            prompt,
+            history: conversationHistory,
+            documentContext,
+            workspaceContext,
+            force,
+        });
 
-            this.appendMessage({
-                role: 'assistant',
-                content: result.finalAnswer || '（未返回任何内容）',
-            });
-            if (userEntry?.id) {
-                this.resolvePendingConversation(userEntry.id);
-            }
-            this.updateStatusMessage('');
-            this.setBusy(false);
-            return true;
-        } catch (error) {
-            console.warn('[AiSidebar] MCP flow 失败', error);
+        if (!result.handled) {
             return false;
         }
+
+        this.appendMessage({
+            role: 'assistant',
+            content: result.finalAnswer || '（未返回任何内容）',
+        });
+        if (userEntry?.id) {
+            this.resolvePendingConversation(userEntry.id);
+        }
+        this.updateStatusMessage('');
+        this.setBusy(false);
+        return true;
     }
 
     getWorkspaceContext() {
@@ -710,14 +549,6 @@ export class AiSidebar {
         }
         return null;
     }
-
-    buildConversationHistory({ includePending = false } = {}) {
-        return this.messages
-            .filter(m => m.role && m.content && !m.isError && (includePending || !m.isPendingConversation))
-            .slice(-10)
-            .map(m => ({ role: m.role, content: m.content }));
-    }
-
 
     async buildDocumentContext() {
         if (typeof this.getDocumentContent !== 'function') {
@@ -813,10 +644,10 @@ export class AiSidebar {
             this.promptField.value = '';
         }
 
-        const conversationHistory = this.buildConversationHistory({ includePending: false });
+        const conversationHistory = buildConversationHistory(this.messages, { includePending: false });
         const documentContext = await this.buildDocumentContext();
         const workspaceContext = this.getWorkspaceContext();
-        const { useMcp, forceMcp, normalizedPrompt } = this.analyzePromptForMcp(prompt);
+        const { useMcp, forceMcp, normalizedPrompt } = analyzePrompt(prompt);
         const effectivePrompt = normalizedPrompt || prompt;
 
         const request = this.executorAgent.buildRequest({
