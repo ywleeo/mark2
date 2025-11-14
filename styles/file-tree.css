@@ -153,7 +153,14 @@
     color: var(--text-color, #333);
 }
 
-.close-folder-btn {
+.root-folder-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 6px;
+}
+
+.root-folder-action-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -162,15 +169,23 @@
     color: var(--text-secondary, #999);
     opacity: 0;
     transition: opacity 0.15s, color 0.15s;
-    margin-left: 4px;
+    line-height: 1;
 }
 
-.tree-folder-header.root:hover .close-folder-btn {
+.pin-folder-btn {
+    font-size: 14px;
+}
+
+.tree-folder-header.root:hover .root-folder-action-btn {
     opacity: 1;
 }
 
-.close-folder-btn:hover {
+.root-folder-action-btn:hover {
     color: var(--text-color, #333);
+}
+
+.close-folder-btn {
+    font-size: 18px;
 }
 
 /* 文件夹项 - 参考 mark2 electron 版本 */

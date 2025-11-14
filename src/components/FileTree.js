@@ -347,16 +347,29 @@ export class FileTree {
             </svg>
         `;
 
+        const rootActions = isRoot
+            ? `
+                <div class="root-folder-actions">
+                    <button class="root-folder-action-btn pin-folder-btn" type="button" data-path="${path}" title="置顶文件夹">
+                        ↑
+                    </button>
+                    <button class="root-folder-action-btn close-folder-btn" type="button" data-path="${path}" title="移除文件夹">
+                        ×
+                    </button>
+                </div>
+            `
+            : '';
+
         header.innerHTML = `
             ${expandIcon}
             ${folderIcon}
             <span class="tree-item-name">${name}</span>
-            ${isRoot ? `<button class="close-folder-btn" type="button" data-path="${path}">×</button>` : ''}
+            ${rootActions}
         `;
 
         // 使用统一的点击处理函数
         const cleanup1 = addClickHandler(header, (event) => {
-            if (event.target.closest('.close-folder-btn')) {
+            if (event.target.closest('.close-folder-btn') || event.target.closest('.pin-folder-btn')) {
                 return;
             }
             this.toggleFolder(path, item);
@@ -371,6 +384,15 @@ export class FileTree {
                     this.closeFolder(path);
                 });
                 this.cleanupFunctions.push(cleanup2);
+            }
+
+            const pinButton = header.querySelector('.pin-folder-btn');
+            if (pinButton) {
+                const cleanup3 = addClickHandler(pinButton, (event) => {
+                    event.stopPropagation();
+                    this.pinRootFolder(path);
+                });
+                this.cleanupFunctions.push(cleanup3);
             }
         }
 
@@ -728,6 +750,32 @@ export class FileTree {
             if (this.onFileSelect) {
                 this.onFileSelect(null);
             }
+        }
+
+        this.emitStateChange();
+    }
+
+    pinRootFolder(path) {
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
+            return;
+        }
+
+        const ordered = Array.from(this.rootPaths);
+        const index = ordered.indexOf(normalizedPath);
+        if (index <= 0) {
+            return;
+        }
+
+        ordered.splice(index, 1);
+        ordered.unshift(normalizedPath);
+        this.rootPaths = new Set(ordered);
+
+        const contentDiv = this.container.querySelector('#foldersContent');
+        const folderElement = contentDiv?.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+        if (contentDiv && folderElement) {
+            contentDiv.removeChild(folderElement);
+            contentDiv.insertBefore(folderElement, contentDiv.firstChild);
         }
 
         this.emitStateChange();
