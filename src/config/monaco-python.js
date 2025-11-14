@@ -1,24 +1,36 @@
 // Patch Monaco's built-in Python Monarch grammar so triple-quoted f-strings
-// keep highlighting correctly after the closing delimiter.
+// keep highlighting correctly after the closing delimiter and can include
+// quote characters without breaking the tokenizer.
 import { conf as basePythonConf, language as basePythonLanguage } from 'monaco-editor/esm/vs/basic-languages/python/python.js';
 
-const customFStringBody = [
-    [/\s*'''/, 'string.escape', '@popall'],
+const customStrings = [
+    [/'$/, 'string.escape', '@popall'],
+    [/f'''/, 'string.escape', '@fTripleStringBody'],
+    [/f"""/, 'string.escape', '@fTripleDblStringBody'],
+    [/f'/, 'string.escape', '@fStringBody'],
+    [/'/, 'string.escape', '@stringBody'],
+    [/"$/, 'string.escape', '@popall'],
+    [/f"/, 'string.escape', '@fDblStringBody'],
+    [/"/, 'string.escape', '@dblStringBody'],
+];
+
+const fTripleStringBody = [
+    [/'''/, 'string.escape', '@popall'],
     [/[^\\'\{\}]+$/, 'string'],
     [/[^\\'\{\}]+/, 'string'],
     [/\{[^\}':!=]+/, 'identifier', '@fStringDetail'],
     [/\\./, 'string'],
-    [/'/, 'string.escape', '@popall'],
+    [/'/, 'string'],
     [/\\$/, 'string'],
 ];
 
-const customFDblStringBody = [
-    [/\s*"""/, 'string.escape', '@popall'],
+const fTripleDblStringBody = [
+    [/"""/, 'string.escape', '@popall'],
     [/[^\\"\{\}]+$/, 'string'],
     [/[^\\"\{\}]+/, 'string'],
     [/\{[^\}':!=]+/, 'identifier', '@fStringDetail'],
     [/\\./, 'string'],
-    [/"/, 'string.escape', '@popall'],
+    [/"/, 'string'],
     [/\\$/, 'string'],
 ];
 
@@ -26,8 +38,9 @@ export const language = {
     ...basePythonLanguage,
     tokenizer: {
         ...basePythonLanguage.tokenizer,
-        fStringBody: customFStringBody,
-        fDblStringBody: customFDblStringBody,
+        strings: customStrings,
+        fTripleStringBody,
+        fTripleDblStringBody,
     },
 };
 
