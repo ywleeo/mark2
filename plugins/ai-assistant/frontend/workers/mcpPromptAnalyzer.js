@@ -10,6 +10,10 @@ const KEYWORDS = [
     'delete',
     '移动',
     'move',
+    '插入',
+    'insert',
+    '追加',
+    'append',
     '列出',
     'list',
     '读取',
@@ -37,6 +41,6 @@ export function analyzePrompt(prompt) {
     return {
         useMcp: force || keywordHits,
         forceMcp: force,
-        normalizedPrompt,
+        normalizedPrompt: normalized,
     };
 }
