@@ -256,6 +256,15 @@ export function createConfiguredTurndownService() {
         emDelimiter: '*',
         strongDelimiter: '**',
         bulletListMarker: '-',
+        blankReplacement: (_content, node) => {
+            if (isMermaidNode(node)) {
+                const mermaid = mermaidReplacement(node);
+                if (mermaid) {
+                    return mermaid;
+                }
+            }
+            return node && node.isBlock ? '\n\n' : '';
+        },
     });
 
     // 使用 GFM 插件支持表格
@@ -303,32 +312,48 @@ export function createConfiguredTurndownService() {
         return classAttr.split(/\s+/).includes(className);
     };
 
+    function isMermaidNode(node) {
+        if (!node || node.nodeType !== 1) {
+            return false;
+        }
+        const tagName = (node.nodeName || '').toLowerCase();
+        if (tagName !== 'div') {
+            return false;
+        }
+        return hasClass(node, 'mermaid');
+    }
+
+    function readMermaidCode(node) {
+        if (!node) {
+            return '';
+        }
+        const codeAttr = node.getAttribute ? node.getAttribute('data-mermaid-code') : '';
+        if (codeAttr) {
+            try {
+                return decodeURIComponent(codeAttr);
+            } catch (_error) {
+                return codeAttr;
+            }
+        }
+        const source = node.querySelector ? node.querySelector('.mermaid-source') : null;
+        if (source && typeof source.textContent === 'string') {
+            return source.textContent;
+        }
+        return node.textContent || '';
+    }
+
+    function mermaidReplacement(node) {
+        const text = readMermaidCode(node).trim();
+        if (!text) {
+            return '';
+        }
+        return `\n\`\`\`mermaid\n${text}\n\`\`\`\n`;
+    }
+
     // Mermaid 图表导出规则
     turndownService.addRule('mermaidBlock', {
-        filter: node => {
-            if (!node || node.nodeName !== 'DIV') {
-                return false;
-            }
-            return hasClass(node, 'mermaid');
-        },
-        replacement: (_content, node) => {
-            const codeAttr = node.getAttribute ? node.getAttribute('data-mermaid-code') : '';
-            let text = '';
-            if (codeAttr) {
-                try {
-                    text = decodeURIComponent(codeAttr);
-                } catch (_error) {
-                    text = codeAttr;
-                }
-            } else {
-                text = node.textContent || '';
-            }
-            text = text.trim();
-            if (!text) {
-                return '';
-            }
-            return `\n\`\`\`mermaid\n${text}\n\`\`\`\n`;
-        },
+        filter: node => isMermaidNode(node),
+        replacement: (_content, node) => mermaidReplacement(node),
     });
 
     // 保留图片的原始 src 属性
