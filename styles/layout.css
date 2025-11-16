@@ -192,9 +192,14 @@ body.sidebar-resizing .sidebar-resizer {
     min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
     gap: 2px;
     overflow-x: auto;
+    position: relative;
     -webkit-app-region: drag;
     scrollbar-width: none;
     background: var(--sidebar-bg, #f5f6f8);
+}
+
+.tab-bar.tab-dragging {
+    cursor: grabbing;
 }
 
 .tab-bar:empty {
@@ -222,7 +227,9 @@ body.sidebar-resizing .sidebar-resizer {
     cursor: pointer;
     user-select: none;
     -webkit-app-region: no-drag;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, margin 0.12s ease;
+    position: relative;
+    will-change: transform;
 }
 
 .tab:hover {
@@ -246,6 +253,40 @@ body.sidebar-resizing .sidebar-resizer {
 
 .tab.is-renaming {
     cursor: default;
+}
+
+.tab.is-dragging {
+    opacity: 0.95;
+    cursor: grabbing;
+    z-index: 3;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.tab.tab-drop-before::before,
+.tab.tab-drop-after::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--tab-drop-indicator, #6be275);
+}
+
+.tab.tab-drop-before::before {
+    left: -4px;
+}
+
+.tab.tab-drop-after::after {
+    right: -4px;
+}
+
+.tab.tab-drop-before {
+    margin-left: 12px;
+}
+
+.tab.tab-drop-after {
+    margin-right: 12px;
 }
 
 .tab-rename-input {

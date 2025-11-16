@@ -762,6 +762,13 @@ function persistWorkspaceState(overrides = {}, options = {}) {
     scheduleWorkspaceContextSync();
 }
 
+function handleTabReorder(reorderPayload) {
+    if (!reorderPayload || !Array.isArray(reorderPayload.storageOrder)) {
+        return;
+    }
+    fileTree?.restoreOpenFiles(reorderPayload.storageOrder);
+}
+
 function handleSidebarStateChange(sidebarState) {
     workspaceController?.handleSidebarStateChange(sidebarState);
 }
@@ -1007,6 +1014,7 @@ async function initializeApplication() {
         onTabClose: handleTabClose,
         onRenameConfirm: handleTabRenameConfirm,
         onRenameCancel: handleTabRenameCancel,
+        onTabReorder: handleTabReorder,
     });
 
     fileWatcherController = createFileWatcherController({
