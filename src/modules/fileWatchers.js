@@ -7,9 +7,16 @@ export function createFileWatcherController({
     getCodeEditor,
     scheduleLoadFile,
     fileSession,
+    documentSessions,
 }) {
     const folderRefreshTimers = new Map();
     const fileRefreshTimers = new Map();
+    const shouldIgnoreLocalWrite = (filePath) => {
+        if (!filePath || !documentSessions || typeof documentSessions.shouldIgnoreWatcherEvent !== 'function') {
+            return false;
+        }
+        return documentSessions.shouldIgnoreWatcherEvent(filePath);
+    };
 
     function handleFolderWatcherEvent(watchedPath, event) {
         if (!fileTree) return;
@@ -23,6 +30,9 @@ export function createFileWatcherController({
 
         eventPaths.forEach((changedPath) => {
             if (!changedPath) return;
+            if (shouldIgnoreLocalWrite(changedPath)) {
+                return;
+            }
             if (fileTree?.isFileOpen?.(changedPath)) {
                 const editor = getEditor();
                 const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
@@ -41,6 +51,9 @@ export function createFileWatcherController({
     function handleFileWatcherEvent(filePath) {
         const normalizedPath = normalizeFsPath(filePath);
         if (!normalizedPath) return;
+        if (shouldIgnoreLocalWrite(normalizedPath)) {
+            return;
+        }
 
         const isOpenFile = fileTree?.isFileOpen?.(normalizedPath);
         if (!isOpenFile) {

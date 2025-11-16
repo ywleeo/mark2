@@ -21,6 +21,7 @@ export class FileTree {
         this.onFileChange = callbacks.onFileChange;
         this.onOpenFilesChange = callbacks.onOpenFilesChange;
         this.onStateChange = callbacks.onStateChange;
+        this.onCloseFileRequest = callbacks.onCloseFileRequest;
         this.sectionStates = {
             openFilesCollapsed: false,
             foldersCollapsed: false,
@@ -685,6 +686,15 @@ export class FileTree {
             const closeButton = item.querySelector('.close-file-btn');
             const cleanup2 = addClickHandler(closeButton, (event) => {
                 event.stopPropagation();
+                if (typeof this.onCloseFileRequest === 'function') {
+                    const maybePromise = this.onCloseFileRequest(path);
+                    if (maybePromise && typeof maybePromise.then === 'function') {
+                        maybePromise.catch(error => {
+                            console.error('关闭文件请求失败:', error);
+                        });
+                    }
+                    return;
+                }
                 this.closeFile(path);
             });
             this.cleanupFunctions.push(cleanup2);

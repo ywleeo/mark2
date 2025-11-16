@@ -1024,6 +1024,20 @@ async function initializeApplication() {
         onFileChange: (...args) => fileWatcherController?.handleFileWatcherEvent(...args),
         onOpenFilesChange: handleOpenFilesChange,
         onStateChange: handleSidebarStateChange,
+        onCloseFileRequest: (path) => {
+            if (!path) {
+                return;
+            }
+            const normalized = normalizeFsPath(path) || path;
+            if (!normalized) {
+                return;
+            }
+            return handleTabClose({
+                id: normalized,
+                type: 'file',
+                path: normalized,
+            });
+        },
     });
 
     const tabBarElement = document.getElementById('tabBar');
@@ -1046,6 +1060,7 @@ async function initializeApplication() {
             await loadFile(path, { skipWatchSetup: true, forceReload: true });
         },
         fileSession,
+        documentSessions,
     });
 
     await restoreWorkspaceStateFromStorage();

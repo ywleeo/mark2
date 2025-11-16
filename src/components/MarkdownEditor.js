@@ -25,6 +25,7 @@ import { renderMermaidIn } from '../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../extensions/MermaidBlock.js';
 import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortcut.js';
 import { getAppServices } from '../services/appServices.js';
+import { normalizeFsPath } from '../utils/pathUtils.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -419,10 +420,14 @@ export class MarkdownEditor {
         this.isSaving = true;
         this.lastSaveError = null;
 
+        const localWriteKey = normalizeFsPath(targetFile) || targetFile;
         const savePromise = (async () => {
             try {
                 const markdown = this.getMarkdown();
                 const services = getAppServices();
+                if (localWriteKey && this.documentSessions?.markLocalWrite) {
+                    this.documentSessions.markLocalWrite(localWriteKey);
+                }
                 await services.file.writeText(targetFile, markdown);
                 if (!targetSessionId || targetSessionId === this.currentSessionId) {
                     this.originalMarkdown = markdown;
@@ -432,6 +437,9 @@ export class MarkdownEditor {
                 console.log('保存成功');
                 return true;
             } catch (error) {
+                if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {
+                    this.documentSessions.clearLocalWriteSuppression(localWriteKey);
+                }
                 this.lastSaveError = error;
                 console.error('保存失败:', error);
                 return false;

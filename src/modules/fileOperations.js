@@ -66,6 +66,11 @@ export function createFileOperations({
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
+    const getSessionPathKey = (path) => {
+        const normalized = normalizeFsPath(path);
+        return normalized || path;
+    };
+
 
     async function openPathsFromSelection(rawPaths) {
         const selections = normalizeSelectedPaths(rawPaths)
@@ -135,8 +140,12 @@ export function createFileOperations({
         }
 
         if (activeViewMode === 'code' && codeEditor) {
+            const localWriteKey = getSessionPathKey(currentFile);
             try {
                 const content = codeEditor.getValue();
+                if (localWriteKey && documentSessions.markLocalWrite) {
+                    documentSessions.markLocalWrite(localWriteKey);
+                }
                 await fileService.writeText(currentFile, content);
                 const markdownCodeMode = getMarkdownCodeMode();
                 markdownCodeMode?.handleCodeSaved(content);
@@ -146,6 +155,9 @@ export function createFileOperations({
                 await updateWindowTitle();
                 return true;
             } catch (error) {
+                if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
+                    documentSessions.clearLocalWriteSuppression(localWriteKey);
+                }
                 console.error('保存失败:', error);
                 alert('保存失败: ' + error);
                 return false;
@@ -167,11 +179,18 @@ export function createFileOperations({
             return true;
         }
 
+        const localWriteKey = getSessionPathKey(filePath);
         try {
+            if (localWriteKey && documentSessions.markLocalWrite) {
+                documentSessions.markLocalWrite(localWriteKey);
+            }
             await fileService.writeText(filePath, cached.content);
             fileSession.clearEntry(filePath);
             return true;
         } catch (error) {
+            if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
+                documentSessions.clearLocalWriteSuppression(localWriteKey);
+            }
             console.error('保存文件失败:', error);
             return false;
         }
