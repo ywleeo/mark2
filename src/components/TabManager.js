@@ -16,7 +16,6 @@ export class TabManager {
         this.draggedTabId = null;
         this.pointerDragState = null;
         this.pendingDragCandidate = null;
-        this.currentDropIndicator = null;
         this.handleGlobalPointerMove = this.handleGlobalPointerMove.bind(this);
         this.handleGlobalPointerUp = this.handleGlobalPointerUp.bind(this);
         if (typeof window !== 'undefined') {
@@ -417,6 +416,49 @@ export class TabManager {
         });
     }
 
+    createDragPlaceholder(tabElement) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'tab-placeholder';
+        const width = Math.max(4, Math.min((tabElement.offsetWidth || 80) * 0.25, 12));
+        placeholder.style.setProperty('--tab-placeholder-width', `${width}px`);
+        placeholder.style.height = `${tabElement.offsetHeight}px`;
+        placeholder.dataset.tabPlaceholder = 'true';
+        return placeholder;
+    }
+
+    movePlaceholderToIndex(index) {
+        const state = this.pointerDragState;
+        if (!state || !state.placeholderElement || !this.container) {
+            return;
+        }
+
+        const { placeholderElement, tabId } = state;
+        const siblings = Array.from(
+            this.container.querySelectorAll('.tab[data-tab-type="file"]')
+        ).filter(element => element.dataset.tabId !== tabId);
+
+        const safeIndex = Math.max(0, Math.min(index, siblings.length));
+        const referenceNode = siblings[safeIndex] || null;
+
+        if (referenceNode) {
+            this.container.insertBefore(placeholderElement, referenceNode);
+        } else {
+            this.container.appendChild(placeholderElement);
+        }
+    }
+
+    restoreDraggedTabPosition(state) {
+        if (!state || !state.placeholderElement || !state.tabElement) {
+            return;
+        }
+
+        const { placeholderElement, tabElement } = state;
+        if (placeholderElement.parentNode) {
+            placeholderElement.parentNode.insertBefore(tabElement, placeholderElement);
+            placeholderElement.parentNode.removeChild(placeholderElement);
+        }
+    }
+
     resetDraggedTabStyles(tabElement) {
         if (!tabElement) {
             return;
@@ -447,6 +489,11 @@ export class TabManager {
             return;
         }
 
+        const placeholder = this.createDragPlaceholder(tabElement);
+        if (tabElement.parentNode) {
+            tabElement.parentNode.insertBefore(placeholder, tabElement);
+        }
+
         const containerRect = this.container.getBoundingClientRect();
         const tabRect = tabElement.getBoundingClientRect();
         const startClientX = typeof options.startClientX === 'number'
@@ -459,6 +506,7 @@ export class TabManager {
             originIndex,
             pendingIndex: originIndex,
             tabElement,
+            placeholderElement: placeholder,
             startClientX,
             lastClientX: event.clientX,
             startScrollLeft: this.container.scrollLeft,
@@ -479,7 +527,13 @@ export class TabManager {
         tabElement.style.transition = 'none';
         tabElement.style.pointerEvents = 'none';
         tabElement.style.zIndex = '3';
-        tabElement.style.position = 'relative';
+        tabElement.style.position = 'absolute';
+        tabElement.style.left = `${tabRect.left - containerRect.left + this.container.scrollLeft}px`;
+        tabElement.style.top = `${tabRect.top - containerRect.top}px`;
+        tabElement.style.width = `${tabRect.width}px`;
+        tabElement.style.height = `${tabRect.height}px`;
+        this.container.appendChild(tabElement);
+        this.movePlaceholderToIndex(originIndex);
         this.container?.classList.add('tab-dragging');
         const initialDelta = event.clientX - startClientX;
         const scrollDelta = this.container.scrollLeft - this.pointerDragState.startScrollLeft;
@@ -526,11 +580,11 @@ export class TabManager {
 
         if (target && typeof target.index === 'number') {
             state.pendingIndex = target.index;
+            this.movePlaceholderToIndex(target.index);
         } else {
             state.pendingIndex = state.originIndex;
+            this.movePlaceholderToIndex(state.originIndex);
         }
-
-        this.updateDropIndicator(target);
     }
 
     handleGlobalPointerUp(event) {
@@ -554,7 +608,7 @@ export class TabManager {
                 }
             }
 
-            this.clearDropIndicator();
+            this.restoreDraggedTabPosition(state);
             this.resetDraggedTabStyles(tabElement);
             tabElement.classList.remove('is-dragging');
             this.container?.classList.remove('tab-dragging');
@@ -584,12 +638,12 @@ export class TabManager {
                     console.debug('释放指针捕获失败:', error);
                 }
             }
+            this.restoreDraggedTabPosition(state);
             this.resetDraggedTabStyles(state.tabElement);
             state.tabElement.classList.remove('is-dragging');
         }
         this.pointerDragState = null;
         this.draggedTabId = null;
-        this.clearDropIndicator();
         this.pendingDragCandidate = null;
         this.container?.classList.remove('tab-dragging');
     }
@@ -633,47 +687,6 @@ export class TabManager {
             index: fileTabElements.length,
             position: 'after',
         };
-    }
-
-    updateDropIndicator(target) {
-        if (!target || !target.element) {
-            this.clearDropIndicator();
-            return;
-        }
-
-        if (
-            this.currentDropIndicator &&
-            this.currentDropIndicator.element === target.element &&
-            this.currentDropIndicator.type === target.position
-        ) {
-            return;
-        }
-
-        this.clearDropIndicator();
-
-        if (target.position === 'before') {
-            target.element.classList.add('tab-drop-before');
-            this.currentDropIndicator = { element: target.element, type: 'before' };
-            return;
-        }
-
-        if (target.position === 'after') {
-            target.element.classList.add('tab-drop-after');
-            this.currentDropIndicator = { element: target.element, type: 'after' };
-        }
-    }
-
-    clearDropIndicator() {
-        if (!this.currentDropIndicator) {
-            return;
-        }
-        const { element, type } = this.currentDropIndicator;
-        if (type === 'before') {
-            element.classList.remove('tab-drop-before');
-        } else if (type === 'after') {
-            element.classList.remove('tab-drop-after');
-        }
-        this.currentDropIndicator = null;
     }
 
     applyFileTabReorder(tabId, rawIndex) {

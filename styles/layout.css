@@ -262,31 +262,16 @@ body.sidebar-resizing .sidebar-resizer {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.tab.tab-drop-before::before,
-.tab.tab-drop-after::after {
-    content: '';
-    position: absolute;
-    top: 6px;
-    bottom: 6px;
-    width: 2px;
-    border-radius: 2px;
-    background: var(--tab-drop-indicator, #6be275);
-}
-
-.tab.tab-drop-before::before {
-    left: -4px;
-}
-
-.tab.tab-drop-after::after {
-    right: -4px;
-}
-
-.tab.tab-drop-before {
-    margin-left: 12px;
-}
-
-.tab.tab-drop-after {
-    margin-right: 12px;
+.tab-placeholder {
+    margin-top: 1px;
+    flex: 0 0 var(--tab-placeholder-width, 8px);
+    height: calc(100% - 1px);
+    border-top: 3px dashed var(--tab-border-accent, #ffa2f9);
+    border-right: 1px dashed var(--tab-border-accent, #ffa2f9);
+    border-bottom: 1px dashed var(--tab-border-color, #ddd);
+    border-radius: 4px 4px 0 0;
+    background: transparent;
+    pointer-events: none;
 }
 
 .tab-rename-input {
