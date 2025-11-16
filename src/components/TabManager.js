@@ -32,6 +32,28 @@ export class TabManager {
         this.render();
     }
 
+    isPointerPrimaryActive(event) {
+        if (!event) {
+            return false;
+        }
+        const pointerType = typeof event.pointerType === 'string'
+            ? event.pointerType.toLowerCase()
+            : 'mouse';
+
+        if (pointerType === 'mouse' || pointerType === '') {
+            return typeof event.buttons === 'number'
+                ? (event.buttons & 1) === 1
+                : event.button === 0;
+        }
+        if (pointerType === 'touch' || pointerType === 'pen') {
+            if (typeof event.pressure === 'number') {
+                return event.pressure > 0;
+            }
+            return typeof event.buttons === 'number' ? event.buttons !== 0 : true;
+        }
+        return false;
+    }
+
     getAllTabs() {
         const tabs = [];
         if (this.sharedTab) {
@@ -555,6 +577,10 @@ export class TabManager {
             this.pendingDragCandidate &&
             event.pointerId === this.pendingDragCandidate.pointerId
         ) {
+            if (!this.isPointerPrimaryActive(event)) {
+                this.pendingDragCandidate = null;
+                return;
+            }
             const deltaX = Math.abs(event.clientX - this.pendingDragCandidate.startClientX);
             if (deltaX >= TAB_DRAG_ACTIVATION_THRESHOLD) {
                 const candidate = this.pendingDragCandidate;

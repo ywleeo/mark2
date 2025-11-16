@@ -62,6 +62,9 @@ export function createFileOperations({
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
+    let loadRequestCounter = 0;
+    let activeLoadRequestId = 0;
+
     async function openPathsFromSelection(rawPaths) {
         const selections = normalizeSelectedPaths(rawPaths)
             .map(normalizeFsPath)
@@ -170,6 +173,18 @@ export function createFileOperations({
 
     async function loadFile(filePath, options = {}) {
         const { skipWatchSetup = false, forceReload = false } = options;
+        const requestId = ++loadRequestCounter;
+        activeLoadRequestId = requestId;
+        const shouldAbort = (phase) => {
+            if (requestId !== activeLoadRequestId) {
+                console.debug('[fileOperations] 跳过已过期的 loadFile 调用', {
+                    filePath,
+                    phase,
+                });
+                return true;
+            }
+            return false;
+        };
 
         try {
             const previousFile = getCurrentFile();
@@ -197,14 +212,26 @@ export function createFileOperations({
                 editor?.clear?.();
                 codeEditor?.clear?.();
                 await imageViewer?.loadImage(filePath);
+                if (shouldAbort('image-load')) {
+                    return;
+                }
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
+                if (shouldAbort('image-title')) {
+                    return;
+                }
                 if (!skipWatchSetup) {
                     try {
                         await fileTree?.watchFile(filePath);
+                        if (shouldAbort('image-watch')) {
+                            return;
+                        }
                     } catch (error) {
                         console.error('无法监听文件:', error);
                     }
+                }
+                if (shouldAbort('image-finalize')) {
+                    return;
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
@@ -212,6 +239,9 @@ export function createFileOperations({
             }
 
             const fileData = await fileSession.getFileContent(filePath, { skipCache: forceReload });
+            if (shouldAbort('after-read')) {
+                return;
+            }
             const targetViewMode = fileData.viewMode || initialViewMode;
 
             if (targetViewMode === 'spreadsheet') {
@@ -221,14 +251,26 @@ export function createFileOperations({
                 imageViewer?.hide?.();
                 unsupportedViewer?.hide?.();
                 await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content, { forceReload });
+                if (shouldAbort('spreadsheet-load')) {
+                    return;
+                }
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
+                if (shouldAbort('spreadsheet-title')) {
+                    return;
+                }
                 if (!skipWatchSetup) {
                     try {
                         await fileTree?.watchFile(filePath);
+                        if (shouldAbort('spreadsheet-watch')) {
+                            return;
+                        }
                     } catch (error) {
                         console.error('无法监听文件:', error);
                     }
+                }
+                if (shouldAbort('spreadsheet-finalize')) {
+                    return;
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
@@ -243,14 +285,26 @@ export function createFileOperations({
                 spreadsheetViewer?.hide?.();
                 unsupportedViewer?.hide?.();
                 await pdfViewer?.loadDocument?.(filePath, fileData.content, { forceReload });
+                if (shouldAbort('pdf-load')) {
+                    return;
+                }
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
+                if (shouldAbort('pdf-title')) {
+                    return;
+                }
                 if (!skipWatchSetup) {
                     try {
                         await fileTree?.watchFile(filePath);
+                        if (shouldAbort('pdf-watch')) {
+                            return;
+                        }
                     } catch (error) {
                         console.error('无法监听文件:', error);
                     }
+                }
+                if (shouldAbort('pdf-finalize')) {
+                    return;
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
@@ -262,8 +316,14 @@ export function createFileOperations({
                 unsupportedViewer?.show(filePath, fileData.error);
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
+                if (shouldAbort('unsupported-title')) {
+                    return;
+                }
                 if (!skipWatchSetup) {
                     fileTree?.stopWatchingFile?.(filePath);
+                }
+                if (shouldAbort('unsupported-finalize')) {
+                    return;
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
@@ -274,6 +334,9 @@ export function createFileOperations({
                 activateMarkdownView();
                 if (editor) {
                     await editor.loadFile(filePath, fileData.content);
+                    if (shouldAbort('markdown-editor-load')) {
+                        return;
+                    }
                     restoreMarkdownScrollPosition(filePath);
                     if (fileData.hasChanges) {
                         editor.contentChanged = true;
@@ -287,21 +350,36 @@ export function createFileOperations({
                 editor?.clear?.();
                 const language = detectLanguageForPath(filePath);
                 await codeEditor?.show(filePath, fileData.content, language);
+                if (shouldAbort('code-editor-load')) {
+                    return;
+                }
                 if (fileData.hasChanges) {
                     codeEditor.isDirty = true;
                 }
                 editor?.refreshSearch?.();
             }
 
+            if (shouldAbort('before-unsaved-state')) {
+                return;
+            }
             setHasUnsavedChanges(fileData.hasChanges);
             await updateWindowTitle();
+            if (shouldAbort('after-title-update')) {
+                return;
+            }
 
             if (!skipWatchSetup) {
                 try {
                     await fileTree?.watchFile(filePath);
+                    if (shouldAbort('watch-file')) {
+                        return;
+                    }
                 } catch (error) {
                     console.error('无法监听文件:', error);
                 }
+            }
+            if (shouldAbort('finalize')) {
+                return;
             }
             fileTree?.clearExternalModification?.(filePath);
             persistWorkspaceState();
