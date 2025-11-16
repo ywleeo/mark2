@@ -62,6 +62,42 @@ export function createNavigationController({
     async function handleFileSelect(filePath) {
         const fileTree = getFileTree();
         const tabManager = getTabManager();
+        const previousFile = getCurrentFile();
+        const normalizePath = (value) => {
+            if (!value) {
+                return value;
+            }
+            if (typeof fileTree?.normalizePath === 'function') {
+                return fileTree.normalizePath(value);
+            }
+            return value;
+        };
+        const normalizedPrevious = normalizePath(previousFile);
+        const normalizedNext = normalizePath(filePath);
+
+        if (previousFile) {
+            const isSwitchingToDifferentFile = normalizedNext
+                ? normalizedPrevious !== normalizedNext
+                : true;
+            if (isSwitchingToDifferentFile) {
+                const saved = await autoSaveActiveFileIfNeeded(previousFile);
+                if (!saved) {
+                    if (normalizedPrevious) {
+                        tabManager?.setActiveFileTab(previousFile, { silent: true });
+                        const restoreSelection = () => {
+                            const nextTree = getFileTree();
+                            nextTree?.selectFile(previousFile);
+                        };
+                        if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+                            window.setTimeout(restoreSelection, 0);
+                        } else {
+                            restoreSelection();
+                        }
+                    }
+                    return;
+                }
+            }
+        }
 
         if (!filePath) {
             saveCurrentEditorContentToCache();
@@ -124,11 +160,11 @@ export function createNavigationController({
         if (!tab) return;
 
         if (tab.type === 'file' && tab.path) {
-            documentSessions.closeSessionForPath(tab.path);
-            const hasChanges = await checkFileHasUnsavedChanges(tab.path);
+            const targetPath = tab.path;
+            const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
             if (hasChanges) {
-                const fileName = tab.path.split('/').pop() || tab.path;
+                const fileName = targetPath.split('/').pop() || targetPath;
                 const shouldSave = await confirm(
                     `文件 "${fileName}" 有未保存的更改，是否保存？`,
                     {
@@ -140,13 +176,13 @@ export function createNavigationController({
                 );
 
                 if (shouldSave) {
-                    const saved = await saveFile(tab.path);
+                    const saved = await saveFile(targetPath);
                     if (!saved) {
                         return;
                     }
                 }
 
-                fileSession.clearEntry(tab.path);
+                fileSession.clearEntry(targetPath);
             }
 
             const normalizedTarget = typeof fileTree?.normalizePath === 'function'
@@ -193,16 +229,17 @@ export function createNavigationController({
                     fileTree?.selectFile(null);
                 }
             }
+            documentSessions.closeSessionForPath(targetPath);
             return;
         }
 
         if (tab.type === 'shared') {
             if (tab.path) {
-                documentSessions.closeSessionForPath(tab.path);
-                const hasChanges = await checkFileHasUnsavedChanges(tab.path);
+                const targetPath = tab.path;
+                const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
                 if (hasChanges) {
-                    const fileName = tab.path.split('/').pop() || tab.path;
+                    const fileName = targetPath.split('/').pop() || targetPath;
                     const shouldSave = await confirm(
                         `文件 "${fileName}" 有未保存的更改，是否保存？`,
                         {
@@ -214,18 +251,19 @@ export function createNavigationController({
                     );
 
                     if (shouldSave) {
-                        const saved = await saveFile(tab.path);
+                        const saved = await saveFile(targetPath);
                         if (!saved) {
                             return;
                         }
                     }
 
-                    fileSession.clearEntry(tab.path);
+                    fileSession.clearEntry(targetPath);
                 }
 
-                if (!fileTree?.isInOpenList(tab.path)) {
-                    fileTree?.stopWatchingFile(tab.path);
+                if (!fileTree?.isInOpenList(targetPath)) {
+                    fileTree?.stopWatchingFile(targetPath);
                 }
+                documentSessions.closeSessionForPath(targetPath);
             }
 
             if (!tab.fallbackPath) {
@@ -254,6 +292,24 @@ export function createNavigationController({
 
         const cached = fileSession.getCachedEntry(filePath);
         return cached ? cached.hasChanges : false;
+    }
+
+    async function autoSaveActiveFileIfNeeded(targetPath = null) {
+        const currentPath = targetPath ?? getCurrentFile();
+        if (!currentPath) {
+            return true;
+        }
+        const hasChanges = await checkFileHasUnsavedChanges(currentPath);
+        if (!hasChanges) {
+            return true;
+        }
+        try {
+            const saved = await saveFile(currentPath);
+            return Boolean(saved);
+        } catch (error) {
+            console.error('自动保存当前文件失败:', error);
+            return false;
+        }
     }
 
     async function closeActiveTab() {
