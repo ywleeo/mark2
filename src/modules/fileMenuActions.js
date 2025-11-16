@@ -20,6 +20,7 @@ export function createFileMenuActions(options = {}) {
         getImageViewer,
         getUnsupportedViewer,
         getStatusBarController,
+        documentSessions,
     } = options;
 
     if (typeof confirm !== 'function') {
@@ -66,6 +67,9 @@ export function createFileMenuActions(options = {}) {
     }
     if (typeof getStatusBarController !== 'function') {
         throw new Error('createFileMenuActions 需要提供状态栏访问方法');
+    }
+    if (!documentSessions || typeof documentSessions.closeSessionForPath !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 documentSessions');
     }
 
     async function createNewFile() {
@@ -210,6 +214,7 @@ export function createFileMenuActions(options = {}) {
 
         fileSession.clearEntry(currentFile);
         fileTree?.stopWatchingFile?.(currentFile);
+        documentSessions.closeSessionForPath(currentFile);
 
         if (wasOpenInList) {
             setHasUnsavedChanges(false);
@@ -372,6 +377,7 @@ export function createFileMenuActions(options = {}) {
         if (normalizeFsPath(getCurrentFile()) === normalizedOld) {
             setCurrentFile(normalizedNew);
         }
+        documentSessions.updateSessionPath(normalizedOld, normalizedNew);
 
         const statusBarController = getStatusBarController();
         statusBarController?.updateStatusBar({

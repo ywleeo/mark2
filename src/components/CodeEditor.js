@@ -86,7 +86,7 @@ const buildModelUri = (monaco, filePath) => {
 };
 
 export class CodeEditor {
-    constructor(containerElement, callbacks = {}) {
+    constructor(containerElement, callbacks = {}, options = {}) {
         this.container = containerElement;
         this.container.classList.add('code-editor-pane');
         this.callbacks = callbacks;
@@ -107,6 +107,9 @@ export class CodeEditor {
         this.suppressChange = false;
         this.pendingLayoutFrame = null;
         this.preferences = null;
+        this.documentSessions = options?.documentSessions || null;
+        this.currentSessionId = null;
+        this.loadingSessionId = null;
 
         this.handleResize = () => this.requestLayout();
         this.tapGuardState = null;
@@ -124,6 +127,38 @@ export class CodeEditor {
             Math.round(this.baseFontSize * this.baseLineHeightRatio),
             this.baseFontSize
         );
+    }
+
+    isSessionActive(sessionId) {
+        if (!sessionId) {
+            return true;
+        }
+        if (!this.documentSessions || typeof this.documentSessions.isSessionActive !== 'function') {
+            return true;
+        }
+        return this.documentSessions.isSessionActive(sessionId);
+    }
+
+    prepareForDocument(session, filePath) {
+        const sessionId = session?.id ?? this.currentSessionId ?? null;
+        this.currentSessionId = sessionId;
+        this.loadingSessionId = sessionId;
+        this.currentFile = filePath;
+        this.isDirty = false;
+        if (!this.editor) {
+            return;
+        }
+        this.suppressChange = true;
+        try {
+            if (this.currentModel) {
+                this.currentModel.setValue('');
+            } else if (typeof this.editor.setValue === 'function') {
+                this.editor.setValue('');
+            }
+            this.editor.updateOptions({ readOnly: true });
+        } finally {
+            this.suppressChange = false;
+        }
     }
 
     async ensureEditor(defaultLanguage = 'plaintext') {
@@ -177,10 +212,26 @@ export class CodeEditor {
         });
     }
 
-    async show(filePath, content, language = null) {
+    async show(filePath, content, language = null, session = null) {
+        const sessionId = session?.id ?? this.currentSessionId ?? null;
+        if (session && !this.isSessionActive(sessionId)) {
+            return;
+        }
+
+        this.currentSessionId = sessionId;
+        this.loadingSessionId = sessionId;
         await this.ensureEditor();
 
         if (!this.monaco || !this.editor) {
+            if (this.loadingSessionId === sessionId) {
+                this.loadingSessionId = null;
+            }
+            return;
+        }
+        if (sessionId && !this.isSessionActive(sessionId)) {
+            if (this.loadingSessionId === sessionId) {
+                this.loadingSessionId = null;
+            }
             return;
         }
 
@@ -207,6 +258,13 @@ export class CodeEditor {
             this.currentModel.dispose();
         }
 
+        if (sessionId && !this.isSessionActive(sessionId)) {
+            if (this.loadingSessionId === sessionId) {
+                this.loadingSessionId = null;
+            }
+            return;
+        }
+
         this.attachModel(model, targetLanguage);
 
         this.currentFile = filePath;
@@ -215,6 +273,10 @@ export class CodeEditor {
         this.showContainer();
         this.requestLayout();
         this.editor.focus();
+
+        if (this.loadingSessionId === sessionId) {
+            this.loadingSessionId = null;
+        }
     }
 
     applyPreferences(prefs = null) {
@@ -378,6 +440,8 @@ export class CodeEditor {
     clear() {
         this.currentFile = null;
         this.currentLanguage = null;
+        this.currentSessionId = null;
+        this.loadingSessionId = null;
         this.isDirty = false;
         this.clearSearch();
         if (this.modelDisposer) {

@@ -17,6 +17,7 @@ export class TabManager {
         this.pointerDragState = null;
         this.pendingDragCandidate = null;
         this.isDraggingTabs = false;
+        this.dragReleaseSuppressedUntil = 0;
         this.handleGlobalPointerMove = this.handleGlobalPointerMove.bind(this);
         this.handleGlobalPointerUp = this.handleGlobalPointerUp.bind(this);
         if (typeof window !== 'undefined') {
@@ -328,6 +329,17 @@ export class TabManager {
 
                 // 使用统一的点击处理函数
                 const cleanup1 = addClickHandler(closeButton, (event) => {
+                    const now = typeof performance !== 'undefined'
+                        ? performance.now()
+                        : Date.now();
+                    if (
+                        this.isDraggingTabs
+                        || this.pointerDragState
+                        || this.draggedTabId
+                        || (this.dragReleaseSuppressedUntil && now < this.dragReleaseSuppressedUntil)
+                    ) {
+                        return;
+                    }
                     event.stopPropagation();
                     this.handleTabClose(tab.id);
                 });
@@ -651,6 +663,10 @@ export class TabManager {
             this.pointerDragState = null;
             this.draggedTabId = null;
             this.isDraggingTabs = false;
+            const suppressionWindow = typeof performance !== 'undefined'
+                ? performance.now()
+                : Date.now();
+            this.dragReleaseSuppressedUntil = suppressionWindow + 60;
             this.applyFileTabReorder(state.tabId, targetIndex);
             return;
         }
@@ -678,6 +694,11 @@ export class TabManager {
         this.draggedTabId = null;
         this.pendingDragCandidate = null;
         this.isDraggingTabs = false;
+        if (typeof performance !== 'undefined') {
+            this.dragReleaseSuppressedUntil = performance.now() + 60;
+        } else {
+            this.dragReleaseSuppressedUntil = Date.now() + 60;
+        }
         this.container?.classList.remove('tab-dragging');
     }
 

@@ -12,6 +12,7 @@ export function createFileOperations({
     getActiveViewMode,
     setHasUnsavedChanges,
     fileSession,
+    documentSessions,
     detectLanguageForPath,
     getViewModeForPath,
     normalizeFsPath,
@@ -42,6 +43,9 @@ export function createFileOperations({
     if (typeof getActiveViewMode !== 'function') throw new Error('fileOperations 需要 getActiveViewMode');
     if (typeof setHasUnsavedChanges !== 'function') throw new Error('fileOperations 需要 setHasUnsavedChanges');
     if (!fileSession) throw new Error('fileOperations 需要 fileSession');
+    if (!documentSessions || typeof documentSessions.beginSession !== 'function') {
+        throw new Error('fileOperations 需要 documentSessions');
+    }
     if (typeof detectLanguageForPath !== 'function') throw new Error('fileOperations 需要 detectLanguageForPath');
     if (typeof getViewModeForPath !== 'function') throw new Error('fileOperations 需要 getViewModeForPath');
     if (typeof normalizeFsPath !== 'function') throw new Error('fileOperations 需要 normalizeFsPath');
@@ -62,8 +66,6 @@ export function createFileOperations({
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
-    let loadRequestCounter = 0;
-    let activeLoadRequestId = 0;
 
     async function openPathsFromSelection(rawPaths) {
         const selections = normalizeSelectedPaths(rawPaths)
@@ -111,6 +113,10 @@ export function createFileOperations({
     async function saveCurrentFile() {
         const currentFile = getCurrentFile();
         if (!currentFile) {
+            return false;
+        }
+        const activeSession = documentSessions.getActiveSession();
+        if (!activeSession || activeSession.filePath !== currentFile) {
             return false;
         }
 
@@ -171,19 +177,30 @@ export function createFileOperations({
         }
     }
 
-    async function loadFile(filePath, options = {}) {
+    let loadPipeline = Promise.resolve();
+
+    async function performLoad(filePath, options = {}) {
         const { skipWatchSetup = false, forceReload = false } = options;
-        const requestId = ++loadRequestCounter;
-        activeLoadRequestId = requestId;
+        const session = documentSessions.beginSession(filePath);
+        const sessionId = session?.id ?? null;
         const shouldAbort = (phase) => {
-            if (requestId !== activeLoadRequestId) {
-                console.debug('[fileOperations] 跳过已过期的 loadFile 调用', {
+            if (!sessionId) {
+                return false;
+            }
+            if (!documentSessions.isSessionActive(sessionId)) {
+                console.debug('[DocumentSession] 跳过已过期的 loadFile 调用', {
                     filePath,
                     phase,
+                    sessionId,
                 });
                 return true;
             }
             return false;
+        };
+        const markSessionReady = () => {
+            if (sessionId) {
+                documentSessions.markSessionReady(sessionId);
+            }
         };
 
         try {
@@ -198,14 +215,19 @@ export function createFileOperations({
             }
             setCurrentFile(filePath);
 
-            const initialViewMode = getViewModeForPath(filePath);
             const editor = getEditor();
             const codeEditor = getCodeEditor();
+            editor?.prepareForDocument?.(session, filePath);
+            codeEditor?.prepareForDocument?.(session, filePath);
+
+            const initialViewMode = getViewModeForPath(filePath);
             const imageViewer = getImageViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
             const unsupportedViewer = getUnsupportedViewer();
             const fileTree = getFileTree();
+            // 关闭旧文件可能仍在等待自动保存，提前清除避免写入到新文件
+            editor?.clearAutoSaveTimer?.();
 
             if (initialViewMode === 'image') {
                 activateImageView();
@@ -235,6 +257,7 @@ export function createFileOperations({
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
+                markSessionReady();
                 return;
             }
 
@@ -274,6 +297,7 @@ export function createFileOperations({
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
+                markSessionReady();
                 return;
             }
 
@@ -308,6 +332,7 @@ export function createFileOperations({
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
+                markSessionReady();
                 return;
             }
 
@@ -327,13 +352,14 @@ export function createFileOperations({
                 }
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
+                markSessionReady();
                 return;
             }
 
             if (targetViewMode === 'markdown') {
                 activateMarkdownView();
                 if (editor) {
-                    await editor.loadFile(filePath, fileData.content);
+                    await editor.loadFile(session, filePath, fileData.content);
                     if (shouldAbort('markdown-editor-load')) {
                         return;
                     }
@@ -349,7 +375,7 @@ export function createFileOperations({
                 activateCodeView();
                 editor?.clear?.();
                 const language = detectLanguageForPath(filePath);
-                await codeEditor?.show(filePath, fileData.content, language);
+                await codeEditor?.show(filePath, fileData.content, language, session);
                 if (shouldAbort('code-editor-load')) {
                     return;
                 }
@@ -383,11 +409,25 @@ export function createFileOperations({
             }
             fileTree?.clearExternalModification?.(filePath);
             persistWorkspaceState();
+            markSessionReady();
         } catch (error) {
+            if (sessionId) {
+                documentSessions.closeSession(sessionId);
+            }
             console.error('读取文件失败:', error);
             alert('读取文件失败: ' + error);
             throw error;
         }
+    }
+
+    async function loadFile(filePath, options = {}) {
+        const previous = loadPipeline.catch(() => {});
+        const next = (async () => {
+            await previous;
+            return performLoad(filePath, options);
+        })();
+        loadPipeline = next.catch(() => {});
+        return next;
     }
 
     return {

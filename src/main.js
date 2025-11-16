@@ -37,6 +37,7 @@ import { createFileMenuActions } from './modules/fileMenuActions.js';
 import { PluginManager } from './core/PluginManager.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
+import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -124,6 +125,7 @@ const fileSession = createFileSession({
     fileService,
     getViewModeForPath,
 });
+const documentSessions = createDocumentSessionManager();
 let editorSettings = { ...defaultEditorSettings };
 let availableFontFamilies = [];
 let markdownPaneElement = null;
@@ -621,6 +623,7 @@ const {
         hasUnsavedChanges = value;
     },
     fileSession,
+    documentSessions,
     detectLanguageForPath,
     getViewModeForPath,
     normalizeFsPath,
@@ -742,6 +745,7 @@ function clearActiveFileView() {
     currentFile = null;
     window.currentFile = null;
     hasUnsavedChanges = false;
+    documentSessions.closeActiveSession();
 
     editor?.clear?.();
     codeEditor?.clear?.();
@@ -797,6 +801,7 @@ const {
     getFileTree: () => fileTree,
     getTabManager: () => tabManager,
     getCurrentFile: () => currentFile,
+    documentSessions,
     saveCurrentEditorContentToCache,
     clearActiveFileView,
     loadFile,
@@ -828,6 +833,7 @@ const {
         window.currentFile = value;  // 同时导出到 window
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
+        void updateExportMenuState();
     },
     getHasUnsavedChanges: () => hasUnsavedChanges,
     setHasUnsavedChanges: (value) => {
@@ -844,6 +850,7 @@ const {
     getImageViewer: () => imageViewer,
     getUnsupportedViewer: () => unsupportedViewer,
     getStatusBarController: () => statusBarController,
+    documentSessions,
 });
 
 // 基础初始化代码
@@ -941,16 +948,19 @@ async function initializeApplication() {
             void updateWindowTitle();
             scheduleDocumentSnapshotSync();
         },
-        onAutoSaveSuccess: async ({ skipped }) => {
-            const activeFile = currentFile;
-            if (!activeFile) {
+        onAutoSaveSuccess: async ({ skipped, filePath }) => {
+            if (skipped) {
                 return;
             }
-            if (!skipped) {
-                hasUnsavedChanges = false;
-                fileSession.clearEntry(activeFile);
+            const targetPath = filePath || currentFile;
+            if (!targetPath) {
+                return;
             }
-            await updateWindowTitle();
+            fileSession.clearEntry(targetPath);
+            if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
+                hasUnsavedChanges = false;
+                await updateWindowTitle();
+            }
             scheduleDocumentSnapshotSync();
         },
         onAutoSaveError: (error) => {
@@ -958,8 +968,12 @@ async function initializeApplication() {
         },
     };
 
-    editor = new MarkdownEditorCtor(markdownPaneElement, editorCallbacks);
-    codeEditor = new CodeEditorCtor(codeEditorPaneElement, editorCallbacks);
+    editor = new MarkdownEditorCtor(markdownPaneElement, editorCallbacks, {
+        documentSessions,
+    });
+    codeEditor = new CodeEditorCtor(codeEditorPaneElement, editorCallbacks, {
+        documentSessions,
+    });
     codeEditor.applyPreferences?.(editorSettings);
     codeEditor.hide();
     imageViewer = new ImageViewerCtor(imagePaneElement);

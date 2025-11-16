@@ -43,6 +43,11 @@ export class MarkdownEditor {
         this.isSaving = false;
         this.activeSavePromise = null;
         this.lastSaveError = null;
+        this.documentSessions = options?.documentSessions || null;
+        this.currentSessionId = null;
+        this.loadingSessionId = null;
+        this.autoSavePlannedSessionId = null;
+        this.isLoadingFile = false;
 
         // 初始化 Markdown 和 Turndown 服务
         this.md = createConfiguredMarkdownIt();
@@ -137,6 +142,16 @@ export class MarkdownEditor {
         this.setupLinkClickHandler();
     }
 
+    isSessionActive(sessionId) {
+        if (!sessionId) {
+            return true;
+        }
+        if (!this.documentSessions || typeof this.documentSessions.isSessionActive !== 'function') {
+            return true;
+        }
+        return this.documentSessions.isSessionActive(sessionId);
+    }
+
     // 设置链接点击处理
     setupLinkClickHandler() {
         const handleLinkClick = async (e) => {
@@ -213,6 +228,7 @@ export class MarkdownEditor {
 
     // 加载 Markdown 内容
     async setContent(markdown, shouldFocusStart = true) {
+        const sessionId = this.currentSessionId;
         this.originalMarkdown = markdown;
         this.contentChanged = false;
         this.clearAutoSaveTimer();
@@ -228,6 +244,12 @@ export class MarkdownEditor {
         const processed = this.preprocessBold(markdown);
         const html = this.md.render(processed);
         const resolvedHtml = await resolveImageSources(html, this.currentFile);
+        if (sessionId && sessionId !== this.currentSessionId) {
+            return false;
+        }
+        if (sessionId && !this.isSessionActive(sessionId)) {
+            return false;
+        }
 
         this.codeCopyManager?.hideCodeCopyButton({ immediate: true });
         this.suppressUpdateEvent = true;
@@ -259,6 +281,31 @@ export class MarkdownEditor {
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.callbacks.onContentChange?.();
         this.scheduleMermaidRender();
+        return true;
+    }
+
+    prepareForDocument(session, filePath) {
+        const sessionId = session?.id ?? this.currentSessionId ?? null;
+        this.currentSessionId = sessionId;
+        this.loadingSessionId = sessionId;
+        this.currentFile = filePath;
+        this.isLoadingFile = true;
+        this.clearAutoSaveTimer();
+        this.contentChanged = false;
+        this.autoSavePlannedSessionId = null;
+        if (!this.editor) {
+            return;
+        }
+        this.suppressUpdateEvent = true;
+        try {
+            this.editor.setEditable(false);
+            this.editor.commands.setContent('');
+            this.editor.commands.blur?.();
+        } finally {
+            this.suppressUpdateEvent = false;
+        }
+        this.codeCopyManager?.hideCodeCopyButton({ immediate: true });
+        this.callbacks.onContentChange?.();
     }
 
     // 预处理加粗标记
@@ -297,6 +344,7 @@ export class MarkdownEditor {
             clearTimeout(this.autoSaveTimer);
             this.autoSaveTimer = null;
         }
+        this.autoSavePlannedSessionId = null;
     }
 
     scheduleAutoSave() {
@@ -304,13 +352,30 @@ export class MarkdownEditor {
             return;
         }
         this.clearAutoSaveTimer();
+        const plannedSessionId = this.currentSessionId;
+        this.autoSavePlannedSessionId = plannedSessionId;
         this.autoSaveTimer = setTimeout(() => {
             this.autoSaveTimer = null;
-            void this.handleAutoSaveTrigger();
+            const sessionId = this.autoSavePlannedSessionId ?? plannedSessionId;
+            this.autoSavePlannedSessionId = null;
+            void this.handleAutoSaveTrigger(sessionId);
         }, this.autoSaveDelayMs);
     }
 
-    async handleAutoSaveTrigger() {
+    async handleAutoSaveTrigger(targetSessionId = null) {
+        const sessionId = typeof targetSessionId === 'number'
+            ? targetSessionId
+            : this.currentSessionId;
+        if (sessionId && !this.isSessionActive(sessionId)) {
+            return;
+        }
+        if (sessionId && sessionId !== this.currentSessionId) {
+            return;
+        }
+        if (this.isLoadingFile) {
+            this.scheduleAutoSave();
+            return;
+        }
         if (!this.contentChanged || !this.currentFile) {
             return;
         }
@@ -318,7 +383,7 @@ export class MarkdownEditor {
             this.scheduleAutoSave();
             return;
         }
-        const result = await this.save({ reason: 'auto' });
+        const result = await this.save({ reason: 'auto', sessionId });
         if (!result && this.contentChanged) {
             // 如果保存失败且仍有改动，稍后再试一次
             this.scheduleAutoSave();
@@ -327,8 +392,13 @@ export class MarkdownEditor {
 
     // 手动保存
     async save(options = {}) {
-        const { force = false, reason = 'manual' } = options;
-        if (!this.currentFile) {
+        const { force = false, reason = 'manual', sessionId: explicitSessionId = null } = options;
+        const targetSessionId = explicitSessionId ?? this.currentSessionId ?? null;
+        const targetFile = this.currentFile;
+        if (!targetFile) {
+            return false;
+        }
+        if (targetSessionId && !this.isSessionActive(targetSessionId)) {
             return false;
         }
 
@@ -353,10 +423,12 @@ export class MarkdownEditor {
             try {
                 const markdown = this.getMarkdown();
                 const services = getAppServices();
-                await services.file.writeText(this.currentFile, markdown);
-                this.originalMarkdown = markdown;
-                this.contentChanged = false;
-                this.callbacks.onContentChange?.();
+                await services.file.writeText(targetFile, markdown);
+                if (!targetSessionId || targetSessionId === this.currentSessionId) {
+                    this.originalMarkdown = markdown;
+                    this.contentChanged = false;
+                    this.callbacks.onContentChange?.();
+                }
                 console.log('保存成功');
                 return true;
             } catch (error) {
@@ -374,7 +446,9 @@ export class MarkdownEditor {
 
         if (reason === 'auto') {
             if (result) {
-                Promise.resolve(this.callbacks.onAutoSaveSuccess?.({ skipped: false })).catch(error => {
+                Promise.resolve(
+                    this.callbacks.onAutoSaveSuccess?.({ skipped: false, filePath: targetFile })
+                ).catch(error => {
                     console.warn('[MarkdownEditor] 自动保存回调失败', error);
                 });
             } else {
@@ -388,14 +462,41 @@ export class MarkdownEditor {
     }
 
     // 加载文件
-    async loadFile(filePath, content) {
-        const isNewFile = this.currentFile !== filePath;
-        this.currentFile = filePath;
-        await this.setContent(content, isNewFile);
+    async loadFile(sessionOrPath, maybeFilePath, maybeContent) {
+        let session = null;
+        let filePath = sessionOrPath;
+        let content = maybeFilePath;
+        if (sessionOrPath && typeof sessionOrPath === 'object' && 'id' in sessionOrPath) {
+            session = sessionOrPath;
+            filePath = maybeFilePath;
+            content = maybeContent;
+        }
 
-        // 文档切换时，重新触发搜索（如果搜索框还开着）
-        if (isNewFile && this.searchBoxManager) {
-            this.searchBoxManager.refreshSearchOnDocumentChange();
+        const sessionId = session?.id ?? this.currentSessionId ?? null;
+        if (session && !this.isSessionActive(sessionId)) {
+            return;
+        }
+
+        const isNewFile = this.currentFile !== filePath;
+        this.currentSessionId = sessionId;
+        this.currentFile = filePath;
+        this.loadingSessionId = sessionId;
+        this.isLoadingFile = true;
+        try {
+            const applied = await this.setContent(content, isNewFile);
+            if (!applied) {
+                return;
+            }
+
+            // 文档切换时，重新触发搜索（如果搜索框还开着）
+            if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
+                this.searchBoxManager.refreshSearchOnDocumentChange();
+            }
+        } finally {
+            if (this.loadingSessionId === sessionId) {
+                this.loadingSessionId = null;
+                this.isLoadingFile = false;
+            }
         }
     }
 
@@ -604,8 +705,11 @@ export class MarkdownEditor {
 
     clear() {
         this.currentFile = null;
+        this.currentSessionId = null;
+        this.loadingSessionId = null;
         this.originalMarkdown = '';
         this.contentChanged = false;
+        this.isLoadingFile = false;
         this.clearAutoSaveTimer();
         if (!this.editor) {
             return;

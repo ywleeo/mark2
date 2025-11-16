@@ -2,6 +2,7 @@ export function createNavigationController({
     getFileTree,
     getTabManager,
     getCurrentFile,
+    documentSessions,
     saveCurrentEditorContentToCache,
     clearActiveFileView,
     loadFile,
@@ -21,6 +22,9 @@ export function createNavigationController({
     }
     if (typeof getCurrentFile !== 'function') {
         throw new Error('navigationController 需要提供 getCurrentFile');
+    }
+    if (!documentSessions || typeof documentSessions.closeSessionForPath !== 'function') {
+        throw new Error('navigationController 需要提供 documentSessions');
     }
     if (typeof saveCurrentEditorContentToCache !== 'function') {
         throw new Error('navigationController 需要提供 saveCurrentEditorContentToCache');
@@ -120,6 +124,7 @@ export function createNavigationController({
         if (!tab) return;
 
         if (tab.type === 'file' && tab.path) {
+            documentSessions.closeSessionForPath(tab.path);
             const hasChanges = await checkFileHasUnsavedChanges(tab.path);
 
             if (hasChanges) {
@@ -144,12 +149,56 @@ export function createNavigationController({
                 fileSession.clearEntry(tab.path);
             }
 
-            fileTree?.closeFile(tab.path);
+            const normalizedTarget = typeof fileTree?.normalizePath === 'function'
+                ? fileTree.normalizePath(tab.path)
+                : tab.path;
+            const currentNormalized = typeof fileTree?.normalizePath === 'function'
+                ? fileTree.normalizePath(fileTree?.currentFile)
+                : fileTree?.currentFile;
+            const wasActive = normalizedTarget && normalizedTarget === currentNormalized;
+
+            if (wasActive) {
+                tabManager?.setActiveTab(null, { silent: true });
+                clearActiveFileView();
+            }
+
+            let fallbackPath = null;
+            if (wasActive) {
+                const openPaths = Array.isArray(fileTree?.getOpenFilePaths?.())
+                    ? [...fileTree.getOpenFilePaths()]
+                    : [];
+                const normalizedPairs = openPaths.map(path => ({
+                    raw: path,
+                    normalized: typeof fileTree?.normalizePath === 'function'
+                        ? fileTree.normalizePath(path)
+                        : path,
+                }));
+                const targetIndex = normalizedPairs.findIndex(item => item.normalized === normalizedTarget);
+                if (targetIndex !== -1) {
+                    const remaining = normalizedPairs.filter(item => item.normalized !== normalizedTarget);
+                    if (remaining.length > 0) {
+                        const fallbackIndex = Math.min(targetIndex, remaining.length - 1);
+                        fallbackPath = remaining[fallbackIndex]?.raw || null;
+                    }
+                }
+            }
+
+            fileTree?.closeFile(tab.path, { suppressActivate: wasActive });
+
+            if (wasActive) {
+                if (fallbackPath) {
+                    tabManager?.setActiveFileTab(fallbackPath, { silent: true });
+                    fileTree?.selectFile(fallbackPath);
+                } else {
+                    fileTree?.selectFile(null);
+                }
+            }
             return;
         }
 
         if (tab.type === 'shared') {
             if (tab.path) {
+                documentSessions.closeSessionForPath(tab.path);
                 const hasChanges = await checkFileHasUnsavedChanges(tab.path);
 
                 if (hasChanges) {
