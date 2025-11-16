@@ -38,6 +38,11 @@ import { PluginManager } from './core/PluginManager.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
+import { loadCoreModules, ensureToPng } from './app/coreModules.js';
+import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
+import { createEditorActions } from './app/editorActions.js';
+import { createLayoutControls } from './app/layoutControls.js';
+import { createWorkspaceSyncController, createDocumentSnapshotSyncController } from './app/syncControllers.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -48,64 +53,6 @@ let FileTreeCtor = null;
 let TabManagerCtor = null;
 let SettingsDialogCtor = null;
 let UnsupportedViewerCtor = null;
-let ensureCoreModulesPromise = null;
-
-/**
- * 确保核心组件模块只被加载一次，并缓存各构造器引用。
- */
-async function ensureCoreModules() {
-    if (!ensureCoreModulesPromise) {
-        ensureCoreModulesPromise = (async () => {
-            const [
-                editorModule,
-                codeEditorModule,
-                imageViewerModule,
-                spreadsheetViewerModule,
-                pdfViewerModule,
-                unsupportedViewerModule,
-                fileTreeModule,
-                tabManagerModule,
-                settingsModule,
-            ] = await Promise.all([
-                import('./components/MarkdownEditor.js'),
-                import('./components/CodeEditor.js'),
-                import('./components/ImageViewer.js'),
-                import('./components/SpreadsheetViewer.js'),
-                import('./components/PdfViewer.js'),
-                import('./components/UnsupportedViewer.js'),
-                import('./components/FileTree.js'),
-                import('./components/TabManager.js'),
-                import('./components/SettingsDialog.js'),
-            ]);
-
-            MarkdownEditorCtor = editorModule.MarkdownEditor;
-            CodeEditorCtor = codeEditorModule.CodeEditor;
-            ImageViewerCtor = imageViewerModule.ImageViewer;
-            SpreadsheetViewerCtor = spreadsheetViewerModule.SpreadsheetViewer;
-            PdfViewerCtor = pdfViewerModule.PdfViewer;
-            UnsupportedViewerCtor = unsupportedViewerModule.UnsupportedViewer;
-            FileTreeCtor = fileTreeModule.FileTree;
-            TabManagerCtor = tabManagerModule.TabManager;
-            SettingsDialogCtor = settingsModule.SettingsDialog;
-        })();
-    }
-
-    await ensureCoreModulesPromise;
-}
-
-let toPngRenderer = null;
-
-/**
- * 按需加载 html-to-image 并返回渲染方法。
- */
-async function ensureToPng() {
-    if (!toPngRenderer) {
-        const module = await import('html-to-image');
-        toPngRenderer = module.toPng;
-    }
-
-    return toPngRenderer;
-}
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -140,14 +87,12 @@ let pdfZoomState = {
     canZoomIn: true,
     canZoomOut: true,
 };
-const markdownScrollPositions = new Map();
 let activeViewMode = 'markdown';
 let keyboardShortcutCleanup = null;
 let sidebarResizerCleanup = null;
 let menuListenersCleanup = null;
 let fileWatcherController = null;
 let fileDropCleanup = null;
-let isSidebarHidden = false;
 let statusBarController = null;
 let markdownCodeMode = null;
 let fileDropController = null;
@@ -156,77 +101,22 @@ let documentIO = null;
 let exportMenuEnabledState = null;
 let appServices = null;
 let mcpHandler = null;
-const ZOOM_DEFAULT = 1;
-const ZOOM_MIN = 0.6;
-const ZOOM_MAX = 2.4;
-const ZOOM_STEP = 0.1;
-const ZOOM_SUPPORTED_VIEWS = new Set(['markdown', 'code', 'image', 'pdf', 'spreadsheet']);
 let contentZoom = ZOOM_DEFAULT;
 let appearanceChangeCleanup = null;
-
 appearanceChangeCleanup = onEditorAppearanceChange(() => {
     codeEditor?.applyPreferences?.(editorSettings);
 });
 
-let workspaceSyncTimer = null;
-let documentSyncTimer = null;
-
-async function syncWorkspaceContext() {
-    if (!appServices?.workspace || typeof invoke !== 'function') {
-        return;
-    }
-    try {
-        const context = appServices.workspace.getContext();
-        await invoke('update_workspace_context', {
-            context: {
-                currentFile: context?.currentFile || null,
-                currentDirectory: context?.currentDirectory || null,
-                workspaceRoots: context?.workspaceRoots || [],
-            },
-        });
-    } catch (error) {
-        console.warn('[WorkspaceSync] 更新失败', error);
-    }
-}
-
-function scheduleWorkspaceContextSync() {
-    if (workspaceSyncTimer) {
-        clearTimeout(workspaceSyncTimer);
-    }
-    workspaceSyncTimer = window.setTimeout(() => {
-        workspaceSyncTimer = null;
-        void syncWorkspaceContext();
-    }, 200);
-}
-
-async function syncDocumentSnapshot() {
-    if (!documentIO?.readDocument || typeof invoke !== 'function') {
-        return;
-    }
-    try {
-        const snapshot = documentIO.readDocument();
-        await invoke('update_document_snapshot', {
-            snapshot: {
-                filePath: snapshot?.filePath || null,
-                content: snapshot?.content || '',
-                totalLines: snapshot?.totalLines || 0,
-                updatedAt: Date.now(),
-            },
-        });
-    } catch (error) {
-        console.warn('[DocumentSync] 更新失败', error);
-    }
-}
-
-function scheduleDocumentSnapshotSync() {
-    if (documentSyncTimer) {
-        clearTimeout(documentSyncTimer);
-    }
-    documentSyncTimer = window.setTimeout(() => {
-        documentSyncTimer = null;
-        void syncDocumentSnapshot();
-    }, 250);
-}
+const workspaceSyncController = createWorkspaceSyncController({
+    invoke,
+    getWorkspaceContext: () => appServices?.workspace?.getContext?.(),
+});
+const documentSnapshotSyncController = createDocumentSnapshotSyncController({
+    invoke,
+    readDocumentSnapshot: () => documentIO?.readDocument?.(),
+});
+const { scheduleWorkspaceContextSync } = workspaceSyncController;
+const { scheduleDocumentSnapshotSync } = documentSnapshotSyncController;
 
 async function updateExportMenuState() {
     const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
@@ -261,308 +151,93 @@ function requireElementWithin(container, selector, errorMessage) {
     return element;
 }
 
-async function insertTextIntoActiveEditor(text, options = {}) {
-    const nextText = typeof text === 'string' ? text : '';
-    const position = options?.position || 'cursor';
-    const mode = activeViewMode || 'markdown';
-
-    const tryInsertIntoMarkdownEditor = () => {
-        if (!editor?.editor) {
-            return false;
-        }
-
-        const tiptapEditor = editor.editor;
-        if (!tiptapEditor) {
-            return false;
-        }
-
-        if (position === 'replace') {
-            if (typeof editor.insertTextAtCursor !== 'function') {
-                return false;
-            }
-            editor.insertTextAtCursor(nextText);
-            return true;
-        }
-
-        if (position === 'end') {
-            const docSize = tiptapEditor.state?.doc?.content?.size ?? tiptapEditor.state?.doc?.nodeSize ?? 0;
-            if (typeof tiptapEditor.commands?.setTextSelection === 'function' && docSize >= 0) {
-                tiptapEditor.commands.setTextSelection({ from: docSize, to: docSize });
-            }
-            if (typeof editor.insertTextAtCursor !== 'function') {
-                return false;
-            }
-            editor.insertTextAtCursor(nextText);
-            return true;
-        }
-
-        if (position === 'cursor') {
-            if (typeof editor.insertTextAtCursor !== 'function') {
-                return false;
-            }
-            editor.insertTextAtCursor(nextText);
-            return true;
-        }
-
-        return false;
-    };
-
-    const tryInsertIntoCodeEditor = () => {
-        if (!codeEditor) {
-            return false;
-        }
-
-        if (position === 'replace') {
-            if (typeof codeEditor.replaceSelectionWithText === 'function') {
-                codeEditor.replaceSelectionWithText(nextText);
-                return true;
-            }
-            if (typeof codeEditor.insertTextAtCursor === 'function') {
-                codeEditor.insertTextAtCursor(nextText);
-                return true;
-            }
-            return false;
-        }
-
-        if (position === 'end') {
-            const instance = codeEditor.editor;
-            const monaco = codeEditor.monaco;
-            const model = instance?.getModel?.();
-            if (instance && monaco && model) {
-                const lineNumber = model.getLineCount();
-                const column = model.getLineMaxColumn(lineNumber);
-                instance.setPosition({ lineNumber, column });
-                if (typeof codeEditor.insertTextAtCursor === 'function') {
-                    codeEditor.insertTextAtCursor(nextText);
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        if (position === 'cursor') {
-            if (typeof codeEditor.insertTextAtCursor !== 'function') {
-                return false;
-            }
-            codeEditor.insertTextAtCursor(nextText);
-            return true;
-        }
-
-        return false;
-    };
-
-    if (mode === 'code' && tryInsertIntoCodeEditor()) {
-        return;
-    }
-
-    if (mode === 'markdown' && tryInsertIntoMarkdownEditor()) {
-        return;
-    }
-
-    if (tryInsertIntoMarkdownEditor()) {
-        return;
-    }
-
-    if (tryInsertIntoCodeEditor()) {
-        return;
-    }
-
-    console.warn('[Main] 插入文本失败：未找到可用编辑器', { position, mode });
-}
-
-function rememberMarkdownScrollPosition(filePath = currentFile, viewMode = activeViewMode) {
-    if (!filePath || !viewContainerElement) {
-        return;
-    }
-    if (viewMode !== 'markdown') {
-        return;
-    }
-    const scrollTop = viewContainerElement.scrollTop || 0;
-    markdownScrollPositions.set(filePath, scrollTop);
-}
-
-function restoreMarkdownScrollPosition(filePath) {
-    if (!filePath || !viewContainerElement) {
-        return;
-    }
-    const target = markdownScrollPositions.get(filePath) ?? 0;
-    viewContainerElement.scrollTop = target;
-    window.requestAnimationFrame(() => {
-        if (!viewContainerElement) {
-            return;
-        }
-        viewContainerElement.scrollTop = target;
-    });
-}
-
-const VIEW_MODE_BEHAVIORS = {
-    markdown: {
-        getPane: () => markdownPaneElement,
-        onEnter: () => {
-            codeEditor?.hide?.();
-            imageViewer?.hide?.();
-            spreadsheetViewer?.hide?.();
-            pdfViewer?.hide?.();
-            unsupportedViewer?.hide?.();
-        },
+const viewController = createViewController({
+    getCurrentFile: () => currentFile,
+    getEditor: () => editor,
+    getCodeEditor: () => codeEditor,
+    getImageViewer: () => imageViewer,
+    getSpreadsheetViewer: () => spreadsheetViewer,
+    getPdfViewer: () => pdfViewer,
+    getUnsupportedViewer: () => unsupportedViewer,
+    getMarkdownPane: () => markdownPaneElement,
+    getCodePane: () => codeEditorPaneElement,
+    getImagePane: () => imagePaneElement,
+    getSpreadsheetPane: () => spreadsheetPaneElement,
+    getPdfPane: () => pdfPaneElement,
+    getUnsupportedPane: () => unsupportedPaneElement,
+    getViewContainer: () => viewContainerElement,
+    getStatusBarController: () => statusBarController,
+    setActiveViewModeState: (mode) => {
+        activeViewMode = mode;
     },
-    code: {
-        getPane: () => codeEditorPaneElement,
-        onEnter: () => {
-            imageViewer?.hide?.();
-            spreadsheetViewer?.hide?.();
-            pdfViewer?.hide?.();
-            unsupportedViewer?.hide?.();
-        },
+    getActiveViewModeState: () => activeViewMode,
+    setContentZoomState: (value) => {
+        contentZoom = value;
     },
-    image: {
-        getPane: () => imagePaneElement,
-        onEnter: () => {
-            editor?.clear?.();
-            codeEditor?.hide?.();
-            imageViewer?.show?.();
-            spreadsheetViewer?.hide?.();
-            pdfViewer?.hide?.();
-            unsupportedViewer?.hide?.();
-        },
+    getContentZoomState: () => contentZoom,
+    setPdfZoomStateState: (state) => {
+        pdfZoomState = state;
     },
-    spreadsheet: {
-        getPane: () => spreadsheetPaneElement,
-        onEnter: () => {
-            editor?.clear?.();
-            codeEditor?.hide?.();
-            imageViewer?.hide?.();
-            pdfViewer?.hide?.();
-            unsupportedViewer?.hide?.();
-            spreadsheetViewer?.show?.();
-        },
+    getPdfZoomState: () => pdfZoomState,
+    updateExportMenuState: () => {
+        void updateExportMenuState();
     },
-    pdf: {
-        getPane: () => pdfPaneElement,
-        onEnter: () => {
-            editor?.clear?.();
-            codeEditor?.hide?.();
-            imageViewer?.hide?.();
-            spreadsheetViewer?.hide?.();
-            unsupportedViewer?.hide?.();
-            pdfViewer?.show?.();
-        },
+});
+
+const {
+    rememberMarkdownScrollPosition,
+    restoreMarkdownScrollPosition,
+    setActiveViewMode,
+    activateMarkdownView,
+    activateCodeView,
+    activateImageView,
+    activateSpreadsheetView,
+    activatePdfView,
+    activateUnsupportedView,
+    updateZoomDisplayForActiveView,
+    handleZoomControl,
+    setContentZoom,
+    adjustContentZoom,
+} = viewController;
+
+const editorActions = createEditorActions({
+    getActiveViewMode: () => activeViewMode,
+    setActiveViewMode: (mode) => {
+        activeViewMode = mode;
     },
-    unsupported: {
-        getPane: () => unsupportedPaneElement,
-        onEnter: () => {
-            editor?.clear?.();
-            codeEditor?.hide?.();
-            imageViewer?.hide?.();
-            spreadsheetViewer?.hide?.();
-            pdfViewer?.hide?.();
-        },
+    getEditor: () => editor,
+    getCodeEditor: () => codeEditor,
+    getMarkdownCodeMode: () => markdownCodeMode,
+    getCurrentFile: () => currentFile,
+    setHasUnsavedChanges: (value) => {
+        hasUnsavedChanges = value;
     },
-};
+    saveCurrentEditorContentToCache: () => {
+        saveCurrentEditorContentToCache();
+    },
+    persistWorkspaceState,
+    updateWindowTitle,
+    fileSession,
+});
+const {
+    insertTextIntoActiveEditor,
+    toggleMarkdownCodeMode,
+    requestActiveEditorContext,
+} = editorActions;
 
-function clampZoomValue(value) {
-    if (!Number.isFinite(value)) {
-        return ZOOM_DEFAULT;
-    }
-    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
-}
+const layoutControls = createLayoutControls({
+    getStatusBarController: () => statusBarController,
+    getPluginManager: () => pluginManager,
+});
+const {
+    setSidebarVisibility,
+    toggleSidebarVisibility,
+    toggleStatusBarVisibility,
+    showAiSidebar,
+    hideAiSidebar,
+    toggleAiSidebarVisibility,
+} = layoutControls;
 
-function isZoomSupportedView(mode) {
-    return ZOOM_SUPPORTED_VIEWS.has(mode);
-}
-
-function applyContentZoom() {
-    const root = document.documentElement;
-    if (root) {
-        root.style.setProperty('--content-zoom', contentZoom.toString());
-        root.style.setProperty('--editor-zoom-scale', contentZoom.toString());
-    }
-    codeEditor?.setZoomScale?.(contentZoom);
-    imageViewer?.setZoomScale?.(contentZoom);
-    spreadsheetViewer?.setZoomScale?.(contentZoom);
-    updateZoomDisplayForActiveView();
-}
-
-function setContentZoom(nextZoom, { silent } = {}) {
-    const clamped = clampZoomValue(nextZoom);
-    if (Math.abs(clamped - contentZoom) < 0.001 && !silent) {
-        return;
-    }
-    contentZoom = clamped;
-    applyContentZoom();
-}
-
-function adjustContentZoom(delta) {
-    setContentZoom(contentZoom + delta);
-}
-
-function updateZoomDisplayForActiveView() {
-    const supported = isZoomSupportedView(activeViewMode);
-    statusBarController?.setZoomVisibility?.(supported);
-    if (!supported) {
-        return;
-    }
-    if (activeViewMode === 'pdf') {
-        const zoomState = pdfViewer?.getZoomState?.() || pdfZoomState;
-        pdfZoomState = zoomState || pdfZoomState;
-        statusBarController?.updateZoomDisplay?.(pdfZoomState);
-        return;
-    }
-    statusBarController?.updateZoomDisplay?.({
-        zoomValue: contentZoom,
-        canZoomIn: contentZoom < ZOOM_MAX - 0.001,
-        canZoomOut: contentZoom > ZOOM_MIN + 0.001,
-    });
-}
-
-function handleZoomControl(delta) {
-    if (activeViewMode === 'pdf') {
-        void pdfViewer?.adjustZoomScale?.(delta);
-        return;
-    }
-    adjustContentZoom(delta);
-}
-
-function setActiveViewMode(nextMode) {
-    const config = VIEW_MODE_BEHAVIORS[nextMode];
-    if (!config) {
-        return;
-    }
-    if (activeViewMode === 'markdown' && nextMode !== 'markdown') {
-        rememberMarkdownScrollPosition(currentFile, activeViewMode);
-    }
-
-    Object.entries(VIEW_MODE_BEHAVIORS).forEach(([mode, entry]) => {
-        const pane = entry.getPane?.();
-        if (!pane) {
-            return;
-        }
-        if (mode === nextMode) {
-            pane.classList.add('is-active');
-        } else {
-            pane.classList.remove('is-active');
-        }
-    });
-
-    config.onEnter?.();
-
-    if (viewContainerElement) {
-        const shouldHideContainerScroll = nextMode === 'code';
-        viewContainerElement.style.overflowY = shouldHideContainerScroll ? 'hidden' : '';
-        if (nextMode === 'markdown') {
-            restoreMarkdownScrollPosition(currentFile);
-        } else {
-            viewContainerElement.scrollTop = 0;
-        }
-    }
-
-    if (nextMode !== 'pdf') {
-        statusBarController?.setPageInfo?.('');
-    }
-    activeViewMode = nextMode;
-    updateZoomDisplayForActiveView();
-    void updateExportMenuState();
-}
 
 documentIO = createDocumentIO({
     eventBus,
@@ -655,86 +330,6 @@ mcpHandler = createMcpHandler({
 
 if (typeof window !== 'undefined') {
     window.__MARK2_MCP__ = mcpHandler;
-}
-
-/**
- * 激活 Markdown 视图并隐藏其余面板。
- */
-function activateMarkdownView() {
-    setActiveViewMode('markdown');
-}
-/**
- * 激活代码编辑器视图并隐藏其他面板。
- */
-function activateCodeView() {
-    setActiveViewMode('code');
-}
-/**
- * 激活图片预览视图并隐藏其他面板。
- */
-function activateImageView() {
-    setActiveViewMode('image');
-}
-/**
- * 激活表格视图。
- */
-function activateSpreadsheetView() {
-    setActiveViewMode('spreadsheet');
-}
-/**
- * 激活 PDF 视图。
- */
-function activatePdfView() {
-    setActiveViewMode('pdf');
-}
-/**
- * 切换到不受支持文件的提示视图。
- */
-function activateUnsupportedView() {
-    setActiveViewMode('unsupported');
-}
-
-function setSidebarVisibility(hidden) {
-    const body = document.body;
-    const sidebar = document.getElementById('sidebar');
-    const resizer = document.getElementById('sidebarResizer');
-    if (!body || !sidebar || !resizer) {
-        return;
-    }
-
-    if (hidden && !isSidebarHidden) {
-        const currentWidth = sidebar.style.width;
-        sidebar.dataset.previousWidth = currentWidth ?? '';
-    }
-
-    if (hidden) {
-        body.classList.add('is-sidebar-hidden');
-        sidebar.setAttribute('aria-hidden', 'true');
-        resizer.setAttribute('aria-hidden', 'true');
-    } else {
-        body.classList.remove('is-sidebar-hidden');
-        sidebar.removeAttribute('aria-hidden');
-        resizer.removeAttribute('aria-hidden');
-        const previousWidth = sidebar.dataset.previousWidth;
-        if (typeof previousWidth === 'string') {
-            if (previousWidth.length > 0) {
-                sidebar.style.width = previousWidth;
-            } else {
-                sidebar.style.removeProperty('width');
-            }
-        }
-        delete sidebar.dataset.previousWidth;
-    }
-
-    isSidebarHidden = hidden;
-}
-
-function toggleSidebarVisibility() {
-    setSidebarVisibility(!isSidebarHidden);
-}
-
-function toggleStatusBarVisibility() {
-    statusBarController?.toggleStatusBarVisibility();
 }
 
 /**
@@ -863,7 +458,16 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 async function initializeApplication() {
 
-    await ensureCoreModules();
+    const coreModules = await loadCoreModules();
+    MarkdownEditorCtor = coreModules.MarkdownEditor;
+    CodeEditorCtor = coreModules.CodeEditor;
+    ImageViewerCtor = coreModules.ImageViewer;
+    SpreadsheetViewerCtor = coreModules.SpreadsheetViewer;
+    PdfViewerCtor = coreModules.PdfViewer;
+    UnsupportedViewerCtor = coreModules.UnsupportedViewer;
+    FileTreeCtor = coreModules.FileTree;
+    TabManagerCtor = coreModules.TabManager;
+    SettingsDialogCtor = coreModules.SettingsDialog;
 
     // 初始化插件系统
     pluginManager = new PluginManager({
@@ -1137,7 +741,10 @@ function saveCurrentEditorContentToCache() {
  * 打开设置对话框并确保依赖加载完毕。
  */
 async function openSettingsDialog() {
-    await ensureCoreModules();
+    if (!SettingsDialogCtor) {
+        const coreModules = await loadCoreModules();
+        SettingsDialogCtor = coreModules.SettingsDialog;
+    }
 
     if (!settingsDialog) {
         settingsDialog = new SettingsDialogCtor({
@@ -1199,35 +806,6 @@ async function loadAvailableFonts() {
     }
 }
 
-async function toggleMarkdownCodeMode() {
-    if (!markdownCodeMode) {
-        return;
-    }
-
-    const result = await markdownCodeMode.toggle({
-        currentFile,
-        activeViewMode,
-        editor,
-        codeEditor,
-    });
-
-    if (!result.changed) {
-        return;
-    }
-
-    activeViewMode = result.nextViewMode;
-    hasUnsavedChanges = result.hasUnsavedChanges;
-
-    fileSession.saveCurrentEditorContentToCache({
-        currentFile,
-        activeViewMode,
-        editor,
-        codeEditor,
-    });
-    persistWorkspaceState();
-    void updateWindowTitle();
-}
-
 /**
  * 根据当前文件状态动态更新窗口标题。
  */
@@ -1279,119 +857,6 @@ async function updateWindowTitle() {
     } catch (error) {
         console.error('更新窗口标题失败:', error);
     }
-}
-
-async function requestActiveEditorContext(options = {}) {
-    const preferSelection = options?.preferSelection !== false;
-    const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
-    const activeFile = currentFile;
-
-    if (!activeFile) {
-        return '';
-    }
-
-    const readFromSession = async () => {
-        try {
-            const data = await fileSession.getFileContent(activeFile);
-            return normalize(data?.content ?? '');
-        } catch (_error) {
-            return '';
-        }
-    };
-
-    const readMarkdownSelection = () => {
-        if (editor?.currentFile !== activeFile) {
-            return '';
-        }
-        return normalize(editor?.getSelectedMarkdown?.());
-    };
-
-    const readMarkdownFull = () => {
-        if (editor?.currentFile !== activeFile) {
-            return '';
-        }
-        return normalize(editor?.getMarkdown?.());
-    };
-
-    const readCodeSelection = () => {
-        if (codeEditor?.currentFile !== activeFile) {
-            return '';
-        }
-        return normalize(codeEditor?.getSelectionText?.());
-    };
-
-    const readCodeFull = () => {
-        if (codeEditor?.currentFile !== activeFile) {
-            return '';
-        }
-        return normalize(codeEditor?.getValue?.());
-    };
-
-    if (activeViewMode === 'code') {
-        if (preferSelection) {
-            const codeSelection = readCodeSelection();
-            if (codeSelection) {
-                return codeSelection;
-            }
-            const markdownSelection = readMarkdownSelection();
-            if (markdownSelection) {
-                return markdownSelection;
-            }
-        }
-
-        const fullCode = readCodeFull();
-        if (fullCode) {
-            return fullCode;
-        }
-
-        const markdownFallback = readMarkdownFull();
-        if (markdownFallback) {
-            return markdownFallback;
-        }
-
-        return await readFromSession();
-    }
-
-    if (preferSelection) {
-        const markdownSelection = readMarkdownSelection();
-        if (markdownSelection) {
-            return markdownSelection;
-        }
-    }
-
-    const fullMarkdown = readMarkdownFull();
-    if (fullMarkdown) {
-        return fullMarkdown;
-    }
-
-    if (preferSelection) {
-        const codeSelection = readCodeSelection();
-        if (codeSelection) {
-            return codeSelection;
-        }
-    }
-
-    const codeFallback = readCodeFull();
-    if (codeFallback) {
-        return codeFallback;
-    }
-
-    return await readFromSession();
-}
-
-function showAiSidebar() {
-    const aiApi = pluginManager?.getPluginApi('ai-assistant');
-    aiApi?.showSidebar();
-}
-
-function hideAiSidebar() {
-    const aiApi = pluginManager?.getPluginApi('ai-assistant');
-    aiApi?.hideSidebar();
-}
-
-function toggleAiSidebarVisibility() {
-    const aiApi = pluginManager?.getPluginApi('ai-assistant');
-    aiApi?.toggleSidebar();
 }
 
 /**
