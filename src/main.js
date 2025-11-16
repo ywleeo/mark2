@@ -766,6 +766,10 @@ function handleTabReorder(reorderPayload) {
     if (!reorderPayload || !Array.isArray(reorderPayload.storageOrder)) {
         return;
     }
+    if (typeof fileTree?.reorderOpenFiles === 'function') {
+        fileTree.reorderOpenFiles(reorderPayload.storageOrder);
+        return;
+    }
     fileTree?.restoreOpenFiles(reorderPayload.storageOrder);
 }
 

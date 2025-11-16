@@ -16,6 +16,7 @@ export class TabManager {
         this.draggedTabId = null;
         this.pointerDragState = null;
         this.pendingDragCandidate = null;
+        this.isDraggingTabs = false;
         this.handleGlobalPointerMove = this.handleGlobalPointerMove.bind(this);
         this.handleGlobalPointerUp = this.handleGlobalPointerUp.bind(this);
         if (typeof window !== 'undefined') {
@@ -313,6 +314,9 @@ export class TabManager {
                 tabElement.appendChild(closeButton);
 
                 const cleanup2 = addClickHandler(tabElement, () => {
+                    if (this.isDraggingTabs) {
+                        return;
+                    }
                     this.setActiveTab(tab.id);
                 });
                 this.cleanupFunctions.push(cleanup2);
@@ -512,6 +516,7 @@ export class TabManager {
             startScrollLeft: this.container.scrollLeft,
         };
 
+        this.isDraggingTabs = true;
         this.pendingDragCandidate = null;
 
         if (typeof tabElement.setPointerCapture === 'function') {
@@ -619,6 +624,7 @@ export class TabManager {
 
             this.pointerDragState = null;
             this.draggedTabId = null;
+            this.isDraggingTabs = false;
             this.applyFileTabReorder(state.tabId, targetIndex);
             return;
         }
@@ -645,6 +651,7 @@ export class TabManager {
         this.pointerDragState = null;
         this.draggedTabId = null;
         this.pendingDragCandidate = null;
+        this.isDraggingTabs = false;
         this.container?.classList.remove('tab-dragging');
     }
 

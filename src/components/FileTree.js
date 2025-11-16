@@ -632,7 +632,8 @@ export class FileTree {
         this.onOpenFilesChange?.([...this.openFiles]);
     }
 
-    renderOpenFiles() {
+    renderOpenFiles(options = {}) {
+        const { skipWatch = false } = options;
         const contentDiv = this.container.querySelector('#openFilesContent');
 
         if (this.openFiles.length === 0) {
@@ -643,9 +644,11 @@ export class FileTree {
         contentDiv.innerHTML = '';
 
         this.openFiles.forEach(path => {
-            this.watchFile(path).catch(error => {
-                console.error('监听文件失败:', error);
-            });
+            if (!skipWatch) {
+                this.watchFile(path).catch(error => {
+                    console.error('监听文件失败:', error);
+                });
+            }
 
             const fileName = path.split('/').pop();
             const item = document.createElement('div');
@@ -1045,6 +1048,48 @@ export class FileTree {
 
         this.openFiles = normalized;
         this.renderOpenFiles();
+        this.onOpenFilesChange?.([...this.openFiles]);
+    }
+
+    reorderOpenFiles(paths = []) {
+        if (!Array.isArray(paths) || paths.length === 0) {
+            return;
+        }
+
+        const seen = new Set();
+        const existing = new Set(this.openFiles);
+        const normalized = [];
+
+        paths.forEach((path) => {
+            const normalizedPath = this.normalizePath(path);
+            if (!normalizedPath || seen.has(normalizedPath) || !existing.has(normalizedPath)) {
+                return;
+            }
+            seen.add(normalizedPath);
+            normalized.push(normalizedPath);
+            existing.delete(normalizedPath);
+        });
+
+        if (normalized.length === 0) {
+            return;
+        }
+
+        if (existing.size > 0) {
+            this.openFiles.forEach((path) => {
+                if (!seen.has(path)) {
+                    normalized.push(path);
+                }
+            });
+        }
+
+        const isSameOrder = normalized.length === this.openFiles.length
+            && normalized.every((path, index) => this.openFiles[index] === path);
+        if (isSameOrder) {
+            return;
+        }
+
+        this.openFiles = normalized;
+        this.renderOpenFiles({ skipWatch: true });
         this.onOpenFilesChange?.([...this.openFiles]);
     }
 
