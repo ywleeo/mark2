@@ -186,6 +186,8 @@ export class CodeEditor {
             insertSpaces: true,
             detectIndentation: false,
             readOnly: true,
+            wordWrap: 'on',
+            padding: { top: 5, bottom: 5},
             scrollbar: {
                 verticalScrollbarSize: 8,
                 horizontalScrollbarSize: 8,

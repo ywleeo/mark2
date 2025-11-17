@@ -18,6 +18,10 @@
     width: 100%;
 }
 
+.code-editor-pane .monaco-editor .lines-content {
+    padding-left: 3px !important;
+}
+
 .code-editor-pane .monaco-editor,
 .code-editor-pane .monaco-editor-background {
     background: var(--content-bg, #ffffff);
