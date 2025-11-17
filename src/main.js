@@ -456,7 +456,6 @@ document.addEventListener('DOMContentLoaded', () => {
  * 执行应用初始化流程，构建 UI 并加载配置。
  */
 async function initializeApplication() {
-
     const coreModules = await loadCoreModules();
     MarkdownEditorCtor = coreModules.MarkdownEditor;
     CodeEditorCtor = coreModules.CodeEditor;
@@ -673,6 +672,9 @@ async function initializeApplication() {
     codeEditor.applyPreferences?.(editorSettings);
     // 保存一次以更新 localStorage 中的旧数据（如旧主题名）
     saveEditorSettings(editorSettings);
+
+    // 设置主题切换按钮
+    setupThemeToggle();
 
     settingsDialog = new SettingsDialogCtor({
         onSubmit: handleSettingsSubmit,
@@ -903,4 +905,49 @@ function cleanupResources() {
         appearanceChangeCleanup();
         appearanceChangeCleanup = null;
     }
+}
+
+/**
+ * 设置自定义标题栏的窗口控制按钮
+ */
+function setupTitlebarControls() {
+    const closeBtn = document.getElementById('titlebar-close');
+    const minimizeBtn = document.getElementById('titlebar-minimize');
+    const maximizeBtn = document.getElementById('titlebar-maximize');
+    const appWindow = getCurrentWindow();
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => appWindow.close());
+    }
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', () => appWindow.minimize());
+    }
+    if (maximizeBtn) {
+        maximizeBtn.addEventListener('click', async () => {
+            const isMaximized = await appWindow.isMaximized();
+            if (isMaximized) {
+                await appWindow.unmaximize();
+            } else {
+                await appWindow.maximize();
+            }
+        });
+    }
+}
+
+/**
+ * 设置主题切换按钮
+ */
+function setupThemeToggle() {
+    const toggleBtn = document.getElementById('theme-toggle');
+    if (!toggleBtn) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const root = document.documentElement;
+        const currentAppearance = root.dataset.themeAppearance;
+        const newAppearance = currentAppearance === 'dark' ? 'light' : 'dark';
+        
+        editorSettings.appearance = newAppearance;
+        applyEditorSettings(editorSettings);
+        saveEditorSettings(editorSettings);
+    });
 }
