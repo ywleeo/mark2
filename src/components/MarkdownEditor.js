@@ -353,7 +353,9 @@ export class MarkdownEditor {
             return this.originalMarkdown;
         }
         const html = this.editor.getHTML();
-        return this.turndownService.turndown(html);
+        // 移除 TipTap 在列表项中生成的 <p> 标签，避免 Turndown 产生多余空行
+        const cleanedHtml = html.replace(/<li([^>]*)><p>/g, '<li$1>').replace(/<\/p><\/li>/g, '</li>');
+        return this.turndownService.turndown(cleanedHtml);
     }
 
     clearAutoSaveTimer() {

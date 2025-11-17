@@ -394,5 +394,46 @@ export function createConfiguredTurndownService() {
         },
     });
 
+    // 覆盖默认列表项规则，避免 TipTap 生成的 <li><p>...</p></li> 产生多余空行
+    turndownService.addRule('listItemNoExtraBlankLine', {
+        filter: 'li',
+        replacement: function (content, node, options) {
+            // 任务列表项由上面的规则处理
+            const dataType = node.getAttribute('data-type') || (node.dataset ? node.dataset.type : null);
+            if (dataType === TASK_ITEM_TYPE) {
+                return '';
+            }
+
+            // 移除 TipTap 段落标签产生的多余换行
+            content = content
+                .replace(/^\n+/, '')
+                .replace(/\n+$/, '\n')
+                .replace(/\n\n+/g, '\n');
+
+            let prefix = options.bulletListMarker + ' ';
+            const parent = node.parentNode;
+            if (parent && parent.nodeName === 'OL') {
+                const start = parent.getAttribute('start');
+                const index = Array.prototype.indexOf.call(parent.children, node);
+                prefix = (start ? Number(start) + index : index + 1) + '. ';
+            }
+
+            // 多行内容缩进对齐
+            content = content.replace(/\n/gm, '\n    ');
+
+            return prefix + content + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
+        }
+    });
+
+    // 覆盖列表规则，清理 TipTap 产生的多余空行
+    turndownService.addRule('listNoExtraBlankLines', {
+        filter: ['ul', 'ol'],
+        replacement: function (content, node) {
+            // 清理列表项之间的多余空行
+            const cleaned = content.replace(/\n\n+/g, '\n').trim();
+            return '\n\n' + cleaned + '\n\n';
+        }
+    });
+
     return turndownService;
 }

@@ -446,6 +446,10 @@ body.is-status-bar-hidden .status-bar {
     font-size: 12px;
 }
 
+.status-item-progress.is-dirty .status-progress-indicator {
+    display: none;
+}
+
 .status-item-progress.is-success .status-progress-indicator::before {
     content: '✓';
     color: var(--status-success, rgba(107, 226, 117, 0.85));

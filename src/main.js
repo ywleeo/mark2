@@ -811,13 +811,10 @@ async function loadAvailableFonts() {
 async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
-        let windowTitle = 'Mark2';
         let wordCount = 0;
         let lastModified = '';
 
         if (currentFile) {
-            const fileName = currentFile.split('/').pop() || currentFile;
-
             // 获取字数
             wordCount = statusBarController
                 ? statusBarController.calculateWordCount({ activeViewMode, editor, codeEditor })
@@ -827,23 +824,6 @@ async function updateWindowTitle() {
             lastModified = statusBarController
                 ? (await statusBarController.getLastModifiedTime(currentFile)) ?? ''
                 : '';
-
-            // 构建标题
-            const parts = [fileName];
-
-            if (wordCount > 0) {
-                parts.push(`${wordCount} 字`);
-            }
-
-            if (lastModified) {
-                parts.push(lastModified);
-            }
-
-            if (hasUnsavedChanges) {
-                parts.push('已编辑');
-            }
-
-            windowTitle = hasUnsavedChanges ? `${fileName} • 已编辑` : fileName;
         }
 
         statusBarController?.updateStatusBar({
@@ -852,7 +832,15 @@ async function updateWindowTitle() {
             lastModified,
             isDirty: hasUnsavedChanges,
         });
-        await window.setTitle(windowTitle);
+
+        // 在 progress 区域显示编辑状态
+        if (hasUnsavedChanges) {
+            statusBarController?.showProgress('已编辑', { state: 'dirty' });
+        } else {
+            statusBarController?.hideProgress();
+        }
+
+        await window.setTitle('Mark2');
     } catch (error) {
         console.error('更新窗口标题失败:', error);
     }

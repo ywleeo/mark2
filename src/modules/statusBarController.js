@@ -65,12 +65,15 @@ export function createStatusBarController({
         progressHideTimer = null;
 
         statusBarProgressElement.classList.add('is-active');
-        statusBarProgressElement.classList.remove('is-success', 'is-error');
+        statusBarProgressElement.classList.remove('is-success', 'is-error', 'is-dirty');
         if (state === 'success') {
             statusBarProgressElement.classList.add('is-success');
         }
         if (state === 'error') {
             statusBarProgressElement.classList.add('is-error');
+        }
+        if (state === 'dirty') {
+            statusBarProgressElement.classList.add('is-dirty');
         }
         statusBarProgressElement.removeAttribute('aria-hidden');
 
@@ -87,7 +90,7 @@ export function createStatusBarController({
         }
 
         const clearState = () => {
-            statusBarProgressElement.classList.remove('is-active', 'is-success', 'is-error');
+            statusBarProgressElement.classList.remove('is-active', 'is-success', 'is-error', 'is-dirty');
             statusBarProgressElement.setAttribute('aria-hidden', 'true');
             if (statusBarProgressTextElement) {
                 statusBarProgressTextElement.textContent = '';
@@ -113,7 +116,7 @@ export function createStatusBarController({
         setStatusBarVisibility(!isStatusBarHidden);
     }
 
-    function updateStatusBar({ filePath, wordCount, lastModified, isDirty } = {}) {
+    function updateStatusBar({ filePath, wordCount, lastModified } = {}) {
         if (filePath && typeof filePath === 'string') {
             statusBarFilePathElement.textContent = filePath;
             statusBarFilePathElement.title = filePath;
@@ -125,9 +128,6 @@ export function createStatusBarController({
         let wordCountText = '';
         if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
             wordCountText = `${wordCount} 字`;
-        }
-        if (isDirty) {
-            wordCountText = wordCountText.length > 0 ? `${wordCountText}（已编辑）` : '已编辑';
         }
         statusBarWordCountElement.textContent = wordCountText;
 
