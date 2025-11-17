@@ -4,9 +4,9 @@
     --titlebar-height: 28px;
     --status-bar-height: 28px;
     --scrollbar-size: 6px;
-    --scrollbar-thumb-color: rgba(255, 255, 255, 0.25);
-    --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.45);
-    --scrollbar-track-color: rgba(255, 255, 255, 0.12);
+    --scrollbar-thumb-color: rgba(0, 0, 0, 0.25);
+    --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.45);
+    --scrollbar-track-color: rgba(0, 0, 0, 0.06);
     --sidebar-bg: #f5f6f8;
     --content-bg: #ffffff;
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);

@@ -310,12 +310,40 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
 }
 
 .ai-sidebar__todos {
     flex: 0 0 auto;
     max-height: 200px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+}
+
+.ai-sidebar__messages::-webkit-scrollbar,
+.ai-sidebar__todos::-webkit-scrollbar {
+    width: var(--scrollbar-size, 2px);
+    height: var(--scrollbar-size, 2px);
+    -webkit-appearance: none;
+}
+
+.ai-sidebar__messages::-webkit-scrollbar-track,
+.ai-sidebar__todos::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-color, #f1f3f4);
+}
+
+.ai-sidebar__messages::-webkit-scrollbar-thumb,
+.ai-sidebar__todos::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color);
+    border-radius: 2px;
+    transition: background 0.2s ease;
+}
+
+.ai-sidebar__messages::-webkit-scrollbar-thumb:hover,
+.ai-sidebar__todos::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-color);
 }
 
 .ai-message {
@@ -410,7 +438,8 @@
 }
 
 .ai-message__content--markdown pre {
-    margin: 0 0 0.75em;
+    margin: 0 0 1em;
+    scrollbar-width: thin;
     padding: 10px 12px;
     background-color: var(--ai-code-block-bg, #f4f4f5);
     border-radius: 6px;
