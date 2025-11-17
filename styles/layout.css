@@ -67,7 +67,7 @@
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.52);
     --scrollbar-track-color: rgba(255, 255, 255, 0.15);
     --sidebar-bg: #2e2e2e;
-    --content-bg: #353536;
+    --content-bg: rgb(30, 30, 30);
     --sidebar-resizer-active: rgba(255, 255, 255, 0.18);
     --body-text-color: rgba(235, 239, 247, 0.95);
     --tab-border-accent: #d57b9f;
