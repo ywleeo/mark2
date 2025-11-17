@@ -108,8 +108,8 @@
     --ai-blockquote-border: rgba(255, 255, 255, 0.25);
     --ai-blockquote-text: rgba(222, 229, 245, 0.9);
     --ai-link: #7dd3fc;
-    --ai-think-bg: rgba(32, 43, 58, 0.85);
-    --ai-think-text: #d8e4f8;
+    --ai-think-bg: rgba(40, 44, 61, 0.85);
+    --ai-think-text: #bbbec2;
     --ai-think-strong: #c2d0ea;
     --ai-think-muted: #98accb;
     --ai-think-highlight: #a8c5fc;
