@@ -4,7 +4,7 @@ export function setupKeyboardShortcuts({
     onCloseTab,
     onFind,
     onSelectSearchMatches,
-    onToggleSidebar,
+    // onToggleSidebar 由 Tauri 菜单统一处理
     onToggleMarkdownCodeView,
     onToggleAiSidebar,
 }) {
@@ -44,13 +44,8 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        if (isMeta && key === 'k') {
-            event.preventDefault();
-            if (onToggleSidebar) {
-                await onToggleSidebar();
-            }
-            return;
-        }
+        // cmd+k 由 Tauri 菜单统一处理，这里不再监听
+        // 避免与原生菜单快捷键冲突
 
         if (isMeta && key === 'e') {
             event.preventDefault();

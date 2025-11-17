@@ -221,7 +221,7 @@ body.is-sidebar-hidden #sidebarResizer {
 }
 
 body.is-sidebar-hidden .content-wrapper {
-    width: 100%;
+    flex: 1 1 100%;
 }
 
 .sidebar-resizer {
