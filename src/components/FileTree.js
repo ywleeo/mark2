@@ -289,9 +289,22 @@ export class FileTree {
             console.error('读取文件夹失败:', error);
         } finally {
             this.restoreScrollPositions(scrollSnapshot);
+            // 刷新后重新应用当前文件的选中状态
+            this.reapplyCurrentFileSelection();
             if (stateChanged) {
                 this.emitStateChange();
             }
+        }
+    }
+
+    reapplyCurrentFileSelection() {
+        if (!this.currentFile) return;
+        const normalized = this.normalizePath(this.currentFile);
+        if (!normalized) return;
+
+        const fileItem = this.container.querySelector(`.tree-file[data-path="${normalized}"]`);
+        if (fileItem && !fileItem.classList.contains('selected')) {
+            fileItem.classList.add('selected');
         }
     }
 

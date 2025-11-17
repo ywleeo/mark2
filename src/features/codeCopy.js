@@ -133,11 +133,17 @@ export class CodeCopyManager {
         button.addEventListener('mousedown', this.handleCopyButtonMouseDown);
         button.addEventListener('click', this.handleCopyButtonClick);
 
-        if (!document.body) {
+        if (!this.element) {
             return;
         }
 
-        document.body.appendChild(button);
+        // 确保容器有正确的定位上下文
+        const containerStyle = window.getComputedStyle(this.element);
+        if (containerStyle.position === 'static') {
+            this.element.style.position = 'relative';
+        }
+
+        this.element.appendChild(button);
 
         this.codeCopyButton = button;
 
@@ -198,21 +204,20 @@ export class CodeCopyManager {
 
     // 定位复制按钮
     positionCodeCopyButton(pre) {
-        if (!this.codeCopyButton || !pre) {
+        if (!this.codeCopyButton || !pre || !this.element) {
             return;
         }
 
-        const rect = pre.getBoundingClientRect();
+        const preRect = pre.getBoundingClientRect();
+        const containerRect = this.element.getBoundingClientRect();
         const buttonWidth = this.codeCopyButton.offsetWidth || COPY_BUTTON_SIZE;
 
-        const offsetTop = Math.max(COPY_BUTTON_OFFSET, rect.top + COPY_BUTTON_OFFSET);
-        const offsetLeft = Math.min(
-            window.innerWidth - buttonWidth - COPY_BUTTON_OFFSET,
-            rect.right - buttonWidth - COPY_BUTTON_OFFSET
-        );
+        // 计算 pre 相对于容器的位置
+        const relativeTop = preRect.top - containerRect.top + this.element.scrollTop;
+        const relativeRight = preRect.right - containerRect.left;
 
-        const top = Math.max(COPY_BUTTON_OFFSET, offsetTop);
-        const left = Math.max(COPY_BUTTON_OFFSET, offsetLeft);
+        const top = relativeTop + COPY_BUTTON_OFFSET;
+        const left = relativeRight - buttonWidth - COPY_BUTTON_OFFSET;
 
         this.codeCopyButton.style.top = `${top}px`;
         this.codeCopyButton.style.left = `${left}px`;

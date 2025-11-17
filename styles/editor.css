@@ -116,7 +116,7 @@
 
 /* 代码块复制按钮 */
 .code-copy-button {
-    position: fixed;
+    position: absolute;
     top: -9999px;
     left: -9999px;
     display: flex;
