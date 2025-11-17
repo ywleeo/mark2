@@ -89,6 +89,10 @@
     position: relative;
 }
 
+.tiptap-editor .mermaid:empty {
+    display: none;
+}
+
 .tiptap-editor .mermaid .mermaid-source {
     display: none;
 }
