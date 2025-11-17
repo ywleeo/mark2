@@ -8,7 +8,6 @@ export function createNavigationController({
     loadFile,
     fileSession,
     persistWorkspaceState,
-    confirm,
     saveFile,
     getActiveViewMode,
     getEditor,
@@ -40,9 +39,6 @@ export function createNavigationController({
     }
     if (typeof persistWorkspaceState !== 'function') {
         throw new Error('navigationController 需要提供 persistWorkspaceState');
-    }
-    if (typeof confirm !== 'function') {
-        throw new Error('navigationController 需要提供 confirm');
     }
     if (typeof saveFile !== 'function') {
         throw new Error('navigationController 需要提供 saveFile');
@@ -161,27 +157,19 @@ export function createNavigationController({
 
         if (tab.type === 'file' && tab.path) {
             const targetPath = tab.path;
+
+            // 清除自动保存定时器
+            const editor = getEditor();
+            editor?.clearAutoSaveTimer?.();
+
             const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
             if (hasChanges) {
-                const fileName = targetPath.split('/').pop() || targetPath;
-                const shouldSave = await confirm(
-                    `文件 "${fileName}" 有未保存的更改，是否保存？`,
-                    {
-                        title: '保存确认',
-                        kind: 'warning',
-                        okLabel: '保存',
-                        cancelLabel: '不保存',
-                    }
-                );
-
-                if (shouldSave) {
-                    const saved = await saveFile(targetPath);
-                    if (!saved) {
-                        return;
-                    }
+                // 直接保存，不弹确认框
+                const saved = await saveFile(targetPath);
+                if (!saved) {
+                    return;
                 }
-
                 fileSession.clearEntry(targetPath);
             }
 
@@ -236,27 +224,19 @@ export function createNavigationController({
         if (tab.type === 'shared') {
             if (tab.path) {
                 const targetPath = tab.path;
+
+                // 清除自动保存定时器
+                const editor = getEditor();
+                editor?.clearAutoSaveTimer?.();
+
                 const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
                 if (hasChanges) {
-                    const fileName = targetPath.split('/').pop() || targetPath;
-                    const shouldSave = await confirm(
-                        `文件 "${fileName}" 有未保存的更改，是否保存？`,
-                        {
-                            title: '保存确认',
-                            kind: 'warning',
-                            okLabel: '保存',
-                            cancelLabel: '不保存',
-                        }
-                    );
-
-                    if (shouldSave) {
-                        const saved = await saveFile(targetPath);
-                        if (!saved) {
-                            return;
-                        }
+                    // 直接保存，不弹确认框
+                    const saved = await saveFile(targetPath);
+                    if (!saved) {
+                        return;
                     }
-
                     fileSession.clearEntry(targetPath);
                 }
 

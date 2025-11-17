@@ -65,7 +65,13 @@ export function createDocumentSnapshotSyncController(options = {}) {
     let documentSyncTimer = null;
 
     async function syncDocumentSnapshot() {
-        const snapshot = readSnapshot();
+        let snapshot;
+        try {
+            snapshot = readSnapshot();
+        } catch (_error) {
+            // 没有打开文档时忽略
+            return;
+        }
         if (!snapshot || typeof options.invoke !== 'function') {
             return;
         }

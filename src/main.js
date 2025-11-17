@@ -402,7 +402,6 @@ const {
     loadFile,
     fileSession,
     persistWorkspaceState,
-    confirm,
     saveFile,
     getActiveViewMode: () => activeViewMode,
     getEditor: () => editor,
