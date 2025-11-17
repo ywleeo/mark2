@@ -1,4 +1,5 @@
 import { Editor } from '@tiptap/core';
+import { EditorState } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
@@ -282,7 +283,22 @@ export class MarkdownEditor {
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.callbacks.onContentChange?.();
         this.scheduleMermaidRender();
+        this.resetUndoHistory();
         return true;
+    }
+
+    resetUndoHistory() {
+        if (!this.editor || !this.editor.view) {
+            return;
+        }
+        // 创建全新的 EditorState，保留内容和插件但清除历史
+        const { state } = this.editor;
+        const newState = EditorState.create({
+            doc: state.doc,
+            plugins: state.plugins,
+            selection: state.selection,
+        });
+        this.editor.view.updateState(newState);
     }
 
     prepareForDocument(session, filePath) {
