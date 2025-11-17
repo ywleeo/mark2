@@ -10,6 +10,8 @@ import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
 import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../config/monaco-python.js';
+import { getAppServices } from '../services/appServices.js';
+import { normalizeFsPath } from '../utils/pathUtils.js';
 
 const MODEL_SCHEME = 'inmemory';
 const DEFAULT_CODE_FONT_SIZE = 14;
@@ -110,6 +112,15 @@ export class CodeEditor {
         this.documentSessions = options?.documentSessions || null;
         this.currentSessionId = null;
         this.loadingSessionId = null;
+
+        // 自动保存相关
+        this.autoSaveDelayMs = Number.isFinite(options.autoSaveDelayMs)
+            ? Math.max(500, options.autoSaveDelayMs)
+            : 3000;
+        this.autoSaveTimer = null;
+        this.isSaving = false;
+        this.activeSavePromise = null;
+        this.autoSavePlannedSessionId = null;
 
         this.handleResize = () => this.requestLayout();
         this.tapGuardState = null;
@@ -373,6 +384,7 @@ export class CodeEditor {
             this.isDirty = currentVersion !== this.baseVersion;
             this.callbacks.onContentChange?.();
             this.notifyContentMutation();
+            this.scheduleAutoSave();
         });
     }
 
@@ -440,6 +452,7 @@ export class CodeEditor {
     }
 
     clear() {
+        this.cancelAutoSave();
         this.currentFile = null;
         this.currentLanguage = null;
         this.currentSessionId = null;
@@ -486,6 +499,90 @@ export class CodeEditor {
         this.callbacks.onContentChange?.();
     }
 
+    scheduleAutoSave() {
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+        }
+        if (!this.isDirty || !this.currentFile) {
+            return;
+        }
+        const sessionId = this.currentSessionId;
+        this.autoSavePlannedSessionId = sessionId;
+        this.autoSaveTimer = setTimeout(() => {
+            this.autoSaveTimer = null;
+            if (this.autoSavePlannedSessionId !== sessionId) {
+                return;
+            }
+            this.autoSavePlannedSessionId = null;
+            this.performAutoSave(sessionId);
+        }, this.autoSaveDelayMs);
+    }
+
+    cancelAutoSave() {
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
+            this.autoSaveTimer = null;
+        }
+        this.autoSavePlannedSessionId = null;
+    }
+
+    async performAutoSave(sessionId = null) {
+        if (!this.isDirty || !this.currentFile) {
+            return;
+        }
+        if (sessionId && !this.isSessionActive(sessionId)) {
+            return;
+        }
+        if (this.isSaving) {
+            this.scheduleAutoSave();
+            return;
+        }
+
+        const filePath = this.currentFile;
+        const content = this.getValue();
+        const localWriteKey = normalizeFsPath(filePath) || filePath;
+
+        this.isSaving = true;
+        const savePromise = (async () => {
+            try {
+                const services = getAppServices();
+                if (localWriteKey && this.documentSessions?.markLocalWrite) {
+                    this.documentSessions.markLocalWrite(localWriteKey);
+                }
+                await services.file.writeText(filePath, content);
+                if (!sessionId || sessionId === this.currentSessionId) {
+                    this.markSaved();
+                }
+                console.log('[CodeEditor] 自动保存成功');
+                return true;
+            } catch (error) {
+                if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {
+                    this.documentSessions.clearLocalWriteSuppression(localWriteKey);
+                }
+                console.error('[CodeEditor] 自动保存失败:', error);
+                return false;
+            } finally {
+                this.isSaving = false;
+                this.activeSavePromise = null;
+            }
+        })();
+
+        this.activeSavePromise = savePromise;
+        const result = await savePromise;
+
+        if (result) {
+            Promise.resolve(
+                this.callbacks.onAutoSaveSuccess?.({ skipped: false, filePath })
+            ).catch(error => {
+                console.warn('[CodeEditor] 自动保存回调失败', error);
+            });
+        } else {
+            Promise.resolve(this.callbacks.onAutoSaveError?.(new Error('保存失败'))).catch(error => {
+                console.warn('[CodeEditor] 自动保存错误回调失败', error);
+            });
+        }
+    }
+
     focus() {
         this.editor?.focus();
     }
@@ -512,6 +609,7 @@ export class CodeEditor {
     }
 
     dispose() {
+        this.cancelAutoSave();
         if (this.pendingLayoutFrame !== null) {
             cancelAnimationFrame(this.pendingLayoutFrame);
             this.pendingLayoutFrame = null;
