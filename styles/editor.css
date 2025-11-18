@@ -287,14 +287,13 @@
 
 /* 链接 */
 .tiptap-editor a {
-    color: var(--theme-link, #0066cc);
+    color: inherit;
     text-decoration: none;
-    cursor: pointer;
+    cursor: text;
 }
 
 .tiptap-editor a:hover {
     text-decoration: underline;
-    opacity: 0.8;
 }
 
 /* 水平线 */

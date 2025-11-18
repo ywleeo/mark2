@@ -159,7 +159,7 @@ export function createConfiguredMarkdownIt() {
     const md = new MarkdownIt({
         html: true,
         breaks: true,
-        linkify: true,
+        linkify: false, // 禁用自动链接识别，保持纯文本 URL 原样
     });
 
     // 启用表格支持

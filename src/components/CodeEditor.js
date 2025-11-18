@@ -261,10 +261,13 @@ export class CodeEditor {
             monaco.editor.setModelLanguage(model, targetLanguage);
         }
 
+        // Markdown 列表缩进使用 2 个空格，其他语言使用 4 个空格
+        const tabSize = targetLanguage === 'markdown' ? 2 : 4;
         model.updateOptions({
-            tabSize: 4,
-            indentSize: 4,
+            tabSize: tabSize,
+            indentSize: tabSize,
             insertSpaces: true,
+            detectIndentation: false,
         });
 
         if (this.currentModel && this.currentModel !== model) {
@@ -282,7 +285,15 @@ export class CodeEditor {
 
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
-        this.editor.updateOptions({ readOnly: false });
+
+        // 强制设置 editor 级别的 tabSize
+        const editorTabSize = targetLanguage === 'markdown' ? 2 : 4;
+        this.editor.updateOptions({
+            readOnly: false,
+            tabSize: editorTabSize,
+            insertSpaces: true,
+            detectIndentation: false,
+        });
         this.showContainer();
         this.requestLayout();
         this.editor.focus();
@@ -369,6 +380,15 @@ export class CodeEditor {
         const resolvedLanguage = this.resolveLanguage(language);
         this.editor.setModel(model);
         this.monaco.editor.setModelLanguage(model, resolvedLanguage);
+
+        // 再次强制设置 tabSize，确保生效
+        const tabSize = resolvedLanguage === 'markdown' ? 2 : 4;
+        model.updateOptions({
+            tabSize: tabSize,
+            indentSize: tabSize,
+            insertSpaces: true,
+            detectIndentation: false,
+        });
 
         this.currentModel = model;
         this.currentLanguage = resolvedLanguage;
