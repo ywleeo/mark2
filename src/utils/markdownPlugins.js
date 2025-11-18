@@ -418,8 +418,8 @@ export function createConfiguredTurndownService() {
                 prefix = (start ? Number(start) + index : index + 1) + '. ';
             }
 
-            // 多行内容缩进对齐
-            content = content.replace(/\n/gm, '\n    ');
+            // 多行内容缩进对齐（2 个空格）
+            content = content.replace(/\n/gm, '\n  ');
 
             return prefix + content + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
         }
