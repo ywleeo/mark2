@@ -452,7 +452,6 @@ export class MarkdownEditor {
                     this.contentChanged = false;
                     this.callbacks.onContentChange?.();
                 }
-                console.log('保存成功');
                 return true;
             } catch (error) {
                 if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {

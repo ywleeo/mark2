@@ -1,3 +1,13 @@
+// 过滤开发环境下 Tauri 热重载产生的无用警告
+const originalWarn = console.warn;
+console.warn = function(...args) {
+    const message = args[0];
+    if (typeof message === 'string' && message.includes('[TAURI] Couldn\'t find callback id')) {
+        return; // 忽略这类警告
+    }
+    originalWarn.apply(console, args);
+};
+
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
@@ -180,6 +190,9 @@ const viewController = createViewController({
     },
     getPdfZoomState: () => pdfZoomState,
     updateExportMenuState: () => {
+        void updateExportMenuState();
+    },
+    onViewModeChange: () => {
         void updateExportMenuState();
     },
 });

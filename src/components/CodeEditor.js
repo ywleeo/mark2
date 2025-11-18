@@ -250,19 +250,34 @@ export class CodeEditor {
 
         const monaco = this.monaco;
         const targetLanguage = this.resolveLanguage(language);
+
+        // Markdown 文件：标准化缩进为 2 个空格
+        let processedContent = content;
+        if (targetLanguage === 'markdown') {
+            processedContent = content
+                // 先把 Tab 转成 2 个空格
+                .replace(/\t/g, '  ')
+                // 把列表行开头的 4 个空格改成 2 个（递归处理多级缩进）
+                .replace(/^( {4})+/gm, (match) => '  '.repeat(match.length / 4));
+        }
+
         const uri = buildModelUri(monaco, filePath);
         let model = monaco.editor.getModel(uri);
         if (!model) {
-            model = monaco.editor.createModel(content, targetLanguage, uri);
+            model = monaco.editor.createModel(processedContent, targetLanguage, uri);
         } else {
             this.suppressChange = true;
-            model.setValue(content);
+            model.setValue(processedContent);
             this.suppressChange = false;
             monaco.editor.setModelLanguage(model, targetLanguage);
         }
 
-        // Markdown 列表缩进使用 2 个空格，其他语言使用 4 个空格
-        const tabSize = targetLanguage === 'markdown' ? 2 : 4;
+        // Markdown 列表缩进根据用户设置，其他语言使用 4 个空格
+        let markdownTabSize = 2; // 默认值
+        if (this.preferences && typeof this.preferences.markdownTabSize === 'number') {
+            markdownTabSize = this.preferences.markdownTabSize;
+        }
+        const tabSize = targetLanguage === 'markdown' ? markdownTabSize : 4;
         model.updateOptions({
             tabSize: tabSize,
             indentSize: tabSize,
@@ -287,7 +302,7 @@ export class CodeEditor {
         this.currentLanguage = targetLanguage;
 
         // 强制设置 editor 级别的 tabSize
-        const editorTabSize = targetLanguage === 'markdown' ? 2 : 4;
+        const editorTabSize = targetLanguage === 'markdown' ? markdownTabSize : 4;
         this.editor.updateOptions({
             readOnly: false,
             tabSize: editorTabSize,
@@ -382,7 +397,11 @@ export class CodeEditor {
         this.monaco.editor.setModelLanguage(model, resolvedLanguage);
 
         // 再次强制设置 tabSize，确保生效
-        const tabSize = resolvedLanguage === 'markdown' ? 2 : 4;
+        let markdownTabSize = 2; // 默认值
+        if (this.preferences && typeof this.preferences.markdownTabSize === 'number') {
+            markdownTabSize = this.preferences.markdownTabSize;
+        }
+        const tabSize = resolvedLanguage === 'markdown' ? markdownTabSize : 4;
         model.updateOptions({
             tabSize: tabSize,
             indentSize: tabSize,
