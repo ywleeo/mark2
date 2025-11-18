@@ -84,7 +84,7 @@
 
 /* 段落 */
 .tiptap-editor p {
-    margin: 16px 0;
+    margin: 0;
     text-align: left;
     font-family: inherit;
 }
