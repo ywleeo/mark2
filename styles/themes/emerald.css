@@ -22,9 +22,9 @@
     --emerald-h4-text: #374151;
     --emerald-inline-code-bg: rgba(99, 102, 241, 0.1);
     --emerald-inline-code-color: #6366f1;
-    --emerald-code-accent: #10b981;
+    --emerald-code-accent: #10b98127;
     --emerald-code-background: #f8fafc;
-    --emerald-quote-accent: #a2fb24;
+    --emerald-quote-accent: #fb24d32c;
     --emerald-quote-bg: rgba(245, 158, 11, 0.05);
     --emerald-quote-nested-1: rgba(245, 158, 11, 0.03);
     --emerald-quote-nested-2: rgba(245, 158, 11, 0.02);
@@ -55,12 +55,12 @@
     --emerald-h4-text: #d5ffef;
     --emerald-inline-code-bg: rgba(79, 209, 197, 0.28);
     --emerald-inline-code-color: #a0ffe8;
-    --emerald-code-accent: #418868;
+    --emerald-code-accent: #4188681e;
     --emerald-code-background: #4548467b;
-    --emerald-quote-accent: #8bf19b;
-    --emerald-quote-bg: rgba(34, 197, 94, 0.12);
-    --emerald-quote-nested-1: rgba(34, 197, 94, 0.08);
-    --emerald-quote-nested-2: rgba(34, 197, 94, 0.06);
+    --emerald-quote-accent: #f1b68b34;
+    --emerald-quote-bg: rgba(41, 39, 70, 0.233);
+    --emerald-quote-nested-1: rgba(41, 39, 70, 0.233);
+    --emerald-quote-nested-2: rgba(41, 39, 70, 0.233);
     --emerald-delete-color: #fecdd3;
     --emerald-strong-bg: rgba(38, 226, 255, 0.147);
     --emerald-list-bullet: #b7ffd1;
@@ -160,7 +160,7 @@
     margin: 15px 0 !important;
     border-radius: 0 5px 5px 0;
     overflow-x: auto;
-    border-left: 3px solid var(--emerald-code-accent, var(--theme-accent));
+    border: 1px solid var(--emerald-code-accent, var(--theme-accent));
     background-color: var(--emerald-code-background, var(--theme-code-block-bg));
     white-space: pre-wrap;
     word-wrap: break-word;
