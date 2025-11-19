@@ -164,6 +164,7 @@
     background-color: var(--emerald-code-background, var(--theme-code-block-bg));
     white-space: pre-wrap;
     word-wrap: break-word;
+    font-size: 0.95em;
 }
 
 /* 代码块内的代码不重复样式 */
@@ -200,6 +201,7 @@
     background-color: var(--emerald-quote-bg);
     border-radius: 0 4px 4px 0;
     font-family: inherit;
+    font-size: 0.95em;
 }
 
 /* 嵌套引用块 */
