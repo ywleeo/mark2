@@ -62,7 +62,7 @@
     --emerald-quote-nested-1: rgba(41, 39, 70, 0.233);
     --emerald-quote-nested-2: rgba(41, 39, 70, 0.233);
     --emerald-delete-color: #fecdd3;
-    --emerald-strong-bg: rgba(38, 226, 255, 0.147);
+    --emerald-strong-bg: rgba(30, 153, 202, 0.33);
     --emerald-list-bullet: #b7ffd1;
     --emerald-ordered-color: #b7ffd1;
 }
@@ -84,7 +84,7 @@
 
 /* 段落 */
 .tiptap-editor p {
-    margin: 0;
+    margin: 1em 0;
     text-align: left;
     font-family: inherit;
 }
