@@ -17,6 +17,7 @@ const CODE_SUFFIX_LANGUAGE_MAP = [
 ];
 
 const CODE_EXTENSION_LANGUAGE_MAP = new Map([
+    ['csv', 'csv'],
     ['md', 'markdown'],
     ['markdown', 'markdown'],
     ['mdx', 'markdown'],

@@ -10,6 +10,7 @@ import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
 import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../config/monaco-python.js';
+import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../config/monaco-csv.js';
 import { getAppServices } from '../services/appServices.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
 
@@ -22,6 +23,7 @@ const MAX_ZOOM_SCALE = 2.4;
 let monacoLoader = null;
 let monacoEnvironmentReady = false;
 let pythonLanguageReady = false;
+let csvLanguageReady = false;
 
 function ensureMonacoEnvironment() {
     if (monacoEnvironmentReady || typeof self === 'undefined') {
@@ -72,6 +74,28 @@ function ensurePythonLanguage(monaco) {
         monaco.languages.setLanguageConfiguration('python', pythonLanguageConfiguration);
     }
     pythonLanguageReady = true;
+}
+
+function ensureCsvLanguage(monaco) {
+    if (csvLanguageReady || !csvLanguage?.tokenizer) {
+        return;
+    }
+
+    monaco.languages.register({ id: 'csv' });
+    monaco.languages.setMonarchTokensProvider('csv', csvLanguage);
+    if (csvLanguageConfiguration) {
+        monaco.languages.setLanguageConfiguration('csv', csvLanguageConfiguration);
+    }
+
+    // 定义 CSV 专用主题
+    monaco.editor.defineTheme('csv-theme', {
+        base: 'vs',
+        inherit: true,
+        rules: csvThemeRules || [],
+        colors: {},
+    });
+
+    csvLanguageReady = true;
 }
 
 const buildModelUri = (monaco, filePath) => {
@@ -180,6 +204,7 @@ export class CodeEditor {
         const monacoModule = await ensureMonaco();
         const monaco = monacoModule;
         ensurePythonLanguage(monaco);
+        ensureCsvLanguage(monaco);
         this.monaco = monaco;
         this.editor = monaco.editor.create(this.editorHost, {
             value: '',
@@ -359,7 +384,13 @@ export class CodeEditor {
         this.applyZoomOptions();
 
         const appearance = document?.documentElement?.dataset?.themeAppearance;
-        const monacoTheme = appearance === 'dark' ? 'vs-dark' : 'vs';
+        let monacoTheme = appearance === 'dark' ? 'vs-dark' : 'vs';
+
+        // CSV 文件使用专用主题（浅色模式）
+        if (this.currentLanguage === 'csv' && appearance !== 'dark') {
+            monacoTheme = 'csv-theme';
+        }
+
         if (this.monaco?.editor) {
             this.monaco.editor.setTheme(monacoTheme);
         }
@@ -378,6 +409,13 @@ export class CodeEditor {
         const resolvedLanguage = this.resolveLanguage(language);
         this.editor.setModel(model);
         this.monaco.editor.setModelLanguage(model, resolvedLanguage);
+
+        // 根据语言切换主题
+        if (resolvedLanguage === 'csv') {
+            const appearance = document?.documentElement?.dataset?.themeAppearance;
+            const csvThemeName = appearance === 'dark' ? 'vs-dark' : 'csv-theme';
+            this.monaco.editor.setTheme(csvThemeName);
+        }
 
         const tabSize = resolvedLanguage === 'markdown' ? 2 : 4;
         model.updateOptions({
