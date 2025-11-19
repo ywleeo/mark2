@@ -1,6 +1,7 @@
 /target
 node_modules
 /src-tauri/target
+/src-tauri/icons
 /dist
 /test-workspace
 AGENTS.md
