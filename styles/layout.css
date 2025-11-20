@@ -559,6 +559,12 @@ body.is-file-drop-hover .content-wrapper::after {
     text-align: center;
     letter-spacing: 0.6px;
     backdrop-filter: blur(4px);
+    z-index: 9999;
+}
+
+/* 内部拖拽时隐藏覆盖层 */
+body.is-internal-drag .content-wrapper::after {
+    display: none !important;
 }
 
 /* 统一滚动条样式 */

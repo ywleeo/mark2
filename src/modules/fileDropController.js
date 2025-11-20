@@ -9,6 +9,15 @@ export function createFileDropController({ openPathsFromSelection }) {
     let cleanupHandler = null;
 
     function setFileDropHoverState(isActive) {
+        // 如果是内部拖拽（通过全局变量判断），始终不显示 hover 效果
+        if (window.__IS_INTERNAL_DRAG__) {
+            if (isFileDropHoverActive) {
+                isActive = false;
+            } else {
+                return;
+            }
+        }
+
         if (isFileDropHoverActive === isActive) {
             return;
         }

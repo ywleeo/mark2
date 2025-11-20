@@ -207,6 +207,18 @@
     background-color: var(--hover-bg-color, #e4e5e5);
 }
 
+.tree-folder-header.drag-over {
+    background-color: var(--file-selected-bg, #fcf8d8);
+    outline: 2px dashed var(--file-selected-border, #fd7e14);
+    outline-offset: -2px;
+}
+
+.tree-folder-header.drag-over {
+    background-color: var(--file-selected-bg, #fcf8d8);
+    outline: 2px dashed var(--file-selected-border, #fd7e14);
+    outline-offset: -2px;
+}
+
 .tree-folder-header.root {
     font-weight: 600;
     border-bottom: 1px solid var(--border-color, #e9ecef);
@@ -225,6 +237,7 @@
     flex-shrink: 0;
     color: var(--text-secondary, #bfbfbf);
     transform: rotate(-90deg);
+    pointer-events: none;
 }
 
 .tree-expand-icon svg {
@@ -246,6 +259,7 @@
     flex-shrink: 0;
     position: relative;
     color: var(--folder-color, #54aeff);
+    pointer-events: none;
 }
 
 .tree-folder-icon svg {
@@ -262,6 +276,7 @@
     color: var(--text-color, #333);
     font-weight: 400;
     min-width: 0;
+    pointer-events: none;
 }
 
 /* 文件夹子项容器 - 带竖线 */
