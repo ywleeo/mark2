@@ -2,6 +2,7 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { isEditableFilePath, getViewModeForPath } from '../utils/fileTypeUtils.js';
 import { getAppServices } from '../services/appServices.js';
 import { FileRenamer } from './FileRenamer.js';
+import { FileMover } from './FileMover.js';
 
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
@@ -31,6 +32,13 @@ this.onFolderChange = callbacks.onFolderChange;
         this.cleanupFunctions = []; // 存储清理函数
         this.init();
         this.ensureFileService();
+
+        this.mover = new FileMover({
+            container: this.container,
+            normalizePath: this.normalizePath.bind(this),
+            getFileService: () => this.fileService,
+            refreshFolder: (folderPath) => this.refreshFolder(folderPath),
+        });
 
         this.renamer = new FileRenamer({
             container: this.container,
@@ -118,9 +126,9 @@ this.onFolderChange = callbacks.onFolderChange;
         });
 
         // 文件树容器级拖拽监听（更可靠的命中）
-        this._onTreeDragOver = (e) => this.handleTreeDragOver(e);
-        this._onTreeDragLeave = (e) => this.handleTreeDragLeave(e);
-        this._onTreeDrop = (e) => this.handleTreeDrop(e);
+        this._onTreeDragOver = (e) => this.mover?.handleTreeDragOver(e);
+        this._onTreeDragLeave = (e) => this.mover?.handleTreeDragLeave(e);
+        this._onTreeDrop = (e) => this.mover?.handleTreeDrop(e);
         this.container.addEventListener('dragover', this._onTreeDragOver);
         this.container.addEventListener('dragleave', this._onTreeDragLeave);
         this.container.addEventListener('drop', this._onTreeDrop);
@@ -132,7 +140,7 @@ this.onFolderChange = callbacks.onFolderChange;
             if (!window.__IS_INTERNAL_DRAG__) return;
             // 构造一个伪事件对象传给 handleTreeDragOver（只用到 clientX/clientY）
             // console.log('[mousemove during drag]', e.clientX, e.clientY);
-            this.handleTreeDragOver({ clientX: e.clientX, clientY: e.clientY, dataTransfer: null, preventDefault() {}, stopPropagation() {} });
+            this.mover?.handleTreeDragOver({ clientX: e.clientX, clientY: e.clientY, dataTransfer: null, preventDefault() {}, stopPropagation() {} });
         };
         window.addEventListener('mousemove', this._onMouseMoveDuringDrag);
         console.log('[FileTree] window mousemove fallback attached');
@@ -415,10 +423,10 @@ this.onFolderChange = callbacks.onFolderChange;
         `;
 
         // Drag & Drop support（保留用于外部文件拖入）；内部拖拽已切换为自定义鼠标拖拽
-        item.addEventListener('dragenter', (e) => this.handleDragEnter(e, header));
-        item.addEventListener('dragover', (e) => this.handleDragOver(e, header));
-        item.addEventListener('dragleave', (e) => this.handleDragLeave(e, header));
-        item.addEventListener('drop', (e) => this.handleDrop(e, path, header));
+        item.addEventListener('dragenter', (e) => this.mover?.handleDragEnter(e, header));
+        item.addEventListener('dragover', (e) => this.mover?.handleDragOver(e, header));
+        item.addEventListener('dragleave', (e) => this.mover?.handleDragLeave(e, header));
+        item.addEventListener('drop', (e) => this.mover?.handleDrop(e, path, header));
 
         // 使用统一的点击处理函数
         const cleanup1 = addClickHandler(header, (event) => {
@@ -468,9 +476,9 @@ this.onFolderChange = callbacks.onFolderChange;
         // 启用原生 dragstart 仅用于“触发”事件，然后立刻拦截并切换到自定义拖拽
         // 这样可以兼容 macOS 触控板三指拖动（可能不会触发 mousedown）
         item.draggable = true;
-        const onMouseDown = (e) => this.beginInternalDrag(e, path);
-        const onNativeDragStart = (e) => this.interceptNativeDragStart(e, path);
-        const onNativeDragEnd = () => this.cancelNativeDragState?.();
+        const onMouseDown = (e) => this.mover?.beginInternalDrag(e, path);
+        const onNativeDragStart = (e) => this.mover?.interceptNativeDragStart(e, path);
+        const onNativeDragEnd = () => this.mover?.cancelNativeDragState?.();
         item.addEventListener('mousedown', onMouseDown);
         item.addEventListener('dragstart', onNativeDragStart);
         item.addEventListener('dragend', onNativeDragEnd);
@@ -1261,351 +1269,6 @@ this.onFolderChange = callbacks.onFolderChange;
         return this.fileService;
     }
 
-    // 旧的原生 DnD 启动保留（不再使用）
-    handleDragStart(event, path) {
-        // 已弃用
-    }
-
-    handleDragEnd(event) {
-        // 已弃用
-    }
-
-    // 拦截原生 dragstart（用于 macOS 三指拖动），转为自定义拖拽
-    interceptNativeDragStart(event, sourcePath) {
-        try {
-            event.preventDefault();
-            event.stopPropagation();
-        } catch {}
-        // 不要在这里设置内部拖拽标记与样式，等真正进入拖拽再设置
-        const clientX = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
-        const clientY = event.clientY ?? (event.touches && event.touches[0]?.clientY) ?? 0;
-        const fakeMouseEvent = { button: 0, clientX, clientY, preventDefault(){} };
-        this._nativeDragIntercepting = true;
-        this.beginInternalDrag(fakeMouseEvent, sourcePath);
-        // 同时创建一个取消原生拖拽的状态
-        this.cancelNativeDragState = () => {
-            this._nativeDragIntercepting = false;
-        };
-    }
-
-    // ========== 自定义鼠标拖拽实现，绕过 HTML5 DnD ==========
-    beginInternalDrag(event, sourcePath) {
-        if (event.button !== 0) return; // 仅左键
-        // 避免与点击选择冲突，先阻止文本选择
-        event.preventDefault();
-        this._dragState = {
-            sourcePath,
-            startX: event.clientX,
-            startY: event.clientY,
-            active: false,
-            hoverHeader: null,
-        };
-        // 不在这里创建拖拽预览与内部拖拽标记，等阈值触发后再创建
-        this._onInternalMouseMove = (e) => this.onInternalDragMove(e);
-        this._onInternalMouseUp = (e) => this.endInternalDrag(e);
-        window.addEventListener('mousemove', this._onInternalMouseMove, true);
-        window.addEventListener('mouseup', this._onInternalMouseUp, true);
-    }
-
-    onInternalDragMove(event) {
-        if (!this._dragState) return;
-        const { startX, startY, active } = this._dragState;
-        const dx = Math.abs(event.clientX - startX);
-        const dy = Math.abs(event.clientY - startY);
-        const threshold = 3;
-        if (!active && (dx > threshold || dy > threshold)) {
-            this._dragState.active = true;
-            // 真正进入拖拽时再设置内部拖拽标记与样式
-            document.body.classList.add('is-internal-drag');
-            window.__IS_INTERNAL_DRAG__ = true;
-            // 在此时创建拖拽预览，避免点击/双击瞬间闪烁
-            const name = (this._dragState.sourcePath || '').split(/[\/\\]/).pop() || '';
-            const sourceEl = this.container.querySelector(`.tree-file[data-path="${this._dragState.sourcePath}"]`);
-            const rect = sourceEl ? sourceEl.getBoundingClientRect() : null;
-            const nodeWidth = rect ? rect.width : null;
-            this.createDragGhost(name, event.clientX, event.clientY, nodeWidth);
-        }
-        if (!this._dragState.active) return;
-
-        // 更新拖拽预览位置
-        this.updateDragGhost(event.clientX, event.clientY);
-
-        // 命中检测
-        const header = this.findHeaderAtPoint(event.clientX, event.clientY);
-        if (header !== this._dragState.hoverHeader) {
-            this.clearAllDragOverHighlights();
-            if (header) header.classList.add('drag-over');
-            this._dragState.hoverHeader = header;
-        }
-    }
-
-    async endInternalDrag(event) {
-        if (!this._dragState) return;
-        window.removeEventListener('mousemove', this._onInternalMouseMove, true);
-        window.removeEventListener('mouseup', this._onInternalMouseUp, true);
-
-        const { sourcePath, active, hoverHeader } = this._dragState;
-        this._dragState = null;
-        const targetHeader = hoverHeader;
-
-        // 清理 UI 状态
-        this.clearAllDragOverHighlights();
-        this.removeDragGhost();
-        document.body.classList.remove('is-internal-drag');
-        window.__IS_INTERNAL_DRAG__ = false;
-
-        if (!active) return; // 只是点击，没有拖拽
-
-        const targetFolderPath = targetHeader?.parentElement?.dataset?.path;
-        if (!targetFolderPath || !sourcePath) return;
-        await this.performMove(sourcePath, targetFolderPath);
-    }
-
-    clearAllDragOverHighlights() {
-        this.container.querySelectorAll('.drag-over').forEach(el => {
-            el.classList.remove('drag-over');
-        });
-    }
-
-    findHeaderAtPoint(clientX, clientY) {
-        const el = document.elementFromPoint(clientX, clientY);
-        if (!el) return null;
-        // 允许在整块文件夹区域内命中（包括 children 区域）
-        const folder = el.closest?.('.tree-folder');
-        if (!folder) return null;
-        const header = folder.querySelector('.tree-folder-header');
-        return header || null;
-    }
-
-    handleTreeDragOver(event) {
-        // console.log('[handleTreeDragOver]', { clientX: event.clientX, clientY: event.clientY, types: event.dataTransfer.types });
-        if (!window.__IS_INTERNAL_DRAG__) return;
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-
-        const header = this.findHeaderAtPoint(event.clientX, event.clientY);
-        // console.log('  -> found header:', header);
-        if (!header) {
-            this.clearAllDragOverHighlights();
-            return;
-        }
-
-        if (!header.classList.contains('drag-over')) {
-            console.log('[DnD] Adding drag-over to:', header.querySelector('.tree-item-name')?.textContent);
-            this.clearAllDragOverHighlights();
-            header.classList.add('drag-over');
-        }
-        if (event && event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'move';
-        }
-    }
-
-    handleTreeDragLeave(event) {
-        // console.log('[handleTreeDragLeave]');
-        if (!window.__IS_INTERNAL_DRAG__) return;
-        // 当鼠标离开容器或进入非文件夹区域时清理
-        const related = event.relatedTarget;
-        // console.log('  -> relatedTarget:', related, ' in container:', related && this.container.contains(related));
-        if (!related || !this.container.contains(related)) {
-            console.log('[DnD] Removing all highlights (left container)');
-            this.clearAllDragOverHighlights();
-        }
-    }
-
-    async handleTreeDrop(event) {
-        console.log('[handleTreeDrop]', { clientX: event.clientX, clientY: event.clientY });
-        if (!window.__IS_INTERNAL_DRAG__) return;
-        event.preventDefault();
-        event.stopPropagation();
-
-        const header = this.findHeaderAtPoint(event.clientX, event.clientY);
-        console.log('  -> drop on header:', header?.querySelector('.tree-item-name')?.textContent);
-        this.clearAllDragOverHighlights();
-        if (!header) {
-            console.log('  -> No header found, abort drop');
-            return;
-        }
-
-        const targetFolderPath = header?.parentElement?.dataset?.path;
-        const sourcePath = event.dataTransfer.getData('application/x-mark2-file') ||
-                           event.dataTransfer.getData('text/plain');
-        console.log('  -> performing move', { sourcePath, targetFolderPath });
-
-        if (!sourcePath || !targetFolderPath) {
-            console.log('  -> Missing paths, abort');
-            return;
-        }
-        await this.performMove(sourcePath, targetFolderPath);
-        console.log('  -> move done');
-    }
-
-    handleDragEnter(event, element) {
-        // console.log('Drag enter:', element.dataset);
-        event.preventDefault();
-        event.stopPropagation();
-
-        const hasInternalType = event.dataTransfer.types.includes('application/x-mark2-file');
-        const isInternal = hasInternalType || window.__IS_INTERNAL_DRAG__;
-
-        if (!isInternal) {
-            return;
-        }
-        
-        // 移除所有其他高亮，确保只有当前目标高亮
-        // 这一步非常关键，防止“拖影”现象
-        this.container.querySelectorAll('.drag-over').forEach(el => {
-            if (el !== element) {
-                el.classList.remove('drag-over');
-            }
-        });
-        
-        element.classList.add('drag-over');
-    }
-
-    handleDragOver(event, element) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        const hasInternalType = event.dataTransfer.types.includes('application/x-mark2-file');
-        const isInternal = hasInternalType || window.__IS_INTERNAL_DRAG__;
-
-        if (!isInternal) {
-            return;
-        }
-
-        // 再次确保高亮状态（防止 enter 没触发或被意外移除）
-        if (!element.classList.contains('drag-over')) {
-             this.container.querySelectorAll('.drag-over').forEach(el => {
-                el.classList.remove('drag-over');
-            });
-            element.classList.add('drag-over');
-        }
-        
-        event.dataTransfer.dropEffect = 'move';
-    }
-
-    handleDragLeave(event, element) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        // 只有当真正离开这个元素（进入了非子元素区域）时才移除样式
-        // 由于我们现在监听的是 item，element 传进来的是 header，需要小心处理
-        // 这里简化逻辑：不在 leave 时移除，而是在 enter 其他元素时互斥移除
-        // 或者，只有当 relatedTarget 不在当前 header 内时才移除
-        if (!element.contains(event.relatedTarget)) {
-             element.classList.remove('drag-over');
-        }
-    }
-
-    async handleDrop(event, targetFolderPath, element) {
-        // 保持兼容，转调到 performMove
-        event.preventDefault();
-        event.stopPropagation();
-        element.classList.remove('drag-over');
-
-        const sourcePath = event.dataTransfer.getData('application/x-mark2-file') || 
-                           event.dataTransfer.getData('text/plain');
-        if (!sourcePath) return;
-        await this.performMove(sourcePath, targetFolderPath);
-    }
-
-    // ===== 拖拽预览（ghost）辅助 =====
-    createDragGhost(label, x, y, nodeWidth = null) {
-        this.removeDragGhost();
-        const ghost = document.createElement('div');
-        ghost.className = 'drag-ghost';
-        ghost.style.position = 'fixed';
-        ghost.style.left = '0px';
-        ghost.style.top = '0px';
-        ghost.style.transform = 'translate(-9999px, -9999px)';
-        ghost.style.zIndex = '99999';
-        ghost.style.pointerEvents = 'none';
-        ghost.style.whiteSpace = 'nowrap';
-        ghost.style.textOverflow = 'ellipsis';
-        ghost.style.overflow = 'hidden';
-        ghost.style.boxSizing = 'border-box';
-        
-        // 宽度与原节点一致
-        if (nodeWidth && Number.isFinite(nodeWidth)) {
-            const w = Math.max(80, Math.round(nodeWidth));
-            ghost.style.width = `${w}px`;
-            ghost.style.maxWidth = `${w}px`;
-        } else {
-            ghost.style.maxWidth = '240px';
-        }
-        
-        // 获取当前主题的选中文件样式变量
-        const computedStyle = getComputedStyle(document.body);
-        const selectedBg = computedStyle.getPropertyValue('--file-selected-bg').trim();
-        const selectedBorder = computedStyle.getPropertyValue('--file-selected-border').trim();
-        const textColor = computedStyle.getPropertyValue('--text-color').trim();
-        const fileIconColor = computedStyle.getPropertyValue('--file-icon-color').trim();
-        
-        // 提升背景不透明度（如果 --file-selected-bg 为 rgba 且 alpha 偏低）
-        let effectiveBg = selectedBg;
-        const m = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i.exec(selectedBg);
-        if (m) {
-            const alpha = parseFloat(m[4]);
-            const targetAlpha = Math.max(alpha, 0.55); // 至少 0.85
-            effectiveBg = `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${targetAlpha})`;
-        }
-        
-        // 应用与选中文件相同的样式
-        ghost.style.background = effectiveBg;
-        ghost.style.fontSize = '12px';
-        ghost.style.fontWeight = '500';
-        ghost.style.color = textColor;
-        ghost.style.padding = '2px 16px 2px 20px';
-        ghost.style.borderRight = `2px solid ${selectedBorder}`;
-        ghost.style.borderRadius = '0';
-        ghost.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-        ghost.style.opacity = '1';
-        ghost.style.display = 'flex';
-        ghost.style.alignItems = 'center';
-        
-        // 添加文件图标（与普通文件项保持一致）
-        const icon = document.createElement('svg');
-        icon.style.marginRight = '6px';
-        icon.style.width = '14px';
-        icon.style.height = '14px';
-        icon.style.flexShrink = '0';
-        icon.style.color = fileIconColor;
-        icon.innerHTML = `
-            <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z" fill="none" stroke="currentColor" stroke-width="1"/>
-            <path d="M10.5 1v3.5H14" fill="none" stroke="currentColor" stroke-width="1"/>
-        `;
-        
-        const labelSpan = document.createElement('span');
-        labelSpan.style.flex = '1';
-        labelSpan.style.overflow = 'hidden';
-        labelSpan.style.textOverflow = 'ellipsis';
-        labelSpan.style.whiteSpace = 'nowrap';
-        labelSpan.textContent = label || '';
-        
-        ghost.appendChild(icon);
-        ghost.appendChild(labelSpan);
-        
-        document.body.appendChild(ghost);
-        this._dragGhost = ghost;
-        this.updateDragGhost(x, y);
-    }
-
-    updateDragGhost(x, y) {
-        if (!this._dragGhost) return;
-        const offsetX = 12; // 光标右下角偏移
-        const offsetY = 16;
-        this._dragGhost.style.transform = `translate(${Math.max(0, x + offsetX)}px, ${Math.max(0, y + offsetY)}px)`;
-    }
-
-    removeDragGhost() {
-        if (this._dragGhost && this._dragGhost.parentElement) {
-            this._dragGhost.parentElement.removeChild(this._dragGhost);
-        }
-        this._dragGhost = null;
-    }
-
     // ===== 内联重命名 =====
     startRenaming(path) {
         this.renamer?.start(path);
@@ -1619,44 +1282,8 @@ this.onFolderChange = callbacks.onFolderChange;
         return this.renamer?.isRenaming() ?? false;
     }
 
-    async performMove(sourcePath, targetFolderPath) {
-        const normalizedSource = this.normalizePath(sourcePath);
-        const normalizedTarget = this.normalizePath(targetFolderPath);
-
-        if (!normalizedSource || !normalizedTarget) {
-            console.warn('Invalid paths:', { normalizedSource, normalizedTarget });
-            return;
-        }
-
-        const fileName = normalizedSource.split(/[/\\]/).pop();
-        const separator = '/'; // 在本项目内统一使用 POSIX 分隔符
-        const cleanTarget = normalizedTarget.endsWith(separator)
-            ? normalizedTarget.slice(0, -1)
-            : normalizedTarget;
-        const destinationPath = `${cleanTarget}${separator}${fileName}`;
-
-        if (normalizedSource === destinationPath) {
-            return;
-        }
-
-        try {
-            await this.fileService.move(normalizedSource, destinationPath);
-            const sourceParentPath = normalizedSource.substring(0, normalizedSource.lastIndexOf(separator));
-            const tasks = [this.refreshFolder(cleanTarget)];
-            if (sourceParentPath && sourceParentPath !== cleanTarget) {
-                tasks.push(this.refreshFolder(sourceParentPath));
-            }
-            await Promise.all(tasks);
-        } catch (error) {
-            console.error('Move failed:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`无法移动文件:\n${error.message || error}`, { title: '移动失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
     dispose() {
+        this.mover?.dispose();
         // 取消可能正在重命名的状态
         this.cancelRenaming();
         // 清理所有事件监听器
