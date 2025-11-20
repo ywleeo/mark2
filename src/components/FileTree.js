@@ -1263,7 +1263,10 @@ export class FileTree {
 
         // 创建跟随鼠标的预览
         const name = (sourcePath || '').split(/[/\\]/).pop() || '';
-        this.createDragGhost(name, event.clientX, event.clientY);
+        const sourceEl = this.container.querySelector(`.tree-file[data-path="${sourcePath}"]`);
+        const rect = sourceEl ? sourceEl.getBoundingClientRect() : null;
+        const nodeWidth = rect ? rect.width : null;
+        this.createDragGhost(name, event.clientX, event.clientY, nodeWidth);
 
         this._onInternalMouseMove = (e) => this.onInternalDragMove(e);
         this._onInternalMouseUp = (e) => this.endInternalDrag(e);
@@ -1469,7 +1472,7 @@ export class FileTree {
     }
 
     // ===== 拖拽预览（ghost）辅助 =====
-    createDragGhost(label, x, y) {
+    createDragGhost(label, x, y, nodeWidth = null) {
         this.removeDragGhost();
         const ghost = document.createElement('div');
         ghost.className = 'drag-ghost';
@@ -1479,17 +1482,71 @@ export class FileTree {
         ghost.style.transform = 'translate(-9999px, -9999px)';
         ghost.style.zIndex = '99999';
         ghost.style.pointerEvents = 'none';
-        ghost.style.background = 'rgba(0,0,0,0.75)';
-        ghost.style.color = '#fff';
-        ghost.style.fontSize = '12px';
-        ghost.style.padding = '4px 8px';
-        ghost.style.borderRadius = '6px';
-        ghost.style.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
-        ghost.style.maxWidth = '240px';
         ghost.style.whiteSpace = 'nowrap';
         ghost.style.textOverflow = 'ellipsis';
         ghost.style.overflow = 'hidden';
-        ghost.textContent = label || '';
+        ghost.style.boxSizing = 'border-box';
+        
+        // 宽度与原节点一致
+        if (nodeWidth && Number.isFinite(nodeWidth)) {
+            const w = Math.max(80, Math.round(nodeWidth));
+            ghost.style.width = `${w}px`;
+            ghost.style.maxWidth = `${w}px`;
+        } else {
+            ghost.style.maxWidth = '240px';
+        }
+        
+        // 获取当前主题的选中文件样式变量
+        const computedStyle = getComputedStyle(document.body);
+        const selectedBg = computedStyle.getPropertyValue('--file-selected-bg').trim();
+        const selectedBorder = computedStyle.getPropertyValue('--file-selected-border').trim();
+        const textColor = computedStyle.getPropertyValue('--text-color').trim();
+        const fileIconColor = computedStyle.getPropertyValue('--file-icon-color').trim();
+        
+        // 提升背景不透明度（如果 --file-selected-bg 为 rgba 且 alpha 偏低）
+        let effectiveBg = selectedBg;
+        const m = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i.exec(selectedBg);
+        if (m) {
+            const alpha = parseFloat(m[4]);
+            const targetAlpha = Math.max(alpha, 0.55); // 至少 0.85
+            effectiveBg = `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${targetAlpha})`;
+        }
+        
+        // 应用与选中文件相同的样式
+        ghost.style.background = effectiveBg;
+        ghost.style.fontSize = '12px';
+        ghost.style.fontWeight = '500';
+        ghost.style.color = textColor;
+        ghost.style.padding = '2px 16px 2px 20px';
+        ghost.style.borderRight = `2px solid ${selectedBorder}`;
+        ghost.style.borderRadius = '0';
+        ghost.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+        ghost.style.opacity = '1';
+        ghost.style.display = 'flex';
+        ghost.style.alignItems = 'center';
+        
+        // 添加文件图标（与普通文件项保持一致）
+        const icon = document.createElement('svg');
+        icon.style.marginRight = '6px';
+        icon.style.width = '14px';
+        icon.style.height = '14px';
+        icon.style.flexShrink = '0';
+        icon.style.color = fileIconColor;
+        icon.innerHTML = `
+            <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z" fill="none" stroke="currentColor" stroke-width="1"/>
+            <path d="M10.5 1v3.5H14" fill="none" stroke="currentColor" stroke-width="1"/>
+        `;
+        
+        const labelSpan = document.createElement('span');
+        labelSpan.style.flex = '1';
+        labelSpan.style.overflow = 'hidden';
+        labelSpan.style.textOverflow = 'ellipsis';
+        labelSpan.style.whiteSpace = 'nowrap';
+        labelSpan.textContent = label || '';
+        
+        ghost.appendChild(icon);
+        ghost.appendChild(labelSpan);
+        
         document.body.appendChild(ghost);
         this._dragGhost = ghost;
         this.updateDragGhost(x, y);

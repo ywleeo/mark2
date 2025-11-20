@@ -209,13 +209,7 @@
 
 .tree-folder-header.drag-over {
     background-color: var(--file-selected-bg, #fcf8d8);
-    outline: 2px dashed var(--file-selected-border, #fd7e14);
-    outline-offset: -2px;
-}
-
-.tree-folder-header.drag-over {
-    background-color: var(--file-selected-bg, #fcf8d8);
-    outline: 2px dashed var(--file-selected-border, #fd7e14);
+    /* outline: 21px dashed var(--file-selected-border, #fd7e14); */
     outline-offset: -2px;
 }
 
