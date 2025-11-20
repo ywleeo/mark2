@@ -734,6 +734,9 @@ this.onFolderChange = callbacks.onFolderChange;
                 item.classList.add('selected');
             }
 
+            // 允许键盘聚焦
+            item.tabIndex = '0';
+
             const iconSvg = `
                 <svg class="open-file-icon" width="14" height="14" viewBox="0 0 16 16">
                     <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z"
@@ -772,6 +775,17 @@ this.onFolderChange = callbacks.onFolderChange;
                 this.closeFile(path);
             });
             this.cleanupFunctions.push(cleanup2);
+
+            const onKeyDown = (e) => {
+                if (this.renamingPath) return;
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.startRenaming(path);
+                }
+            };
+            item.addEventListener('keydown', onKeyDown);
+            this.cleanupFunctions.push(() => item.removeEventListener('keydown', onKeyDown));
 
             contentDiv.appendChild(item);
         });
@@ -1589,16 +1603,29 @@ this.onFolderChange = callbacks.onFolderChange;
         if (this.renamingPath && this.renamingPath !== normalized) {
             this.cancelRenaming();
         }
-        const item = this.container.querySelector(`.tree-file[data-path="${normalized}"]`);
+
+        // 优先使用文件树节点，若未挂载则回退到「打开的文件」列表项
+        const treeItem = this.container.querySelector(`.tree-file[data-path="${normalized}"]`);
+        const openFileItem = this.container.querySelector(`.open-file-item[data-path="${normalized}"]`);
+        const item = treeItem || openFileItem;
         if (!item) return;
-        const nameSpan = item.querySelector('.tree-item-name');
+
+        const nameSpan = treeItem
+            ? item.querySelector('.tree-item-name')
+            : item.querySelector('.open-file-name');
         if (!nameSpan) return;
+
         const fileName = nameSpan.textContent || normalized.split('/').pop();
+        if (!treeItem && !item.hasAttribute('tabindex')) {
+            item.tabIndex = -1;
+        }
 
         // 构建输入框
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = 'tree-file-rename-input';
+        input.className = treeItem
+            ? 'tree-file-rename-input'
+            : 'tree-file-rename-input open-file-rename-input';
         input.value = fileName;
         nameSpan.replaceWith(input);
         this.renamingPath = normalized;
@@ -1608,14 +1635,24 @@ this.onFolderChange = callbacks.onFolderChange;
             if (submitting) return;
             submitting = true;
             const nextLabel = (input.value || '').trim();
-            const ok = await this.submitRenaming(normalized, fileName, nextLabel, { input, item });
+            const ok = await this.submitRenaming(
+                normalized,
+                fileName,
+                nextLabel,
+                { input, item, nameClass: treeItem ? 'tree-item-name' : 'open-file-name' }
+            );
             if (!ok) {
                 submitting = false;
                 input.focus();
                 input.select();
             }
         };
-        const cancel = () => this.cancelRenaming({ input, item, originalName: fileName });
+        const cancel = () => this.cancelRenaming({
+            input,
+            item,
+            originalName: fileName,
+            nameClass: treeItem ? 'tree-item-name' : 'open-file-name',
+        });
         const onKeyDown = (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -1650,12 +1687,17 @@ this.onFolderChange = callbacks.onFolderChange;
     }
 
     cancelRenaming(ctx = {}) {
-        const { input, item, originalName } = ctx;
+        const {
+            input,
+            item,
+            originalName,
+            nameClass = 'tree-item-name',
+        } = ctx;
         if (!this.renamingPath) return;
         if (this._renameCleanup) this._renameCleanup();
         if (input && item) {
             const span = document.createElement('span');
-            span.className = 'tree-item-name';
+            span.className = nameClass;
             span.textContent = originalName || (this.renamingPath.split('/').pop());
             input.replaceWith(span);
             // 恢复焦点到文件树项，避免焦点跳入编辑器

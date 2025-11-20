@@ -134,6 +134,10 @@
     color: var(--text-color, #333);
 }
 
+.open-file-rename-input {
+    margin: 1px 6px 1px 0;
+}
+
 .close-file-btn {
     background: none;
     border: none;

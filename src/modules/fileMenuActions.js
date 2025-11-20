@@ -295,10 +295,18 @@ export function createFileMenuActions(options = {}) {
         // 在文件树中触发重命名
         fileTree.startRenaming(currentFile);
         
-        // 同时将焦点设置到文件树的对应文件项上
-        const fileItem = fileTree.container.querySelector(`.tree-file[data-path="${currentFile}"]`);
-        if (fileItem) {
-            fileItem.focus();
+        // 同时将焦点设置到文件树或打开文件列表的对应项上
+        const focusTarget = fileTree.container.querySelector(`.tree-file[data-path="${currentFile}"]`)
+            || fileTree.container.querySelector(`.open-file-item[data-path="${currentFile}"]`);
+        if (focusTarget) {
+            if (!focusTarget.hasAttribute('tabindex')) {
+                focusTarget.tabIndex = -1;
+            }
+            try {
+                focusTarget.focus();
+            } catch (focusError) {
+                console.warn('重命名时无法聚焦对应项:', focusError);
+            }
         }
     }
 
