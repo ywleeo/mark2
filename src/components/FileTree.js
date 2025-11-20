@@ -3,9 +3,7 @@ import { isEditableFilePath, getViewModeForPath } from '../utils/fileTypeUtils.j
 import { getAppServices } from '../services/appServices.js';
 import { FileRenamer } from './FileRenamer.js';
 import { FileMover } from './FileMover.js';
-
-const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
-const WATCHER_STALE_THRESHOLD_MS = 300000;
+import { FileWatcher } from './FileWatcher.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -17,9 +15,7 @@ export class FileTree {
         this.expandedFolders = new Set();
         this.currentFile = null;
         this.openFiles = []; // 跟踪打开的文件
-        this.folderWatchers = new Map();
-        this.fileWatchers = new Map();
-this.onFolderChange = callbacks.onFolderChange;
+        this.onFolderChange = callbacks.onFolderChange;
         this.onFileChange = callbacks.onFileChange;
         this.onOpenFilesChange = callbacks.onOpenFilesChange;
         this.onStateChange = callbacks.onStateChange;
@@ -32,6 +28,17 @@ this.onFolderChange = callbacks.onFolderChange;
         this.cleanupFunctions = []; // 存储清理函数
         this.init();
         this.ensureFileService();
+
+        this.watcher = new FileWatcher({
+            normalizePath: this.normalizePath.bind(this),
+            getFileService: () => this.fileService,
+            ensureFileService: () => this.ensureFileService(),
+            onFolderChange: this.onFolderChange,
+            onFileChange: this.onFileChange,
+            getRootPaths: () => Array.from(this.rootPaths),
+            isRootPath: (path) => this.rootPaths.has(path),
+            loadFolder: (path) => this.loadFolder(path),
+        });
 
         this.mover = new FileMover({
             container: this.container,
@@ -908,225 +915,43 @@ this.onFolderChange = callbacks.onFolderChange;
     }
 
     async watchFolder(path) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath || this.folderWatchers.has(normalizedPath)) {
-            return;
-        }
-
-        try {
-            const { watch } = await import('@tauri-apps/plugin-fs');
-            const unwatch = await watch(normalizedPath, (event) => {
-                this.onFolderChange?.(normalizedPath, event);
-            }, { recursive: true, delayMs: 100 });
-            this.folderWatchers.set(normalizedPath, unwatch);
-        } catch (error) {
-            console.error('目录监听失败:', error);
-            this.folderWatchers.delete(normalizedPath);
-        }
+        return this.watcher?.watchFolder(path);
     }
 
     stopWatchingFolder(path = null) {
-        if (path) {
-            const normalizedPath = this.normalizePath(path);
-            if (!normalizedPath) return;
-            const unwatch = this.folderWatchers.get(normalizedPath);
-            if (unwatch) {
-                try {
-                    unwatch();
-                } catch (error) {
-                    console.error('停止目录监听失败:', error);
-                }
-                this.folderWatchers.delete(normalizedPath);
-            }
-            return;
-        }
-
-        this.folderWatchers.forEach((unwatch, watchedPath) => {
-            try {
-                unwatch();
-            } catch (error) {
-                console.error('停止目录监听失败:', { watchedPath, error });
-            }
-        });
-        this.folderWatchers.clear();
+        this.watcher?.stopWatchingFolder(path);
     }
 
     async watchFile(path, options = {}) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) return;
-
-        // 如果已经在监听，直接更新校验时间
-        const existingState = this.fileWatchers.get(normalizedPath);
-        if (existingState) {
-            existingState.lastVerificationTimestamp = Date.now();
-            return;
-        }
-
-        try {
-            const { watch } = await import('@tauri-apps/plugin-fs');
-            const unwatch = await watch(
-                normalizedPath,
-                (event) => {
-                    const state = this.fileWatchers.get(normalizedPath);
-                    if (state) {
-                        state.lastEventTimestamp = Date.now();
-                        state.hasReceivedEvent = true;
-                        state.externallyModified = true;
-                    }
-
-                    requestAnimationFrame(() => {
-                        this.onFileChange?.(normalizedPath, event);
-                    });
-                },
-                { recursive: false, delayMs: 50 }
-            );
-
-            const watcherState = {
-                unwatch,
-                hasReceivedEvent: false,
-                lastEventTimestamp: null,
-                lastVerificationTimestamp: Date.now(),
-                lastRebuildTimestamp: Date.now(),
-                pendingVerification: null,
-                externallyModified: false,
-            };
-
-            this.fileWatchers.set(normalizedPath, watcherState);
-        } catch (error) {
-            console.error('文件监听失败:', { path: normalizedPath, options, error });
-            throw error;
-        }
+        return this.watcher?.watchFile(path, options);
     }
 
     stopWatchingFile(path) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) return;
-
-        const watcherState = this.fileWatchers.get(normalizedPath);
-        if (!watcherState) {
-            return;
-        }
-
-        const { unwatch } = watcherState;
-        if (typeof unwatch === 'function') {
-            try {
-                unwatch();
-            } catch (error) {
-                console.error('停止文件监听失败:', { path: normalizedPath, error });
-            }
-        }
-
-        this.fileWatchers.delete(normalizedPath);
+        this.watcher?.stopWatchingFile(path);
     }
 
     async ensureFileWatcherHealth(path, options = {}) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) return;
-
-        const state = this.fileWatchers.get(normalizedPath);
-        if (!state) {
-            await this.watchFile(normalizedPath, { reason: 'ensure-missing' });
-            return;
-        }
-
-        const now = Date.now();
-        if (!options.force) {
-            const sinceLastVerify = now - (state.lastVerificationTimestamp ?? 0);
-            if (sinceLastVerify < WATCHER_VERIFICATION_COOLDOWN_MS) {
-                return;
-            }
-        }
-
-        if (state.pendingVerification) {
-            return;
-        }
-
-        const verificationPromise = (async () => {
-            try {
-                await this.ensureFileService().ipcHealthCheck?.();
-                const verifiedAt = Date.now();
-                state.lastVerificationTimestamp = verifiedAt;
-
-                if (state.hasReceivedEvent) {
-                    const lastEventAt = state.lastEventTimestamp ?? verifiedAt;
-                    const timeSinceLastEvent = verifiedAt - lastEventAt;
-                    if (timeSinceLastEvent > WATCHER_STALE_THRESHOLD_MS) {
-                        await this.restartFileWatcher(normalizedPath, { reason: 'stale-event' });
-                    }
-                }
-            } catch (error) {
-                console.warn('IPC 健康检查失败，准备重建文件监听', { path: normalizedPath, error });
-                await this.restartFileWatcher(normalizedPath, { reason: 'ipc-failed' });
-            }
-        })();
-
-        state.pendingVerification = verificationPromise;
-
-        try {
-            await verificationPromise;
-        } finally {
-            const current = this.fileWatchers.get(normalizedPath);
-            if (current) {
-                current.pendingVerification = null;
-            }
-        }
+        return this.watcher?.ensureFileWatcherHealth(path, options);
     }
 
     async restartFileWatcher(path, options = {}) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) return;
-
-        const state = this.fileWatchers.get(normalizedPath);
-        const now = Date.now();
-        if (state && now - (state.lastRebuildTimestamp ?? 0) < WATCHER_VERIFICATION_COOLDOWN_MS) {
-            return;
-        }
-
-        this.stopWatchingFile(normalizedPath);
-
-        try {
-            await this.watchFile(normalizedPath, { ...options, reason: options.reason ?? 'restart' });
-        } catch (error) {
-            console.error('重建文件监听失败:', { path: normalizedPath, error, options });
-        }
+        return this.watcher?.restartFileWatcher(path, options);
     }
 
     consumeExternalModification(path) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) return false;
-        const state = this.fileWatchers.get(normalizedPath);
-        if (!state) return false;
-        const wasModified = Boolean(state.externallyModified);
-        state.externallyModified = false;
-        return wasModified;
+        return this.watcher?.consumeExternalModification(path);
     }
 
     clearExternalModification(path) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) return;
-        const state = this.fileWatchers.get(normalizedPath);
-        if (state) {
-            state.externallyModified = false;
-        }
+        this.watcher?.clearExternalModification(path);
     }
 
     async refreshCurrentFolder(targetPath = null) {
-        if (targetPath) {
-            await this.refreshFolder(targetPath);
-            return;
-        }
-
-        const tasks = Array.from(this.rootPaths).map((path) => this.refreshFolder(path));
-        await Promise.all(tasks);
+        return this.watcher?.refreshCurrentFolder(targetPath);
     }
 
     async refreshFolder(path) {
-        const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
-            return;
-        }
-
-        await this.loadFolder(normalizedPath);
+        return this.watcher?.refreshFolder(path);
     }
 
     getRootPaths() {
@@ -1284,6 +1109,7 @@ this.onFolderChange = callbacks.onFolderChange;
 
     dispose() {
         this.mover?.dispose();
+        this.watcher?.dispose();
         // 取消可能正在重命名的状态
         this.cancelRenaming();
         // 清理所有事件监听器
@@ -1301,10 +1127,6 @@ this.onFolderChange = callbacks.onFolderChange;
         if (this._onMouseMoveDuringDrag) window.removeEventListener('mousemove', this._onMouseMoveDuringDrag);
 
         this.stopWatchingFolder();
-        Array.from(this.fileWatchers.keys()).forEach(path => {
-            this.stopWatchingFile(path);
-        });
-        this.fileWatchers.clear();
         this.openFiles = [];
         this.expandedFolders.clear();
         this.rootPaths.clear();
