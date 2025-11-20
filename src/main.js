@@ -702,6 +702,7 @@ async function initializeApplication() {
         onCloseTab: closeActiveTab,
         onFind: () => editor?.showSearch?.(),
         onSelectSearchMatches: () => editor?.selectAllSearchMatches?.(),
+        onDeleteFile: handleDeleteActiveFile,
         onToggleSidebar: toggleSidebarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleAiSidebar: toggleAiSidebarVisibility,

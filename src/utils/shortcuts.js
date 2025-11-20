@@ -4,6 +4,7 @@ export function setupKeyboardShortcuts({
     onCloseTab,
     onFind,
     onSelectSearchMatches,
+    onDeleteFile,
     // onToggleSidebar 由 Tauri 菜单统一处理
     onToggleMarkdownCodeView,
     onToggleAiSidebar,
@@ -68,6 +69,14 @@ export function setupKeyboardShortcuts({
             if (onFind) {
                 await onFind();
             }
+        }
+
+        if (isMeta && (key === 'delete' || key === 'backspace')) {
+            event.preventDefault();
+            if (onDeleteFile) {
+                await onDeleteFile();
+            }
+            return;
         }
     };
 

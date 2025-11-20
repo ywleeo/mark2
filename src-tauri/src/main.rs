@@ -536,7 +536,9 @@ fn main() {
             let rename_file_item =
                 MenuItemBuilder::with_id("file-rename", "Rename...").build(app)?;
             let move_file_item = MenuItemBuilder::with_id("file-move", "Move To...").build(app)?;
-            let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete").build(app)?;
+let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete")
+                .accelerator("CmdOrCtrl+Delete")
+                .build(app)?;
 
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File")
