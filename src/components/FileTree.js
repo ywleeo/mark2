@@ -5,6 +5,7 @@ import { FileRenamer } from './FileRenamer.js';
 import { FileMover } from './FileMover.js';
 import { FileWatcher } from './FileWatcher.js';
 import { OpenFilesView } from './OpenFilesView.js';
+import { ExternalDropHandler } from './ExternalDropHandler.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -79,6 +80,13 @@ export class FileTree {
             },
             onRenameRequest: (path) => this.startRenaming(path),
             isRenaming: () => this.renamer?.isRenaming() ?? false,
+        });
+
+        this.externalDropHandler = new ExternalDropHandler({
+            container: this.container,
+            readDirectory: (path) => this.readDirectory(path),
+            addRootFolder: (path, { entries } = {}) => this.addRootFolder(path, entries || null),
+            refreshFolder: (path) => this.refreshFolder(path),
         });
     }
 
@@ -158,8 +166,22 @@ export class FileTree {
         // 文件树容器级拖拽监听（更可靠的命中）
         this._onTreeDragOver = (e) => this.mover?.handleTreeDragOver(e);
         this._onTreeDragLeave = (e) => this.mover?.handleTreeDragLeave(e);
-        this._onTreeDrop = (e) => this.mover?.handleTreeDrop(e);
+        this._onTreeDrop = (e) => {
+            // 外部文件拖入
+            if (!window.__IS_INTERNAL_DRAG__) {
+                this.externalDropHandler?.handleDrop(e);
+                return;
+            }
+            this.mover?.handleTreeDrop(e);
+        };
+        this._onTreeDragEnter = (e) => {
+            if (!window.__IS_INTERNAL_DRAG__) {
+                this.externalDropHandler?.handleDragOver(e);
+                return;
+            }
+        };
         this.container.addEventListener('dragover', this._onTreeDragOver);
+        this.container.addEventListener('dragenter', this._onTreeDragEnter);
         this.container.addEventListener('dragleave', this._onTreeDragLeave);
         this.container.addEventListener('drop', this._onTreeDrop);
 
@@ -1073,6 +1095,7 @@ export class FileTree {
 
         // 解绑容器级 DnD 事件
         if (this._onTreeDragOver) this.container.removeEventListener('dragover', this._onTreeDragOver);
+        if (this._onTreeDragEnter) this.container.removeEventListener('dragenter', this._onTreeDragEnter);
         if (this._onTreeDragLeave) this.container.removeEventListener('dragleave', this._onTreeDragLeave);
         if (this._onTreeDrop) this.container.removeEventListener('drop', this._onTreeDrop);
         if (this._onMouseMoveDuringDrag) window.removeEventListener('mousemove', this._onMouseMoveDuringDrag);
