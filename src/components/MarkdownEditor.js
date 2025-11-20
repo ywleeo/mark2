@@ -243,7 +243,8 @@ export class MarkdownEditor {
             }
             : null;
 
-        const processed = this.preprocessBold(markdown);
+        const processedBold = this.preprocessBold(markdown);
+        const processed = this.preprocessListIndentation(processedBold);
         const html = this.md.render(processed);
         const resolvedHtml = await resolveImageSources(html, this.currentFile);
         if (sessionId && sessionId !== this.currentSessionId) {
@@ -345,6 +346,26 @@ export class MarkdownEditor {
             /(^|[^*])\*\*([\s\S]+?)\*\*(?!\*)/g,
             (match, prefix, content) => `${prefix}<strong>${content}</strong>`
         );
+    }
+
+    // 预处理列表缩进
+    preprocessListIndentation(markdown) {
+        if (!markdown) {
+            return '';
+        }
+        return markdown.replace(/\n  ([-*+]) /g, (match, marker, offset, string) => {
+            // 查找上一行的开始位置
+            const lastNewLine = string.lastIndexOf('\n', offset - 1);
+            const previousLineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
+            const previousLine = string.slice(previousLineStart, offset);
+
+            // 检查上一行是否看起来像列表项
+            // 正则：可选空白，然后 (数字+点 或 标记符)，然后空格
+            if (/^\s*(?:[*+-]|\d+\.)\s+/.test(previousLine)) {
+                return `\n    ${marker} `;
+            }
+            return match;
+        });
     }
 
     // 获取 Markdown 格式的内容
@@ -531,7 +552,9 @@ export class MarkdownEditor {
             return;
         }
         const content = typeof markdown === 'string' ? markdown : '';
-        const html = this.md.render(content);
+        const processedBold = this.preprocessBold(content);
+        const processed = this.preprocessListIndentation(processedBold);
+        const html = this.md.render(processed);
 
         const { state } = this.editor;
         const selection = state?.selection;
@@ -676,7 +699,9 @@ export class MarkdownEditor {
             .deleteSelection();
 
         if (content.length > 0) {
-            const html = this.md.render(content);
+            const processedBold = this.preprocessBold(content);
+            const processed = this.preprocessListIndentation(processedBold);
+            const html = this.md.render(processed);
             chain = chain.insertContent(html);
         }
 
