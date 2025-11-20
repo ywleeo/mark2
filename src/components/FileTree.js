@@ -441,7 +441,7 @@ export class FileTree {
                 return;
             }
             this.toggleFolder(path, item);
-        });
+        }, { shouldHandle: () => !this.mover?.shouldBlockInteraction?.() });
         this.cleanupFunctions.push(cleanup1);
 
         if (isRoot) {
@@ -537,7 +537,7 @@ export class FileTree {
         let clickCount = 0;
         let clickTimer = null;
 
-        const cleanup = addClickHandler(item, () => {
+        const cleanup = addClickHandler(item, (event) => {
             clickCount++;
 
             if (clickCount === 1) {
@@ -556,7 +556,7 @@ export class FileTree {
                 this.addToOpenFiles(path);
                 clickCount = 0;
             }
-        }, { preventDefault: true });
+        }, { preventDefault: true, shouldHandle: () => !this.mover?.shouldBlockInteraction?.() });
         this.cleanupFunctions.push(cleanup);
 
         return item;
@@ -782,7 +782,7 @@ export class FileTree {
                     return;
                 }
                 this.selectFile(path);
-            });
+            }, { shouldHandle: () => !this.mover?.shouldBlockInteraction?.() });
             this.cleanupFunctions.push(cleanup1);
 
             const closeButton = item.querySelector('.close-file-btn');
@@ -1096,6 +1096,9 @@ export class FileTree {
 
     // ===== 内联重命名 =====
     startRenaming(path) {
+        if (this.mover?.shouldBlockInteraction?.()) {
+            return;
+        }
         this.renamer?.start(path);
     }
 
