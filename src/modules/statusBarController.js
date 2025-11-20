@@ -126,7 +126,9 @@ export function createStatusBarController({
         }
 
         let wordCountText = '';
-        if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
+        if (typeof wordCount === 'object' && wordCount !== null) {
+            wordCountText = `${wordCount.words} 字 / ${wordCount.characters} 字符`;
+        } else if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
             wordCountText = `${wordCount} 字`;
         }
         statusBarWordCountElement.textContent = wordCountText;
@@ -276,24 +278,27 @@ export function createStatusBarController({
                 content = codeEditor.getValue() || '';
             }
 
-            if (!content) return 0;
+            if (!content) return { words: 0, characters: 0 };
 
             const cleaned = content
                 .replace(/```[\s\S]*?```/g, '')
                 .replace(/`[^`]+`/g, '')
                 .replace(/!\[.*?\]\(.*?\)/g, '')
                 .replace(/\[.*?\]\(.*?\)/g, '')
-                .replace(/[#*_~\->`]/g, '')
+                .replace(/[#*_\-~>`]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
 
             const chineseChars = cleaned.match(/[\u4e00-\u9fa5]/g) || [];
-            const englishWords = cleaned.match(/[a-zA-Z]+/g) || [];
+            const englishWords = cleaned.match(/[a-zA-Z0-9]+/g) || [];
 
-            return chineseChars.length + englishWords.length;
+            return {
+                words: chineseChars.length + englishWords.length,
+                characters: content.length
+            };
         } catch (error) {
             console.error('计算字数失败:', error);
-            return 0;
+            return { words: 0, characters: 0 };
         }
     }
 

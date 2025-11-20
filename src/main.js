@@ -826,14 +826,14 @@ async function loadAvailableFonts() {
 async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
-        let wordCount = 0;
+        let wordCount = { words: 0, characters: 0 };
         let lastModified = '';
 
         if (currentFile) {
             // 获取字数
             wordCount = statusBarController
                 ? statusBarController.calculateWordCount({ activeViewMode, editor, codeEditor })
-                : 0;
+                : { words: 0, characters: 0 };
 
             // 获取最后编辑时间
             lastModified = statusBarController
