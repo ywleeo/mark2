@@ -250,7 +250,8 @@ export class CodeEditor {
         });
     }
 
-    async show(filePath, content, language = null, session = null) {
+    async show(filePath, content, language = null, session = null, options = {}) {
+        const { autoFocus = true } = options;
         const sessionId = session?.id ?? this.currentSessionId ?? null;
         if (session && !this.isSessionActive(sessionId)) {
             return;
@@ -319,7 +320,9 @@ export class CodeEditor {
         });
         this.showContainer();
         this.requestLayout();
-        this.editor.focus();
+        if (autoFocus) {
+            this.editor.focus();
+        }
 
         if (this.loadingSessionId === sessionId) {
             this.loadingSessionId = null;

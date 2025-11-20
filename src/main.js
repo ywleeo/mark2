@@ -428,6 +428,7 @@ const {
     renameActiveFile: handleRenameActiveFile,
     handleTabRenameConfirm,
     handleTabRenameCancel,
+    applyPathChange,
 } = createFileMenuActions({
     confirm,
     normalizeFsPath,
@@ -639,6 +640,7 @@ async function initializeApplication() {
         onFileChange: (...args) => fileWatcherController?.handleFileWatcherEvent(...args),
         onOpenFilesChange: handleOpenFilesChange,
         onStateChange: handleSidebarStateChange,
+        onPathRenamed: applyPathChange,
         onCloseFileRequest: (path) => {
             if (!path) {
                 return;
@@ -672,7 +674,7 @@ async function initializeApplication() {
         getEditor: () => editor,
         getCodeEditor: () => codeEditor,
         scheduleLoadFile: async (path) => {
-            await loadFile(path, { skipWatchSetup: true, forceReload: true });
+            await loadFile(path, { skipWatchSetup: true, forceReload: true, autoFocus: false });
         },
         fileSession,
         documentSessions,

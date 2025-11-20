@@ -55,7 +55,8 @@ export function createNavigationController({
 
     let isOpeningFromLink = false;
 
-    async function handleFileSelect(filePath) {
+    async function handleFileSelect(filePath, options = {}) {
+        const { autoFocus = true } = options;
         const fileTree = getFileTree();
         const tabManager = getTabManager();
         const previousFile = getCurrentFile();
@@ -118,7 +119,7 @@ export function createNavigationController({
 
             const shouldForceReload = Boolean(fileTree?.consumeExternalModification?.(filePath));
 
-            await loadFile(filePath, { forceReload: shouldForceReload });
+            await loadFile(filePath, { forceReload: shouldForceReload, autoFocus });
 
             const isOpenTab = fileTree?.isInOpenList?.(filePath);
 

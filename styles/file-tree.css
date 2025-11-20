@@ -321,3 +321,47 @@
     height: 100%;
     display: block;
 }
+
+/* 取消文件/文件夹节点获得焦点时的系统描边，不改动已有选中样式 */
+.tree-file:focus,
+.tree-file:focus-visible,
+.tree-folder-header:focus,
+.tree-folder-header:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+
+/* 重命名输入框 */
+.tree-file-rename-input {
+    flex: 1;
+    border: 1px solid var(--accent-color, #0078d4);
+    border-radius: 3px;
+    padding: 1px 4px;
+    background: var(--bg-color, #fff);
+    font-size: 12px;
+    font-family: inherit;
+    line-height: 16px;
+    outline: none;
+    margin-right: 4px;
+    min-width: 100px;
+    height: 18px;
+    box-sizing: border-box;
+    color: var(--text-color, #111);
+    caret-color: var(--text-color, #111);
+}
+
+/* 深色模式下的可读性增强 */
+:root[data-theme-appearance="dark"] .tree-file-rename-input {
+    background: var(--bg-elevated, #1e1e1e);
+    color: var(--text-color, #e6e6e6);
+    caret-color: var(--text-color, #e6e6e6);
+}
+
+.tree-file-rename-input::placeholder {
+    color: var(--text-secondary, #888);
+}
+
+.tree-file-rename-input:focus {
+    border-color: var(--accent-color, #0078d4);
+    box-shadow: 0 0 0 1px var(--accent-color, #0078d4);
+}

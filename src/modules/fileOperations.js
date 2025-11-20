@@ -199,7 +199,7 @@ export function createFileOperations({
     let loadPipeline = Promise.resolve();
 
     async function performLoad(filePath, options = {}) {
-        const { skipWatchSetup = false, forceReload = false } = options;
+        const { skipWatchSetup = false, forceReload = false, autoFocus = true } = options;
         const session = documentSessions.beginSession(filePath);
         const sessionId = session?.id ?? null;
         const shouldAbort = (phase) => {
@@ -378,7 +378,7 @@ export function createFileOperations({
             if (targetViewMode === 'markdown') {
                 activateMarkdownView();
                 if (editor) {
-                    await editor.loadFile(session, filePath, fileData.content);
+                    await editor.loadFile(session, filePath, fileData.content, { autoFocus });
                     if (shouldAbort('markdown-editor-load')) {
                         return;
                     }
@@ -394,7 +394,7 @@ export function createFileOperations({
                 activateCodeView();
                 editor?.clear?.();
                 const language = detectLanguageForPath(filePath);
-                await codeEditor?.show(filePath, fileData.content, language, session);
+                await codeEditor?.show(filePath, fileData.content, language, session, { autoFocus });
                 if (shouldAbort('code-editor-load')) {
                     return;
                 }

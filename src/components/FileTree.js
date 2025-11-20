@@ -17,11 +17,14 @@ export class FileTree {
         this.openFiles = []; // 跟踪打开的文件
         this.folderWatchers = new Map();
         this.fileWatchers = new Map();
-        this.onFolderChange = callbacks.onFolderChange;
+this.onFolderChange = callbacks.onFolderChange;
         this.onFileChange = callbacks.onFileChange;
         this.onOpenFilesChange = callbacks.onOpenFilesChange;
         this.onStateChange = callbacks.onStateChange;
         this.onCloseFileRequest = callbacks.onCloseFileRequest;
+        this.onPathRenamed = callbacks.onPathRenamed;
+        this.renamingPath = null;
+        this._renameCleanup = null;
         this.sectionStates = {
             openFilesCollapsed: false,
             foldersCollapsed: false,
@@ -450,6 +453,7 @@ export class FileTree {
         const item = document.createElement('div');
         item.className = 'tree-file';
         item.dataset.path = path;
+        item.tabIndex = '0'; // 使文件项可以聚焦
 
         // 启用原生 dragstart 仅用于“触发”事件，然后立刻拦截并切换到自定义拖拽
         // 这样可以兼容 macOS 触控板三指拖动（可能不会触发 mousedown）
@@ -492,6 +496,18 @@ export class FileTree {
             <span class="tree-item-name">${name}</span>
         `;
 
+        // 键盘：回车触发重命名
+        const onKeyDown = (e) => {
+            if (this.renamingPath) return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                this.startRenaming(path);
+            }
+        };
+        item.addEventListener('keydown', onKeyDown);
+        this.cleanupFunctions.push(() => item.removeEventListener('keydown', onKeyDown));
+
         // 使用统一的点击处理函数
         let clickCount = 0;
         let clickTimer = null;
@@ -500,8 +516,10 @@ export class FileTree {
             clickCount++;
 
             if (clickCount === 1) {
-                // 第一次点击：立即打开文件
-                this.selectFile(path);
+                // 第一次点击：立即打开文件（不自动聚焦编辑器）
+                this.selectFile(path, { autoFocus: false });
+                // 保持焦点在当前文件项，便于直接按 Enter 触发重命名
+                try { item.focus(); } catch {}
 
                 // 启动定时器，等待可能的第二次点击
                 clickTimer = setTimeout(() => {
@@ -586,13 +604,14 @@ export class FileTree {
         childrenContainer.replaceChildren(fragment);
     }
 
-    selectFile(path) {
+    selectFile(path, options = {}) {
+        const { autoFocus = true } = options;
         const normalized = this.normalizePath(path);
         if (!normalized) {
             this.clearSelection();
             this.currentFile = null;
             if (this.onFileSelect) {
-                this.onFileSelect(null);
+                this.onFileSelect(null, { autoFocus });
             }
             return;
         }
@@ -620,7 +639,7 @@ export class FileTree {
 
         // 回调
         if (this.onFileSelect) {
-            this.onFileSelect(normalized);
+            this.onFileSelect(normalized, { autoFocus });
         }
 
         this.ensureFileWatcherHealth(normalized).catch(error => {
@@ -1233,10 +1252,7 @@ export class FileTree {
             event.preventDefault();
             event.stopPropagation();
         } catch {}
-        // 记录状态，避免出现系统级覆盖层
-        window.__IS_INTERNAL_DRAG__ = true;
-        document.body.classList.add('is-internal-drag');
-        // 立刻开始自定义拖拽（以当前指针位置作为起点）
+        // 不要在这里设置内部拖拽标记与样式，等真正进入拖拽再设置
         const clientX = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
         const clientY = event.clientY ?? (event.touches && event.touches[0]?.clientY) ?? 0;
         const fakeMouseEvent = { button: 0, clientX, clientY, preventDefault(){} };
@@ -1260,14 +1276,7 @@ export class FileTree {
             active: false,
             hoverHeader: null,
         };
-
-        // 创建跟随鼠标的预览
-        const name = (sourcePath || '').split(/[/\\]/).pop() || '';
-        const sourceEl = this.container.querySelector(`.tree-file[data-path="${sourcePath}"]`);
-        const rect = sourceEl ? sourceEl.getBoundingClientRect() : null;
-        const nodeWidth = rect ? rect.width : null;
-        this.createDragGhost(name, event.clientX, event.clientY, nodeWidth);
-
+        // 不在这里创建拖拽预览与内部拖拽标记，等阈值触发后再创建
         this._onInternalMouseMove = (e) => this.onInternalDragMove(e);
         this._onInternalMouseUp = (e) => this.endInternalDrag(e);
         window.addEventListener('mousemove', this._onInternalMouseMove, true);
@@ -1282,8 +1291,15 @@ export class FileTree {
         const threshold = 3;
         if (!active && (dx > threshold || dy > threshold)) {
             this._dragState.active = true;
+            // 真正进入拖拽时再设置内部拖拽标记与样式
             document.body.classList.add('is-internal-drag');
             window.__IS_INTERNAL_DRAG__ = true;
+            // 在此时创建拖拽预览，避免点击/双击瞬间闪烁
+            const name = (this._dragState.sourcePath || '').split(/[\/\\]/).pop() || '';
+            const sourceEl = this.container.querySelector(`.tree-file[data-path="${this._dragState.sourcePath}"]`);
+            const rect = sourceEl ? sourceEl.getBoundingClientRect() : null;
+            const nodeWidth = rect ? rect.width : null;
+            this.createDragGhost(name, event.clientX, event.clientY, nodeWidth);
         }
         if (!this._dragState.active) return;
 
@@ -1566,6 +1582,169 @@ export class FileTree {
         this._dragGhost = null;
     }
 
+    // ===== 内联重命名 =====
+    startRenaming(path) {
+        const normalized = this.normalizePath(path);
+        if (!normalized) return;
+        if (this.renamingPath && this.renamingPath !== normalized) {
+            this.cancelRenaming();
+        }
+        const item = this.container.querySelector(`.tree-file[data-path="${normalized}"]`);
+        if (!item) return;
+        const nameSpan = item.querySelector('.tree-item-name');
+        if (!nameSpan) return;
+        const fileName = nameSpan.textContent || normalized.split('/').pop();
+
+        // 构建输入框
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tree-file-rename-input';
+        input.value = fileName;
+        nameSpan.replaceWith(input);
+        this.renamingPath = normalized;
+
+        let submitting = false;
+        const submit = async () => {
+            if (submitting) return;
+            submitting = true;
+            const nextLabel = (input.value || '').trim();
+            const ok = await this.submitRenaming(normalized, fileName, nextLabel, { input, item });
+            if (!ok) {
+                submitting = false;
+                input.focus();
+                input.select();
+            }
+        };
+        const cancel = () => this.cancelRenaming({ input, item, originalName: fileName });
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                void submit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+            }
+        };
+        const onBlur = () => {
+            // 失焦即取消（与 Tab 行为保持一致）
+            if (!submitting) {
+                cancel();
+            }
+        };
+        input.addEventListener('keydown', onKeyDown);
+        input.addEventListener('blur', onBlur);
+        this._renameCleanup = () => {
+            input.removeEventListener('keydown', onKeyDown);
+            input.removeEventListener('blur', onBlur);
+            this._renameCleanup = null;
+        };
+
+        // 聚焦并只选中不含扩展名的主体
+        setTimeout(() => {
+            input.focus();
+            const { start, end } = this._calcNameSelectionRange(fileName);
+            try {
+                input.setSelectionRange(start, end);
+            } catch {}
+        }, 0);
+    }
+
+    cancelRenaming(ctx = {}) {
+        const { input, item, originalName } = ctx;
+        if (!this.renamingPath) return;
+        if (this._renameCleanup) this._renameCleanup();
+        if (input && item) {
+            const span = document.createElement('span');
+            span.className = 'tree-item-name';
+            span.textContent = originalName || (this.renamingPath.split('/').pop());
+            input.replaceWith(span);
+            // 恢复焦点到文件树项，避免焦点跳入编辑器
+            try { item.focus(); } catch {}
+        }
+        this.renamingPath = null;
+    }
+
+    async submitRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {
+        if (!nextLabel) {
+            return false;
+        }
+        if (nextLabel === currentLabel) {
+            // 无变化
+            this.cancelRenaming(ctx);
+            return true;
+        }
+        try {
+            await this.performRename(oldPath, nextLabel);
+            this.cancelRenaming(ctx);
+            return true;
+        } catch (error) {
+            console.error('重命名失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`重命名失败:\n${error.message || error}`, { title: '重命名失败', kind: 'error' });
+            } catch {}
+            return false;
+        }
+    }
+
+    _calcNameSelectionRange(fileName) {
+        // 默认选中文件名不包含扩展名
+        // 规则：取最后一个 '.' 之前；但以 '.' 开头的隐藏文件只在存在第二个点时才视为有扩展名
+        const len = (fileName || '').length;
+        if (len === 0) return { start: 0, end: 0 };
+        const firstDot = fileName.indexOf('.');
+        const lastDot = fileName.lastIndexOf('.');
+        let end = len;
+        if (lastDot > 0) {
+            // 有点且不在第 0 位
+            end = lastDot;
+        } else if (firstDot === 0 && lastDot > 0) {
+            end = lastDot;
+        }
+        if (end < 0) end = len;
+        return { start: 0, end };
+    }
+
+    async performRename(sourcePath, nextLabel) {
+        const normalizedSource = this.normalizePath(sourcePath);
+        if (!normalizedSource) return;
+        const separator = '/';
+        const parentDir = normalizedSource.substring(0, normalizedSource.lastIndexOf(separator));
+        const destinationPath = parentDir ? `${parentDir}${separator}${nextLabel}` : nextLabel;
+        if (destinationPath === normalizedSource) {
+            return;
+        }
+        await this.fileService.move(normalizedSource, destinationPath);
+        
+        // 同步打开文件列表
+        this.replaceOpenFilePath(normalizedSource, destinationPath);
+        // 如果当前文件就是它，更新选中（不自动聚焦编辑器）
+        const wasCurrent = this.normalizePath(this.currentFile) === normalizedSource;
+        if (wasCurrent) {
+            this.selectFile(destinationPath, { autoFocus: false });
+        }
+        // 通知外部做全局同步（Tab、状态栏、会话等），传递禁止自动聚焦标记
+        try {
+            this.onPathRenamed?.(normalizedSource, destinationPath, { suppressAutoFocus: true });
+        } catch (e) {
+            console.warn('onPathRenamed 回调失败:', e);
+        }
+        // 延迟刷新父目录，避免刷新触发文件重新加载
+        if (parentDir) {
+            setTimeout(() => {
+                this.refreshFolder(parentDir);
+            }, 300);
+        }
+        
+        // 重命名成功后保持焦点在文件树项上
+        setTimeout(() => {
+            const renamedItem = this.container.querySelector(`.tree-file[data-path="${destinationPath}"]`);
+            if (renamedItem) {
+                try { renamedItem.focus(); } catch {}
+            }
+        }, 100);
+    }
+
     async performMove(sourcePath, targetFolderPath) {
         const normalizedSource = this.normalizePath(sourcePath);
         const normalizedTarget = this.normalizePath(targetFolderPath);
@@ -1604,6 +1783,8 @@ export class FileTree {
     }
 
     dispose() {
+        // 取消可能正在重命名的状态
+        this.cancelRenaming();
         // 清理所有事件监听器
         this.cleanupFunctions.forEach(cleanup => {
             if (typeof cleanup === 'function') {

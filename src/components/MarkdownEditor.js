@@ -524,7 +524,8 @@ export class MarkdownEditor {
     }
 
     // 加载文件
-    async loadFile(sessionOrPath, maybeFilePath, maybeContent) {
+    async loadFile(sessionOrPath, maybeFilePath, maybeContent, options = {}) {
+        const { autoFocus = true } = options;
         let session = null;
         let filePath = sessionOrPath;
         let content = maybeFilePath;
@@ -545,7 +546,7 @@ export class MarkdownEditor {
         this.loadingSessionId = sessionId;
         this.isLoadingFile = true;
         try {
-            const applied = await this.setContent(content, isNewFile);
+            const applied = await this.setContent(content, isNewFile ? autoFocus : false);
             if (!applied) {
                 return;
             }

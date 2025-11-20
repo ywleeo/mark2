@@ -287,18 +287,19 @@ export function createFileMenuActions(options = {}) {
             return;
         }
 
-        const tabManager = getTabManager();
-        if (!tabManager) {
+        const fileTree = getFileTree();
+        if (!fileTree) {
             return;
         }
 
-        const targetTab = tabManager.getAllTabs().find(tab => tab.path === currentFile);
-        if (!targetTab) {
-            return;
+        // 在文件树中触发重命名
+        fileTree.startRenaming(currentFile);
+        
+        // 同时将焦点设置到文件树的对应文件项上
+        const fileItem = fileTree.container.querySelector(`.tree-file[data-path="${currentFile}"]`);
+        if (fileItem) {
+            fileItem.focus();
         }
-
-        tabManager.setActiveTab(targetTab.id, { silent: true });
-        tabManager.startRenamingTab(targetTab.id);
     }
 
     async function handleTabRenameConfirm(tab, nextLabel) {
@@ -341,6 +342,7 @@ export function createFileMenuActions(options = {}) {
     async function applyPathChange(oldPath, newPath, options = {}) {
         const normalizedOld = normalizeFsPath(oldPath);
         const normalizedNew = normalizeFsPath(newPath);
+        const { suppressAutoFocus = false } = options;
         if (!normalizedOld || !normalizedNew) {
             return;
         }
@@ -375,6 +377,7 @@ export function createFileMenuActions(options = {}) {
         }
 
         if (normalizeFsPath(getCurrentFile()) === normalizedOld) {
+            // 仅更新当前文件路径，不触发任何会导致编辑器聚焦的逻辑
             setCurrentFile(normalizedNew);
         }
         documentSessions.updateSessionPath(normalizedOld, normalizedNew);
@@ -396,5 +399,6 @@ export function createFileMenuActions(options = {}) {
         renameActiveFile,
         handleTabRenameConfirm,
         handleTabRenameCancel,
+        applyPathChange,
     };
 }
