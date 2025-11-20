@@ -4,6 +4,7 @@ import { getAppServices } from '../services/appServices.js';
 import { FileRenamer } from './FileRenamer.js';
 import { FileMover } from './FileMover.js';
 import { FileWatcher } from './FileWatcher.js';
+import { OpenFilesView } from './OpenFilesView.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -56,6 +57,28 @@ export class FileTree {
             getCurrentFile: () => this.currentFile,
             onPathRenamed: this.onPathRenamed,
             refreshFolder: (folderPath) => this.refreshFolder(folderPath),
+        });
+
+        this.openFilesView = new OpenFilesView({
+            container: this.container.querySelector('#openFilesContent'),
+            normalizePath: this.normalizePath.bind(this),
+            watchFile: (path) => this.watchFile(path),
+            shouldBlockInteraction: () => this.mover?.shouldBlockInteraction?.(),
+            onSelect: (path) => this.selectFile(path),
+            onClose: (path) => {
+                if (typeof this.onCloseFileRequest === 'function') {
+                    const maybePromise = this.onCloseFileRequest(path);
+                    if (maybePromise && typeof maybePromise.then === 'function') {
+                        maybePromise.catch(error => {
+                            console.error('关闭文件请求失败:', error);
+                        });
+                        return;
+                    }
+                }
+                this.closeFile(path);
+            },
+            onRenameRequest: (path) => this.startRenaming(path),
+            isRenaming: () => this.renamer?.isRenaming() ?? false,
         });
     }
 
@@ -734,85 +757,9 @@ export class FileTree {
 
     renderOpenFiles(options = {}) {
         const { skipWatch = false } = options;
-        const contentDiv = this.container.querySelector('#openFilesContent');
-
-        if (this.openFiles.length === 0) {
-            contentDiv.innerHTML = '';
-            return;
-        }
-
-        contentDiv.innerHTML = '';
-
-        this.openFiles.forEach(path => {
-            if (!skipWatch) {
-                this.watchFile(path).catch(error => {
-                    console.error('监听文件失败:', error);
-                });
-            }
-
-            const fileName = path.split('/').pop();
-            const item = document.createElement('div');
-            item.className = 'open-file-item';
-            item.dataset.path = path;
-
-            if (this.normalizePath(this.currentFile) === path) {
-                item.classList.add('selected');
-            }
-
-            // 允许键盘聚焦
-            item.tabIndex = '0';
-
-            const iconSvg = `
-                <svg class="open-file-icon" width="14" height="14" viewBox="0 0 16 16">
-                    <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z"
-                          fill="none" stroke="currentColor" stroke-width="1"/>
-                    <path d="M10.5 1v3.5H14" fill="none" stroke="currentColor" stroke-width="1"/>
-                </svg>
-            `;
-
-            item.innerHTML = `
-                ${iconSvg}
-                <span class="open-file-name">${fileName}</span>
-                <button class="close-file-btn" data-path="${path}">×</button>
-            `;
-
-            // 使用统一的点击处理函数
-            const cleanup1 = addClickHandler(item, (event) => {
-                if (event.target.closest('.close-file-btn')) {
-                    return;
-                }
-                this.selectFile(path);
-            }, { shouldHandle: () => !this.mover?.shouldBlockInteraction?.() });
-            this.cleanupFunctions.push(cleanup1);
-
-            const closeButton = item.querySelector('.close-file-btn');
-            const cleanup2 = addClickHandler(closeButton, (event) => {
-                event.stopPropagation();
-                if (typeof this.onCloseFileRequest === 'function') {
-                    const maybePromise = this.onCloseFileRequest(path);
-                    if (maybePromise && typeof maybePromise.then === 'function') {
-                        maybePromise.catch(error => {
-                            console.error('关闭文件请求失败:', error);
-                        });
-                    }
-                    return;
-                }
-                this.closeFile(path);
-            });
-            this.cleanupFunctions.push(cleanup2);
-
-            const onKeyDown = (e) => {
-                if (this.renamer?.isRenaming()) return;
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.startRenaming(path);
-                }
-            };
-            item.addEventListener('keydown', onKeyDown);
-            this.cleanupFunctions.push(() => item.removeEventListener('keydown', onKeyDown));
-
-            contentDiv.appendChild(item);
+        this.openFilesView?.render(this.openFiles, {
+            currentFile: this.currentFile,
+            skipWatch,
         });
     }
 
@@ -1113,6 +1060,7 @@ export class FileTree {
     dispose() {
         this.mover?.dispose();
         this.watcher?.dispose();
+        this.openFilesView?.dispose();
         // 取消可能正在重命名的状态
         this.cancelRenaming();
         // 清理所有事件监听器
