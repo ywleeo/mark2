@@ -1,4 +1,4 @@
-import { Editor } from '@tiptap/core';
+import { Editor, Extension } from '@tiptap/core';
 import { EditorState } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
@@ -108,6 +108,22 @@ export class MarkdownEditor {
                 HtmlSpan,
                 HtmlDiv,
                 HtmlInline,
+                Extension.create({
+                    name: 'tabIndent',
+                    addKeyboardShortcuts() {
+                        return {
+                            Tab: () => {
+                                if (this.editor.commands.sinkListItem('listItem')) {
+                                    return true;
+                                }
+                                if (this.editor.commands.sinkListItem('taskItem')) {
+                                    return true;
+                                }
+                                return this.editor.commands.insertContent('    ');
+                            },
+                        };
+                    },
+                }),
             ],
             content: '',
             editable: false,
