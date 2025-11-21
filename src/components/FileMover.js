@@ -5,12 +5,14 @@ export class FileMover {
             normalizePath,
             getFileService,
             refreshFolder,
+            onMove,
         } = options;
 
         this.container = container;
         this.normalizePath = normalizePath;
         this.getFileService = getFileService;
         this.refreshFolder = refreshFolder;
+        this.onMove = onMove;
 
         this._dragState = null;
         this._dragGhost = null;
@@ -23,7 +25,7 @@ export class FileMover {
     }
 
     // 拦截原生 dragstart（用于 macOS 三指拖动），转为自定义拖拽
-    interceptNativeDragStart(event, sourcePath) {
+    interceptNativeDragStart(event, sourcePath, options = {}) {
         try {
             event.preventDefault();
             event.stopPropagation();
@@ -31,14 +33,14 @@ export class FileMover {
         const clientX = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
         const clientY = event.clientY ?? (event.touches && event.touches[0]?.clientY) ?? 0;
         const fakeMouseEvent = { button: 0, clientX, clientY, preventDefault() {} };
-        this.beginInternalDrag(fakeMouseEvent, sourcePath);
+        this.beginInternalDrag(fakeMouseEvent, sourcePath, options);
         this.cancelNativeDragState = () => {
             this._nativeDragIntercepting = false;
         };
     }
 
     // ========== 自定义鼠标拖拽实现，绕过 HTML5 DnD ==========
-    beginInternalDrag(event, sourcePath) {
+    beginInternalDrag(event, sourcePath, options = {}) {
         if (!event || event.button !== 0) return;
         event.preventDefault();
         this._dragState = {
@@ -47,6 +49,7 @@ export class FileMover {
             startY: event.clientY,
             active: false,
             hoverHeader: null,
+            isDirectory: options.isDirectory ?? false,
         };
         this._onInternalMouseMove = (e) => this.onInternalDragMove(e);
         this._onInternalMouseUp = (e) => this.endInternalDrag(e);
@@ -66,10 +69,17 @@ export class FileMover {
             document.body.classList.add('is-internal-drag');
             window.__IS_INTERNAL_DRAG__ = true;
             const name = (this._dragState.sourcePath || '').split(/[\\/]/).pop() || '';
-            const sourceEl = this.container?.querySelector(`.tree-file[data-path="${this._dragState.sourcePath}"]`);
+            const sourceEl = this.container?.querySelector(`.tree-file[data-path="${this._dragState.sourcePath}"]`)
+                || this.container?.querySelector(`.tree-folder[data-path="${this._dragState.sourcePath}"] .tree-folder-header`);
             const rect = sourceEl ? sourceEl.getBoundingClientRect() : null;
             const nodeWidth = rect ? rect.width : null;
-            this.createDragGhost(name, event.clientX, event.clientY, nodeWidth);
+            this.createDragGhost(
+                name,
+                event.clientX,
+                event.clientY,
+                nodeWidth,
+                this._dragState.isDirectory
+            );
         }
         if (!this._dragState.active) return;
 
@@ -221,7 +231,9 @@ export class FileMover {
             this.suppressReleaseClicks();
             return;
         }
-        await this.performMove(sourcePath, targetFolderPath);
+        await this.performMove(sourcePath, targetFolderPath, {
+            isDirectory: this._dragState?.isDirectory,
+        });
         this.suppressReleaseClicks();
     }
 
@@ -290,11 +302,13 @@ export class FileMover {
             this.suppressReleaseClicks();
             return;
         }
-        await this.performMove(sourcePath, targetFolderPath);
+        await this.performMove(sourcePath, targetFolderPath, {
+            isDirectory: this._dragState?.isDirectory,
+        });
         this.suppressReleaseClicks();
     }
 
-    createDragGhost(label, x, y, nodeWidth = null) {
+    createDragGhost(label, x, y, nodeWidth = null, isDirectory = false) {
         this.removeDragGhost();
         const ghost = document.createElement('div');
         ghost.className = 'drag-ghost';
@@ -349,10 +363,14 @@ export class FileMover {
         icon.style.height = '14px';
         icon.style.flexShrink = '0';
         icon.style.color = fileIconColor;
-        icon.innerHTML = `
-            <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z" fill="none" stroke="currentColor" stroke-width="1"/>
-            <path d="M10.5 1v3.5H14" fill="none" stroke="currentColor" stroke-width="1"/>
-        `;
+        icon.innerHTML = isDirectory
+            ? `
+                <path d="M1 2.5v10c0 .28.22.5.5.5h13c.28 0 .5-.22.5-.5V5c0-.28-.22-.5-.5-.5H7L5.5 3H1.5c-.28 0-.5.22-.5.5z" fill="currentColor" opacity="0.9"/>
+            `
+            : `
+                <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z" fill="none" stroke="currentColor" stroke-width="1"/>
+                <path d="M10.5 1v3.5H14" fill="none" stroke="currentColor" stroke-width="1"/>
+            `;
 
         const labelSpan = document.createElement('span');
         labelSpan.style.flex = '1';
@@ -383,13 +401,30 @@ export class FileMover {
         this._dragGhost = null;
     }
 
-    async performMove(sourcePath, targetFolderPath) {
+    async performMove(sourcePath, targetFolderPath, options = {}) {
         const normalizedSource = this.normalizePath?.(sourcePath);
         const normalizedTarget = this.normalizePath?.(targetFolderPath);
         const fileService = this.getFileService?.();
 
         if (!normalizedSource || !normalizedTarget || !fileService) {
             console.warn('Invalid move request:', { normalizedSource, normalizedTarget });
+            return;
+        }
+
+        let isDirectory = options.isDirectory;
+        if (isDirectory === undefined) {
+            try {
+                isDirectory = await fileService.isDirectory(normalizedSource);
+            } catch (_error) {
+                isDirectory = false;
+            }
+        }
+
+        if (this._isSameOrDescendant(normalizedTarget, normalizedSource)) {
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message('无法将文件或文件夹移动到自身或子目录下。', { title: '移动失败', kind: 'error' });
+            } catch {}
             return;
         }
 
@@ -412,6 +447,13 @@ export class FileMover {
                 tasks.push(this.refreshFolder?.(sourceParentPath));
             }
             await Promise.all(tasks.filter(Boolean));
+            if (typeof this.onMove === 'function') {
+                try {
+                    await this.onMove(normalizedSource, destinationPath, { isDirectory: !!isDirectory });
+                } catch (callbackError) {
+                    console.warn('onMove 回调失败:', callbackError);
+                }
+            }
         } catch (error) {
             console.error('Move failed:', error);
             try {
@@ -419,6 +461,15 @@ export class FileMover {
                 await message(`无法移动文件:\n${error.message || error}`, { title: '移动失败', kind: 'error' });
             } catch {}
         }
+    }
+
+    _isSameOrDescendant(targetPath, sourcePath) {
+        if (!targetPath || !sourcePath) return false;
+        const normalizedTarget = targetPath.replace(/\\/g, '/');
+        const normalizedSource = sourcePath.replace(/\\/g, '/');
+        if (normalizedTarget === normalizedSource) return true;
+        const prefix = normalizedSource.endsWith('/') ? normalizedSource : `${normalizedSource}/`;
+        return normalizedTarget.startsWith(prefix);
     }
 
     dispose() {

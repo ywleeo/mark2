@@ -419,6 +419,7 @@ const {
     getActiveViewMode: () => activeViewMode,
     getEditor: () => editor,
     getCodeEditor: () => codeEditor,
+    confirm,
 });
 
 const {

@@ -47,6 +47,7 @@ export class FileTree {
             normalizePath: this.normalizePath.bind(this),
             getFileService: () => this.fileService,
             refreshFolder: (folderPath) => this.refreshFolder(folderPath),
+            onMove: (source, destination, meta = {}) => this.handleMoveSuccess(source, destination, meta),
         });
 
         this.renamer = new FileRenamer({
@@ -480,6 +481,34 @@ export class FileTree {
         item.addEventListener('dragleave', (e) => this.mover?.handleDragLeave(e, header));
         item.addEventListener('drop', (e) => this.mover?.handleDrop(e, path, header));
 
+        // 文件夹拖拽（自定义拖拽，支持文件夹移动）
+        header.draggable = true;
+        const onFolderMouseDown = (event) => {
+            if (this.mover?.shouldBlockInteraction?.()) return;
+            if (event.target.closest('.root-folder-actions')) return;
+            if (event.target.closest('.tree-expand-icon')) return;
+            this.mover?.beginInternalDrag(event, path, { isDirectory: true });
+        };
+        const onFolderNativeDragStart = (event) => {
+            if (this.mover?.shouldBlockInteraction?.()) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
+            if (event.target.closest('.root-folder-actions')) return;
+            if (event.target.closest('.tree-expand-icon')) return;
+            this.mover?.interceptNativeDragStart(event, path, { isDirectory: true });
+        };
+        const onFolderNativeDragEnd = () => this.mover?.cancelNativeDragState?.();
+        header.addEventListener('mousedown', onFolderMouseDown);
+        header.addEventListener('dragstart', onFolderNativeDragStart);
+        header.addEventListener('dragend', onFolderNativeDragEnd);
+        this.cleanupFunctions.push(() => {
+            header.removeEventListener('mousedown', onFolderMouseDown);
+            header.removeEventListener('dragstart', onFolderNativeDragStart);
+            header.removeEventListener('dragend', onFolderNativeDragEnd);
+        });
+
         // 使用统一的点击处理函数
         const cleanup1 = addClickHandler(header, (event) => {
             if (event.target.closest('.close-folder-btn') || event.target.closest('.pin-folder-btn')) {
@@ -881,6 +910,51 @@ export class FileTree {
             el.classList.remove('selected');
         });
         this.currentFile = null;
+    }
+
+    async handleMoveSuccess(sourcePath, destinationPath, meta = {}) {
+        const normalizedSource = this.normalizePath(sourcePath);
+        const normalizedDestination = this.normalizePath(destinationPath);
+        if (!normalizedSource || !normalizedDestination) {
+            return;
+        }
+
+        const isDirectory = meta?.isDirectory === true;
+        if (!isDirectory) {
+            try {
+                this.replaceOpenFilePath(normalizedSource, normalizedDestination);
+                this.onPathRenamed?.(normalizedSource, normalizedDestination, { suppressAutoFocus: true });
+            } catch (error) {
+                console.warn('处理文件移动回调失败:', error);
+            }
+            return;
+        }
+
+        const sourcePrefix = normalizedSource.endsWith('/') ? normalizedSource : `${normalizedSource}/`;
+        const destinationPrefix = normalizedDestination.endsWith('/')
+            ? normalizedDestination
+            : `${normalizedDestination}/`;
+
+        const affectedPaths = new Set(this.openFiles || []);
+        if (this.currentFile) {
+            affectedPaths.add(this.currentFile);
+        }
+
+        affectedPaths.forEach((path) => {
+            if (!path) return;
+            const normalized = this.normalizePath(path);
+            if (!normalized || !normalized.startsWith(sourcePrefix)) {
+                return;
+            }
+            const relative = normalized.slice(sourcePrefix.length);
+            const nextPath = `${destinationPrefix}${relative}`;
+            try {
+                this.replaceOpenFilePath(normalized, nextPath);
+                this.onPathRenamed?.(normalized, nextPath, { suppressAutoFocus: true });
+            } catch (error) {
+                console.warn('处理文件夹移动回调失败:', error);
+            }
+        });
     }
 
     async watchFolder(path) {

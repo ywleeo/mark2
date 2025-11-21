@@ -12,6 +12,7 @@ export function createNavigationController({
     getActiveViewMode,
     getEditor,
     getCodeEditor,
+    confirm,
 }) {
     if (typeof getFileTree !== 'function') {
         throw new Error('navigationController 需要提供 getFileTree');
@@ -151,6 +152,27 @@ export function createNavigationController({
         }
     }
 
+    async function confirmDiscardAfterFailedSave(filePath) {
+        if (!confirm) {
+            return false;
+        }
+        const fileName = (filePath ? filePath.split('/').pop() : '') || filePath || '当前文件';
+        try {
+            return await confirm(
+                `保存 "${fileName}" 失败，是否放弃更改并关闭？`,
+                {
+                    title: '保存失败',
+                    kind: 'warning',
+                    okLabel: '放弃并关闭',
+                    cancelLabel: '取消',
+                }
+            );
+        } catch (error) {
+            console.warn('确认放弃更改弹窗失败', error);
+            return false;
+        }
+    }
+
     async function handleTabClose(tab) {
         const fileTree = getFileTree();
         const tabManager = getTabManager();
@@ -166,10 +188,13 @@ export function createNavigationController({
             const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
             if (hasChanges) {
-                // 直接保存，不弹确认框
+                // 直接保存；如失败则询问是否放弃更改
                 const saved = await saveFile(targetPath);
                 if (!saved) {
-                    return;
+                    const shouldDiscard = await confirmDiscardAfterFailedSave(targetPath);
+                    if (!shouldDiscard) {
+                        return;
+                    }
                 }
                 fileSession.clearEntry(targetPath);
             }
