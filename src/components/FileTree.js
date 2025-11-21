@@ -605,14 +605,8 @@ export class FileTree {
         item.addEventListener('dragleave', (e) => this.mover?.handleDragLeave(e, header));
         item.addEventListener('drop', (e) => this.mover?.handleDrop(e, path, header));
 
-        // 文件夹拖拽（自定义拖拽，支持文件夹移动）
+        // 文件夹拖拽（自定义拖拽，支持文件夹移动）。触发使用原生 dragstart（由 macOS 判定按下并移动/三指拖动）。
         header.draggable = true;
-        const onFolderMouseDown = (event) => {
-            if (this.mover?.shouldBlockInteraction?.()) return;
-            if (event.target.closest('.root-folder-actions')) return;
-            if (event.target.closest('.tree-expand-icon')) return;
-            this.mover?.beginInternalDrag(event, path, { isDirectory: true });
-        };
         const onFolderNativeDragStart = (event) => {
             if (this.mover?.shouldBlockInteraction?.()) {
                 event.preventDefault();
@@ -624,11 +618,9 @@ export class FileTree {
             this.mover?.interceptNativeDragStart(event, path, { isDirectory: true });
         };
         const onFolderNativeDragEnd = () => this.mover?.cancelNativeDragState?.();
-        header.addEventListener('mousedown', onFolderMouseDown);
         header.addEventListener('dragstart', onFolderNativeDragStart);
         header.addEventListener('dragend', onFolderNativeDragEnd);
         this.cleanupFunctions.push(() => {
-            header.removeEventListener('mousedown', onFolderMouseDown);
             header.removeEventListener('dragstart', onFolderNativeDragStart);
             header.removeEventListener('dragend', onFolderNativeDragEnd);
         });
@@ -679,17 +671,14 @@ export class FileTree {
         item.tabIndex = '0'; // 使文件项可以聚焦
 
         // 启用原生 dragstart 仅用于“触发”事件，然后立刻拦截并切换到自定义拖拽
-        // 这样可以兼容 macOS 触控板三指拖动（可能不会触发 mousedown）
+        // 这样可以兼容 macOS 触控板三指拖动 & 触控板按下不抬起并移动
         item.draggable = true;
-        const onMouseDown = (e) => this.mover?.beginInternalDrag(e, path);
         const onNativeDragStart = (e) => this.mover?.interceptNativeDragStart(e, path);
         const onNativeDragEnd = () => this.mover?.cancelNativeDragState?.();
-        item.addEventListener('mousedown', onMouseDown);
         item.addEventListener('dragstart', onNativeDragStart);
         item.addEventListener('dragend', onNativeDragEnd);
         // 记录清理函数
         this.cleanupFunctions.push(() => {
-            item.removeEventListener('mousedown', onMouseDown);
             item.removeEventListener('dragstart', onNativeDragStart);
             item.removeEventListener('dragend', onNativeDragEnd);
         });
