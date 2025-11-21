@@ -563,6 +563,10 @@ export class MarkdownEditor {
         }
     }
 
+    focus() {
+        this.editor?.commands?.focus?.();
+    }
+
     // AI 生成内容插入
     insertAIContent(markdown, options = {}) {
         if (!this.editor) {

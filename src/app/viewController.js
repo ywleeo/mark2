@@ -31,6 +31,7 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
+                options.getEditor?.()?.focus?.();
             },
         },
         code: {
@@ -40,6 +41,7 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
+                options.getCodeEditor?.()?.focus?.();
             },
         },
         image: {

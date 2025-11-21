@@ -6,6 +6,7 @@ import { FileMover } from './FileMover.js';
 import { FileWatcher } from './FileWatcher.js';
 import { OpenFilesView } from './OpenFilesView.js';
 import { ExternalDropHandler } from './ExternalDropHandler.js';
+import { FileTreeContextMenu } from './FileTreeContextMenu.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -88,6 +89,15 @@ export class FileTree {
             readDirectory: (path) => this.readDirectory(path),
             addRootFolder: (path, { entries } = {}) => this.addRootFolder(path, entries || null),
             refreshFolder: (path) => this.refreshFolder(path),
+        });
+
+        this.contextMenu = new FileTreeContextMenu({
+            container: this.container,
+            getTargetPath: (item) => this.normalizePath(item?.dataset?.path),
+            onRename: (path) => this.startRenaming(path),
+            onMove: (path) => this.promptMoveTo(path),
+            onReveal: (path) => this.revealInFinder(path),
+            onDelete: (path) => this.confirmAndDelete(path),
         });
     }
 
@@ -197,6 +207,120 @@ export class FileTree {
         };
         window.addEventListener('mousemove', this._onMouseMoveDuringDrag);
         console.log('[FileTree] window mousemove fallback attached');
+    }
+
+    async promptMoveTo(sourcePath) {
+        const normalizedSource = this.normalizePath(sourcePath);
+        if (!normalizedSource) {
+            return;
+        }
+        try {
+            const [{ open }, pathModule] = await Promise.all([
+                import('@tauri-apps/plugin-dialog'),
+                import('@tauri-apps/api/path'),
+            ]);
+
+            const selection = await open({
+                directory: true,
+                multiple: false,
+            });
+            const targetDirectory = Array.isArray(selection) ? selection[0] : selection;
+            const normalizedTargetDir = this.normalizePath(targetDirectory);
+            if (!normalizedTargetDir) {
+                return;
+            }
+
+            const fileName = await pathModule.basename(normalizedSource);
+            const destinationPath = await pathModule.join(normalizedTargetDir, fileName);
+            const normalizedDestination = this.normalizePath(destinationPath);
+            if (!normalizedDestination || normalizedDestination === normalizedSource) {
+                return;
+            }
+
+            const fileService = this.ensureFileService();
+            await fileService.move(normalizedSource, normalizedDestination);
+
+            const sourceParent = await pathModule.dirname(normalizedSource);
+            const destinationParent = await pathModule.dirname(normalizedDestination);
+            const refreshTasks = [];
+            if (sourceParent) {
+                refreshTasks.push(this.refreshFolder(sourceParent));
+            }
+            if (destinationParent && destinationParent !== sourceParent) {
+                refreshTasks.push(this.refreshFolder(destinationParent));
+            }
+            await Promise.all(refreshTasks);
+
+            await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory: false });
+        } catch (error) {
+            console.error('移动文件失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`无法移动文件:\n${error.message || error}`, { title: '移动失败', kind: 'error' });
+            } catch {}
+        }
+    }
+
+    async revealInFinder(path) {
+        const normalized = this.normalizePath(path);
+        if (!normalized) return;
+        try {
+            const fileService = this.ensureFileService();
+            await fileService.reveal(normalized);
+        } catch (error) {
+            console.error('打开 Finder 失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`无法在 Finder 中打开:\n${error.message || error}`, { title: '操作失败', kind: 'error' });
+            } catch {}
+        }
+    }
+
+    async confirmAndDelete(path) {
+        const normalized = this.normalizePath(path);
+        if (!normalized) return;
+        try {
+            const [{ confirm, message }, pathModule] = await Promise.all([
+                import('@tauri-apps/plugin-dialog'),
+                import('@tauri-apps/api/path'),
+            ]);
+            const fileName = await pathModule.basename(normalized);
+            const shouldDelete = await confirm(`确认删除文件 "${fileName}" 吗？`, {
+                title: '删除文件',
+                kind: 'warning',
+                okLabel: '删除',
+                cancelLabel: '取消',
+            });
+            if (!shouldDelete) {
+                return;
+            }
+
+            const fileService = this.ensureFileService();
+            await fileService.remove(normalized);
+
+            this.stopWatchingFile(normalized);
+            if (this.isInOpenList(normalized)) {
+                this.closeFile(normalized, { suppressActivate: true });
+            }
+            if (this.normalizePath(this.currentFile) === normalized) {
+                this.clearSelection();
+                if (this.onFileSelect) {
+                    this.onFileSelect(null);
+                }
+            }
+
+            const parentDir = await pathModule.dirname(normalized);
+            const normalizedParent = this.normalizePath(parentDir);
+            if (normalizedParent) {
+                await this.refreshFolder(normalizedParent);
+            }
+        } catch (error) {
+            console.error('删除文件失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`删除文件失败:\n${error.message || error}`, { title: '删除失败', kind: 'error' });
+            } catch {}
+        }
     }
 
     applySectionStates() {
@@ -1157,6 +1281,7 @@ export class FileTree {
         this.mover?.dispose();
         this.watcher?.dispose();
         this.openFilesView?.dispose();
+        this.contextMenu?.dispose();
         // 取消可能正在重命名的状态
         this.cancelRenaming();
         // 清理所有事件监听器
