@@ -1,3 +1,5 @@
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 export class FileTreeContextMenu {
     constructor(options = {}) {
         const {
@@ -24,6 +26,7 @@ export class FileTreeContextMenu {
         this._onGlobalClose = null;
         this._onKeydown = null;
         this._onScroll = null;
+        this._cleanupMenuClick = null;
 
         this.init();
     }
@@ -62,10 +65,14 @@ export class FileTreeContextMenu {
         window.addEventListener('keydown', this._onKeydown, true);
         window.addEventListener('scroll', this._onScroll, true);
 
-        menu.addEventListener('click', (event) => {
+        // 使用 PointerHelper 处理菜单点击，避免触控板轻点导致的点击失效或重复触发
+        this._cleanupMenuClick = addClickHandler(menu, (event) => {
             const action = event.target?.dataset?.action || '';
             if (!action) return;
             this.handleAction(action);
+        }, {
+            shouldHandle: (event) => Boolean(event.target?.dataset?.action),
+            preventDefault: true,
         });
     }
 
@@ -163,6 +170,12 @@ export class FileTreeContextMenu {
         window.removeEventListener('resize', this._onGlobalClose);
         window.removeEventListener('keydown', this._onKeydown, true);
         window.removeEventListener('scroll', this._onScroll, true);
+
+        if (typeof this._cleanupMenuClick === 'function') {
+            this._cleanupMenuClick();
+            this._cleanupMenuClick = null;
+        }
+
         if (this.element?.parentElement) {
             this.element.parentElement.removeChild(this.element);
         }

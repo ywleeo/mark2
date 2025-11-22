@@ -185,12 +185,8 @@ fn read_dir(path: String) -> Result<Vec<String>, String> {
 
 #[tauri::command]
 fn delete_entry(path: String) -> Result<(), String> {
-    let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
-    if metadata.is_dir() {
-        fs::remove_dir_all(&path).map_err(|e| e.to_string())
-    } else {
-        fs::remove_file(&path).map_err(|e| e.to_string())
-    }
+    // 将文件或文件夹移动到系统垃圾桶，而不是直接物理删除
+    trash::delete(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
