@@ -31,7 +31,8 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getEditor?.()?.focus?.();
+                // 不在这里主动 focus Markdown 编辑器，交由 editor.loadFile(..., { autoFocus }) 控制，
+                // 避免在从文件树切换文件时抢夺焦点，影响回车重命名。
             },
         },
         code: {
@@ -41,7 +42,8 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getCodeEditor?.()?.focus?.();
+                // 同样不在这里主动 focus 代码编辑器，交由 codeEditor.show(..., { autoFocus }) 控制，
+                // 这样点击文件树节点时不会把焦点从文件树抢走。
             },
         },
         image: {

@@ -235,6 +235,26 @@ export class CodeEditor {
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
         this.setupTapSelectionGuard();
+        
+        // 点击编辑器时，如果是只读状态，则启用编辑
+        // 仿照 MarkdownEditor 的实现，防止由于编辑器预先可编辑而在点击文件树时抢焦点
+        if (this.editorHost) {
+            this.editorHost.addEventListener('mousedown', () => {
+                const monacoRef = this.monaco;
+                try {
+                    const isReadOnly = this.editor
+                        && monacoRef?.editor?.EditorOption
+                        && this.editor.getOption(monacoRef.editor.EditorOption.readOnly);
+                    if (isReadOnly) {
+                        this.editor.updateOptions({ readOnly: false });
+                        // 让默认的点击行为决定是否聚焦
+                    }
+                } catch (_err) {
+                    // 兜底：若无法读取配置，直接解除只读
+                    this.editor?.updateOptions?.({ readOnly: false });
+                }
+            }, true);
+        }
     }
 
     requestLayout() {
@@ -312,15 +332,21 @@ export class CodeEditor {
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
 
+        // 默认保持只读，避免在点击文件树节点时抢夺焦点；
+        // 用户点击编辑器后再解除只读（见 ensureEditor 中的 mousedown 处理）。
         this.editor.updateOptions({
-            readOnly: false,
+            readOnly: true,
             tabSize: targetLanguage === 'markdown' ? 2 : 4,
             insertSpaces: true,
             detectIndentation: false,
         });
         this.showContainer();
         this.requestLayout();
-        if (autoFocus) {
+        
+        // 若确实需要立即可编辑并聚焦（例如从快捷键或命令打开），调用方可随后手动调用 codeEditor.focus()，
+        // 或我们在此根据 autoFocus 显式解除只读并聚焦。
+        if (autoFocus === true) {
+            this.editor.updateOptions({ readOnly: false });
             this.editor.focus();
         }
 
@@ -642,7 +668,14 @@ export class CodeEditor {
     }
 
     focus() {
-        this.editor?.focus();
+        if (!this.editor) {
+            return;
+        }
+        // 聚焦时确保编辑器是可编辑状态
+        if (this.editor.getOption(this.monaco.editor.EditorOption.readOnly)) {
+            this.editor.updateOptions({ readOnly: false });
+        }
+        this.editor.focus();
     }
 
     resolveLanguage(language) {
