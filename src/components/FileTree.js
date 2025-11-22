@@ -29,6 +29,11 @@ export class FileTree {
             foldersCollapsed: false,
         };
         this.cleanupFunctions = []; // 存储清理函数
+
+        // 文件夹重命名状态
+        this.folderRenamingPath = null;
+        this._folderRenameCleanup = null;
+
         this.init();
         this.ensureFileService();
 
@@ -81,7 +86,7 @@ export class FileTree {
                 this.closeFile(path);
             },
             onRenameRequest: (path) => this.startRenaming(path),
-            isRenaming: () => this.renamer?.isRenaming() ?? false,
+            isRenaming: () => this.isRenaming(),
         });
 
         this.externalDropHandler = new ExternalDropHandler({
@@ -94,10 +99,10 @@ export class FileTree {
         this.contextMenu = new FileTreeContextMenu({
             container: this.container,
             getTargetPath: (item) => this.normalizePath(item?.dataset?.path),
-            onRename: (path) => this.startRenaming(path),
-            onMove: (path) => this.promptMoveTo(path),
-            onReveal: (path) => this.revealInFinder(path),
-            onDelete: (path) => this.confirmAndDelete(path),
+            onRename: (path, meta) => this.startRenaming(path, meta),
+            onMove: (path, meta) => this.promptMoveTo(path, meta),
+            onReveal: (path /*, meta */) => this.revealInFinder(path),
+            onDelete: (path /*, meta */) => this.confirmAndDelete(path),
         });
     }
 
@@ -209,11 +214,13 @@ export class FileTree {
         console.log('[FileTree] window mousemove fallback attached');
     }
 
-    async promptMoveTo(sourcePath) {
+    async promptMoveTo(sourcePath, meta = {}) {
         const normalizedSource = this.normalizePath(sourcePath);
         if (!normalizedSource) {
             return;
         }
+
+        const isDirectory = meta?.isDirectory === true || meta?.targetType === 'folder';
         try {
             const [{ open }, pathModule] = await Promise.all([
                 import('@tauri-apps/plugin-dialog'),
@@ -233,7 +240,7 @@ export class FileTree {
             const fileName = await pathModule.basename(normalizedSource);
             const destinationPath = await pathModule.join(normalizedTargetDir, fileName);
             const normalizedDestination = this.normalizePath(destinationPath);
-            if (!normalizedDestination || normalizedDestination === normalizedSource) {
+            if (normalizedDestination && normalizedDestination === normalizedSource) {
                 return;
             }
 
@@ -251,7 +258,7 @@ export class FileTree {
             }
             await Promise.all(refreshTasks);
 
-            await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory: false });
+            await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory });
         } catch (error) {
             console.error('移动文件失败:', error);
             try {
@@ -710,7 +717,7 @@ export class FileTree {
 
         // 键盘：回车触发重命名
         const onKeyDown = (e) => {
-            if (this.renamer?.isRenaming()) return;
+            if (this.isRenaming()) return;
             if (e.key === 'Enter') {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1251,19 +1258,212 @@ export class FileTree {
     }
 
     // ===== 内联重命名 =====
-    startRenaming(path) {
+    startRenaming(path, meta = {}) {
         if (this.mover?.shouldBlockInteraction?.()) {
             return;
         }
-        this.renamer?.start(path);
+
+        const targetType = meta?.targetType || 'file';
+        if (targetType === 'folder') {
+            this.startFolderRenaming(path);
+        } else {
+            this.renamer?.start(path);
+        }
+    }
+
+    // 文件夹重命名（在文件树节点上 inline 编辑）
+    startFolderRenaming(path) {
+        const normalized = this.normalizePath(path);
+        if (!normalized) return;
+
+        if (this.folderRenamingPath && this.folderRenamingPath !== normalized) {
+            this.cancelFolderRenaming();
+        }
+
+        const folderItem = this.container?.querySelector(`.tree-folder[data-path="${normalized}"]`);
+        if (!folderItem) return;
+        const header = folderItem.querySelector('.tree-folder-header');
+        if (!header) return;
+        const nameSpan = header.querySelector('.tree-item-name');
+        if (!nameSpan) return;
+
+        const folderName = nameSpan.textContent || normalized.split('/').pop();
+        const input = document.createElement('input');
+        input.type = 'text';
+        // 复用文件重命名输入框样式，保持一致
+        input.className = 'tree-file-rename-input';
+        input.value = folderName;
+        nameSpan.replaceWith(input);
+        this.folderRenamingPath = normalized;
+
+        let submitting = false;
+        const submit = async () => {
+            if (submitting) return;
+            submitting = true;
+            const nextLabel = (input.value || '').trim();
+            const ok = await this._submitFolderRenaming(
+                normalized,
+                folderName,
+                nextLabel,
+                { input, header, nameClass: 'tree-item-name' },
+            );
+            if (!ok) {
+                submitting = false;
+                try {
+                    input.focus();
+                    input.select();
+                } catch {}
+            }
+        };
+        const cancel = () => this.cancelFolderRenaming({
+            input,
+            header,
+            originalName: folderName,
+            nameClass: 'tree-item-name',
+        });
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                void submit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancel();
+            }
+        };
+        const onBlur = () => {
+            if (!submitting) {
+                cancel();
+            }
+        };
+        input.addEventListener('keydown', onKeyDown);
+        input.addEventListener('blur', onBlur);
+        this._folderRenameCleanup = () => {
+            input.removeEventListener('keydown', onKeyDown);
+            input.removeEventListener('blur', onBlur);
+            this._folderRenameCleanup = null;
+        };
+
+        setTimeout(() => {
+            try {
+                input.focus();
+                // 文件夹名整体选中
+                input.setSelectionRange(0, folderName.length);
+            } catch {}
+        }, 0);
+    }
+
+    cancelFolderRenaming(ctx = {}) {
+        const {
+            input,
+            header,
+            originalName,
+            nameClass = 'tree-item-name',
+        } = ctx;
+        if (!this.folderRenamingPath) return;
+
+        if (this._folderRenameCleanup) {
+            this._folderRenameCleanup();
+        }
+
+        if (input && header) {
+            const span = document.createElement('span');
+            span.className = nameClass;
+            const fallbackName = originalName || (this.folderRenamingPath.split('/').pop());
+            span.textContent = fallbackName;
+            input.replaceWith(span);
+            try {
+                header.focus();
+            } catch {}
+        }
+
+        this.folderRenamingPath = null;
+    }
+
+    async _submitFolderRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {
+        if (!nextLabel) {
+            // 名称为空时保持编辑态
+            return false;
+        }
+        if (nextLabel === currentLabel) {
+            this.cancelFolderRenaming(ctx);
+            return true;
+        }
+        try {
+            await this._performFolderRename(oldPath, nextLabel);
+            this.cancelFolderRenaming({
+                ...ctx,
+                originalName: nextLabel,
+            });
+            return true;
+        } catch (error) {
+            console.error('重命名文件夹失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`重命名失败:\n${error.message || error}`, { title: '重命名失败', kind: 'error' });
+            } catch {}
+            return false;
+        }
+    }
+
+    async _performFolderRename(sourcePath, nextLabel) {
+        const normalizedSource = this.normalizePath(sourcePath);
+        if (!normalizedSource) return;
+
+        const fileService = this.ensureFileService();
+        const separator = '/';
+        const lastSlashIndex = normalizedSource.lastIndexOf(separator);
+        const parentDir = lastSlashIndex >= 0 ? normalizedSource.substring(0, lastSlashIndex) : '';
+        const destinationPath = parentDir
+            ? `${parentDir}${separator}${nextLabel}`
+            : nextLabel;
+        const normalizedDestination = this.normalizePath(destinationPath);
+        if (!normalizedDestination || normalizedDestination === normalizedSource) {
+            return;
+        }
+
+        await fileService.move(normalizedSource, normalizedDestination);
+
+        // 如果是根目录，更新 rootPaths 并重建目录监听
+        if (this.rootPaths.has(normalizedSource)) {
+            this.rootPaths.delete(normalizedSource);
+            this.rootPaths.add(normalizedDestination);
+            try {
+                this.stopWatchingFolder(normalizedSource);
+            } catch {}
+            try {
+                await this.watchFolder(normalizedDestination);
+            } catch {}
+        }
+
+        // 刷新父目录视图（仅当父目录是根路径时生效，由 FileWatcher 控制）
+        if (parentDir) {
+            setTimeout(() => {
+                this.refreshFolder(parentDir);
+            }, 300);
+        }
+
+        // 同步 openFiles / TabManager 等（目录移动逻辑与 FileMover 保持一致）
+        await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory: true });
+
+        // 重命名成功后尝试聚焦新的文件夹节点
+        setTimeout(() => {
+            const folderHeader = this.container?.querySelector(`.tree-folder[data-path="${normalizedDestination}"] .tree-folder-header`);
+            if (folderHeader) {
+                try {
+                    folderHeader.focus();
+                } catch {}
+            }
+        }, 100);
     }
 
     cancelRenaming(ctx = {}) {
         this.renamer?.cancel(ctx);
+        this.cancelFolderRenaming();
     }
 
     isRenaming() {
-        return this.renamer?.isRenaming() ?? false;
+        return (this.renamer?.isRenaming() ?? false) || Boolean(this.folderRenamingPath);
     }
 
     dispose() {

@@ -410,6 +410,14 @@
     background-color: var(--hover-bg-color, #e4e5e5);
 }
 
+.tree-folder.context-menu-target > .tree-folder-header {
+    background-color: var(--hover-bg-color, #e4e5e5);
+}
+
+:root[data-theme-appearance="dark"] .tree-folder.context-menu-target > .tree-folder-header {
+    background-color: rgba(148, 163, 184, 0.2);
+}
+
 :root[data-theme-appearance="dark"] .file-tree-context-menu {
     background: var(--bg-elevated, #1f1f1f);
     border-color: rgba(255, 255, 255, 0.14);

@@ -21,6 +21,7 @@ export class FileTreeContextMenu {
         this.element = null;
         this.targetItem = null;
         this.targetPath = null;
+        this.targetType = null; // 'file' | 'folder'
 
         this._onContextMenu = null;
         this._onGlobalClose = null;
@@ -77,22 +78,44 @@ export class FileTreeContextMenu {
     }
 
     handleContextMenu(event) {
+        if (!this.container) {
+            return;
+        }
+
         const fileItem = event.target.closest?.('.tree-file');
-        if (!fileItem || !this.container?.contains(fileItem)) {
+        const folderHeader = event.target.closest?.('.tree-folder-header');
+
+        let targetElement = null;
+        let targetType = null;
+
+        if (fileItem && this.container.contains(fileItem)) {
+            targetElement = fileItem;
+            targetType = 'file';
+        } else if (folderHeader) {
+            const folderItem = folderHeader.closest?.('.tree-folder');
+            if (folderItem && this.container.contains(folderItem)) {
+                targetElement = folderItem;
+                targetType = 'folder';
+            }
+        }
+
+        if (!targetElement) {
             this.hideMenu();
             return;
         }
+
         event.preventDefault();
         event.stopPropagation();
 
-        const path = this.getTargetPath?.(fileItem);
+        const path = this.getTargetPath?.(targetElement);
         if (!path) {
             this.hideMenu();
             return;
         }
 
         this.targetPath = path;
-        this.markTarget(fileItem);
+        this.targetType = targetType;
+        this.markTarget(targetElement);
         this.showMenu(event.clientX, event.clientY);
     }
 
@@ -144,19 +167,26 @@ export class FileTreeContextMenu {
 
     async handleAction(action) {
         const targetPath = this.targetPath;
+        const targetType = this.targetType || 'file';
         this.hideMenu();
+
+        const meta = { targetType };
+
         switch (action) {
             case 'rename':
-                this.onRename?.(targetPath);
+                // 延迟到下一轮事件循环再触发重命名，避免与当前点击/焦点变更产生竞争，导致编辑框瞬间消失
+                setTimeout(() => {
+                    this.onRename?.(targetPath, meta);
+                }, 0);
                 break;
             case 'move':
-                await this.onMove?.(targetPath);
+                await this.onMove?.(targetPath, meta);
                 break;
             case 'reveal':
-                await this.onReveal?.(targetPath);
+                await this.onReveal?.(targetPath, meta);
                 break;
             case 'delete':
-                await this.onDelete?.(targetPath);
+                await this.onDelete?.(targetPath, meta);
                 break;
             default:
                 break;

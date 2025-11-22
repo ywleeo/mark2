@@ -53,6 +53,7 @@ import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewControl
 import { createEditorActions } from './app/editorActions.js';
 import { createLayoutControls } from './app/layoutControls.js';
 import { createWorkspaceSyncController, createDocumentSnapshotSyncController } from './app/syncControllers.js';
+import { addClickHandler } from './utils/PointerHelper.js';
 
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
@@ -958,13 +959,15 @@ function setupThemeToggle() {
     const toggleBtn = document.getElementById('theme-toggle');
     if (!toggleBtn) return;
 
-    toggleBtn.addEventListener('click', () => {
+    addClickHandler(toggleBtn, () => {
         const root = document.documentElement;
         const currentAppearance = root.dataset.themeAppearance;
         const newAppearance = currentAppearance === 'dark' ? 'light' : 'dark';
-        
+
         editorSettings.appearance = newAppearance;
         applyEditorSettings(editorSettings);
         saveEditorSettings(editorSettings);
+    }, {
+        preventDefault: true,
     });
 }
