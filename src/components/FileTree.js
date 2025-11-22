@@ -337,18 +337,46 @@ export class FileTree {
         if (!normalized) return;
         try {
             const pathModule = await import('@tauri-apps/api/path');
-            const filePath = await pathModule.join(normalized, 'untitled.md');
-            const normalizedFilePath = this.normalizePath(filePath);
-
             const fileService = this.ensureFileService();
-            await fileService.writeText(normalizedFilePath, '');
+
+            // 为避免聚焦到已存在的同名文件，这里自动寻找可用的名称：
+            // untitled.md, untitled-1.md, untitled-2.md, ...
+            const baseName = 'untitled';
+            const ext = '.md';
+            let candidatePath = null;
+            let attempts = 0;
+
+            // 理论上不太可能无限循环，这里加一个安全上限
+            while (attempts < 1000) {
+                const suffix = attempts === 0 ? '' : `-${attempts}`;
+                const fileName = `${baseName}${suffix}${ext}`;
+                const joined = await pathModule.join(normalized, fileName);
+                const normalizedCandidate = this.normalizePath(joined);
+                if (!normalizedCandidate) {
+                    attempts += 1;
+                    continue;
+                }
+
+                const exists = await fileService.exists(normalizedCandidate);
+                if (!exists) {
+                    candidatePath = normalizedCandidate;
+                    break;
+                }
+                attempts += 1;
+            }
+
+            if (!candidatePath) {
+                throw new Error('无法找到可用的文件名');
+            }
+
+            await fileService.writeText(candidatePath, '');
 
             await this.refreshFolder(normalized);
 
             // 刷新后选中新文件并自动触发重命名
             setTimeout(() => {
-                this.selectFile(normalizedFilePath, { autoFocus: false });
-                this.startRenaming(normalizedFilePath);
+                this.selectFile(candidatePath, { autoFocus: false });
+                this.startRenaming(candidatePath);
             }, 100);
         } catch (error) {
             console.error('创建文件失败:', error);
@@ -364,17 +392,43 @@ export class FileTree {
         if (!normalized) return;
         try {
             const pathModule = await import('@tauri-apps/api/path');
-            const newFolderPath = await pathModule.join(normalized, 'newfolder');
-            const normalizedNewFolderPath = this.normalizePath(newFolderPath);
-
             const fileService = this.ensureFileService();
-            await fileService.createDirectory(normalizedNewFolderPath);
+
+            // 为避免聚焦到已存在的同名文件夹，这里自动寻找可用的名称：
+            // newfolder, newfolder-1, newfolder-2, ...
+            const baseName = 'newfolder';
+            let candidatePath = null;
+            let attempts = 0;
+
+            while (attempts < 1000) {
+                const suffix = attempts === 0 ? '' : `-${attempts}`;
+                const folderName = `${baseName}${suffix}`;
+                const joined = await pathModule.join(normalized, folderName);
+                const normalizedCandidate = this.normalizePath(joined);
+                if (!normalizedCandidate) {
+                    attempts += 1;
+                    continue;
+                }
+
+                const exists = await fileService.exists(normalizedCandidate);
+                if (!exists) {
+                    candidatePath = normalizedCandidate;
+                    break;
+                }
+                attempts += 1;
+            }
+
+            if (!candidatePath) {
+                throw new Error('无法找到可用的文件夹名称');
+            }
+
+            await fileService.createDirectory(candidatePath);
 
             await this.refreshFolder(normalized);
 
             // 刷新后自动触发重命名
             setTimeout(() => {
-                this.startRenaming(normalizedNewFolderPath, { targetType: 'folder' });
+                this.startRenaming(candidatePath, { targetType: 'folder' });
             }, 100);
         } catch (error) {
             console.error('创建文件夹失败:', error);
