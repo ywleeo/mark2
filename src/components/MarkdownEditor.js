@@ -158,6 +158,20 @@ export class MarkdownEditor {
 
         // 添加链接点击处理
         this.setupLinkClickHandler();
+
+        const editorDom = this.editor.view?.dom;
+        if (editorDom) {
+            // 点击编辑器时，如果是禁用状态，则启用并聚焦
+            editorDom.addEventListener('mousedown', () => {
+                if (!this.editor.isEditable) {
+                    // 临时抑制 update 事件，避免 setEditable 触发内容变更标记
+                    this.suppressUpdateEvent = true;
+                    this.editor.setEditable(true);
+                    this.suppressUpdateEvent = false;
+                    // 允许默认的点击行为继续，会自动聚焦
+                }
+            }, true);
+        }
     }
 
     isSessionActive(sessionId) {
@@ -244,14 +258,12 @@ export class MarkdownEditor {
         }
     }
 
-    // 加载 Markdown 内容
     async setContent(markdown, shouldFocusStart = true) {
         const sessionId = this.currentSessionId;
         this.originalMarkdown = markdown;
         this.contentChanged = false;
         this.clearAutoSaveTimer();
 
-        const wasFocused = this.editor?.isFocused ?? false;
         const previousSelection = (!shouldFocusStart && this.editor?.state?.selection)
             ? {
                 from: this.editor.state.selection.from,
@@ -273,9 +285,12 @@ export class MarkdownEditor {
         this.codeCopyManager?.hideCodeCopyButton({ immediate: true });
         this.suppressUpdateEvent = true;
         try {
-            this.editor.setEditable(true);
+            // 只在需要聚焦时才启用编辑器，否则保持禁用状态防止意外聚焦
+            if (shouldFocusStart) {
+                this.editor.setEditable(true);
+            }
             this.editor.commands.setContent(resolvedHtml);
-            // 只在首次加载文件时将光标移到开头
+
             if (shouldFocusStart) {
                 this.editor.commands.focus('start');
             } else if (previousSelection) {
@@ -290,17 +305,16 @@ export class MarkdownEditor {
                     from: clampedFrom,
                     to: clampedTo,
                 });
-                if (wasFocused) {
-                    this.editor.commands.focus();
-                }
             }
         } finally {
             this.suppressUpdateEvent = false;
         }
+
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.callbacks.onContentChange?.();
         this.scheduleMermaidRender();
         this.resetUndoHistory();
+
         return true;
     }
 
@@ -308,7 +322,6 @@ export class MarkdownEditor {
         if (!this.editor || !this.editor.view) {
             return;
         }
-        // 创建全新的 EditorState，保留内容和插件但清除历史
         const { state } = this.editor;
         const newState = EditorState.create({
             doc: state.doc,
@@ -523,7 +536,6 @@ export class MarkdownEditor {
         return result;
     }
 
-    // 加载文件
     async loadFile(sessionOrPath, maybeFilePath, maybeContent, options = {}) {
         const { autoFocus = true } = options;
         let session = null;
@@ -545,13 +557,13 @@ export class MarkdownEditor {
         this.currentFile = filePath;
         this.loadingSessionId = sessionId;
         this.isLoadingFile = true;
+
         try {
-            const applied = await this.setContent(content, isNewFile ? autoFocus : false);
+            const applied = await this.setContent(content, autoFocus);
             if (!applied) {
                 return;
             }
 
-            // 文档切换时，重新触发搜索（如果搜索框还开着）
             if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
                 this.searchBoxManager.refreshSearchOnDocumentChange();
             }

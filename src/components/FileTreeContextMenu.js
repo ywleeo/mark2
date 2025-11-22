@@ -8,6 +8,8 @@ export class FileTreeContextMenu {
             onMove,
             onReveal,
             onDelete,
+            onCreateFile,
+            onCreateFolder,
             getTargetPath,
         } = options;
 
@@ -16,6 +18,8 @@ export class FileTreeContextMenu {
         this.onMove = onMove;
         this.onReveal = onReveal;
         this.onDelete = onDelete;
+        this.onCreateFile = onCreateFile;
+        this.onCreateFolder = onCreateFolder;
         this.getTargetPath = getTargetPath;
 
         this.element = null;
@@ -36,6 +40,8 @@ export class FileTreeContextMenu {
         const menu = document.createElement('div');
         menu.className = 'file-tree-context-menu hidden';
         menu.innerHTML = `
+            <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-file">Create File</button>
+            <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-folder">Create Folder</button>
             <button type="button" class="file-tree-context-menu__item" data-action="rename">Rename</button>
             <button type="button" class="file-tree-context-menu__item" data-action="move">Move To...</button>
             <button type="button" class="file-tree-context-menu__item" data-action="reveal">Find in Finder</button>
@@ -47,7 +53,7 @@ export class FileTreeContextMenu {
 
         this._onContextMenu = (event) => this.handleContextMenu(event);
         this._onGlobalClose = (event) => {
-            if (this.element && event?.target && this.element.contains(event.target)) {
+            if (this.element && event?.target instanceof Node && this.element.contains(event.target)) {
                 return;
             }
             this.hideMenu();
@@ -137,6 +143,14 @@ export class FileTreeContextMenu {
 
     showMenu(x, y) {
         if (!this.element) return;
+
+        // 根据目标类型显示/隐藏菜单项
+        const folderOnlyItems = this.element.querySelectorAll('.folder-only');
+        const isFolder = this.targetType === 'folder';
+        folderOnlyItems.forEach(item => {
+            item.style.display = isFolder ? 'block' : 'none';
+        });
+
         this.element.classList.remove('hidden');
 
         const rect = this.element.getBoundingClientRect();
@@ -173,6 +187,12 @@ export class FileTreeContextMenu {
         const meta = { targetType };
 
         switch (action) {
+            case 'create-file':
+                await this.onCreateFile?.(targetPath, meta);
+                break;
+            case 'create-folder':
+                await this.onCreateFolder?.(targetPath, meta);
+                break;
             case 'rename':
                 // 延迟到下一轮事件循环再触发重命名，避免与当前点击/焦点变更产生竞争，导致编辑框瞬间消失
                 setTimeout(() => {

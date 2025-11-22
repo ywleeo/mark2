@@ -835,12 +835,10 @@ async function updateWindowTitle() {
         let lastModified = '';
 
         if (currentFile) {
-            // 获取字数
             wordCount = statusBarController
                 ? statusBarController.calculateWordCount({ activeViewMode, editor, codeEditor })
                 : { words: 0, characters: 0 };
 
-            // 获取最后编辑时间
             lastModified = statusBarController
                 ? (await statusBarController.getLastModifiedTime(currentFile)) ?? ''
                 : '';
@@ -853,7 +851,6 @@ async function updateWindowTitle() {
             isDirty: hasUnsavedChanges,
         });
 
-        // 在 progress 区域显示编辑状态
         if (hasUnsavedChanges) {
             statusBarController?.showProgress('已编辑', { state: 'dirty' });
         } else {

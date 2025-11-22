@@ -103,6 +103,8 @@ export class FileTree {
             onMove: (path, meta) => this.promptMoveTo(path, meta),
             onReveal: (path /*, meta */) => this.revealInFinder(path),
             onDelete: (path /*, meta */) => this.confirmAndDelete(path),
+            onCreateFile: (path /*, meta */) => this.createFileInFolder(path),
+            onCreateFolder: (path /*, meta */) => this.createFolderInFolder(path),
         });
     }
 
@@ -326,6 +328,59 @@ export class FileTree {
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
                 await message(`删除文件失败:\n${error.message || error}`, { title: '删除失败', kind: 'error' });
+            } catch {}
+        }
+    }
+
+    async createFileInFolder(folderPath) {
+        const normalized = this.normalizePath(folderPath);
+        if (!normalized) return;
+        try {
+            const pathModule = await import('@tauri-apps/api/path');
+            const filePath = await pathModule.join(normalized, 'untitled.md');
+            const normalizedFilePath = this.normalizePath(filePath);
+
+            const fileService = this.ensureFileService();
+            await fileService.writeText(normalizedFilePath, '');
+
+            await this.refreshFolder(normalized);
+
+            // 刷新后选中新文件并自动触发重命名
+            setTimeout(() => {
+                this.selectFile(normalizedFilePath, { autoFocus: false });
+                this.startRenaming(normalizedFilePath);
+            }, 100);
+        } catch (error) {
+            console.error('创建文件失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`创建文件失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
+            } catch {}
+        }
+    }
+
+    async createFolderInFolder(folderPath) {
+        const normalized = this.normalizePath(folderPath);
+        if (!normalized) return;
+        try {
+            const pathModule = await import('@tauri-apps/api/path');
+            const newFolderPath = await pathModule.join(normalized, 'newfolder');
+            const normalizedNewFolderPath = this.normalizePath(newFolderPath);
+
+            const fileService = this.ensureFileService();
+            await fileService.createDirectory(normalizedNewFolderPath);
+
+            await this.refreshFolder(normalized);
+
+            // 刷新后自动触发重命名
+            setTimeout(() => {
+                this.startRenaming(normalizedNewFolderPath, { targetType: 'folder' });
+            }, 100);
+        } catch (error) {
+            console.error('创建文件夹失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`创建文件夹失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
             } catch {}
         }
     }

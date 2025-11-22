@@ -89,6 +89,11 @@ export async function renameEntry(source, destination) {
     return await invoke('rename_entry', { source, destination });
 }
 
+export async function createDirectory(path) {
+    ensurePath(path, 'createDirectory');
+    return await invoke('create_directory', { path });
+}
+
 export async function ipcHealthCheck() {
     return await invoke('ipc_health_check');
 }

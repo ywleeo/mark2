@@ -234,12 +234,14 @@ export function createFileOperations({
             }
             setCurrentFile(filePath);
 
+            // 计算目标文件的视图模式
+            const initialViewMode = getViewModeForPath(filePath);
+
             const editor = getEditor();
             const codeEditor = getCodeEditor();
             editor?.prepareForDocument?.(session, filePath);
             codeEditor?.prepareForDocument?.(session, filePath);
 
-            const initialViewMode = getViewModeForPath(filePath);
             const imageViewer = getImageViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
@@ -285,6 +287,14 @@ export function createFileOperations({
                 return;
             }
             const targetViewMode = fileData.viewMode || initialViewMode;
+
+            // 判断是否应该自动聚焦编辑器：
+            // 只有在 markdown 和 code 编辑器之间切换时才自动聚焦
+            const isEditorMode = (mode) => mode === 'markdown' || mode === 'code';
+            const shouldAutoFocus = autoFocus
+                && isEditorMode(previousViewMode)
+                && isEditorMode(targetViewMode)
+                && previousViewMode !== targetViewMode;
 
             if (targetViewMode === 'spreadsheet') {
                 activateSpreadsheetView();
@@ -378,7 +388,7 @@ export function createFileOperations({
             if (targetViewMode === 'markdown') {
                 activateMarkdownView();
                 if (editor) {
-                    await editor.loadFile(session, filePath, fileData.content, { autoFocus });
+                    await editor.loadFile(session, filePath, fileData.content, { autoFocus: shouldAutoFocus });
                     if (shouldAbort('markdown-editor-load')) {
                         return;
                     }
@@ -394,7 +404,7 @@ export function createFileOperations({
                 activateCodeView();
                 editor?.clear?.();
                 const language = detectLanguageForPath(filePath);
-                await codeEditor?.show(filePath, fileData.content, language, session, { autoFocus });
+                await codeEditor?.show(filePath, fileData.content, language, session, { autoFocus: shouldAutoFocus });
                 if (shouldAbort('code-editor-load')) {
                     return;
                 }

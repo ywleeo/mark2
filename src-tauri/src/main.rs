@@ -201,6 +201,11 @@ fn rename_entry(source: String, destination: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn create_directory(path: String) -> Result<(), String> {
+    fs::create_dir_all(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn ipc_health_check() -> Result<(), String> {
     Ok(())
 }
@@ -470,6 +475,7 @@ fn main() {
             read_dir,
             delete_entry,
             rename_entry,
+            create_directory,
             pick_path,
             list_fonts,
             capture_screenshot,

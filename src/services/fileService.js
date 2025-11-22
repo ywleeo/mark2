@@ -136,6 +136,12 @@ export function createFileService() {
         return await filesystem.getFileMetadata(path);
     }
 
+    async function createDirectory(path) {
+        ensurePath(path, 'createDirectory');
+        await filesystem.createDirectory(path);
+        return { path };
+    }
+
     async function ipcHealthCheck() {
         if (typeof filesystem.ipcHealthCheck === 'function') {
             return await filesystem.ipcHealthCheck();
@@ -152,6 +158,7 @@ export function createFileService() {
         readSpreadsheet,
         writeText,
         createFile,
+        createDirectory,
         remove,
         move,
         list,
