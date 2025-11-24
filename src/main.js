@@ -32,6 +32,7 @@ import { registerDocumentIO, getDocumentApi } from './api/document.js';
 import { setExportMenuEnabled } from './api/native.js';
 import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
+import { createRecentFilesService } from './services/recentFilesService.js';
 import { createMcpHandler } from './mcp/handler.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { createFileSession } from './modules/fileSession.js';
@@ -44,6 +45,7 @@ import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
 import { createFileOperations } from './modules/fileOperations.js';
 import { createFileMenuActions } from './modules/fileMenuActions.js';
+import { createRecentFilesActions } from './modules/recentFilesActions.js';
 import { PluginManager } from './core/PluginManager.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
@@ -79,6 +81,7 @@ let tabManager = null;
 let settingsDialog = null;
 let hasUnsavedChanges = false;
 const fileService = createFileService();
+const recentFilesService = createRecentFilesService();
 const fileSession = createFileSession({
     fileService,
     getViewModeForPath,
@@ -329,6 +332,8 @@ const {
     activateSpreadsheetView,
     activatePdfView,
     activateUnsupportedView,
+    recentFilesService,
+    updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
 });
 
 mcpHandler = createMcpHandler({
@@ -462,6 +467,19 @@ const {
     getStatusBarController: () => statusBarController,
     documentSessions,
 });
+
+const recentFilesActions = createRecentFilesActions({
+    recentFilesService,
+    fileService: appServices.file,
+    normalizeFsPath,
+    getFileTree: () => fileTree,
+    workspaceController,
+});
+const {
+    updateRecentMenu,
+    handleRecentItemClick,
+    clearRecent,
+} = recentFilesActions;
 
 // 基础初始化代码
 document.addEventListener('DOMContentLoaded', () => {
@@ -725,6 +743,8 @@ async function initializeApplication() {
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
         onRenameActiveFile: handleRenameActiveFile,
+        onRecentItemClick: handleRecentItemClick,
+        onClearRecent: clearRecent,
     });
     setupLinkNavigationListener();
     sidebarResizerCleanup = setupSidebarResizer();
@@ -742,6 +762,9 @@ async function initializeApplication() {
     // 发布应用初始化完成事件
     eventBus.emit('app:initialized');
     void updateExportMenuState();
+
+    // 更新最近文件菜单
+    void updateRecentMenu();
 }
 
 /**

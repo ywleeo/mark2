@@ -29,6 +29,8 @@ export function createFileOperations({
     activateSpreadsheetView,
     activatePdfView,
     activateUnsupportedView,
+    recentFilesService,
+    updateRecentMenuFn,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -95,6 +97,18 @@ export function createFileOperations({
 
                 if (isDir) {
                     await fileTree.loadFolder(resolvedPath);
+                    // 记录文件夹打开历史
+                    if (recentFilesService && typeof recentFilesService.recordOpen === 'function') {
+                        try {
+                            recentFilesService.recordOpen(resolvedPath, 'folder');
+                            // 更新菜单
+                            if (updateRecentMenuFn && typeof updateRecentMenuFn === 'function') {
+                                void updateRecentMenuFn();
+                            }
+                        } catch (error) {
+                            console.warn('[fileOperations] 记录最近文件夹失败:', error);
+                        }
+                    }
                 } else {
                     fileTree.addToOpenFiles(resolvedPath);
                     fileTree.selectFile(resolvedPath);
@@ -438,6 +452,20 @@ export function createFileOperations({
             }
             fileTree?.clearExternalModification?.(filePath);
             persistWorkspaceState();
+
+            // 记录文件打开历史
+            if (recentFilesService && typeof recentFilesService.recordOpen === 'function') {
+                try {
+                    recentFilesService.recordOpen(filePath, 'file');
+                    // 更新菜单
+                    if (updateRecentMenuFn && typeof updateRecentMenuFn === 'function') {
+                        void updateRecentMenuFn();
+                    }
+                } catch (error) {
+                    console.warn('[fileOperations] 记录最近文件失败:', error);
+                }
+            }
+
             markSessionReady();
         } catch (error) {
             if (sessionId) {

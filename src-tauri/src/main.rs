@@ -57,6 +57,32 @@ impl ExportMenuState {
     }
 }
 
+struct RecentMenuState {
+    submenu: Mutex<Submenu<Wry>>,
+    app_handle: Mutex<Option<tauri::AppHandle>>,
+    current_items: Mutex<Vec<MenuItem<Wry>>>,
+    separator: Mutex<Option<PredefinedMenuItem<Wry>>>,
+    clear_item: Mutex<Option<MenuItem<Wry>>>,
+}
+
+impl RecentMenuState {
+    fn new(submenu: Submenu<Wry>) -> Self {
+        Self {
+            submenu: Mutex::new(submenu),
+            app_handle: Mutex::new(None),
+            current_items: Mutex::new(Vec::new()),
+            separator: Mutex::new(None),
+            clear_item: Mutex::new(None),
+        }
+    }
+
+    fn set_app_handle(&self, handle: tauri::AppHandle) {
+        if let Ok(mut app_handle) = self.app_handle.lock() {
+            *app_handle = Some(handle);
+        }
+    }
+}
+
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceContextPayload {
@@ -458,6 +484,82 @@ fn set_export_menu_enabled(
     Ok(())
 }
 
+#[derive(Serialize, Deserialize)]
+struct RecentItem {
+    label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+}
+
+#[tauri::command]
+fn update_recent_menu(
+    state: tauri::State<RecentMenuState>,
+    items: Vec<RecentItem>,
+) -> Result<(), String> {
+    let submenu = state
+        .submenu
+        .lock()
+        .map_err(|_| "failed to lock recent menu state")?;
+
+    let app_handle = state
+        .app_handle
+        .lock()
+        .map_err(|_| "failed to lock app handle")?
+        .clone()
+        .ok_or("app handle not set")?;
+
+    // 移除所有现有的菜单项
+    let mut current_items = state
+        .current_items
+        .lock()
+        .map_err(|_| "failed to lock current items")?;
+
+    for item in current_items.iter() {
+        submenu.remove(item).map_err(|e| e.to_string())?;
+    }
+    current_items.clear();
+
+    // 移除分隔符和清除按钮
+    if let Ok(mut sep) = state.separator.lock() {
+        if let Some(separator) = sep.take() {
+            let _ = submenu.remove(&separator);
+        }
+    }
+    if let Ok(mut clear) = state.clear_item.lock() {
+        if let Some(clear_item) = clear.take() {
+            let _ = submenu.remove(&clear_item);
+        }
+    }
+
+    // 添加新的菜单项
+    for (index, item) in items.iter().enumerate() {
+        let menu_item = MenuItemBuilder::with_id(format!("recent-{}", index), &item.label)
+            .build(&app_handle)
+            .map_err(|e| e.to_string())?;
+        submenu.append(&menu_item).map_err(|e| e.to_string())?;
+        current_items.push(menu_item);
+    }
+
+    // 如果有项目，添加分隔符和清除按钮
+    if !items.is_empty() {
+        let separator = PredefinedMenuItem::separator(&app_handle).map_err(|e| e.to_string())?;
+        submenu.append(&separator).map_err(|e| e.to_string())?;
+        if let Ok(mut sep) = state.separator.lock() {
+            *sep = Some(separator);
+        }
+
+        let clear_item = MenuItemBuilder::with_id("clear-recent", "Clear Recent")
+            .build(&app_handle)
+            .map_err(|e| e.to_string())?;
+        submenu.append(&clear_item).map_err(|e| e.to_string())?;
+        if let Ok(mut clear) = state.clear_item.lock() {
+            *clear = Some(clear_item);
+        }
+    }
+
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(WorkspaceState::default())
@@ -486,6 +588,7 @@ fn main() {
             update_document_snapshot,
             reveal_in_file_manager,
             set_export_menu_enabled,
+            update_recent_menu,
             plugin_loader::list_plugins
         ])
         .setup(|app| {
@@ -538,14 +641,18 @@ fn main() {
             let rename_file_item =
                 MenuItemBuilder::with_id("file-rename", "Rename...").build(app)?;
             let move_file_item = MenuItemBuilder::with_id("file-move", "Move To...").build(app)?;
-let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete")
+            let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete")
                 .accelerator("CmdOrCtrl+Delete")
                 .build(app)?;
+
+            // Open Recent 子菜单 - 初始为空，稍后动态填充
+            let open_recent_submenu = SubmenuBuilder::new(app, "Open Recent").build()?;
 
             // File 菜单
             let file_menu = SubmenuBuilder::new(app, "File")
                 .item(&new_file_item)
                 .item(&open_item)
+                .item(&open_recent_submenu)
                 .separator()
                 .item(&export_submenu)
                 .separator()
@@ -563,6 +670,10 @@ let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete")
                 export_image_item.clone(),
                 export_pdf_item.clone(),
             ));
+
+            let recent_menu_state = RecentMenuState::new(open_recent_submenu.clone());
+            recent_menu_state.set_app_handle(app.handle().clone());
+            app.manage(recent_menu_state);
 
             // 动态加载插件菜单
             let plugins = plugin_loader::scan_plugins().unwrap_or_default();

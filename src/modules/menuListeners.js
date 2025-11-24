@@ -24,6 +24,18 @@ export async function registerMenuListeners(handlers) {
     await register('menu-file-delete', handlers.onDeleteActiveFile);
     await register('menu-file-move', handlers.onMoveActiveFile);
     await register('menu-file-rename', handlers.onRenameActiveFile);
+    await register('menu-clear-recent', handlers.onClearRecent);
+
+    // 注册最近文件菜单项点击事件（recent-0 到 recent-9）
+    for (let i = 0; i < 10; i++) {
+        const eventName = `menu-recent-${i}`;
+        if (handlers.onRecentItemClick) {
+            const unlisten = await listen(eventName, () => {
+                void handlers.onRecentItemClick(i);
+            });
+            disposers.push(unlisten);
+        }
+    }
 
     // 动态注册插件菜单事件 (plugin-{id}-toggle, plugin-{id}-settings)
     // 通过 EventBus 转发给插件系统

@@ -4,9 +4,9 @@
     --titlebar-height: 30px;
     --status-bar-height: 28px;
     --scrollbar-size: 6px;
-    --scrollbar-thumb-color: rgba(0, 0, 0, 0.25);
-    --scrollbar-thumb-hover-color: rgba(0, 0, 0, 0.45);
-    --scrollbar-track-color: rgba(0, 0, 0, 0.06);
+    --scrollbar-thumb-color: rgba(92, 92, 92, 0.25);
+    --scrollbar-thumb-hover-color: rgba(82, 82, 82, 0.45);
+    --scrollbar-track-color: rgba(67, 67, 67, 0.06);
     --sidebar-bg: #f5f6f8;
     --content-bg: #ffffff;
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);
@@ -26,7 +26,7 @@
     --tab-rename-bg: #ffffff;
     --tab-rename-text: rgba(21, 23, 26, 0.9);
     --tab-focus-shadow-color: rgba(107, 226, 117, 0.25);
-    --border-color: #e4e4e4;
+    --border-color: #d1d1d1;
     --status-bg: rgba(245, 246, 248, 0.94);
     --status-border: rgba(15, 23, 42, 0.06);
     --status-text: rgba(21, 23, 26, 0.7);
@@ -568,14 +568,23 @@ body.is-internal-drag .content-wrapper::after {
 }
 
 /* 统一滚动条样式 */
-.sidebar,
 .content-area,
-.section-content,
 .markdown-content pre,
 .editor-textarea,
 .view-content {
     /* scrollbar-width: thin; */
-    scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
+    /* scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4); */
+}
+
+/* Sidebar 和文件树的 Firefox 滚动条 - 使用统一变量 */
+.sidebar,
+.section-content {
+    /* scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) transparent !important; */
+}
+
+:root[data-theme-appearance='dark'] .sidebar,
+:root[data-theme-appearance='dark'] .section-content {
+    /* scrollbar-color: var(--scrollbar-thumb-color, rgba(255, 255, 255, 0.32)) transparent !important; */
 }
 
 .sidebar::-webkit-scrollbar,
@@ -598,9 +607,21 @@ body.is-internal-drag .content-wrapper::after {
     background: var(--scrollbar-track-color, #f1f3f4);
 }
 
+/* Sidebar 和文件树的滚动条 - 使用统一变量 */
 .sidebar::-webkit-scrollbar-thumb,
+.section-content::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.25));
+    border-radius: 2px;
+    transition: background 0.2s ease;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover,
+.section-content::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.45));
+}
+
+/* View 区域的滚动条 - 保持原样 */
 .content-area::-webkit-scrollbar-thumb,
-.section-content::-webkit-scrollbar-thumb,
 .markdown-content pre::-webkit-scrollbar-thumb,
 .editor-textarea::-webkit-scrollbar-thumb,
 .view-content::-webkit-scrollbar-thumb {
@@ -609,13 +630,22 @@ body.is-internal-drag .content-wrapper::after {
     transition: background 0.2s ease;
 }
 
-.sidebar::-webkit-scrollbar-thumb:hover,
 .content-area::-webkit-scrollbar-thumb:hover,
-.section-content::-webkit-scrollbar-thumb:hover,
 .markdown-content pre::-webkit-scrollbar-thumb:hover,
 .editor-textarea::-webkit-scrollbar-thumb:hover,
 .view-content::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover-color, #d0d2d6);
+}
+
+/* 深色模式下 sidebar 的滚动条 - 使用统一变量 */
+:root[data-theme-appearance='dark'] .sidebar::-webkit-scrollbar-thumb,
+:root[data-theme-appearance='dark'] .section-content::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(255, 255, 255, 0.32));
+}
+
+:root[data-theme-appearance='dark'] .sidebar::-webkit-scrollbar-thumb:hover,
+:root[data-theme-appearance='dark'] .section-content::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-color, rgba(255, 255, 255, 0.52));
 }
 #foldersContent{
     padding-bottom: 20px;
