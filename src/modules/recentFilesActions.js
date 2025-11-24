@@ -35,7 +35,6 @@ export function createRecentFilesActions(options = {}) {
     async function updateRecentMenu() {
         try {
             const recentItems = recentFilesService.getRecentItems(10);
-            console.log('[recentFilesActions] 更新菜单，项数:', recentItems.length);
 
             // 清空映射
             recentPathsMap.clear();
