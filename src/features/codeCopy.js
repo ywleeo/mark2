@@ -1,4 +1,5 @@
 // 代码块复制功能模块
+import { addClickHandler } from '../utils/PointerHelper.js';
 
 // 常量配置
 const COPY_BUTTON_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fcfcfcff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
@@ -16,17 +17,12 @@ export class CodeCopyManager {
         this.activeCopyTarget = null;
         this.copyButtonHideTimer = null;
         this.copyButtonViewportFrame = null;
+        this.copyButtonClickCleanup = null;
 
         // 绑定方法
         this.boundHandleViewportChange = () => this.handleCopyButtonViewportChange();
         this.handleCopyButtonMouseEnter = () => this.cancelCopyButtonHide();
         this.handleCopyButtonMouseLeave = () => this.scheduleCopyButtonHide();
-        this.handleCopyButtonMouseDown = event => event.preventDefault();
-        this.handleCopyButtonClick = event => {
-            event.preventDefault();
-            event.stopPropagation();
-            void this.handleCodeCopy(event.currentTarget, this.activeCopyTarget);
-        };
     }
 
     // 调度代码块复制监听器更新
@@ -130,8 +126,11 @@ export class CodeCopyManager {
 
         button.addEventListener('mouseenter', this.handleCopyButtonMouseEnter);
         button.addEventListener('mouseleave', this.handleCopyButtonMouseLeave);
-        button.addEventListener('mousedown', this.handleCopyButtonMouseDown);
-        button.addEventListener('click', this.handleCopyButtonClick);
+
+        // 使用 PointerHelper 处理点击事件
+        this.copyButtonClickCleanup = addClickHandler(button, () => {
+            void this.handleCodeCopy(button, this.activeCopyTarget);
+        }, { preventDefault: true });
 
         if (!this.element) {
             return;
@@ -274,8 +273,13 @@ export class CodeCopyManager {
             }
             this.codeCopyButton.removeEventListener('mouseenter', this.handleCopyButtonMouseEnter);
             this.codeCopyButton.removeEventListener('mouseleave', this.handleCopyButtonMouseLeave);
-            this.codeCopyButton.removeEventListener('mousedown', this.handleCopyButtonMouseDown);
-            this.codeCopyButton.removeEventListener('click', this.handleCopyButtonClick);
+
+            // 清理 PointerHelper 的点击处理
+            if (this.copyButtonClickCleanup) {
+                this.copyButtonClickCleanup();
+                this.copyButtonClickCleanup = null;
+            }
+
             this.codeCopyButton.remove();
             this.codeCopyButton = null;
         }

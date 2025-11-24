@@ -19,9 +19,6 @@ export class FileMover {
         this._onInternalMouseMove = null;
         this._onInternalMouseUp = null;
         this.cancelNativeDragState = null;
-        this._releaseGuardActive = false;
-        this._releaseGuardHandler = null;
-        this._releaseGuardTimeoutId = null;
     }
 
     // 拦截原生 dragstart（用于 macOS 三指拖动），转为自定义拖拽
@@ -65,7 +62,6 @@ export class FileMover {
         const threshold = 3;
         if (!active && (dx > threshold || dy > threshold)) {
             this._dragState.active = true;
-            this.suppressReleaseClicks();
             document.body.classList.add('is-internal-drag');
             window.__IS_INTERNAL_DRAG__ = true;
             const name = (this._dragState.sourcePath || '').split(/[\\/]/).pop() || '';
@@ -106,65 +102,16 @@ export class FileMover {
         this.removeDragGhost();
         document.body.classList.remove('is-internal-drag');
         window.__IS_INTERNAL_DRAG__ = false;
-        this.suppressReleaseClicks();
 
         if (!active) return;
 
         const targetFolderPath = targetHeader?.parentElement?.dataset?.path;
         if (!targetFolderPath || !sourcePath) return;
         await this.performMove(sourcePath, targetFolderPath);
-        this.suppressReleaseClicks();
-    }
-
-    shouldSuppressClick() {
-        return this._releaseGuardActive;
     }
 
     shouldBlockInteraction() {
-        return (this._dragState?.active ?? false) || this.shouldSuppressClick();
-    }
-
-    suppressReleaseClicks() {
-        const duration = 400;
-        this._releaseGuardActive = true;
-
-        if (!this._releaseGuardHandler) {
-            this._releaseGuardHandler = (event) => {
-                if (!this._releaseGuardActive) {
-                    return;
-                }
-                try {
-                    event.stopImmediatePropagation?.();
-                } catch {}
-                try {
-                    event.stopPropagation();
-                    event.preventDefault();
-                } catch {}
-                this._clearReleaseGuard();
-            };
-            window.addEventListener('click', this._releaseGuardHandler, true);
-            window.addEventListener('pointerup', this._releaseGuardHandler, true);
-        }
-
-        if (this._releaseGuardTimeoutId) {
-            clearTimeout(this._releaseGuardTimeoutId);
-        }
-        this._releaseGuardTimeoutId = setTimeout(() => {
-            this._clearReleaseGuard();
-        }, duration);
-    }
-
-    _clearReleaseGuard() {
-        this._releaseGuardActive = false;
-        if (this._releaseGuardTimeoutId) {
-            clearTimeout(this._releaseGuardTimeoutId);
-        }
-        this._releaseGuardTimeoutId = null;
-        if (this._releaseGuardHandler) {
-            window.removeEventListener('click', this._releaseGuardHandler, true);
-            window.removeEventListener('pointerup', this._releaseGuardHandler, true);
-        }
-        this._releaseGuardHandler = null;
+        return this._dragState?.active ?? false;
     }
 
     clearAllDragOverHighlights() {
@@ -219,7 +166,6 @@ export class FileMover {
         const header = this.findHeaderAtPoint(event.clientX, event.clientY);
         this.clearAllDragOverHighlights();
         if (!header) {
-            this.suppressReleaseClicks();
             return;
         }
 
@@ -228,13 +174,11 @@ export class FileMover {
             || event.dataTransfer.getData('text/plain');
 
         if (!sourcePath || !targetFolderPath) {
-            this.suppressReleaseClicks();
             return;
         }
         await this.performMove(sourcePath, targetFolderPath, {
             isDirectory: this._dragState?.isDirectory,
         });
-        this.suppressReleaseClicks();
     }
 
     handleDragEnter(event, element) {
@@ -299,13 +243,11 @@ export class FileMover {
         const sourcePath = event.dataTransfer.getData('application/x-mark2-file')
             || event.dataTransfer.getData('text/plain');
         if (!sourcePath) {
-            this.suppressReleaseClicks();
             return;
         }
         await this.performMove(sourcePath, targetFolderPath, {
             isDirectory: this._dragState?.isDirectory,
         });
-        this.suppressReleaseClicks();
     }
 
     createDragGhost(label, x, y, nodeWidth = null, isDirectory = false) {
@@ -485,7 +427,6 @@ export class FileMover {
         this._onInternalMouseMove = null;
         this._onInternalMouseUp = null;
         this.cancelNativeDragState = null;
-        this._clearReleaseGuard();
         document.body.classList.remove('is-internal-drag');
         window.__IS_INTERNAL_DRAG__ = false;
     }

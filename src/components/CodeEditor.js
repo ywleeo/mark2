@@ -176,6 +176,9 @@ export class CodeEditor {
 
     prepareForDocument(session, filePath) {
         const sessionId = session?.id ?? this.currentSessionId ?? null;
+        const previousFile = this.currentFile;
+        const isFileSwitching = previousFile !== filePath;
+
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
         this.currentFile = filePath;
@@ -185,12 +188,16 @@ export class CodeEditor {
         }
         this.suppressChange = true;
         try {
-            if (this.currentModel) {
-                this.currentModel.setValue('');
-            } else if (typeof this.editor.setValue === 'function') {
-                this.editor.setValue('');
+            // 只在切换文件时清空内容并设置为只读
+            // 重载当前文件时不清空，直接更新内容即可，避免失焦
+            if (isFileSwitching) {
+                if (this.currentModel) {
+                    this.currentModel.setValue('');
+                } else if (typeof this.editor.setValue === 'function') {
+                    this.editor.setValue('');
+                }
+                this.editor.updateOptions({ readOnly: true });
             }
-            this.editor.updateOptions({ readOnly: true });
         } finally {
             this.suppressChange = false;
         }

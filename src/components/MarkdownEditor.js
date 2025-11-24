@@ -333,6 +333,9 @@ export class MarkdownEditor {
 
     prepareForDocument(session, filePath) {
         const sessionId = session?.id ?? this.currentSessionId ?? null;
+        const previousFile = this.currentFile;
+        const isFileSwitching = previousFile !== filePath;
+
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
         this.currentFile = filePath;
@@ -345,9 +348,12 @@ export class MarkdownEditor {
         }
         this.suppressUpdateEvent = true;
         try {
-            this.editor.setEditable(false);
-            this.editor.commands.setContent('');
-            this.editor.commands.blur?.();
+            // 只在切换文件时禁用编辑器并清空内容
+            // 重载当前文件时不清空，直接更新内容即可，避免失焦
+            if (isFileSwitching) {
+                this.editor.setEditable(false);
+                this.editor.commands.setContent('');
+            }
         } finally {
             this.suppressUpdateEvent = false;
         }
