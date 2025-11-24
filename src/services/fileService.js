@@ -87,7 +87,10 @@ export function createFileService() {
         ensurePath(destination, 'move');
         if (!overwrite) {
             const exists = await pathExists(destination);
-            if (exists) {
+            // 如果目标路径存在，检查是否只是大小写变化
+            // 在不区分大小写的文件系统（如 macOS）上，允许大小写重命名
+            const isCaseOnlyChange = source.toLowerCase() === destination.toLowerCase() && source !== destination;
+            if (exists && !isCaseOnlyChange) {
                 throw new Error(`目标路径已存在：${destination}`);
             }
         }
