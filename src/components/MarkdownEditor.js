@@ -409,9 +409,57 @@ export class MarkdownEditor {
             return this.originalMarkdown;
         }
         const html = this.editor.getHTML();
-        // 移除 TipTap 在列表项中生成的 <p> 标签，避免 Turndown 产生多余空行
-        const cleanedHtml = html.replace(/<li([^>]*)><p>/g, '<li$1>').replace(/<\/p><\/li>/g, '</li>');
-        return this.turndownService.turndown(cleanedHtml);
+
+        // 清理 HTML，确保 turndown 正确转换
+        let cleanedHtml = html;
+
+        // 移除 TipTap 在列表项中生成的 <p> 标签
+        cleanedHtml = cleanedHtml.replace(/<li([^>]*)><p>/g, '<li$1>').replace(/<\/p><\/li>/g, '</li>');
+
+        // 清理表格 HTML，确保符合标准格式供 turndown 转换
+        // 1. 移除 colgroup（turndown 不需要）
+        cleanedHtml = cleanedHtml.replace(/<colgroup>[\s\S]*?<\/colgroup>/gi, '');
+
+        // 2. 清理单元格：移除 <p> 标签并规范化空白字符
+        cleanedHtml = cleanedHtml.replace(/<(td|th)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, attrs, content) => {
+            // 移除内部的 <p> 标签
+            let cleaned = content.replace(/<\/?p>/gi, '');
+            // 移除空的 mermaid div（可能是编辑器渲染产生的）
+            cleaned = cleaned.replace(/<div[^>]*class="mermaid"[^>]*data-mermaid-code=""[^>]*><\/div>/gi, '');
+            // 移除其他空的 div
+            cleaned = cleaned.replace(/<div[^>]*>\s*<\/div>/gi, '');
+            // 移除多余的换行和空白，保留单个空格
+            cleaned = cleaned.replace(/\s+/g, ' ').trim();
+            return `<${tag}>${cleaned}</${tag}>`;
+        });
+
+        // 3. 清理表格元素的属性（保留基本结构）
+        cleanedHtml = cleanedHtml.replace(/<table[^>]*>/gi, '<table>');
+        cleanedHtml = cleanedHtml.replace(/<tbody[^>]*>/gi, '<tbody>');
+        cleanedHtml = cleanedHtml.replace(/<thead[^>]*>/gi, '<thead>');
+        cleanedHtml = cleanedHtml.replace(/<tr[^>]*>/gi, '<tr>');
+
+        // 4. TipTap 表格的第一行 <th> 在 <tbody> 里，需要移到 <thead> 中
+        cleanedHtml = cleanedHtml.replace(
+            /<tbody>(\s*<tr>(\s*<th>[\s\S]*?<\/th>\s*)+<\/tr>)/gi,
+            '<thead>$1</thead><tbody>'
+        );
+
+        // 调试：查看表格部分
+        const tableMatch = cleanedHtml.match(/<table>[\s\S]*?<\/table>/i);
+        if (tableMatch) {
+            console.log('[MarkdownEditor] 清理后的表格 HTML:', tableMatch[0]);
+        }
+
+        const markdown = this.turndownService.turndown(cleanedHtml);
+
+        // 调试：查看转换后的表格
+        const tableMarkdownMatch = markdown.match(/\|[\s\S]*?\n\n/);
+        if (tableMarkdownMatch) {
+            console.log('[MarkdownEditor] 转换后的表格 Markdown:', tableMarkdownMatch[0]);
+        }
+
+        return markdown;
     }
 
     clearAutoSaveTimer() {

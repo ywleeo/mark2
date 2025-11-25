@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
+import markdownItMultimdTable from 'markdown-it-multimd-table';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
@@ -162,8 +163,14 @@ export function createConfiguredMarkdownIt() {
         linkify: false, // 禁用自动链接识别，保持纯文本 URL 原样
     });
 
-    // 启用表格支持
-    md.enable('table');
+    // 使用 markdown-it-multimd-table 插件支持表格
+    md.use(markdownItMultimdTable, {
+        multiline: true,
+        rowspan: true,
+        headerless: true,
+        multibody: true,
+        autolabel: true,
+    });
 
     // 使用官方的 markdown-it-task-lists 插件
     md.use(markdownItTaskLists, {

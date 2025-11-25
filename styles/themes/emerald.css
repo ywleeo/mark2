@@ -25,7 +25,7 @@
     --emerald-code-accent: #10b98127;
     --emerald-code-background: #f8fafc;
     --emerald-quote-accent: #fb24d32c;
-    --emerald-quote-bg: rgba(245, 158, 11, 0.05);
+    --emerald-quote-bg: rgba(245, 159, 11, 0.012);
     --emerald-quote-nested-1: rgba(245, 158, 11, 0.03);
     --emerald-quote-nested-2: rgba(245, 158, 11, 0.02);
     --emerald-delete-color: #f8717180;
@@ -38,32 +38,32 @@
     --theme-bg: #151515;
     --theme-text: #b8b8b8;
     --theme-text-secondary: #b3d4c6;
-    --theme-border: #24352c;
+    --theme-border: #24352c62;
     --theme-border-strong: #929292;
     --theme-code-bg: rgba(79, 209, 197, 0.22);
     --theme-code-block-bg: #19291f;
     --theme-link: #7df3d5;
     --theme-heading-border: #4ade80;
     --theme-quote-border: #8bf19b;
-    --theme-quote-text: #dcffe9;
+    --theme-quote-text: #9f9f9f;
     --theme-table-header-bg: #1c2d22;
     --theme-table-border: #2a3c33;
     --theme-accent: #4ade80;
-    --emerald-h1-border: #ea588e;
+    --emerald-h1-border: #464646;
     --emerald-h2-bg: rgba(58, 78, 66, 0.18);
     --emerald-h3-border: #5da9ff;
-    --emerald-h4-text: #d5ffef;
+    --emerald-h4-text: #a8cbbe;
     --emerald-inline-code-bg: rgba(79, 209, 197, 0.28);
     --emerald-inline-code-color: #a0ffe8;
     --emerald-code-accent: #4188681e;
     --emerald-code-background: #4548467b;
     --emerald-quote-accent: #f1b68b34;
-    --emerald-quote-bg: rgba(41, 39, 70, 0.233);
+    --emerald-quote-bg: rgba(45, 44, 64, 0.113);
     --emerald-quote-nested-1: rgba(41, 39, 70, 0.233);
     --emerald-quote-nested-2: rgba(41, 39, 70, 0.233);
     --emerald-delete-color: #fecdd3;
     --emerald-strong-bg: rgba(103, 133, 232, 0.15);
-    --emerald-list-bullet: #b7ffd1;
+    --emerald-list-bullet: #4f4f4f;
     --emerald-ordered-color: #b7ffd1;
 }
 
@@ -99,7 +99,7 @@
 /* 一级标题 - 简洁下划线风格 */
 .tiptap-editor h1 {
     font-size: 2em !important;
-    margin: 15px 0;
+    margin: 35px 0;
     border-bottom: 3px solid var(--emerald-h1-border, var(--theme-heading-border));
     padding-bottom: 10px;
     font-family: inherit;
@@ -192,14 +192,14 @@
 
 /* 引用块 */
 .tiptap-editor blockquote {
-    border-left: 4px solid var(--emerald-quote-accent, var(--theme-quote-border));
+    border-left: 2px solid var(--emerald-quote-accent, var(--theme-quote-border));
     padding: 8px 20px;
     margin: 20px 0;
     font-style: italic;
     background-color: var(--emerald-quote-bg);
     border-radius: 0 4px 4px 0;
     font-family: inherit;
-    font-size: 0.95em;
+    font-size: 0.9em;
 }
 
 /* 嵌套引用块 */
@@ -243,69 +243,14 @@
     margin: 0 0 0 22px;
 }
 
-/* 无序列表项目符号 */
+/* 无序列表 - 使用浏览器默认样式 */
 .tiptap-editor ul {
-    list-style: none;
+    list-style: disc;
 }
 
-.tiptap-editor ul li {
-    position: relative;
-}
-
-/* 第一层：实心圆 */
-.tiptap-editor ul > li::before {
-    content: '•';
-    color: var(--emerald-list-bullet, var(--theme-accent));
-    position: absolute;
-    left: -20px;
-    top: 0;
-}
-
-/* 第二层：空心圆 */
-.tiptap-editor ul ul > li::before {
-    content: '◦';
-    color: var(--emerald-list-bullet, var(--theme-accent));
-    position: absolute;
-    left: -20px;
-    top: 0;
-    font-size: 1.1em;
-}
-
-/* 第三层：实心方块 */
-.tiptap-editor ul ul ul > li::before {
-    content: '▪';
-    color: var(--emerald-list-bullet, var(--theme-accent));
-    position: absolute;
-    left: -20px;
-    top: 0;
-    font-size: 0.9em;
-}
-
-/* 第四层：小三角 */
-.tiptap-editor ul ul ul ul > li::before {
-    content: '▸';
-    color: var(--emerald-list-bullet, var(--theme-accent));
-    position: absolute;
-    left: -20px;
-    top: 0;
-    font-size: 1em;
-}
-
-/* 任务列表项目不显示圆点 */
-.tiptap-editor li[data-checked]::before,
-.tiptap-editor li[data-type="taskItem"]::before,
-.tiptap-editor li.task-list-item::before {
-    content: none !important;
-}
-
-/* 有序列表样式 */
+/* 有序列表 - 使用浏览器默认样式 */
 .tiptap-editor ol {
     list-style: decimal;
-}
-
-.tiptap-editor ol > li::marker {
-    color: var(--emerald-ordered-color, var(--theme-link));
-    font-weight: 600;
 }
 
 /* 链接 */

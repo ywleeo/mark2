@@ -38,14 +38,15 @@
     "html-to-image": "^1.11.13",
     "lowlight": "^3.3.0",
     "markdown-it": "^14.1.0",
+    "markdown-it-multimd-table": "^4.2.3",
     "markdown-it-task-lists": "^2.1.1",
     "mermaid": "^11.12.1",
     "monaco-editor": "^0.50.0",
-    "prosemirror-markdown": "^1.13.2",
-    "xlsx": "^0.18.5",
     "pdfjs-dist": "^4.6.82",
+    "prosemirror-markdown": "^1.13.2",
     "turndown": "^7.2.1",
-    "turndown-plugin-gfm": "^1.0.2"
+    "turndown-plugin-gfm": "^1.0.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.3.0",
