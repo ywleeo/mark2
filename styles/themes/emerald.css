@@ -300,26 +300,12 @@
 
 /* 有序列表样式 */
 .tiptap-editor ol {
-    list-style: none;
+    list-style: decimal;
 }
 
-.tiptap-editor > ol,
-.tiptap-editor li > ol:first-child {
-    counter-reset: ol-counter;
-}
-
-.tiptap-editor ol > li {
-    position: relative;
-    counter-increment: ol-counter;
-}
-
-.tiptap-editor ol > li::before {
-    content: counter(ol-counter) '.';
+.tiptap-editor ol > li::marker {
     color: var(--emerald-ordered-color, var(--theme-link));
     font-weight: 600;
-    position: absolute;
-    left: -24px;
-    top: 0;
 }
 
 /* 链接 */
