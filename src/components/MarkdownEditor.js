@@ -445,21 +445,7 @@ export class MarkdownEditor {
             '<thead>$1</thead><tbody>'
         );
 
-        // 调试：查看表格部分
-        const tableMatch = cleanedHtml.match(/<table>[\s\S]*?<\/table>/i);
-        if (tableMatch) {
-            console.log('[MarkdownEditor] 清理后的表格 HTML:', tableMatch[0]);
-        }
-
-        const markdown = this.turndownService.turndown(cleanedHtml);
-
-        // 调试：查看转换后的表格
-        const tableMarkdownMatch = markdown.match(/\|[\s\S]*?\n\n/);
-        if (tableMarkdownMatch) {
-            console.log('[MarkdownEditor] 转换后的表格 Markdown:', tableMarkdownMatch[0]);
-        }
-
-        return markdown;
+        return this.turndownService.turndown(cleanedHtml);
     }
 
     clearAutoSaveTimer() {
