@@ -116,7 +116,7 @@ export function createStatusBarController({
         setStatusBarVisibility(!isStatusBarHidden);
     }
 
-    function updateStatusBar({ filePath, wordCount, lastModified } = {}) {
+    function updateStatusBar({ filePath, wordCount, lineCount, lastModified } = {}) {
         if (filePath && typeof filePath === 'string') {
             statusBarFilePathElement.textContent = filePath;
             statusBarFilePathElement.title = filePath;
@@ -125,13 +125,17 @@ export function createStatusBarController({
             statusBarFilePathElement.removeAttribute('title');
         }
 
-        let wordCountText = '';
+        let statsText = '';
         if (typeof wordCount === 'object' && wordCount !== null) {
-            wordCountText = `${wordCount.words} 字 / ${wordCount.characters} 字符`;
+            // Markdown 文件：显示字数统计
+            statsText = `${wordCount.words} 字 / ${wordCount.characters} 字符`;
+        } else if (typeof lineCount === 'object' && lineCount !== null) {
+            // 代码文件：显示行数统计
+            statsText = `${lineCount.nonEmpty} 非空行 / ${lineCount.total} 行`;
         } else if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
-            wordCountText = `${wordCount} 字`;
+            statsText = `${wordCount} 字`;
         }
-        statusBarWordCountElement.textContent = wordCountText;
+        statusBarWordCountElement.textContent = statsText;
 
         if (lastModified && typeof lastModified === 'string') {
             statusBarLastModifiedElement.textContent = lastModified;
@@ -302,6 +306,32 @@ export function createStatusBarController({
         }
     }
 
+    function calculateLineCount({ activeViewMode, editor, codeEditor }) {
+        try {
+            let content = '';
+
+            if (activeViewMode === 'code' && codeEditor) {
+                content = codeEditor.getValue() || '';
+            } else if (activeViewMode === 'markdown' && editor) {
+                content = editor.getMarkdown() || '';
+            }
+
+            if (!content) return 0;
+
+            // 计算非空行的数量
+            const lines = content.split('\n');
+            const nonEmptyLines = lines.filter(line => line.trim().length > 0);
+
+            return {
+                total: lines.length,
+                nonEmpty: nonEmptyLines.length
+            };
+        } catch (error) {
+            console.error('计算行数失败:', error);
+            return { total: 0, nonEmpty: 0 };
+        }
+    }
+
     async function getLastModifiedTime(filePath) {
         if (!filePath) {
             return null;
@@ -367,6 +397,7 @@ export function createStatusBarController({
         setZoomVisibility,
         setPageInfo,
         calculateWordCount,
+        calculateLineCount,
         getLastModifiedTime,
         teardown,
         showProgress,

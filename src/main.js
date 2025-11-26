@@ -867,13 +867,23 @@ async function loadAvailableFonts() {
 async function updateWindowTitle() {
     try {
         const window = getCurrentWindow();
-        let wordCount = { words: 0, characters: 0 };
+        let wordCount = null;
+        let lineCount = null;
         let lastModified = '';
 
         if (currentFile) {
-            wordCount = statusBarController
-                ? statusBarController.calculateWordCount({ activeViewMode, editor, codeEditor })
-                : { words: 0, characters: 0 };
+            const viewMode = getViewModeForPath(currentFile);
+
+            // 根据文件类型计算相应的统计信息
+            if (viewMode === 'markdown') {
+                wordCount = statusBarController
+                    ? statusBarController.calculateWordCount({ activeViewMode, editor, codeEditor })
+                    : { words: 0, characters: 0 };
+            } else if (viewMode === 'code') {
+                lineCount = statusBarController
+                    ? statusBarController.calculateLineCount({ activeViewMode, editor, codeEditor })
+                    : { total: 0, nonEmpty: 0 };
+            }
 
             lastModified = statusBarController
                 ? (await statusBarController.getLastModifiedTime(currentFile)) ?? ''
@@ -883,6 +893,7 @@ async function updateWindowTitle() {
         statusBarController?.updateStatusBar({
             filePath: currentFile,
             wordCount,
+            lineCount,
             lastModified,
             isDirty: hasUnsavedChanges,
         });
