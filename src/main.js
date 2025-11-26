@@ -40,6 +40,7 @@ import { createFileWatcherController } from './modules/fileWatchers.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
 import { createStatusBarController } from './modules/statusBarController.js';
 import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
+import { createSvgCodeMode } from './modules/svgCodeMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
 import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
@@ -109,6 +110,7 @@ let fileWatcherController = null;
 let fileDropCleanup = null;
 let statusBarController = null;
 let markdownCodeMode = null;
+let svgCodeMode = null;
 let fileDropController = null;
 let pluginManager = null;
 let documentIO = null;
@@ -225,6 +227,7 @@ const editorActions = createEditorActions({
     getEditor: () => editor,
     getCodeEditor: () => codeEditor,
     getMarkdownCodeMode: () => markdownCodeMode,
+    getSvgCodeMode: () => svgCodeMode,
     getCurrentFile: () => currentFile,
     setHasUnsavedChanges: (value) => {
         hasUnsavedChanges = value;
@@ -235,10 +238,14 @@ const editorActions = createEditorActions({
     persistWorkspaceState,
     updateWindowTitle,
     fileSession,
+    getImageViewer: () => imageViewer,
+    getFileService: () => appServices?.file,
+    getLoadFile: () => ({ openPathsFromSelection, loadFile }),
 });
 const {
     insertTextIntoActiveEditor,
     toggleMarkdownCodeMode,
+    toggleSvgCodeMode,
     requestActiveEditorContext,
 } = editorActions;
 
@@ -653,6 +660,11 @@ async function initializeApplication() {
         activateCodeView,
     });
 
+    svgCodeMode = createSvgCodeMode({
+        activateCodeView,
+        activateImageView,
+    });
+
     // 初始化文件树
     const fileTreeElement = document.getElementById('fileTree');
     fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
@@ -727,6 +739,7 @@ async function initializeApplication() {
         onDeleteFile: handleDeleteActiveFile,
         onToggleSidebar: toggleSidebarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+        onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleAiSidebar: toggleAiSidebarVisibility,
     });
     menuListenersCleanup = await registerMenuListeners({

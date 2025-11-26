@@ -7,6 +7,7 @@ export function setupKeyboardShortcuts({
     onDeleteFile,
     // onToggleSidebar 由 Tauri 菜单统一处理
     onToggleMarkdownCodeView,
+    onToggleSvgCodeView,
     onToggleAiSidebar,
 }) {
     const handler = async (event) => {
@@ -50,7 +51,9 @@ export function setupKeyboardShortcuts({
 
         if (isMeta && key === 'e') {
             event.preventDefault();
-            if (onToggleMarkdownCodeView) {
+            if (onToggleSvgCodeView) {
+                await onToggleSvgCodeView();
+            } else if (onToggleMarkdownCodeView) {
                 await onToggleMarkdownCodeView();
             }
             return;

@@ -4,12 +4,16 @@ export function createEditorActions({
     getEditor,
     getCodeEditor,
     getMarkdownCodeMode,
+    getSvgCodeMode,
     getCurrentFile,
     setHasUnsavedChanges,
     saveCurrentEditorContentToCache,
     persistWorkspaceState,
     updateWindowTitle,
     fileSession,
+    getImageViewer,
+    getFileService,
+    getLoadFile,
 }) {
     function insertTextIntoActiveEditor(text, options = {}) {
         const nextText = typeof text === 'string' ? text : '';
@@ -144,6 +148,37 @@ export function createEditorActions({
         void updateWindowTitle?.();
     }
 
+    async function toggleSvgCodeMode() {
+        const svgCodeMode = getSvgCodeMode?.();
+        if (!svgCodeMode) {
+            return;
+        }
+
+        const imageViewer = getImageViewer?.();
+        const codeEditor = getCodeEditor?.();
+        const fileService = getFileService?.();
+        const loadFile = getLoadFile?.();
+        const result = await svgCodeMode.toggle({
+            currentFile: getCurrentFile?.(),
+            activeViewMode: getActiveViewMode?.(),
+            imageViewer,
+            codeEditor,
+            fileService,
+            loadFile,
+        });
+
+        if (!result?.changed) {
+            return;
+        }
+
+        setActiveViewMode?.(result.nextViewMode);
+        setHasUnsavedChanges?.(result.hasUnsavedChanges);
+
+        saveCurrentEditorContentToCache?.();
+        persistWorkspaceState?.();
+        void updateWindowTitle?.();
+    }
+
     async function requestActiveEditorContext(options = {}) {
         const preferSelection = options?.preferSelection !== false;
         const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -251,6 +286,7 @@ export function createEditorActions({
     return {
         insertTextIntoActiveEditor,
         toggleMarkdownCodeMode,
+        toggleSvgCodeMode,
         requestActiveEditorContext,
     };
 }

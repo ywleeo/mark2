@@ -206,7 +206,12 @@ export function getViewModeForPath(filePath) {
     return 'code';
 }
 
+export function isSvgFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    return normalized.endsWith('.svg');
+}
+
 export function isEditableFilePath(filePath) {
     const viewMode = getViewModeForPath(filePath);
-    return viewMode === 'markdown' || viewMode === 'code';
+    return viewMode === 'markdown' || viewMode === 'code' || (viewMode === 'image' && filePath.toLowerCase().endsWith('.svg'));
 }
