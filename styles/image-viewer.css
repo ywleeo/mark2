@@ -47,6 +47,14 @@
     max-width: 600px;
 }
 
+.image-viewer-message {
+    font-size: 13px;
+    color: var(--text-secondary, #666666);
+    text-align: center;
+    word-break: break-all;
+    max-width: 640px;
+}
+
 body[data-theme-appearance='dark'] .image-viewer {
     background: var(--content-bg, #1f1f1f);
 }

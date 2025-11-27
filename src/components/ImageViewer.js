@@ -5,6 +5,7 @@ export class ImageViewer {
         this.container = containerElement;
         this.currentFile = null;
         this.zoomScale = 1;
+        this.defaultMessage = '';
         this.init();
     }
 
@@ -15,14 +16,37 @@ export class ImageViewer {
                 <img class="image-viewer-img" alt="图片加载中..." />
                 <div class="image-viewer-info">
                     <span class="image-viewer-filename"></span>
+                    <div class="image-viewer-message" hidden></div>
                 </div>
             </div>
         `;
 
         this.imgElement = this.container.querySelector('.image-viewer-img');
         this.filenameElement = this.container.querySelector('.image-viewer-filename');
+        this.messageElement = this.container.querySelector('.image-viewer-message');
         if (this.imgElement) {
             this.imgElement.style.transformOrigin = 'center top';
+        }
+    }
+
+    resetMessage() {
+        if (this.messageElement) {
+            this.messageElement.textContent = this.defaultMessage;
+            this.messageElement.hidden = !this.defaultMessage;
+        }
+    }
+
+    showMessage(text) {
+        if (this.messageElement) {
+            this.messageElement.textContent = text || '';
+            this.messageElement.hidden = !text;
+        }
+    }
+
+    clearImageContent() {
+        if (this.imgElement) {
+            this.imgElement.src = '';
+            this.imgElement.alt = '';
         }
     }
 
@@ -34,9 +58,19 @@ export class ImageViewer {
 
         try {
             this.currentFile = filePath;
+            this.resetMessage();
 
             // 读取图片文件为 base64
             const base64Data = await getAppServices().file.readImageBase64(filePath);
+
+            // 空文件直接提示，不抛出异常
+            if (!base64Data) {
+                const fileName = filePath.split('/').pop() || filePath;
+                this.filenameElement.textContent = fileName;
+                this.clearImageContent();
+                this.showMessage('文件为空，无法预览');
+                return;
+            }
 
             // 根据文件扩展名确定 MIME 类型
             const ext = filePath.toLowerCase().split('.').pop();
@@ -66,7 +100,9 @@ export class ImageViewer {
             });
         } catch (error) {
             console.error('加载图片失败:', error);
-            throw error;
+            this.clearImageContent();
+            this.showMessage('无法加载图片，文件可能为空或已损坏');
+            return;
         }
 
         this.applyZoomScale();
@@ -74,9 +110,9 @@ export class ImageViewer {
 
     clear() {
         this.currentFile = null;
-        this.imgElement.src = '';
-        this.imgElement.alt = '';
+        this.clearImageContent();
         this.filenameElement.textContent = '';
+        this.resetMessage();
         this.zoomScale = 1;
         this.applyZoomScale();
     }
