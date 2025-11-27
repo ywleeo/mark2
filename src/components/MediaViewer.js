@@ -6,6 +6,7 @@ export class MediaViewer {
         this.container = containerElement;
         this.mediaElement = null;
         this.currentFile = null;
+        this.defaultHintText = '本地文件按需加载，使用系统解码能力播放';
         this.init();
     }
 
@@ -16,7 +17,7 @@ export class MediaViewer {
                 <div class="media-viewer__player" data-role="player"></div>
                 <div class="media-viewer__info">
                     <div class="media-viewer__filename"></div>
-                    <div class="media-viewer__hint">本地文件按需加载，使用系统解码能力播放</div>
+                    <div class="media-viewer__hint">${this.defaultHintText}</div>
                     <div class="media-viewer__error" hidden></div>
                 </div>
             </div>
@@ -24,6 +25,7 @@ export class MediaViewer {
 
         this.playerSlot = this.container.querySelector('[data-role="player"]');
         this.filenameElement = this.container.querySelector('.media-viewer__filename');
+        this.hintElement = this.container.querySelector('.media-viewer__hint');
         this.errorElement = this.container.querySelector('.media-viewer__error');
     }
 
@@ -72,6 +74,7 @@ export class MediaViewer {
             this.errorElement.textContent = '';
             this.errorElement.hidden = true;
         }
+        this.resetHint();
     }
 
     showError(message) {
@@ -79,6 +82,27 @@ export class MediaViewer {
             this.errorElement.textContent = message || '无法加载媒体文件';
             this.errorElement.hidden = false;
         }
+    }
+
+    resetHint() {
+        if (this.hintElement) {
+            this.hintElement.textContent = this.defaultHintText;
+            this.hintElement.classList.remove('media-viewer__hint--warning');
+        }
+    }
+
+    showDurationWarning() {
+        if (this.hintElement) {
+            this.hintElement.textContent = '无法读取时长，可能是 ID3 标签损坏。但不影响播放。可以自行手动修复。';
+            this.hintElement.classList.add('media-viewer__hint--warning');
+        }
+    }
+
+    isMp3FilePath(filePath) {
+        if (typeof filePath !== 'string') {
+            return false;
+        }
+        return filePath.trim().toLowerCase().endsWith('.mp3');
     }
 
     async loadMedia(filePath) {
@@ -96,6 +120,7 @@ export class MediaViewer {
 
         this.currentFile = filePath;
         this.hideError();
+        this.resetHint();
         this.filenameElement.textContent = filePath.split('/').pop() || filePath;
 
         const element = this.createMediaElement(isVideo ? 'video' : 'audio');
@@ -131,10 +156,23 @@ export class MediaViewer {
             return;
         }
 
-        await tryLoad(streamSrc).catch((error) => {
+        try {
+            await tryLoad(streamSrc);
+
+            if (isAudio) {
+                const duration = this.mediaElement?.duration;
+                const hasValidDuration = Number.isFinite(duration) && duration > 0;
+                if (!hasValidDuration && this.isMp3FilePath(filePath)) {
+                    // 部分 MP3 头部损坏时浏览器读不到 duration，提示用户手动修复 ID3
+                    this.showDurationWarning();
+                } else {
+                    this.resetHint();
+                }
+            }
+        } catch (error) {
             console.error('加载媒体失败:', error);
             this.showError('媒体加载失败，请检查文件是否受支持');
-        });
+        }
     }
 
     clear() {
