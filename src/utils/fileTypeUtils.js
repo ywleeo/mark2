@@ -1,5 +1,21 @@
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+const AUDIO_EXTENSIONS = new Set([
+    'mp3',
+    'wav',
+    'ogg',
+    'm4a',
+    'flac',
+    'aac',
+]);
+const VIDEO_EXTENSIONS = new Set([
+    'mp4',
+    'mov',
+    'mkv',
+    'webm',
+    'avi',
+    'm4v',
+]);
 const SPREADSHEET_EXTENSIONS = new Set([
     'xls',
     'xlsx',
@@ -127,6 +143,38 @@ export function isImageFilePath(filePath) {
     return IMAGE_EXTENSIONS.has(match[1]);
 }
 
+export function isAudioFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+
+    return AUDIO_EXTENSIONS.has(match[1]);
+}
+
+export function isVideoFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+
+    return VIDEO_EXTENSIONS.has(match[1]);
+}
+
+export function isMediaFilePath(filePath) {
+    return isAudioFilePath(filePath) || isVideoFilePath(filePath);
+}
+
 export function isSpreadsheetFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -193,6 +241,9 @@ export function getViewModeForPath(filePath) {
     }
     if (isImageFilePath(filePath)) {
         return 'image';
+    }
+    if (isMediaFilePath(filePath)) {
+        return 'media';
     }
     if (isSpreadsheetFilePath(filePath)) {
         return 'spreadsheet';

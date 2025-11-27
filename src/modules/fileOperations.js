@@ -3,6 +3,7 @@ export function createFileOperations({
     getEditor,
     getCodeEditor,
     getImageViewer,
+    getMediaViewer,
     getSpreadsheetViewer,
     getPdfViewer,
     getUnsupportedViewer,
@@ -26,6 +27,7 @@ export function createFileOperations({
     activateMarkdownView,
     activateCodeView,
     activateImageView,
+    activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
     activateUnsupportedView,
@@ -36,6 +38,7 @@ export function createFileOperations({
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
     if (typeof getCodeEditor !== 'function') throw new Error('fileOperations 需要 getCodeEditor');
     if (typeof getImageViewer !== 'function') throw new Error('fileOperations 需要 getImageViewer');
+    if (typeof getMediaViewer !== 'function') throw new Error('fileOperations 需要 getMediaViewer');
     if (typeof getSpreadsheetViewer !== 'function') throw new Error('fileOperations 需要 getSpreadsheetViewer');
     if (typeof getPdfViewer !== 'function') throw new Error('fileOperations 需要 getPdfViewer');
     if (typeof getUnsupportedViewer !== 'function') throw new Error('fileOperations 需要 getUnsupportedViewer');
@@ -64,6 +67,7 @@ export function createFileOperations({
     if (typeof activateMarkdownView !== 'function') throw new Error('fileOperations 需要 activateMarkdownView');
     if (typeof activateCodeView !== 'function') throw new Error('fileOperations 需要 activateCodeView');
     if (typeof activateImageView !== 'function') throw new Error('fileOperations 需要 activateImageView');
+    if (typeof activateMediaView !== 'function') throw new Error('fileOperations 需要 activateMediaView');
     if (typeof activateSpreadsheetView !== 'function') throw new Error('fileOperations 需要 activateSpreadsheetView');
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
@@ -257,6 +261,7 @@ export function createFileOperations({
             codeEditor?.prepareForDocument?.(session, filePath);
 
             const imageViewer = getImageViewer();
+            const mediaViewer = getMediaViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
             const unsupportedViewer = getUnsupportedViewer();
@@ -296,6 +301,38 @@ export function createFileOperations({
                 return;
             }
 
+            if (initialViewMode === 'media') {
+                activateMediaView();
+                editor?.clear?.();
+                codeEditor?.clear?.();
+                await mediaViewer?.loadMedia(filePath);
+                if (shouldAbort('media-load')) {
+                    return;
+                }
+                setHasUnsavedChanges(false);
+                await updateWindowTitle();
+                if (shouldAbort('media-title')) {
+                    return;
+                }
+                if (!skipWatchSetup) {
+                    try {
+                        await fileTree?.watchFile(filePath);
+                        if (shouldAbort('media-watch')) {
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('无法监听文件:', error);
+                    }
+                }
+                if (shouldAbort('media-finalize')) {
+                    return;
+                }
+                fileTree?.clearExternalModification?.(filePath);
+                persistWorkspaceState();
+                markSessionReady();
+                return;
+            }
+
             const fileData = await fileSession.getFileContent(filePath, { skipCache: forceReload });
             if (shouldAbort('after-read')) {
                 return;
@@ -315,6 +352,7 @@ export function createFileOperations({
                 editor?.clear?.();
                 codeEditor?.hide?.();
                 imageViewer?.hide?.();
+                mediaViewer?.hide?.();
                 unsupportedViewer?.hide?.();
                 await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content, { forceReload });
                 if (shouldAbort('spreadsheet-load')) {
@@ -349,6 +387,7 @@ export function createFileOperations({
                 editor?.clear?.();
                 codeEditor?.hide?.();
                 imageViewer?.hide?.();
+                mediaViewer?.hide?.();
                 spreadsheetViewer?.hide?.();
                 unsupportedViewer?.hide?.();
                 await pdfViewer?.loadDocument?.(filePath, fileData.content, { forceReload });

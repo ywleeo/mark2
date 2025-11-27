@@ -28,6 +28,7 @@ export function createViewController(options = {}) {
             onEnter: () => {
                 options.getCodeEditor?.()?.hide?.();
                 options.getImageViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
@@ -39,6 +40,7 @@ export function createViewController(options = {}) {
             getPane: () => options.getCodePane?.() ?? null,
             onEnter: () => {
                 options.getImageViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
@@ -52,9 +54,22 @@ export function createViewController(options = {}) {
                 options.getEditor?.()?.clear?.();
                 options.getCodeEditor?.()?.hide?.();
                 options.getImageViewer?.()?.show?.();
+                options.getMediaViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
+            },
+        },
+        media: {
+            getPane: () => options.getMediaPane?.() ?? null,
+            onEnter: () => {
+                options.getEditor?.()?.clear?.();
+                options.getCodeEditor?.()?.hide?.();
+                options.getImageViewer?.()?.hide?.();
+                options.getSpreadsheetViewer?.()?.hide?.();
+                options.getPdfViewer?.()?.hide?.();
+                options.getUnsupportedViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.show?.();
             },
         },
         spreadsheet: {
@@ -63,6 +78,7 @@ export function createViewController(options = {}) {
                 options.getEditor?.()?.clear?.();
                 options.getCodeEditor?.()?.hide?.();
                 options.getImageViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.show?.();
@@ -75,6 +91,7 @@ export function createViewController(options = {}) {
                 options.getCodeEditor?.()?.hide?.();
                 options.getImageViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.show?.();
             },
@@ -86,6 +103,7 @@ export function createViewController(options = {}) {
                 options.getCodeEditor?.()?.hide?.();
                 options.getImageViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
             },
         },
@@ -171,6 +189,7 @@ export function createViewController(options = {}) {
         }
         options.getCodeEditor?.()?.setZoomScale?.(zoomValue);
         options.getImageViewer?.()?.setZoomScale?.(zoomValue);
+        options.getMediaViewer?.()?.setZoomScale?.(zoomValue);
         options.getSpreadsheetViewer?.()?.setZoomScale?.(zoomValue);
         updateZoomDisplayForActiveView();
     }
@@ -249,6 +268,7 @@ export function createViewController(options = {}) {
         activateMarkdownView: () => setActiveViewMode('markdown'),
         activateCodeView: () => setActiveViewMode('code'),
         activateImageView: () => setActiveViewMode('image'),
+        activateMediaView: () => setActiveViewMode('media'),
         activateSpreadsheetView: () => setActiveViewMode('spreadsheet'),
         activatePdfView: () => setActiveViewMode('pdf'),
         activateUnsupportedView: () => setActiveViewMode('unsupported'),

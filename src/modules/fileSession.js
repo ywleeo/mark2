@@ -118,6 +118,16 @@ export function createFileSession({
                 return result;
             }
 
+            if (viewMode === 'media') {
+                const result = {
+                    content: null,
+                    hasChanges: false,
+                    viewMode,
+                };
+                cache.set(filePath, result);
+                return result;
+            }
+
             const content = await readText(filePath);
             return {
                 content,

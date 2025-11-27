@@ -1,0 +1,88 @@
+/* 音视频播放器样式 */
+.media-viewer {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--content-bg, #ffffff);
+    color: var(--body-text-color, #1f1f1f);
+    padding: 20px;
+    overflow: auto;
+}
+
+.media-viewer__content {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: min(960px, 100%);
+    margin: 0 auto;
+    align-items: center;
+    justify-content: center;
+}
+
+.media-viewer__player {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.media-viewer__element {
+    width: 100%;
+    max-width: 960px;
+    max-height: 68vh;
+    background: linear-gradient(135deg, #0f1115, #1b1f27);
+    border-radius: 14px;
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.18),
+        0 2px 6px rgba(0, 0, 0, 0.12);
+    outline: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.media-viewer__info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    text-align: center;
+}
+
+.media-viewer__filename {
+    font-size: 15px;
+    font-weight: 650;
+    color: var(--text-primary, #1f1f1f);
+    word-break: break-all;
+    letter-spacing: 0.1px;
+}
+
+.media-viewer__hint {
+    font-size: 12.5px;
+    color: var(--text-secondary, #666666);
+}
+
+.media-viewer__error {
+    font-size: 13.5px;
+    color: #d14343;
+    padding: 6px 10px;
+    background: rgba(209, 67, 67, 0.08);
+    border-radius: 8px;
+}
+
+body[data-theme-appearance='dark'] .media-viewer {
+    background: var(--content-bg, #0f0f0f);
+}
+
+/* pane 切换 */
+.media-pane {
+    display: none;
+}
+
+.media-pane.is-active {
+    display: flex;
+}

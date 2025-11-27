@@ -61,6 +61,7 @@ import { addClickHandler } from './utils/PointerHelper.js';
 let MarkdownEditorCtor = null;
 let CodeEditorCtor = null;
 let ImageViewerCtor = null;
+let MediaViewerCtor = null;
 let SpreadsheetViewerCtor = null;
 let PdfViewerCtor = null;
 let FileTreeCtor = null;
@@ -74,6 +75,7 @@ let currentFile = null;
 let editor = null;
 let codeEditor = null;
 let imageViewer = null;
+let mediaViewer = null;
 let spreadsheetViewer = null;
 let pdfViewer = null;
 let unsupportedViewer = null;
@@ -93,6 +95,7 @@ let availableFontFamilies = [];
 let markdownPaneElement = null;
 let codeEditorPaneElement = null;
 let imagePaneElement = null;
+let mediaPaneElement = null;
 let unsupportedPaneElement = null;
 let spreadsheetPaneElement = null;
 let pdfPaneElement = null;
@@ -172,12 +175,14 @@ const viewController = createViewController({
     getEditor: () => editor,
     getCodeEditor: () => codeEditor,
     getImageViewer: () => imageViewer,
+    getMediaViewer: () => mediaViewer,
     getSpreadsheetViewer: () => spreadsheetViewer,
     getPdfViewer: () => pdfViewer,
     getUnsupportedViewer: () => unsupportedViewer,
     getMarkdownPane: () => markdownPaneElement,
     getCodePane: () => codeEditorPaneElement,
     getImagePane: () => imagePaneElement,
+    getMediaPane: () => mediaPaneElement,
     getSpreadsheetPane: () => spreadsheetPaneElement,
     getPdfPane: () => pdfPaneElement,
     getUnsupportedPane: () => unsupportedPaneElement,
@@ -210,6 +215,7 @@ const {
     activateMarkdownView,
     activateCodeView,
     activateImageView,
+    activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
     activateUnsupportedView,
@@ -305,6 +311,7 @@ const {
     getEditor: () => editor,
     getCodeEditor: () => codeEditor,
     getImageViewer: () => imageViewer,
+    getMediaViewer: () => mediaViewer,
     getSpreadsheetViewer: () => spreadsheetViewer,
     getPdfViewer: () => pdfViewer,
     getUnsupportedViewer: () => unsupportedViewer,
@@ -336,6 +343,7 @@ const {
     activateMarkdownView,
     activateCodeView,
     activateImageView,
+    activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
     activateUnsupportedView,
@@ -371,6 +379,7 @@ function clearActiveFileView() {
     editor?.clear?.();
     codeEditor?.clear?.();
     imageViewer?.clear?.();
+    mediaViewer?.clear?.();
     spreadsheetViewer?.clear?.();
     pdfViewer?.clear?.();
     unsupportedViewer?.clear?.();
@@ -501,6 +510,7 @@ async function initializeApplication() {
     MarkdownEditorCtor = coreModules.MarkdownEditor;
     CodeEditorCtor = coreModules.CodeEditor;
     ImageViewerCtor = coreModules.ImageViewer;
+    MediaViewerCtor = coreModules.MediaViewer;
     SpreadsheetViewerCtor = coreModules.SpreadsheetViewer;
     PdfViewerCtor = coreModules.PdfViewer;
     UnsupportedViewerCtor = coreModules.UnsupportedViewer;
@@ -531,6 +541,7 @@ async function initializeApplication() {
         <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
         <div class="view-pane image-pane" data-pane="image"></div>
+        <div class="view-pane media-pane" data-pane="media"></div>
         <div class="view-pane spreadsheet-pane" data-pane="spreadsheet"></div>
         <div class="view-pane pdf-pane" data-pane="pdf"></div>
         <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
@@ -539,6 +550,7 @@ async function initializeApplication() {
     markdownPaneElement = requireElementWithin(viewContainer, '.markdown-pane', '视图容器缺少 markdown-pane');
     codeEditorPaneElement = requireElementWithin(viewContainer, '.code-pane', '视图容器缺少 code-pane');
     imagePaneElement = requireElementWithin(viewContainer, '.image-pane', '视图容器缺少 image-pane');
+    mediaPaneElement = requireElementWithin(viewContainer, '.media-pane', '视图容器缺少 media-pane');
     spreadsheetPaneElement = requireElementWithin(viewContainer, '.spreadsheet-pane', '视图容器缺少 spreadsheet-pane');
     pdfPaneElement = requireElementWithin(viewContainer, '.pdf-pane', '视图容器缺少 pdf-pane');
     unsupportedPaneElement = requireElementWithin(viewContainer, '.unsupported-pane', '视图容器缺少 unsupported-pane');
@@ -621,6 +633,8 @@ async function initializeApplication() {
     codeEditor.hide();
     imageViewer = new ImageViewerCtor(imagePaneElement);
     imageViewer.hide();
+    mediaViewer = new MediaViewerCtor(mediaPaneElement);
+    mediaViewer.hide();
     spreadsheetViewer = new SpreadsheetViewerCtor(spreadsheetPaneElement);
     spreadsheetViewer.hide();
     pdfViewer = new PdfViewerCtor(pdfPaneElement, {
@@ -642,6 +656,7 @@ async function initializeApplication() {
 
     codeEditor?.setZoomScale?.(contentZoom);
     imageViewer?.setZoomScale?.(contentZoom);
+    mediaViewer?.setZoomScale?.(contentZoom);
     setContentZoom(contentZoom, { silent: true });
 
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
