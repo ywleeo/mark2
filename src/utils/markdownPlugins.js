@@ -4,114 +4,11 @@ import markdownItTaskLists from 'markdown-it-task-lists';
 import markdownItMultimdTable from 'markdown-it-multimd-table';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
+import { addTaskListRules } from './taskListTurndown.js';
+import { addMermaidRules, isMermaidNode, mermaidReplacement } from './mermaidTurndown.js';
 
 // 任务列表类型常量
 export const TASK_ITEM_TYPE = 'taskItem';
-export const TASK_LIST_TYPE = 'taskList';
-
-// 设置 token 属性的辅助函数
-const setAttribute = (token, name, value) => {
-    if (!token) {
-        return;
-    }
-    const index = token.attrIndex(name);
-    if (index >= 0) {
-        token.attrs[index][1] = value;
-    } else {
-        token.attrPush([name, value]);
-    }
-};
-
-// 查找匹配的开始标签索引
-const findMatchingOpenIndex = (tokens, closeIndex, type) => {
-    for (let i = closeIndex; i >= 0; i--) {
-        if (tokens[i].type === type) {
-            return i;
-        }
-    }
-    return -1;
-};
-
-// MarkdownIt 任务列表插件
-export const taskListPlugin = md => {
-    md.core.ruler.after('inline', 'task-list-items', state => {
-        const tokens = state.tokens;
-        for (let idx = 2; idx < tokens.length; idx++) {
-            const inlineToken = tokens[idx];
-            if (inlineToken.type !== 'inline') {
-                continue;
-            }
-            const paragraphOpen = tokens[idx - 1];
-            const listItemOpen = tokens[idx - 2];
-            if (!paragraphOpen || paragraphOpen.type !== 'paragraph_open') {
-                continue;
-            }
-            if (!listItemOpen || listItemOpen.type !== 'list_item_open') {
-                continue;
-            }
-            if (!inlineToken.children || inlineToken.children.length === 0) {
-                continue;
-            }
-
-            const firstChild = inlineToken.children[0];
-            if (!firstChild || firstChild.type !== 'text') {
-                continue;
-            }
-
-            const match = firstChild.content.match(/^\s*\[( |x|X)\]\s*/);
-            if (!match) {
-                continue;
-            }
-
-            const checked = match[1].toLowerCase() === 'x';
-
-            firstChild.content = firstChild.content.slice(match[0].length).replace(/^\s+/, '');
-
-            if (firstChild.content.length === 0) {
-                inlineToken.children.shift();
-            }
-
-            setAttribute(listItemOpen, 'data-type', TASK_ITEM_TYPE);
-            setAttribute(listItemOpen, 'data-checked', checked ? 'true' : 'false');
-
-            for (let search = idx - 3; search >= 0; search--) {
-                const token = tokens[search];
-                const isListToken = token.type === 'bullet_list_open' || token.type === 'ordered_list_open';
-                if (isListToken && token.level === listItemOpen.level - 1) {
-                    setAttribute(token, 'data-type', TASK_LIST_TYPE);
-                    break;
-                }
-            }
-        }
-    });
-
-    const defaultListItemOpen =
-        md.renderer.rules.list_item_open ||
-        ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
-
-    const defaultListItemClose =
-        md.renderer.rules.list_item_close ||
-        ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
-
-    md.renderer.rules.list_item_open = (tokens, idx, options, env, self) => {
-        const token = tokens[idx];
-        if (token.attrGet('data-type') === TASK_ITEM_TYPE) {
-            const attrs = self.renderAttrs(token);
-            const checked = token.attrGet('data-checked') === 'true';
-            const checkbox = `<input type="checkbox"${checked ? ' checked' : ''} />`;
-            return `<li${attrs}><label>${checkbox}`;
-        }
-        return defaultListItemOpen(tokens, idx, options, env, self);
-    };
-
-    md.renderer.rules.list_item_close = (tokens, idx, options, env, self) => {
-        const openIndex = findMatchingOpenIndex(tokens, idx, 'list_item_open');
-        if (openIndex >= 0 && tokens[openIndex].attrGet('data-type') === TASK_ITEM_TYPE) {
-            return '</label></li>';
-        }
-        return defaultListItemClose(tokens, idx, options, env, self);
-    };
-};
 
 // Tiptap 自定义图片节点
 export const MarkdownImage = Node.create({
@@ -179,47 +76,51 @@ export function createConfiguredMarkdownIt() {
         labelAfter: true
     });
 
-    // 自定义渲染器，将官方插件生成的 HTML 转换为 TipTap 格式
-    const defaultListRender = md.renderer.rules.list_item_open || function(tokens, idx, options, env, self) {
+    // 自定义渲染器，在插件之后获取渲染器并扩展
+    const pluginListItemRender = md.renderer.rules.list_item_open || function(tokens, idx, options, env, self) {
         return self.renderToken(tokens, idx, options);
     };
 
     md.renderer.rules.list_item_open = function(tokens, idx, options, env, self) {
         const token = tokens[idx];
-        const isTaskItem = token.attrGet('class') === 'task-list-item';
+        const isTaskItem = token.attrGet('class') && token.attrGet('class').includes('task-list-item');
 
         if (isTaskItem) {
             // 查找 checkbox 状态
             let checked = false;
             for (let i = idx + 1; i < tokens.length && tokens[i].type !== 'list_item_close'; i++) {
-                if (tokens[i].type === 'html_inline' && tokens[i].content.includes('type="checkbox"')) {
-                    checked = tokens[i].content.includes('checked');
-                    break;
+                if (tokens[i].type === 'inline' && tokens[i].children) {
+                    // checkbox HTML 在 inline token 的 children 里
+                    const checkboxChild = tokens[i].children.find(child =>
+                        child.type === 'html_inline' && child.content.includes('type="checkbox"')
+                    );
+                    if (checkboxChild) {
+                        checked = checkboxChild.content.includes('checked');
+                        break;
+                    }
                 }
             }
 
             token.attrSet('data-type', 'taskItem');
             token.attrSet('data-checked', checked ? 'true' : 'false');
-            token.attrSet('class', 'task-list-item');
         }
 
-        return defaultListRender(tokens, idx, options, env, self);
+        return pluginListItemRender(tokens, idx, options, env, self);
     };
 
-    const defaultBulletListOpen = md.renderer.rules.bullet_list_open || function(tokens, idx, options, env, self) {
+    const pluginBulletListRender = md.renderer.rules.bullet_list_open || function(tokens, idx, options, env, self) {
         return self.renderToken(tokens, idx, options);
     };
 
     md.renderer.rules.bullet_list_open = function(tokens, idx, options, env, self) {
         const token = tokens[idx];
-        const hasTaskList = token.attrGet('class') === 'contains-task-list';
+        const hasTaskList = token.attrGet('class') && token.attrGet('class').includes('contains-task-list');
 
         if (hasTaskList) {
             token.attrSet('data-type', 'taskList');
-            token.attrSet('class', 'contains-task-list');
         }
 
-        return defaultBulletListOpen(tokens, idx, options, env, self);
+        return pluginBulletListRender(tokens, idx, options, env, self);
     };
 
     // 移除代码块末尾的换行符
@@ -274,8 +175,14 @@ export function createConfiguredTurndownService() {
         },
     });
 
-    // 使用 GFM 插件支持表格
+    // 使用 GFM 插件支持表格/删除线等
     turndownService.use(gfm);
+
+    // Turndown 的默认 GFM 删除线只输出单个 ~，这里覆盖为标准的 "~~"
+    turndownService.addRule('strikethrough', {
+        filter: ['del', 's', 'strike'],
+        replacement: (content) => `~~${content}~~`
+    });
 
     // 禁用自动转义，保持原样
     turndownService.escape = function(string) {
@@ -295,7 +202,6 @@ export function createConfiguredTurndownService() {
         'samp',
         'dfn',
         'ins',
-        'del',
     ];
     const preservedBlockTags = ['div'];
     [...preservedInlineTags, ...preservedBlockTags].forEach(tagName => {
@@ -309,59 +215,8 @@ export function createConfiguredTurndownService() {
         return tagName.includes('-');
     });
 
-    const hasClass = (node, className) => {
-        if (!node) return false;
-        if (node.classList && typeof node.classList.contains === 'function') {
-            return node.classList.contains(className);
-        }
-        const classAttr = node.getAttribute ? node.getAttribute('class') : null;
-        if (!classAttr) return false;
-        return classAttr.split(/\s+/).includes(className);
-    };
-
-    function isMermaidNode(node) {
-        if (!node || node.nodeType !== 1) {
-            return false;
-        }
-        const tagName = (node.nodeName || '').toLowerCase();
-        if (tagName !== 'div') {
-            return false;
-        }
-        return hasClass(node, 'mermaid');
-    }
-
-    function readMermaidCode(node) {
-        if (!node) {
-            return '';
-        }
-        const codeAttr = node.getAttribute ? node.getAttribute('data-mermaid-code') : '';
-        if (codeAttr) {
-            try {
-                return decodeURIComponent(codeAttr);
-            } catch (_error) {
-                return codeAttr;
-            }
-        }
-        const source = node.querySelector ? node.querySelector('.mermaid-source') : null;
-        if (source && typeof source.textContent === 'string') {
-            return source.textContent;
-        }
-        return node.textContent || '';
-    }
-
-    function mermaidReplacement(node) {
-        const text = readMermaidCode(node).trim();
-        if (!text) {
-            return '';
-        }
-        return `\n\`\`\`mermaid\n${text}\n\`\`\`\n`;
-    }
-
-    // Mermaid 图表导出规则
-    turndownService.addRule('mermaidBlock', {
-        filter: node => isMermaidNode(node),
-        replacement: (_content, node) => mermaidReplacement(node),
-    });
+    // 添加 Mermaid 图表转换规则
+    addMermaidRules(turndownService);
 
     // 保留图片的原始 src 属性
     turndownService.addRule('preserveImageOriginalSrc', {
@@ -378,29 +233,6 @@ export function createConfiguredTurndownService() {
     });
 
     // 任务列表项的转换规则
-    turndownService.addRule('taskListItem', {
-        filter: node => {
-            if (!node || node.nodeName !== 'LI') {
-                return false;
-            }
-            const dataType = node.getAttribute('data-type') || (node.dataset ? node.dataset.type : null);
-            return dataType === TASK_ITEM_TYPE;
-        },
-        replacement: (content, node, options) => {
-            const checkedAttr = (node.getAttribute('data-checked') || (node.dataset ? node.dataset.checked : '') || '').toLowerCase();
-            const hasCheckedInput = node.querySelector('input[type="checkbox"][checked]');
-            const isChecked = checkedAttr === 'true' || (!checkedAttr && Boolean(hasCheckedInput));
-            const checkboxMarker = isChecked ? 'x' : ' ';
-            const prefix = `${options.bulletListMarker} [${checkboxMarker}] `;
-            const normalized = content
-                .replace(/^\n+/, '')
-                .replace(/\n+$/, '\n')
-                .replace(/\n/gm, '\n' + ' '.repeat(prefix.length));
-            const needsLineBreak = node.nextSibling && !/\n$/.test(normalized);
-            return prefix + normalized + (needsLineBreak ? '\n' : '');
-        },
-    });
-
     // 覆盖默认列表项规则，避免 TipTap 生成的 <li><p>...</p></li> 产生多余空行
     turndownService.addRule('listItemNoExtraBlankLine', {
         filter: 'li',
@@ -441,6 +273,9 @@ export function createConfiguredTurndownService() {
             return '\n\n' + cleaned + '\n\n';
         }
     });
+
+    // 添加任务列表转换规则
+    addTaskListRules(turndownService);
 
     return turndownService;
 }

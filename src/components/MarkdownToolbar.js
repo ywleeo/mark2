@@ -9,6 +9,8 @@ export class MarkdownToolbar {
         this.editor = null;
         this.container = null;
         this.isVisible = true;
+        this.tooltipElement = null;
+        this.boundScrollHandler = null;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
             theme: 'light', // 'light' 或 'dark'
@@ -106,8 +108,12 @@ export class MarkdownToolbar {
                 shortcut: 'Ctrl+Shift+7'
             },
             taskList: {
-                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3M19,5V19H5V5H19M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8M10,7L8,5H11L13,7H10M17,7H15L13,5H16L17,7Z" />
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="4" height="4" rx="0.8" />
+                    <rect x="3" y="10" width="4" height="4" rx="0.8" />
+                    <rect x="3" y="16" width="4" height="4" rx="0.8" />
+                    <path d="M9 6h12M9 12h12M9 18h12" />
+                    <path d="M3.2 6.4l1.3 1.3 1.8-2.3" />
                 </svg>`,
                 title: '任务列表',
                 shortcut: 'Ctrl+Shift+9'
@@ -157,6 +163,8 @@ export class MarkdownToolbar {
                 this.setTheme(theme);
             });
         }
+
+        this.initTooltip();
     }
 
     /**
@@ -214,7 +222,7 @@ export class MarkdownToolbar {
         button.className = 'toolbar-button';
         button.type = 'button';
         button.setAttribute('data-action', type);
-        button.title = config.title;
+        button.setAttribute('aria-label', config.title);
         button.innerHTML = `
             <span class="toolbar-button__icon">${config.icon}</span>
         `;
@@ -223,6 +231,13 @@ export class MarkdownToolbar {
         button.addEventListener('click', () => {
             this.handleAction(type);
         });
+
+        if (config.title) {
+            button.addEventListener('mouseenter', () => this.showTooltip(button, config.title));
+            button.addEventListener('mouseleave', () => this.hideTooltip());
+            button.addEventListener('focus', () => this.showTooltip(button, config.title));
+            button.addEventListener('blur', () => this.hideTooltip());
+        }
 
         return button;
     }
@@ -236,9 +251,13 @@ export class MarkdownToolbar {
         );
     }
 
-    runTipTapCommand(callback) {
+    runTipTapCommand(callback, options = {}) {
         if (!this.isTipTapEditor()) {
             return false;
+        }
+        const blockedNodes = Array.isArray(options?.blockedNodes) ? options.blockedNodes : null;
+        if (blockedNodes && this.isSelectionInsideNode(blockedNodes)) {
+            return 'blocked';
         }
         const chain = this.editor.chain().focus();
         const result = callback(chain);
@@ -259,22 +278,22 @@ export class MarkdownToolbar {
             case 'code':
                 return this.runTipTapCommand(chain => chain.toggleCode());
             case 'heading1':
-                return this.runTipTapCommand(chain => chain.toggleHeading({ level: 1 }));
+                return this.runTipTapCommand(chain => chain.toggleHeading({ level: 1 }), { blockedNodes: ['mermaidBlock'] });
             case 'heading2':
-                return this.runTipTapCommand(chain => chain.toggleHeading({ level: 2 }));
+                return this.runTipTapCommand(chain => chain.toggleHeading({ level: 2 }), { blockedNodes: ['mermaidBlock'] });
             case 'heading3':
-                return this.runTipTapCommand(chain => chain.toggleHeading({ level: 3 }));
+                return this.runTipTapCommand(chain => chain.toggleHeading({ level: 3 }), { blockedNodes: ['mermaidBlock'] });
             case 'quote':
-                return this.runTipTapCommand(chain => chain.toggleBlockquote());
+                return this.runTipTapCommand(chain => chain.toggleBlockquote(), { blockedNodes: ['mermaidBlock'] });
             case 'unorderedList':
-                return this.runTipTapCommand(chain => chain.toggleBulletList());
+                return this.runTipTapCommand(chain => chain.toggleBulletList(), { blockedNodes: ['mermaidBlock'] });
             case 'orderedList':
-                return this.runTipTapCommand(chain => chain.toggleOrderedList());
+                return this.runTipTapCommand(chain => chain.toggleOrderedList(), { blockedNodes: ['mermaidBlock'] });
             case 'taskList':
-                if (typeof this.editor.commands?.toggleTaskList !== 'function') {
-                    return false;
+                if (typeof this.editor.commands?.toggleTaskList === 'function') {
+                    return this.runTipTapCommand(chain => chain.toggleTaskList(), { blockedNodes: ['mermaidBlock'] });
                 }
-                return this.runTipTapCommand(chain => chain.toggleTaskList());
+                return false;
             case 'link':
                 return this.handleTipTapLink();
             case 'image':
@@ -282,9 +301,9 @@ export class MarkdownToolbar {
             case 'table':
                 return this.handleTipTapTable();
             case 'horizontalRule':
-                return this.runTipTapCommand(chain => chain.setHorizontalRule());
+                return this.runTipTapCommand(chain => chain.setHorizontalRule(), { blockedNodes: ['mermaidBlock'] });
             case 'codeBlock':
-                return this.runTipTapCommand(chain => chain.toggleCodeBlock());
+                return this.runTipTapCommand(chain => chain.toggleCodeBlock(), { blockedNodes: ['mermaidBlock'] });
             default:
                 return false;
         }
@@ -329,6 +348,9 @@ export class MarkdownToolbar {
         if (!this.isTipTapEditor() || typeof this.editor.commands?.insertTable !== 'function') {
             return false;
         }
+        if (this.isSelectionInsideNode(['mermaidBlock'])) {
+            return 'blocked';
+        }
         this.editor
             .chain()
             .focus()
@@ -349,10 +371,13 @@ export class MarkdownToolbar {
 
         if (this.isTipTapEditor()) {
             const handled = this.handleTipTapAction(action);
+            if (handled === 'blocked') {
+                return;
+            }
             if (handled) {
                 this.emit('action', action);
+                return;
             }
-            return;
         }
 
         const actions = {
@@ -366,7 +391,7 @@ export class MarkdownToolbar {
             quote: () => this.togglePrefix('> '),
             unorderedList: () => this.togglePrefix('- '),
             orderedList: () => this.togglePrefix('1. '),
-            taskList: () => this.togglePrefix('- [ ] '),
+            taskList: () => this.insertTaskListFallback(),
             link: () => this.insertLink(),
             image: () => this.insertImage(),
             table: () => this.insertTable(),
@@ -824,6 +849,7 @@ export class MarkdownToolbar {
             this.container = null;
         }
         this.editor = null;
+        this.destroyTooltip();
         this.removeAllListeners();
       }
 
@@ -858,5 +884,115 @@ export class MarkdownToolbar {
                 }
             }
         }
+    }
+
+    initTooltip() {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        this.tooltipElement = document.createElement('div');
+        this.tooltipElement.className = 'markdown-toolbar-tooltip';
+        this.tooltipElement.setAttribute('role', 'tooltip');
+        document.body.appendChild(this.tooltipElement);
+        this.hideTooltip();
+
+        if (typeof window !== 'undefined') {
+            this.boundScrollHandler = () => this.hideTooltip();
+            window.addEventListener('scroll', this.boundScrollHandler, true);
+        }
+    }
+
+    destroyTooltip() {
+        if (this.tooltipElement?.parentNode) {
+            this.tooltipElement.parentNode.removeChild(this.tooltipElement);
+        }
+        this.tooltipElement = null;
+        if (this.boundScrollHandler && typeof window !== 'undefined') {
+            window.removeEventListener('scroll', this.boundScrollHandler, true);
+            this.boundScrollHandler = null;
+        }
+    }
+
+    showTooltip(button, text) {
+        if (!this.tooltipElement || !text || typeof window === 'undefined') {
+            return;
+        }
+
+        this.tooltipElement.textContent = text;
+        this.tooltipElement.style.left = '0px';
+        this.tooltipElement.style.top = '0px';
+        this.tooltipElement.classList.add('is-visible', 'is-measuring');
+
+        const buttonRect = button.getBoundingClientRect();
+        const tooltipRect = this.tooltipElement.getBoundingClientRect();
+        const spacing = 12;
+        const viewportPadding = 12;
+
+        let left = buttonRect.left + (buttonRect.width / 2) - (tooltipRect.width / 2);
+        const maxLeft = window.innerWidth - tooltipRect.width - viewportPadding;
+        left = Math.min(Math.max(left, viewportPadding), Math.max(maxLeft, viewportPadding));
+
+        const availableBelow = window.innerHeight - buttonRect.bottom - viewportPadding;
+        const availableAbove = buttonRect.top - viewportPadding;
+        let top;
+        if (tooltipRect.height > availableBelow && availableAbove > availableBelow) {
+            top = Math.max(viewportPadding, buttonRect.top - tooltipRect.height - spacing);
+        } else {
+            top = buttonRect.bottom + spacing;
+            const maxTop = window.innerHeight - tooltipRect.height - viewportPadding;
+            top = Math.min(Math.max(top, viewportPadding), Math.max(maxTop, viewportPadding));
+        }
+
+        this.tooltipElement.style.left = `${left}px`;
+        this.tooltipElement.style.top = `${top}px`;
+        this.tooltipElement.classList.remove('is-measuring');
+    }
+
+    hideTooltip() {
+        if (this.tooltipElement) {
+            this.tooltipElement.classList.remove('is-visible', 'is-measuring');
+        }
+    }
+
+    isSelectionInsideNode(nodeNames = []) {
+        if (!this.isTipTapEditor() || !nodeNames?.length) {
+            return false;
+        }
+        const { state } = this.editor;
+        if (!state) {
+            return false;
+        }
+
+        const selectionNode = state.selection?.node;
+        if (selectionNode && nodeNames.includes(selectionNode.type?.name)) {
+            return true;
+        }
+
+        const $from = state.selection?.$from;
+        if ($from) {
+            for (let depth = $from.depth; depth >= 0; depth -= 1) {
+                const node = $from.node(depth);
+                if (node && nodeNames.includes(node.type?.name)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    insertTaskListFallback() {
+        const { selection, line } = this.getSelectedText();
+        const prefix = '- [ ] ';
+
+        if (line.startsWith(prefix)) {
+            const newLine = line.replace(prefix, '');
+            this.replaceLine(newLine, selection);
+            return true;
+        }
+
+        const newLine = prefix + line;
+        this.replaceLine(newLine, selection);
+        return true;
     }
 }

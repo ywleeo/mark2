@@ -1,7 +1,8 @@
 .markdown-toolbar {
     display: flex;
     align-items: center;
-    /* gap: 4px; */
+    width: 100%;
+    box-sizing: border-box;
     padding: 8px 12px;
     background: var(--toolbar-bg, #f8f9fa);
     border: 1px solid var(--toolbar-border, #e0e0e0);
@@ -21,7 +22,9 @@
     top: 0;
     z-index: 50;
     display: flex;
+    width: 100%;
     flex-direction: column;
+    align-items: stretch;
 }
 
 .markdown-toolbar-container--light {
@@ -36,9 +39,24 @@
     backdrop-filter: blur(8px);
 }
 
+.markdown-toolbar--light {
+    --toolbar-bg: rgba(248, 249, 252, 0.95);
+    --toolbar-border: rgba(15, 23, 42, 0.1);
+    --button-color: #475569;
+    --button-hover-bg: rgba(15, 23, 42, 0.08);
+    --button-hover-color: #0f172a;
+    --button-active-bg: rgba(59, 130, 246, 0.2);
+    --separator-color: rgba(15, 23, 42, 0.12);
+}
+
 .markdown-toolbar--dark {
-    --toolbar-bg: #2d2d2d;
+    --toolbar-bg: rgba(38, 38, 38, 0.95);
     --toolbar-border: #404040;
+    --button-color: #cbd5f5;
+    --button-hover-bg: rgba(255, 255, 255, 0.08);
+    --button-hover-color: #fff;
+    --button-active-bg: rgba(255, 255, 255, 0.16);
+    --separator-color: rgba(255, 255, 255, 0.2);
 }
 
 .toolbar-button {
@@ -67,16 +85,16 @@
 }
 
 .markdown-toolbar--dark .toolbar-button {
-    color: #b0b0b0;
+    color: var(--button-color, #b0b0b0);
 }
 
 .markdown-toolbar--dark .toolbar-button:hover {
-    background: #404040;
-    color: #fff;
+    background: var(--button-hover-bg, #404040);
+    color: var(--button-hover-color, #fff);
 }
 
 .markdown-toolbar--dark .toolbar-button:active {
-    background: #505050;
+    background: var(--button-active-bg, #505050);
 }
 
 .toolbar-button__icon {
@@ -89,6 +107,42 @@
     width: 16px;
     height: 16px;
     fill: currentColor;
+}
+
+.markdown-toolbar-tooltip {
+    position: fixed;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(30, 30, 30, 0.92);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 1400;
+    max-width: min(320px, calc(100vw - 24px));
+    word-break: keep-all;
+}
+
+.markdown-toolbar-tooltip.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.15s;
+}
+
+.markdown-toolbar-tooltip.is-measuring {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+:root[data-theme-appearance='dark'] .markdown-toolbar-tooltip {
+    background: rgba(245, 245, 245, 0.95);
+    color: #0f172a;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 .toolbar-separator {

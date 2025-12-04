@@ -271,17 +271,34 @@ const {
     toggleAiSidebarVisibility,
 } = layoutControls;
 
+function getToolbarEditorInstance() {
+    if (!editor) {
+        return null;
+    }
+    if (typeof editor.getTipTapEditor === 'function') {
+        const tiptapEditor = editor.getTipTapEditor();
+        if (tiptapEditor) {
+            return tiptapEditor;
+        }
+    }
+    if (editor.editor) {
+        return editor.editor;
+    }
+    return editor;
+}
+
 // 创建工具栏切换函数
 function toggleMarkdownToolbar() {
     console.log('toggleMarkdownToolbar called, markdownToolbarManager:', markdownToolbarManager);
+    const tiptapEditor = getToolbarEditorInstance();
     if (markdownToolbarManager) {
         markdownToolbarManager.toggle();
     } else {
         console.log('markdownToolbarManager is null, trying to initialize...');
         // 如果还没有初始化，先初始化
-        if (editor && appServices) {
+        if (tiptapEditor && appServices) {
             markdownToolbarManager = new MarkdownToolbarManager(appServices);
-            markdownToolbarManager.initialize(editor, 'tiptap');
+            markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
         }
     }
 }
@@ -845,13 +862,14 @@ async function initializeApplication() {
     markdownToolbarManager = new MarkdownToolbarManager(appServices);
 
     // 导出编辑器实例到全局，供工具栏使用
-    window.editor = editor;
+    window.editor = getToolbarEditorInstance();
 
     // 监听视图模式切换，自动更新工具栏
     eventBus.on('view-mode-changed', ({ mode }) => {
+        const tiptapEditor = getToolbarEditorInstance();
         if (mode === 'markdown' || mode === 'split') {
-            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && editor) {
-                markdownToolbarManager.initialize(editor, 'tiptap');
+            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && tiptapEditor) {
+                markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
             } else if (markdownToolbarManager) {
                 markdownToolbarManager.show();
             }
@@ -862,9 +880,10 @@ async function initializeApplication() {
 
     // 监听文件切换，只在Markdown文件时显示工具栏
     eventBus.on('file-changed', ({ path }) => {
+        const tiptapEditor = getToolbarEditorInstance();
         if (isMarkdownFilePath(path)) {
-            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && editor) {
-                markdownToolbarManager.initialize(editor, 'tiptap');
+            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && tiptapEditor) {
+                markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
             } else if (markdownToolbarManager) {
                 markdownToolbarManager.show();
             }

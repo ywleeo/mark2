@@ -2,30 +2,43 @@ import TaskItem from '@tiptap/extension-task-item';
 
 // 自定义 TaskItem 扩展，支持解析 markdown-it-task-lists 生成的 HTML
 export const CustomTaskItem = TaskItem.extend({
-    // 修改内容的包裹方式，使用 inline 而不是 block
-    content: 'inline*',
+    content() {
+        return this.options.nested ? 'paragraph block*' : 'paragraph+';
+    },
 
     parseHTML() {
+        const readChecked = (el) => {
+            const dataChecked = el.getAttribute?.('data-checked');
+            if (dataChecked === 'true' || dataChecked === 'false') {
+                return dataChecked === 'true';
+            }
+            const checkbox = el.querySelector?.('input[type="checkbox"]');
+            if (checkbox) {
+                return checkbox.checked || checkbox.hasAttribute?.('checked');
+            }
+            return false;
+        };
+
         return [
+            {
+                tag: 'li[data-type="taskItem"]',
+                priority: 52,
+                getAttrs: el => ({
+                    checked: readChecked(el),
+                }),
+            },
             {
                 tag: 'li.task-list-item',
                 priority: 51,
                 getAttrs: el => {
-                    // 查找 input checkbox
-                    const checkbox = el.querySelector('input[type="checkbox"]');
-                    if (!checkbox) return false;
-
+                    const checkbox = el.querySelector?.('input[type="checkbox"]');
+                    if (!checkbox && !el.hasAttribute?.('data-checked')) {
+                        return false;
+                    }
                     return {
-                        checked: checkbox.checked || checkbox.hasAttribute('checked'),
+                        checked: readChecked(el),
                     };
                 },
-            },
-            {
-                tag: 'li[data-type="taskItem"]',
-                priority: 51,
-                getAttrs: el => ({
-                    checked: el.getAttribute('data-checked') === 'true',
-                }),
             },
         ];
     },
@@ -49,9 +62,11 @@ export const CustomTaskItem = TaskItem.extend({
             },
             [
                 'label',
+                { class: 'task-list-item__control' },
                 checkbox,
-                ['span', 0], // 内容位置
+                ['span', { class: 'task-list-item__indicator' }]
             ],
+            ['div', { class: 'task-list-item__content' }, 0]
         ];
     },
 });
