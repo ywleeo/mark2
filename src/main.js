@@ -35,6 +35,7 @@ import { createFileService } from './services/fileService.js';
 import { createRecentFilesService } from './services/recentFilesService.js';
 import { createMcpHandler } from './mcp/handler.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
+import { MarkdownToolbarManager } from './components/MarkdownToolbarManager.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
@@ -120,10 +121,12 @@ let documentIO = null;
 let exportMenuEnabledState = null;
 let appServices = null;
 let mcpHandler = null;
+let markdownToolbarManager = null;
 let contentZoom = ZOOM_DEFAULT;
 let appearanceChangeCleanup = null;
-appearanceChangeCleanup = onEditorAppearanceChange(() => {
+appearanceChangeCleanup = onEditorAppearanceChange(({ appearance }) => {
     codeEditor?.applyPreferences?.(editorSettings);
+    markdownToolbarManager?.setTheme?.(appearance);
 });
 
 const workspaceSyncController = createWorkspaceSyncController({
@@ -268,6 +271,20 @@ const {
     toggleAiSidebarVisibility,
 } = layoutControls;
 
+// 创建工具栏切换函数
+function toggleMarkdownToolbar() {
+    console.log('toggleMarkdownToolbar called, markdownToolbarManager:', markdownToolbarManager);
+    if (markdownToolbarManager) {
+        markdownToolbarManager.toggle();
+    } else {
+        console.log('markdownToolbarManager is null, trying to initialize...');
+        // 如果还没有初始化，先初始化
+        if (editor && appServices) {
+            markdownToolbarManager = new MarkdownToolbarManager(appServices);
+            markdownToolbarManager.initialize(editor, 'tiptap');
+        }
+    }
+}
 
 documentIO = createDocumentIO({
     eventBus,
@@ -662,6 +679,35 @@ async function initializeApplication() {
     // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
     editor.setCodeEditor(codeEditor);
 
+    // TODO: 初始化工具栏管理器（暂时注释掉）
+    // markdownToolbarManager = new MarkdownToolbarManager(appServices);
+
+    // 监听视图模式切换，自动更新工具栏
+    // eventBus.on('view-mode-changed', ({ mode }) => {
+    //     if (mode === 'markdown' || mode === 'split') {
+    //         if (markdownToolbarManager && !markdownToolbarManager.isInitialized) {
+    //             markdownToolbarManager.initialize(editor, 'tiptap');
+    //         } else if (markdownToolbarManager) {
+    //             markdownToolbarManager.show();
+    //         }
+    //     } else {
+    //         markdownToolbarManager?.hide();
+    //     }
+    // });
+
+    // 监听文件切换，只在Markdown文件时显示工具栏
+    // eventBus.on('file-changed', ({ path }) => {
+    //     if (isMarkdownFilePath(path)) {
+    //         if (markdownToolbarManager && !markdownToolbarManager.isInitialized) {
+    //             markdownToolbarManager.initialize(editor, 'tiptap');
+    //         } else if (markdownToolbarManager) {
+    //             markdownToolbarManager.show();
+    //         }
+    //     } else {
+    //         markdownToolbarManager?.hide();
+    //     }
+    // });
+
     // 发布编辑器就绪事件（让插件可以连接编辑器）
     eventBus.emit('editor:ready', {
         markdownEditor: editor,
@@ -766,6 +812,7 @@ async function initializeApplication() {
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+        onToggleMarkdownToolbar: toggleMarkdownToolbar,
         onToggleAiAssistant: toggleAiSidebarVisibility,
         onOpenAiSettings: openAiSettingsDialog,
         onDeleteActiveFile: handleDeleteActiveFile,
@@ -793,6 +840,38 @@ async function initializeApplication() {
 
     // 更新最近文件菜单
     void updateRecentMenu();
+
+    // 初始化工具栏管理器
+    markdownToolbarManager = new MarkdownToolbarManager(appServices);
+
+    // 导出编辑器实例到全局，供工具栏使用
+    window.editor = editor;
+
+    // 监听视图模式切换，自动更新工具栏
+    eventBus.on('view-mode-changed', ({ mode }) => {
+        if (mode === 'markdown' || mode === 'split') {
+            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && editor) {
+                markdownToolbarManager.initialize(editor, 'tiptap');
+            } else if (markdownToolbarManager) {
+                markdownToolbarManager.show();
+            }
+        } else {
+            markdownToolbarManager?.hide();
+        }
+    });
+
+    // 监听文件切换，只在Markdown文件时显示工具栏
+    eventBus.on('file-changed', ({ path }) => {
+        if (isMarkdownFilePath(path)) {
+            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && editor) {
+                markdownToolbarManager.initialize(editor, 'tiptap');
+            } else if (markdownToolbarManager) {
+                markdownToolbarManager.show();
+            }
+        } else {
+            markdownToolbarManager?.hide();
+        }
+    });
 }
 
 /**

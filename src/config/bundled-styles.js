@@ -4,6 +4,7 @@ import highlightCss from '../../styles/highlight.css?raw';
 import imageViewerCss from '../../styles/image-viewer.css?raw';
 import mediaViewerCss from '../../styles/media-viewer.css?raw';
 import codeEditorCss from '../../styles/code-editor.css?raw';
+import markdownToolbarCss from '../../styles/markdown-toolbar.css?raw';
 
 const themeModules = import.meta.glob('../../styles/themes/*.css', {
     query: '?raw',
@@ -22,6 +23,7 @@ const bundledCssText = [
     imageViewerCss,
     mediaViewerCss,
     codeEditorCss,
+    markdownToolbarCss,
     themeCss,
 ]
     .filter(Boolean)

@@ -738,6 +738,11 @@ fn main() {
             let toggle_status_bar_item =
                 MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar").build(app)?;
 
+            let toggle_markdown_toolbar_item =
+                MenuItemBuilder::with_id("toggle-markdown-toolbar", "Markdown Toolbar")
+                    .accelerator("CmdOrCtrl+Shift+T")
+                    .build(app)?;
+
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")
                 .item(&settings_item)
@@ -781,6 +786,7 @@ fn main() {
             let view_menu = SubmenuBuilder::new(app, "View")
                 .item(&toggle_sidebar_item)
                 .item(&toggle_status_bar_item)
+                .item(&toggle_markdown_toolbar_item)
                 .build()?;
 
             app.manage(ExportMenuState::new(

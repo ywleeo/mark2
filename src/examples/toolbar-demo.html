@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown工具栏演示</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px;
+            background: #4a90e2;
+            color: white;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .header p {
+            margin: 10px 0 0;
+            opacity: 0.9;
+        }
+
+        .editor-container {
+            padding: 20px;
+        }
+
+        #markdownEditor {
+            width: 100%;
+            min-height: 400px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            line-height: 1.6;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            resize: vertical;
+        }
+
+        #markdownEditor:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+
+        .preview {
+            padding: 20px;
+            background: #fafafa;
+            border-top: 1px solid #ddd;
+        }
+
+        .preview h3 {
+            margin: 0 0 15px;
+            color: #333;
+        }
+
+        .preview-content {
+            padding: 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 200px;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f0f0f0;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #4a90e2;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #357abd;
+        }
+
+        .btn-secondary {
+            background: #666;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #555;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+
+        .info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-radius: 4px;
+            color: #333;
+        }
+
+        .info h4 {
+            margin: 0 0 10px;
+            color: #4a90e2;
+        }
+
+        .info ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .info li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Markdown 工具栏演示</h1>
+            <p>使用工具栏快速格式化Markdown文本，或使用快捷键操作</p>
+        </div>
+
+        <div class="editor-container">
+            <!-- 工具栏容器 -->
+            <div id="toolbarContainer"></div>
+
+            <!-- 编辑器 -->
+            <textarea id="markdownEditor" placeholder="在这里输入Markdown内容..."></textarea>
+        </div>
+
+        <div class="preview">
+            <h3>预览（实时渲染需要额外的Markdown解析器）</h3>
+            <div class="preview-content" id="preview"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="toggleToolbar()">显示/隐藏工具栏</button>
+            <button class="btn btn-secondary" onclick="toggleTheme()">切换主题</button>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="autoSave" checked>
+                <label for="autoSave">自动保存到localStorage</label>
+            </div>
+        </div>
+
+        <div class="info">
+            <h4>快捷键说明：</h4>
+            <ul>
+                <li><strong>Ctrl+B</strong> - 加粗</li>
+                <li><strong>Ctrl+I</strong> - 斜体</li>
+                <li><strong>Ctrl+K</strong> - 插入链接</li>
+                <li><strong>Ctrl+Shift+C</strong> - 代码块</li>
+                <li><strong>Ctrl+1/2/3</strong> - 标题1/2/3级</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 简单的Markdown解析器（仅用于演示） -->
+    <script>
+        function simpleMarkdownPreview(markdown) {
+            return markdown
+                .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                .replace(/`(.+?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+    </script>
+
+    <script type="module">
+        // 导入工具栏类（在实际项目中使用正确的路径）
+        // import { MarkdownToolbar } from '../components/MarkdownToolbar.js';
+
+        // 为了演示，我们直接在这里定义一个简化版本
+        class MarkdownToolbar {
+            constructor(options = {}) {
+                this.options = {
+                    position: 'top',
+                    theme: 'light',
+                    buttons: [
+                        'bold', 'italic', 'strikethrough',
+                        'heading1', 'heading2', 'heading3',
+                        'code', 'quote', 'codeBlock',
+                        'unorderedList', 'orderedList',
+                        'link', 'image', 'horizontalRule'
+                    ],
+                    ...options
+                };
+
+                this.editor = null;
+                this.container = null;
+                this.isVisible = true;
+                this.initStyles();
+            }
+
+            setEditor(editor) {
+                this.editor = editor;
+                this.bindShortcuts();
+            }
+
+            render(container) {
+                this.container = container;
+                this.container.innerHTML = '';
+
+                const toolbar = document.createElement('div');
+                toolbar.className = `markdown-toolbar markdown-toolbar--${this.options.position} markdown-toolbar--${this.options.theme}`;
+                toolbar.style.display = this.isVisible ? 'flex' : 'none';
+
+                // 创建按钮
+                this.options.buttons.forEach(type => {
+                    if (type === 'separator') {
+                        const separator = document.createElement('div');
+                        separator.className = 'toolbar-separator';
+                        toolbar.appendChild(separator);
+                    } else {
+                        const button = this.createButton(type);
+                        toolbar.appendChild(button);
+                    }
+                });
+
+                this.container.appendChild(toolbar);
+            }
+
+            createButton(type) {
+                const button = document.createElement('button');
+                button.className = 'toolbar-button';
+                button.innerHTML = this.getButtonContent(type);
+                button.title = this.getButtonTitle(type);
+
+                button.addEventListener('click', () => {
+                    this.handleAction(type);
+                });
+
+                return button;
+            }
+
+            getButtonContent(type) {
+                const icons = {
+                    bold: '<strong>B</strong>',
+                    italic: '<em>I</em>',
+                    strikethrough: '<s>S</s>',
+                    heading1: 'H1',
+                    heading2: 'H2',
+                    heading3: 'H3',
+                    code: '&lt;/&gt;',
+                    quote: '"',
+                    codeBlock: '{}',
+                    unorderedList: '•',
+                    orderedList: '1.',
+                    link: '🔗',
+                    image: '🖼',
+                    horizontalRule: '—'
+                };
+                return icons[type] || type;
+            }
+
+            getButtonTitle(type) {
+                const titles = {
+                    bold: '加粗 (Ctrl+B)',
+                    italic: '斜体 (Ctrl+I)',
+                    strikethrough: '删除线',
+                    heading1: '一级标题 (Ctrl+1)',
+                    heading2: '二级标题 (Ctrl+2)',
+                    heading3: '三级标题 (Ctrl+3)',
+                    code: '行内代码',
+                    quote: '引用',
+                    codeBlock: '代码块',
+                    unorderedList: '无序列表',
+                    orderedList: '有序列表',
+                    link: '链接 (Ctrl+K)',
+                    image: '图片',
+                    horizontalRule: '分割线'
+                };
+                return titles[type] || type;
+            }
+
+            handleAction(action) {
+                const actions = {
+                    bold: () => this.toggleFormat('**', '**'),
+                    italic: () => this.toggleFormat('*', '*'),
+                    strikethrough: () => this.toggleFormat('~~', '~~'),
+                    code: () => this.toggleFormat('`', '`'),
+                    heading1: () => this.toggleHeading(1),
+                    heading2: () => this.toggleHeading(2),
+                    heading3: () => this.toggleHeading(3),
+                    quote: () => this.togglePrefix('> '),
+                    unorderedList: () => this.togglePrefix('- '),
+                    orderedList: () => this.togglePrefix('1. '),
+                    codeBlock: () => this.insertCodeBlock(),
+                    link: () => this.insertLink(),
+                    image: () => this.insertImage(),
+                    horizontalRule: () => this.insertHorizontalRule()
+                };
+
+                const handler = actions[action];
+                if (handler) handler();
+            }
+
+            toggleFormat(before, after) {
+                const { selectedText, selection } = this.getSelectedText();
+                const isFormatted = selectedText.startsWith(before) && selectedText.endsWith(after);
+                const newText = isFormatted
+                    ? selectedText.slice(before.length, -after.length)
+                    : `${before}${selectedText}${after}`;
+                this.replaceSelection(newText, selection);
+            }
+
+            toggleHeading(level) {
+                const { selectedText, line } = this.getSelectedText();
+                const prefix = '#'.repeat(level) + ' ';
+                const headingMatch = line.match(/^(#{1,6})\s/);
+
+                if (headingMatch && headingMatch[1].length === level) {
+                    this.replaceLine(line.replace(/^#{1,6}\s/, ''));
+                } else {
+                    this.replaceLine(line.replace(/^#{0,6}\s/, prefix));
+                }
+            }
+
+            togglePrefix(prefix) {
+                const { line } = this.getSelectedText();
+                if (line.startsWith(prefix)) {
+                    this.replaceLine(line.replace(prefix, ''));
+                } else {
+                    this.replaceLine(prefix + line);
+                }
+            }
+
+            insertCodeBlock() {
+                const { selectedText } = this.getSelectedText();
+                const code = selectedText || '代码内容';
+                this.insertTextAtCursor(`\n\`\`\`\n${code}\n\`\`\`\n`);
+            }
+
+            insertLink() {
+                const { selectedText } = this.getSelectedText();
+                const text = selectedText || '链接文本';
+                this.insertTextAtCursor(`[${text}](url)`);
+            }
+
+            insertImage() {
+                const { selectedText } = this.getSelectedText();
+                const alt = selectedText || '图片描述';
+                this.insertTextAtCursor(`![${alt}](image-url)`);
+            }
+
+            insertHorizontalRule() {
+                this.insertTextAtCursor('\n---\n');
+            }
+
+            getSelectedText() {
+                const start = this.editor.selectionStart;
+                const end = this.editor.selectionEnd;
+                const selectedText = this.editor.value.substring(start, end);
+
+                const lineStart = this.editor.value.lastIndexOf('\n', start) + 1;
+                const lineEnd = this.editor.value.indexOf('\n', end);
+                const line = this.editor.value.substring(
+                    lineStart,
+                    lineEnd === -1 ? this.editor.value.length : lineEnd
+                );
+
+                return { selectedText, selection: { start, end }, line };
+            }
+
+            replaceSelection(text, selection) {
+                this.editor.focus();
+                this.editor.setRangeText(text);
+                this.editor.setSelectionRange(
+                    selection.start + text.length,
+                    selection.start + text.length
+                );
+                this.editor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            replaceLine(newLine) {
+                const { selection } = this.getSelectedText();
+                const lineStart = this.editor.value.lastIndexOf('\n', selection.start) + 1;
+                const lineEnd = this.editor.value.indexOf('\n', selection.end);
+                this.editor.setRangeText(
+                    newLine,
+                    lineStart,
+                    lineEnd === -1 ? this.editor.value.length : lineEnd
+                );
+                this.editor.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            insertTextAtCursor(text) {
+                const { selection } = this.getSelectedText();
+                this.replaceSelection(text, selection);
+            }
+
+            bindShortcuts() {
+                this.editor.addEventListener('keydown', (e) => {
+                    const shortcuts = {
+                        'ctrl+b': 'bold',
+                        'ctrl+i': 'italic',
+                        'ctrl+k': 'link',
+                        'ctrl+shift+c': 'codeBlock',
+                        'ctrl+1': 'heading1',
+                        'ctrl+2': 'heading2',
+                        'ctrl+3': 'heading3'
+                    };
+
+                    const key = [];
+                    if (e.ctrlKey) key.push('ctrl');
+                    if (e.shiftKey) key.push('shift');
+                    if (e.altKey) key.push('alt');
+                    key.push(e.key.toLowerCase());
+
+                    const shortcut = key.join('+');
+                    const action = shortcuts[shortcut];
+
+                    if (action) {
+                        e.preventDefault();
+                        this.handleAction(action);
+                    }
+                });
+            }
+
+            show() {
+                this.isVisible = true;
+                const toolbar = this.container.querySelector('.markdown-toolbar');
+                if (toolbar) toolbar.style.display = 'flex';
+            }
+
+            hide() {
+                this.isVisible = false;
+                const toolbar = this.container.querySelector('.markdown-toolbar');
+                if (toolbar) toolbar.style.display = 'none';
+            }
+
+            toggle() {
+                this.isVisible ? this.hide() : this.show();
+            }
+
+            setTheme(theme) {
+                this.options.theme = theme;
+                const toolbar = this.container.querySelector('.markdown-toolbar');
+                if (toolbar) {
+                    toolbar.classList.remove('markdown-toolbar--light', 'markdown-toolbar--dark');
+                    toolbar.classList.add(`markdown-toolbar--${theme}`);
+                }
+            }
+
+            initStyles() {
+                const styleId = 'markdown-toolbar-styles';
+                if (document.getElementById(styleId)) return;
+
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                    .markdown-toolbar {
+                        display: flex;
+                        align-items: center;
+                        gap: 4px;
+                        padding: 8px 12px;
+                        background: #f8f9fa;
+                        border: 1px solid #e0e0e0;
+                        border-radius: 6px;
+                        margin-bottom: 10px;
+                        flex-wrap: wrap;
+                    }
+                    .markdown-toolbar--dark {
+                        background: #2d2d2d;
+                        border-color: #404040;
+                    }
+                    .toolbar-button {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 32px;
+                        height: 32px;
+                        border: none;
+                        background: transparent;
+                        color: #666;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        font-size: 12px;
+                        font-weight: bold;
+                    }
+                    .toolbar-button:hover {
+                        background: #e0e0e0;
+                        color: #333;
+                    }
+                    .markdown-toolbar--dark .toolbar-button {
+                        color: #b0b0b0;
+                    }
+                    .markdown-toolbar--dark .toolbar-button:hover {
+                        background: #404040;
+                        color: #fff;
+                    }
+                    .toolbar-separator {
+                        width: 1px;
+                        height: 20px;
+                        background: #ddd;
+                        margin: 0 4px;
+                    }
+                    .markdown-toolbar--dark .toolbar-separator {
+                        background: #404040;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        // 初始化演示
+        const editor = document.getElementById('markdownEditor');
+        const preview = document.getElementById('preview');
+        const toolbarContainer = document.getElementById('toolbarContainer');
+        const autoSaveCheckbox = document.getElementById('autoSave');
+
+        // 创建工具栏
+        const toolbar = new MarkdownToolbar();
+        toolbar.setEditor(editor);
+        toolbar.render(toolbarContainer);
+
+        // 全局函数
+        window.toggleToolbar = () => toolbar.toggle();
+        window.toggleTheme = () => {
+            const currentTheme = toolbar.options.theme;
+            toolbar.setTheme(currentTheme === 'light' ? 'dark' : 'light');
+        };
+
+        // 加载保存的内容
+        const savedContent = localStorage.getItem('markdown-demo-content');
+        if (savedContent) {
+            editor.value = savedContent;
+            updatePreview();
+        }
+
+        // 更新预览
+        function updatePreview() {
+            preview.innerHTML = simpleMarkdownPreview(editor.value);
+        }
+
+        // 自动保存
+        function autoSave() {
+            if (autoSaveCheckbox.checked) {
+                localStorage.setItem('markdown-demo-content', editor.value);
+            }
+        }
+
+        // 监听输入
+        editor.addEventListener('input', () => {
+            updatePreview();
+            autoSave();
+        });
+
+        // 初始更新
+        updatePreview();
+    </script>
+</body>
+</html>

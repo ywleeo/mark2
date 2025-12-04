@@ -155,13 +155,13 @@ export class ThinkBlockManager {
 
         if (state.hint) {
             if (state.expanded) {
-                state.hint.textContent = '点击收起思考';
+                state.hint.textContent = '点击收起';
             } else if (state.complete && fullText && fullText !== preview) {
-                state.hint.textContent = '点击展开查看完整思考';
+                state.hint.textContent = '点击展开';
             } else if (state.complete) {
                 state.hint.textContent = '思考完成';
             } else {
-                state.hint.textContent = '思考生成中…点击展开查看完整思考';
+                state.hint.textContent = '思考生成中…点击展开';
             }
         }
 

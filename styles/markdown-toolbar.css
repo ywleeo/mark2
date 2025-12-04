@@ -1,0 +1,103 @@
+.markdown-toolbar {
+    display: flex;
+    align-items: center;
+    /* gap: 4px; */
+    padding: 8px 12px;
+    background: var(--toolbar-bg, #f8f9fa);
+    border: 1px solid var(--toolbar-border, #e0e0e0);
+    border-radius: 6px;
+    flex-wrap: wrap;
+    user-select: none;
+}
+
+.view-pane.markdown-pane {
+    height: auto;
+    min-height: 100%;
+    display: block;
+}
+
+.markdown-toolbar-container {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+}
+
+.markdown-toolbar-container--light {
+    background: rgba(248, 249, 250, 0.95);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.markdown-toolbar-container--dark {
+    background: rgba(28, 28, 28, 0.95);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+}
+
+.markdown-toolbar--dark {
+    --toolbar-bg: #2d2d2d;
+    --toolbar-border: #404040;
+}
+
+.toolbar-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--button-color, #666);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.toolbar-button:hover {
+    background: var(--button-hover-bg, #e0e0e0);
+    color: var(--button-hover-color, #333);
+}
+
+.toolbar-button:active {
+    background: var(--button-active-bg, #d0d0d0);
+    transform: translateY(1px);
+}
+
+.markdown-toolbar--dark .toolbar-button {
+    color: #b0b0b0;
+}
+
+.markdown-toolbar--dark .toolbar-button:hover {
+    background: #404040;
+    color: #fff;
+}
+
+.markdown-toolbar--dark .toolbar-button:active {
+    background: #505050;
+}
+
+.toolbar-button__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toolbar-button__icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--separator-color, #ddd);
+    margin: 0 4px;
+}
+
+.markdown-toolbar--dark .toolbar-separator {
+    background: #404040;
+}
