@@ -94,6 +94,8 @@ export async function renderMermaidIn(rootElement) {
             element.innerHTML = svg;
             const svgElement = element.querySelector('svg');
             if (svgElement) {
+                svgElement.removeAttribute('width');
+                svgElement.removeAttribute('height');
                 svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
                 svgElement.style.overflow = 'visible';
                 svgElement.style.display = 'block';
