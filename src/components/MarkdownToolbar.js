@@ -1,3 +1,5 @@
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 /**
  * Markdown工具栏类
  * 独立模块，提供Markdown编辑器的格式化功能
@@ -6,6 +8,7 @@ export class MarkdownToolbar {
     constructor(options = {}) {
         // 事件监听器
         this.listeners = new Map();
+        this.clickCleanups = [];
         this.editor = null;
         this.container = null;
         this.isVisible = true;
@@ -184,6 +187,14 @@ export class MarkdownToolbar {
             throw new Error('Container is required');
         }
 
+        // 清理之前的事件监听器
+        this.clickCleanups.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.clickCleanups = [];
+
         this.container = container;
         this.container.innerHTML = '';
 
@@ -227,10 +238,14 @@ export class MarkdownToolbar {
             <span class="toolbar-button__icon">${config.icon}</span>
         `;
 
-        // 点击事件
-        button.addEventListener('click', () => {
+        // 使用 PointerHelper 处理点击事件，防止触控板重复触发
+        const cleanup = addClickHandler(button, () => {
             this.handleAction(type);
         });
+
+        if (cleanup) {
+            this.clickCleanups.push(cleanup);
+        }
 
         if (config.title) {
             button.addEventListener('mouseenter', () => this.showTooltip(button, config.title));
@@ -844,6 +859,14 @@ export class MarkdownToolbar {
      * 销毁工具栏
      */
     destroy() {
+        // 清理 PointerHelper 事件监听器
+        this.clickCleanups.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.clickCleanups = [];
+
         if (this.container) {
             this.container.innerHTML = '';
             this.container = null;
