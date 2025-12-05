@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { liftTarget } from '@tiptap/pm/transform';
 
 /**
  * Markdown工具栏类
@@ -33,7 +34,8 @@ export class MarkdownToolbar {
                 'image',
                 'table',
                 'horizontalRule',
-                'codeBlock'
+                'codeBlock',
+                'clearFormatting'
             ],
             ...options
         };
@@ -155,6 +157,13 @@ export class MarkdownToolbar {
                 </svg>`,
                 title: '代码块',
                 shortcut: 'Ctrl+Shift+C'
+            },
+            clearFormatting: {
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3.27,2L2,3.27L7.73,9H5V11H10.73L12.73,13H9V15H14.73L20.73,21L22,19.73L3.27,2Z" />
+                    <path d="M17,7H23V5H17H12.42C11.52,5 10.73,5.4 10.12,6L9.74,6.39L11.16,7.81L11.58,7.39C11.78,7.2 12.09,7 12.42,7H17Z" />
+                </svg>`,
+                title: '清除格式'
             }
         };
 
@@ -319,9 +328,23 @@ export class MarkdownToolbar {
                 return this.runTipTapCommand(chain => chain.setHorizontalRule(), { blockedNodes: ['mermaidBlock'] });
             case 'codeBlock':
                 return this.runTipTapCommand(chain => chain.toggleCodeBlock(), { blockedNodes: ['mermaidBlock'] });
+            case 'clearFormatting':
+                return this.clearTipTapFormatting();
             default:
                 return false;
         }
+    }
+
+    clearTipTapFormatting() {
+        const blockedNodes = new Set(['mermaidBlock']);
+        return this.runTipTapCommand(chain => {
+            let next = chain.unsetAllMarks();
+            next = next.command(({ state, tr }) => {
+                this.clearTipTapBlockFormatting(state, tr, blockedNodes);
+                return true;
+            });
+            return next;
+        });
     }
 
     handleTipTapLink() {
@@ -480,7 +503,8 @@ export class MarkdownToolbar {
             image: () => this.insertImage(),
             table: () => this.insertTable(),
             horizontalRule: () => this.insertHorizontalRule(),
-            codeBlock: () => this.insertCodeBlock()
+            codeBlock: () => this.insertCodeBlock(),
+            clearFormatting: () => this.clearFormatting()
         };
 
         const handler = actions[action];
@@ -633,6 +657,62 @@ export class MarkdownToolbar {
         }
     }
 
+    clearFormatting() {
+        const selectionInfo = this.getSelectedText();
+        const { selectedText, selection, line } = selectionInfo;
+        const target = selectedText || line;
+
+        if (!target) {
+            return;
+        }
+
+        const cleaned = this.stripMarkdownFormatting(target);
+
+        if (selectedText) {
+            this.replaceSelection(cleaned, selection);
+        } else {
+            this.replaceLine(cleaned, selectionInfo.selection);
+        }
+    }
+
+    stripMarkdownFormatting(text) {
+        if (!text) {
+            return '';
+        }
+
+        let result = text;
+
+        // 移除代码块围栏
+        result = result.replace(/```(?:[\w-]+)?\n([\s\S]*?)```/g, '$1');
+        result = result.replace(/~~~(?:[\w-]+)?\n([\s\S]*?)~~~/g, '$1');
+
+        // 行级前缀（标题、列表、引用）
+        result = result.replace(/^\s{0,3}(#{1,6})\s+/gm, '');
+        result = result.replace(/^\s{0,3}>\s?/gm, '');
+        result = result.replace(/^\s{0,3}[-*+]\s+\[[ xX]\]\s+/gm, '');
+        result = result.replace(/^\s{0,3}(?:[-*+]|\d+[.)])\s+/gm, '');
+
+        // 链接 / 图片
+        result = result.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1');
+        result = result.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+        // 强调与行内代码
+        result = result.replace(/\*\*([\s\S]+?)\*\*/g, '$1');
+        result = result.replace(/__([\s\S]+?)__/g, '$1');
+        result = result.replace(/\*([\s\S]+?)\*/g, '$1');
+        result = result.replace(/_([\s\S]+?)_/g, '$1');
+        result = result.replace(/~~([\s\S]+?)~~/g, '$1');
+        result = result.replace(/`([^`]+)`/g, '$1');
+
+        // Inline HTML tags commonly used for 样式
+        result = result.replace(/<\/?(?:strong|em|code|del|mark)[^>]*>/g, '');
+
+        // 分隔线
+        result = result.replace(/^\s{0,3}(?:[-*_]\s?){3,}$\n?/gm, '');
+
+        return result.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n');
+    }
+
     /**
      * 获取选中文本及相关信息
      * @returns {Object}
@@ -653,7 +733,7 @@ export class MarkdownToolbar {
 
                 return {
                     selectedText,
-                    selection: { from, to },
+                    selection: { from, to, lineStart, lineEnd },
                     line,
                     lineStart,
                     lineEnd
@@ -676,7 +756,14 @@ export class MarkdownToolbar {
 
                 return {
                     selectedText,
-                    selection: { start, end },
+                    selection: {
+                        start,
+                        end,
+                        from: start,
+                        to: end,
+                        lineStart,
+                        lineEnd
+                    },
                     line,
                     lineStart,
                     lineEnd
@@ -686,7 +773,7 @@ export class MarkdownToolbar {
 
         return {
             selectedText: '',
-            selection: { start: 0, end: 0 },
+            selection: { start: 0, end: 0, from: 0, to: 0, lineStart: 0, lineEnd: 0 },
             line: '',
             lineStart: 0,
             lineEnd: 0
@@ -1055,22 +1142,140 @@ export class MarkdownToolbar {
             return false;
         }
 
+        const targetNames = new Set(nodeNames);
+
         const selectionNode = state.selection?.node;
-        if (selectionNode && nodeNames.includes(selectionNode.type?.name)) {
+        if (selectionNode && targetNames.has(selectionNode.type?.name)) {
             return true;
         }
 
-        const $from = state.selection?.$from;
-        if ($from) {
-            for (let depth = $from.depth; depth >= 0; depth -= 1) {
-                const node = $from.node(depth);
-                if (node && nodeNames.includes(node.type?.name)) {
+        const checkPosition = ($pos) => {
+            if (!$pos) {
+                return false;
+            }
+            for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+                const node = $pos.node(depth);
+                if (node && targetNames.has(node.type?.name)) {
                     return true;
                 }
             }
+            return false;
+        };
+
+        if (checkPosition(state.selection?.$from) || checkPosition(state.selection?.$to)) {
+            return true;
         }
 
-        return false;
+        let intersects = false;
+        const { from, to } = state.selection || {};
+        if (typeof from === 'number' && typeof to === 'number' && to > from) {
+            state.doc.nodesBetween(from, to, (node) => {
+                if (!node || intersects) {
+                    return !intersects;
+                }
+                if (targetNames.has(node.type?.name)) {
+                    intersects = true;
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        return intersects;
+    }
+
+    clearTipTapBlockFormatting(state, tr, blockedNodes = new Set()) {
+        if (!state || !tr || !state.selection) {
+            return;
+        }
+
+        state.selection.ranges.forEach(range => {
+            this.liftSelectionRange(range, tr, blockedNodes);
+        });
+
+        this.resetTextBlocksInSelection(state.selection, tr, state.schema, blockedNodes);
+    }
+
+    liftSelectionRange(range, tr, blockedNodes) {
+        if (!range?.$from || !range.$to) {
+            return;
+        }
+        const blockRange = range.$from.blockRange(range.$to);
+        if (!blockRange) {
+            return;
+        }
+        if (this.rangeContainsBlockedNodes(tr.doc, blockRange.start, blockRange.end, blockedNodes)) {
+            return;
+        }
+        const target = liftTarget(blockRange);
+        if (typeof target === 'number') {
+            tr.lift(blockRange, target);
+        }
+    }
+
+    resetTextBlocksInSelection(selection, tr, schema, blockedNodes) {
+        if (!selection) {
+            return;
+        }
+        const from = selection.from;
+        const to = selection.to;
+        tr.doc.nodesBetween(from, to, (node, pos) => {
+            if (!node?.type?.isTextblock) {
+                return true;
+            }
+            if (this.isBlockedNodeType(node.type, blockedNodes) || node.type.spec?.atom) {
+                return false;
+            }
+            const safeType = this.getSafeBlockType(tr.doc.resolve(pos), node.type, schema, blockedNodes);
+            if (safeType && safeType !== node.type) {
+                tr.setNodeMarkup(pos, safeType, node.attrs);
+            }
+            return false;
+        });
+    }
+
+    rangeContainsBlockedNodes(doc, from, to, blockedNodes) {
+        if (!doc || !blockedNodes?.size) {
+            return false;
+        }
+        let hasBlocked = false;
+        doc.nodesBetween(from, to, (node) => {
+            if (!node || hasBlocked) {
+                return !hasBlocked;
+            }
+            if (this.isBlockedNodeType(node.type, blockedNodes)) {
+                hasBlocked = true;
+                return false;
+            }
+            if (node.type?.isTextblock) {
+                return false;
+            }
+            return true;
+        });
+        return hasBlocked;
+    }
+
+    isBlockedNodeType(type, blockedNodes) {
+        if (!type) {
+            return false;
+        }
+        return Boolean(blockedNodes?.has(type.name));
+    }
+
+    getSafeBlockType($pos, currentType, schema, blockedNodes) {
+        if (!$pos) {
+            return currentType;
+        }
+        const parent = $pos.parent;
+        const match = parent?.contentMatchAt($pos.index()) || null;
+        let candidate = match?.defaultType || currentType;
+        if (!candidate || this.isBlockedNodeType(candidate, blockedNodes) || candidate.spec?.atom) {
+            const paragraph = schema?.nodes?.paragraph;
+            candidate = (!this.isBlockedNodeType(paragraph, blockedNodes) && !paragraph?.spec?.atom)
+                ? paragraph
+                : currentType;
+        }
+        return candidate || currentType;
     }
 
     insertTaskListFallback() {

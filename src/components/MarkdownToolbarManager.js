@@ -68,7 +68,9 @@ export class MarkdownToolbarManager {
                 'link',
                 'image',
                 'table',
-                'horizontalRule'
+                'horizontalRule',
+                'separator',
+                'clearFormatting'
             ]
         });
 
