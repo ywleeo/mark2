@@ -135,6 +135,8 @@
     transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
     pointer-events: none;
     z-index: 20;
+    contain: layout style paint;
+    will-change: opacity, transform;
 }
 
 .code-copy-button.is-visible {

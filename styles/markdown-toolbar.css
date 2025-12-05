@@ -21,8 +21,43 @@
 }
 
 .view-pane.markdown-pane.is-active {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+    scrollbar-gutter: stable !important;
+}
+
+/* Markdown 编辑器滚动条一直显示 */
+.view-pane.markdown-pane.is-active::-webkit-scrollbar {
+    width: 6px !important;
+    -webkit-appearance: none !important;
+}
+
+.view-pane.markdown-pane.is-active::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.03) !important;
+}
+
+.view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15) !important;
+    border-radius: 3px !important;
+    border: 1px solid rgba(0, 0, 0, 0.03) !important;
+}
+
+.view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 深色模式 */
+:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
 }
 
 .view-pane.markdown-pane > * {
