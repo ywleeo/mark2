@@ -571,9 +571,10 @@ body.is-internal-drag .content-wrapper::after {
 .content-area,
 .markdown-content pre,
 .editor-textarea,
-.view-content {
-    /* scrollbar-width: thin; */
-    /* scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4); */
+.view-content,
+.markdown-pane {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
 }
 
 /* Sidebar 和文件树的 Firefox 滚动条 - 使用统一变量 */
@@ -592,7 +593,8 @@ body.is-internal-drag .content-wrapper::after {
 .section-content::-webkit-scrollbar,
 .markdown-content pre::-webkit-scrollbar,
 .editor-textarea::-webkit-scrollbar,
-.view-content::-webkit-scrollbar {
+.view-content::-webkit-scrollbar,
+.markdown-pane::-webkit-scrollbar {
     width: var(--scrollbar-size, 2px);
     height: var(--scrollbar-size, 2px);
     -webkit-appearance: none;
@@ -603,7 +605,8 @@ body.is-internal-drag .content-wrapper::after {
 .section-content::-webkit-scrollbar-track,
 .markdown-content pre::-webkit-scrollbar-track,
 .editor-textarea::-webkit-scrollbar-track,
-.view-content::-webkit-scrollbar-track {
+.view-content::-webkit-scrollbar-track,
+.markdown-pane::-webkit-scrollbar-track {
     background: var(--scrollbar-track-color, #f1f3f4);
 }
 
@@ -624,7 +627,8 @@ body.is-internal-drag .content-wrapper::after {
 .content-area::-webkit-scrollbar-thumb,
 .markdown-content pre::-webkit-scrollbar-thumb,
 .editor-textarea::-webkit-scrollbar-thumb,
-.view-content::-webkit-scrollbar-thumb {
+.view-content::-webkit-scrollbar-thumb,
+.markdown-pane::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb-color, #ffffff);
     border-radius: 2px;
     transition: background 0.2s ease;
@@ -633,7 +637,8 @@ body.is-internal-drag .content-wrapper::after {
 .content-area::-webkit-scrollbar-thumb:hover,
 .markdown-content pre::-webkit-scrollbar-thumb:hover,
 .editor-textarea::-webkit-scrollbar-thumb:hover,
-.view-content::-webkit-scrollbar-thumb:hover {
+.view-content::-webkit-scrollbar-thumb:hover,
+.markdown-pane::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover-color, #d0d2d6);
 }
 
