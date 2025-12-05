@@ -67,7 +67,7 @@
 .view-content {
     position: relative;
     flex: 1;
-    overflow-y: auto;
+    overflow-y: scroll;
     overflow-x: hidden;
     min-height: 0;
     background: var(--content-bg, #ffffff);
