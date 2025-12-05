@@ -73,6 +73,10 @@
     background: var(--content-bg, #ffffff);
 }
 
+.view-content:has(.markdown-pane.is-active) {
+    overflow: hidden;
+}
+
 .view-pane {
     position: relative;
     height: 100%;
