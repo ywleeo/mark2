@@ -360,17 +360,86 @@ export class MarkdownToolbar {
     }
 
     handleTipTapTable() {
-        if (!this.isTipTapEditor() || typeof this.editor.commands?.insertTable !== 'function') {
+        if (!this.isTipTapEditor()) {
             return false;
         }
         if (this.isSelectionInsideNode(['mermaidBlock'])) {
             return 'blocked';
         }
+
+        if (typeof this.editor.commands?.insertContent === 'function') {
+            const createCellNode = (type, text) => ({
+                type,
+                content: [
+                    {
+                        type: 'paragraph',
+                        content: text
+                            ? [
+                                {
+                                    type: 'text',
+                                    text
+                                }
+                            ]
+                            : []
+                    }
+                ]
+            });
+            const sampleContent = [
+                ['列1', '列2', '列3'],
+                ['内容1', '内容2', '内容3'],
+                ['内容4', '内容5', '内容6']
+            ];
+            const tableNode = {
+                type: 'table',
+                content: sampleContent.map((row, rowIndex) => ({
+                    type: 'tableRow',
+                    content: row.map(cellText => createCellNode(
+                        rowIndex === 0 ? 'tableHeader' : 'tableCell',
+                        cellText
+                    ))
+                }))
+            };
+
+            const inserted = this.editor
+                .chain()
+                .focus()
+                .insertContent(tableNode)
+                .run();
+
+            if (inserted) {
+                return true;
+            }
+        }
+
+        if (typeof this.editor.commands?.insertTable === 'function') {
+            const inserted = this.editor.chain().focus().insertTable({
+                rows: 3,
+                cols: 3,
+                withHeaderRow: true
+            }).run();
+            if (inserted) {
+                return true;
+            }
+        }
+
+        if (typeof this.editor.commands?.insertContent !== 'function') {
+            return false;
+        }
+
+        // 退回到插入 Markdown 文本（例如旧编辑器或 table 扩展不可用时）
+        const markdownTable = `| 列1 | 列2 | 列3 |
+| --- | --- | --- |
+| 内容1 | 内容2 | 内容3 |
+| 内容4 | 内容5 | 内容6 |
+
+`;
+
         this.editor
             .chain()
             .focus()
-            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+            .insertContent(markdownTable)
             .run();
+
         return true;
     }
 

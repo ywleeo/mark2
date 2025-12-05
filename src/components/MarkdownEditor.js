@@ -4,8 +4,8 @@ import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
-import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Link from '@tiptap/extension-link';
 import { SearchExtension } from '../extensions/SearchExtension.js';
@@ -98,7 +98,8 @@ export class MarkdownEditor {
                 }),
                 DisableInlineCodeShortcut,
                 Table.configure({
-                    resizable: true,
+                    resizable: false,
+                    allowTableNodeSelection: false,
                 }),
                 TableRow,
                 TableHeader,
