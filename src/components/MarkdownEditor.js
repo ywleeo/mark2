@@ -322,13 +322,11 @@ export class MarkdownEditor {
             }
         };
 
-        // 监听双击事件
-        this.element.addEventListener('dblclick', handleMermaidClick);
-
-        // 保存清理函数
-        this.mermaidClickCleanup = () => {
-            this.element.removeEventListener('dblclick', handleMermaidClick);
-        };
+        // 使用 PointerHelper 处理单击事件
+        this.mermaidClickCleanup = addClickHandler(this.element, handleMermaidClick, {
+            shouldHandle: (e) => e.target.closest('.mermaid--clickable') !== null,
+            preventDefault: false
+        });
     }
 
     async setContent(markdown, shouldFocusStart = true) {

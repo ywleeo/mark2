@@ -102,7 +102,7 @@ export async function renderMermaidIn(rootElement) {
             }
             element.setAttribute('data-processed', 'true');
             element.classList.add('mermaid--clickable');
-            element.setAttribute('title', '双击放大查看');
+            element.setAttribute('title', '点击放大查看');
         } catch (error) {
             console.warn('[MermaidRenderer] 渲染失败', error);
             element.setAttribute('data-processed', 'true');

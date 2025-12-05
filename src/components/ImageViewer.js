@@ -1,5 +1,6 @@
 import { getAppServices } from '../services/appServices.js';
 import { ImageModal } from './ImageModal.js';
+import { addClickHandler } from '../utils/PointerHelper.js';
 
 export class ImageViewer {
     constructor(containerElement) {
@@ -9,6 +10,7 @@ export class ImageViewer {
         this.defaultMessage = '';
         this.handleImageClick = this.handleImageClick.bind(this);
         this.imageModal = new ImageModal();
+        this.clickCleanup = null;
         this.init();
     }
 
@@ -29,7 +31,8 @@ export class ImageViewer {
         this.messageElement = this.container.querySelector('.image-viewer-message');
         if (this.imgElement) {
             this.imgElement.style.transformOrigin = 'center top';
-            this.imgElement.addEventListener('dblclick', this.handleImageClick);
+            // 使用 PointerHelper 处理单击事件
+            this.clickCleanup = addClickHandler(this.imgElement, this.handleImageClick);
         }
     }
 
@@ -154,8 +157,9 @@ export class ImageViewer {
 
     dispose() {
         this.clear();
-        if (this.imgElement) {
-            this.imgElement.removeEventListener('dblclick', this.handleImageClick);
+        if (this.clickCleanup) {
+            this.clickCleanup();
+            this.clickCleanup = null;
         }
         this.imageModal?.destroy();
     }
