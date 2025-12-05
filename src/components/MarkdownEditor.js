@@ -27,6 +27,7 @@ import { MermaidBlock } from '../extensions/MermaidBlock.js';
 import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortcut.js';
 import { getAppServices } from '../services/appServices.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
+import { ImageModal } from './ImageModal.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -62,6 +63,7 @@ export class MarkdownEditor {
         this.codeCopyManager = null;
         this.searchBoxManager = null;
         this.clipboardEnhancer = null;
+        this.imageModal = null;
         this.aiStreamSessions = new Map();
         this.pendingMermaidRender = null;
         this.mermaidRenderFrame = null;
@@ -156,9 +158,16 @@ export class MarkdownEditor {
         this.codeCopyManager = new CodeCopyManager(this.element);
         this.searchBoxManager = new SearchBoxManager(this.editor);
         this.clipboardEnhancer = new ClipboardEnhancer(this.element);
+        this.imageModal = new ImageModal();
 
         // 添加链接点击处理
         this.setupLinkClickHandler();
+
+        // 添加图片点击处理
+        this.setupImageClickHandler();
+
+        // 添加 Mermaid 图表点击处理
+        this.setupMermaidClickHandler();
 
         const editorDom = this.editor.view?.dom;
         if (editorDom) {
@@ -257,6 +266,69 @@ export class MarkdownEditor {
         } catch (error) {
             console.error('打开文档链接失败:', error);
         }
+    }
+
+    // 设置图片点击处理
+    setupImageClickHandler() {
+        const handleImageClick = (e) => {
+            const img = e.target.closest('img');
+            if (!img) return;
+
+            // 获取图片源和 alt 信息
+            const src = img.getAttribute('src');
+            const alt = img.getAttribute('alt') || '';
+
+            if (src) {
+                this.imageModal?.show(src, alt);
+            }
+        };
+
+        // 使用 PointerHelper 处理点击，避免触控板重复触发
+        this.imageClickCleanup = addClickHandler(this.element, handleImageClick, {
+            shouldHandle: (e) => e.target.closest('img') !== null,
+            preventDefault: false
+        });
+    }
+
+    // 设置 Mermaid 图表点击处理
+    setupMermaidClickHandler() {
+        const handleMermaidClick = (e) => {
+            const mermaidElement = e.target.closest('.mermaid--clickable');
+            if (!mermaidElement) return;
+
+            const svgElement = mermaidElement.querySelector('svg');
+            if (!svgElement) return;
+
+            try {
+                // 克隆 SVG 并设置固定尺寸
+                const clonedSvg = svgElement.cloneNode(true);
+                const bbox = svgElement.getBBox();
+
+                // 设置 viewBox 和尺寸
+                if (!clonedSvg.hasAttribute('viewBox') && bbox) {
+                    clonedSvg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
+                }
+                clonedSvg.setAttribute('width', bbox.width || 800);
+                clonedSvg.setAttribute('height', bbox.height || 600);
+
+                // 将 SVG 转为 data URL
+                const svgData = new XMLSerializer().serializeToString(clonedSvg);
+                const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`;
+
+                // 使用 ImageModal 显示
+                this.imageModal?.show(dataUrl, 'Mermaid 图表');
+            } catch (error) {
+                console.error('无法显示 Mermaid 图表:', error);
+            }
+        };
+
+        // 监听双击事件
+        this.element.addEventListener('dblclick', handleMermaidClick);
+
+        // 保存清理函数
+        this.mermaidClickCleanup = () => {
+            this.element.removeEventListener('dblclick', handleMermaidClick);
+        };
     }
 
     async setContent(markdown, shouldFocusStart = true) {
@@ -828,10 +900,19 @@ export class MarkdownEditor {
         this.codeCopyManager?.destroy();
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
+        this.imageModal?.destroy();
         this.clearAutoSaveTimer();
         if (this.linkClickCleanup) {
             this.linkClickCleanup();
             this.linkClickCleanup = null;
+        }
+        if (this.imageClickCleanup) {
+            this.imageClickCleanup();
+            this.imageClickCleanup = null;
+        }
+        if (this.mermaidClickCleanup) {
+            this.mermaidClickCleanup();
+            this.mermaidClickCleanup = null;
         }
         if (this.mermaidRenderFrame !== null && typeof cancelAnimationFrame === 'function') {
             cancelAnimationFrame(this.mermaidRenderFrame);

@@ -1,4 +1,5 @@
 import { getAppServices } from '../services/appServices.js';
+import { ImageModal } from './ImageModal.js';
 
 export class ImageViewer {
     constructor(containerElement) {
@@ -6,6 +7,8 @@ export class ImageViewer {
         this.currentFile = null;
         this.zoomScale = 1;
         this.defaultMessage = '';
+        this.handleImageClick = this.handleImageClick.bind(this);
+        this.imageModal = new ImageModal();
         this.init();
     }
 
@@ -26,6 +29,7 @@ export class ImageViewer {
         this.messageElement = this.container.querySelector('.image-viewer-message');
         if (this.imgElement) {
             this.imgElement.style.transformOrigin = 'center top';
+            this.imgElement.addEventListener('dblclick', this.handleImageClick);
         }
     }
 
@@ -140,7 +144,19 @@ export class ImageViewer {
         }
     }
 
+    handleImageClick() {
+        if (!this.imgElement || !this.imgElement.src) {
+            return;
+        }
+        const alt = this.imgElement.alt || this.currentFile?.split('/').pop() || '图片';
+        this.imageModal?.show(this.imgElement.src, alt);
+    }
+
     dispose() {
         this.clear();
+        if (this.imgElement) {
+            this.imgElement.removeEventListener('dblclick', this.handleImageClick);
+        }
+        this.imageModal?.destroy();
     }
 }

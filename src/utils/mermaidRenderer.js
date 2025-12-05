@@ -101,6 +101,8 @@ export async function renderMermaidIn(rootElement) {
                 svgElement.style.display = 'block';
             }
             element.setAttribute('data-processed', 'true');
+            element.classList.add('mermaid--clickable');
+            element.setAttribute('title', '双击放大查看');
         } catch (error) {
             console.warn('[MermaidRenderer] 渲染失败', error);
             element.setAttribute('data-processed', 'true');

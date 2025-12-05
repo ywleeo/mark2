@@ -97,6 +97,15 @@
     display: none;
 }
 
+.tiptap-editor .mermaid--clickable {
+    cursor: zoom-in;
+    transition: opacity 0.15s ease;
+}
+
+.tiptap-editor .mermaid--clickable:hover {
+    opacity: 0.9;
+}
+
 .tiptap-editor .mermaid svg {
     display: block;
     width: 100%;
@@ -318,6 +327,12 @@
     display: block;
     max-width: 100%;
     height: auto;
+    cursor: zoom-in;
+    transition: transform 0.15s ease;
+}
+
+.tiptap-editor img:hover {
+    transform: scale(1.01);
 }
 
 /* 表格样式 */

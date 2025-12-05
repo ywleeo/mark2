@@ -1,0 +1,160 @@
+/* 图片弹窗样式 */
+.image-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-modal.is-visible {
+    display: flex;
+}
+
+.image-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    cursor: zoom-out;
+}
+
+.image-modal-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.image-modal-img {
+    max-width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    cursor: zoom-in;
+    transform-origin: center center;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: auto;
+}
+
+.image-modal-close {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease, background 0.15s ease;
+    z-index: 2;
+}
+
+.image-modal-close:hover {
+    background: rgba(255, 255, 255, 1);
+}
+
+.image-modal-controls {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px 16px;
+    border-radius: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.image-modal-zoom-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.08);
+    color: #333;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.image-modal-zoom-btn:hover {
+    background: rgba(0, 0, 0, 0.12);
+    transform: scale(1.05);
+}
+
+.image-modal-zoom-btn:active {
+    transform: scale(0.95);
+}
+
+.image-modal-zoom-btn[data-action="reset"] {
+    font-size: 12px;
+    width: 36px;
+}
+
+.image-modal-zoom-value {
+    min-width: 50px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 深色模式 */
+:root[data-theme-appearance='dark'] .image-modal-backdrop {
+    background: rgba(0, 0, 0, 0.92);
+}
+
+:root[data-theme-appearance='dark'] .image-modal-close {
+    background: rgba(40, 40, 40, 0.95);
+    color: #e0e0e0;
+}
+
+:root[data-theme-appearance='dark'] .image-modal-close:hover {
+    background: rgba(50, 50, 50, 1);
+}
+
+:root[data-theme-appearance='dark'] .image-modal-controls {
+    background: rgba(40, 40, 40, 0.95);
+}
+
+:root[data-theme-appearance='dark'] .image-modal-zoom-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e0e0e0;
+}
+
+:root[data-theme-appearance='dark'] .image-modal-zoom-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme-appearance='dark'] .image-modal-zoom-value {
+    color: #e0e0e0;
+}
