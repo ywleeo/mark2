@@ -10,6 +10,16 @@ import { FileTreeContextMenu } from './FileTreeContextMenu.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
+        const {
+            onFolderChange,
+            onFileChange,
+            onOpenFilesChange,
+            onStateChange,
+            onCloseFileRequest,
+            onPathRenamed,
+            documentSessions = null,
+        } = callbacks;
+
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
         this.services = null;
@@ -18,17 +28,18 @@ export class FileTree {
         this.expandedFolders = new Set();
         this.currentFile = null;
         this.openFiles = []; // 跟踪打开的文件
-        this.onFolderChange = callbacks.onFolderChange;
-        this.onFileChange = callbacks.onFileChange;
-        this.onOpenFilesChange = callbacks.onOpenFilesChange;
-        this.onStateChange = callbacks.onStateChange;
-        this.onCloseFileRequest = callbacks.onCloseFileRequest;
-        this.onPathRenamed = callbacks.onPathRenamed;
+        this.onFolderChange = onFolderChange;
+        this.onFileChange = onFileChange;
+        this.onOpenFilesChange = onOpenFilesChange;
+        this.onStateChange = onStateChange;
+        this.onCloseFileRequest = onCloseFileRequest;
+        this.onPathRenamed = onPathRenamed;
         this.sectionStates = {
             openFilesCollapsed: false,
             foldersCollapsed: false,
         };
         this.cleanupFunctions = []; // 存储清理函数
+        this.documentSessions = documentSessions;
 
         // 文件夹重命名状态
         this.folderRenamingPath = null;
@@ -65,6 +76,7 @@ export class FileTree {
             getCurrentFile: () => this.currentFile,
             onPathRenamed: this.onPathRenamed,
             refreshFolder: (folderPath) => this.refreshFolder(folderPath),
+            documentSessions: this.documentSessions,
         });
 
         this.openFilesView = new OpenFilesView({
@@ -119,6 +131,20 @@ export class FileTree {
             }
         }
         return path;
+    }
+
+    markLocalWrite(path, options = {}) {
+        if (!this.documentSessions || typeof this.documentSessions.markLocalWrite !== 'function') {
+            return;
+        }
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath) {
+            return;
+        }
+        const suppressWatcherMs = Number.isFinite(options.durationMs)
+            ? Math.max(0, options.durationMs)
+            : 1200;
+        this.documentSessions.markLocalWrite(normalizedPath, { suppressWatcherMs });
     }
 
     buildFolderKey(path, parentPath = null, isRoot = false) {
@@ -369,6 +395,8 @@ export class FileTree {
                 throw new Error('无法找到可用的文件名');
             }
 
+            this.markLocalWrite(candidatePath);
+            this.markLocalWrite(normalized);
             await fileService.writeText(candidatePath, '');
 
             await this.refreshFolder(normalized);
@@ -422,6 +450,8 @@ export class FileTree {
                 throw new Error('无法找到可用的文件夹名称');
             }
 
+            this.markLocalWrite(candidatePath);
+            this.markLocalWrite(normalized);
             await fileService.createDirectory(candidatePath);
 
             await this.refreshFolder(normalized);

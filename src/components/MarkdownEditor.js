@@ -512,6 +512,21 @@ export class MarkdownEditor {
             return false;
         }
 
+        let pendingMarkdown = null;
+        if (this.contentChanged) {
+            pendingMarkdown = this.getMarkdown();
+            if (!force && pendingMarkdown === this.originalMarkdown) {
+                this.contentChanged = false;
+                this.callbacks.onContentChange?.();
+                if (reason === 'auto') {
+                    Promise.resolve(this.callbacks.onAutoSaveSuccess?.({ skipped: true })).catch(error => {
+                        console.warn('[MarkdownEditor] 自动保存回调失败', error);
+                    });
+                }
+                return true;
+            }
+        }
+
         if (!force && !this.contentChanged) {
             if (reason === 'auto') {
                 Promise.resolve(this.callbacks.onAutoSaveSuccess?.({ skipped: true })).catch(error => {
@@ -532,7 +547,7 @@ export class MarkdownEditor {
         const localWriteKey = normalizeFsPath(targetFile) || targetFile;
         const savePromise = (async () => {
             try {
-                const markdown = this.getMarkdown();
+                const markdown = pendingMarkdown ?? this.getMarkdown();
                 const services = getAppServices();
                 if (localWriteKey && this.documentSessions?.markLocalWrite) {
                     this.documentSessions.markLocalWrite(localWriteKey);

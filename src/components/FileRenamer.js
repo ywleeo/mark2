@@ -9,6 +9,7 @@ export class FileRenamer {
             getCurrentFile,
             onPathRenamed,
             refreshFolder,
+            documentSessions,
         } = options;
 
         this.container = container;
@@ -19,6 +20,7 @@ export class FileRenamer {
         this.getCurrentFile = getCurrentFile;
         this.onPathRenamed = onPathRenamed;
         this.refreshFolder = refreshFolder;
+        this.documentSessions = documentSessions;
 
         this.renamingPath = null;
         this._renameCleanup = null;
@@ -182,21 +184,31 @@ export class FileRenamer {
 
         const separator = '/';
         const parentDir = normalizedSource.substring(0, normalizedSource.lastIndexOf(separator));
-        const destinationPath = parentDir ? `${parentDir}${separator}${nextLabel}` : nextLabel;
-        if (destinationPath === normalizedSource) {
+        const rawDestination = parentDir ? `${parentDir}${separator}${nextLabel}` : nextLabel;
+        const normalizedDestination = this.normalizePath?.(rawDestination) || rawDestination;
+        if (normalizedDestination === normalizedSource) {
             return;
         }
-        await fileService.move(normalizedSource, destinationPath);
+        this._markLocalWrite(normalizedSource);
+        this._markLocalWrite(normalizedDestination);
+        if (parentDir) {
+            this._markLocalWrite(parentDir);
+        }
+        const destinationParent = normalizedDestination.substring(0, normalizedDestination.lastIndexOf(separator));
+        if (destinationParent && destinationParent !== parentDir) {
+            this._markLocalWrite(destinationParent);
+        }
+        await fileService.move(normalizedSource, normalizedDestination);
 
-        this.replaceOpenFilePath?.(normalizedSource, destinationPath);
+        this.replaceOpenFilePath?.(normalizedSource, normalizedDestination);
 
         const wasCurrent = this.normalizePath?.(this.getCurrentFile?.()) === normalizedSource;
         if (wasCurrent) {
-            this.selectFile?.(destinationPath, { autoFocus: false });
+            this.selectFile?.(normalizedDestination, { autoFocus: false });
         }
 
         try {
-            this.onPathRenamed?.(normalizedSource, destinationPath, { suppressAutoFocus: true });
+            this.onPathRenamed?.(normalizedSource, normalizedDestination, { suppressAutoFocus: true });
         } catch (error) {
             console.warn('onPathRenamed 回调失败:', error);
         }
@@ -208,13 +220,27 @@ export class FileRenamer {
         }
 
         setTimeout(() => {
-            const renamedItem = this.container?.querySelector(`.tree-file[data-path="${destinationPath}"]`)
-                || this.container?.querySelector(`.open-file-item[data-path="${destinationPath}"]`);
+            const renamedItem = this.container?.querySelector(`.tree-file[data-path="${normalizedDestination}"]`)
+                || this.container?.querySelector(`.open-file-item[data-path="${normalizedDestination}"]`);
             if (renamedItem) {
                 try {
                     renamedItem.focus();
                 } catch {}
             }
         }, 100);
+    }
+
+    _markLocalWrite(path, options = {}) {
+        if (!path || !this.documentSessions || typeof this.documentSessions.markLocalWrite !== 'function') {
+            return;
+        }
+        const normalized = this.normalizePath?.(path) || path;
+        if (!normalized) {
+            return;
+        }
+        const suppressWatcherMs = Number.isFinite(options.durationMs)
+            ? Math.max(0, options.durationMs)
+            : 1200;
+        this.documentSessions.markLocalWrite(normalized, { suppressWatcherMs });
     }
 }

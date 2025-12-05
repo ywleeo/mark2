@@ -765,6 +765,7 @@ async function initializeApplication() {
                 path: normalized,
             });
         },
+        documentSessions,
     });
 
     const tabBarElement = document.getElementById('tabBar');

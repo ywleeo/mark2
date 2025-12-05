@@ -27,12 +27,14 @@ export function createFileWatcherController({
         }
 
         const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
+        let shouldRefreshRoot = eventPaths.length === 0;
 
         eventPaths.forEach((changedPath) => {
             if (!changedPath) return;
             if (shouldIgnoreLocalWrite(changedPath)) {
                 return;
             }
+            shouldRefreshRoot = true;
             if (fileTree?.isFileOpen?.(changedPath)) {
                 const editor = getEditor();
                 const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
@@ -45,7 +47,9 @@ export function createFileWatcherController({
             }
         });
 
-        scheduleFolderRefresh(normalizedRoot);
+        if (shouldRefreshRoot) {
+            scheduleFolderRefresh(normalizedRoot);
+        }
     }
 
     function handleFileWatcherEvent(filePath) {
