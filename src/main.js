@@ -206,8 +206,9 @@ const viewController = createViewController({
     updateExportMenuState: () => {
         void updateExportMenuState();
     },
-    onViewModeChange: () => {
+    onViewModeChange: (nextMode) => {
         void updateExportMenuState();
+        handleToolbarOnViewModeChange(nextMode);
     },
 });
 
@@ -290,6 +291,13 @@ function getToolbarEditorInstance() {
 // 创建工具栏切换函数
 function toggleMarkdownToolbar() {
     console.log('toggleMarkdownToolbar called, markdownToolbarManager:', markdownToolbarManager);
+
+    // 只有 markdown 文件才能呼出 toolbar
+    if (!currentFile || !isMarkdownFilePath(currentFile)) {
+        console.log('Not a markdown file, toolbar disabled');
+        return;
+    }
+
     const tiptapEditor = getToolbarEditorInstance();
     if (markdownToolbarManager) {
         markdownToolbarManager.toggle();
@@ -299,6 +307,45 @@ function toggleMarkdownToolbar() {
         if (tiptapEditor && appServices) {
             markdownToolbarManager = new MarkdownToolbarManager(appServices);
             markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
+        }
+    }
+}
+
+// 处理视图模式切换时的 toolbar 状态
+function handleToolbarOnViewModeChange(nextMode) {
+    // 只处理 markdown 文件
+    if (!currentFile || !isMarkdownFilePath(currentFile)) {
+        // 非 markdown 文件，销毁 toolbar
+        if (markdownToolbarManager) {
+            markdownToolbarManager.destroy();
+            markdownToolbarManager = null;
+        }
+        return;
+    }
+
+    // markdown 文件在 markdown 和 code 模式之间切换
+    if (nextMode === 'markdown') {
+        // 切换到 markdown 模式
+        const tiptapEditor = getToolbarEditorInstance();
+        if (tiptapEditor) {
+            if (markdownToolbarManager) {
+                // 更新编辑器实例
+                markdownToolbarManager.updateEditor(tiptapEditor, 'tiptap');
+            }
+            // 注意：不主动初始化，由用户通过快捷键呼出
+        }
+    } else if (nextMode === 'code') {
+        // 切换到 code 模式
+        if (codeEditor && markdownToolbarManager) {
+            // 如果 toolbar 已经存在（之前在 markdown 模式呼出过），更新编辑器实例
+            markdownToolbarManager.updateEditor(codeEditor, 'monaco');
+        }
+        // 注意：不主动初始化，保持之前的显示状态
+    } else {
+        // 切换到其他模式（image, pdf 等），销毁 toolbar
+        if (markdownToolbarManager) {
+            markdownToolbarManager.destroy();
+            markdownToolbarManager = null;
         }
     }
 }

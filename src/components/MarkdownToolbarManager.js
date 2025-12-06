@@ -121,54 +121,153 @@ export class MarkdownToolbarManager {
                 }
             };
         } else if (manager.editorType === 'monaco') {
-            // Monaco 编辑器
+            // Monaco 编辑器 - 模拟 textarea 接口
+            // 辅助函数：动态获取真正的 Monaco 编辑器实例
+            const getMonacoEditor = () => {
+                // 尝试从 CodeEditor 包装类中获取
+                if (manager.rawEditorInstance?.editor) {
+                    return manager.rawEditorInstance.editor;
+                }
+                // 或者直接使用已解析的实例
+                return manager.editorInstance;
+            };
+
             return {
                 get value() {
-                    return manager.editorInstance?.getValue();
+                    const editor = getMonacoEditor();
+                    return editor?.getValue() || '';
+                },
+                // 模拟 textarea 的 selectionStart 属性
+                get selectionStart() {
+                    const editor = getMonacoEditor();
+                    const model = editor?.getModel?.();
+                    const selection = editor?.getSelection?.();
+                    if (!model || !selection) {
+                        return 0;
+                    }
+                    return model.getOffsetAt({
+                        lineNumber: selection.startLineNumber,
+                        column: selection.startColumn
+                    });
+                },
+                // 模拟 textarea 的 selectionEnd 属性
+                get selectionEnd() {
+                    const editor = getMonacoEditor();
+                    const model = editor?.getModel?.();
+                    const selection = editor?.getSelection?.();
+                    if (!model || !selection) {
+                        return 0;
+                    }
+                    return model.getOffsetAt({
+                        lineNumber: selection.endLineNumber,
+                        column: selection.endColumn
+                    });
                 },
                 getSelection() {
-                    const selection = manager.editorInstance?.getSelection();
-                    if (!selection) {
+                    const editor = getMonacoEditor();
+                    const model = editor?.getModel?.();
+                    const selection = editor?.getSelection?.();
+                    if (!model || !selection) {
                         return null;
                     }
+
+                    // 将 Monaco 的位置转换为字符偏移量
+                    const start = model.getOffsetAt({
+                        lineNumber: selection.startLineNumber,
+                        column: selection.startColumn
+                    });
+                    const end = model.getOffsetAt({
+                        lineNumber: selection.endLineNumber,
+                        column: selection.endColumn
+                    });
+
                     return {
-                        start: selection.getStartPosition().column - 1,
-                        end: selection.getEndPosition().column - 1,
+                        start,
+                        end,
                         line: selection.startLineNumber - 1
                     };
                 },
                 setSelectionRange(start, end) {
-                    const model = manager.editorInstance?.getModel();
-                    if (model) {
-                        const startPos = model.getPositionAt(start);
-                        const endPos = model.getPositionAt(end);
-                        manager.editorInstance.setSelection({
-                            startLineNumber: startPos.lineNumber,
-                            startColumn: startPos.column,
-                            endLineNumber: endPos.lineNumber,
-                            endColumn: endPos.column
-                        });
+                    const editor = getMonacoEditor();
+                    const model = editor?.getModel?.();
+                    if (!editor || !model) {
+                        return;
                     }
+                    const startPos = model.getPositionAt(start);
+                    const endPos = model.getPositionAt(end);
+                    editor.setSelection({
+                        startLineNumber: startPos.lineNumber,
+                        startColumn: startPos.column,
+                        endLineNumber: endPos.lineNumber,
+                        endColumn: endPos.column
+                    });
                 },
                 focus() {
-                    manager.editorInstance?.focus();
+                    const editor = getMonacoEditor();
+                    editor?.focus?.();
                 },
                 setRangeText(text, start, end) {
-                    const model = manager.editorInstance?.getModel();
-                    if (model) {
-                        const range = {
-                            startLineNumber: 1,
-                            startColumn: start + 1,
-                            endLineNumber: 1,
-                            endColumn: end + 1
-                        };
-                        const operation = {
-                            range,
+                    const editor = getMonacoEditor();
+                    const model = editor?.getModel?.();
+                    if (!editor || !model) {
+                        return;
+                    }
+
+                    // 如果没有提供参数，使用当前选区
+                    if (start === undefined || end === undefined) {
+                        const selection = editor.getSelection?.();
+                        if (selection) {
+                            start = model.getOffsetAt({
+                                lineNumber: selection.startLineNumber,
+                                column: selection.startColumn
+                            });
+                            end = model.getOffsetAt({
+                                lineNumber: selection.endLineNumber,
+                                column: selection.endColumn
+                            });
+                        } else {
+                            start = 0;
+                            end = 0;
+                        }
+                    }
+
+                    // 将字符偏移量转换为 Monaco 位置
+                    const startPos = model.getPositionAt(start);
+                    const endPos = model.getPositionAt(end);
+
+                    // 获取当前选区作为 beforeCursorState
+                    const currentSelection = editor.getSelection?.();
+
+                    // 使用 pushEditOperations 正确编辑
+                    model.pushEditOperations(
+                        currentSelection ? [currentSelection] : [],
+                        [{
+                            range: {
+                                startLineNumber: startPos.lineNumber,
+                                startColumn: startPos.column,
+                                endLineNumber: endPos.lineNumber,
+                                endColumn: endPos.column
+                            },
                             text,
                             forceMoveMarkers: true
-                        };
-                        model.applyEdits([operation]);
-                    }
+                        }],
+                        () => {
+                            // 计算新的光标位置：插入文本后的位置
+                            const newOffset = start + text.length;
+                            const newPos = model.getPositionAt(newOffset);
+                            return [{
+                                selectionStartLineNumber: newPos.lineNumber,
+                                selectionStartColumn: newPos.column,
+                                positionLineNumber: newPos.lineNumber,
+                                positionColumn: newPos.column
+                            }];
+                        }
+                    );
+                },
+                // 模拟 textarea 的 dispatchEvent（虽然可能不需要）
+                dispatchEvent(event) {
+                    // Monaco 不需要手动触发 input 事件
+                    return true;
                 }
             };
         }
@@ -203,8 +302,9 @@ export class MarkdownToolbarManager {
                 }
             }
         } else if (editorType === 'monaco') {
-            if (typeof editorInstance.getValue === 'function') {
-                return editorInstance;
+            // 优先检查 .editor 属性（CodeEditor 包装类）
+            if (editorInstance.editor && typeof editorInstance.editor.getValue === 'function') {
+                return editorInstance.editor;
             }
 
             if (editorInstance.monacoEditor && typeof editorInstance.monacoEditor.getValue === 'function') {
@@ -216,6 +316,11 @@ export class MarkdownToolbarManager {
                 if (monacoEditor && typeof monacoEditor.getValue === 'function') {
                     return monacoEditor;
                 }
+            }
+
+            // 最后才检查实例本身（如果是直接传入的 Monaco 编辑器）
+            if (typeof editorInstance.getValue === 'function' && typeof editorInstance.getModel === 'function') {
+                return editorInstance;
             }
         }
 
@@ -446,10 +551,45 @@ export class MarkdownToolbarManager {
      */
     updateEditor(editorInstance, editorType) {
         if (this.toolbar && editorInstance) {
+            const typeChanged = this.editorType !== editorType;
             this.editorType = editorType;
             this.rawEditorInstance = editorInstance;
             this.editorInstance = this.resolveEditorInstance(editorInstance, editorType);
             this.toolbar.setEditor(this.getEditorProxy());
+
+            // 如果编辑器类型改变，需要重新定位容器
+            if (typeChanged && this.container) {
+                this.relocateContainer();
+            }
+        }
+    }
+
+    /**
+     * 重新定位工具栏容器到正确的编辑器位置
+     */
+    relocateContainer() {
+        if (!this.container) {
+            return;
+        }
+
+        // 从 DOM 中移除当前容器
+        const oldParent = this.container.parentNode;
+        if (oldParent) {
+            oldParent.removeChild(this.container);
+        }
+
+        // 查找新的编辑器容器位置
+        const editorContainer = this.findEditorContainer();
+        if (editorContainer && editorContainer.parentNode) {
+            // 重新插入到新位置
+            editorContainer.parentNode.insertBefore(this.container, editorContainer);
+            console.log('MarkdownToolbarManager: toolbar container relocated for', this.editorType);
+        } else {
+            console.warn('MarkdownToolbarManager: could not relocate container, editor container not found');
+            // 如果找不到新位置，尝试放回原位
+            if (oldParent) {
+                oldParent.appendChild(this.container);
+            }
         }
     }
 

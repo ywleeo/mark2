@@ -819,6 +819,33 @@ export class MarkdownToolbar {
     replaceLine(newLine, selection) {
         if (!this.editor) return;
 
+        // 检测新行的前缀长度（标题、列表、引用等）
+        const getPrefixLength = (line) => {
+            // 标题：# ## ### 等
+            const headingMatch = line.match(/^(#{1,6}\s+)/);
+            if (headingMatch) return headingMatch[1].length;
+
+            // 无序列表：- + *
+            const unorderedMatch = line.match(/^([-+*]\s+)/);
+            if (unorderedMatch) return unorderedMatch[1].length;
+
+            // 有序列表：1. 2. 等
+            const orderedMatch = line.match(/^(\d+\.\s+)/);
+            if (orderedMatch) return orderedMatch[1].length;
+
+            // 任务列表：- [ ] - [x]
+            const taskMatch = line.match(/^(-\s+\[[x\s]\]\s+)/i);
+            if (taskMatch) return taskMatch[1].length;
+
+            // 引用：>
+            const quoteMatch = line.match(/^(>\s+)/);
+            if (quoteMatch) return quoteMatch[1].length;
+
+            return 0;
+        };
+
+        const newPrefixLength = getPrefixLength(newLine);
+
         // TipTap 编辑器
         if (typeof this.editor.chain !== 'undefined') {
             const { state } = this.editor;
@@ -834,14 +861,18 @@ export class MarkdownToolbar {
                 .deleteSelection()
                 .insertContent(newLine)
                 .run();
+
+            // 将光标放在内容起点（跳过前缀）
+            const newCursorPos = lineStart + newPrefixLength;
+            this.editor.commands.setTextSelection({ from: newCursorPos, to: newCursorPos });
         }
         // 普通 textarea
         else if (this.editor.setRangeText) {
             this.editor.focus();
             this.editor.setRangeText(newLine, selection.lineStart, selection.lineEnd);
 
-            // 设置光标位置
-            const newCursorPos = selection.lineStart + newLine.length;
+            // 将光标放在内容起点（跳过前缀）
+            const newCursorPos = selection.lineStart + newPrefixLength;
             this.editor.setSelectionRange(newCursorPos, newCursorPos);
 
             // 触发 input 事件
