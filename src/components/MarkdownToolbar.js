@@ -800,11 +800,10 @@ export class MarkdownToolbar {
         // 普通 textarea
         else if (this.editor.setRangeText) {
             this.editor.focus();
-            this.editor.setRangeText(text);
-            this.editor.setSelectionRange(
-                selection.from + text.length,
-                selection.from + text.length
-            );
+
+            // 传递 selectionMode='select' 来选中插入的文本
+            // 不传 start/end，让 setRangeText 内部重新获取 focus() 后的选区
+            this.editor.setRangeText(text, undefined, undefined, 'select');
 
             // 触发 input 事件
             this.editor.dispatchEvent(new Event('input', { bubbles: true }));

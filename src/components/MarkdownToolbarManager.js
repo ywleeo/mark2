@@ -206,7 +206,7 @@ export class MarkdownToolbarManager {
                     const editor = getMonacoEditor();
                     editor?.focus?.();
                 },
-                setRangeText(text, start, end) {
+                setRangeText(text, start, end, selectionMode = 'end') {
                     const editor = getMonacoEditor();
                     const model = editor?.getModel?.();
                     if (!editor || !model) {
@@ -251,18 +251,40 @@ export class MarkdownToolbarManager {
                             text,
                             forceMoveMarkers: true
                         }],
-                        () => {
-                            // 计算新的光标位置：插入文本后的位置
-                            const newOffset = start + text.length;
-                            const newPos = model.getPositionAt(newOffset);
-                            return [{
-                                selectionStartLineNumber: newPos.lineNumber,
-                                selectionStartColumn: newPos.column,
-                                positionLineNumber: newPos.lineNumber,
-                                positionColumn: newPos.column
-                            }];
-                        }
+                        null  // Monaco Editor bug: afterEditAction 被忽略，需要手动设置选区
                     );
+
+                    // 编辑完成后，根据 selectionMode 显式设置选区
+                    if (selectionMode === 'select') {
+                        // 选中整个插入的文本
+                        const newStart = model.getPositionAt(start);
+                        const newEnd = model.getPositionAt(start + text.length);
+                        editor.setSelection({
+                            selectionStartLineNumber: newStart.lineNumber,
+                            selectionStartColumn: newStart.column,
+                            positionLineNumber: newEnd.lineNumber,
+                            positionColumn: newEnd.column
+                        });
+                    } else if (selectionMode === 'start') {
+                        // 光标移到开始位置
+                        const newPos = model.getPositionAt(start);
+                        editor.setSelection({
+                            selectionStartLineNumber: newPos.lineNumber,
+                            selectionStartColumn: newPos.column,
+                            positionLineNumber: newPos.lineNumber,
+                            positionColumn: newPos.column
+                        });
+                    } else {
+                        // 默认 'end'：光标移到末尾
+                        const newOffset = start + text.length;
+                        const newPos = model.getPositionAt(newOffset);
+                        editor.setSelection({
+                            selectionStartLineNumber: newPos.lineNumber,
+                            selectionStartColumn: newPos.column,
+                            positionLineNumber: newPos.lineNumber,
+                            positionColumn: newPos.column
+                        });
+                    }
                 },
                 // 模拟 textarea 的 dispatchEvent（虽然可能不需要）
                 dispatchEvent(event) {
