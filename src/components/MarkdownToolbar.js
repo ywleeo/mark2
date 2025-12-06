@@ -520,6 +520,11 @@ export class MarkdownToolbar {
      * @param {string} after - 后缀
      */
     toggleFormat(before, after) {
+        // 先确保编辑器有焦点，避免长时间等待后选区状态不准确
+        if (this.editor?.focus && typeof this.editor.focus === 'function') {
+            this.editor.focus();
+        }
+
         const { selectedText, selection } = this.getSelectedText();
 
         if (selectedText) {
