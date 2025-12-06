@@ -21,6 +21,9 @@ export function createFileMenuActions(options = {}) {
         getUnsupportedViewer,
         getStatusBarController,
         documentSessions,
+        loadFile,
+        getViewModeForPath,
+        getActiveViewMode,
     } = options;
 
     if (typeof confirm !== 'function') {
@@ -70,6 +73,15 @@ export function createFileMenuActions(options = {}) {
     }
     if (!documentSessions || typeof documentSessions.closeSessionForPath !== 'function') {
         throw new Error('createFileMenuActions 需要提供 documentSessions');
+    }
+    if (typeof loadFile !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 loadFile');
+    }
+    if (typeof getViewModeForPath !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 getViewModeForPath');
+    }
+    if (typeof getActiveViewMode !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 getActiveViewMode');
     }
 
     async function createNewFile() {
@@ -350,7 +362,6 @@ export function createFileMenuActions(options = {}) {
     async function applyPathChange(oldPath, newPath, options = {}) {
         const normalizedOld = normalizeFsPath(oldPath);
         const normalizedNew = normalizeFsPath(newPath);
-        const { suppressAutoFocus = false } = options;
         if (!normalizedOld || !normalizedNew) {
             return;
         }
@@ -384,7 +395,8 @@ export function createFileMenuActions(options = {}) {
             unsupportedViewer.currentFile = normalizedNew;
         }
 
-        if (normalizeFsPath(getCurrentFile()) === normalizedOld) {
+        const isCurrentFile = normalizeFsPath(getCurrentFile()) === normalizedOld;
+        if (isCurrentFile) {
             // 仅更新当前文件路径，不触发任何会导致编辑器聚焦的逻辑
             setCurrentFile(normalizedNew);
         }
@@ -398,6 +410,22 @@ export function createFileMenuActions(options = {}) {
 
         persistWorkspaceState({ currentFile: getCurrentFile() });
         await updateWindowTitle();
+
+        // 检测文件类型是否变化，如果变了需要重新加载文件
+        if (isCurrentFile) {
+            const oldViewMode = getViewModeForPath(normalizedOld);
+            const newViewMode = getViewModeForPath(normalizedNew);
+            const currentViewMode = getActiveViewMode();
+
+            // 如果新文件的视图模式与当前不一致，需要重新加载
+            if (newViewMode !== currentViewMode || newViewMode !== oldViewMode) {
+                try {
+                    await loadFile(normalizedNew, { autoFocus: false });
+                } catch (error) {
+                    console.error('重命名后重新加载文件失败:', error);
+                }
+            }
+        }
     }
 
     return {

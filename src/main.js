@@ -516,6 +516,9 @@ const {
     getUnsupportedViewer: () => unsupportedViewer,
     getStatusBarController: () => statusBarController,
     documentSessions,
+    loadFile,
+    getViewModeForPath,
+    getActiveViewMode: () => activeViewMode,
 });
 
 const recentFilesActions = createRecentFilesActions({
