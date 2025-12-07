@@ -709,6 +709,47 @@ export class CodeEditor {
             return;
         }
 
+        // Listen on window so trackpad drags that leave the editor still trigger the guard.
+        const pointerEventTarget = typeof window !== 'undefined' ? window : this.editorHost;
+
+        const capturePointerIfPossible = (pointerId) => {
+            if (!this.editorHost || typeof this.editorHost.setPointerCapture !== 'function') {
+                return false;
+            }
+            try {
+                this.editorHost.setPointerCapture(pointerId);
+                return true;
+            } catch (error) {
+                console.debug('[CodeEditor] 捕获指针失败:', error);
+                return false;
+            }
+        };
+
+        const releasePointerIfNeeded = (pointerId) => {
+            if (!this.editorHost || typeof this.editorHost.releasePointerCapture !== 'function') {
+                return;
+            }
+            try {
+                this.editorHost.releasePointerCapture(pointerId);
+            } catch (error) {
+                console.debug('[CodeEditor] 释放指针捕获失败:', error);
+            }
+        };
+
+        const blockTapSelectionEvent = (event) => {
+            if (!event) {
+                return;
+            }
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            } else if (typeof event.stopPropagation === 'function') {
+                event.stopPropagation();
+            }
+            if (event.cancelable) {
+                event.preventDefault();
+            }
+        };
+
         const pointerDown = (event) => {
             if (event.button !== 0 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
                 this.tapGuardState = null;
@@ -717,6 +758,8 @@ export class CodeEditor {
             this.tapGuardState = {
                 pointerId: event.pointerId,
                 canceled: false,
+                hasPointerCapture: capturePointerIfPossible(event.pointerId),
+                lastPosition: null,
             };
         };
 
@@ -728,8 +771,15 @@ export class CodeEditor {
             const primaryDown = (event.buttons & 1) === 1;
             const tapLikeDrag = primaryDown && (event.pressure === 0 || event.pointerType === 'touch');
             if (primaryDown && !tapLikeDrag) {
+                if (this.tapGuardState.hasPointerCapture) {
+                    releasePointerIfNeeded(event.pointerId);
+                    this.tapGuardState.hasPointerCapture = false;
+                }
                 this.tapGuardState.canceled = true;
                 return;
+            }
+            if (!this.tapGuardState.canceled) {
+                blockTapSelectionEvent(event);
             }
             if (!this.editor || !this.monaco) {
                 return;
@@ -738,11 +788,18 @@ export class CodeEditor {
             const target = this.editor.getTargetAtClientPoint(event.clientX, event.clientY);
             const position = target?.position;
             if (!position) {
+                if (this.tapGuardState.lastPosition) {
+                    const { lineNumber, column } = this.tapGuardState.lastPosition;
+                    const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
+                    this.editor.setPosition(this.tapGuardState.lastPosition);
+                    this.editor.setSelection(collapsed);
+                }
                 return;
             }
 
             const { lineNumber, column } = position;
             const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
+            this.tapGuardState.lastPosition = position;
 
             this.editor.setPosition(position);
             this.editor.setSelection(collapsed);
@@ -753,6 +810,11 @@ export class CodeEditor {
                 return;
             }
 
+            if (this.tapGuardState.hasPointerCapture) {
+                releasePointerIfNeeded(event.pointerId);
+                this.tapGuardState.hasPointerCapture = false;
+            }
+
             const isMultiClick = typeof event.detail === 'number' && event.detail >= 2;
             if (!this.tapGuardState.canceled && !isMultiClick) {
                 this.collapseSelectionToCursor();
@@ -760,20 +822,29 @@ export class CodeEditor {
             this.tapGuardState = null;
         };
 
-        const pointerCancel = () => {
+        const pointerCancel = (event) => {
+            if (this.tapGuardState?.hasPointerCapture) {
+                const pointerId = typeof event?.pointerId === 'number'
+                    ? event.pointerId
+                    : this.tapGuardState.pointerId;
+                if (typeof pointerId === 'number') {
+                    releasePointerIfNeeded(pointerId);
+                }
+                this.tapGuardState.hasPointerCapture = false;
+            }
             this.tapGuardState = null;
         };
 
         this.editorHost.addEventListener('pointerdown', pointerDown, true);
-        this.editorHost.addEventListener('pointermove', pointerMove, true);
-        this.editorHost.addEventListener('pointerup', pointerUp, true);
-        this.editorHost.addEventListener('pointercancel', pointerCancel, true);
+        pointerEventTarget.addEventListener('pointermove', pointerMove, true);
+        pointerEventTarget.addEventListener('pointerup', pointerUp, true);
+        pointerEventTarget.addEventListener('pointercancel', pointerCancel, true);
 
         this.tapGuardCleanup = () => {
             this.editorHost.removeEventListener('pointerdown', pointerDown, true);
-            this.editorHost.removeEventListener('pointermove', pointerMove, true);
-            this.editorHost.removeEventListener('pointerup', pointerUp, true);
-            this.editorHost.removeEventListener('pointercancel', pointerCancel, true);
+            pointerEventTarget.removeEventListener('pointermove', pointerMove, true);
+            pointerEventTarget.removeEventListener('pointerup', pointerUp, true);
+            pointerEventTarget.removeEventListener('pointercancel', pointerCancel, true);
         };
     }
 
