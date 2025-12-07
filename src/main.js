@@ -298,15 +298,26 @@ function toggleMarkdownToolbar() {
         return;
     }
 
-    const tiptapEditor = getToolbarEditorInstance();
     if (markdownToolbarManager) {
         markdownToolbarManager.toggle();
     } else {
         console.log('markdownToolbarManager is null, trying to initialize...');
-        // 如果还没有初始化，先初始化
-        if (tiptapEditor && appServices) {
+        // 如果还没有初始化，先初始化 - 根据当前视图模式选择编辑器
+        if (appServices) {
             markdownToolbarManager = new MarkdownToolbarManager(appServices);
-            markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
+
+            if (activeViewMode === 'code') {
+                // code 模式下使用 Monaco 编辑器
+                if (codeEditor) {
+                    markdownToolbarManager.initialize(codeEditor, 'monaco');
+                }
+            } else {
+                // markdown 模式下使用 TipTap 编辑器
+                const tiptapEditor = getToolbarEditorInstance();
+                if (tiptapEditor) {
+                    markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
+                }
+            }
         }
     }
 }
