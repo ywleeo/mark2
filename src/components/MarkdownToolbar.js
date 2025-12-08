@@ -167,6 +167,12 @@ export class MarkdownToolbar {
                 </svg>`,
                 title: '清除格式'
             },
+            copyMarkdown: {
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
+                </svg>`,
+                title: '复制 Markdown 文本'
+            },
             toggleViewMode: {
                 icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6Z" />
@@ -480,8 +486,8 @@ export class MarkdownToolbar {
      * @param {string} action - 动作类型
      */
     handleAction(action) {
-        // toggleViewMode 不需要编辑器实例，直接触发回调
-        if (action === 'toggleViewMode') {
+        // toggleViewMode 和 copyMarkdown 不需要编辑器实例，直接触发回调
+        if (action === 'toggleViewMode' || action === 'copyMarkdown') {
             this.emit('action', action);
             return;
         }

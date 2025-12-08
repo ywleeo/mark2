@@ -73,6 +73,7 @@ export class MarkdownToolbarManager {
                 'separator',
                 'clearFormatting',
                 'separator',
+                'copyMarkdown',
                 'toggleViewMode'
             ]
         });
@@ -435,6 +436,10 @@ export class MarkdownToolbarManager {
             if (action === 'toggleViewMode' && this.onToggleViewMode) {
                 this.onToggleViewMode();
             }
+            // 处理复制 markdown
+            if (action === 'copyMarkdown') {
+                this.copyMarkdown();
+            }
         });
     }
 
@@ -636,5 +641,67 @@ export class MarkdownToolbarManager {
         const isDark = theme === 'dark';
         this.container.classList.remove('markdown-toolbar-container--dark', 'markdown-toolbar-container--light');
         this.container.classList.add(isDark ? 'markdown-toolbar-container--dark' : 'markdown-toolbar-container--light');
+    }
+
+    /**
+     * 复制 markdown 内容到剪贴板
+     */
+    async copyMarkdown() {
+        try {
+            let markdown = '';
+
+            // 获取 markdown 内容
+            if (this.editorType === 'tiptap') {
+                // TipTap 编辑器 - 需要从全局的 markdownEditor 实例获取 markdown
+                // 因为 getMarkdown() 方法在 MarkdownEditor 上，而不是在 TipTap 编辑器上
+                if (typeof window !== 'undefined' && window.markdownEditor && typeof window.markdownEditor.getMarkdown === 'function') {
+                    markdown = window.markdownEditor.getMarkdown();
+                } else if (this.rawEditorInstance && typeof this.rawEditorInstance.getMarkdown === 'function') {
+                    markdown = this.rawEditorInstance.getMarkdown();
+                } else if (this.editorInstance && typeof this.editorInstance.getMarkdown === 'function') {
+                    markdown = this.editorInstance.getMarkdown();
+                } else {
+                    return;
+                }
+            } else if (this.editorType === 'monaco') {
+                // Monaco 编辑器 - 直接获取文本内容
+                if (this.rawEditorInstance && typeof this.rawEditorInstance.getValue === 'function') {
+                    markdown = this.rawEditorInstance.getValue();
+                } else if (this.editorInstance && typeof this.editorInstance.getValue === 'function') {
+                    markdown = this.editorInstance.getValue();
+                } else {
+                    return;
+                }
+            }
+
+            // 复制到剪贴板
+            if (markdown) {
+                await navigator.clipboard.writeText(markdown);
+                this.showCopyFeedback();
+            }
+        } catch (error) {
+            console.error('复制 markdown 失败:', error);
+        }
+    }
+
+    /**
+     * 显示复制成功的视觉反馈
+     */
+    showCopyFeedback() {
+        if (!this.container) {
+            return;
+        }
+
+        // 查找复制按钮
+        const copyButton = this.container.querySelector('[data-action="copyMarkdown"]');
+        if (copyButton) {
+            // 添加一个临时的类来显示反馈
+            copyButton.classList.add('toolbar-button--copied');
+
+            // 2秒后移除反馈样式
+            setTimeout(() => {
+                copyButton.classList.remove('toolbar-button--copied');
+            }, 2000);
+        }
     }
 }

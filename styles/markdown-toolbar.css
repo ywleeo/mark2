@@ -132,6 +132,16 @@
     transform: translateY(1px);
 }
 
+.toolbar-button--copied {
+    background: rgba(31, 132, 90, 0.15) !important;
+    color: #1f845a !important;
+}
+
+.markdown-toolbar--dark .toolbar-button--copied {
+    background: rgba(31, 132, 90, 0.25) !important;
+    color: #4ade80 !important;
+}
+
 .markdown-toolbar--dark .toolbar-button {
     color: var(--button-color, #b0b0b0);
 }

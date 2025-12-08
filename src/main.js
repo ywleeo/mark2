@@ -929,6 +929,8 @@ async function initializeApplication() {
 
     // 导出编辑器实例到全局，供工具栏使用
     window.editor = getToolbarEditorInstance();
+    // 同时导出 MarkdownEditor 实例，用于获取 markdown 内容
+    window.markdownEditor = editor;
 
     // 监听视图模式切换，自动更新工具栏
     eventBus.on('view-mode-changed', ({ mode }) => {
