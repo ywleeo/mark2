@@ -35,7 +35,9 @@ export class MarkdownToolbar {
                 'table',
                 'horizontalRule',
                 'codeBlock',
-                'clearFormatting'
+                'clearFormatting',
+                'separator',
+                'toggleViewMode'
             ],
             ...options
         };
@@ -164,6 +166,13 @@ export class MarkdownToolbar {
                     <path d="M17,7H23V5H17H12.42C11.52,5 10.73,5.4 10.12,6L9.74,6.39L11.16,7.81L11.58,7.39C11.78,7.2 12.09,7 12.42,7H17Z" />
                 </svg>`,
                 title: '清除格式'
+            },
+            toggleViewMode: {
+                icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6Z" />
+                </svg>`,
+                title: '切换代码/预览模式',
+                shortcut: 'Ctrl+E'
             }
         };
 
@@ -471,6 +480,12 @@ export class MarkdownToolbar {
      * @param {string} action - 动作类型
      */
     handleAction(action) {
+        // toggleViewMode 不需要编辑器实例，直接触发回调
+        if (action === 'toggleViewMode') {
+            this.emit('action', action);
+            return;
+        }
+
         if (!this.editor) {
             console.warn('No editor instance set');
             return;

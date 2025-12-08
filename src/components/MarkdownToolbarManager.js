@@ -5,7 +5,7 @@ import { MarkdownToolbar } from './MarkdownToolbar.js';
  * 负责工具栏的生命周期管理和系统集成
  */
 export class MarkdownToolbarManager {
-    constructor(appServices) {
+    constructor(appServices, options = {}) {
         this.appServices = appServices;
         this.toolbar = null;
         this.container = null;
@@ -14,6 +14,7 @@ export class MarkdownToolbarManager {
         this.rawEditorInstance = null;
         this.editorType = null; // 'tiptap' 或 'monaco'
         this.isInitialized = false;
+        this.onToggleViewMode = options.onToggleViewMode || null;
 
         // 从设置中加载工具栏可见性
         this.loadVisibility();
@@ -70,7 +71,9 @@ export class MarkdownToolbarManager {
                 'table',
                 'horizontalRule',
                 'separator',
-                'clearFormatting'
+                'clearFormatting',
+                'separator',
+                'toggleViewMode'
             ]
         });
 
@@ -426,9 +429,12 @@ export class MarkdownToolbarManager {
             this.updateContainerTheme(theme);
         });
 
-        // 监听工具栏动作，可以在这里添加统计或日志
+        // 监听工具栏动作
         this.toolbar.on('action', (action) => {
-            console.log('Toolbar action:', action);
+            // 处理视图模式切换
+            if (action === 'toggleViewMode' && this.onToggleViewMode) {
+                this.onToggleViewMode();
+            }
         });
     }
 
@@ -584,6 +590,14 @@ export class MarkdownToolbarManager {
                 this.relocateContainer();
             }
         }
+    }
+
+    /**
+     * 设置视图模式切换回调
+     * @param {Function} callback - 回调函数
+     */
+    setToggleViewModeCallback(callback) {
+        this.onToggleViewMode = callback;
     }
 
     /**

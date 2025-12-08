@@ -299,12 +299,16 @@ function toggleMarkdownToolbar() {
     }
 
     if (markdownToolbarManager) {
+        // 确保回调已设置
+        markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
         markdownToolbarManager.toggle();
     } else {
         console.log('markdownToolbarManager is null, trying to initialize...');
         // 如果还没有初始化，先初始化 - 根据当前视图模式选择编辑器
         if (appServices) {
-            markdownToolbarManager = new MarkdownToolbarManager(appServices);
+            markdownToolbarManager = new MarkdownToolbarManager(appServices, {
+                onToggleViewMode: toggleMarkdownCodeMode
+            });
 
             if (activeViewMode === 'code') {
                 // code 模式下使用 Monaco 编辑器
