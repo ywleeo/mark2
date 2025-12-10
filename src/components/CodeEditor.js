@@ -708,9 +708,39 @@ export class CodeEditor {
         if (!this.editorHost) {
             return;
         }
+        if (this.tapGuardCleanup) {
+            this.tapGuardCleanup();
+            this.tapGuardCleanup = null;
+        }
+        this.tapGuardState = null;
 
-        // Listen on window so trackpad drags that leave the editor still trigger the guard.
         const pointerEventTarget = typeof window !== 'undefined' ? window : this.editorHost;
+
+        const normalizedPointerType = (event) => {
+            const pointerType = typeof event.pointerType === 'string'
+                ? event.pointerType.toLowerCase()
+                : '';
+            if (!pointerType) {
+                return 'mouse';
+            }
+            return pointerType;
+        };
+
+        const shouldGuardPointer = (event) => {
+            const pointerType = normalizedPointerType(event);
+            if (pointerType === 'touch' || pointerType === 'pen') {
+                return true;
+            }
+            if (pointerType === 'mouse') {
+                if (typeof event.buttons === 'number' && event.buttons === 0) {
+                    return true;
+                }
+                if (typeof event.pressure === 'number') {
+                    return event.pressure === 0;
+                }
+            }
+            return false;
+        };
 
         const capturePointerIfPossible = (pointerId) => {
             if (!this.editorHost || typeof this.editorHost.setPointerCapture !== 'function') {
@@ -736,7 +766,7 @@ export class CodeEditor {
             }
         };
 
-        const blockTapSelectionEvent = (event) => {
+        const stopEventForTap = (event) => {
             if (!event) {
                 return;
             }
@@ -750,74 +780,95 @@ export class CodeEditor {
             }
         };
 
+        const collapseToPosition = (position) => {
+            if (!position || !this.editor || !this.monaco) {
+                return;
+            }
+            const { lineNumber, column } = position;
+            const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
+            this.editor.setPosition(position);
+            this.editor.setSelection(collapsed);
+        };
+
         const pointerDown = (event) => {
             if (event.button !== 0 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
                 this.tapGuardState = null;
                 return;
             }
+            if (!shouldGuardPointer(event)) {
+                this.tapGuardState = null;
+                return;
+            }
+
+            let initialPosition = null;
+            if (this.editor) {
+                const target = this.editor.getTargetAtClientPoint(event.clientX, event.clientY);
+                initialPosition = target?.position || this.editor.getPosition() || null;
+            }
+
             this.tapGuardState = {
                 pointerId: event.pointerId,
-                canceled: false,
-                hasPointerCapture: capturePointerIfPossible(event.pointerId),
-                lastPosition: null,
+                hasPointerCapture: false,
+                guardActive: false,
+                startClientX: event.clientX,
+                startClientY: event.clientY,
+                lastPosition: initialPosition,
+                pointerType: normalizedPointerType(event),
             };
         };
 
         const pointerMove = (event) => {
-            if (!this.tapGuardState || event.pointerId !== this.tapGuardState.pointerId) {
+            const state = this.tapGuardState;
+            if (!state || event.pointerId !== state.pointerId) {
                 return;
             }
-
-            const primaryDown = (event.buttons & 1) === 1;
-            const tapLikeDrag = primaryDown && (event.pressure === 0 || event.pointerType === 'touch');
-            if (primaryDown && !tapLikeDrag) {
-                if (this.tapGuardState.hasPointerCapture) {
+            if (typeof event.buttons === 'number' && event.buttons !== 0) {
+                if (state.hasPointerCapture) {
                     releasePointerIfNeeded(event.pointerId);
-                    this.tapGuardState.hasPointerCapture = false;
                 }
-                this.tapGuardState.canceled = true;
-                return;
-            }
-            if (!this.tapGuardState.canceled) {
-                blockTapSelectionEvent(event);
-            }
-            if (!this.editor || !this.monaco) {
+                this.tapGuardState = null;
                 return;
             }
 
-            const target = this.editor.getTargetAtClientPoint(event.clientX, event.clientY);
-            const position = target?.position;
-            if (!position) {
-                if (this.tapGuardState.lastPosition) {
-                    const { lineNumber, column } = this.tapGuardState.lastPosition;
-                    const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
-                    this.editor.setPosition(this.tapGuardState.lastPosition);
-                    this.editor.setSelection(collapsed);
+            const dx = Math.abs(event.clientX - (state.startClientX ?? event.clientX));
+            const dy = Math.abs(event.clientY - (state.startClientY ?? event.clientY));
+            const movementExceedsThreshold = dx > 1 || dy > 1;
+
+            if (!state.guardActive) {
+                if (!movementExceedsThreshold) {
+                    return;
+                }
+                if (!shouldGuardPointer(event)) {
+                    this.tapGuardState = null;
+                    return;
+                }
+                state.guardActive = true;
+                if (!state.hasPointerCapture) {
+                    state.hasPointerCapture = capturePointerIfPossible(event.pointerId);
+                }
+                stopEventForTap(event);
+                if (state.lastPosition) {
+                    collapseToPosition(state.lastPosition);
                 }
                 return;
             }
 
-            const { lineNumber, column } = position;
-            const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
-            this.tapGuardState.lastPosition = position;
-
-            this.editor.setPosition(position);
-            this.editor.setSelection(collapsed);
+            stopEventForTap(event);
         };
 
         const pointerUp = (event) => {
-            if (!this.tapGuardState || event.pointerId !== this.tapGuardState.pointerId) {
+            const state = this.tapGuardState;
+            if (!state || event.pointerId !== state.pointerId) {
                 return;
             }
-
-            if (this.tapGuardState.hasPointerCapture) {
-                releasePointerIfNeeded(event.pointerId);
-                this.tapGuardState.hasPointerCapture = false;
-            }
-
-            const isMultiClick = typeof event.detail === 'number' && event.detail >= 2;
-            if (!this.tapGuardState.canceled && !isMultiClick) {
-                this.collapseSelectionToCursor();
+            if (state.guardActive) {
+                stopEventForTap(event);
+                if (state.hasPointerCapture) {
+                    releasePointerIfNeeded(event.pointerId);
+                }
+                if (state.lastPosition) {
+                    collapseToPosition(state.lastPosition);
+                }
             }
             this.tapGuardState = null;
         };
@@ -830,7 +881,6 @@ export class CodeEditor {
                 if (typeof pointerId === 'number') {
                     releasePointerIfNeeded(pointerId);
                 }
-                this.tapGuardState.hasPointerCapture = false;
             }
             this.tapGuardState = null;
         };
@@ -845,20 +895,8 @@ export class CodeEditor {
             pointerEventTarget.removeEventListener('pointermove', pointerMove, true);
             pointerEventTarget.removeEventListener('pointerup', pointerUp, true);
             pointerEventTarget.removeEventListener('pointercancel', pointerCancel, true);
+            this.tapGuardState = null;
         };
-    }
-
-    collapseSelectionToCursor() {
-        if (!this.editor || !this.monaco) {
-            return;
-        }
-        const position = this.editor.getPosition();
-        if (!position) {
-            return;
-        }
-        const { lineNumber, column } = position;
-        const selection = new this.monaco.Selection(lineNumber, column, lineNumber, column);
-        this.editor.setSelection(selection);
     }
 
     getSelectionText() {
