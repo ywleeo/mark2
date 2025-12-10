@@ -10,11 +10,13 @@
 }
 
 .code-editor-pane.is-active {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 .code-editor__instance {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     width: 100%;
 }
 

@@ -389,7 +389,17 @@ export class MarkdownToolbarManager {
                 return tiptapEditor;
             }
         } else if (this.editorType === 'monaco') {
-            // 查找 Monaco 编辑器的容器
+            // 查找 Code Editor 容器 - 优先查找 code-editor-pane
+            const codeEditorPane = document.querySelector('.code-editor-pane');
+            if (codeEditorPane) {
+                // 查找内部的 monaco 编辑器实例
+                const monacoEditor = codeEditorPane.querySelector('.code-editor__instance');
+                if (monacoEditor) {
+                    return monacoEditor;
+                }
+            }
+
+            // 备用方案：查找任何 monaco-editor
             const monacoEditor = document.querySelector('.monaco-editor');
             if (monacoEditor) {
                 return monacoEditor;
