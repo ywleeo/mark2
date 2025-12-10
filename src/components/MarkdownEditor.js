@@ -28,6 +28,7 @@ import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortc
 import { getAppServices } from '../services/appServices.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
 import { ImageModal } from './ImageModal.js';
+import { listen } from '@tauri-apps/api/event';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -67,6 +68,7 @@ export class MarkdownEditor {
         this.aiStreamSessions = new Map();
         this.pendingMermaidRender = null;
         this.mermaidRenderFrame = null;
+        this.plainPasteUnlisten = null;
 
         this.init();
     }
@@ -182,6 +184,41 @@ export class MarkdownEditor {
                 }
             }, true);
         }
+
+        this.setupPlainPasteListener();
+    }
+
+    setupPlainPasteListener() {
+        if (typeof listen !== 'function') {
+            return;
+        }
+        if (typeof window === 'undefined' || !window.__TAURI__) {
+            return;
+        }
+
+        listen('plain-paste', (event) => {
+            const payload = event?.payload;
+            let text = '';
+            if (typeof payload === 'string') {
+                text = payload;
+            } else if (payload && typeof payload.text === 'string') {
+                text = payload.text;
+            }
+            if (!text) {
+                return;
+            }
+            if (!this.editor || !this.editor.isEditable) {
+                return;
+            }
+            if (typeof this.editor.isFocused === 'function' && !this.editor.isFocused()) {
+                return;
+            }
+            this.insertTextAtCursor(text);
+        }).then(unlisten => {
+            this.plainPasteUnlisten = unlisten;
+        }).catch(error => {
+            console.warn('[MarkdownEditor] 无法监听 plain-paste 事件', error);
+        });
     }
 
     isSessionActive(sessionId) {
@@ -900,6 +937,14 @@ export class MarkdownEditor {
         this.clipboardEnhancer?.destroy();
         this.imageModal?.destroy();
         this.clearAutoSaveTimer();
+        if (typeof this.plainPasteUnlisten === 'function') {
+            try {
+                this.plainPasteUnlisten();
+            } catch (error) {
+                console.warn('[MarkdownEditor] plainPasteUnlisten 执行失败', error);
+            }
+            this.plainPasteUnlisten = null;
+        }
         if (this.linkClickCleanup) {
             this.linkClickCleanup();
             this.linkClickCleanup = null;

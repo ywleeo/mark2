@@ -18,8 +18,11 @@ use tauri::http::header::{
     ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE,
 };
 use tauri::http::{Response, StatusCode};
-use tauri::{Emitter, Manager, Wry};
+use tauri::{AppHandle, Emitter, Manager, Wry};
+use tauri::async_runtime;
 use percent_encoding::percent_decode_str;
+use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[cfg(target_os = "macos")]
 use objc2::rc::autoreleasepool;
@@ -45,6 +48,11 @@ struct SpreadsheetSheet {
 #[derive(Serialize)]
 struct SpreadsheetData {
     sheets: Vec<SpreadsheetSheet>,
+}
+
+#[derive(Clone, Serialize)]
+struct PlainPastePayload {
+    text: String,
 }
 
 struct ExportMenuHandles {
@@ -410,6 +418,47 @@ fn pick_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
     }
 }
 
+fn register_plain_paste_shortcut(app_handle: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    let shortcut = "Cmd+Shift+V";
+    #[cfg(not(target_os = "macos"))]
+    let shortcut = "Ctrl+Shift+V";
+
+    let result = app_handle.global_shortcut().on_shortcut(shortcut, move |app, _shortcut, event| {
+        if event.state != ShortcutState::Pressed {
+            return;
+        }
+        let emit_handle = app.clone();
+        let clipboard_handle = app.clone();
+        async_runtime::spawn(async move {
+            let read_result =
+                async_runtime::spawn_blocking(move || clipboard_handle.clipboard().read_text()).await;
+            match read_result {
+                Ok(Ok(text)) => {
+                    if text.is_empty() {
+                        return;
+                    }
+                    if let Some(window) = emit_handle.get_webview_window("main") {
+                        if let Err(err) = window.emit("plain-paste", PlainPastePayload { text }) {
+                            eprintln!("Failed to emit plain paste event: {:?}", err);
+                        }
+                    }
+                }
+                Ok(Err(err)) => {
+                    eprintln!("Failed to read clipboard: {:?}", err);
+                }
+                Err(err) => {
+                    eprintln!("Clipboard task join error: {:?}", err);
+                }
+            }
+        });
+    });
+
+    if let Err(err) = result {
+        eprintln!("Failed to register plain paste shortcut: {:?}", err);
+    }
+}
+
 #[tauri::command]
 fn list_fonts() -> Result<Vec<String>, String> {
     let source = SystemSource::new();
@@ -684,6 +733,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             is_directory,
             read_file,
@@ -710,6 +761,7 @@ fn main() {
         ])
         .setup(|app| {
             let handle = app.handle();
+            register_plain_paste_shortcut(&handle);
             #[cfg(debug_assertions)]
             println!("[MCP] initializing server...");
             mcp_server::spawn_mcp_server(handle.clone());

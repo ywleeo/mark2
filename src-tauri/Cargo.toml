@@ -12,6 +12,8 @@ tauri = { version = "2.3", features = [] }
 tauri-plugin-dialog = "2.3"
 tauri-plugin-fs = { version = "2.4", features = ["watch"] }
 tauri-plugin-shell = "2.3"
+tauri-plugin-clipboard-manager = "2.3"
+tauri-plugin-global-shortcut = "2.3"
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread", "net"] }
 axum = { version = "0.7", features = ["macros", "json"] }
 axum-server = { version = "0.6", features = ["tls-rustls"] }
