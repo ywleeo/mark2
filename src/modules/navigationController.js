@@ -103,7 +103,7 @@ export function createNavigationController({
             const sharedTab = tabManager?.sharedTab;
             if (sharedTab && sharedTab.path) {
                 try {
-                    await loadFile(sharedTab.path);
+                    await loadFile(sharedTab.path, { tabId: tabManager?.sharedTabId || null });
                     tabManager?.setActiveTab(sharedTab.id, { silent: true });
                 } catch (error) {
                     console.error('切换到 shared tab 失败:', error);
@@ -120,7 +120,8 @@ export function createNavigationController({
 
             const shouldForceReload = Boolean(fileTree?.consumeExternalModification?.(filePath));
 
-            await loadFile(filePath, { forceReload: shouldForceReload, autoFocus });
+            const tabId = normalizedNext || filePath || null;
+            await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
 
             const isOpenTab = fileTree?.isInOpenList?.(filePath);
 
@@ -244,6 +245,10 @@ export function createNavigationController({
                 }
             }
             documentSessions.closeSessionForPath(targetPath);
+            const codeEditor = getCodeEditor();
+            const markdownEditor = getEditor();
+            codeEditor?.forgetViewStateForTab?.(normalizedTarget);
+            markdownEditor?.forgetViewStateForTab?.(normalizedTarget);
             return;
         }
 
@@ -270,6 +275,10 @@ export function createNavigationController({
                     fileTree?.stopWatchingFile(targetPath);
                 }
                 documentSessions.closeSessionForPath(targetPath);
+                const codeEditor = getCodeEditor();
+                const markdownEditor = getEditor();
+                codeEditor?.forgetViewStateForTab?.(tab.id || null);
+                markdownEditor?.forgetViewStateForTab?.(tab.id || null);
             }
 
             if (!tab.fallbackPath) {

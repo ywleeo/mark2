@@ -257,15 +257,25 @@ export function createFileOperations({
 
             const editor = getEditor();
             const codeEditor = getCodeEditor();
-            editor?.prepareForDocument?.(session, filePath);
-            codeEditor?.prepareForDocument?.(session, filePath);
-
             const imageViewer = getImageViewer();
             const mediaViewer = getMediaViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
             const unsupportedViewer = getUnsupportedViewer();
             const fileTree = getFileTree();
+            const normalizedTargetPath = typeof filePath === 'string'
+                ? normalizeFsPath(filePath) || filePath
+                : null;
+            const providedTabId = typeof options.tabId === 'string' && options.tabId.length > 0
+                ? options.tabId
+                : null;
+            const hasPersistentTab = normalizedTargetPath
+                ? Boolean(fileTree?.isInOpenList?.(normalizedTargetPath))
+                : false;
+            const tabId = providedTabId
+                || (hasPersistentTab ? normalizedTargetPath : null);
+            editor?.prepareForDocument?.(session, filePath, tabId);
+            codeEditor?.prepareForDocument?.(session, filePath, tabId);
             // 关闭旧文件可能仍在等待自动保存，提前清除避免写入到新文件
             editor?.clearAutoSaveTimer?.();
 
@@ -457,7 +467,10 @@ export function createFileOperations({
                 activateCodeView();
                 editor?.clear?.();
                 const language = detectLanguageForPath(filePath);
-                await codeEditor?.show(filePath, fileData.content, language, session, { autoFocus: shouldAutoFocus });
+                await codeEditor?.show(filePath, fileData.content, language, session, {
+                    autoFocus: shouldAutoFocus,
+                    tabId,
+                });
                 if (shouldAbort('code-editor-load')) {
                     return;
                 }

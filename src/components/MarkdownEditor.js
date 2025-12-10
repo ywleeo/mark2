@@ -52,6 +52,8 @@ export class MarkdownEditor {
         this.loadingSessionId = null;
         this.autoSavePlannedSessionId = null;
         this.isLoadingFile = false;
+        this.currentTabId = null;
+        this.tabViewStates = new Map();
 
         // 初始化 Markdown 和 Turndown 服务
         this.md = createConfiguredMarkdownIt();
@@ -393,10 +395,7 @@ export class MarkdownEditor {
         this.codeCopyManager?.hideCodeCopyButton({ immediate: true });
         this.suppressUpdateEvent = true;
         try {
-            // 只在需要聚焦时才启用编辑器，否则保持禁用状态防止意外聚焦
-            if (shouldFocusStart) {
-                this.editor.setEditable(true);
-            }
+            this.editor.setEditable(true);
             this.editor.commands.setContent(resolvedHtml);
 
             if (shouldFocusStart) {
@@ -439,14 +438,19 @@ export class MarkdownEditor {
         this.editor.view.updateState(newState);
     }
 
-    prepareForDocument(session, filePath) {
+    prepareForDocument(session, filePath, tabId = null) {
         const sessionId = session?.id ?? this.currentSessionId ?? null;
         const previousFile = this.currentFile;
         const isFileSwitching = previousFile !== filePath;
+        const previousTabId = this.currentTabId;
+        if (previousTabId) {
+            this.saveViewStateForTab(previousTabId);
+        }
 
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
         this.currentFile = filePath;
+        this.currentTabId = typeof tabId === 'string' && tabId.length > 0 ? tabId : null;
         this.isLoadingFile = true;
         this.clearAutoSaveTimer();
         this.contentChanged = false;
@@ -700,7 +704,10 @@ export class MarkdownEditor {
     }
 
     async loadFile(sessionOrPath, maybeFilePath, maybeContent, options = {}) {
-        const { autoFocus = true } = options;
+        const {
+            autoFocus = true,
+            tabId = null,
+        } = options;
         let session = null;
         let filePath = sessionOrPath;
         let content = maybeFilePath;
@@ -720,11 +727,25 @@ export class MarkdownEditor {
         this.currentFile = filePath;
         this.loadingSessionId = sessionId;
         this.isLoadingFile = true;
+        const nextTabId = typeof tabId === 'string' && tabId.length > 0
+            ? tabId
+            : this.currentTabId;
+        this.currentTabId = nextTabId;
+        const hasSavedViewState = nextTabId ? this.hasViewStateForTab(nextTabId) : false;
+        const focusOnStart = autoFocus && !hasSavedViewState;
 
         try {
-            const applied = await this.setContent(content, autoFocus);
+            const applied = await this.setContent(content, focusOnStart);
             if (!applied) {
                 return;
+            }
+            if (nextTabId && hasSavedViewState) {
+                this.restoreViewStateForTab(nextTabId);
+                if (autoFocus) {
+                    this.editor.commands.focus();
+                }
+            } else if (!focusOnStart && autoFocus) {
+                this.editor.commands.focus('start');
             }
 
             if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
@@ -930,6 +951,95 @@ export class MarkdownEditor {
         return this.aiStreamSessions.has(sessionId);
     }
 
+    hasViewStateForTab(tabId) {
+        if (!tabId) {
+            return false;
+        }
+        return this.tabViewStates.has(tabId);
+    }
+
+    getScrollContainer() {
+        if (this.editor?.view?.scrollDOM) {
+            return this.editor.view.scrollDOM;
+        }
+        if (this.editor?.view?.dom?.parentElement) {
+            return this.editor.view.dom.parentElement;
+        }
+        if (this.element?.parentElement) {
+            return this.element.parentElement;
+        }
+        return this.element;
+    }
+
+    saveViewStateForTab(tabId) {
+        if (!tabId || !this.editor) {
+            return;
+        }
+        const selection = this.editor.state?.selection;
+        const scrollContainer = this.getScrollContainer();
+        const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+        this.tabViewStates.set(tabId, {
+            selection: selection
+                ? { from: selection.from, to: selection.to }
+                : null,
+            scrollTop,
+        });
+    }
+
+    restoreViewStateForTab(tabId) {
+        if (!tabId || !this.editor) {
+            return false;
+        }
+        const snapshot = this.tabViewStates.get(tabId);
+        if (!snapshot) {
+            return false;
+        }
+        const { selection, scrollTop } = snapshot;
+        if (selection) {
+            const docSize = Math.max(0, this.editor.state?.doc?.content?.size ?? 0);
+            const clamp = (value) => Math.max(0, Math.min(value, docSize));
+            this.editor.commands.setTextSelection({
+                from: clamp(selection.from),
+                to: clamp(selection.to),
+            });
+        }
+        const scrollContainer = this.getScrollContainer();
+        if (scrollContainer) {
+            const applyScroll = () => {
+                scrollContainer.scrollTop = scrollTop;
+            };
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(applyScroll);
+                });
+            } else {
+                applyScroll();
+            }
+        }
+        return true;
+    }
+
+    forgetViewStateForTab(tabId) {
+        if (!tabId) {
+            return;
+        }
+        this.tabViewStates.delete(tabId);
+    }
+
+    renameViewStateForTab(oldTabId, newTabId) {
+        if (!oldTabId || !newTabId || oldTabId === newTabId) {
+            return;
+        }
+        if (!this.tabViewStates.has(oldTabId)) {
+            return;
+        }
+        const state = this.tabViewStates.get(oldTabId);
+        this.tabViewStates.delete(oldTabId);
+        if (state) {
+            this.tabViewStates.set(newTabId, state);
+        }
+    }
+
     // 销毁编辑器
     destroy() {
         this.codeCopyManager?.destroy();
@@ -964,6 +1074,8 @@ export class MarkdownEditor {
         if (this.editor) {
             this.editor.destroy();
         }
+        this.tabViewStates.clear();
+        this.currentTabId = null;
     }
 
     clear() {

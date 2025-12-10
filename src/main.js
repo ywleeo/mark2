@@ -850,7 +850,13 @@ async function initializeApplication() {
         getEditor: () => editor,
         getCodeEditor: () => codeEditor,
         scheduleLoadFile: async (path) => {
-            await loadFile(path, { skipWatchSetup: true, forceReload: true, autoFocus: false });
+            const normalized = normalizeFsPath(path) || path || null;
+            await loadFile(path, {
+                skipWatchSetup: true,
+                forceReload: true,
+                autoFocus: false,
+                tabId: normalized,
+            });
         },
         fileSession,
         documentSessions,

@@ -382,9 +382,15 @@ export function createFileMenuActions(options = {}) {
         if (editor && editor.currentFile === normalizedOld) {
             editor.currentFile = normalizedNew;
         }
+        if (editor?.renameViewStateForTab) {
+            editor.renameViewStateForTab(normalizedOld, normalizedNew);
+        }
         const codeEditor = getCodeEditor();
         if (codeEditor && codeEditor.currentFile === normalizedOld) {
             codeEditor.currentFile = normalizedNew;
+        }
+        if (codeEditor?.renameViewStateForTab) {
+            codeEditor.renameViewStateForTab(normalizedOld, normalizedNew);
         }
         const imageViewer = getImageViewer();
         if (imageViewer && imageViewer.currentFile === normalizedOld) {
@@ -420,7 +426,7 @@ export function createFileMenuActions(options = {}) {
             // 如果新文件的视图模式与当前不一致，需要重新加载
             if (newViewMode !== currentViewMode || newViewMode !== oldViewMode) {
                 try {
-                    await loadFile(normalizedNew, { autoFocus: false });
+                    await loadFile(normalizedNew, { autoFocus: false, tabId: normalizedNew });
                 } catch (error) {
                     console.error('重命名后重新加载文件失败:', error);
                 }

@@ -38,7 +38,7 @@ export function createSvgCodeMode({
             
             // Set up the code editor with SVG content
             const language = 'xml'; // SVG is XML-based
-            await codeEditor.show(currentFile, svgContent, language);
+            await codeEditor.show(currentFile, svgContent, language, null, { tabId: currentFile });
             
             return {
                 changed: true,
@@ -49,6 +49,7 @@ export function createSvgCodeMode({
 
         // From code view back to image view
         if (activeViewMode === 'code') {
+            codeEditor?.saveViewStateForTab?.(currentFile);
             const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
             
             // If there are unsaved changes, save them before switching back

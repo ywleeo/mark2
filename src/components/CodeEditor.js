@@ -136,6 +136,8 @@ export class CodeEditor {
         this.documentSessions = options?.documentSessions || null;
         this.currentSessionId = null;
         this.loadingSessionId = null;
+        this.currentTabId = null;
+        this.tabViewStates = new Map();
 
         // 自动保存相关
         this.autoSaveDelayMs = Number.isFinite(options.autoSaveDelayMs)
@@ -174,14 +176,20 @@ export class CodeEditor {
         return this.documentSessions.isSessionActive(sessionId);
     }
 
-    prepareForDocument(session, filePath) {
+    prepareForDocument(session, filePath, tabId = null) {
+        const previousSessionId = this.currentSessionId;
         const sessionId = session?.id ?? this.currentSessionId ?? null;
         const previousFile = this.currentFile;
         const isFileSwitching = previousFile !== filePath;
-
+        const previousTabId = this.currentTabId;
+        if (previousTabId) {
+            this.saveViewStateForTab(previousTabId);
+        }
+        const nextTabId = typeof tabId === 'string' && tabId.length > 0 ? tabId : null;
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
         this.currentFile = filePath;
+        this.currentTabId = nextTabId;
         this.isDirty = false;
         if (!this.editor) {
             return;
@@ -256,12 +264,18 @@ export class CodeEditor {
     }
 
     async show(filePath, content, language = null, session = null, options = {}) {
-        const { autoFocus = true } = options;
+        const {
+            autoFocus = true,
+            tabId = null,
+        } = options;
         const sessionId = session?.id ?? this.currentSessionId ?? null;
         if (session && !this.isSessionActive(sessionId)) {
             return;
         }
 
+        if (tabId && tabId !== this.currentTabId) {
+            this.currentTabId = tabId;
+        }
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
         await this.ensureEditor();
@@ -322,6 +336,7 @@ export class CodeEditor {
             insertSpaces: true,
             detectIndentation: false,
         });
+        this.restoreViewStateForTab(this.currentTabId);
         this.showContainer();
         this.requestLayout();
 
@@ -702,6 +717,60 @@ export class CodeEditor {
             this.monaco = null;
         }
         window.removeEventListener('resize', this.handleResize);
+        this.currentTabId = null;
+        this.tabViewStates.clear();
+    }
+
+    saveViewStateForTab(tabId) {
+        if (!tabId || !this.editor) {
+            return;
+        }
+        try {
+            const viewState = this.editor.saveViewState();
+            if (viewState) {
+                this.tabViewStates.set(tabId, viewState);
+            }
+        } catch (error) {
+            console.warn('[CodeEditor] 保存视图状态失败', error);
+        }
+    }
+
+    restoreViewStateForTab(tabId) {
+        if (!tabId || !this.editor) {
+            return false;
+        }
+        const viewState = this.tabViewStates.get(tabId);
+        if (!viewState) {
+            return false;
+        }
+        try {
+            this.editor.restoreViewState(viewState);
+            return true;
+        } catch (error) {
+            console.warn('[CodeEditor] 恢复视图状态失败', error);
+            return false;
+        }
+    }
+
+    forgetViewStateForTab(tabId) {
+        if (!tabId) {
+            return;
+        }
+        this.tabViewStates.delete(tabId);
+    }
+
+    renameViewStateTab(oldTabId, newTabId) {
+        if (!oldTabId || !newTabId || oldTabId === newTabId) {
+            return;
+        }
+        if (!this.tabViewStates.has(oldTabId)) {
+            return;
+        }
+        const state = this.tabViewStates.get(oldTabId);
+        this.tabViewStates.delete(oldTabId);
+        if (state) {
+            this.tabViewStates.set(newTabId, state);
+        }
     }
 
     setupTapSelectionGuard() {

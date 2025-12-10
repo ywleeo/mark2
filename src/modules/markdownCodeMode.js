@@ -36,9 +36,10 @@ export function createMarkdownCodeMode({
                 originalMarkdown: editor.originalMarkdown,
             };
 
+            editor?.saveViewStateForTab?.(currentFile);
             activateCodeView();
             const language = detectLanguageForPath(currentFile) || 'plaintext';
-            await codeEditor.show(currentFile, markdownContent, language);
+            await codeEditor.show(currentFile, markdownContent, language, null, { tabId: currentFile });
             editor?.refreshSearch?.();
 
             if (hadUnsavedChanges) {
@@ -59,8 +60,9 @@ export function createMarkdownCodeMode({
             const codeContent = codeEditor.getValue();
             const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
 
+            codeEditor?.saveViewStateForTab?.(currentFile);
             activateMarkdownView();
-            await editor.loadFile(currentFile, codeContent);
+            await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });
             editor?.refreshSearch?.();
 
             if (hadUnsavedChanges && toggleState?.originalMarkdown !== undefined) {
