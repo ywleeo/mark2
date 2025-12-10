@@ -1249,11 +1249,42 @@ export class FileTree {
     }
 
     async refreshCurrentFolder(targetPath = null) {
-        return this.watcher?.refreshCurrentFolder(targetPath);
+        if (targetPath) {
+            await this.refreshFolder(targetPath);
+            return;
+        }
+
+        const rootPaths = Array.from(this.rootPaths);
+        const tasks = rootPaths.map((rootPath) => this.refreshFolder(rootPath));
+        await Promise.allSettled(tasks);
     }
 
     async refreshFolder(path) {
-        return this.watcher?.refreshFolder(path);
+        const normalizedPath = this.normalizePath(path);
+        if (!normalizedPath) {
+            return;
+        }
+
+        if (this.rootPaths.has(normalizedPath)) {
+            await this.loadFolder(normalizedPath);
+            return;
+        }
+
+        const folderElement = this.container.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+        if (!folderElement) {
+            return;
+        }
+        const children = folderElement.querySelector('.tree-folder-children');
+        if (!children) {
+            return;
+        }
+
+        try {
+            const entries = await this.readDirectory(normalizedPath);
+            await this.loadFolderChildren(normalizedPath, children, entries);
+        } catch (error) {
+            console.error('刷新文件夹失败:', { path: normalizedPath, error });
+        }
     }
 
     getRootPaths() {
