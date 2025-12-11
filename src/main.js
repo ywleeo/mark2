@@ -473,6 +473,7 @@ function clearActiveFileView() {
     documentSessions.closeActiveSession();
 
     editor?.clear?.();
+    editor?.blur?.();
     codeEditor?.clear?.();
     imageViewer?.clear?.();
     mediaViewer?.clear?.();

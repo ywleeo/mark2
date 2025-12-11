@@ -71,7 +71,6 @@ export class MarkdownEditor {
         this.pendingMermaidRender = null;
         this.mermaidRenderFrame = null;
         this.plainPasteUnlisten = null;
-
         this.init();
     }
 
@@ -751,6 +750,10 @@ export class MarkdownEditor {
             if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
                 this.searchBoxManager.refreshSearchOnDocumentChange();
             }
+
+            if (!autoFocus) {
+                this.blur();
+            }
         } finally {
             if (this.loadingSessionId === sessionId) {
                 this.loadingSessionId = null;
@@ -1099,6 +1102,20 @@ export class MarkdownEditor {
         this.codeCopyManager?.hideCodeCopyButton({ immediate: true });
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.callbacks.onContentChange?.();
+        this.blur();
+    }
+
+    blur() {
+        if (!this.editor) {
+            return;
+        }
+        if (typeof this.editor.commands?.blur === 'function') {
+            this.editor.commands.blur();
+            return;
+        }
+        if (this.editor.view?.dom && typeof this.editor.view.dom.blur === 'function') {
+            this.editor.view.dom.blur();
+        }
     }
 
     hasUnsavedChanges() {
