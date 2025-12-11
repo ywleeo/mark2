@@ -18,6 +18,8 @@
     flex: 1;
     min-height: 0;
     width: 100%;
+    touch-action: none;
+    -webkit-user-drag: none;
 }
 
 .code-editor-pane .monaco-editor,
@@ -62,4 +64,6 @@
     line-height: var(--code-line-height, 1.5) !important;
     font-weight: var(--code-font-weight, 400) !important;
     font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace) !important;
+    touch-action: none;
+    -webkit-user-drag: none;
 }

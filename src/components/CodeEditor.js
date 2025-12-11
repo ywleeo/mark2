@@ -243,6 +243,10 @@ export class CodeEditor {
                 useShadows: false,
             },
         });
+        if (this.editorHost) {
+            this.editorHost.style.touchAction = 'none';
+            this.editorHost.style.webkitUserDrag = 'none';
+        }
         this.applyPreferencesToEditor();
 
         window.addEventListener('resize', this.handleResize, { passive: true });
@@ -875,20 +879,42 @@ export class CodeEditor {
                 initialPosition = target?.position || this.editor.getPosition() || null;
             }
 
+            const pointerType = normalizedPointerType(event);
+            const blockTapDrag = pointerType === 'touch'
+                || pointerType === 'pen'
+                || (pointerType === 'mouse' && (typeof event.buttons !== 'number' || event.buttons === 0));
             this.tapGuardState = {
                 pointerId: event.pointerId,
                 hasPointerCapture: false,
-                guardActive: false,
+                guardActive: blockTapDrag,
+                blockTapDrag,
                 startClientX: event.clientX,
                 startClientY: event.clientY,
                 lastPosition: initialPosition,
-                pointerType: normalizedPointerType(event),
+                pointerType,
             };
+            if (blockTapDrag) {
+                stopEventForTap(event);
+                this.tapGuardState.hasPointerCapture = capturePointerIfPossible(event.pointerId);
+                if (initialPosition) {
+                    collapseToPosition(initialPosition);
+                }
+            }
         };
 
         const pointerMove = (event) => {
             const state = this.tapGuardState;
             if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+            if (state.blockTapDrag) {
+                if (!state.hasPointerCapture) {
+                    state.hasPointerCapture = capturePointerIfPossible(event.pointerId);
+                }
+                stopEventForTap(event);
+                if (state.lastPosition) {
+                    collapseToPosition(state.lastPosition);
+                }
                 return;
             }
             if (typeof event.buttons === 'number' && event.buttons !== 0) {
@@ -943,12 +969,42 @@ export class CodeEditor {
         };
 
         const pointerCancel = (event) => {
-            if (this.tapGuardState?.hasPointerCapture) {
+            const state = this.tapGuardState;
+            if (!state) {
+                return;
+            }
+            if (state.hasPointerCapture) {
                 const pointerId = typeof event?.pointerId === 'number'
                     ? event.pointerId
-                    : this.tapGuardState.pointerId;
+                    : state.pointerId;
                 if (typeof pointerId === 'number') {
                     releasePointerIfNeeded(pointerId);
+                }
+            }
+            if (state.blockTapDrag || state.guardActive) {
+                stopEventForTap(event);
+                if (state.lastPosition) {
+                    collapseToPosition(state.lastPosition);
+                }
+            }
+            this.tapGuardState = null;
+        };
+
+        const pointerLeave = (event) => {
+            const state = this.tapGuardState;
+            if (!state) {
+                return;
+            }
+            if (typeof event.pointerId === 'number' && event.pointerId !== state.pointerId) {
+                return;
+            }
+            if (state.hasPointerCapture) {
+                releasePointerIfNeeded(state.pointerId);
+            }
+            if (state.blockTapDrag || state.guardActive) {
+                stopEventForTap(event);
+                if (state.lastPosition) {
+                    collapseToPosition(state.lastPosition);
                 }
             }
             this.tapGuardState = null;
@@ -958,12 +1014,14 @@ export class CodeEditor {
         pointerEventTarget.addEventListener('pointermove', pointerMove, true);
         pointerEventTarget.addEventListener('pointerup', pointerUp, true);
         pointerEventTarget.addEventListener('pointercancel', pointerCancel, true);
+        pointerEventTarget.addEventListener('pointerleave', pointerLeave, true);
 
         this.tapGuardCleanup = () => {
             this.editorHost.removeEventListener('pointerdown', pointerDown, true);
             pointerEventTarget.removeEventListener('pointermove', pointerMove, true);
             pointerEventTarget.removeEventListener('pointerup', pointerUp, true);
             pointerEventTarget.removeEventListener('pointercancel', pointerCancel, true);
+            pointerEventTarget.removeEventListener('pointerleave', pointerLeave, true);
             this.tapGuardState = null;
         };
     }
