@@ -751,9 +751,6 @@ export class MarkdownEditor {
                 this.searchBoxManager.refreshSearchOnDocumentChange();
             }
 
-            if (!autoFocus) {
-                this.blur();
-            }
         } finally {
             if (this.loadingSessionId === sessionId) {
                 this.loadingSessionId = null;

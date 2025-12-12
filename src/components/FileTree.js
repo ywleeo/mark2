@@ -876,8 +876,6 @@ export class FileTree {
             if (clickCount === 1) {
                 // 第一次点击：立即打开文件（不自动聚焦编辑器）
                 this.selectFile(path, { autoFocus: false });
-                // 保持焦点在当前文件项，便于直接按 Enter 触发重命名
-                try { item.focus(); } catch {}
 
                 // 启动定时器，等待可能的第二次点击
                 clickTimer = setTimeout(() => {
@@ -889,7 +887,18 @@ export class FileTree {
                 this.addToOpenFiles(path);
                 clickCount = 0;
             }
-        }, { preventDefault: true, shouldHandle: () => !this.mover?.shouldBlockInteraction?.() });
+        }, {
+            preventDefault: true,
+            shouldHandle: (event) => {
+                if (this.mover?.shouldBlockInteraction?.()) {
+                    return false;
+                }
+                if (event.target.closest('.tree-file-rename-input')) {
+                    return false;
+                }
+                return true;
+            },
+        });
         this.cleanupFunctions.push(cleanup);
 
         return item;
@@ -963,7 +972,10 @@ export class FileTree {
     }
 
     selectFile(path, options = {}) {
-        const { autoFocus = true } = options;
+        const {
+            autoFocus = true,
+            preserveFocus = false,
+        } = options;
         const normalized = this.normalizePath(path);
         if (!normalized) {
             this.clearSelection();
@@ -978,6 +990,8 @@ export class FileTree {
         this.container.querySelectorAll('.tree-file.selected, .open-file-item.selected').forEach(el => {
             el.classList.remove('selected');
         });
+
+        const shouldManageFocus = !autoFocus && !preserveFocus;
 
         // 添加选中状态到文件树
         const fileItem = this.container.querySelector(`.tree-file[data-path="${normalized}"]`)
@@ -994,6 +1008,26 @@ export class FileTree {
         }
 
         this.currentFile = normalized;
+
+        if (shouldManageFocus) {
+            const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
+            const focusCandidates = [fileItem, openFileItem].filter(Boolean);
+            const focusTarget = focusCandidates.find((element) => {
+                if (!element) return false;
+                if (element.contains(activeElement)) {
+                    return false;
+                }
+                if (element.querySelector('.tree-file-rename-input')) {
+                    return false;
+                }
+                return true;
+            });
+            if (focusTarget) {
+                try {
+                    focusTarget.focus({ preventScroll: true });
+                } catch {}
+            }
+        }
 
         // 回调
         if (this.onFileSelect) {
