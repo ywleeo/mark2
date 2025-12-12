@@ -10,6 +10,7 @@ export class MarkdownToolbarManager {
         this.toolbar = null;
         this.container = null;
         this.isVisible = true;
+        this.skipNextVisibilityPersistence = false;
         this.editorInstance = null;
         this.rawEditorInstance = null;
         this.editorType = null; // 'tiptap' 或 'monaco'
@@ -430,6 +431,10 @@ export class MarkdownToolbarManager {
     setupEventListeners() {
         // 监听工具栏可见性变化
         this.toolbar.on('visibility-change', (visible) => {
+            if (this.skipNextVisibilityPersistence) {
+                this.skipNextVisibilityPersistence = false;
+                return;
+            }
             this.isVisible = visible;
             this.saveVisibility();
         });
@@ -456,18 +461,34 @@ export class MarkdownToolbarManager {
     /**
      * 显示工具栏
      */
-    show() {
-        if (this.toolbar) {
-            this.toolbar.show();
+    show(options = {}) {
+        if (!this.toolbar) {
+            return;
         }
+
+        this.prepareVisibilityPersistence(options);
+        this.toolbar.show();
     }
 
     /**
      * 隐藏工具栏
      */
-    hide() {
-        if (this.toolbar) {
-            this.toolbar.hide();
+    hide(options = {}) {
+        if (!this.toolbar) {
+            return;
+        }
+
+        this.prepareVisibilityPersistence(options);
+        this.toolbar.hide();
+    }
+
+    /**
+     * 根据选项决定是否持久化下次可见性变化
+     */
+    prepareVisibilityPersistence(options = {}) {
+        const shouldPersist = options.persist !== false;
+        if (!shouldPersist && this.toolbar) {
+            this.skipNextVisibilityPersistence = true;
         }
     }
 
@@ -634,7 +655,6 @@ export class MarkdownToolbarManager {
         if (editorContainer && editorContainer.parentNode) {
             // 重新插入到新位置
             editorContainer.parentNode.insertBefore(this.container, editorContainer);
-            console.log('MarkdownToolbarManager: toolbar container relocated for', this.editorType);
         } else {
             console.warn('MarkdownToolbarManager: could not relocate container, editor container not found');
             // 如果找不到新位置，尝试放回原位

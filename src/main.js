@@ -328,40 +328,56 @@ function toggleMarkdownToolbar() {
 
 // 处理视图模式切换时的 toolbar 状态
 function handleToolbarOnViewModeChange(nextMode) {
-    // 只处理 markdown 文件
-    if (!currentFile || !isMarkdownFilePath(currentFile)) {
-        // 非 markdown 文件，销毁 toolbar
-        if (markdownToolbarManager) {
-            markdownToolbarManager.destroy();
-            markdownToolbarManager = null;
-        }
+    syncToolbarWithCurrentContext({ mode: nextMode });
+}
+
+function handleToolbarOnFileChange(nextPath) {
+    if (!markdownToolbarManager) {
         return;
     }
 
-    // markdown 文件在 markdown 和 code 模式之间切换
-    if (nextMode === 'markdown') {
-        // 切换到 markdown 模式
-        const tiptapEditor = getToolbarEditorInstance();
-        if (tiptapEditor) {
-            if (markdownToolbarManager) {
-                // 更新编辑器实例
-                markdownToolbarManager.updateEditor(tiptapEditor, 'tiptap');
-            }
-            // 注意：不主动初始化，由用户通过快捷键呼出
-        }
-    } else if (nextMode === 'code') {
-        // 切换到 code 模式
-        if (codeEditor && markdownToolbarManager) {
-            // 如果 toolbar 已经存在（之前在 markdown 模式呼出过），更新编辑器实例
-            markdownToolbarManager.updateEditor(codeEditor, 'monaco');
-        }
-        // 注意：不主动初始化，保持之前的显示状态
+    if (!nextPath || !isMarkdownFilePath(nextPath)) {
+        markdownToolbarManager.hide({ persist: false });
+        return;
+    }
+
+    syncToolbarWithCurrentContext();
+}
+
+function syncToolbarWithCurrentContext(options = {}) {
+    if (!markdownToolbarManager) {
+        return;
+    }
+
+    const effectiveMode = options.mode ?? activeViewMode;
+    const hasMarkdownFile = currentFile && isMarkdownFilePath(currentFile);
+    const isMarkdownView = effectiveMode === 'markdown' || effectiveMode === 'split';
+    const isCodeView = effectiveMode === 'code';
+
+    if (!hasMarkdownFile || (!isMarkdownView && !isCodeView)) {
+        markdownToolbarManager.hide({ persist: false });
+        return;
+    }
+
+    const editorType = isCodeView ? 'monaco' : 'tiptap';
+    const targetEditor = isCodeView ? codeEditor : getToolbarEditorInstance();
+
+    if (!targetEditor) {
+        return;
+    }
+
+    markdownToolbarManager.setToggleViewModeCallback?.(toggleMarkdownCodeMode);
+
+    if (!markdownToolbarManager.isInitialized) {
+        markdownToolbarManager.initialize(targetEditor, editorType);
     } else {
-        // 切换到其他模式（image, pdf 等），销毁 toolbar
-        if (markdownToolbarManager) {
-            markdownToolbarManager.destroy();
-            markdownToolbarManager = null;
-        }
+        markdownToolbarManager.updateEditor(targetEditor, editorType);
+    }
+
+    if (markdownToolbarManager.isVisible) {
+        markdownToolbarManager.show({ persist: false });
+    } else {
+        markdownToolbarManager.hide({ persist: false });
     }
 }
 
@@ -419,6 +435,7 @@ const {
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
+        handleToolbarOnFileChange(value);
     },
     getActiveViewMode: () => activeViewMode,
     setHasUnsavedChanges: (value) => {
@@ -470,6 +487,7 @@ function clearActiveFileView() {
     currentFile = null;
     window.currentFile = null;
     hasUnsavedChanges = false;
+    handleToolbarOnFileChange(null);
     documentSessions.closeActiveSession();
 
     editor?.clear?.();
@@ -562,6 +580,7 @@ const {
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
+        handleToolbarOnFileChange(value);
     },
     getHasUnsavedChanges: () => hasUnsavedChanges,
     setHasUnsavedChanges: (value) => {
@@ -894,6 +913,8 @@ async function initializeApplication() {
         onToggleAiSidebar: toggleAiSidebarVisibility,
     });
     menuListenersCleanup = await registerMenuListeners({
+        onUndo: handleUndoCommand,
+        onRedo: handleRedoCommand,
         onNewFile: handleCreateNewFile,
         onOpen: openFileOrFolder,
         onSettings: openSettingsDialog,
@@ -933,6 +954,8 @@ async function initializeApplication() {
 
     // 初始化工具栏管理器
     markdownToolbarManager = new MarkdownToolbarManager(appServices);
+    markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
+    syncToolbarWithCurrentContext();
 
     // 导出编辑器实例到全局，供工具栏使用
     window.editor = getToolbarEditorInstance();
@@ -941,30 +964,12 @@ async function initializeApplication() {
 
     // 监听视图模式切换，自动更新工具栏
     eventBus.on('view-mode-changed', ({ mode }) => {
-        const tiptapEditor = getToolbarEditorInstance();
-        if (mode === 'markdown' || mode === 'split') {
-            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && tiptapEditor) {
-                markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
-            } else if (markdownToolbarManager) {
-                markdownToolbarManager.show();
-            }
-        } else {
-            markdownToolbarManager?.hide();
-        }
+        handleToolbarOnViewModeChange(mode);
     });
 
     // 监听文件切换，只在Markdown文件时显示工具栏
     eventBus.on('file-changed', ({ path }) => {
-        const tiptapEditor = getToolbarEditorInstance();
-        if (isMarkdownFilePath(path)) {
-            if (markdownToolbarManager && !markdownToolbarManager.isInitialized && tiptapEditor) {
-                markdownToolbarManager.initialize(tiptapEditor, 'tiptap');
-            } else if (markdownToolbarManager) {
-                markdownToolbarManager.show();
-            }
-        } else {
-            markdownToolbarManager?.hide();
-        }
+        handleToolbarOnFileChange(path);
     });
 }
 
@@ -1019,6 +1024,89 @@ async function handleSettingsSubmit(nextSettings) {
 async function openAiSettingsDialog() {
     const aiApi = pluginManager?.getPluginApi('ai-assistant');
     await aiApi?.openSettings();
+}
+
+function handleUndoCommand() {
+    invokeEditorHistoryAction('undo');
+}
+
+function handleRedoCommand() {
+    invokeEditorHistoryAction('redo');
+}
+
+function invokeEditorHistoryAction(action) {
+    const attemptMarkdown = () => {
+        if (typeof editor?.[action] !== 'function') {
+            return false;
+        }
+        return editor[action]();
+    };
+    const attemptCode = () => {
+        if (typeof codeEditor?.[action] !== 'function') {
+            return false;
+        }
+        return codeEditor[action]();
+    };
+
+    if (isMarkdownEditorFocused()) {
+        if (attemptMarkdown()) {
+            return true;
+        }
+        if (attemptCode()) {
+            return true;
+        }
+        return false;
+    }
+
+    if (isCodeEditorFocused()) {
+        if (attemptCode()) {
+            return true;
+        }
+        if (attemptMarkdown()) {
+            return true;
+        }
+        return false;
+    }
+
+    if (activeViewMode === 'code') {
+        if (attemptCode()) {
+            return true;
+        }
+        if (attemptMarkdown()) {
+            return true;
+        }
+        return false;
+    }
+
+    if (activeViewMode === 'markdown' || activeViewMode === 'split') {
+        if (attemptMarkdown()) {
+            return true;
+        }
+        if (attemptCode()) {
+            return true;
+        }
+        return false;
+    }
+
+    return attemptMarkdown() || attemptCode();
+}
+
+function isMarkdownEditorFocused() {
+    const activeElement = document?.activeElement;
+    if (!activeElement) {
+        return false;
+    }
+    const tiptapRoot = editor?.editor?.view?.dom;
+    return Boolean(tiptapRoot && (tiptapRoot === activeElement || tiptapRoot.contains(activeElement)));
+}
+
+function isCodeEditorFocused() {
+    const activeElement = document?.activeElement;
+    if (!activeElement) {
+        return false;
+    }
+    const codeHost = codeEditor?.editorHost;
+    return Boolean(codeHost && (codeHost === activeElement || codeHost.contains(activeElement)));
 }
 
 /**

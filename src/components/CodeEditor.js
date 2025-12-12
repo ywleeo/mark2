@@ -1107,6 +1107,22 @@ export class CodeEditor {
         this.editor.pushUndoStop();
     }
 
+    undo() {
+        if (!this.editor || typeof this.editor.trigger !== 'function') {
+            return false;
+        }
+        this.editor.trigger('keyboard', 'undo', null);
+        return true;
+    }
+
+    redo() {
+        if (!this.editor || typeof this.editor.trigger !== 'function') {
+            return false;
+        }
+        this.editor.trigger('keyboard', 'redo', null);
+        return true;
+    }
+
     beginAiStreamSession(sessionId) {
         if (!this.editor || !this.monaco || !sessionId) {
             return null;

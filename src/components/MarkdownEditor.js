@@ -31,6 +31,15 @@ import { ImageModal } from './ImageModal.js';
 import { listen } from '@tauri-apps/api/event';
 import { ensureMarkdownTrailingEmptyLine } from '../utils/markdownFormatting.js';
 
+// 仅针对这些节点类型自动补齐收尾段落，避免列表/标题被强制追加空行
+const TRAILING_PARAGRAPH_NODE_TYPES = new Set([
+    'codeBlock',
+    'table',
+    'mermaidBlock',
+    'htmlDiv',
+    'horizontalRule',
+]);
+
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
         this.element = element;
@@ -84,6 +93,7 @@ export class MarkdownEditor {
                         levels: [1, 2, 3, 4, 5, 6],
                     },
                     codeBlock: false,
+                    trailingNode: false,
                 }),
                 Link.configure({
                     openOnClick: false,
@@ -773,8 +783,14 @@ export class MarkdownEditor {
         const { preserveSelection = true } = options;
         const doc = this.editor.state.doc;
         const lastChild = doc.lastChild;
-        const hasParagraphAtEnd = lastChild && lastChild.type?.name === 'paragraph';
+        const lastTypeName = lastChild?.type?.name ?? null;
+        const hasParagraphAtEnd = lastTypeName === 'paragraph';
         if (hasParagraphAtEnd) {
+            return false;
+        }
+        const shouldForceParagraph = !lastChild
+            || (lastTypeName && TRAILING_PARAGRAPH_NODE_TYPES.has(lastTypeName));
+        if (!shouldForceParagraph) {
             return false;
         }
         const paragraphType = this.editor.state.schema.nodes.paragraph;
@@ -785,7 +801,11 @@ export class MarkdownEditor {
         const previousSuppress = this.suppressUpdateEvent;
         this.suppressUpdateEvent = true;
         try {
-            const transaction = this.editor.state.tr.insert(doc.content.size, paragraphType.create());
+            const transaction = this.editor.state.tr.insert(
+                doc.content.size,
+                paragraphType.create()
+            );
+            transaction.setMeta('addToHistory', false);
             this.editor.view.dispatch(transaction);
             if (previousSelection && this.editor.state?.doc) {
                 const docSize = this.editor.state.doc.content.size;
@@ -871,6 +891,22 @@ export class MarkdownEditor {
             return '';
         }
         return state.doc.textBetween(state.selection.from, state.selection.to, '\n');
+    }
+
+    undo() {
+        const tiptapEditor = this.editor;
+        if (!tiptapEditor?.commands || typeof tiptapEditor.commands.undo !== 'function') {
+            return false;
+        }
+        return tiptapEditor.commands.undo();
+    }
+
+    redo() {
+        const tiptapEditor = this.editor;
+        if (!tiptapEditor?.commands || typeof tiptapEditor.commands.redo !== 'function') {
+            return false;
+        }
+        return tiptapEditor.commands.redo();
     }
 
     // 显示查找框

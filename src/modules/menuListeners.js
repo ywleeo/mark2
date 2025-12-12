@@ -13,6 +13,8 @@ export async function registerMenuListeners(handlers) {
         disposers.push(unlisten);
     };
 
+    await register('menu-undo', handlers.onUndo);
+    await register('menu-redo', handlers.onRedo);
     await register('menu-open', handlers.onOpen);
     await register('menu-settings', handlers.onSettings);
     await register('menu-export-image', handlers.onExportImage);
