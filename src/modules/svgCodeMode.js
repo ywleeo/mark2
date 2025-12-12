@@ -55,7 +55,9 @@ export function createSvgCodeMode({
             // If there are unsaved changes, save them before switching back
             if (hadUnsavedChanges) {
                 try {
-                    const content = codeEditor.getValue();
+                    const content = typeof codeEditor.getValueForSave === 'function'
+                        ? codeEditor.getValueForSave()
+                        : codeEditor.getValue();
                     await fileService.writeText(currentFile, content);
                     codeEditor.markSaved();
                 } catch (error) {

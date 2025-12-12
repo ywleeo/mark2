@@ -160,7 +160,9 @@ export function createFileOperations({
         if (activeViewMode === 'code' && codeEditor) {
             const localWriteKey = getSessionPathKey(currentFile);
             try {
-                const content = codeEditor.getValue();
+                const content = typeof codeEditor.getValueForSave === 'function'
+                    ? codeEditor.getValueForSave()
+                    : codeEditor.getValue();
                 if (localWriteKey && documentSessions.markLocalWrite) {
                     documentSessions.markLocalWrite(localWriteKey);
                 }

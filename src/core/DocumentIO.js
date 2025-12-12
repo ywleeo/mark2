@@ -209,14 +209,18 @@ export function createDocumentIO(options = {}) {
 
         if (activeViewMode === 'markdown' && editor?.getMarkdown) {
             content = editor.getMarkdown();
-        } else if (activeViewMode === 'code' && codeEditor?.getValue) {
-            content = codeEditor.getValue();
+        } else if (activeViewMode === 'code' && codeEditor) {
+            content = typeof codeEditor.getValueForSave === 'function'
+                ? codeEditor.getValueForSave()
+                : codeEditor.getValue?.();
         } else if (editor?.getMarkdown) {
             content = editor.getMarkdown();
         }
 
-        if (!content && codeEditor?.getValue) {
-            content = codeEditor.getValue();
+        if (!content && codeEditor) {
+            content = typeof codeEditor.getValueForSave === 'function'
+                ? codeEditor.getValueForSave()
+                : codeEditor.getValue?.();
         }
 
         if (!content && fileSession?.getCachedEntry) {

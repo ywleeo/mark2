@@ -13,6 +13,10 @@ import { conf as pythonLanguageConfiguration, language as pythonLanguage } from 
 import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../config/monaco-csv.js';
 import { getAppServices } from '../services/appServices.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
+import {
+    ensureMarkdownTrailingEmptyLine,
+    shouldEnforceMarkdownTrailingEmptyLine,
+} from '../utils/markdownFormatting.js';
 
 const MODEL_SCHEME = 'inmemory';
 const DEFAULT_CODE_FONT_SIZE = 14;
@@ -299,14 +303,19 @@ export class CodeEditor {
 
         const monaco = this.monaco;
         const targetLanguage = this.resolveLanguage(language);
+        const baseContent = typeof content === 'string' ? content : '';
+        const shouldNormalizeMarkdown = shouldEnforceMarkdownTrailingEmptyLine(filePath, targetLanguage);
+        const normalizedContent = shouldNormalizeMarkdown
+            ? ensureMarkdownTrailingEmptyLine(baseContent)
+            : baseContent;
 
         const uri = buildModelUri(monaco, filePath);
         let model = monaco.editor.getModel(uri);
         if (!model) {
-            model = monaco.editor.createModel(content, targetLanguage, uri);
+            model = monaco.editor.createModel(normalizedContent, targetLanguage, uri);
         } else {
             this.suppressChange = true;
-            model.setValue(content);
+            model.setValue(normalizedContent);
             this.suppressChange = false;
             monaco.editor.setModelLanguage(model, targetLanguage);
         }
@@ -569,6 +578,14 @@ export class CodeEditor {
         return this.editor ? this.editor.getValue() : '';
     }
 
+    getValueForSave() {
+        const raw = this.getValue();
+        if (!shouldEnforceMarkdownTrailingEmptyLine(this.currentFile, this.currentLanguage)) {
+            return raw;
+        }
+        return ensureMarkdownTrailingEmptyLine(raw);
+    }
+
     hasUnsavedChanges() {
         return !!this.isDirty;
     }
@@ -622,7 +639,7 @@ export class CodeEditor {
         }
 
         const filePath = this.currentFile;
-        const content = this.getValue();
+        const content = this.getValueForSave();
         const localWriteKey = normalizeFsPath(filePath) || filePath;
 
         this.isSaving = true;

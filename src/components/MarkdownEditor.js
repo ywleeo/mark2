@@ -29,6 +29,7 @@ import { getAppServices } from '../services/appServices.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
 import { ImageModal } from './ImageModal.js';
 import { listen } from '@tauri-apps/api/event';
+import { ensureMarkdownTrailingEmptyLine } from '../utils/markdownFormatting.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -154,6 +155,7 @@ export class MarkdownEditor {
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
                 this.scheduleAutoSave();
+                this.ensureTrailingParagraph();
             },
         });
 
@@ -369,7 +371,10 @@ export class MarkdownEditor {
 
     async setContent(markdown, shouldFocusStart = true) {
         const sessionId = this.currentSessionId;
-        this.originalMarkdown = markdown;
+        const normalizedMarkdown = ensureMarkdownTrailingEmptyLine(
+            typeof markdown === 'string' ? markdown : ''
+        );
+        this.originalMarkdown = normalizedMarkdown;
         this.contentChanged = false;
         this.clearAutoSaveTimer();
 
@@ -380,7 +385,7 @@ export class MarkdownEditor {
             }
             : null;
 
-        const processedBold = this.preprocessBold(markdown);
+        const processedBold = this.preprocessBold(normalizedMarkdown);
         const processed = this.preprocessListIndentation(processedBold);
         const html = this.md.render(processed);
         const resolvedHtml = await resolveImageSources(html, this.currentFile);
@@ -412,6 +417,7 @@ export class MarkdownEditor {
                     to: clampedTo,
                 });
             }
+            this.ensureTrailingParagraph();
         } finally {
             this.suppressUpdateEvent = false;
         }
@@ -556,7 +562,8 @@ export class MarkdownEditor {
             '<thead>$1</thead><tbody>'
         );
 
-        return this.turndownService.turndown(cleanedHtml);
+        const markdown = this.turndownService.turndown(cleanedHtml);
+        return ensureMarkdownTrailingEmptyLine(markdown);
     }
 
     clearAutoSaveTimer() {
@@ -757,6 +764,43 @@ export class MarkdownEditor {
                 this.isLoadingFile = false;
             }
         }
+    }
+
+    ensureTrailingParagraph(options = {}) {
+        if (!this.editor?.state?.doc) {
+            return false;
+        }
+        const { preserveSelection = true } = options;
+        const doc = this.editor.state.doc;
+        const lastChild = doc.lastChild;
+        const hasParagraphAtEnd = lastChild && lastChild.type?.name === 'paragraph';
+        if (hasParagraphAtEnd) {
+            return false;
+        }
+        const paragraphType = this.editor.state.schema.nodes.paragraph;
+        if (!paragraphType) {
+            return false;
+        }
+        const previousSelection = preserveSelection ? this.editor.state.selection : null;
+        const previousSuppress = this.suppressUpdateEvent;
+        this.suppressUpdateEvent = true;
+        try {
+            const transaction = this.editor.state.tr.insert(doc.content.size, paragraphType.create());
+            this.editor.view.dispatch(transaction);
+            if (previousSelection && this.editor.state?.doc) {
+                const docSize = this.editor.state.doc.content.size;
+                const clamp = (value) => Math.max(0, Math.min(value, docSize));
+                this.editor.commands.setTextSelection({
+                    from: clamp(previousSelection.from),
+                    to: clamp(previousSelection.to),
+                });
+            }
+        } catch (error) {
+            console.warn('[MarkdownEditor] 追加结尾段落失败', error);
+        } finally {
+            this.suppressUpdateEvent = previousSuppress;
+        }
+        return true;
     }
 
     focus() {

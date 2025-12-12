@@ -57,7 +57,9 @@ export function createMarkdownCodeMode({
         }
 
         if (activeViewMode === 'code') {
-            const codeContent = codeEditor.getValue();
+            const codeContent = typeof codeEditor.getValueForSave === 'function'
+                ? codeEditor.getValueForSave()
+                : codeEditor.getValue();
             const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
 
             codeEditor?.saveViewStateForTab?.(currentFile);

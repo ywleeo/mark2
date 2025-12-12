@@ -60,7 +60,9 @@ export function createFileSession({
             originalContent = editor.originalMarkdown;
             hasChanges = editor.hasUnsavedChanges();
         } else if (viewMode === 'code' && codeEditor) {
-            content = codeEditor.getValue();
+            content = typeof codeEditor.getValueForSave === 'function'
+                ? codeEditor.getValueForSave()
+                : codeEditor.getValue();
             hasChanges = codeEditor.hasUnsavedChanges();
         }
 
