@@ -12,7 +12,7 @@
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);
     --body-text-color: rgba(21, 23, 26, 0.85);
     --tab-border-accent: #ffa2f9;
-    --tab-border-color: #ddd;
+    --tab-border-color: #c8c8c8;
     --tab-text-color: rgba(21, 23, 26, 0.8);
     --tab-bg: rgba(255, 255, 255, 0.7);
     --tab-hover-bg: rgba(255, 255, 255, 0.9);
@@ -286,6 +286,7 @@ body.sidebar-resizing .sidebar-resizer {
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, margin 0.12s ease;
     position: relative;
     will-change: transform;
+    box-sizing: border-box;
 }
 
 .tab:hover {
@@ -296,7 +297,7 @@ body.sidebar-resizing .sidebar-resizer {
 .tab.active {
     background: var(--tab-active-bg, #ffffff);
     border-color: var(--tab-active-border-color, #6be275);
-    border-bottom: none;
+    border-bottom-color: transparent;  /* 保持 1px solid，但颜色透明 */
     color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
 }
 
