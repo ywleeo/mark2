@@ -24,7 +24,7 @@ async function loadCoreModuleConstructors() {
                 import('../components/SpreadsheetViewer.js'),
                 import('../components/PdfViewer.js'),
                 import('../components/UnsupportedViewer.js'),
-                import('../components/FileTree.js'),
+                import('../components/file-tree/index.js'),
                 import('../components/TabManager.js'),
                 import('../components/SettingsDialog.js'),
             ]);
