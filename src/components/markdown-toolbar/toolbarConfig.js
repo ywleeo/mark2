@@ -1,0 +1,168 @@
+/**
+ * Markdown 工具栏按钮配置
+ * 包含所有按钮的图标、标题和快捷键
+ */
+
+export const BUTTON_CONFIG = {
+    bold: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13.5,15.5H10V12.5H13.5A1.5,1.5 0 0,1 15,14A1.5,1.5 0 0,1 13.5,15.5M10,6.5H13A1.5,1.5 0 0,1 14.5,8A1.5,1.5 0 0,1 13,9.5H10M15.6,10.79C16.57,10.11 17.25,9 17.25,8C17.25,5.74 15.5,4 13.25,4H7V18H14.04C16.14,18 17.75,16.3 17.75,14.21C17.75,12.69 16.89,11.39 15.6,10.79Z" />
+        </svg>`,
+        title: '加粗 (Ctrl+B)',
+        shortcut: 'Ctrl+B'
+    },
+    italic: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10,4V7H12.21L8.79,15H6V18H14V15H11.79L15.21,7H18V4H10Z" />
+        </svg>`,
+        title: '斜体 (Ctrl+I)',
+        shortcut: 'Ctrl+I'
+    },
+    strikethrough: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M23,12V14H18.61C19.61,16.14 19.56,22 12.38,22C4.05,22.05 4.37,15.5 4.37,15.5L8.34,15.55C8.34,15.55 8.14,18.82 11.5,18.82C14.86,18.82 15.12,16.5 14.5,14H1V12H23M3.41,10H20.59C20.59,10 20.59,8 19,8H17.92C17.91,7.56 17.78,4 11.83,4C4.46,4 4.82,10 4.82,10M9.03,8C9.03,8 9.03,6 11.5,6C13.97,6 13.97,8 13.97,8H9.03Z" />
+        </svg>`,
+        title: '删除线',
+        shortcut: 'Ctrl+Shift+S'
+    },
+    heading1: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4,7V4H10V7H8V19H10V22H4V19H6V7H4M18,4H22V7H20V17H22V20H18V17H16V7H18V4M14,7V4H10V7H12V19H10V22H14V19H12V7H14Z" />
+        </svg>`,
+        title: '一级标题',
+        shortcut: 'Ctrl+1'
+    },
+    heading2: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3,4H7V7H5V19H7V22H3V19H5V7H3V4M15,4H19V7H17V19H19V22H15V19H17V7H15V4M11,7V4H15V7H13V19H15V22H11V19H13V7H11Z" />
+        </svg>`,
+        title: '二级标题',
+        shortcut: 'Ctrl+2'
+    },
+    heading3: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3,4H7V7H5V17H7V20H3V17H5V7H3V4M13,4H17V7H15V17H17V20H13V17H15V7H13V4M21,4V7H19V17H21V20H17V17H19V7H17V4H21Z" />
+        </svg>`,
+        title: '三级标题',
+        shortcut: 'Ctrl+3'
+    },
+    code: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6Z" />
+        </svg>`,
+        title: '行内代码',
+        shortcut: 'Ctrl+`'
+    },
+    quote: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,17H17L19,13V7H13V13H16M6,17H9L11,13V7H5V13H8L6,17Z" />
+        </svg>`,
+        title: '引用',
+        shortcut: 'Ctrl+Shift+>'
+    },
+    unorderedList: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7,5H21V7H7V5M7,13V11H21V13H7M4,4.5A1.5,1.5 0 0,1 5.5,6A1.5,1.5 0 0,1 4,7.5A1.5,1.5 0 0,1 2.5,6A1.5,1.5 0 0,1 4,4.5M4,10.5A1.5,1.5 0 0,1 5.5,12A1.5,1.5 0 0,1 4,13.5A1.5,1.5 0 0,1 2.5,12A1.5,1.5 0 0,1 4,10.5M7,19V17H21V19H7M4,16.5A1.5,1.5 0 0,1 5.5,18A1.5,1.5 0 0,1 4,19.5A1.5,1.5 0 0,1 2.5,18A1.5,1.5 0 0,1 4,16.5Z" />
+        </svg>`,
+        title: '无序列表',
+        shortcut: 'Ctrl+Shift+8'
+    },
+    orderedList: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7,13V11H21V13H7M7,19V17H21V19H7M7,7V5H21V7H7M3,8V5H2V4H4V8H3M2,17V16H5V20H2V19H4V18.5H3V17.5H4V17H2M4.25,10A0.75,0.75 0 0,1 5,10.75C5,10.95 4.92,11.14 4.79,11.27L3.12,13H5V14H2V13.08L4,11H2V10H4.25Z" />
+        </svg>`,
+        title: '有序列表',
+        shortcut: 'Ctrl+Shift+7'
+    },
+    taskList: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="4" height="4" rx="0.8" />
+            <rect x="3" y="10" width="4" height="4" rx="0.8" />
+            <rect x="3" y="16" width="4" height="4" rx="0.8" />
+            <path d="M9 6h12M9 12h12M9 18h12" />
+            <path d="M3.2 6.4l1.3 1.3 1.8-2.3" />
+        </svg>`,
+        title: '任务列表',
+        shortcut: 'Ctrl+Shift+9'
+    },
+    link: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10.59,13.41C11,13.8 11,14.44 10.59,14.83C10.2,15.22 9.56,15.22 9.17,14.83C7.22,12.88 7.22,9.71 9.17,7.76V7.76L12.71,4.22C14.66,2.27 17.83,2.27 19.78,4.22C21.73,6.17 21.73,9.34 19.78,11.29L18.29,12.78C18.3,11.96 18.17,11.14 17.89,10.36L18.36,9.88C19.54,8.71 19.54,6.81 18.36,5.64C17.19,4.46 15.29,4.46 14.12,5.64L10.59,9.17C9.41,10.34 9.41,12.24 10.59,13.41M13.41,9.17C13.8,8.78 14.44,8.78 14.83,9.17C16.78,11.12 16.78,14.29 14.83,16.24V16.24L11.29,19.78C9.34,21.73 6.17,21.73 4.22,19.78C2.27,17.83 2.27,14.66 4.22,12.71L5.71,11.22C5.7,12.04 5.83,12.86 6.11,13.65L5.64,14.12C4.46,15.29 4.46,17.19 5.64,18.36C6.81,19.54 8.71,19.54 9.88,18.36L13.41,14.83C14.59,13.66 14.59,11.76 13.41,10.59C13,10.2 13,9.56 13.41,9.17Z" />
+        </svg>`,
+        title: '链接',
+        shortcut: 'Ctrl+K'
+    },
+    image: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21,17H7V3H21M21,1H7A2,2 0 0,0 5,3V17A2,2 0 0,0 7,19H21A2,2 0 0,0 23,17V3A2,2 0 0,0 21,1M3,5H1V21A2,2 0 0,0 3,23H19V21H3M15.96,10.29L13.21,13.83L11.25,11.47L8.5,15H19.5L15.96,10.29Z" />
+        </svg>`,
+        title: '图片',
+        shortcut: 'Ctrl+Shift+I'
+    },
+    table: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V12H11V8H5M13,8V12H19V8H13M5,14V18H11V14H5M13,14V18H19V14H13Z" />
+        </svg>`,
+        title: '表格',
+        shortcut: 'Ctrl+Shift+T'
+    },
+    horizontalRule: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3,13H21V11H3M3,19H21V18H3M3,6H21V5H3V6Z" />
+        </svg>`,
+        title: '分割线',
+        shortcut: 'Ctrl+Shift+-'
+    },
+    codeBlock: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8,3A2,2 0 0,0 6,5V9A2,2 0 0,1 4,11H3V13H4A2,2 0 0,1 6,15V19A2,2 0 0,0 8,21H10V19H8V14A2,2 0 0,0 6,12A2,2 0 0,0 8,10V5H10V3M16,3A2,2 0 0,1 18,5V9A2,2 0 0,0 20,11H21V13H20A2,2 0 0,0 18,15V19A2,2 0 0,1 16,21H14V19H16V14A2,2 0 0,1 18,12A2,2 0 0,1 16,10V5H14V3H16Z" />
+        </svg>`,
+        title: '代码块',
+        shortcut: 'Ctrl+Shift+C'
+    },
+    clearFormatting: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3.27,2L2,3.27L7.73,9H5V11H10.73L12.73,13H9V15H14.73L20.73,21L22,19.73L3.27,2Z" />
+            <path d="M17,7H23V5H17H12.42C11.52,5 10.73,5.4 10.12,6L9.74,6.39L11.16,7.81L11.58,7.39C11.78,7.2 12.09,7 12.42,7H17Z" />
+        </svg>`,
+        title: '清除格式'
+    },
+    copyMarkdown: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
+        </svg>`,
+        title: '复制 Markdown 文本'
+    },
+    toggleViewMode: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6Z" />
+        </svg>`,
+        title: '切换代码/预览模式',
+        shortcut: 'Ctrl+E'
+    }
+};
+
+/**
+ * 默认工具栏按钮列表
+ */
+export const DEFAULT_BUTTONS = [
+    'bold',
+    'italic',
+    'strikethrough',
+    'heading1',
+    'heading2',
+    'heading3',
+    'code',
+    'quote',
+    'unorderedList',
+    'orderedList',
+    'taskList',
+    'link',
+    'image',
+    'table',
+    'horizontalRule',
+    'codeBlock',
+    'clearFormatting',
+    'separator',
+    'toggleViewMode'
+];

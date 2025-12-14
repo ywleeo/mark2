@@ -1,4 +1,4 @@
-import { MarkdownToolbar } from './MarkdownToolbar.js';
+import { MarkdownToolbar } from './markdown-toolbar/index.js';
 
 /**
  * Markdown工具栏管理器

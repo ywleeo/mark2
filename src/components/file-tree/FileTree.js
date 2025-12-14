@@ -762,7 +762,8 @@ export class FileTree {
 
         if (this.isInOpenList(normalized)) return;
 
-        this.openFiles.push(normalized);
+        // 使用 state 模块的方法来添加文件，会自动触发 onOpenFilesChange 回调
+        this.state.addOpenFile(normalized);
         this.renderOpenFiles();
         const viewMode = getViewModeForPath(normalized);
         const shouldWatch = viewMode === 'markdown' || viewMode === 'code';
@@ -771,7 +772,6 @@ export class FileTree {
                 console.error('监听文件失败:', error);
             });
         }
-        this.onOpenFilesChange?.([...this.openFiles]);
     }
 
     replaceOpenFilePath(oldPath, newPath) {
@@ -829,10 +829,10 @@ export class FileTree {
         const index = this.openFiles.findIndex(item => item === normalizedTarget);
         if (index > -1) {
             const wasActive = this.normalizePath(this.currentFile) === normalizedTarget;
-            this.openFiles.splice(index, 1);
+            // 使用 state 模块的方法来移除文件，会自动触发 onOpenFilesChange 回调
+            this.state.removeOpenFile(normalizedTarget);
             this.renderOpenFiles();
             this.stopWatchingFile(normalizedTarget);
-            this.onOpenFilesChange?.([...this.openFiles]);
 
             if (wasActive) {
                 const fallbackIndex = Math.min(index, this.openFiles.length - 1);

@@ -60,6 +60,8 @@ import { createWorkspaceSyncController, createDocumentSnapshotSyncController } f
 import { addClickHandler } from './utils/PointerHelper.js';
 import { AppState } from './state/AppState.js';
 import { EditorRegistry } from './state/EditorRegistry.js';
+import { requireElementById, requireElementWithin } from './app/domHelpers.js';
+import { setupTitlebarControls, setupThemeToggle } from './app/windowControls.js';
 
 // ========== 状态管理实例 ==========
 const appState = new AppState();
@@ -130,22 +132,6 @@ async function updateExportMenuState() {
     } catch (error) {
         console.warn('更新导出菜单状态失败:', error);
     }
-}
-
-function requireElementById(id, errorMessage) {
-    const element = document.getElementById(id);
-    if (!element) {
-        throw new Error(errorMessage || `未找到元素 id=${id}`);
-    }
-    return element;
-}
-
-function requireElementWithin(container, selector, errorMessage) {
-    const element = container.querySelector(selector);
-    if (!element) {
-        throw new Error(errorMessage || `未在容器中找到元素 ${selector}`);
-    }
-    return element;
 }
 
 const viewController = createViewController({
@@ -909,8 +895,9 @@ async function initializeApplication() {
     // 保存一次以更新 localStorage 中的旧数据（如旧主题名）
     saveEditorSettings(loadedSettings);
 
-    // 设置主题切换按钮
-    setupThemeToggle();
+    // 设置窗口控制按钮
+    setupTitlebarControls();
+    setupThemeToggle(appState);
 
     const settingsDialog = new SettingsDialogCtor({
         onSubmit: handleSettingsSubmit,
@@ -1281,51 +1268,3 @@ function cleanupResources() {
     editorRegistry.destroyAll();
 }
 
-/**
- * 设置自定义标题栏的窗口控制按钮
- */
-function setupTitlebarControls() {
-    const closeBtn = document.getElementById('titlebar-close');
-    const minimizeBtn = document.getElementById('titlebar-minimize');
-    const maximizeBtn = document.getElementById('titlebar-maximize');
-    const appWindow = getCurrentWindow();
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => appWindow.close());
-    }
-    if (minimizeBtn) {
-        minimizeBtn.addEventListener('click', () => appWindow.minimize());
-    }
-    if (maximizeBtn) {
-        maximizeBtn.addEventListener('click', async () => {
-            const isMaximized = await appWindow.isMaximized();
-            if (isMaximized) {
-                await appWindow.unmaximize();
-            } else {
-                await appWindow.maximize();
-            }
-        });
-    }
-}
-
-/**
- * 设置主题切换按钮
- */
-function setupThemeToggle() {
-    const toggleBtn = document.getElementById('theme-toggle');
-    if (!toggleBtn) return;
-
-    addClickHandler(toggleBtn, () => {
-        const root = document.documentElement;
-        const currentAppearance = root.dataset.themeAppearance;
-        const newAppearance = currentAppearance === 'dark' ? 'light' : 'dark';
-
-        const currentSettings = appState.getEditorSettings();
-        const updatedSettings = { ...currentSettings, appearance: newAppearance };
-        appState.setEditorSettings(updatedSettings);
-        applyEditorSettings(updatedSettings);
-        saveEditorSettings(updatedSettings);
-    }, {
-        preventDefault: true,
-    });
-}
