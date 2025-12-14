@@ -1035,6 +1035,8 @@ export class FileTree {
             await this.loadFolderChildren(normalizedPath, children, entries);
         } catch (error) {
             console.error('刷新文件夹失败:', { path: normalizedPath, error });
+        } finally {
+            this.reapplyCurrentFileSelection();
         }
     }
 
