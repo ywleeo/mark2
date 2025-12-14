@@ -39,7 +39,6 @@ import { MarkdownToolbarManager } from './components/MarkdownToolbarManager.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
-import { createStatusBarController } from './modules/statusBarController.js';
 import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
 import { createSvgCodeMode } from './modules/svgCodeMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
@@ -52,7 +51,7 @@ import { PluginManager } from './core/PluginManager.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
-import { loadCoreModules, ensureToPng } from './app/coreModules.js';
+import { ensureToPng } from './app/coreModules.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
 import { createEditorActions } from './app/editorActions.js';
 import { createLayoutControls } from './app/layoutControls.js';
@@ -60,24 +59,19 @@ import { createWorkspaceSyncController, createDocumentSnapshotSyncController } f
 import { addClickHandler } from './utils/PointerHelper.js';
 import { AppState } from './state/AppState.js';
 import { EditorRegistry } from './state/EditorRegistry.js';
-import { requireElementById, requireElementWithin } from './app/domHelpers.js';
 import { setupTitlebarControls, setupThemeToggle } from './app/windowControls.js';
+import { loadAndRegisterModules } from './app/moduleLoader.js';
+import { setupViewPanes } from './app/viewSetup.js';
+import { createEditorCallbacks, setupEditors } from './app/editorSetup.js';
+import { setupStatusBar, setupFileTree, setupTabManager } from './app/componentSetup.js';
+import { setupToolbarEvents } from './app/eventSetup.js';
 
 // ========== 状态管理实例 ==========
 const appState = new AppState();
 const editorRegistry = new EditorRegistry();
 
 // ========== 构造函数（动态加载） ==========
-let MarkdownEditorCtor = null;
-let CodeEditorCtor = null;
-let ImageViewerCtor = null;
-let MediaViewerCtor = null;
-let SpreadsheetViewerCtor = null;
-let PdfViewerCtor = null;
-let FileTreeCtor = null;
-let TabManagerCtor = null;
 let SettingsDialogCtor = null;
-let UnsupportedViewerCtor = null;
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -592,26 +586,11 @@ document.addEventListener('DOMContentLoaded', () => {
  * 执行应用初始化流程，构建 UI 并加载配置。
  */
 async function initializeApplication() {
-    const coreModules = await loadCoreModules();
-    MarkdownEditorCtor = coreModules.MarkdownEditor;
-    CodeEditorCtor = coreModules.CodeEditor;
-    ImageViewerCtor = coreModules.ImageViewer;
-    MediaViewerCtor = coreModules.MediaViewer;
-    SpreadsheetViewerCtor = coreModules.SpreadsheetViewer;
-    PdfViewerCtor = coreModules.PdfViewer;
-    UnsupportedViewerCtor = coreModules.UnsupportedViewer;
-    FileTreeCtor = coreModules.FileTree;
-    TabManagerCtor = coreModules.TabManager;
-    SettingsDialogCtor = coreModules.SettingsDialog;
+    // 加载和注册核心模块
+    const coreModules = await loadAndRegisterModules(editorRegistry);
 
-    // 注册构造函数到 EditorRegistry（用于延迟初始化）
-    editorRegistry.registerConstructor('markdown', MarkdownEditorCtor);
-    editorRegistry.registerConstructor('code', CodeEditorCtor);
-    editorRegistry.registerConstructor('image', ImageViewerCtor);
-    editorRegistry.registerConstructor('media', MediaViewerCtor);
-    editorRegistry.registerConstructor('spreadsheet', SpreadsheetViewerCtor);
-    editorRegistry.registerConstructor('pdf', PdfViewerCtor);
-    editorRegistry.registerConstructor('unsupported', UnsupportedViewerCtor);
+    // 保存 SettingsDialog 构造函数供延迟加载使用
+    SettingsDialogCtor = coreModules.SettingsDialog;
 
     // 初始化插件系统
     const pluginManager = new PluginManager({
@@ -630,184 +609,38 @@ async function initializeApplication() {
     // 自动扫描并加载所有插件
     await pluginManager.scanAndLoadPlugins();
 
-    // 初始化主视图容器
-    const viewContainer = requireElementById('viewContent', '未找到视图容器 viewContent');
-    appState.setPaneElement('viewContainer', viewContainer);
-    viewContainer.innerHTML = `
-        <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
-        <div class="view-pane code-pane" data-pane="code"></div>
-        <div class="view-pane image-pane" data-pane="image"></div>
-        <div class="view-pane media-pane" data-pane="media"></div>
-        <div class="view-pane spreadsheet-pane" data-pane="spreadsheet"></div>
-        <div class="view-pane pdf-pane" data-pane="pdf"></div>
-        <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
-    `;
+    // 初始化视图容器
+    setupViewPanes(appState);
 
-    appState.setPaneElement('markdown', requireElementWithin(viewContainer, '.markdown-pane', '视图容器缺少 markdown-pane'));
-    appState.setPaneElement('code', requireElementWithin(viewContainer, '.code-pane', '视图容器缺少 code-pane'));
-    appState.setPaneElement('image', requireElementWithin(viewContainer, '.image-pane', '视图容器缺少 image-pane'));
-    appState.setPaneElement('media', requireElementWithin(viewContainer, '.media-pane', '视图容器缺少 media-pane'));
-    appState.setPaneElement('spreadsheet', requireElementWithin(viewContainer, '.spreadsheet-pane', '视图容器缺少 spreadsheet-pane'));
-    appState.setPaneElement('pdf', requireElementWithin(viewContainer, '.pdf-pane', '视图容器缺少 pdf-pane'));
-    appState.setPaneElement('unsupported', requireElementWithin(viewContainer, '.unsupported-pane', '视图容器缺少 unsupported-pane'));
-
-    const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
-    const statusBarFilePathElement = requireElementById('statusBarPath', '状态栏缺少文件路径区域');
-    const statusBarProgressElement = requireElementById('statusBarProgress', '状态栏缺少进度区域');
-    const statusBarProgressTextElement = requireElementById('statusBarProgressText', '状态栏缺少进度文本区域');
-    const statusBarWordCountElement = requireElementById('statusBarWordCount', '状态栏缺少字数区域');
-    const statusBarLastModifiedElement = requireElementById('statusBarLastModified', '状态栏缺少更新日期区域');
-    const statusBarZoomElement = requireElementById('statusBarZoom', '状态栏缺少缩放控件');
-    const statusBarZoomValueElement = requireElementById('statusBarZoomValue', '状态栏缺少缩放显示');
-    const statusBarZoomOutButton = requireElementWithin(statusBarZoomElement, '[data-zoom="out"]', '状态栏缺少缩小按钮');
-    const statusBarZoomInButton = requireElementWithin(statusBarZoomElement, '[data-zoom="in"]', '状态栏缺少放大按钮');
-    const statusBarPageInfoElement = requireElementById('statusBarPageInfo', '状态栏缺少页码区域');
-    const statusBarController = createStatusBarController({
-        statusBarElement,
-        statusBarFilePathElement,
-        statusBarWordCountElement,
-        statusBarLastModifiedElement,
-        statusBarProgressElement,
-        statusBarProgressTextElement,
-        statusBarZoomElement,
-        statusBarZoomValueElement,
-        statusBarZoomInButton,
-        statusBarZoomOutButton,
-        statusBarPageInfoElement,
+    // 初始化状态栏
+    setupStatusBar({
+        appState,
+        appServices,
+        editorRegistry,
         normalizeFsPath,
-        fileService: appServices.file,
-        onVisibilityChange: () => {
-            window.requestAnimationFrame(() => {
-                const codeEditor = editorRegistry.getCodeEditor();
-                codeEditor?.requestLayout?.();
-            });
-    },
+        handleZoomControl,
+        updateZoomDisplayForActiveView,
     });
-    appState.setStatusBarController(statusBarController);
-    statusBarController.updateStatusBar();
-    statusBarController.setupStatusBarPathInteraction({
-        getCurrentFile: () => appState.getCurrentFile(),
-    });
-    statusBarController.setupZoomControls({
-        onZoomIn: () => handleZoomControl(ZOOM_STEP),
-        onZoomOut: () => handleZoomControl(-ZOOM_STEP),
-    });
-    updateZoomDisplayForActiveView();
-    statusBarController.setPageInfo('');
 
-    const editorCallbacks = {
-        onContentChange: () => {
-            const editor = editorRegistry.getMarkdownEditor();
-            const codeEditor = editorRegistry.getCodeEditor();
-            const hasUnsaved = editor?.hasUnsavedChanges() || codeEditor?.hasUnsavedChanges() || false;
-            appState.setHasUnsavedChanges(hasUnsaved);
-            void updateWindowTitle();
-            scheduleDocumentSnapshotSync();
-        },
-        onAutoSaveSuccess: async ({ skipped, filePath }) => {
-            if (skipped) {
-                return;
-            }
-            const currentFile = appState.getCurrentFile();
-            const targetPath = filePath || currentFile;
-            if (!targetPath) {
-                return;
-            }
-            fileSession.clearEntry(targetPath);
-            if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
-                appState.setHasUnsavedChanges(false);
-                await updateWindowTitle();
-            }
-            scheduleDocumentSnapshotSync();
-        },
-        onAutoSaveError: (error) => {
-            console.error('自动保存失败:', error);
-        },
-    };
+    // 创建编辑器回调
+    const editorCallbacks = createEditorCallbacks({
+        editorRegistry,
+        appState,
+        fileSession,
+        normalizeFsPath,
+        updateWindowTitle,
+        scheduleDocumentSnapshotSync,
+    });
 
-    // 初始化并注册所有编辑器/查看器
-    const editor = new MarkdownEditorCtor(appState.getPaneElement('markdown'), editorCallbacks, {
+    // 初始化所有编辑器和查看器
+    const { editor, codeEditor } = setupEditors({
+        constructors: coreModules,
+        appState,
+        editorRegistry,
+        editorCallbacks,
         documentSessions,
+        setContentZoom,
     });
-    editorRegistry.register('markdown', editor);
-
-    const codeEditor = new CodeEditorCtor(appState.getPaneElement('code'), editorCallbacks, {
-        documentSessions,
-    });
-    editorRegistry.register('code', codeEditor);
-    codeEditor.applyPreferences?.(appState.getEditorSettings());
-    codeEditor.hide();
-
-    const imageViewer = new ImageViewerCtor(appState.getPaneElement('image'));
-    editorRegistry.register('image', imageViewer);
-    imageViewer.hide();
-
-    const mediaViewer = new MediaViewerCtor(appState.getPaneElement('media'));
-    editorRegistry.register('media', mediaViewer);
-    mediaViewer.hide();
-
-    const spreadsheetViewer = new SpreadsheetViewerCtor(appState.getPaneElement('spreadsheet'));
-    editorRegistry.register('spreadsheet', spreadsheetViewer);
-    spreadsheetViewer.hide();
-
-    const pdfViewer = new PdfViewerCtor(appState.getPaneElement('pdf'), {
-        onPageInfoChange: (text) => appState.getStatusBarController()?.setPageInfo?.(text || ''),
-        onZoomChange: (state) => {
-            if (!state) {
-                return;
-            }
-            appState.setPdfZoomState(state);
-            if (appState.getActiveViewMode() === 'pdf') {
-                appState.getStatusBarController()?.updateZoomDisplay?.(state);
-            }
-        },
-    });
-    editorRegistry.register('pdf', pdfViewer);
-    pdfViewer.hide();
-
-    const unsupportedViewer = new UnsupportedViewerCtor(appState.getPaneElement('unsupported'));
-    editorRegistry.register('unsupported', unsupportedViewer);
-    unsupportedViewer.hide();
-
-    appState.setActiveViewMode('markdown');
-
-    const contentZoom = appState.getContentZoom();
-    codeEditor?.setZoomScale?.(contentZoom);
-    imageViewer?.setZoomScale?.(contentZoom);
-    mediaViewer?.setZoomScale?.(contentZoom);
-    setContentZoom(contentZoom, { silent: true });
-
-    // 将代码编辑器引用传递给 Markdown 编辑器的搜索管理器
-    editor.setCodeEditor(codeEditor);
-
-    // TODO: 初始化工具栏管理器（暂时注释掉）
-    // markdownToolbarManager = new MarkdownToolbarManager(appServices);
-
-    // 监听视图模式切换，自动更新工具栏
-    // eventBus.on('view-mode-changed', ({ mode }) => {
-    //     if (mode === 'markdown' || mode === 'split') {
-    //         if (markdownToolbarManager && !markdownToolbarManager.isInitialized) {
-    //             markdownToolbarManager.initialize(editor, 'tiptap');
-    //         } else if (markdownToolbarManager) {
-    //             markdownToolbarManager.show();
-    //         }
-    //     } else {
-    //         markdownToolbarManager?.hide();
-    //     }
-    // });
-
-    // 监听文件切换，只在Markdown文件时显示工具栏
-    // eventBus.on('file-changed', ({ path }) => {
-    //     if (isMarkdownFilePath(path)) {
-    //         if (markdownToolbarManager && !markdownToolbarManager.isInitialized) {
-    //             markdownToolbarManager.initialize(editor, 'tiptap');
-    //         } else if (markdownToolbarManager) {
-    //             markdownToolbarManager.show();
-    //         }
-    //     } else {
-    //         markdownToolbarManager?.hide();
-    //     }
-    // });
 
     // 发布编辑器就绪事件（让插件可以连接编辑器）
     eventBus.emit('editor:ready', {
@@ -830,40 +663,28 @@ async function initializeApplication() {
     appState.setSvgCodeMode(svgCodeMode);
 
     // 初始化文件树
-    const fileTreeElement = document.getElementById('fileTree');
-    const fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
-        onFolderChange: (...args) => appState.getFileWatcherController()?.handleFolderWatcherEvent(...args),
-        onFileChange: (...args) => appState.getFileWatcherController()?.handleFileWatcherEvent(...args),
-        onOpenFilesChange: handleOpenFilesChange,
-        onStateChange: handleSidebarStateChange,
-        onPathRenamed: applyPathChange,
-        onCloseFileRequest: (path) => {
-            if (!path) {
-                return;
-            }
-            const normalized = normalizeFsPath(path) || path;
-            if (!normalized) {
-                return;
-            }
-            return handleTabClose({
-                id: normalized,
-                type: 'file',
-                path: normalized,
-            });
-        },
+    const fileTree = setupFileTree({
+        FileTreeCtor: coreModules.FileTree,
+        appState,
+        handleFileSelect,
+        handleOpenFilesChange,
+        handleSidebarStateChange,
+        applyPathChange,
+        handleTabClose,
+        normalizeFsPath,
         documentSessions,
     });
-    appState.setFileTree(fileTree);
 
-    const tabBarElement = document.getElementById('tabBar');
-    const tabManager = new TabManagerCtor(tabBarElement, {
-        onTabSelect: handleTabSelect,
-        onTabClose: handleTabClose,
-        onRenameConfirm: handleTabRenameConfirm,
-        onRenameCancel: handleTabRenameCancel,
-        onTabReorder: handleTabReorder,
+    // 初始化标签管理器
+    setupTabManager({
+        TabManagerCtor: coreModules.TabManager,
+        appState,
+        handleTabSelect,
+        handleTabClose,
+        handleTabRenameConfirm,
+        handleTabRenameCancel,
+        handleTabReorder,
     });
-    appState.setTabManager(tabManager);
 
     const fileWatcherController = createFileWatcherController({
         fileTree,
@@ -972,14 +793,10 @@ async function initializeApplication() {
     // 同时导出 MarkdownEditor 实例，用于获取 markdown 内容
     window.markdownEditor = editorRegistry.getMarkdownEditor();
 
-    // 监听视图模式切换，自动更新工具栏
-    eventBus.on('view-mode-changed', ({ mode }) => {
-        handleToolbarOnViewModeChange(mode);
-    });
-
-    // 监听文件切换，只在Markdown文件时显示工具栏
-    eventBus.on('file-changed', ({ path }) => {
-        handleToolbarOnFileChange(path);
+    // 设置工具栏事件监听
+    setupToolbarEvents({
+        handleToolbarOnViewModeChange,
+        handleToolbarOnFileChange,
     });
 }
 
