@@ -1,119 +1,23 @@
 import 'monaco-editor/min/vs/editor/editor.main.css';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution';
 import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
-import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../config/monaco-python.js';
-import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../config/monaco-csv.js';
-import { getAppServices } from '../services/appServices.js';
-import { normalizeFsPath } from '../utils/pathUtils.js';
+import { getAppServices } from '../../services/appServices.js';
+import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
     ensureMarkdownTrailingEmptyLine,
     shouldEnforceMarkdownTrailingEmptyLine,
-} from '../utils/markdownFormatting.js';
-
-const MODEL_SCHEME = 'inmemory';
-const DEFAULT_CODE_FONT_SIZE = 14;
-const DEFAULT_LINE_HEIGHT_RATIO = 1.5;
-const MIN_ZOOM_SCALE = 0.6;
-const MAX_ZOOM_SCALE = 2.4;
-
-let monacoLoader = null;
-let monacoEnvironmentReady = false;
-let pythonLanguageReady = false;
-let csvLanguageReady = false;
-
-function ensureMonacoEnvironment() {
-    if (monacoEnvironmentReady || typeof self === 'undefined') {
-        return;
-    }
-
-    self.MonacoEnvironment = {
-        getWorker(_workerId, label) {
-            switch (label) {
-                case 'json':
-                    return new jsonWorker();
-                case 'css':
-                case 'scss':
-                case 'less':
-                    return new cssWorker();
-                case 'html':
-                case 'handlebars':
-                case 'razor':
-                case 'xml':
-                    return new htmlWorker();
-                case 'typescript':
-                case 'javascript':
-                    return new tsWorker();
-                default:
-                    return new editorWorker();
-            }
-        },
-    };
-
-    monacoEnvironmentReady = true;
-}
-
-async function ensureMonaco() {
-    ensureMonacoEnvironment();
-    if (!monacoLoader) {
-        monacoLoader = import('monaco-editor/esm/vs/editor/editor.api');
-    }
-    return monacoLoader;
-}
-
-function ensurePythonLanguage(monaco) {
-    if (pythonLanguageReady || !pythonLanguage?.tokenizer) {
-        return;
-    }
-
-    monaco.languages.setMonarchTokensProvider('python', pythonLanguage);
-    if (pythonLanguageConfiguration) {
-        monaco.languages.setLanguageConfiguration('python', pythonLanguageConfiguration);
-    }
-    pythonLanguageReady = true;
-}
-
-function ensureCsvLanguage(monaco) {
-    if (csvLanguageReady || !csvLanguage?.tokenizer) {
-        return;
-    }
-
-    monaco.languages.register({ id: 'csv' });
-    monaco.languages.setMonarchTokensProvider('csv', csvLanguage);
-    if (csvLanguageConfiguration) {
-        monaco.languages.setLanguageConfiguration('csv', csvLanguageConfiguration);
-    }
-
-    // 定义 CSV 专用主题
-    monaco.editor.defineTheme('csv-theme', {
-        base: 'vs',
-        inherit: true,
-        rules: csvThemeRules || [],
-        colors: {},
-    });
-
-    csvLanguageReady = true;
-}
-
-const buildModelUri = (monaco, filePath) => {
-    if (!filePath) {
-        return monaco.Uri.parse(`${MODEL_SCHEME}://model/untitled`);
-    }
-
-    try {
-        return monaco.Uri.file(filePath);
-    } catch (_error) {
-        const sanitized = encodeURIComponent(filePath);
-        return monaco.Uri.parse(`${MODEL_SCHEME}://model/${sanitized}`);
-    }
-};
+} from '../../utils/markdownFormatting.js';
+import { ensureMonaco, buildModelUri } from './MonacoEnvironment.js';
+import { ensurePythonLanguage, ensureCsvLanguage } from './LanguageSupport.js';
+import {
+    DEFAULT_CODE_FONT_SIZE,
+    DEFAULT_LINE_HEIGHT_RATIO,
+    MIN_ZOOM_SCALE,
+    MAX_ZOOM_SCALE,
+} from './constants.js';
 
 export class CodeEditor {
     constructor(containerElement, callbacks = {}, options = {}) {

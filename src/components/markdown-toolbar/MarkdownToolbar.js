@@ -786,12 +786,33 @@ export class MarkdownToolbar {
      */
     selectUrl() {
         setTimeout(() => {
-            const { selection } = this.getSelectedText();
-            const from = selection.from + this.editor.state.doc.textBetween(selection.from, selection.to).indexOf('(') + 1;
-            const to = selection.from + this.editor.state.doc.textBetween(selection.from, selection.to).indexOf(')');
+            if (!this.editor) return;
 
-            if (typeof this.editor.commands !== 'undefined') {
-                this.editor.commands.setTextSelection({ from, to });
+            // TipTap 编辑器
+            if (typeof this.editor.state !== 'undefined' && typeof this.editor.commands !== 'undefined') {
+                const { selection } = this.getSelectedText();
+                const text = this.editor.state.doc.textBetween(selection.from, selection.to);
+                const openParenIndex = text.indexOf('(');
+                const closeParenIndex = text.indexOf(')');
+
+                if (openParenIndex !== -1 && closeParenIndex !== -1) {
+                    const from = selection.from + openParenIndex + 1;
+                    const to = selection.from + closeParenIndex;
+                    this.editor.commands.setTextSelection({ from, to });
+                }
+            }
+            // Textarea 或 Monaco 编辑器代理
+            else if (typeof this.editor.setSelectionRange === 'function') {
+                const { selection } = this.getSelectedText();
+                const text = this.editor.value.substring(selection.from, selection.to);
+                const openParenIndex = text.indexOf('(');
+                const closeParenIndex = text.indexOf(')');
+
+                if (openParenIndex !== -1 && closeParenIndex !== -1) {
+                    const from = selection.from + openParenIndex + 1;
+                    const to = selection.from + closeParenIndex;
+                    this.editor.setSelectionRange(from, to);
+                }
             }
         }, 0);
     }
@@ -801,13 +822,35 @@ export class MarkdownToolbar {
      */
     selectImageUrl() {
         setTimeout(() => {
-            const { selection } = this.getSelectedText();
-            const text = this.editor.state.doc.textBetween(selection.from, selection.to);
-            const from = selection.from + text.indexOf('[') + text.indexOf('](') + 2;
-            const to = selection.from + text.indexOf(')');
+            if (!this.editor) return;
 
-            if (typeof this.editor.commands !== 'undefined') {
-                this.editor.commands.setTextSelection({ from, to });
+            // TipTap 编辑器
+            if (typeof this.editor.state !== 'undefined' && typeof this.editor.commands !== 'undefined') {
+                const { selection } = this.getSelectedText();
+                const text = this.editor.state.doc.textBetween(selection.from, selection.to);
+                const bracketIndex = text.indexOf('[');
+                const linkStartIndex = text.indexOf('](');
+                const closeParenIndex = text.indexOf(')');
+
+                if (bracketIndex !== -1 && linkStartIndex !== -1 && closeParenIndex !== -1) {
+                    const from = selection.from + linkStartIndex + 2;
+                    const to = selection.from + closeParenIndex;
+                    this.editor.commands.setTextSelection({ from, to });
+                }
+            }
+            // Textarea 或 Monaco 编辑器代理
+            else if (typeof this.editor.setSelectionRange === 'function') {
+                const { selection } = this.getSelectedText();
+                const text = this.editor.value.substring(selection.from, selection.to);
+                const bracketIndex = text.indexOf('[');
+                const linkStartIndex = text.indexOf('](');
+                const closeParenIndex = text.indexOf(')');
+
+                if (bracketIndex !== -1 && linkStartIndex !== -1 && closeParenIndex !== -1) {
+                    const from = selection.from + linkStartIndex + 2;
+                    const to = selection.from + closeParenIndex;
+                    this.editor.setSelectionRange(from, to);
+                }
             }
         }, 0);
     }

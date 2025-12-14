@@ -8,37 +8,33 @@ import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Link from '@tiptap/extension-link';
-import { SearchExtension } from '../extensions/SearchExtension.js';
-import { HtmlSpan, HtmlDiv, HtmlInline } from '../extensions/HtmlSupport.js';
-import { CustomTaskItem } from '../extensions/CustomTaskItem.js';
-import { createConfiguredLowlight } from '../utils/highlightConfig.js';
+import { SearchExtension } from '../../extensions/SearchExtension.js';
+import { HtmlSpan, HtmlDiv, HtmlInline } from '../../extensions/HtmlSupport.js';
+import { CustomTaskItem } from '../../extensions/CustomTaskItem.js';
+import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
 import {
     MarkdownImage,
     createConfiguredMarkdownIt,
     createConfiguredTurndownService
-} from '../utils/markdownPlugins.js';
-import { resolveImageSources } from '../utils/imageResolver.js';
-import { CodeCopyManager } from '../features/codeCopy.js';
-import { SearchBoxManager } from '../features/searchBox.js';
-import { ClipboardEnhancer } from '../features/clipboardEnhancer.js';
-import { addClickHandler } from '../utils/PointerHelper.js';
-import { renderMermaidIn } from '../utils/mermaidRenderer.js';
-import { MermaidBlock } from '../extensions/MermaidBlock.js';
-import { DisableInlineCodeShortcut } from '../extensions/DisableInlineCodeShortcut.js';
-import { getAppServices } from '../services/appServices.js';
-import { normalizeFsPath } from '../utils/pathUtils.js';
-import { ImageModal } from './ImageModal.js';
+} from '../../utils/markdownPlugins.js';
+import { resolveImageSources } from '../../utils/imageResolver.js';
+import { CodeCopyManager } from '../../features/codeCopy.js';
+import { SearchBoxManager } from '../../features/searchBox.js';
+import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
+import { addClickHandler } from '../../utils/PointerHelper.js';
+import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
+import { MermaidBlock } from '../../extensions/MermaidBlock.js';
+import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
+import { getAppServices } from '../../services/appServices.js';
+import { normalizeFsPath } from '../../utils/pathUtils.js';
+import { ImageModal } from '../ImageModal.js';
 import { listen } from '@tauri-apps/api/event';
-import { ensureMarkdownTrailingEmptyLine } from '../utils/markdownFormatting.js';
-
-// 仅针对这些节点类型自动补齐收尾段落，避免列表/标题被强制追加空行
-const TRAILING_PARAGRAPH_NODE_TYPES = new Set([
-    'codeBlock',
-    'table',
-    'mermaidBlock',
-    'htmlDiv',
-    'horizontalRule',
-]);
+import { ensureMarkdownTrailingEmptyLine } from '../../utils/markdownFormatting.js';
+import {
+    TRAILING_PARAGRAPH_NODE_TYPES,
+    DEFAULT_AUTO_SAVE_DELAY,
+    MIN_AUTO_SAVE_DELAY
+} from './constants.js';
 
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
@@ -51,8 +47,8 @@ export class MarkdownEditor {
         this.linkClickCleanup = null;
         this.callbacks = callbacks;
         this.autoSaveDelayMs = Number.isFinite(options.autoSaveDelayMs)
-            ? Math.max(500, options.autoSaveDelayMs)
-            : 3000;
+            ? Math.max(MIN_AUTO_SAVE_DELAY, options.autoSaveDelayMs)
+            : DEFAULT_AUTO_SAVE_DELAY;
         this.autoSaveTimer = null;
         this.isSaving = false;
         this.activeSavePromise = null;

@@ -17,8 +17,8 @@ async function loadCoreModuleConstructors() {
                 tabManagerModule,
                 settingsModule,
             ] = await Promise.all([
-                import('../components/MarkdownEditor.js'),
-                import('../components/CodeEditor.js'),
+                import('../components/markdown-editor/index.js'),
+                import('../components/code-editor/index.js'),
                 import('../components/ImageViewer.js'),
                 import('../components/MediaViewer.js'),
                 import('../components/SpreadsheetViewer.js'),
