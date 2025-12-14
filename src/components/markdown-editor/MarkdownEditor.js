@@ -184,6 +184,10 @@ export class MarkdownEditor {
         if (editorDom) {
             // 点击编辑器时，如果是禁用状态，则启用并聚焦
             editorDom.addEventListener('mousedown', () => {
+                // 没有激活文件时保持禁用状态，避免在无标签时输入
+                if (!this.currentFile) {
+                    return;
+                }
                 if (!this.editor.isEditable) {
                     // 临时抑制 update 事件，避免 setEditable 触发内容变更标记
                     this.suppressUpdateEvent = true;
