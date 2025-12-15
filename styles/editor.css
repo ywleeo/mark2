@@ -99,11 +99,11 @@
 
 .tiptap-editor .mermaid--clickable {
     cursor: zoom-in;
-    transition: opacity 0.15s ease;
+    transition: transform 0.45s ease;
 }
 
 .tiptap-editor .mermaid--clickable:hover {
-    opacity: 0.9;
+    transform: scale(1.01);
 }
 
 .tiptap-editor .mermaid svg {
@@ -328,7 +328,7 @@
     max-width: 100%;
     height: auto;
     cursor: zoom-in;
-    transition: transform 0.15s ease;
+    transition: transform 0.45s ease;
 }
 
 .tiptap-editor img:hover {
