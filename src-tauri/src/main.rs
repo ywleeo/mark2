@@ -718,6 +718,9 @@ fn update_recent_menu(
 }
 
 fn main() {
+    // 限制 Tokio 运行时的工作线程数为 4，降低线程占用
+    std::env::set_var("TOKIO_WORKER_THREADS", "4");
+
     tauri::Builder::default()
         .register_uri_scheme_protocol("stream", |_, request| {
             build_stream_response(&request).unwrap_or_else(|e| {
