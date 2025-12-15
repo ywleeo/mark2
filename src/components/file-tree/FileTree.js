@@ -28,6 +28,7 @@ export class FileTree {
         this.fileService = null;
         this.onFolderChange = onFolderChange;
         this.onFileChange = onFileChange;
+        this.onOpenFilesChange = onOpenFilesChange;
         this.onCloseFileRequest = onCloseFileRequest;
         this.onPathRenamed = onPathRenamed;
         this.cleanupFunctions = []; // 存储清理函数
