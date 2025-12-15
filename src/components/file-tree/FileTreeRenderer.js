@@ -24,9 +24,8 @@ export class FileTreeRenderer {
         header.className = `tree-folder-header ${isRoot ? 'root' : ''}`;
 
         const folderIcon = `
-            <svg class="tree-folder-icon" width="16" height="16" viewBox="0 0 16 16">
-                <path d="M1 2.5v10c0 .28.22.5.5.5h13c.28 0 .5-.22.5-.5V5c0-.28-.22-.5-.5-.5H7L5.5 3H1.5c-.28 0-.5.22-.5.5z"
-                      fill="currentColor" opacity="0.8"/>
+            <svg class="tree-folder-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
         `;
 

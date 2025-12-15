@@ -284,7 +284,7 @@
 .tree-file {
     display: flex;
     align-items: center;
-    padding: 2px 16px 2px 20px;
+    padding: 2px 16px 2px 16px;
     cursor: pointer;
     font-size: 12px;
     border-radius: 0;
