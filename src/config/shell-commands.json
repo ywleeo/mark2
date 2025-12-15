@@ -14,7 +14,7 @@
         "export", "ls", "cd",
         "rg", "fd", "bat", "exa", "jq", "fzf", "claude", "gemini", "xcode-select", "nvm",
         "install", "update", "upgrade", "remove", "uninstall", "search", "list", "security",
-        "python", "node", "ruby", "java", "rustc", "golang", "perl",
+        "python", "python3", "node", "ruby", "java", "rustc", "golang", "perl",
         "ssh-keygen", "ssh-copy-id",
         "tar", "zip", "unzip", "gzip", "gunzip",
         "df", "du", "free", "uptime",
