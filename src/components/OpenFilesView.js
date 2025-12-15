@@ -62,13 +62,21 @@ export class OpenFilesView {
                 item.classList.add('selected');
             }
 
-            const iconSvg = `
-                <svg class="open-file-icon" width="14" height="14" viewBox="0 0 16 16">
-                    <path d="M2 1.5v13c0 .28.22.5.5.5h11c.28 0 .5-.22.5-.5V4.5L10.5 1H2.5c-.28 0-.5.22-.5.5z"
-                          fill="none" stroke="currentColor" stroke-width="1"/>
-                    <path d="M10.5 1v3.5H14" fill="none" stroke="currentColor" stroke-width="1"/>
+            let iconSvg = `
+                <svg class="open-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V9l-7-7z"/>
+                    <path d="M13 3v6h6"/>
                 </svg>
             `;
+
+            if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
+                iconSvg = `
+                    <svg class="open-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+                        <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
+                    </svg>
+                `;
+            }
 
             item.innerHTML = `
                 ${iconSvg}
