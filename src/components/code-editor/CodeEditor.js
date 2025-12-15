@@ -4,6 +4,7 @@ import 'monaco-editor/esm/vs/language/css/monaco.contribution';
 import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
+import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment.js';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
@@ -156,6 +157,15 @@ export class CodeEditor {
             this.editorHost.style.webkitUserDrag = 'none';
         }
         this.applyPreferencesToEditor();
+
+        // 添加 Cmd+/ 快捷键用于切换注释
+        // Monaco Editor 内置的注释功能会自动处理
+        this.editor.addCommand(
+            monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash,
+            () => {
+                this.editor.trigger('keyboard', 'editor.action.commentLine', null);
+            }
+        );
 
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
