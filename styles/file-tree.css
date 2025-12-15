@@ -19,6 +19,10 @@
     flex: 0 0 auto;
 }
 
+.open-files-section .section-header {
+    margin-top: 0;
+}
+
 .folders-section {
     flex: 1 1 auto;
     min-height: 0;
@@ -27,15 +31,15 @@
 .section-header {
     display: flex;
     align-items: center;
-    padding: 10px 12px;
+    padding: 12px 12px 8px 12px;
+    margin-top: 8px;
     cursor: pointer;
     user-select: none;
     transition: background 0.15s;
-    border-bottom: 1px solid var(--border-color, #e4e4e4);
 }
 
 .section-header:hover {
-    background: var(--sidebar-section-header-hover-bg, #fafafa);
+    background: var(--hover-bg-color, rgba(0, 0, 0, 0.03));
 }
 
 .section-arrow {
@@ -43,7 +47,8 @@
     width: 12px;
     height: 12px;
     transition: transform 0.15s ease;
-    color: var(--text-secondary, #313131);
+    color: var(--text-color, #444);
+    opacity: 0.6;
 }
 
 .section-arrow path {
@@ -57,10 +62,11 @@
 
 .section-title {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-secondary, #666);
+    letter-spacing: 0.7px;
+    color: var(--text-color, #444);
+    opacity: 0.8;
 }
 
 .section-content {

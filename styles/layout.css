@@ -7,7 +7,7 @@
     --scrollbar-thumb-color: rgba(92, 92, 92, 0.25);
     --scrollbar-thumb-hover-color: rgba(82, 82, 82, 0.45);
     --scrollbar-track-color: rgba(67, 67, 67, 0.06);
-    --sidebar-bg: #f5f6f8;
+    --sidebar-bg: #fefefe;
     --content-bg: #ffffff;
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);
     --body-text-color: rgba(21, 23, 26, 0.85);
@@ -26,7 +26,7 @@
     --tab-rename-bg: #ffffff;
     --tab-rename-text: rgba(21, 23, 26, 0.9);
     --tab-focus-shadow-color: rgba(107, 226, 117, 0.25);
-    --border-color: #d1d1d1;
+    --border-color: #ddd;
     --status-bg: rgba(245, 246, 248, 0.94);
     --status-border: rgba(15, 23, 42, 0.06);
     --status-text: rgba(21, 23, 26, 0.7);
@@ -66,7 +66,7 @@
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.32);
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.52);
     --scrollbar-track-color: rgba(255, 255, 255, 0.15);
-    --sidebar-bg: #2e2e2e;
+    --sidebar-bg: #212121;
     --content-bg: rgb(30, 30, 30);
     --sidebar-resizer-active: rgba(255, 255, 255, 0.18);
     --body-text-color: rgba(235, 239, 247, 0.95);
@@ -139,6 +139,7 @@ body {
     display: flex;
     align-items: center;
     background: var(--sidebar-bg, #f5f6f8);
+    border-bottom: 1px solid var(--border-color, #d1d1d1);
     user-select: none;
     -webkit-user-select: none;
 }
@@ -199,6 +200,7 @@ body.sidebar-resizing {
     overflow: hidden;
     position: relative;
     background: var(--content-bg, #ffffff);
+    border-left: 1px solid var(--border-color, #d1d1d1);
 }
 
 .sidebar {
@@ -372,6 +374,7 @@ body.sidebar-resizing .sidebar-resizer {
     overflow: hidden;
     position: relative;
 }
+
 
 .content-main {
     flex: 1;
