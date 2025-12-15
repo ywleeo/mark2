@@ -256,6 +256,20 @@
     display: block;
 }
 
+/* 默认状态：显示关闭图标，隐藏打开图标 */
+.tree-folder-icon-open {
+    display: none;
+}
+
+/* 展开状态：隐藏关闭图标，显示打开图标 */
+.tree-folder-header.expanded .tree-folder-icon-closed {
+    display: none;
+}
+
+.tree-folder-header.expanded .tree-folder-icon-open {
+    display: inline-block;
+}
+
 .tree-item-name {
     flex: 1;
     overflow: hidden;

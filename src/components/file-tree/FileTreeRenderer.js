@@ -23,9 +23,15 @@ export class FileTreeRenderer {
         const header = document.createElement('div');
         header.className = `tree-folder-header ${isRoot ? 'root' : ''}`;
 
-        const folderIcon = `
-            <svg class="tree-folder-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        const folderIconClosed = `
+            <svg class="tree-folder-icon tree-folder-icon-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+        `;
+
+        const folderIconOpen = `
+            <svg class="tree-folder-icon tree-folder-icon-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/>
             </svg>
         `;
 
@@ -50,7 +56,8 @@ export class FileTreeRenderer {
 
         header.innerHTML = `
             ${expandIcon}
-            ${folderIcon}
+            ${folderIconClosed}
+            ${folderIconOpen}
             <span class="tree-item-name">${name}</span>
             ${rootActions}
         `;
