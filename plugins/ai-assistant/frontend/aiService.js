@@ -1,10 +1,4 @@
-import { composeMessages } from './services/promptComposer.js';
 import { parseStreamData } from './services/streamParser.js';
-import {
-    cloneRole,
-    normalizeRoles,
-    DEFAULT_ROLE_ID,
-} from './utils/roleUtils.js';
 
 /**
  * AI 服务 - 直接调用 OpenAI API
@@ -52,9 +46,19 @@ class AiService {
         return this.config;
     }
 
-    getActiveRole() {
-        const { roles = [], activeRoleId } = this.config || {};
-        return roles.find(role => role.id === activeRoleId) || roles[0] || null;
+    /**
+     * 规范化配置
+     */
+    normalizeConfig(config) {
+        return {
+            apiKey: config.apiKey || '',
+            baseUrl: config.baseUrl || 'https://api.openai.com/v1',
+            model: config.model || 'gpt-4o',
+            preferences: {
+                outputStyle: config.preferences?.outputStyle || 'balanced',
+                creativity: config.preferences?.creativity || 'medium',
+            }
+        };
     }
 
     /**
@@ -94,27 +98,24 @@ class AiService {
 
     /**
      * 执行 AI 对话（流式响应）
-     * @param {Object} request
-     * @param {string} request.prompt - 用户消息
-     * @param {Array} [request.history] - 对话历史 [{role, content}, ...]
-     * @param {string} [request.systemPrompt] - 系统提示
+     * @param {Object} options
+     * @param {Array} options.messages - OpenAI 格式的消息数组 [{role, content}, ...]
+     * @param {number} [options.temperature] - 温度参数
      */
-    async runTask(request) {
+    async runTask(options) {
         const taskId = this.generateTaskId();
 
-        if (!request.prompt?.trim()) {
-            throw new Error('请求内容为空');
+        if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
+            throw new Error('消息列表为空');
         }
 
         if (!this.config.apiKey) {
-                throw new Error('请先配置 API Key');
+            throw new Error('请先配置 API Key');
         }
-
-        const roleId = request.roleId || this.config.activeRoleId || DEFAULT_ROLE_ID;
 
         // 初始化任务
         const task = {
-            request: { ...request, roleId },
+            options,
             buffer: '',
             status: 'pending',
             thinkBuffer: '',
@@ -125,16 +126,10 @@ class AiService {
         this.notify({
             type: 'task-started',
             id: taskId,
-            payload: request,
+            payload: options,
         });
 
         try {
-            const messages = composeMessages(
-                { ...request, roleId },
-                this.config,
-                { includeConfigPrompts: true }
-            );
-
             const controller = new AbortController();
             task.abortController = controller;
 
@@ -146,8 +141,9 @@ class AiService {
                     'Authorization': `Bearer ${this.config.apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: this.config.model,
-                    messages,
+                    model: options.model || this.config.model,
+                    messages: options.messages,
+                    temperature: options.temperature,
                     stream: true,
                 }),
                 signal: controller.signal,
@@ -163,7 +159,6 @@ class AiService {
             this.notify({
                 type: 'task-stream-start',
                 id: taskId,
-                request,
             });
 
             const reader = response.body.getReader();
@@ -243,43 +238,6 @@ class AiService {
         }
     }
 
-    normalizeConfig(config) {
-        const base = {
-            apiKey: '',
-            model: 'gpt-4o-mini',
-            baseUrl: 'https://api.openai.com/v1',
-            roles: [],
-            activeRoleId: DEFAULT_ROLE_ID,
-            rolePrompt: '',
-            outputStyle: '',
-            thinkBuffer: '',
-        };
-
-        const merged = { ...base, ...config };
-        const roles = normalizeRoles(merged.roles, {
-            legacyPrompt: merged.rolePrompt,
-            legacyStyle: merged.outputStyle,
-        }).map(role => cloneRole(role));
-
-        let activeRoleId = merged.activeRoleId;
-        if (!activeRoleId || !roles.some(role => role.id === activeRoleId)) {
-            activeRoleId = roles[0]?.id || DEFAULT_ROLE_ID;
-        }
-
-        const activeRole = roles.find(role => role.id === activeRoleId) || roles[0] || null;
-
-        return {
-            apiKey: merged.apiKey,
-            model: merged.model,
-            baseUrl: merged.baseUrl,
-            roles,
-            activeRoleId,
-            rolePrompt: activeRole?.rolePrompt || '',
-            outputStyle: activeRole?.outputStyle || '',
-            thinkBuffer: merged.thinkBuffer || '',
-        };
-    }
-
     /**
      * 取消任务
      */
@@ -301,48 +259,15 @@ class AiService {
     }
 
     /**
-     * 调用 AI，无需事件驱动（用于调度/工具类任务）
+     * 调用 AI（非流式）
      */
-    async callAgent(request, options = {}) {
-        if (!request?.prompt?.trim()) {
-            throw new Error('请求内容为空');
+    async chat(options) {
+        if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
+            throw new Error('消息列表为空');
         }
 
         if (!this.config.apiKey) {
             throw new Error('请先配置 API Key');
-        }
-
-        const taskId = this.generateTaskId();
-        const {
-            includeConfigPrompts = true,
-            systemPromptOverride = null,
-            responseFormat = null,
-            maxOutputTokens = null,
-            temperature = null,
-            model = null,
-        } = options;
-
-        const messages = composeMessages(request, this.config, {
-            includeConfigPrompts,
-            systemPromptOverride,
-        });
-
-        const body = {
-            model: model || this.config.model,
-            messages,
-            stream: false,
-        };
-
-        if (responseFormat) {
-            body.response_format = responseFormat;
-        }
-
-        if (typeof maxOutputTokens === 'number') {
-            body.max_output_tokens = maxOutputTokens;
-        }
-
-        if (typeof temperature === 'number') {
-            body.temperature = temperature;
         }
 
         const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
@@ -351,7 +276,12 @@ class AiService {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${this.config.apiKey}`,
             },
-            body: JSON.stringify(body),
+            body: JSON.stringify({
+                model: options.model || this.config.model,
+                messages: options.messages,
+                temperature: options.temperature,
+                stream: false,
+            }),
         });
 
         if (!response.ok) {
@@ -363,7 +293,6 @@ class AiService {
         const message = result?.choices?.[0]?.message?.content ?? '';
 
         return {
-            id: taskId,
             content: message,
             raw: result,
         };
