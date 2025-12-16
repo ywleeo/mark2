@@ -102,10 +102,11 @@ class AiService {
      * @param {Array} options.messages - OpenAI 格式的消息数组 [{role, content}, ...]
      * @param {number} [options.temperature] - 温度参数
      */
-    async runTask(options) {
-        const taskId = this.generateTaskId();
+    async runTask(options = {}) {
+        const { taskId: providedTaskId, ...requestOptions } = options;
+        const taskId = providedTaskId || this.generateTaskId();
 
-        if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
+        if (!requestOptions.messages || !Array.isArray(requestOptions.messages) || requestOptions.messages.length === 0) {
             throw new Error('消息列表为空');
         }
 
@@ -115,7 +116,7 @@ class AiService {
 
         // 初始化任务
         const task = {
-            options,
+            options: requestOptions,
             buffer: '',
             status: 'pending',
             thinkBuffer: '',
@@ -126,7 +127,7 @@ class AiService {
         this.notify({
             type: 'task-started',
             id: taskId,
-            payload: options,
+            payload: requestOptions,
         });
 
         try {
@@ -141,9 +142,9 @@ class AiService {
                     'Authorization': `Bearer ${this.config.apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: options.model || this.config.model,
-                    messages: options.messages,
-                    temperature: options.temperature,
+                    model: requestOptions.model || this.config.model,
+                    messages: requestOptions.messages,
+                    temperature: requestOptions.temperature,
                     stream: true,
                 }),
                 signal: controller.signal,
