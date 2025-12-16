@@ -33,7 +33,6 @@ import { setExportMenuEnabled } from './api/native.js';
 import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
 import { createRecentFilesService } from './services/recentFilesService.js';
-import { createMcpHandler } from './mcp/handler.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
 import { MarkdownToolbarManager } from './components/MarkdownToolbarManager.js';
 import { createFileSession } from './modules/fileSession.js';
@@ -84,7 +83,6 @@ const fileSession = createFileSession({
 });
 const documentSessions = createDocumentSessionManager();
 let appServices = null;
-let mcpHandler = null;
 
 // ========== 初始化应用状态 ==========
 appState.setEditorSettings({ ...defaultEditorSettings });
@@ -431,21 +429,6 @@ const {
     recentFilesService,
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
 });
-
-mcpHandler = createMcpHandler({
-    services: appServices,
-    fileOperations: {
-        openPathsFromSelection,
-        saveCurrentFile,
-        saveFile,
-        loadFile,
-    },
-    documentApi: appServices.document,
-});
-
-if (typeof window !== 'undefined') {
-    window.__MARK2_MCP__ = mcpHandler;
-}
 
 /**
  * 清空所有编辑器内容并重置活动文件。

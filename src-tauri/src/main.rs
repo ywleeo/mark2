@@ -2,7 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod plugin_loader;
-mod mcp_server;
 
 use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
@@ -765,9 +764,6 @@ fn main() {
         .setup(|app| {
             let handle = app.handle();
             register_plain_paste_shortcut(&handle);
-            #[cfg(debug_assertions)]
-            println!("[MCP] initializing server...");
-            mcp_server::spawn_mcp_server(handle.clone());
 
             // 创建菜单
             let open_item = MenuItemBuilder::with_id("open", "Open...")

@@ -1,15 +1,11 @@
 import { addClickHandler } from '../../../src/utils/PointerHelper.js';
 import { aiService } from './aiService.js';
 import { ExecutorAgent } from './agents/ExecutorAgent.js';
-import { McpToolAgent } from './agents/McpToolAgent.js';
 import { AnswerActions } from './sidebar/AnswerActions.js';
 import { SidebarRenderer } from './sidebar/SidebarRenderer.js';
 import { ThinkBlockManager } from './sidebar/ThinkBlockManager.js';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
-import { mcpClient } from './services/mcpClient.js';
-import { analyzePrompt } from './workers/mcpPromptAnalyzer.js';
-import { executeMcpWorkflow } from './workers/mcpWorkflow.js';
 import { buildConversationHistory } from './utils/conversationHelpers.js';
 import { createAiTaskController } from './controllers/aiTaskController.js';
 
@@ -39,17 +35,6 @@ export class AiSidebar {
                 return '';
             });
             this.getDocumentContent = options.getDocumentContent || (async () => {
-                try {
-                    const doc = await mcpClient.call('documentRead');
-                    if (doc?.content) {
-                        return doc.content;
-                    }
-                    if (doc?.document?.content) {
-                        return doc.document.content;
-                    }
-                } catch (error) {
-                    console.warn('[AiSidebar] 通过 MCP 获取文档失败，尝试 AppBridge', error);
-                }
                 if (this.app?.getDocumentContent) {
                     return await this.app.getDocumentContent();
                 }
@@ -76,7 +61,6 @@ export class AiSidebar {
         this.pendingTaskQueue = [];
         this.taskContexts = new Map();
         this.executorAgent = new ExecutorAgent();
-        this.mcpToolAgent = new McpToolAgent();
         this.statusHintText = STATUS_HINT_DEFAULT;
         this.editorRefs = {
             markdownEditor: null,
@@ -512,43 +496,6 @@ export class AiSidebar {
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
     }
 
-    async tryHandleWithMcpFlow({ prompt, conversationHistory, documentContext, workspaceContext, userEntry, force = false }) {
-        const result = await executeMcpWorkflow({
-            toolAgent: this.mcpToolAgent,
-            prompt,
-            history: conversationHistory,
-            documentContext,
-            workspaceContext,
-            force,
-        });
-
-        if (!result.handled) {
-            return false;
-        }
-
-        this.appendMessage({
-            role: 'assistant',
-            content: result.finalAnswer || '（未返回任何内容）',
-        });
-        if (userEntry?.id) {
-            this.resolvePendingConversation(userEntry.id);
-        }
-        this.updateStatusMessage('');
-        this.setBusy(false);
-        return true;
-    }
-
-    getWorkspaceContext() {
-        try {
-            const context = this.services?.workspace?.getContext?.();
-            if (context) {
-                return context;
-            }
-        } catch (error) {
-            console.warn('[AiSidebar] 读取 workspace context 失败', error);
-        }
-        return null;
-    }
 
     async buildDocumentContext() {
         if (typeof this.getDocumentContent !== 'function') {
@@ -646,12 +593,9 @@ export class AiSidebar {
 
         const conversationHistory = buildConversationHistory(this.messages, { includePending: false });
         const documentContext = await this.buildDocumentContext();
-        const workspaceContext = this.getWorkspaceContext();
-        const { useMcp, forceMcp, normalizedPrompt } = analyzePrompt(prompt);
-        const effectivePrompt = normalizedPrompt || prompt;
 
         const request = this.executorAgent.buildRequest({
-            prompt: effectivePrompt,
+            prompt: prompt,
             history: conversationHistory,
             context: documentContext ? [documentContext] : [],
             roleId: this.getActiveRoleId(),
@@ -661,24 +605,8 @@ export class AiSidebar {
         this.setBusy(true);
 
         try {
-            if (useMcp && this.mcpToolAgent) {
-                this.updateStatusMessage('AI 正在通过 MCP 处理…');
-                const handled = await this.tryHandleWithMcpFlow({
-                    prompt: effectivePrompt,
-                    conversationHistory,
-                    documentContext,
-                    workspaceContext,
-                    userEntry,
-                    force: forceMcp,
-                });
-                if (handled) {
-                    return;
-                }
-                this.updateStatusMessage('AI 正在生成回答…');
-            }
-
             await this.executeExecutorRequest(request, {
-                prompt: effectivePrompt,
+                prompt: prompt,
                 displayPrompt: false,
                 userMessageId: userEntry?.id || null,
             });
