@@ -1,6 +1,7 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { liftTarget } from '@tiptap/pm/transform';
 import { BUTTON_CONFIG, DEFAULT_BUTTONS } from './toolbarConfig.js';
+import { EMOJI_LIST } from './emojiList.js';
 
 /**
  * Markdown工具栏类
@@ -16,6 +17,8 @@ export class MarkdownToolbar {
         this.isVisible = true;
         this.tooltipElement = null;
         this.boundScrollHandler = null;
+        this.emojiPicker = null;
+        this.emojiPickerVisible = false;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
             theme: 'light', // 'light' 或 'dark'
@@ -36,6 +39,7 @@ export class MarkdownToolbar {
         }
 
         this.initTooltip();
+        this.initEmojiPicker();
     }
 
     /**
@@ -189,6 +193,8 @@ export class MarkdownToolbar {
                 return this.runTipTapCommand(chain => chain.toggleCodeBlock(), { blockedNodes: ['mermaidBlock'] });
             case 'clearFormatting':
                 return this.clearTipTapFormatting();
+            case 'emoji':
+                return this.handleEmojiPicker();
             default:
                 return false;
         }
@@ -369,7 +375,8 @@ export class MarkdownToolbar {
             table: () => this.insertTable(),
             horizontalRule: () => this.insertHorizontalRule(),
             codeBlock: () => this.insertCodeBlock(),
-            clearFormatting: () => this.clearFormatting()
+            clearFormatting: () => this.clearFormatting(),
+            emoji: () => this.handleEmojiPicker()
         };
 
         const handler = actions[action];
@@ -1234,5 +1241,112 @@ export class MarkdownToolbar {
         const newLine = prefix + line;
         this.replaceLine(newLine, selection);
         return true;
+    }
+
+    /**
+     * 初始化 emoji 选择器
+     */
+    initEmojiPicker() {
+        this.emojiPicker = document.createElement('div');
+        this.emojiPicker.className = 'markdown-toolbar-emoji-picker';
+
+        this.emojiPicker.innerHTML = `
+            <div class="markdown-toolbar-emoji-content">
+                ${EMOJI_LIST.map(emoji => `<span class="markdown-toolbar-emoji-item">${emoji}</span>`).join('')}
+            </div>
+        `;
+
+        document.body.appendChild(this.emojiPicker);
+
+        // 绑定 emoji 点击事件
+        this.emojiPicker.addEventListener('click', (e) => {
+            const emojiItem = e.target.closest('.markdown-toolbar-emoji-item');
+            if (emojiItem) {
+                const emoji = emojiItem.textContent;
+                this.insertEmoji(emoji);
+                this.hideEmojiPicker();
+            }
+        });
+
+        // 点击外部关闭
+        document.addEventListener('mousedown', (e) => {
+            if (this.emojiPickerVisible &&
+                !this.emojiPicker.contains(e.target) &&
+                !e.target.closest('[data-action="emoji"]')) {
+                this.hideEmojiPicker();
+            }
+        }, true);
+    }
+
+    /**
+     * 处理 emoji 选择器
+     */
+    handleEmojiPicker() {
+        const emojiButton = this.container?.querySelector('[data-action="emoji"]');
+        if (!emojiButton) return false;
+
+        if (this.emojiPickerVisible) {
+            this.hideEmojiPicker();
+        } else {
+            this.showEmojiPicker(emojiButton);
+        }
+        return true;
+    }
+
+    /**
+     * 显示 emoji 选择器
+     */
+    showEmojiPicker(button) {
+        if (!this.emojiPicker) return;
+
+        this.emojiPickerVisible = true;
+        this.emojiPicker.classList.add('is-visible');
+
+        // 定位到按钮下方
+        const rect = button.getBoundingClientRect();
+        const pickerWidth = 320;
+        const pickerHeight = 200;
+
+        let left = rect.left - (pickerWidth - rect.width) / 2;
+        let top = rect.bottom + 8;
+
+        // 防止超出屏幕
+        if (left < 10) {
+            left = 10;
+        }
+        if (left + pickerWidth > window.innerWidth - 10) {
+            left = window.innerWidth - pickerWidth - 10;
+        }
+        if (top + pickerHeight > window.innerHeight - 10) {
+            top = rect.top - pickerHeight - 8;
+        }
+
+        this.emojiPicker.style.left = `${left}px`;
+        this.emojiPicker.style.top = `${top}px`;
+    }
+
+    /**
+     * 隐藏 emoji 选择器
+     */
+    hideEmojiPicker() {
+        if (!this.emojiPicker) return;
+
+        this.emojiPickerVisible = false;
+        this.emojiPicker.classList.remove('is-visible');
+    }
+
+    /**
+     * 插入 emoji
+     */
+    insertEmoji(emoji) {
+        // TipTap 编辑器
+        if (this.isTipTapEditor()) {
+            const { from } = this.editor.state.selection;
+            this.editor.chain().focus().insertContentAt(from, emoji).run();
+            return;
+        }
+
+        // Fallback: 插入到光标位置
+        this.insertTextAtCursor(emoji);
     }
 }

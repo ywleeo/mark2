@@ -213,3 +213,95 @@
 .markdown-toolbar--dark .toolbar-separator {
     background: #404040;
 }
+
+/* Emoji Picker Styles */
+.markdown-toolbar-emoji-picker {
+    position: fixed;
+    display: none;
+    width: 350px;
+    backdrop-filter: blur(8px);
+    background: rgba(248, 249, 252, 0.12);
+    border: 1px solid var(--toolbar-border, rgba(15, 23, 42, 0.1));
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    overflow: hidden;
+}
+
+.markdown-toolbar-emoji-picker.is-visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.markdown-toolbar-emoji-content {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.markdown-toolbar-emoji-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.markdown-toolbar-emoji-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.markdown-toolbar-emoji-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.markdown-toolbar-emoji-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s ease, transform 0.12s ease;
+    user-select: none;
+}
+
+.markdown-toolbar-emoji-item:hover {
+    background: rgba(0, 0, 0, 0.08);
+    transform: scale(1.15);
+}
+
+.markdown-toolbar-emoji-item:active {
+    transform: scale(1.05);
+}
+
+/* Dark theme */
+:root[data-theme-appearance='dark'] .markdown-toolbar-emoji-picker {
+    background: rgba(38, 38, 38, 0.12);
+    border-color: var(--toolbar-border, rgba(255, 255, 255, 0.12));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme-appearance='dark'] .markdown-toolbar-emoji-content::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+:root[data-theme-appearance='dark'] .markdown-toolbar-emoji-content::-webkit-scrollbar-thumb {
+    background: #5a5a5a;
+}
+
+:root[data-theme-appearance='dark'] .markdown-toolbar-emoji-content::-webkit-scrollbar-thumb:hover {
+    background: #6a6a6a;
+}
+
+:root[data-theme-appearance='dark'] .markdown-toolbar-emoji-item:hover {
+    background: rgba(255, 255, 255, 0.12);
+}

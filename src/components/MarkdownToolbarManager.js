@@ -73,6 +73,7 @@ export class MarkdownToolbarManager {
                 'horizontalRule',
                 'separator',
                 'clearFormatting',
+                'emoji',
                 'separator',
                 'copyMarkdown',
                 'toggleViewMode'

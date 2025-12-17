@@ -126,6 +126,12 @@ export const BUTTON_CONFIG = {
         </svg>`,
         title: '清除格式'
     },
+    emoji: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M8.5,11A1.5,1.5 0 0,1 7,9.5A1.5,1.5 0 0,1 8.5,8A1.5,1.5 0 0,1 10,9.5A1.5,1.5 0 0,1 8.5,11M15.5,11A1.5,1.5 0 0,1 14,9.5A1.5,1.5 0 0,1 15.5,8A1.5,1.5 0 0,1 17,9.5A1.5,1.5 0 0,1 15.5,11M12,17.5C14.33,17.5 16.3,16.04 17.11,14H6.89C7.69,16.04 9.67,17.5 12,17.5Z" />
+        </svg>`,
+        title: '插入 Emoji'
+    },
     copyMarkdown: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
@@ -162,6 +168,7 @@ export const DEFAULT_BUTTONS = [
     'horizontalRule',
     'codeBlock',
     'clearFormatting',
+    'emoji',
     'separator',
     'toggleViewMode'
 ];
