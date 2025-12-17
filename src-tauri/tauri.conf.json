@@ -40,9 +40,6 @@
       "icons/icon.icns",
       "icons/icon.png"
     ],
-    "resources": [
-      "../plugins"
-    ],
     "macOS": {
       "files": {
         "Info.plist": "macos/Info.plist"

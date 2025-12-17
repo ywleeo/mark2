@@ -27,7 +27,3 @@ export async function exportToPdf({ destination, htmlContent, cssContent, pageWi
         pageWidth,
     });
 }
-
-export async function listPlugins() {
-    return await invoke('list_plugins');
-}

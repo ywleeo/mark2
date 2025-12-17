@@ -1,8 +1,6 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod plugin_loader;
-
 use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
@@ -758,8 +756,7 @@ fn main() {
             update_document_snapshot,
             reveal_in_file_manager,
             set_export_menu_enabled,
-            update_recent_menu,
-            plugin_loader::list_plugins
+            update_recent_menu
         ])
         .setup(|app| {
             let handle = app.handle();
