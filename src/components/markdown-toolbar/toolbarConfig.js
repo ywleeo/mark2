@@ -62,25 +62,24 @@ export const BUTTON_CONFIG = {
     },
     unorderedList: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M7,5H21V7H7V5M7,13V11H21V13H7M4,4.5A1.5,1.5 0 0,1 5.5,6A1.5,1.5 0 0,1 4,7.5A1.5,1.5 0 0,1 2.5,6A1.5,1.5 0 0,1 4,4.5M4,10.5A1.5,1.5 0 0,1 5.5,12A1.5,1.5 0 0,1 4,13.5A1.5,1.5 0 0,1 2.5,12A1.5,1.5 0 0,1 4,10.5M7,19V17H21V19H7M4,16.5A1.5,1.5 0 0,1 5.5,18A1.5,1.5 0 0,1 4,19.5A1.5,1.5 0 0,1 2.5,18A1.5,1.5 0 0,1 4,16.5Z" />
+            <circle cx="4" cy="6" r="2.2" />
+            <circle cx="4" cy="12" r="2.2" />
+            <circle cx="4" cy="18" r="2.2" />
+            <path d="M8,5H21V7H8V5M8,11H21V13H8V11M8,17H21V19H8V17Z" />
         </svg>`,
         title: '无序列表',
         shortcut: 'Ctrl+Shift+8'
     },
     orderedList: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M7,13V11H21V13H7M7,19V17H21V19H7M7,7V5H21V7H7M3,8V5H2V4H4V8H3M2,17V16H5V20H2V19H4V18.5H3V17.5H4V17H2M4.25,10A0.75,0.75 0 0,1 5,10.75C5,10.95 4.92,11.14 4.79,11.27L3.12,13H5V14H2V13.08L4,11H2V10H4.25Z" />
+            <text x="4" y="17" font-size="16" font-weight="bold" fill="currentColor">1.</text>
         </svg>`,
         title: '有序列表',
         shortcut: 'Ctrl+Shift+7'
     },
     taskList: {
-        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="4" height="4" rx="0.8" />
-            <rect x="3" y="10" width="4" height="4" rx="0.8" />
-            <rect x="3" y="16" width="4" height="4" rx="0.8" />
-            <path d="M9 6h12M9 12h12M9 18h12" />
-            <path d="M3.2 6.4l1.3 1.3 1.8-2.3" />
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8L10,17Z" />
         </svg>`,
         title: '任务列表',
         shortcut: 'Ctrl+Shift+9'
@@ -121,9 +120,9 @@ export const BUTTON_CONFIG = {
         shortcut: 'Ctrl+Shift+C'
     },
     clearFormatting: {
-        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3.27,2L2,3.27L7.73,9H5V11H10.73L12.73,13H9V15H14.73L20.73,21L22,19.73L3.27,2Z" />
-            <path d="M17,7H23V5H17H12.42C11.52,5 10.73,5.4 10.12,6L9.74,6.39L11.16,7.81L11.58,7.39C11.78,7.2 12.09,7 12.42,7H17Z" />
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="4" width="12" height="8" rx="1" transform="rotate(-45 12 8)"></rect>
+            <line x1="3" y1="20" x2="21" y2="20"></line>
         </svg>`,
         title: '清除格式'
     },
