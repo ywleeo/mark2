@@ -40,8 +40,8 @@ export class SelectionToolbar {
             thisOnActionClick: typeof this.onActionClick === 'function'
         });
 
-        // 监听编辑器的选中变化
-        this.setupSelectionListener();
+        // 不再自动监听选中变化，只通过右键菜单显示
+        // this.setupSelectionListener();
     }
 
     /**
