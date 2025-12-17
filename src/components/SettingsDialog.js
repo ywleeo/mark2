@@ -1,5 +1,15 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 
+// 动态导入 aiService（避免循环依赖）
+let aiService = null;
+const getAiService = async () => {
+    if (!aiService) {
+        const module = await import('../modules/ai-assistant/aiService.js');
+        aiService = module.aiService;
+    }
+    return aiService;
+};
+
 export class SettingsDialog {
     constructor(options = {}) {
         this.onSubmit = typeof options.onSubmit === 'function' ? options.onSubmit : null;
@@ -305,7 +315,7 @@ export class SettingsDialog {
         });
     }
 
-    open(settings) {
+    async open(settings) {
         const editorPrefs = settings || {};
 
         // 编辑器设置
@@ -325,8 +335,8 @@ export class SettingsDialog {
         this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
         this.markdownTabSizeInput.value = Number(editorPrefs.markdownTabSize) || 2;
 
-        // AI 助手设置 - 从 localStorage 独立读取
-        const aiConfig = this.loadAiConfig();
+        // AI 助手设置 - 从 aiService 读取
+        const aiConfig = await this.loadAiConfig();
         this.aiApiKeyInput.value = aiConfig.apiKey || '';
         this.aiBaseUrlInput.value = aiConfig.baseUrl || 'https://api.openai.com/v1';
         this.aiModelInput.value = aiConfig.model || 'gpt-4o';
@@ -344,23 +354,12 @@ export class SettingsDialog {
         this.isOpen = true;
     }
 
-    loadAiConfig() {
-        const stored = localStorage.getItem('ai-config');
-        if (!stored) {
-            return {
-                apiKey: '',
-                baseUrl: 'https://api.openai.com/v1',
-                model: 'gpt-4o',
-                preferences: {
-                    outputStyle: 'balanced',
-                    creativity: 'medium',
-                }
-            };
-        }
+    async loadAiConfig() {
         try {
-            return JSON.parse(stored);
+            const service = await getAiService();
+            return service.getConfig();
         } catch (error) {
-            console.warn('[SettingsDialog] 无法解析 AI 配置:', error);
+            console.warn('[SettingsDialog] 无法获取 AI 配置:', error);
             return {
                 apiKey: '',
                 baseUrl: 'https://api.openai.com/v1',
@@ -387,7 +386,7 @@ export class SettingsDialog {
         }
     }
 
-    handleSubmit(event) {
+    async handleSubmit(event) {
         event.preventDefault();
 
         // 编辑器设置
@@ -426,7 +425,7 @@ export class SettingsDialog {
             markdownTabSize: normalizedMarkdownTabSize,
         };
 
-        // AI 助手设置 - 独立保存到 localStorage
+        // AI 助手设置 - 通过 aiService 保存
         const aiConfig = {
             apiKey: (this.aiApiKeyInput.value || '').trim(),
             baseUrl: (this.aiBaseUrlInput.value || '').trim() || 'https://api.openai.com/v1',
@@ -436,7 +435,7 @@ export class SettingsDialog {
                 creativity: this.aiCreativitySelect.value || 'medium',
             }
         };
-        this.saveAiConfig(aiConfig);
+        await this.saveAiConfig(aiConfig);
 
         if (this.onSubmit) {
             this.onSubmit(sanitized);
@@ -445,9 +444,11 @@ export class SettingsDialog {
         this.close(false);
     }
 
-    saveAiConfig(config) {
+    async saveAiConfig(config) {
         try {
-            localStorage.setItem('ai-config', JSON.stringify(config));
+            const service = await getAiService();
+            service.saveConfig(config);
+            console.log('[SettingsDialog] AI 配置已保存');
         } catch (error) {
             console.error('[SettingsDialog] 保存 AI 配置失败:', error);
         }
