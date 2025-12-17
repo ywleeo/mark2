@@ -46,9 +46,9 @@ import { createNavigationController } from './modules/navigationController.js';
 import { createFileOperations } from './modules/fileOperations.js';
 import { createFileMenuActions } from './modules/fileMenuActions.js';
 import { createRecentFilesActions } from './modules/recentFilesActions.js';
-import { PluginManager } from './core/PluginManager.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
+import { initAIAssistant } from './modules/ai-assistant/index.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { ensureToPng } from './app/coreModules.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
@@ -71,6 +71,7 @@ const editorRegistry = new EditorRegistry();
 
 // ========== 构造函数（动态加载） ==========
 let SettingsDialogCtor = null;
+let aiAssistant = null;
 
 console.log('Mark2 Tauri 版本已启动');
 
@@ -214,15 +215,11 @@ const {
 
 const layoutControls = createLayoutControls({
     getStatusBarController: () => appState.getStatusBarController(),
-    getPluginManager: () => appState.getPluginManager(),
 });
 const {
     setSidebarVisibility,
     toggleSidebarVisibility,
     toggleStatusBarVisibility,
-    showAiSidebar,
-    hideAiSidebar,
-    toggleAiSidebarVisibility,
 } = layoutControls;
 
 function getToolbarEditorInstance() {
@@ -575,23 +572,6 @@ async function initializeApplication() {
     // 保存 SettingsDialog 构造函数供延迟加载使用
     SettingsDialogCtor = coreModules.SettingsDialog;
 
-    // 初始化插件系统
-    const pluginManager = new PluginManager({
-        eventBus,
-        services: appServices,
-        appContext: {
-            getActiveViewMode: () => appState.getActiveViewMode(),
-            getEditorContext: requestActiveEditorContext,
-            documentApi: getDocumentApi(),
-            getDocumentIO: () => appState.getDocumentIO(),
-            insertText: insertTextIntoActiveEditor,
-        },
-    });
-    appState.setPluginManager(pluginManager);
-
-    // 自动扫描并加载所有插件
-    await pluginManager.scanAndLoadPlugins();
-
     // 初始化视图容器
     setupViewPanes(appState);
 
@@ -625,11 +605,18 @@ async function initializeApplication() {
         setContentZoom,
     });
 
-    // 发布编辑器就绪事件（让插件可以连接编辑器）
+    // 发布编辑器就绪事件
     eventBus.emit('editor:ready', {
         markdownEditor: editor,
         monacoEditor: codeEditor,
     });
+
+    // 初始化 AI 助手
+    aiAssistant = initAIAssistant({
+        eventBus,
+        getEditor: () => editorRegistry.getMarkdownEditor(),
+    });
+    console.log('[App] AI 助手已初始化');
 
     const markdownCodeMode = createMarkdownCodeMode({
         detectLanguageForPath,
@@ -722,7 +709,6 @@ async function initializeApplication() {
         onToggleSidebar: toggleSidebarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleSvgCodeView: toggleSvgCodeMode,
-        onToggleAiSidebar: toggleAiSidebarVisibility,
     }));
     appState.setCleanupFunction('menuListeners', await registerMenuListeners({
         onUndo: handleUndoCommand,
@@ -736,8 +722,6 @@ async function initializeApplication() {
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
-        onToggleAiAssistant: toggleAiSidebarVisibility,
-        onOpenAiSettings: openAiSettingsDialog,
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
         onRenameActiveFile: handleRenameActiveFile,
@@ -834,11 +818,6 @@ async function handleSettingsSubmit(nextSettings) {
     applyEditorSettings(normalizedSettings);
     editorRegistry.getCodeEditor()?.applyPreferences?.(normalizedSettings);
     saveEditorSettings(normalizedSettings);
-}
-
-async function openAiSettingsDialog() {
-    const aiApi = appState.getPluginManager()?.getPluginApi('ai-assistant');
-    await aiApi?.openSettings();
 }
 
 function handleUndoCommand() {
@@ -1051,10 +1030,9 @@ function cleanupResources() {
         appState.setFileWatcherController(null);
     }
 
-    // 停用所有插件
-    const pluginManager = appState.getPluginManager();
-    if (pluginManager) {
-        void pluginManager.deactivateAll();
+    // 清理 AI 助手
+    if (aiAssistant?.destroy) {
+        aiAssistant.destroy();
     }
 
     // 清理文件会话

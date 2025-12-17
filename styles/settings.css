@@ -87,7 +87,7 @@
 }
 
 .settings-dialog {
-    width: 420px;
+    width: 450px;
     max-width: 100%;
     background: var(--settings-surface);
     border-radius: 12px;

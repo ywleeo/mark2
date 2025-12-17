@@ -40,18 +40,6 @@ export async function registerMenuListeners(handlers) {
         }
     }
 
-    // 动态注册插件菜单事件 (plugin-{id}-toggle, plugin-{id}-settings)
-    // 通过 EventBus 转发给插件系统
-    const pluginEventUnlisten = await listen('menu-plugin-ai-assistant-toggle', () => {
-        handlers.onToggleAiAssistant?.();
-    });
-    disposers.push(pluginEventUnlisten);
-
-    const pluginSettingsUnlisten = await listen('menu-plugin-ai-assistant-settings', () => {
-        handlers.onOpenAiSettings?.();
-    });
-    disposers.push(pluginSettingsUnlisten);
-
     return () => {
         while (disposers.length > 0) {
             const unlisten = disposers.pop();

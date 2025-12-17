@@ -36,7 +36,7 @@ export class SettingsDialog {
             { label: 'Courier New', value: "'Courier New', monospace" },
         ];
 
-        this.currentTab = 'editor'; // 'editor' or 'code'
+        this.currentTab = 'editor'; // 'editor', 'code', or 'ai'
 
         this.root = document.createElement('div');
         this.root.className = 'settings-modal hidden';
@@ -48,6 +48,7 @@ export class SettingsDialog {
                         <nav class="settings-tabs">
                             <button type="button" class="settings-tab active" data-tab="editor">Markdown模式</button>
                             <button type="button" class="settings-tab" data-tab="code">代码模式</button>
+                            <button type="button" class="settings-tab" data-tab="ai">AI 助手</button>
                         </nav>
                     </header>
 
@@ -137,6 +138,60 @@ export class SettingsDialog {
                         </div>
                     </section>
 
+                    <!-- AI 助手设置 -->
+                    <section class="settings-body hidden" data-tab-content="ai">
+                        <p class="settings-subtitle">配置 AI 服务和输出偏好</p>
+
+                        <label class="settings-field">
+                            <span class="settings-label">API Key</span>
+                            <input
+                                type="password"
+                                name="aiApiKey"
+                                placeholder="sk-..."
+                            >
+                        </label>
+
+                        <label class="settings-field">
+                            <span class="settings-label">Base URL</span>
+                            <input
+                                type="text"
+                                name="aiBaseUrl"
+                                placeholder="https://api.openai.com/v1"
+                            >
+                            <span class="settings-hint">支持 OpenAI 兼容接口</span>
+                        </label>
+
+                        <label class="settings-field">
+                            <span class="settings-label">Model</span>
+                            <input
+                                type="text"
+                                name="aiModel"
+                                placeholder="gpt-4o"
+                            >
+                            <span class="settings-hint">如：gpt-4o, claude-3-5-sonnet-20241022</span>
+                        </label>
+
+                        <div class="settings-grid">
+                            <label class="settings-field">
+                                <span class="settings-label">输出风格</span>
+                                <select name="aiOutputStyle">
+                                    <option value="balanced">平衡</option>
+                                    <option value="formal">正式书面</option>
+                                    <option value="casual">轻松口语</option>
+                                </select>
+                            </label>
+
+                            <label class="settings-field">
+                                <span class="settings-label">创造性</span>
+                                <select name="aiCreativity">
+                                    <option value="low">保守</option>
+                                    <option value="medium">适中</option>
+                                    <option value="high">大胆</option>
+                                </select>
+                            </label>
+                        </div>
+                    </section>
+
                     <footer class="settings-footer">
                         <button type="button" class="btn secondary" data-action="cancel">取消</button>
                         <button type="submit" class="btn primary">保存</button>
@@ -168,7 +223,14 @@ export class SettingsDialog {
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
         this.markdownTabSizeInput = this.form.querySelector('input[name="markdownTabSize"]');
 
-        // AI 设置字段
+        // AI 助手设置字段
+        this.aiApiKeyInput = this.form.querySelector('input[name="aiApiKey"]');
+        this.aiBaseUrlInput = this.form.querySelector('input[name="aiBaseUrl"]');
+        this.aiModelInput = this.form.querySelector('input[name="aiModel"]');
+        this.aiOutputStyleSelect = this.form.querySelector('select[name="aiOutputStyle"]');
+        this.aiCreativitySelect = this.form.querySelector('select[name="aiCreativity"]');
+
+        // 按钮
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
         this.saveButton = this.form.querySelector('button[type="submit"]');
 
@@ -263,6 +325,14 @@ export class SettingsDialog {
         this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
         this.markdownTabSizeInput.value = Number(editorPrefs.markdownTabSize) || 2;
 
+        // AI 助手设置 - 从 localStorage 独立读取
+        const aiConfig = this.loadAiConfig();
+        this.aiApiKeyInput.value = aiConfig.apiKey || '';
+        this.aiBaseUrlInput.value = aiConfig.baseUrl || 'https://api.openai.com/v1';
+        this.aiModelInput.value = aiConfig.model || 'gpt-4o';
+        this.aiOutputStyleSelect.value = aiConfig.preferences?.outputStyle || 'balanced';
+        this.aiCreativitySelect.value = aiConfig.preferences?.creativity || 'medium';
+
         // 重置到第一个 tab
         this.switchTab('editor');
 
@@ -272,6 +342,35 @@ export class SettingsDialog {
 
         this.root.classList.remove('hidden');
         this.isOpen = true;
+    }
+
+    loadAiConfig() {
+        const stored = localStorage.getItem('ai-config');
+        if (!stored) {
+            return {
+                apiKey: '',
+                baseUrl: 'https://api.openai.com/v1',
+                model: 'gpt-4o',
+                preferences: {
+                    outputStyle: 'balanced',
+                    creativity: 'medium',
+                }
+            };
+        }
+        try {
+            return JSON.parse(stored);
+        } catch (error) {
+            console.warn('[SettingsDialog] 无法解析 AI 配置:', error);
+            return {
+                apiKey: '',
+                baseUrl: 'https://api.openai.com/v1',
+                model: 'gpt-4o',
+                preferences: {
+                    outputStyle: 'balanced',
+                    creativity: 'medium',
+                }
+            };
+        }
     }
 
     close(triggerCancel = false) {
@@ -327,11 +426,31 @@ export class SettingsDialog {
             markdownTabSize: normalizedMarkdownTabSize,
         };
 
+        // AI 助手设置 - 独立保存到 localStorage
+        const aiConfig = {
+            apiKey: (this.aiApiKeyInput.value || '').trim(),
+            baseUrl: (this.aiBaseUrlInput.value || '').trim() || 'https://api.openai.com/v1',
+            model: (this.aiModelInput.value || '').trim() || 'gpt-4o',
+            preferences: {
+                outputStyle: this.aiOutputStyleSelect.value || 'balanced',
+                creativity: this.aiCreativitySelect.value || 'medium',
+            }
+        };
+        this.saveAiConfig(aiConfig);
+
         if (this.onSubmit) {
             this.onSubmit(sanitized);
         }
 
         this.close(false);
+    }
+
+    saveAiConfig(config) {
+        try {
+            localStorage.setItem('ai-config', JSON.stringify(config));
+        } catch (error) {
+            console.error('[SettingsDialog] 保存 AI 配置失败:', error);
+        }
     }
 
     handleKeydown(event) {

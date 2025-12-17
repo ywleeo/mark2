@@ -849,61 +849,6 @@ fn main() {
             recent_menu_state.set_app_handle(app.handle().clone());
             app.manage(recent_menu_state);
 
-            // 动态加载插件菜单
-            let plugins = plugin_loader::scan_plugins().unwrap_or_default();
-            let mut plugins_menu_builder = SubmenuBuilder::new(app, "Plugins");
-
-            for plugin in &plugins {
-                let plugin_id = &plugin.id;
-                let mut submenu_builder = SubmenuBuilder::new(app, &plugin.name);
-
-                // 从 manifest 读取菜单配置
-                if let Some(menu_config) = &plugin.menu {
-                    // Toggle 菜单项
-                    if let Some(toggle_config) = &menu_config.toggle {
-                        let default_label = format!("Toggle {}", plugin.name);
-                        let label = toggle_config
-                            .label
-                            .as_ref()
-                            .map(|s| s.as_str())
-                            .unwrap_or(&default_label);
-                        let accelerator = toggle_config.accelerator.as_deref().unwrap_or("");
-
-                        let toggle_item =
-                            MenuItemBuilder::with_id(format!("plugin-{}-toggle", plugin_id), label)
-                                .accelerator(accelerator)
-                                .build(app)?;
-
-                        submenu_builder = submenu_builder.item(&toggle_item);
-                    }
-
-                    // Settings 菜单项
-                    if let Some(settings_config) = &menu_config.settings {
-                        let default_label = format!("{} Settings...", plugin.name);
-                        let label = settings_config
-                            .label
-                            .as_ref()
-                            .map(|s| s.as_str())
-                            .unwrap_or(&default_label);
-                        let accelerator = settings_config.accelerator.as_deref().unwrap_or("");
-
-                        let settings_item = MenuItemBuilder::with_id(
-                            format!("plugin-{}-settings", plugin_id),
-                            label,
-                        )
-                        .accelerator(accelerator)
-                        .build(app)?;
-
-                        submenu_builder = submenu_builder.item(&settings_item);
-                    }
-                }
-
-                let plugin_submenu = submenu_builder.build()?;
-                plugins_menu_builder = plugins_menu_builder.item(&plugin_submenu);
-            }
-
-            let plugins_menu = plugins_menu_builder.build()?;
-
             // Edit 菜单，启用复制/粘贴等系统原生快捷键
             let undo_item = PredefinedMenuItem::undo(app, None)?;
             let redo_item = PredefinedMenuItem::redo(app, None)?;
@@ -933,7 +878,6 @@ fn main() {
                 .item(&file_menu)
                 .item(&view_menu)
                 .item(&edit_menu)
-                .item(&plugins_menu)
                 .build()?;
 
             app.set_menu(menu)?;
@@ -943,16 +887,7 @@ fn main() {
                 let event_id = event.id().as_ref();
                 println!("菜单事件: {:?}", event_id);
 
-                // 处理插件菜单事件 (plugin-{id}-toggle 或 plugin-{id}-settings)
-                if event_id.starts_with("plugin-") {
-                    // 直接转发到前端，保持原格式
-                    let menu_event_name = format!("menu-{}", event_id);
-                    println!("发送 {} 事件到前端", menu_event_name);
-                    let _ = app.emit(&menu_event_name, ());
-                    return;
-                }
-
-                // 处理其他标准菜单项
+                // 转发菜单事件到前端
                 let menu_event_name = format!("menu-{}", event_id);
                 println!("发送 {} 事件到前端", menu_event_name);
                 let _ = app.emit(&menu_event_name, ());

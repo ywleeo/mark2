@@ -38,7 +38,6 @@ export class AppState {
         this.fileDropController = null;
         this.markdownCodeMode = null;
         this.svgCodeMode = null;
-        this.pluginManager = null;
         this.documentIO = null;
 
         // ========== DOM 元素引用 ==========
@@ -215,14 +214,6 @@ export class AppState {
 
     setSvgCodeMode(instance) {
         this.svgCodeMode = instance;
-    }
-
-    getPluginManager() {
-        return this.pluginManager;
-    }
-
-    setPluginManager(instance) {
-        this.pluginManager = instance;
     }
 
     getDocumentIO() {

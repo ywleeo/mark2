@@ -8,19 +8,10 @@ export function setupKeyboardShortcuts({
     // onToggleSidebar 由 Tauri 菜单统一处理
     onToggleMarkdownCodeView,
     onToggleSvgCodeView,
-    onToggleAiSidebar,
 }) {
     const handler = async (event) => {
         const isMeta = event.metaKey || event.ctrlKey;
         const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
-
-        if (isMeta && event.shiftKey && key === 'a') {
-            event.preventDefault();
-            if (onToggleAiSidebar) {
-                await onToggleAiSidebar();
-            }
-            return;
-        }
 
         if (isMeta && key === 'o') {
             event.preventDefault();

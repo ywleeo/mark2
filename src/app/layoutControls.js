@@ -1,4 +1,4 @@
-export function createLayoutControls({ getStatusBarController, getPluginManager }) {
+export function createLayoutControls({ getStatusBarController }) {
     let isSidebarHidden = false;
 
     function setSidebarVisibility(hidden) {
@@ -44,27 +44,9 @@ export function createLayoutControls({ getStatusBarController, getPluginManager 
         getStatusBarController?.()?.toggleStatusBarVisibility?.();
     }
 
-    function showAiSidebar() {
-        const aiApi = getPluginManager?.()?.getPluginApi?.('ai-assistant');
-        aiApi?.showSidebar?.();
-    }
-
-    function hideAiSidebar() {
-        const aiApi = getPluginManager?.()?.getPluginApi?.('ai-assistant');
-        aiApi?.hideSidebar?.();
-    }
-
-    function toggleAiSidebarVisibility() {
-        const aiApi = getPluginManager?.()?.getPluginApi?.('ai-assistant');
-        aiApi?.toggleSidebar?.();
-    }
-
     return {
         setSidebarVisibility,
         toggleSidebarVisibility,
         toggleStatusBarVisibility,
-        showAiSidebar,
-        hideAiSidebar,
-        toggleAiSidebarVisibility,
     };
 }
