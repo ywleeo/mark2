@@ -27,21 +27,21 @@ export const BUTTON_CONFIG = {
     },
     heading1: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M4,7V4H10V7H8V19H10V22H4V19H6V7H4M18,4H22V7H20V17H22V20H18V17H16V7H18V4M14,7V4H10V7H12V19H10V22H14V19H12V7H14Z" />
+            <text x="6" y="18" font-size="20" font-weight="bold" fill="currentColor">#</text>
         </svg>`,
         title: '一级标题',
         shortcut: 'Ctrl+1'
     },
     heading2: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3,4H7V7H5V19H7V22H3V19H5V7H3V4M15,4H19V7H17V19H19V22H15V19H17V7H15V4M11,7V4H15V7H13V19H15V22H11V19H13V7H11Z" />
+            <text x="6" y="17" font-size="16" font-weight="bold" fill="currentColor">#</text>
         </svg>`,
         title: '二级标题',
         shortcut: 'Ctrl+2'
     },
     heading3: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3,4H7V7H5V17H7V20H3V17H5V7H3V4M13,4H17V7H15V17H17V20H13V17H15V7H13V4M21,4V7H19V17H21V20H17V17H19V7H17V4H21Z" />
+            <text x="7" y="16" font-size="13" font-weight="bold" fill="currentColor">#</text>
         </svg>`,
         title: '三级标题',
         shortcut: 'Ctrl+3'
@@ -78,8 +78,9 @@ export const BUTTON_CONFIG = {
         shortcut: 'Ctrl+Shift+7'
     },
     taskList: {
-        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M10,17L5,12L6.41,10.58L10,14.17L17.59,6.58L19,8L10,17Z" />
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: none !important;" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+            <polyline points="8 12 11 15 16 9"></polyline>
         </svg>`,
         title: '任务列表',
         shortcut: 'Ctrl+Shift+9'
@@ -120,7 +121,7 @@ export const BUTTON_CONFIG = {
         shortcut: 'Ctrl+Shift+C'
     },
     clearFormatting: {
-        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: none !important;" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="6" y="4" width="12" height="8" rx="1" transform="rotate(-45 12 8)"></rect>
             <line x1="3" y1="20" x2="21" y2="20"></line>
         </svg>`,
