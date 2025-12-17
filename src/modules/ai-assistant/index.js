@@ -29,7 +29,7 @@ export function initAIAssistant({ eventBus, getEditor }) {
         // 检查配置
         const config = aiService.getConfig();
         if (!config.apiKey) {
-            alert('请先在「应用设置 > AI 助手」中配置 API Key');
+            alert('请先在「Mark2 > Settings > AI 助手」中配置 API Key');
             return;
         }
 
