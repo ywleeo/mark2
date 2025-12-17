@@ -63,6 +63,12 @@ export class PreviewPanel {
         // 更新标题
         this.updateTitle(ACTION_LABELS[action] || action);
 
+        // 隐藏思考部分（初始状态）
+        const thinkSection = this.element.querySelector('.ai-preview-think');
+        if (thinkSection) {
+            thinkSection.style.display = 'none';
+        }
+
         // 显示加载状态
         this.showLoading();
 
@@ -278,10 +284,21 @@ export class PreviewPanel {
     }
 
     updateThinking(text) {
+        const thinkSection = this.element.querySelector('.ai-preview-think');
         const thinkFull = this.element.querySelector('.ai-preview-think-full');
         const thinkPreview = this.element.querySelector('.ai-preview-think-preview');
         this.thinkText = text || '';
         const finalText = this.thinkText || ' ';
+
+        // 如果没有思考内容，隐藏整个思考部分
+        if (thinkSection) {
+            if (!this.thinkText || this.thinkText.trim().length === 0) {
+                thinkSection.style.display = 'none';
+            } else {
+                thinkSection.style.display = '';
+            }
+        }
+
         if (thinkFull) {
             thinkFull.textContent = finalText;
         }
@@ -358,7 +375,7 @@ export class PreviewPanel {
                 case 'task-stream-start':
                     this.showContent();
                     this.updateAnswer('');
-                    this.updateThinking('');
+                    this.updateThinking(''); // 会隐藏思考部分
                     break;
                 case 'task-stream-chunk':
                     this.showContent();
