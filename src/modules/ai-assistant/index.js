@@ -45,13 +45,24 @@ export function initAIAssistant({ eventBus, getEditor }) {
 
         // 显示预览面板并处理
         await previewPanel.show(action, selectedText, documentContent, {
-            onApply: (resultText) => {
-                if (editor?.replaceSelectionWithAIContent) {
-                    editor.replaceSelectionWithAIContent(resultText);
-                } else {
-                    console.warn('[AI Assistant] 编辑器不支持替换内容');
+            onApply: (resultText, mode = 'replace') => {
+                if (mode === 'replace') {
+                    // 替换选中内容
+                    if (editor?.replaceSelectionWithAIContent) {
+                        editor.replaceSelectionWithAIContent(resultText);
+                    } else {
+                        console.warn('[AI Assistant] 编辑器不支持替换内容');
+                    }
+                    console.log('[AI Assistant] 已替换 AI 结果');
+                } else if (mode === 'append') {
+                    // 在选中内容后增加
+                    if (editor?.insertAfterSelectionWithAIContent) {
+                        editor.insertAfterSelectionWithAIContent(resultText);
+                        console.log('[AI Assistant] 已增加 AI 结果');
+                    } else {
+                        console.warn('[AI Assistant] 编辑器不支持插入内容');
+                    }
                 }
-                console.log('[AI Assistant] 已应用 AI 结果');
             },
             onCancel: () => {
                 console.log('[AI Assistant] 用户取消');

@@ -860,6 +860,38 @@ export class MarkdownEditor {
         this.insertAIContent(markdown, { replace: true });
     }
 
+    insertAfterSelectionWithAIContent(markdown) {
+        if (!this.editor) {
+            return;
+        }
+        const content = typeof markdown === 'string' ? markdown : '';
+        const processedBold = this.preprocessBold(content);
+        const processed = this.preprocessListIndentation(processedBold);
+        const html = this.md.render(processed);
+
+        const { state } = this.editor;
+        const selection = state?.selection;
+
+        if (!selection || selection.empty) {
+            // 如果没有选中内容，直接在光标处插入
+            this.editor.chain().focus().insertContent(html).run();
+        } else {
+            // 有选中内容，在选中内容的末尾插入
+            const endPos = selection.to;
+
+            // 先在末尾插入两个换行，然后插入 AI 内容
+            this.editor.chain()
+                .focus()
+                .setTextSelection(endPos)
+                .insertContent('<p></p>')  // 插入一个空段落作为间隔
+                .insertContent(html)
+                .run();
+        }
+
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
+    }
+
     insertTextAtCursor(text) {
         if (!this.editor || !text) {
             console.warn('[MarkdownEditor] insertTextAtCursor skipped: editor or text missing', {

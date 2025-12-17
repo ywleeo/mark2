@@ -1,5 +1,3 @@
-import { ACTION_LABELS } from '../prompts/taskPrompts.js';
-
 /**
  * 选中文字时显示的浮动工具栏
  * 提供快捷 AI 操作按钮
@@ -70,6 +68,10 @@ export class SelectionToolbar {
             <button class="ai-selection-btn" data-action="summarize" title="总结提炼">
                 <span>📋</span>
                 <span class="ai-selection-btn-label">总结</span>
+            </button>
+            <button class="ai-selection-btn" data-action="translate" title="智能翻译">
+                <span>🌐</span>
+                <span class="ai-selection-btn-label">翻译</span>
             </button>
         `;
 

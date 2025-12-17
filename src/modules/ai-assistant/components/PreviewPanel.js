@@ -113,7 +113,8 @@ export class PreviewPanel {
             </div>
             <div class="ai-preview-actions">
                 <button class="ai-preview-btn ai-preview-btn-cancel" type="button">取消</button>
-                <button class="ai-preview-btn ai-preview-btn-apply" type="button">Tab 应用</button>
+                <button class="ai-preview-btn ai-preview-btn-append" type="button">增加</button>
+                <button class="ai-preview-btn ai-preview-btn-replace" type="button">替换</button>
             </div>
         `;
 
@@ -126,7 +127,8 @@ export class PreviewPanel {
      */
     bindEvents() {
         const cancelBtn = this.element.querySelector('.ai-preview-btn-cancel');
-        const applyBtn = this.element.querySelector('.ai-preview-btn-apply');
+        const appendBtn = this.element.querySelector('.ai-preview-btn-append');
+        const replaceBtn = this.element.querySelector('.ai-preview-btn-replace');
         const thinkToggleBtn = this.element.querySelector('.ai-preview-think-toggle');
         const header = this.element.querySelector('.ai-preview-header');
 
@@ -140,8 +142,12 @@ export class PreviewPanel {
             registerClickHandler(addClickHandler(cancelBtn, () => this.handleCancel()));
         }
 
-        if (applyBtn) {
-            registerClickHandler(addClickHandler(applyBtn, () => this.handleApply()));
+        if (appendBtn) {
+            registerClickHandler(addClickHandler(appendBtn, () => this.handleApply('append')));
+        }
+
+        if (replaceBtn) {
+            registerClickHandler(addClickHandler(replaceBtn, () => this.handleApply('replace')));
         }
 
         if (thinkToggleBtn) {
@@ -159,7 +165,11 @@ export class PreviewPanel {
                 this.handleCancel();
             } else if (e.key === 'Tab') {
                 e.preventDefault();
-                this.handleApply();
+                // Tab 快捷键也要检查按钮是否可用
+                const replaceBtn = this.element?.querySelector('.ai-preview-btn-replace');
+                if (!replaceBtn?.disabled) {
+                    this.handleApply('replace');
+                }
             }
         };
         document.addEventListener('keydown', this.handleKeydown);
@@ -190,6 +200,7 @@ export class PreviewPanel {
             error.textContent = '';
         }
         this.setThinkingExpanded(false);
+        this.setApplyButtonsEnabled(false);
     }
 
     showContent() {
@@ -200,6 +211,21 @@ export class PreviewPanel {
         if (loading) loading.style.display = 'none';
         if (result) result.style.display = 'flex';
         if (error) error.style.display = 'none';
+    }
+
+    /**
+     * 设置应用按钮的启用/禁用状态
+     */
+    setApplyButtonsEnabled(enabled) {
+        const appendBtn = this.element?.querySelector('.ai-preview-btn-append');
+        const replaceBtn = this.element?.querySelector('.ai-preview-btn-replace');
+
+        if (appendBtn) {
+            appendBtn.disabled = !enabled;
+        }
+        if (replaceBtn) {
+            replaceBtn.disabled = !enabled;
+        }
     }
 
     /**
@@ -391,14 +417,17 @@ export class PreviewPanel {
                     if (typeof event.thinkBuffer === 'string') {
                         this.updateThinking(event.thinkBuffer);
                     }
+                    this.setApplyButtonsEnabled(true);
                     this.cleanupStreamSubscription();
                     break;
                 case 'task-failed':
                     this.showError(event.error || 'AI 处理失败');
+                    this.setApplyButtonsEnabled(true);
                     this.cleanupStreamSubscription();
                     break;
                 case 'task-cancelled':
                     this.showError('任务已取消');
+                    this.setApplyButtonsEnabled(true);
                     this.cleanupStreamSubscription();
                     break;
                 default:
@@ -413,6 +442,7 @@ export class PreviewPanel {
         }).catch((error) => {
             console.error('[PreviewPanel] AI 任务失败', error);
             this.showError(error?.message || 'AI 任务失败');
+            this.setApplyButtonsEnabled(true);
             this.cleanupStreamSubscription();
         });
         this.currentTaskId = taskId;
@@ -420,12 +450,22 @@ export class PreviewPanel {
 
     /**
      * 应用结果
+     * @param {string} mode - 应用模式：'replace' 替换选中内容，'append' 在选中内容后增加
      */
-    handleApply() {
+    handleApply(mode = 'replace') {
+        // 检查按钮是否被禁用
+        const appendBtn = this.element?.querySelector('.ai-preview-btn-append');
+        const replaceBtn = this.element?.querySelector('.ai-preview-btn-replace');
+        const targetBtn = mode === 'append' ? appendBtn : replaceBtn;
+
+        if (targetBtn?.disabled) {
+            return;
+        }
+
         if (!this.resultText) return;
 
         if (typeof this.onApply === 'function') {
-            this.onApply(this.resultText);
+            this.onApply(this.resultText, mode);
         }
 
         this.hide();

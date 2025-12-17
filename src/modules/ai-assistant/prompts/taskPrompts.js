@@ -161,6 +161,24 @@ ${targetStyle === 'formal' ? '正式书面语' : '轻松口语化'}
 
 **输出格式：**
 只输出转换后的内容`,
+
+    /**
+     * 翻译
+     */
+    translate: ({ selection }) => `## 任务：智能翻译
+
+**原文：**
+${selection}
+
+**翻译要求：**
+1. 自动识别原文语言
+2. 如果原文是中文，翻译成英文
+3. 如果原文是非中文（英文、日文等），翻译成中文
+4. 保持原文的语气和风格
+5. 翻译要准确、流畅、自然
+
+**输出格式：**
+只输出翻译后的文本，不要添加任何解释或说明`,
 };
 
 /**
@@ -174,6 +192,7 @@ export const ACTION_LABELS = {
     summarize: '总结',
     rewrite: '改写',
     changeStyle: '转换风格',
+    translate: '翻译',
 };
 
 /**
@@ -187,4 +206,5 @@ export const ACTION_TEMPERATURES = {
     summarize: 0.4, // 总结要准确
     rewrite: 0.5,   // 改写中等
     changeStyle: 0.4, // 风格转换适中
+    translate: 0.3, // 翻译要准确
 };
