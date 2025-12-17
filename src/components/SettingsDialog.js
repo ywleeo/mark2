@@ -188,6 +188,12 @@ export class SettingsDialog {
                                     <option value="balanced">平衡</option>
                                     <option value="formal">正式书面</option>
                                     <option value="casual">轻松口语</option>
+                                    <option value="xiaohongshu">小红书风格</option>
+                                    <option value="zhihu">知乎风格</option>
+                                    <option value="weibo">微博风格</option>
+                                    <option value="bilibili">B站风格</option>
+                                    <option value="wechat">公众号风格</option>
+                                    <option value="toutiao">今日头条风格</option>
                                 </select>
                             </label>
 

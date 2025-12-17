@@ -3,9 +3,9 @@
  * 整合 System Prompt + Context + Task Prompt
  */
 
-import { SYSTEM_PROMPTS, adjustSystemPromptByPreferences } from './systemPrompts.js';
+import { getSystemPrompts, adjustSystemPromptByPreferences } from './systemPrompts.js';
 import { ContextBuilder } from './contextBuilder.js';
-import { TASK_PROMPTS, ACTION_TEMPERATURES } from './taskPrompts.js';
+import { TASK_PROMPTS, getActionTemperatures } from './taskPrompts.js';
 
 export class PromptComposer {
     constructor(documentContent, userPreferences) {
@@ -21,12 +21,16 @@ export class PromptComposer {
      * @param {string} selection - 选中的文本
      * @param {Object} options - 额外选项
      */
-    buildMessages(action, selection, options = {}) {
+    async buildMessages(action, selection, options = {}) {
         const messages = [];
 
         // 1. System Prompt（基于文档类型）
-        let systemPrompt = SYSTEM_PROMPTS[this.docType] || SYSTEM_PROMPTS.general;
-        systemPrompt = adjustSystemPromptByPreferences(systemPrompt, this.preferences);
+        const systemPrompts = await getSystemPrompts();
+        let systemPrompt = systemPrompts[this.docType] || systemPrompts.general;
+        console.log('[PromptComposer] 用户偏好设置:', JSON.stringify(this.preferences));
+        console.log('[PromptComposer] 输出风格:', this.preferences?.outputStyle);
+        systemPrompt = await adjustSystemPromptByPreferences(systemPrompt, this.preferences);
+        console.log('[PromptComposer] System Prompt 是否包含输出风格:', systemPrompt.includes('输出风格要求'));
 
         messages.push({
             role: 'system',
@@ -42,7 +46,7 @@ export class PromptComposer {
             throw new Error(`未知的操作类型: ${action}`);
         }
 
-        const taskPrompt = taskPromptBuilder({
+        const taskPrompt = await taskPromptBuilder({
             selection,
             context: surrounding,
             style: this.style,
@@ -60,8 +64,9 @@ export class PromptComposer {
     /**
      * 获取操作的推荐温度参数
      */
-    getTemperature(action) {
-        let baseTemp = ACTION_TEMPERATURES[action] || 0.5;
+    async getTemperature(action) {
+        const temperatures = await getActionTemperatures();
+        let baseTemp = temperatures[action] || 0.5;
 
         // 根据用户的创造性偏好调整
         const creativityModifier = {
@@ -97,8 +102,8 @@ export async function buildAiRequest(action, selection, documentContent, userPre
     const composer = new PromptComposer(documentContent, userPreferences);
 
     return {
-        messages: composer.buildMessages(action, selection),
-        temperature: composer.getTemperature(action),
+        messages: await composer.buildMessages(action, selection),
+        temperature: await composer.getTemperature(action),
         metadata: {
             action,
             documentType: composer.getDocumentType(),

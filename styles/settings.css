@@ -1,6 +1,6 @@
 :root {
     --settings-backdrop: rgba(0, 0, 0, 0.35);
-    --settings-surface: #ffffff;
+    --settings-surface: #ffffff2c;
     --settings-surface-contrast: #111827;
     --settings-divider: rgba(15, 23, 42, 0.08);
     --settings-muted: #64748b;
@@ -32,7 +32,7 @@
 
 :root[data-theme-appearance='dark'] {
     --settings-backdrop: rgba(0, 0, 0, 0.55);
-    --settings-surface: #212b3a;
+    --settings-surface: #212b3a2c;
     --settings-surface-contrast: #f4f7fb;
     --settings-divider: rgba(255, 255, 255, 0.08);
     --settings-muted: #a5b4cb;
@@ -89,6 +89,7 @@
 .settings-dialog {
     width: 450px;
     max-width: 100%;
+    backdrop-filter: blur(12px);
     background: var(--settings-surface);
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(14, 18, 27, 0.25);

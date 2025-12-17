@@ -1,189 +1,178 @@
 /**
  * Task Prompts - 针对不同操作的精细化任务指令
+ * 从 YAML 配置文件加载
  */
+
+import { loadTaskPrompts, getStyleDescription } from './promptLoader.js';
+
+// 懒加载的任务提示词对象
+let TASK_TEMPLATES = null;
+let TASK_TEMPERATURES = null;
+let TASK_LABELS = null;
+
+/**
+ * 初始化任务提示词（懒加载）
+ */
+async function initTaskPrompts() {
+    if (!TASK_TEMPLATES) {
+        const config = await loadTaskPrompts();
+        TASK_TEMPLATES = config.templates;
+        TASK_TEMPERATURES = config.temperatures;
+        TASK_LABELS = config.labels;
+    }
+}
+
+/**
+ * 填充模板变量
+ */
+function fillTemplate(template, variables) {
+    let result = template;
+
+    // 替换简单变量 {selection}, {style.person} 等
+    for (const [key, value] of Object.entries(variables)) {
+        if (typeof value === 'object' && value !== null) {
+            // 处理嵌套对象，如 style.person
+            for (const [subKey, subValue] of Object.entries(value)) {
+                const placeholder = `{${key}.${subKey}}`;
+                result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), subValue || '');
+            }
+        } else {
+            const placeholder = `{${key}}`;
+            result = result.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value || '');
+        }
+    }
+
+    return result;
+}
+
+/**
+ * 构建任务提示词函数
+ */
+async function createTaskPromptBuilder(action) {
+    await initTaskPrompts();
+    const template = TASK_TEMPLATES[action];
+
+    if (!template) {
+        throw new Error(`未知的操作类型: ${action}`);
+    }
+
+    return (params) => {
+        const { selection, context, style, ...otherParams } = params;
+
+        // 准备变量
+        const variables = {
+            selection,
+            contextBefore: context?.before ? `**前文：**\n${context.before}\n` : '',
+            contextAfter: context?.after ? `**后文：**\n${context.after}\n` : '',
+            style: {
+                person: style?.person || '第一人称',
+                tone: style?.tone || '中性',
+                vocabulary: style?.vocabulary || '通俗',
+            },
+            sentenceLength: style?.avgSentenceLength > 25 ? '长句为主' :
+                           style?.avgSentenceLength > 15 ? '中等句式' : '短句为主',
+            currentLength: selection?.length || 0,
+            targetLength: otherParams.targetLength || Math.round((selection?.length || 0) * (otherParams.expandRatio || otherParams.targetRatio || 1)),
+            ...otherParams
+        };
+
+        return fillTemplate(template, variables);
+    };
+}
 
 export const TASK_PROMPTS = {
     /**
      * 润色优化
      */
-    polish: ({ selection, context, style }) => `## 任务：润色优化
-
-**原文：**
-${selection}
-
-${context.before ? `**前文：**\n${context.before}\n` : ''}
-${context.after ? `**后文：**\n${context.after}\n` : ''}
-
-**文档风格特征：**
-- 人称：${style.person}
-- 语气：${style.tone}
-- 用词：${style.vocabulary}
-- 句式：${style.avgSentenceLength > 25 ? '长句为主' : style.avgSentenceLength > 15 ? '中等句式' : '短句为主'}
-
-**优化方向（按优先级）：**
-1. 清晰度：如有表达不清的地方，改得更明确
-2. 简洁性：删除冗余，保留核心信息
-3. 流畅度：优化句式衔接
-4. 准确性：用词更精准
-
-**严格要求：**
-- 保持原文的人称（${style.person}）和语气（${style.tone}）
-- 保持用词风格（${style.vocabulary}）
-- 不改变核心观点和主要信息
-- 只输出润色后的文本，不要解释`,
+    polish: async (params) => {
+        const builder = await createTaskPromptBuilder('polish');
+        return builder(params);
+    },
 
     /**
      * 续写
      */
-    continue: ({ selection, context, style }) => `## 任务：续写
-
-**需要续写的部分：**
-${selection}
-
-${context.before ? `**前文：**\n${context.before}\n` : ''}
-
-**文档风格特征：**
-- 人称：${style.person}
-- 语气：${style.tone}
-- 用词：${style.vocabulary}
-
-**续写要求：**
-1. 无缝衔接：读者不应感觉到这是 AI 写的，必须自然过渡
-2. 风格一致：保持与前文相同的人称、语气、用词风格
-3. 内容合理：符合前文逻辑，推进内容发展
-4. 长度适中：续写 100-200 字，不要突然结束
-
-**输出格式：**
-只输出续写的内容，不要：
-- 加引号或标记
-- 写"续写如下"之类的说明
-- 重复原文`,
+    continue: async (params) => {
+        const builder = await createTaskPromptBuilder('continue');
+        return builder(params);
+    },
 
     /**
      * 扩写
      */
-    expand: ({ selection, context, style, expandRatio = 1.5 }) => `## 任务：扩写
-
-**原文（较简略）：**
-${selection}
-
-${context.before ? `**前文参考：**\n${context.before}\n` : ''}
-${context.after ? `**后文参考：**\n${context.after}\n` : ''}
-
-**扩写策略：**
-1. 补充细节：增加具体描写、例子、数据
-2. 丰富层次：让内容更饱满，但不啰嗦
-3. 保持节奏：扩写要自然，不能为了凑字数而水
-4. 目标长度：约 ${Math.round(selection.length * expandRatio)} 字
-
-**风格要求：**
-- 保持 ${style.person}
-- 保持 ${style.tone} 的语气
-- 保持 ${style.vocabulary} 的用词风格
-
-**输出格式：**
-只输出扩写后的完整段落`,
+    expand: async (params) => {
+        const builder = await createTaskPromptBuilder('expand');
+        return builder(params);
+    },
 
     /**
      * 缩写/精简
      */
-    compress: ({ selection, style, targetRatio = 0.6 }) => `## 任务：精简压缩
-
-**原文：**
-${selection}
-（当前 ${selection.length} 字）
-
-**压缩要求：**
-1. 保留核心信息和关键观点
-2. 删除冗余和次要细节
-3. 目标长度：约 ${Math.round(selection.length * targetRatio)} 字
-4. 保持可读性，不能变成干巴巴的大纲
-
-**风格要求：**
-保持原文的 ${style.person} 和 ${style.tone}
-
-**输出格式：**
-只输出压缩后的内容`,
+    compress: async (params) => {
+        const builder = await createTaskPromptBuilder('compress');
+        return builder(params);
+    },
 
     /**
      * 总结提炼
      */
-    summarize: ({ selection }) => `## 任务：总结提炼
-
-**原文：**
-${selection}
-
-**总结要求：**
-1. 提炼出 3-5 个关键要点
-2. 使用简洁的语言
-3. 保持逻辑清晰
-4. 每个要点一句话说明
-
-**输出格式：**
-- 要点1
-- 要点2
-- 要点3`,
+    summarize: async (params) => {
+        const builder = await createTaskPromptBuilder('summarize');
+        return builder(params);
+    },
 
     /**
      * 改写（换个说法）
      */
-    rewrite: ({ selection, context, style }) => `## 任务：改写
-
-**原文：**
-${selection}
-
-${context.before ? `**前文：**\n${context.before}\n` : ''}
-
-**改写要求：**
-1. 保持核心意思不变
-2. 换一种表达方式
-3. 可以调整句式结构和用词
-4. 保持 ${style.person} 和 ${style.tone}
-
-**输出格式：**
-只输出改写后的内容`,
+    rewrite: async (params) => {
+        const builder = await createTaskPromptBuilder('rewrite');
+        return builder(params);
+    },
 
     /**
      * 翻译风格（正式 ↔ 口语）
      */
-    changeStyle: ({ selection, targetStyle }) => `## 任务：转换风格
+    changeStyle: async (params) => {
+        const builder = await createTaskPromptBuilder('changeStyle');
+        const { targetStyle } = params;
 
-**原文：**
-${selection}
+        // 获取风格描述
+        const styleDescription = await getStyleDescription(targetStyle);
+        const targetStyleName = targetStyle === 'formal' ? '正式书面语' : '轻松口语化';
 
-**目标风格：**
-${targetStyle === 'formal' ? '正式书面语' : '轻松口语化'}
-
-**转换要求：**
-1. 保持核心意思不变
-2. ${targetStyle === 'formal' ? '使用正式、规范的书面语表达' : '使用自然、亲切的口语化表达'}
-3. 调整用词和句式以符合目标风格
-
-**输出格式：**
-只输出转换后的内容`,
+        return builder({
+            ...params,
+            targetStyleName,
+            targetStyleDescription: styleDescription
+        });
+    },
 
     /**
      * 翻译
      */
-    translate: ({ selection }) => `## 任务：智能翻译
-
-**原文：**
-${selection}
-
-**翻译要求：**
-1. 自动识别原文语言
-2. 如果原文是中文，翻译成英文
-3. 如果原文是非中文（英文、日文等），翻译成中文
-4. 保持原文的语气和风格
-5. 翻译要准确、流畅、自然
-
-**输出格式：**
-只输出翻译后的文本，不要添加任何解释或说明`,
+    translate: async (params) => {
+        const builder = await createTaskPromptBuilder('translate');
+        return builder(params);
+    },
 };
 
 /**
- * 操作对应的标签
+ * 操作对应的标签（异步获取）
  */
+export async function getActionLabels() {
+    await initTaskPrompts();
+    return TASK_LABELS;
+}
+
+/**
+ * 不同操作的推荐温度参数（异步获取）
+ */
+export async function getActionTemperatures() {
+    await initTaskPrompts();
+    return TASK_TEMPERATURES;
+}
+
+// 为了向后兼容，提供同步访问方式（使用默认fallback）
 export const ACTION_LABELS = {
     polish: '润色',
     continue: '续写',
@@ -195,16 +184,13 @@ export const ACTION_LABELS = {
     translate: '翻译',
 };
 
-/**
- * 不同操作的推荐温度参数
- */
 export const ACTION_TEMPERATURES = {
-    polish: 0.3,    // 润色要保守
-    continue: 0.8,  // 续写需要创造性
-    expand: 0.6,    // 扩写中等创造性
-    compress: 0.3,  // 压缩要保守
-    summarize: 0.4, // 总结要准确
-    rewrite: 0.5,   // 改写中等
-    changeStyle: 0.4, // 风格转换适中
-    translate: 0.3, // 翻译要准确
+    polish: 0.3,
+    continue: 0.8,
+    expand: 0.6,
+    compress: 0.3,
+    summarize: 0.4,
+    rewrite: 0.5,
+    changeStyle: 0.4,
+    translate: 0.3,
 };
