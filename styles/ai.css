@@ -202,7 +202,6 @@
     display: none;
     flex-direction: column;
     opacity: 0;
-    transition: opacity 0.2s ease, transform 0.2s ease;
     z-index: 1000;
     overflow: hidden;
 }
@@ -210,7 +209,6 @@
 .ai-preview-panel.is-visible {
     display: flex;
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
 }
 
 @media (prefers-color-scheme: dark) {

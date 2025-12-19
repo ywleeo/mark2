@@ -56,10 +56,11 @@ export class PreviewPanel {
             this.createElement();
         }
 
-        // 显示窗口
+        // 先设置位置（此时还不可见）
+        this.centerDialog();
+        // 再显示窗口
         this.element.classList.add('is-visible');
         this.isVisible = true;
-        this.centerDialog();
 
         // 更新标题
         this.updateTitle(ACTION_LABELS[action] || action);
@@ -234,6 +235,14 @@ export class PreviewPanel {
      */
     centerDialog() {
         if (!this.element) return;
+
+        // 临时显示元素以获取尺寸（使用 visibility 而非 display，避免影响后续显示）
+        const wasHidden = !this.element.classList.contains('is-visible');
+        if (wasHidden) {
+            this.element.style.display = 'flex';
+            this.element.style.visibility = 'hidden';
+        }
+
         const width = this.element.offsetWidth;
         const height = this.element.offsetHeight;
         const left = (window.innerWidth - width) / 2;
@@ -241,6 +250,12 @@ export class PreviewPanel {
         this.element.style.left = `${Math.max(left, 8)}px`;
         this.element.style.top = `${Math.max(top, 8)}px`;
         this.element.style.transform = 'none';
+
+        // 移除临时样式，让 CSS 类来控制显示
+        if (wasHidden) {
+            this.element.style.display = '';
+            this.element.style.visibility = '';
+        }
     }
 
     /**
