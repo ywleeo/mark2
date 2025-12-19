@@ -184,53 +184,65 @@ export class SelectionToolbar {
             }
         });
 
-        // 鼠标进入工具栏，取消隐藏
-        this.element.addEventListener('mouseenter', () => {
-            this.clearHideTimer();
-        });
-
-        // 鼠标离开工具栏，延迟隐藏
-        this.element.addEventListener('mouseleave', () => {
-            this.scheduleHide();
-        });
-
-        // 点击外部区域立即关闭
-        this.documentClickHandler = (e) => {
-            // console.log('[SelectionToolbar] documentClickHandler', {
-            //     isVisible: this.isVisible,
-            //     eventType: e.type,
-            //     button: e.button,
-            //     target: e.target,
-            //     targetTagName: e.target?.tagName,
-            //     targetClassName: e.target?.className,
-            //     contains: this.element?.contains(e.target)
-            // });
-
+        // 点击外部区域关闭（延迟到 pointerup，避免把拖动误判为点击）
+        this.pendingOutsideClose = null;
+        this.documentPointerDownHandler = (e) => {
             if (!this.isVisible) return;
 
-            // 忽略右键点击（button = 2）
+            // 忽略右键
             if (e.button === 2) {
-                // console.log('[SelectionToolbar] 忽略右键点击');
                 return;
             }
 
-            // 如果点击的是工具栏本身，不关闭工具栏，但要关闭下拉菜单
-            if (this.element.contains(e.target)) {
-                // 如果点击的不是选择器，关闭下拉菜单
-                if (!this.styleSelector.contains(e.target)) {
+            const isInsideToolbar = this.element.contains(e.target);
+
+            if (isInsideToolbar) {
+                // 点击在工具栏内部时仅处理下拉菜单状态
+                if (this.styleSelector && !this.styleSelector.contains(e.target)) {
                     this.closeDropdown();
                 }
+                this.clearPendingOutsideClose();
                 return;
             }
 
-            // 立即关闭工具栏和下拉菜单
-            // console.log('[SelectionToolbar] 点击外部，关闭工具栏');
-            this.closeDropdown();
-            this.hide();
+            // 记录一次可能的外部点击，等待 pointerup 时再决定是否关闭
+            this.pendingOutsideClose = {
+                pointerId: e.pointerId,
+                startX: e.clientX,
+                startY: e.clientY,
+                moved: false
+            };
         };
 
-        // 同时监听 mousedown，因为有些情况下 click 不会触发
-        document.addEventListener('mousedown', this.documentClickHandler, true);
+        this.documentPointerMoveHandler = (e) => {
+            if (!this.pendingOutsideClose) return;
+            if (e.pointerId !== this.pendingOutsideClose.pointerId) return;
+
+            const deltaX = Math.abs(e.clientX - this.pendingOutsideClose.startX);
+            const deltaY = Math.abs(e.clientY - this.pendingOutsideClose.startY);
+
+            if (deltaX > 2 || deltaY > 2) {
+                this.pendingOutsideClose.moved = true;
+            }
+        };
+
+        this.documentPointerUpHandler = (e) => {
+            if (!this.pendingOutsideClose) return;
+            if (e.pointerId !== this.pendingOutsideClose.pointerId) return;
+
+            const moved = this.pendingOutsideClose.moved;
+            this.clearPendingOutsideClose();
+
+            // 如果 pointerdown 之后没有明显拖动，视为真正的点击
+            if (!moved) {
+                this.closeDropdown();
+                this.hide();
+            }
+        };
+
+        document.addEventListener('pointerdown', this.documentPointerDownHandler, true);
+        document.addEventListener('pointermove', this.documentPointerMoveHandler, true);
+        document.addEventListener('pointerup', this.documentPointerUpHandler, true);
     }
 
     /**
@@ -552,9 +564,17 @@ export class SelectionToolbar {
         }
 
         // 移除点击外部关闭监听器
-        if (this.documentClickHandler) {
-            document.removeEventListener('mousedown', this.documentClickHandler, true);
-            this.documentClickHandler = null;
+        if (this.documentPointerDownHandler) {
+            document.removeEventListener('pointerdown', this.documentPointerDownHandler, true);
+            this.documentPointerDownHandler = null;
+        }
+        if (this.documentPointerMoveHandler) {
+            document.removeEventListener('pointermove', this.documentPointerMoveHandler, true);
+            this.documentPointerMoveHandler = null;
+        }
+        if (this.documentPointerUpHandler) {
+            document.removeEventListener('pointerup', this.documentPointerUpHandler, true);
+            this.documentPointerUpHandler = null;
         }
 
         if (this.element && this.element.parentNode) {
@@ -564,5 +584,12 @@ export class SelectionToolbar {
 
         this.editor = null;
         this.onActionClick = null;
+    }
+
+    /**
+     * 清理外部点击的临时状态
+     */
+    clearPendingOutsideClose() {
+        this.pendingOutsideClose = null;
     }
 }
