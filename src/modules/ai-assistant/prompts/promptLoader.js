@@ -116,10 +116,3 @@ export async function getTaskLabel(action) {
     return labels[action] || action;
 }
 
-/**
- * 获取风格转换说明
- */
-export async function getStyleDescription(style) {
-    const { styleDescriptions } = await loadTaskPrompts();
-    return styleDescriptions[style] || '';
-}

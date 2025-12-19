@@ -3,7 +3,7 @@
  * 从 YAML 配置文件加载
  */
 
-import { loadTaskPrompts, getStyleDescription } from './promptLoader.js';
+import { loadTaskPrompts } from './promptLoader.js';
 
 // 懒加载的任务提示词对象
 let TASK_TEMPLATES = null;
@@ -127,24 +127,6 @@ export const TASK_PROMPTS = {
     rewrite: async (params) => {
         const builder = await createTaskPromptBuilder('rewrite');
         return builder(params);
-    },
-
-    /**
-     * 翻译风格（正式 ↔ 口语）
-     */
-    changeStyle: async (params) => {
-        const builder = await createTaskPromptBuilder('changeStyle');
-        const { targetStyle } = params;
-
-        // 获取风格描述
-        const styleDescription = await getStyleDescription(targetStyle);
-        const targetStyleName = targetStyle === 'formal' ? '正式书面语' : '轻松口语化';
-
-        return builder({
-            ...params,
-            targetStyleName,
-            targetStyleDescription: styleDescription
-        });
     },
 
     /**
