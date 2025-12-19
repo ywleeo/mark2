@@ -3,24 +3,41 @@
  */
 
 import yaml from 'js-yaml';
+import systemPromptsSource from './system-prompts.yaml?raw';
+import taskPromptsSource from './task-prompts.yaml?raw';
 
 // 缓存加载的配置
 let systemPromptsCache = null;
 let taskPromptsCache = null;
 
-/**
- * 加载 YAML 文件
- */
-async function loadYaml(filePath) {
+function parseSystemPrompts() {
     try {
-        const response = await fetch(filePath);
-        if (!response.ok) {
-            throw new Error(`Failed to load ${filePath}: ${response.statusText}`);
-        }
-        const text = await response.text();
-        return yaml.load(text);
+        const config = yaml.load(systemPromptsSource) || {};
+        const { styles = {}, ...basePrompts } = config;
+        return { basePrompts, styles };
     } catch (error) {
-        console.error(`[PromptLoader] Error loading ${filePath}:`, error);
+        console.error('[PromptLoader] 解析系统提示词配置失败:', error);
+        throw error;
+    }
+}
+
+function parseTaskPrompts() {
+    try {
+        const config = yaml.load(taskPromptsSource) || {};
+        const {
+            temperatures = {},
+            labels = {},
+            styleDescriptions = {},
+            ...templates
+        } = config;
+        return {
+            temperatures,
+            labels,
+            styleDescriptions,
+            templates,
+        };
+    } catch (error) {
+        console.error('[PromptLoader] 解析任务提示词配置失败:', error);
         throw error;
     }
 }
@@ -33,15 +50,7 @@ export async function loadSystemPrompts() {
         return systemPromptsCache;
     }
 
-    const config = await loadYaml('/src/modules/ai-assistant/prompts/system-prompts.yaml');
-
-    // 分离基础提示词和风格调整
-    const { styles, ...basePrompts } = config;
-
-    systemPromptsCache = {
-        basePrompts,
-        styles
-    };
+    systemPromptsCache = parseSystemPrompts();
 
     return systemPromptsCache;
 }
@@ -54,17 +63,7 @@ export async function loadTaskPrompts() {
         return taskPromptsCache;
     }
 
-    const config = await loadYaml('/src/modules/ai-assistant/prompts/task-prompts.yaml');
-
-    // 提取各个部分
-    const { temperatures, labels, styleDescriptions, ...templates } = config;
-
-    taskPromptsCache = {
-        temperatures,
-        labels,
-        styleDescriptions,
-        templates
-    };
+    taskPromptsCache = parseTaskPrompts();
 
     return taskPromptsCache;
 }

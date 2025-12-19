@@ -162,19 +162,22 @@ class AiService {
                 id: taskId,
             });
 
-            const reader = response.body.getReader();
+            const reader = response.body?.getReader?.();
+            if (!reader) {
+                throw new Error('当前系统禁止流式网络访问，请在系统偏好设置中授予 Mark2 网络权限后重试');
+            }
             const decoder = new TextDecoder();
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n').map(line => line.trim()).filter(Boolean);
 
                 for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        const data = line.slice(6);
+                    if (line.startsWith('data:')) {
+                        const data = line.slice(5).trimStart();
                         if (data === '[DONE]') continue;
 
                         try {
