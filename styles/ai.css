@@ -566,6 +566,33 @@
     transform: translateY(0);
 }
 
+/* 风格分组 */
+.ai-style-group {
+    padding: 2px 0;
+}
+
+.ai-style-group:not(:last-child) {
+    border-bottom: 1px solid var(--settings-divider, rgba(15, 23, 42, 0.08));
+}
+
+:root[data-theme-appearance='dark'] .ai-style-group:not(:last-child) {
+    border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+.ai-style-group-title {
+    padding: 6px 12px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--settings-muted, #64748b);
+    user-select: none;
+}
+
+:root[data-theme-appearance='dark'] .ai-style-group-title {
+    color: rgba(182, 196, 219, 0.7);
+}
+
 /* 下拉选项 */
 .ai-style-option {
     padding: 6px 12px;

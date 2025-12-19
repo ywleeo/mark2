@@ -77,15 +77,38 @@ export class SelectionToolbar {
             <div class="ai-style-selector" title="输出风格">
                 <div class="ai-style-current"></div>
                 <div class="ai-style-dropdown">
-                    <div class="ai-style-option" data-value="balanced">平衡</div>
-                    <div class="ai-style-option" data-value="formal">正式</div>
-                    <div class="ai-style-option" data-value="casual">口语</div>
-                    <div class="ai-style-option" data-value="xiaohongshu">小红书</div>
-                    <div class="ai-style-option" data-value="zhihu">知乎</div>
-                    <div class="ai-style-option" data-value="weibo">微博</div>
-                    <div class="ai-style-option" data-value="bilibili">B站</div>
-                    <div class="ai-style-option" data-value="wechat">公众号</div>
-                    <div class="ai-style-option" data-value="toutiao">头条</div>
+                    <div class="ai-style-group">
+                        <div class="ai-style-group-title">基础风格</div>
+                        <div class="ai-style-option" data-value="balanced">平衡</div>
+                        <div class="ai-style-option" data-value="rational">理性</div>
+                        <div class="ai-style-option" data-value="humorous">幽默</div>
+                        <div class="ai-style-option" data-value="cute">可爱</div>
+                        <div class="ai-style-option" data-value="business_style">商务</div>
+                        <div class="ai-style-option" data-value="literary">文艺</div>
+                    </div>
+                    <div class="ai-style-group">
+                        <div class="ai-style-group-title">小说风格</div>
+                        <div class="ai-style-option" data-value="novel_romance">言情</div>
+                        <div class="ai-style-option" data-value="novel_mystery">悬疑</div>
+                        <div class="ai-style-option" data-value="novel_costume">古偶</div>
+                        <div class="ai-style-option" data-value="novel_wuxia">武侠</div>
+                        <div class="ai-style-option" data-value="novel_xianxia">修仙</div>
+                        <div class="ai-style-option" data-value="novel_history">历史</div>
+                    </div>
+                    <div class="ai-style-group">
+                        <div class="ai-style-group-title">平台风格</div>
+                        <div class="ai-style-option" data-value="xiaohongshu">小红书</div>
+                        <div class="ai-style-option" data-value="zhihu">知乎</div>
+                        <div class="ai-style-option" data-value="weibo">微博</div>
+                        <div class="ai-style-option" data-value="bilibili">B站</div>
+                        <div class="ai-style-option" data-value="wechat">公众号</div>
+                        <div class="ai-style-option" data-value="toutiao">头条</div>
+                    </div>
+                    <div class="ai-style-group">
+                        <div class="ai-style-group-title">传统风格</div>
+                        <div class="ai-style-option" data-value="formal">正式</div>
+                        <div class="ai-style-option" data-value="casual">口语</div>
+                    </div>
                 </div>
             </div>
         `;
