@@ -125,7 +125,7 @@ export class FileTreeEvents {
         this.fileTree.container.addEventListener('dragleave', this._onTreeDragLeave);
         this.fileTree.container.addEventListener('drop', this._onTreeDrop);
 
-        console.log('[FileTree] container DnD listeners attached');
+        // console.log('[FileTree] container DnD listeners attached');
 
         // 部分环境下 dragover 可能被系统级拦截，这里用 mousemove 兜底
         this._onMouseMoveDuringDrag = (e) => {
@@ -140,7 +140,7 @@ export class FileTreeEvents {
             });
         };
         window.addEventListener('mousemove', this._onMouseMoveDuringDrag);
-        console.log('[FileTree] window mousemove fallback attached');
+        // console.log('[FileTree] window mousemove fallback attached');
     }
 
     /**

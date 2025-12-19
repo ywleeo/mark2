@@ -29,19 +29,19 @@ export const SYSTEM_PROMPTS_FALLBACK = {
 };
 
 /**
- * 根据用户偏好调整 System Prompt
+ * 根据用户偏好获取 System Prompt
  */
-export async function adjustSystemPromptByPreferences(basePrompt, preferences) {
-    let adjusted = basePrompt;
+export async function adjustSystemPromptByPreferences(preferences) {
+    // 直接使用用户选择的输出风格
+    const outputStyle = preferences?.outputStyle || 'balanced'; // 默认使用平衡风格
 
-    // 从 YAML 加载风格提示词
-    if (preferences.outputStyle) {
-        const { styles } = await loadSystemPrompts();
-        const stylePrompt = styles[preferences.outputStyle];
-        if (stylePrompt) {
-            adjusted += stylePrompt;
-        }
+    const { styles } = await loadSystemPrompts();
+    const stylePrompt = styles[outputStyle];
+
+    if (!stylePrompt) {
+        console.warn(`[systemPrompts] 未找到输出风格: ${outputStyle}，使用默认风格`);
+        return styles.balanced || '你是通用的写作助手，擅长在正式与轻松之间找到最佳平衡点。';
     }
 
-    return adjusted;
+    return stylePrompt;
 }

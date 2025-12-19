@@ -24,13 +24,11 @@ export class PromptComposer {
     async buildMessages(action, selection, options = {}) {
         const messages = [];
 
-        // 1. System Prompt（基于文档类型）
-        const systemPrompts = await getSystemPrompts();
-        let systemPrompt = systemPrompts[this.docType] || systemPrompts.general;
+        // 1. System Prompt（直接使用用户选择的输出风格）
         console.log('[PromptComposer] 用户偏好设置:', JSON.stringify(this.preferences));
         console.log('[PromptComposer] 输出风格:', this.preferences?.outputStyle);
-        systemPrompt = await adjustSystemPromptByPreferences(systemPrompt, this.preferences);
-        console.log('[PromptComposer] System Prompt 是否包含输出风格:', systemPrompt.includes('输出风格要求'));
+        const systemPrompt = await adjustSystemPromptByPreferences(this.preferences);
+        console.log('[PromptComposer] System Prompt 长度:', systemPrompt.length);
 
         messages.push({
             role: 'system',

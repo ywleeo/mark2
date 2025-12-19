@@ -24,19 +24,19 @@ export class SelectionToolbar {
      * @param {Function} onActionClick - 点击操作按钮的回调 (action) => {}
      */
     init(editor, onActionClick) {
-        console.log('[SelectionToolbar] ========== init 被调用 ==========', {
-            hasEditor: !!editor,
-            hasCallback: typeof onActionClick === 'function',
-            editorType: editor?.constructor?.name
-        });
+        // console.log('[SelectionToolbar] ========== init 被调用 ==========', {
+        //     hasEditor: !!editor,
+        //     hasCallback: typeof onActionClick === 'function',
+        //     editorType: editor?.constructor?.name
+        // });
 
         this.editor = editor;
         this.onActionClick = onActionClick;
 
-        console.log('[SelectionToolbar] init 完成后的状态', {
-            thisEditor: !!this.editor,
-            thisOnActionClick: typeof this.onActionClick === 'function'
-        });
+        // console.log('[SelectionToolbar] init 完成后的状态', {
+        //     thisEditor: !!this.editor,
+        //     thisOnActionClick: typeof this.onActionClick === 'function'
+        // });
 
         // 不再自动监听选中变化，只通过右键菜单显示
         // this.setupSelectionListener();
@@ -89,11 +89,11 @@ export class SelectionToolbar {
             if (e.button !== 0) return;
 
             const btn = e.target.closest('.ai-selection-btn');
-            console.log('[SelectionToolbar] mousedown on toolbar', {
-                hasBtn: !!btn,
-                target: e.target,
-                targetClass: e.target.className,
-            });
+            // console.log('[SelectionToolbar] mousedown on toolbar', {
+            //     hasBtn: !!btn,
+            //     target: e.target,
+            //     targetClass: e.target.className,
+            // });
 
             if (!btn) return;
 
@@ -102,11 +102,11 @@ export class SelectionToolbar {
             e.stopPropagation();
 
             const action = btn.dataset.action;
-            console.log('[SelectionToolbar] 按钮被点击', {
-                action,
-                hasCallback: typeof this.onActionClick === 'function',
-                hasEditor: !!this.editor
-            });
+            // console.log('[SelectionToolbar] 按钮被点击', {
+            //     action,
+            //     hasCallback: typeof this.onActionClick === 'function',
+            //     hasEditor: !!this.editor
+            // });
 
             if (!this.onActionClick) {
                 console.error('[SelectionToolbar] onActionClick 回调未设置，请先打开一个 Markdown 文件');
@@ -131,32 +131,32 @@ export class SelectionToolbar {
 
         // 点击外部区域立即关闭
         this.documentClickHandler = (e) => {
-            console.log('[SelectionToolbar] documentClickHandler', {
-                isVisible: this.isVisible,
-                eventType: e.type,
-                button: e.button,
-                target: e.target,
-                targetTagName: e.target?.tagName,
-                targetClassName: e.target?.className,
-                contains: this.element?.contains(e.target)
-            });
+            // console.log('[SelectionToolbar] documentClickHandler', {
+            //     isVisible: this.isVisible,
+            //     eventType: e.type,
+            //     button: e.button,
+            //     target: e.target,
+            //     targetTagName: e.target?.tagName,
+            //     targetClassName: e.target?.className,
+            //     contains: this.element?.contains(e.target)
+            // });
 
             if (!this.isVisible) return;
 
             // 忽略右键点击（button = 2）
             if (e.button === 2) {
-                console.log('[SelectionToolbar] 忽略右键点击');
+                // console.log('[SelectionToolbar] 忽略右键点击');
                 return;
             }
 
             // 如果点击的是工具栏本身，不关闭
             if (this.element.contains(e.target)) {
-                console.log('[SelectionToolbar] 点击的是工具栏内部，不关闭');
+                // console.log('[SelectionToolbar] 点击的是工具栏内部，不关闭');
                 return;
             }
 
             // 立即关闭
-            console.log('[SelectionToolbar] 点击外部，关闭工具栏');
+            // console.log('[SelectionToolbar] 点击外部，关闭工具栏');
             this.hide();
         };
 
@@ -173,15 +173,15 @@ export class SelectionToolbar {
             const selection = window.getSelection();
             const selectedText = selection?.toString().trim();
 
-            console.log('[SelectionToolbar] 全局右键事件', {
-                hasSelection: !!selectedText,
-                selectionLength: selectedText?.length,
-                target: e.target?.className
-            });
+            // console.log('[SelectionToolbar] 全局右键事件', {
+            //     hasSelection: !!selectedText,
+            //     selectionLength: selectedText?.length,
+            //     target: e.target?.className
+            // });
 
             // 如果没有选中文字或文字太短，允许默认菜单
             if (!selectedText || selectedText.length < 5) {
-                console.log('[SelectionToolbar] 无选中文字，允许默认菜单');
+                // console.log('[SelectionToolbar] 无选中文字，允许默认菜单');
                 return;
             }
 
@@ -191,11 +191,11 @@ export class SelectionToolbar {
                                e.target.classList.contains('ProseMirror');
 
             if (!isInEditor) {
-                console.log('[SelectionToolbar] 不在编辑器区域，允许默认菜单');
+                // console.log('[SelectionToolbar] 不在编辑器区域，允许默认菜单');
                 return;
             }
 
-            console.log('[SelectionToolbar] 阻止默认菜单，显示 AI 工具栏');
+            // console.log('[SelectionToolbar] 阻止默认菜单，显示 AI 工具栏');
 
             // 阻止默认菜单
             e.preventDefault();
@@ -209,7 +209,7 @@ export class SelectionToolbar {
 
         // 添加到 document，capture 阶段拦截
         document.addEventListener('contextmenu', this.globalContextMenuHandler, { capture: true });
-        console.log('[SelectionToolbar] 全局右键菜单拦截器已添加');
+        // console.log('[SelectionToolbar] 全局右键菜单拦截器已添加');
     }
 
     /**
@@ -224,12 +224,12 @@ export class SelectionToolbar {
         // 获取 TipTap 实际的编辑器 DOM 元素
         const editorDom = this.editor.editor.view?.dom;
 
-        console.log('[SelectionToolbar] 开始设置选中监听', {
-            hasEditor: !!this.editor,
-            hasEditorElement: !!this.editor.element,
-            hasEditorDom: !!editorDom,
-            editorDomClass: editorDom?.className
-        });
+        // console.log('[SelectionToolbar] 开始设置选中监听', {
+        //     hasEditor: !!this.editor,
+        //     hasEditorElement: !!this.editor.element,
+        //     hasEditorDom: !!editorDom,
+        //     editorDomClass: editorDom?.className
+        // });
 
         if (!editorDom) {
             console.error('[SelectionToolbar] 无法获取编辑器 DOM');
@@ -246,7 +246,7 @@ export class SelectionToolbar {
             setTimeout(() => this.handleSelectionChange(), 10);
         });
 
-        console.log('[SelectionToolbar] 选中监听已添加');
+        // console.log('[SelectionToolbar] 选中监听已添加');
     }
 
     /**

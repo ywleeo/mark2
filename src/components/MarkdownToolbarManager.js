@@ -27,7 +27,7 @@ export class MarkdownToolbarManager {
      * @param {string} editorType - 编辑器类型 ('tiptap' 或 'monaco')
      */
     async initialize(editorInstance, editorType = 'tiptap') {
-        console.log('MarkdownToolbarManager: initialize called', { editorInstance, editorType });
+        // console.log('MarkdownToolbarManager: initialize called', { editorInstance, editorType });
 
         if (this.isInitialized) {
             console.warn('Markdown toolbar already initialized');
@@ -360,12 +360,12 @@ export class MarkdownToolbarManager {
      * 创建工具栏容器
      */
     createContainer() {
-        console.log('MarkdownToolbarManager: createContainer called');
+        // console.log('MarkdownToolbarManager: createContainer called');
 
         // 查找合适的容器位置
         const editorContainer = this.findEditorContainer();
 
-        console.log('MarkdownToolbarManager: editorContainer found', editorContainer);
+        // console.log('MarkdownToolbarManager: editorContainer found', editorContainer);
 
         if (editorContainer) {
             this.container = document.createElement('div');
@@ -373,7 +373,7 @@ export class MarkdownToolbarManager {
 
             // 插入到编辑器容器之前
             editorContainer.parentNode.insertBefore(this.container, editorContainer);
-            console.log('MarkdownToolbarManager: toolbar container inserted');
+            // console.log('MarkdownToolbarManager: toolbar container inserted');
         } else {
             console.warn('Could not find editor container');
         }
@@ -497,16 +497,16 @@ export class MarkdownToolbarManager {
      * 切换工具栏显示状态
      */
     toggle() {
-        console.log('MarkdownToolbarManager: toggle called', {
-            isInitialized: this.isInitialized,
-            hasToolbar: !!this.toolbar,
-            hasEditor: !!this.editorInstance
-        });
+        // console.log('MarkdownToolbarManager: toggle called', {
+        //     isInitialized: this.isInitialized,
+        //     hasToolbar: !!this.toolbar,
+        //     hasEditor: !!this.editorInstance
+        // });
 
         if (this.toolbar) {
             this.toolbar.toggle();
         } else if (!this.isInitialized && window.editor) {
-            console.log('MarkdownToolbarManager: Auto-initializing toolbar...');
+            // console.log('MarkdownToolbarManager: Auto-initializing toolbar...');
             this.initialize(window.editor, 'tiptap');
         } else {
             console.warn('MarkdownToolbarManager: Cannot toggle - toolbar not initialized');
