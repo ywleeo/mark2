@@ -539,6 +539,9 @@
     top: calc(100% + 4px);
     right: 0;
     min-width: 90px;
+    max-height: 320px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -550,7 +553,20 @@
     transform: translateY(-4px);
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
     z-index: 1000;
-    overflow: hidden;
+    overflow-y: auto;
+}
+
+.ai-style-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ai-style-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-style-dropdown::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.5);
+    border-radius: 999px;
 }
 
 /* Dark 模式下拉菜单 */
@@ -676,4 +692,3 @@
         font-size: 13px;
     }
 }
-

@@ -104,11 +104,12 @@ export class SelectionToolbar {
                         <div class="ai-style-option" data-value="bilibili">B站</div>
                         <div class="ai-style-option" data-value="wechat">公众号</div>
                         <div class="ai-style-option" data-value="toutiao">头条</div>
+                        <div class="ai-style-option" data-value="douyin">抖音</div>
+                        <div class="ai-style-option" data-value="taobao">淘宝</div>
                     </div>
                     <div class="ai-style-group">
-                        <div class="ai-style-group-title">传统风格</div>
-                        <div class="ai-style-option" data-value="formal">正式</div>
-                        <div class="ai-style-option" data-value="casual">口语</div>
+                        <div class="ai-style-group-title">特色风格</div>
+                        <div class="ai-style-option" data-value="standup_comedy">脱口秀</div>
                     </div>
                 </div>
             </div>
@@ -531,11 +532,13 @@ export class SelectionToolbar {
                 style = aiConfig.preferences?.outputStyle || 'balanced';
             }
 
-            // 查找对应的选项文本
+            // 查找对应的选项文本，不存在时回退为平衡
             const option = Array.from(this.styleOptions).find(opt => opt.dataset.value === style);
-            const text = option ? option.textContent : '平衡';
-
-            this.selectStyle(style, text);
+            if (option) {
+                this.selectStyle(style, option.textContent);
+            } else {
+                this.selectStyle('balanced', '平衡');
+            }
         } catch (error) {
             console.warn('[SelectionToolbar] 加载风格设置失败:', error);
             this.selectStyle('balanced', '平衡');
