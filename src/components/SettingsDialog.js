@@ -181,31 +181,14 @@ export class SettingsDialog {
                             <span class="settings-hint">如：gpt-4o, claude-3-5-sonnet-20241022</span>
                         </label>
 
-                        <div class="settings-grid">
-                            <label class="settings-field">
-                                <span class="settings-label">输出风格</span>
-                                <select name="aiOutputStyle">
-                                    <option value="balanced">平衡</option>
-                                    <option value="formal">正式书面</option>
-                                    <option value="casual">轻松口语</option>
-                                    <option value="xiaohongshu">小红书风格</option>
-                                    <option value="zhihu">知乎风格</option>
-                                    <option value="weibo">微博风格</option>
-                                    <option value="bilibili">B站风格</option>
-                                    <option value="wechat">公众号风格</option>
-                                    <option value="toutiao">今日头条风格</option>
-                                </select>
-                            </label>
-
-                            <label class="settings-field">
-                                <span class="settings-label">创造性</span>
-                                <select name="aiCreativity">
-                                    <option value="low">保守</option>
-                                    <option value="medium">适中</option>
-                                    <option value="high">大胆</option>
-                                </select>
-                            </label>
-                        </div>
+                        <label class="settings-field">
+                            <span class="settings-label">创造性</span>
+                            <select name="aiCreativity">
+                                <option value="low">保守</option>
+                                <option value="medium">适中</option>
+                                <option value="high">大胆</option>
+                            </select>
+                        </label>
                     </section>
 
                     <footer class="settings-footer">
@@ -243,7 +226,6 @@ export class SettingsDialog {
         this.aiApiKeyInput = this.form.querySelector('input[name="aiApiKey"]');
         this.aiBaseUrlInput = this.form.querySelector('input[name="aiBaseUrl"]');
         this.aiModelInput = this.form.querySelector('input[name="aiModel"]');
-        this.aiOutputStyleSelect = this.form.querySelector('select[name="aiOutputStyle"]');
         this.aiCreativitySelect = this.form.querySelector('select[name="aiCreativity"]');
 
         // 按钮
@@ -346,7 +328,6 @@ export class SettingsDialog {
         this.aiApiKeyInput.value = aiConfig.apiKey || '';
         this.aiBaseUrlInput.value = aiConfig.baseUrl || 'https://api.openai.com/v1';
         this.aiModelInput.value = aiConfig.model || 'gpt-4o';
-        this.aiOutputStyleSelect.value = aiConfig.preferences?.outputStyle || 'balanced';
         this.aiCreativitySelect.value = aiConfig.preferences?.creativity || 'medium';
 
         // 重置到第一个 tab
@@ -371,7 +352,6 @@ export class SettingsDialog {
                 baseUrl: 'https://api.openai.com/v1',
                 model: 'gpt-4o',
                 preferences: {
-                    outputStyle: 'balanced',
                     creativity: 'medium',
                 }
             };
@@ -437,7 +417,6 @@ export class SettingsDialog {
             baseUrl: (this.aiBaseUrlInput.value || '').trim() || 'https://api.openai.com/v1',
             model: (this.aiModelInput.value || '').trim() || 'gpt-4o',
             preferences: {
-                outputStyle: this.aiOutputStyleSelect.value || 'balanced',
                 creativity: this.aiCreativitySelect.value || 'medium',
             }
         };

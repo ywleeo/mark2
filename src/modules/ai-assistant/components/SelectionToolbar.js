@@ -73,9 +73,33 @@ export class SelectionToolbar {
                 <span>🌐</span>
                 <span class="ai-selection-btn-label">翻译</span>
             </button>
+            <div class="ai-selection-divider"></div>
+            <div class="ai-style-selector" title="输出风格">
+                <div class="ai-style-current"></div>
+                <div class="ai-style-dropdown">
+                    <div class="ai-style-option" data-value="balanced">平衡</div>
+                    <div class="ai-style-option" data-value="formal">正式</div>
+                    <div class="ai-style-option" data-value="casual">口语</div>
+                    <div class="ai-style-option" data-value="xiaohongshu">小红书</div>
+                    <div class="ai-style-option" data-value="zhihu">知乎</div>
+                    <div class="ai-style-option" data-value="weibo">微博</div>
+                    <div class="ai-style-option" data-value="bilibili">B站</div>
+                    <div class="ai-style-option" data-value="wechat">公众号</div>
+                    <div class="ai-style-option" data-value="toutiao">头条</div>
+                </div>
+            </div>
         `;
 
         document.body.appendChild(this.element);
+
+        // 初始化风格选择器
+        this.styleSelector = this.element.querySelector('.ai-style-selector');
+        this.styleCurrent = this.element.querySelector('.ai-style-current');
+        this.styleDropdown = this.element.querySelector('.ai-style-dropdown');
+        this.styleOptions = this.element.querySelectorAll('.ai-style-option');
+        this.currentStyleValue = 'balanced';
+
+        this.loadCurrentStyle();
         this.bindEvents();
     }
 
@@ -83,6 +107,24 @@ export class SelectionToolbar {
      * 绑定事件
      */
     bindEvents() {
+        // 风格选择器点击切换下拉
+        if (this.styleSelector) {
+            this.styleSelector.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                this.toggleDropdown();
+            });
+        }
+
+        // 风格选项点击
+        this.styleOptions.forEach(option => {
+            option.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                const value = option.dataset.value;
+                const text = option.textContent;
+                this.selectStyle(value, text);
+            });
+        });
+
         // 点击按钮 - 使用 mousedown 而不是 click，避免事件冲突
         this.element.addEventListener('mousedown', (e) => {
             // 只处理左键点击
@@ -149,14 +191,18 @@ export class SelectionToolbar {
                 return;
             }
 
-            // 如果点击的是工具栏本身，不关闭
+            // 如果点击的是工具栏本身，不关闭工具栏，但要关闭下拉菜单
             if (this.element.contains(e.target)) {
-                // console.log('[SelectionToolbar] 点击的是工具栏内部，不关闭');
+                // 如果点击的不是选择器，关闭下拉菜单
+                if (!this.styleSelector.contains(e.target)) {
+                    this.closeDropdown();
+                }
                 return;
             }
 
-            // 立即关闭
+            // 立即关闭工具栏和下拉菜单
             // console.log('[SelectionToolbar] 点击外部，关闭工具栏');
+            this.closeDropdown();
             this.hide();
         };
 
@@ -291,6 +337,7 @@ export class SelectionToolbar {
 
         this.element.classList.remove('is-visible');
         this.isVisible = false;
+        this.closeDropdown();
     }
 
     /**
@@ -376,6 +423,97 @@ export class SelectionToolbar {
 
         this.element.style.left = `${left}px`;
         this.element.style.top = `${top}px`;
+    }
+
+    /**
+     * 切换下拉菜单
+     */
+    toggleDropdown() {
+        const isOpen = this.styleDropdown.classList.contains('is-open');
+        if (isOpen) {
+            this.closeDropdown();
+        } else {
+            this.openDropdown();
+        }
+    }
+
+    /**
+     * 打开下拉菜单
+     */
+    openDropdown() {
+        this.styleDropdown.classList.add('is-open');
+    }
+
+    /**
+     * 关闭下拉菜单
+     */
+    closeDropdown() {
+        this.styleDropdown.classList.remove('is-open');
+    }
+
+    /**
+     * 选择风格
+     */
+    selectStyle(value, text) {
+        this.currentStyleValue = value;
+        this.styleCurrent.textContent = text;
+
+        // 更新选中状态
+        this.styleOptions.forEach(opt => {
+            if (opt.dataset.value === value) {
+                opt.classList.add('is-selected');
+            } else {
+                opt.classList.remove('is-selected');
+            }
+        });
+
+        this.saveCurrentStyle(value);
+        this.closeDropdown();
+    }
+
+    /**
+     * 加载当前风格设置
+     */
+    loadCurrentStyle() {
+        try {
+            // 优先从 localStorage 读取工具栏的风格设置
+            let style = localStorage.getItem('ai-output-style-toolbar');
+
+            // 如果没有，则从设置中读取默认值
+            if (!style) {
+                const aiConfig = JSON.parse(localStorage.getItem('ai-config') || '{}');
+                style = aiConfig.preferences?.outputStyle || 'balanced';
+            }
+
+            // 查找对应的选项文本
+            const option = Array.from(this.styleOptions).find(opt => opt.dataset.value === style);
+            const text = option ? option.textContent : '平衡';
+
+            this.selectStyle(style, text);
+        } catch (error) {
+            console.warn('[SelectionToolbar] 加载风格设置失败:', error);
+            this.selectStyle('balanced', '平衡');
+        }
+    }
+
+    /**
+     * 保存当前风格设置
+     */
+    saveCurrentStyle(style) {
+        try {
+            // 保存到独立的 localStorage 键
+            localStorage.setItem('ai-output-style-toolbar', style);
+            console.log('[SelectionToolbar] 风格已切换为:', style);
+        } catch (error) {
+            console.warn('[SelectionToolbar] 保存风格设置失败:', error);
+        }
+    }
+
+    /**
+     * 获取当前选择的风格
+     */
+    getCurrentStyle() {
+        return this.currentStyleValue || 'balanced';
     }
 
     /**

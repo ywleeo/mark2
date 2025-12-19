@@ -39,7 +39,7 @@ export class PreviewPanel {
      * @param {string} action - 操作类型
      * @param {string} selectedText - 选中的文本
      * @param {string} documentContent - 完整文档内容
-     * @param {Object} callbacks - 回调函数 { onApply, onCancel }
+     * @param {Object} callbacks - 回调函数 { outputStyle, onApply, onCancel }
      */
     async show(action, selectedText, documentContent, callbacks = {}) {
         this.originalText = selectedText;
@@ -48,6 +48,7 @@ export class PreviewPanel {
         this.isThinkingExpanded = false;
         this.onApply = callbacks.onApply || null;
         this.onCancel = callbacks.onCancel || null;
+        this.customOutputStyle = callbacks.outputStyle || null; // 保存自定义风格
         this.cleanupStreamSubscription();
 
         // 创建窗口
@@ -382,11 +383,18 @@ export class PreviewPanel {
     async processText(action, selectedText, documentContent) {
         // 构建请求
         const config = aiService.getConfig();
+
+        // 如果有自定义风格，使用自定义风格；否则使用配置中的风格
+        const preferences = {
+            ...config.preferences,
+            ...(this.customOutputStyle && { outputStyle: this.customOutputStyle })
+        };
+
         const request = await buildAiRequest(
             action,
             selectedText,
             documentContent,
-            config.preferences
+            preferences
         );
 
         const taskId = aiService.generateTaskId();

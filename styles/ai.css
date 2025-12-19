@@ -490,7 +490,6 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
     z-index: 999;
     opacity: 0;
-    /* transform: translateY(-4px); */
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
@@ -498,6 +497,109 @@
     display: flex;
     opacity: 1;
     transform: translateY(0);
+}
+
+/* 分隔符 */
+.ai-selection-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--settings-divider, rgba(15, 23, 42, 0.15));
+    margin: 0 2px;
+}
+
+/* 风格选择器 */
+.ai-style-selector {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ai-style-current {
+    padding: 5px 20px 5px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--ai-text-strong, #1e293b);
+    background: var(--ai-select-bg, #ffffff);
+    border: 1px solid var(--ai-select-border, rgba(148, 163, 184, 0.3));
+    border-radius: 6px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    background-image: var(--ai-select-icon);
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+    background-size: 12px 12px;
+    white-space: nowrap;
+}
+
+.ai-style-selector:hover .ai-style-current {
+    border-color: var(--ai-focus-border, #2563eb);
+}
+
+/* 下拉菜单 */
+.ai-style-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 90px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--settings-divider, rgba(15, 23, 42, 0.08));
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+/* Dark 模式下拉菜单 */
+:root[data-theme-appearance='dark'] .ai-style-dropdown {
+    background: rgba(24, 31, 44, 0.95);
+    border-color: rgba(148, 163, 184, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.ai-style-dropdown.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* 下拉选项 */
+.ai-style-option {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    color: #111827;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* Dark 模式下拉选项 */
+:root[data-theme-appearance='dark'] .ai-style-option {
+    color: rgba(244, 247, 252, 0.92);
+}
+
+.ai-style-option:hover {
+    background: rgba(148, 163, 184, 0.12);
+}
+
+:root[data-theme-appearance='dark'] .ai-style-option:hover {
+    background: rgba(148, 163, 184, 0.2);
+}
+
+.ai-style-option.is-selected {
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563eb;
+    font-weight: 500;
+}
+
+:root[data-theme-appearance='dark'] .ai-style-option.is-selected {
+    background: rgba(76, 201, 255, 0.15);
+    color: #4cc9ff;
 }
 
 .ai-selection-btn {
