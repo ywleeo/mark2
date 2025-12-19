@@ -122,14 +122,6 @@ export const TASK_PROMPTS = {
     },
 
     /**
-     * 改写（换个说法）
-     */
-    rewrite: async (params) => {
-        const builder = await createTaskPromptBuilder('rewrite');
-        return builder(params);
-    },
-
-    /**
      * 翻译
      */
     translate: async (params) => {

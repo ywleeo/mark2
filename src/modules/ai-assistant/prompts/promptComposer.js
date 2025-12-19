@@ -96,11 +96,11 @@ export class PromptComposer {
 /**
  * 快捷函数：直接构建请求
  */
-export async function buildAiRequest(action, selection, documentContent, userPreferences) {
+export async function buildAiRequest(action, selection, documentContent, userPreferences, options = {}) {
     const composer = new PromptComposer(documentContent, userPreferences);
 
     return {
-        messages: await composer.buildMessages(action, selection),
+        messages: await composer.buildMessages(action, selection, options),
         temperature: await composer.getTemperature(action),
         metadata: {
             action,
