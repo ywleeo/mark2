@@ -109,6 +109,7 @@ export class SelectionToolbar {
                     </div>
                     <div class="ai-style-group">
                         <div class="ai-style-group-title">特色风格</div>
+                        <div class="ai-style-option" data-value="novel_master">大师</div>
                         <div class="ai-style-option" data-value="standup_comedy">脱口秀</div>
                     </div>
                 </div>
