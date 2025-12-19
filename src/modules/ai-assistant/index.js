@@ -20,6 +20,9 @@ export function initAIAssistant({ eventBus, getEditor }) {
     const handleAIAction = async (action) => {
         console.log('[AI Assistant] handleAIAction 被调用', { action });
 
+        // 隐藏工具栏菜单
+        selectionToolbar.hide();
+
         const editor = markdownEditorInstance || getEditor();
         if (!editor) {
             console.warn('[AI Assistant] 没有可用的编辑器实例');
