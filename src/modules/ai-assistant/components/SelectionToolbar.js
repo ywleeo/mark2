@@ -9,7 +9,8 @@ export class SelectionToolbar {
         this.editor = null;
         this.onActionClick = null;
         this.hideTimer = null;
-        this.lastSelection = null;
+        this.lastSelectionRange = null;
+        this.restoreSelectionRaf = null;
 
         // 立即创建工具栏元素
         this.createElement();
@@ -133,7 +134,10 @@ export class SelectionToolbar {
         // 风格选择器点击切换下拉
         if (this.styleSelector) {
             this.styleSelector.addEventListener('mousedown', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                this.captureSelectionRange();
+                this.deferRestoreSelectionRange();
                 this.toggleDropdown();
             });
         }
@@ -141,7 +145,10 @@ export class SelectionToolbar {
         // 风格选项点击
         this.styleOptions.forEach(option => {
             option.addEventListener('mousedown', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
+                this.captureSelectionRange();
+                this.deferRestoreSelectionRange();
                 const value = option.dataset.value;
                 const text = option.textContent;
                 this.selectStyle(value, text);
@@ -165,6 +172,7 @@ export class SelectionToolbar {
             // 阻止默认行为和事件传播，避免被 documentClickHandler 干扰
             e.preventDefault();
             e.stopPropagation();
+            this.restoreSelectionRange();
 
             const action = btn.dataset.action;
             // console.log('[SelectionToolbar] 按钮被点击', {
@@ -284,6 +292,7 @@ export class SelectionToolbar {
 
             // 显示工具栏
             this.clearHideTimer();
+            this.captureSelectionRange();
             this.show();
             this.updatePositionAtMouse(e);
         };
@@ -362,6 +371,7 @@ export class SelectionToolbar {
 
         this.element.classList.add('is-visible');
         this.isVisible = true;
+        this.captureSelectionRange();
     }
 
     /**
@@ -492,6 +502,7 @@ export class SelectionToolbar {
     selectStyle(value, text) {
         this.currentStyleValue = value;
         this.styleCurrent.textContent = text;
+        this.deferRestoreSelectionRange();
 
         // 更新选中状态
         this.styleOptions.forEach(opt => {
@@ -584,6 +595,11 @@ export class SelectionToolbar {
 
         this.editor = null;
         this.onActionClick = null;
+
+        if (this.restoreSelectionRaf) {
+            cancelAnimationFrame(this.restoreSelectionRaf);
+            this.restoreSelectionRaf = null;
+        }
     }
 
     /**
@@ -591,5 +607,56 @@ export class SelectionToolbar {
      */
     clearPendingOutsideClose() {
         this.pendingOutsideClose = null;
+    }
+
+    /**
+     * 记录当前编辑器选区，供需要时恢复
+     */
+    captureSelectionRange() {
+        if (!this.editor?.editor?.state?.selection) {
+            return;
+        }
+        const tiptapSelection = this.editor.editor.state.selection;
+        if (!tiptapSelection || tiptapSelection.empty) {
+            return;
+        }
+        this.lastSelectionRange = {
+            from: tiptapSelection.from,
+            to: tiptapSelection.to
+        };
+    }
+
+    /**
+     * 恢复之前记录的编辑器选区
+     */
+    restoreSelectionRange() {
+        if (!this.lastSelectionRange || !this.editor?.editor?.chain) {
+            return;
+        }
+
+        const { from, to } = this.lastSelectionRange;
+        if (typeof from !== 'number' || typeof to !== 'number') {
+            return;
+        }
+
+        this.editor.editor.chain().focus().setTextSelection({ from, to }).run();
+    }
+
+    /**
+     * 延迟恢复选区，保证在本次交互完成后重新选中
+     */
+    deferRestoreSelectionRange() {
+        if (!this.lastSelectionRange) {
+            return;
+        }
+
+        if (this.restoreSelectionRaf) {
+            cancelAnimationFrame(this.restoreSelectionRaf);
+        }
+
+        this.restoreSelectionRaf = requestAnimationFrame(() => {
+            this.restoreSelectionRaf = null;
+            this.restoreSelectionRange();
+        });
     }
 }
