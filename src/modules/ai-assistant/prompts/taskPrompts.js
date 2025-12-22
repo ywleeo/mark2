@@ -128,6 +128,22 @@ export const TASK_PROMPTS = {
         const builder = await createTaskPromptBuilder('translate');
         return builder(params);
     },
+
+    /**
+     * 插画提示词
+     */
+    illustration: async (params) => {
+        const builder = await createTaskPromptBuilder('illustration');
+        return builder(params);
+    },
+
+    /**
+     * 分镜提示词
+     */
+    storyboard: async (params) => {
+        const builder = await createTaskPromptBuilder('storyboard');
+        return builder(params);
+    },
 };
 
 /**
@@ -156,6 +172,8 @@ export const ACTION_LABELS = {
     rewrite: '改写',
     changeStyle: '转换风格',
     translate: '翻译',
+    illustration: '插画',
+    storyboard: '分镜',
 };
 
 export const ACTION_TEMPERATURES = {
@@ -167,4 +185,6 @@ export const ACTION_TEMPERATURES = {
     rewrite: 0.5,
     changeStyle: 0.4,
     translate: 0.3,
+    illustration: 0.7,
+    storyboard: 0.7,
 };

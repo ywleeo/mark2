@@ -74,6 +74,14 @@ export class SelectionToolbar {
                 <span>🌐</span>
                 <span class="ai-selection-btn-label">翻译</span>
             </button>
+            <button class="ai-selection-btn" data-action="illustration" title="生成插画提示词">
+                <span>🎨</span>
+                <span class="ai-selection-btn-label">插画</span>
+            </button>
+            <button class="ai-selection-btn" data-action="storyboard" title="生成分镜提示词">
+                <span>🎬</span>
+                <span class="ai-selection-btn-label">分镜</span>
+            </button>
             <div class="ai-selection-divider"></div>
             <div class="ai-style-selector" title="输出风格">
                 <div class="ai-style-current"></div>
