@@ -1,6 +1,6 @@
 {
   "productName": "Mark2",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "identifier": "cc.altron.mark2",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -43,7 +43,8 @@
     "macOS": {
       "files": {
         "Info.plist": "macos/Info.plist"
-      }
+      },
+      "entitlements": "macos/Mark2.entitlements"
     },
     "category": "Productivity"
   }
