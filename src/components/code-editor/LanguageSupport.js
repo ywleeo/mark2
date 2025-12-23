@@ -6,10 +6,12 @@ import { conf as pythonLanguageConfiguration, language as pythonLanguage } from 
 import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../../config/monaco-csv.js';
 import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution';
 import { conf as shellConf, language as shellLanguage } from 'monaco-editor/esm/vs/basic-languages/shell/shell.js';
+import { markdownSqlDarkTheme, markdownSqlLightTheme } from '../../config/markdown-sql-themes.js';
 
 let pythonLanguageReady = false;
 let csvLanguageReady = false;
 let bashAliasReady = false;
+let markdownThemeReady = false;
 
 /**
  * 确保 bash 作为 shell 语言的别名已注册
@@ -70,4 +72,17 @@ export function ensureCsvLanguage(monaco) {
     });
 
     csvLanguageReady = true;
+}
+
+/**
+ * 注册 Markdown 代码块增强主题（只覆盖 Markdown 中文件内的 SQL code fence）
+ * @param {Object} monaco - Monaco 实例
+ */
+export function ensureMarkdownSqlThemes(monaco) {
+    if (markdownThemeReady) {
+        return;
+    }
+    monaco.editor.defineTheme('markdown-sql-dark', markdownSqlDarkTheme);
+    monaco.editor.defineTheme('markdown-sql-light', markdownSqlLightTheme);
+    markdownThemeReady = true;
 }

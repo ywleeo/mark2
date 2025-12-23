@@ -12,7 +12,12 @@ import {
     shouldEnforceMarkdownTrailingEmptyLine,
 } from '../../utils/markdownFormatting.js';
 import { ensureMonaco, buildModelUri } from './MonacoEnvironment.js';
-import { ensurePythonLanguage, ensureCsvLanguage, ensureBashAlias } from './LanguageSupport.js';
+import {
+    ensurePythonLanguage,
+    ensureCsvLanguage,
+    ensureBashAlias,
+    ensureMarkdownSqlThemes,
+} from './LanguageSupport.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
     DEFAULT_LINE_HEIGHT_RATIO,
@@ -129,6 +134,7 @@ export class CodeEditor {
         ensurePythonLanguage(monaco);
         ensureCsvLanguage(monaco);
         ensureBashAlias(monaco);
+        ensureMarkdownSqlThemes(monaco);
         this.monaco = monaco;
         this.editor = monaco.editor.create(this.editorHost, {
             value: '',
@@ -336,15 +342,9 @@ export class CodeEditor {
         this.baseLineHeight = computedLineHeight;
         this.applyZoomOptions();
 
-        const appearance = document?.documentElement?.dataset?.themeAppearance;
-        let monacoTheme = appearance === 'dark' ? 'vs-dark' : 'vs';
-
-        // CSV 文件使用专用主题（浅色模式）
-        if (this.currentLanguage === 'csv' && appearance !== 'dark') {
-            monacoTheme = 'csv-theme';
-        }
-
         if (this.monaco?.editor) {
+            const language = this.currentLanguage || 'plaintext';
+            const monacoTheme = this.resolveThemeForLanguage(language);
             this.monaco.editor.setTheme(monacoTheme);
         }
     }
@@ -363,12 +363,8 @@ export class CodeEditor {
         this.editor.setModel(model);
         this.monaco.editor.setModelLanguage(model, resolvedLanguage);
 
-        // 根据语言切换主题
-        if (resolvedLanguage === 'csv') {
-            const appearance = document?.documentElement?.dataset?.themeAppearance;
-            const csvThemeName = appearance === 'dark' ? 'vs-dark' : 'csv-theme';
-            this.monaco.editor.setTheme(csvThemeName);
-        }
+        const nextTheme = this.resolveThemeForLanguage(resolvedLanguage);
+        this.monaco.editor.setTheme(nextTheme);
 
         const tabSize = resolvedLanguage === 'markdown' ? 2 : 4;
         model.updateOptions({
@@ -394,6 +390,19 @@ export class CodeEditor {
             this.notifyContentMutation();
             this.scheduleAutoSave();
         });
+    }
+
+    resolveThemeForLanguage(language) {
+        const appearance = document?.documentElement?.dataset?.themeAppearance;
+        const isDarkMode = appearance === 'dark';
+
+        if (language === 'markdown') {
+            return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
+        }
+        if (language === 'csv' && !isDarkMode) {
+            return 'csv-theme';
+        }
+        return isDarkMode ? 'vs-dark' : 'vs';
     }
 
     onDidChangeContent(handler) {

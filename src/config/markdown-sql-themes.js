@@ -1,0 +1,55 @@
+const sharedSqlRules = [
+    { token: 'keyword.sql', foreground: 'f9b3ed' },
+    { token: 'keyword.block.sql', foreground: 'f0c674' },
+    { token: 'keyword.choice.sql', foreground: 'f0c674' },
+    { token: 'keyword.try.sql', foreground: 'f0c674' },
+    { token: 'keyword.catch.sql', foreground: 'f0c674' },
+    { token: 'keyword.operator.sql', foreground: '8abeb7' },
+    { token: 'operator.sql', foreground: '8abeb7' },
+    { token: 'predefined.sql', foreground: 'f0c674' },
+    { token: 'support.function.sql', foreground: 'f0c674' },
+    { token: 'string.sql', foreground: '83bd68' },
+    { token: 'number.sql', foreground: 'de935f' },
+    { token: 'comment.sql', foreground: '969896' },
+    { token: 'delimiter.sql', foreground: 'c5c8c6' },
+    { token: 'delimiter.square.sql', foreground: 'c5c8c6' },
+    { token: 'delimiter.parenthesis.sql', foreground: 'c5c8c6' },
+    { token: 'identifier.sql', foreground: 'c5c8c6' },
+    { token: 'identifier.quote.sql', foreground: '81a2be' },
+];
+
+export const markdownSqlDarkTheme = {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+        { token: 'variable.source.sql', foreground: 'c5c8c6', background: '2a2d32' },
+        ...sharedSqlRules,
+    ],
+    colors: {},
+};
+
+export const markdownSqlLightTheme = {
+    base: 'vs',
+    inherit: true,
+    rules: [
+        { token: 'variable.source.sql', foreground: '384155', background: 'f2f4f8' },
+        { token: 'comment.sql', foreground: '94a3b8' },
+        { token: 'string.sql', foreground: '1a9982' },
+        { token: 'number.sql', foreground: 'b45309' },
+        { token: 'keyword.sql', foreground: 'c2410c' },
+        { token: 'keyword.block.sql', foreground: 'c2410c' },
+        { token: 'keyword.choice.sql', foreground: 'c2410c' },
+        { token: 'keyword.try.sql', foreground: 'c2410c' },
+        { token: 'keyword.catch.sql', foreground: 'c2410c' },
+        { token: 'keyword.operator.sql', foreground: '2563eb' },
+        { token: 'operator.sql', foreground: '2563eb' },
+        { token: 'predefined.sql', foreground: 'c2410c' },
+        { token: 'support.function.sql', foreground: 'c2410c' },
+        { token: 'delimiter.sql', foreground: '334155' },
+        { token: 'delimiter.square.sql', foreground: '334155' },
+        { token: 'delimiter.parenthesis.sql', foreground: '334155' },
+        { token: 'identifier.sql', foreground: '0f172a' },
+        { token: 'identifier.quote.sql', foreground: '0f172a' },
+    ],
+    colors: {},
+};
