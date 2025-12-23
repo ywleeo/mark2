@@ -12,7 +12,7 @@ import {
     shouldEnforceMarkdownTrailingEmptyLine,
 } from '../../utils/markdownFormatting.js';
 import { ensureMonaco, buildModelUri } from './MonacoEnvironment.js';
-import { ensurePythonLanguage, ensureCsvLanguage } from './LanguageSupport.js';
+import { ensurePythonLanguage, ensureCsvLanguage, ensureBashAlias } from './LanguageSupport.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
     DEFAULT_LINE_HEIGHT_RATIO,
@@ -128,6 +128,7 @@ export class CodeEditor {
         const monaco = monacoModule;
         ensurePythonLanguage(monaco);
         ensureCsvLanguage(monaco);
+        ensureBashAlias(monaco);
         this.monaco = monaco;
         this.editor = monaco.editor.create(this.editorHost, {
             value: '',

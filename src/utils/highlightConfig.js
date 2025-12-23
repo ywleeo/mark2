@@ -61,8 +61,6 @@ export function createConfiguredLowlight() {
         ? shellCommandConfig.commands
         : [];
 
-    lowlight.register({ bash: extendBuiltInCommands(bash, additionalShellCommands) });
-
     const ensureLanguage = (name, fn) => {
         if (!lowlight.registered(name)) {
             lowlight.register({ [name]: fn });
@@ -75,11 +73,13 @@ export function createConfiguredLowlight() {
         }
     };
 
+    // 强制重新注册 bash，使用扩展版本（添加额外的 shell 命令）
+    lowlight.register({ bash: extendBuiltInCommands(bash, additionalShellCommands) });
+
     [
         ['javascript', javascript, ['js', 'jsx']],
         ['typescript', typescript, ['ts', 'tsx']],
         ['json', json, []],
-        ['bash', bash, []],
         ['shell', shell, ['sh']],
         ['python', python, ['py']],
         ['go', go, []],

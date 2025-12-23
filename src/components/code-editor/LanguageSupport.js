@@ -4,9 +4,31 @@
  */
 import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../../config/monaco-python.js';
 import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../../config/monaco-csv.js';
+import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution';
+import { conf as shellConf, language as shellLanguage } from 'monaco-editor/esm/vs/basic-languages/shell/shell.js';
 
 let pythonLanguageReady = false;
 let csvLanguageReady = false;
+let bashAliasReady = false;
+
+/**
+ * 确保 bash 作为 shell 语言的别名已注册
+ * Monaco 的 shell 语言默认只有 "sh" 别名,没有 "bash"
+ * @param {Object} monaco - Monaco 实例
+ */
+export function ensureBashAlias(monaco) {
+    if (bashAliasReady) {
+        return;
+    }
+
+    // 注册 bash 作为独立语言,使用 shell 的配置和语法定义
+    monaco.languages.register({ id: 'bash', aliases: ['Bash', 'bash'] });
+    monaco.languages.setLanguageConfiguration('bash', shellConf);
+    monaco.languages.setMonarchTokensProvider('bash', shellLanguage);
+
+    bashAliasReady = true;
+    console.log('[LanguageSupport] bash 语言已注册（使用 shell 语法定义）');
+}
 
 /**
  * 确保 Python 语言支持已加载
