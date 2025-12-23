@@ -47,7 +47,8 @@ export function initAIAssistant({ eventBus, getEditor }) {
         let documentContent = editor?.getMarkdown?.() || '';
 
         // 获取工具栏选择的风格（优先级高于设置中的默认风格）
-        const currentStyle = selectionToolbar.getCurrentStyle();
+        // 根据 action 类型获取对应的风格
+        const currentStyle = selectionToolbar.getCurrentStyle(action);
 
         // 显示预览面板并处理
         await previewPanel.show(action, selectedText, documentContent, {

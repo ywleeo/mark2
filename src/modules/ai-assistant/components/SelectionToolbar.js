@@ -50,75 +50,137 @@ export class SelectionToolbar {
         this.element = document.createElement('div');
         this.element.className = 'ai-selection-toolbar';
         this.element.innerHTML = `
-            <button class="ai-selection-btn" data-action="polish" title="润色优化">
-                <span>✨</span>
-                <span class="ai-selection-btn-label">润色</span>
-            </button>
-            <button class="ai-selection-btn" data-action="continue" title="智能续写">
-                <span>✍️</span>
-                <span class="ai-selection-btn-label">续写</span>
-            </button>
-            <button class="ai-selection-btn" data-action="expand" title="扩写内容">
-                <span>📝</span>
-                <span class="ai-selection-btn-label">扩写</span>
-            </button>
-            <button class="ai-selection-btn" data-action="compress" title="精简压缩">
-                <span>✂️</span>
-                <span class="ai-selection-btn-label">精简</span>
-            </button>
-            <button class="ai-selection-btn" data-action="summarize" title="总结提炼">
-                <span>📋</span>
-                <span class="ai-selection-btn-label">总结</span>
-            </button>
-            <button class="ai-selection-btn" data-action="translate" title="智能翻译">
-                <span>🌐</span>
-                <span class="ai-selection-btn-label">翻译</span>
-            </button>
-            <button class="ai-selection-btn" data-action="illustration" title="生成插画提示词">
-                <span>🎨</span>
-                <span class="ai-selection-btn-label">插画</span>
-            </button>
-            <button class="ai-selection-btn" data-action="storyboard" title="生成分镜提示词">
-                <span>🎬</span>
-                <span class="ai-selection-btn-label">分镜</span>
-            </button>
-            <div class="ai-selection-divider"></div>
-            <div class="ai-style-selector" title="输出风格">
-                <div class="ai-style-current"></div>
-                <div class="ai-style-dropdown">
-                    <div class="ai-style-group">
-                        <div class="ai-style-group-title">基础风格</div>
-                        <div class="ai-style-option" data-value="balanced">平衡</div>
-                        <div class="ai-style-option" data-value="rational">理性</div>
-                        <div class="ai-style-option" data-value="humorous">幽默</div>
-                        <div class="ai-style-option" data-value="cute">可爱</div>
-                        <div class="ai-style-option" data-value="business_style">商务</div>
-                        <div class="ai-style-option" data-value="literary">文艺</div>
+            <div class="ai-toolbar-row ai-toolbar-text">
+                <button class="ai-selection-btn" data-action="polish" title="润色优化">
+                    <span>✨</span>
+                    <span class="ai-selection-btn-label">润色</span>
+                </button>
+                <button class="ai-selection-btn" data-action="continue" title="智能续写">
+                    <span>✍️</span>
+                    <span class="ai-selection-btn-label">续写</span>
+                </button>
+                <button class="ai-selection-btn" data-action="expand" title="扩写内容">
+                    <span>📝</span>
+                    <span class="ai-selection-btn-label">扩写</span>
+                </button>
+                <button class="ai-selection-btn" data-action="compress" title="精简压缩">
+                    <span>✂️</span>
+                    <span class="ai-selection-btn-label">精简</span>
+                </button>
+                <button class="ai-selection-btn" data-action="summarize" title="总结提炼">
+                    <span>📋</span>
+                    <span class="ai-selection-btn-label">总结</span>
+                </button>
+                <button class="ai-selection-btn" data-action="translate" title="智能翻译">
+                    <span>🌐</span>
+                    <span class="ai-selection-btn-label">翻译</span>
+                </button>
+                <div class="ai-selection-divider"></div>
+                <div class="ai-style-selector ai-text-style-selector" title="文字输出风格">
+                    <div class="ai-style-current"></div>
+                    <div class="ai-style-dropdown">
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">基础风格</div>
+                            <div class="ai-style-option" data-value="balanced">平衡</div>
+                            <div class="ai-style-option" data-value="rational">理性</div>
+                            <div class="ai-style-option" data-value="humorous">幽默</div>
+                            <div class="ai-style-option" data-value="cute">可爱</div>
+                            <div class="ai-style-option" data-value="business_style">商务</div>
+                            <div class="ai-style-option" data-value="literary">文艺</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">小说风格</div>
+                            <div class="ai-style-option" data-value="novel_romance">言情</div>
+                            <div class="ai-style-option" data-value="novel_mystery">悬疑</div>
+                            <div class="ai-style-option" data-value="novel_costume">古偶</div>
+                            <div class="ai-style-option" data-value="novel_wuxia">武侠</div>
+                            <div class="ai-style-option" data-value="novel_xianxia">修仙</div>
+                            <div class="ai-style-option" data-value="novel_history">历史</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">平台风格</div>
+                            <div class="ai-style-option" data-value="xiaohongshu">小红书</div>
+                            <div class="ai-style-option" data-value="zhihu">知乎</div>
+                            <div class="ai-style-option" data-value="weibo">微博</div>
+                            <div class="ai-style-option" data-value="bilibili">B站</div>
+                            <div class="ai-style-option" data-value="wechat">公众号</div>
+                            <div class="ai-style-option" data-value="toutiao">头条</div>
+                            <div class="ai-style-option" data-value="douyin">抖音</div>
+                            <div class="ai-style-option" data-value="taobao">淘宝</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">特色风格</div>
+                            <div class="ai-style-option" data-value="novel_master">大师</div>
+                            <div class="ai-style-option" data-value="standup_comedy">脱口秀</div>
+                        </div>
                     </div>
-                    <div class="ai-style-group">
-                        <div class="ai-style-group-title">小说风格</div>
-                        <div class="ai-style-option" data-value="novel_romance">言情</div>
-                        <div class="ai-style-option" data-value="novel_mystery">悬疑</div>
-                        <div class="ai-style-option" data-value="novel_costume">古偶</div>
-                        <div class="ai-style-option" data-value="novel_wuxia">武侠</div>
-                        <div class="ai-style-option" data-value="novel_xianxia">修仙</div>
-                        <div class="ai-style-option" data-value="novel_history">历史</div>
-                    </div>
-                    <div class="ai-style-group">
-                        <div class="ai-style-group-title">平台风格</div>
-                        <div class="ai-style-option" data-value="xiaohongshu">小红书</div>
-                        <div class="ai-style-option" data-value="zhihu">知乎</div>
-                        <div class="ai-style-option" data-value="weibo">微博</div>
-                        <div class="ai-style-option" data-value="bilibili">B站</div>
-                        <div class="ai-style-option" data-value="wechat">公众号</div>
-                        <div class="ai-style-option" data-value="toutiao">头条</div>
-                        <div class="ai-style-option" data-value="douyin">抖音</div>
-                        <div class="ai-style-option" data-value="taobao">淘宝</div>
-                    </div>
-                    <div class="ai-style-group">
-                        <div class="ai-style-group-title">特色风格</div>
-                        <div class="ai-style-option" data-value="novel_master">大师</div>
-                        <div class="ai-style-option" data-value="standup_comedy">脱口秀</div>
+                </div>
+            </div>
+            <div class="ai-toolbar-row ai-toolbar-image">
+                <button class="ai-selection-btn" data-action="illustration" title="生成插画提示词">
+                    <span>🎨</span>
+                    <span class="ai-selection-btn-label">插画</span>
+                </button>
+                <button class="ai-selection-btn" data-action="storyboard" title="生成分镜提示词">
+                    <span>🎬</span>
+                    <span class="ai-selection-btn-label">分镜</span>
+                </button>
+                <div class="ai-selection-divider"></div>
+                <div class="ai-style-selector ai-image-style-selector" title="图片艺术风格">
+                    <div class="ai-style-current"></div>
+                    <div class="ai-style-dropdown">
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">动漫风格</div>
+                            <div class="ai-style-option" data-value="ghibli">吉卜力</div>
+                            <div class="ai-style-option" data-value="shinkai">新海诚</div>
+                            <div class="ai-style-option" data-value="kyoani">京都动画</div>
+                            <div class="ai-style-option" data-value="pixar">皮克斯</div>
+                            <div class="ai-style-option" data-value="disney">迪士尼</div>
+                            <div class="ai-style-option" data-value="jump_manga">Jump热血</div>
+                            <div class="ai-style-option" data-value="shoujo_manga">少女漫画</div>
+                            <div class="ai-style-option" data-value="gekiga">剧画</div>
+                            <div class="ai-style-option" data-value="chibi">Q版</div>
+                            <div class="ai-style-option" data-value="mecha_anime">机甲动画</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">绘画风格</div>
+                            <div class="ai-style-option" data-value="watercolor">水彩</div>
+                            <div class="ai-style-option" data-value="oil_painting">油画</div>
+                            <div class="ai-style-option" data-value="chinese_painting">工笔画</div>
+                            <div class="ai-style-option" data-value="ink_wash">水墨画</div>
+                            <div class="ai-style-option" data-value="ukiyo_e">浮世绘</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">海报风格</div>
+                            <div class="ai-style-option" data-value="huanghai_poster">黄海</div>
+                            <div class="ai-style-option" data-value="marvel_poster">漫威</div>
+                            <div class="ai-style-option" data-value="saul_bass">索尔·巴斯</div>
+                            <div class="ai-style-option" data-value="drew_struzan">德鲁·斯特鲁赞</div>
+                            <div class="ai-style-option" data-value="minimalist_poster">极简海报</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">电影风格</div>
+                            <div class="ai-style-option" data-value="zhang_yimou">张艺谋</div>
+                            <div class="ai-style-option" data-value="xu_ke">徐克</div>
+                            <div class="ai-style-option" data-value="wong_kar_wai">王家卫</div>
+                            <div class="ai-style-option" data-value="wes_anderson">韦斯·安德森</div>
+                            <div class="ai-style-option" data-value="christopher_nolan">诺兰</div>
+                            <div class="ai-style-option" data-value="tim_burton">蒂姆·伯顿</div>
+                            <div class="ai-style-option" data-value="quentin_tarantino">昆汀</div>
+                            <div class="ai-style-option" data-value="ridley_scott">雷德利·斯科特</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">现代风格</div>
+                            <div class="ai-style-option" data-value="flat_illustration">扁平插画</div>
+                            <div class="ai-style-option" data-value="cyberpunk">赛博朋克</div>
+                            <div class="ai-style-option" data-value="vaporwave">蒸汽波</div>
+                        </div>
+                        <div class="ai-style-group">
+                            <div class="ai-style-group-title">经典艺术</div>
+                            <div class="ai-style-option" data-value="impressionism">印象派</div>
+                            <div class="ai-style-option" data-value="van_gogh">梵高风格</div>
+                            <div class="ai-style-option" data-value="monet">莫奈风格</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -126,12 +188,19 @@ export class SelectionToolbar {
 
         document.body.appendChild(this.element);
 
-        // 初始化风格选择器
-        this.styleSelector = this.element.querySelector('.ai-style-selector');
-        this.styleCurrent = this.element.querySelector('.ai-style-current');
-        this.styleDropdown = this.element.querySelector('.ai-style-dropdown');
-        this.styleOptions = this.element.querySelectorAll('.ai-style-option');
-        this.currentStyleValue = 'balanced';
+        // 初始化文字风格选择器
+        this.textStyleSelector = this.element.querySelector('.ai-text-style-selector');
+        this.textStyleCurrent = this.textStyleSelector.querySelector('.ai-style-current');
+        this.textStyleDropdown = this.textStyleSelector.querySelector('.ai-style-dropdown');
+        this.textStyleOptions = this.textStyleSelector.querySelectorAll('.ai-style-option');
+        this.currentTextStyleValue = 'balanced';
+
+        // 初始化图片风格选择器
+        this.imageStyleSelector = this.element.querySelector('.ai-image-style-selector');
+        this.imageStyleCurrent = this.imageStyleSelector.querySelector('.ai-style-current');
+        this.imageStyleDropdown = this.imageStyleSelector.querySelector('.ai-style-dropdown');
+        this.imageStyleOptions = this.imageStyleSelector.querySelectorAll('.ai-style-option');
+        this.currentImageStyleValue = 'ghibli';
 
         this.loadCurrentStyle();
         this.bindEvents();
@@ -141,19 +210,19 @@ export class SelectionToolbar {
      * 绑定事件
      */
     bindEvents() {
-        // 风格选择器点击切换下拉
-        if (this.styleSelector) {
-            this.styleSelector.addEventListener('mousedown', (e) => {
+        // 文字风格选择器点击切换下拉
+        if (this.textStyleSelector) {
+            this.textStyleSelector.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 this.captureSelectionRange();
                 this.deferRestoreSelectionRange();
-                this.toggleDropdown();
+                this.toggleDropdown(this.textStyleDropdown);
             });
         }
 
-        // 风格选项点击
-        this.styleOptions.forEach(option => {
+        // 文字风格选项点击
+        this.textStyleOptions.forEach(option => {
             option.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -161,7 +230,31 @@ export class SelectionToolbar {
                 this.deferRestoreSelectionRange();
                 const value = option.dataset.value;
                 const text = option.textContent;
-                this.selectStyle(value, text);
+                this.selectStyle('text', value, text);
+            });
+        });
+
+        // 图片风格选择器点击切换下拉
+        if (this.imageStyleSelector) {
+            this.imageStyleSelector.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.captureSelectionRange();
+                this.deferRestoreSelectionRange();
+                this.toggleDropdown(this.imageStyleDropdown);
+            });
+        }
+
+        // 图片风格选项点击
+        this.imageStyleOptions.forEach(option => {
+            option.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.captureSelectionRange();
+                this.deferRestoreSelectionRange();
+                const value = option.dataset.value;
+                const text = option.textContent;
+                this.selectStyle('image', value, text);
             });
         });
 
@@ -216,8 +309,11 @@ export class SelectionToolbar {
 
             if (isInsideToolbar) {
                 // 点击在工具栏内部时仅处理下拉菜单状态
-                if (this.styleSelector && !this.styleSelector.contains(e.target)) {
-                    this.closeDropdown();
+                const isInTextSelector = this.textStyleSelector && this.textStyleSelector.contains(e.target);
+                const isInImageSelector = this.imageStyleSelector && this.imageStyleSelector.contains(e.target);
+
+                if (!isInTextSelector && !isInImageSelector) {
+                    this.closeAllDropdowns();
                 }
                 this.clearPendingOutsideClose();
                 return;
@@ -253,7 +349,7 @@ export class SelectionToolbar {
 
             // 如果 pointerdown 之后没有明显拖动，视为真正的点击
             if (!moved) {
-                this.closeDropdown();
+                this.closeAllDropdowns();
                 this.hide();
             }
         };
@@ -392,7 +488,7 @@ export class SelectionToolbar {
 
         this.element.classList.remove('is-visible');
         this.isVisible = false;
-        this.closeDropdown();
+        this.closeAllDropdowns();
     }
 
     /**
@@ -483,48 +579,66 @@ export class SelectionToolbar {
     /**
      * 切换下拉菜单
      */
-    toggleDropdown() {
-        const isOpen = this.styleDropdown.classList.contains('is-open');
+    toggleDropdown(dropdown) {
+        const isOpen = dropdown.classList.contains('is-open');
         if (isOpen) {
-            this.closeDropdown();
+            dropdown.classList.remove('is-open');
         } else {
-            this.openDropdown();
+            // 先关闭其他下拉
+            this.closeAllDropdowns();
+            dropdown.classList.add('is-open');
         }
     }
 
     /**
-     * 打开下拉菜单
+     * 关闭所有下拉菜单
      */
-    openDropdown() {
-        this.styleDropdown.classList.add('is-open');
-    }
-
-    /**
-     * 关闭下拉菜单
-     */
-    closeDropdown() {
-        this.styleDropdown.classList.remove('is-open');
+    closeAllDropdowns() {
+        if (this.textStyleDropdown) {
+            this.textStyleDropdown.classList.remove('is-open');
+        }
+        if (this.imageStyleDropdown) {
+            this.imageStyleDropdown.classList.remove('is-open');
+        }
     }
 
     /**
      * 选择风格
      */
-    selectStyle(value, text) {
-        this.currentStyleValue = value;
-        this.styleCurrent.textContent = text;
-        this.deferRestoreSelectionRange();
+    selectStyle(type, value, text) {
+        if (type === 'text') {
+            this.currentTextStyleValue = value;
+            this.textStyleCurrent.textContent = text;
+            this.deferRestoreSelectionRange();
 
-        // 更新选中状态
-        this.styleOptions.forEach(opt => {
-            if (opt.dataset.value === value) {
-                opt.classList.add('is-selected');
-            } else {
-                opt.classList.remove('is-selected');
-            }
-        });
+            // 更新选中状态
+            this.textStyleOptions.forEach(opt => {
+                if (opt.dataset.value === value) {
+                    opt.classList.add('is-selected');
+                } else {
+                    opt.classList.remove('is-selected');
+                }
+            });
 
-        this.saveCurrentStyle(value);
-        this.closeDropdown();
+            this.saveCurrentStyle('text', value);
+            this.textStyleDropdown.classList.remove('is-open');
+        } else if (type === 'image') {
+            this.currentImageStyleValue = value;
+            this.imageStyleCurrent.textContent = text;
+            this.deferRestoreSelectionRange();
+
+            // 更新选中状态
+            this.imageStyleOptions.forEach(opt => {
+                if (opt.dataset.value === value) {
+                    opt.classList.add('is-selected');
+                } else {
+                    opt.classList.remove('is-selected');
+                }
+            });
+
+            this.saveCurrentStyle('image', value);
+            this.imageStyleDropdown.classList.remove('is-open');
+        }
     }
 
     /**
@@ -532,36 +646,51 @@ export class SelectionToolbar {
      */
     loadCurrentStyle() {
         try {
-            // 优先从 localStorage 读取工具栏的风格设置
-            let style = localStorage.getItem('ai-output-style-toolbar');
-
-            // 如果没有，则从设置中读取默认值
-            if (!style) {
+            // 加载文字风格
+            let textStyle = localStorage.getItem('ai-output-style-text');
+            if (!textStyle) {
                 const aiConfig = JSON.parse(localStorage.getItem('ai-config') || '{}');
-                style = aiConfig.preferences?.outputStyle || 'balanced';
+                textStyle = aiConfig.preferences?.outputStyle || 'balanced';
             }
 
-            // 查找对应的选项文本，不存在时回退为平衡
-            const option = Array.from(this.styleOptions).find(opt => opt.dataset.value === style);
-            if (option) {
-                this.selectStyle(style, option.textContent);
+            const textOption = Array.from(this.textStyleOptions).find(opt => opt.dataset.value === textStyle);
+            if (textOption) {
+                this.selectStyle('text', textStyle, textOption.textContent);
             } else {
-                this.selectStyle('balanced', '平衡');
+                this.selectStyle('text', 'balanced', '平衡');
+            }
+
+            // 加载图片风格
+            let imageStyle = localStorage.getItem('ai-output-style-image');
+            if (!imageStyle) {
+                imageStyle = 'ghibli';
+            }
+
+            const imageOption = Array.from(this.imageStyleOptions).find(opt => opt.dataset.value === imageStyle);
+            if (imageOption) {
+                this.selectStyle('image', imageStyle, imageOption.textContent);
+            } else {
+                this.selectStyle('image', 'ghibli', '吉卜力');
             }
         } catch (error) {
             console.warn('[SelectionToolbar] 加载风格设置失败:', error);
-            this.selectStyle('balanced', '平衡');
+            this.selectStyle('text', 'balanced', '平衡');
+            this.selectStyle('image', 'ghibli', '吉卜力');
         }
     }
 
     /**
      * 保存当前风格设置
      */
-    saveCurrentStyle(style) {
+    saveCurrentStyle(type, style) {
         try {
-            // 保存到独立的 localStorage 键
-            localStorage.setItem('ai-output-style-toolbar', style);
-            console.log('[SelectionToolbar] 风格已切换为:', style);
+            if (type === 'text') {
+                localStorage.setItem('ai-output-style-text', style);
+                console.log('[SelectionToolbar] 文字风格已切换为:', style);
+            } else if (type === 'image') {
+                localStorage.setItem('ai-output-style-image', style);
+                console.log('[SelectionToolbar] 图片风格已切换为:', style);
+            }
         } catch (error) {
             console.warn('[SelectionToolbar] 保存风格设置失败:', error);
         }
@@ -570,8 +699,12 @@ export class SelectionToolbar {
     /**
      * 获取当前选择的风格
      */
-    getCurrentStyle() {
-        return this.currentStyleValue || 'balanced';
+    getCurrentStyle(action) {
+        // 根据action类型返回对应的风格
+        if (action === 'illustration' || action === 'storyboard') {
+            return this.currentImageStyleValue || 'ghibli';
+        }
+        return this.currentTextStyleValue || 'balanced';
     }
 
     /**

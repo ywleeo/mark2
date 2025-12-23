@@ -137,6 +137,62 @@ export class PromptComposer {
     }
 
     /**
+     * 将用户选择的图片风格转换为艺术风格描述
+     */
+    convertImageStyleToArtStyle(imageStyle) {
+        // 图片风格映射表
+        const imageStyleMap = {
+            // 动漫风格
+            'ghibli': '吉卜力工作室动画风格',
+            'shinkai': '新海诚动画风格',
+            'kyoani': '京都动画风格',
+            'pixar': '皮克斯动画风格',
+            'disney': '迪士尼动画风格',
+            'jump_manga': 'Jump热血少年漫画风格',
+            'shoujo_manga': '少女漫画风格',
+            'gekiga': '剧画风格',
+            'chibi': 'Q版卡通风格',
+            'mecha_anime': '机甲动画风格',
+
+            // 绘画风格
+            'watercolor': '水彩插画风格',
+            'oil_painting': '油画风格',
+            'chinese_painting': '中国工笔画风格',
+            'ink_wash': '中国水墨画风格',
+            'ukiyo_e': '日本浮世绘风格',
+
+            // 海报风格
+            'huanghai_poster': '黄海海报设计风格',
+            'marvel_poster': '漫威电影海报风格',
+            'saul_bass': '索尔·巴斯海报设计风格',
+            'drew_struzan': '德鲁·斯特鲁赞海报插画风格',
+            'minimalist_poster': '极简主义海报风格',
+
+            // 电影风格
+            'zhang_yimou': '张艺谋电影画面风格',
+            'xu_ke': '徐克电影画面风格',
+            'wong_kar_wai': '王家卫电影画面风格',
+            'wes_anderson': '韦斯·安德森电影画面风格',
+            'christopher_nolan': '克里斯托弗·诺兰电影画面风格',
+            'tim_burton': '蒂姆·伯顿电影画面风格',
+            'quentin_tarantino': '昆汀·塔伦蒂诺电影画面风格',
+            'ridley_scott': '雷德利·斯科特电影画面风格',
+
+            // 现代风格
+            'flat_illustration': '扁平插画风格',
+            'cyberpunk': '赛博朋克艺术风格',
+            'vaporwave': '蒸汽波艺术风格',
+
+            // 经典艺术
+            'impressionism': '印象派绘画风格',
+            'van_gogh': '梵高绘画风格',
+            'monet': '莫奈绘画风格',
+        };
+
+        return imageStyleMap[imageStyle] || '吉卜力工作室动画风格';
+    }
+
+    /**
      * 为单次操作构建消息列表
      * @param {string} action - 操作类型 (polish, continue, expand, etc.)
      * @param {string} selection - 选中的文本
@@ -145,10 +201,17 @@ export class PromptComposer {
     async buildMessages(action, selection, options = {}) {
         const messages = [];
 
-        // 1. System Prompt（直接使用用户选择的输出风格）
+        // 1. System Prompt
+        // 插画和分镜任务不应该受文字风格约束（因为它们生成的是图片提示词）
+        const imageActions = ['illustration', 'storyboard'];
+        const preferencesForSystem = imageActions.includes(action)
+            ? {} // 插画和分镜使用默认系统提示词，不带文字风格
+            : this.preferences; // 其他任务使用用户选择的风格
+
         console.log('[PromptComposer] 用户偏好设置:', JSON.stringify(this.preferences));
         console.log('[PromptComposer] 输出风格:', this.preferences?.outputStyle);
-        const systemPrompt = await adjustSystemPromptByPreferences(this.preferences);
+        console.log('[PromptComposer] 是否应用风格:', !imageActions.includes(action));
+        const systemPrompt = await adjustSystemPromptByPreferences(preferencesForSystem);
         console.log('[PromptComposer] System Prompt 长度:', systemPrompt.length);
 
         messages.push({
@@ -174,18 +237,27 @@ export class PromptComposer {
             console.log('[PromptComposer] 提炼型任务或无用户风格，使用文档分析的风格:', this.style);
         }
 
-        // 4. Task Prompt
+        // 4. 准备额外参数
+        const taskParams = {
+            selection,
+            context: surrounding,
+            style: styleToUse,
+            ...options
+        };
+
+        // 对于图片类任务，添加艺术风格参数
+        if (imageActions.includes(action) && this.preferences?.outputStyle) {
+            taskParams.artStyle = this.convertImageStyleToArtStyle(this.preferences.outputStyle);
+            console.log('[PromptComposer] 图片任务，使用艺术风格:', this.preferences.outputStyle, '->', taskParams.artStyle);
+        }
+
+        // 5. Task Prompt
         const taskPromptBuilder = TASK_PROMPTS[action];
         if (!taskPromptBuilder) {
             throw new Error(`未知的操作类型: ${action}`);
         }
 
-        const taskPrompt = await taskPromptBuilder({
-            selection,
-            context: surrounding,
-            style: styleToUse,
-            ...options
-        });
+        const taskPrompt = await taskPromptBuilder(taskParams);
 
         messages.push({
             role: 'user',

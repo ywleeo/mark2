@@ -478,8 +478,8 @@
 .ai-selection-toolbar {
     position: fixed;
     display: none;
-    align-items: center;
-    gap: 4px;
+    flex-direction: column;
+    gap: 2px;
     padding: 6px;
     backdrop-filter: blur(12px);
     background: var(--settings-surface, #ffffff);
@@ -495,6 +495,18 @@
     display: flex;
     opacity: 1;
     transform: translateY(0);
+}
+
+/* 工具栏横条 */
+.ai-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ai-toolbar-row:not(:last-child) {
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--settings-divider, rgba(15, 23, 42, 0.08));
 }
 
 /* 分隔符 */
