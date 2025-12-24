@@ -1,4 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { captureSecurityScopeForPath } from '../services/securityScopeService.js';
 
 export function createFileDropController({ openPathsFromSelection }) {
     if (typeof openPathsFromSelection !== 'function') {
@@ -29,6 +30,20 @@ export function createFileDropController({ openPathsFromSelection }) {
 
         isFileDropHoverActive = isActive;
         body.classList.toggle('is-file-drop-hover', isActive);
+    }
+
+    async function ensureSecurityScopes(paths) {
+        if (!Array.isArray(paths) || paths.length === 0) {
+            return;
+        }
+        for (const rawPath of paths) {
+            if (!rawPath) continue;
+            try {
+                await captureSecurityScopeForPath(rawPath);
+            } catch (error) {
+                console.warn('[fileDropController] 捕获安全权限失败', rawPath, error);
+            }
+        }
     }
 
     async function setup() {
@@ -63,6 +78,7 @@ export function createFileDropController({ openPathsFromSelection }) {
                         pendingPaths = [];
                         setFileDropHoverState(false);
                         if (Array.isArray(targetPaths) && targetPaths.length > 0) {
+                            await ensureSecurityScopes(targetPaths);
                             try {
                                 await openPathsFromSelection(targetPaths);
                             } catch (error) {
@@ -83,8 +99,10 @@ export function createFileDropController({ openPathsFromSelection }) {
             const [unlistenDrop, unlistenHover, unlistenCancel] = await Promise.all([
                 windowRef.listen('tauri://file-drop', async (event) => {
                     setFileDropHoverState(false);
+                    const payloadPaths = Array.isArray(event.payload) ? event.payload : [];
+                    await ensureSecurityScopes(payloadPaths);
                     try {
-                        await openPathsFromSelection(event.payload);
+                        await openPathsFromSelection(payloadPaths);
                     } catch (error) {
                         console.error('处理拖拽文件时出错:', error);
                     }

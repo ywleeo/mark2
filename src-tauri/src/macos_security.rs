@@ -18,7 +18,6 @@ use objc2_foundation::{
     NSData, NSError, NSString, NSURL, NSURLBookmarkCreationOptions, NSURLBookmarkResolutionOptions,
     NSUInteger,
 };
-
 #[cfg(target_os = "macos")]
 fn nsstring_to_string(value: &NSString) -> String {
     unsafe {
@@ -109,16 +108,13 @@ pub fn start_access_from_bookmark(bookmark_b64: &str) -> Result<String, String> 
 }
 
 #[cfg(target_os = "macos")]
-pub fn create_bookmark_for_path(path: &str, is_directory: bool) -> Result<String, String> {
+pub fn create_bookmark_for_path(path: &str) -> Result<(String, bool), String> {
     autoreleasepool(|_| {
         let ns_path = NSString::from_str(path);
-        let url = if is_directory {
-            NSURL::fileURLWithPath_isDirectory(&ns_path, true)
-        } else {
-            NSURL::fileURLWithPath(&ns_path)
-        };
+        let url = NSURL::fileURLWithPath(&ns_path);
         let bookmark = create_security_scoped_bookmark(&url)?;
         let _ = unsafe { url.startAccessingSecurityScopedResource() };
-        Ok(bookmark)
+        let is_directory = url.hasDirectoryPath();
+        Ok((bookmark, is_directory))
     })
 }

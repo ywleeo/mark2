@@ -535,12 +535,7 @@ fn restore_security_scoped_access(
 fn capture_security_scope(path: String) -> Result<PickedPathEntry, String> {
     #[cfg(target_os = "macos")]
     {
-        use std::path::Path;
-        let meta = Path::new(&path)
-            .metadata()
-            .map_err(|e| format!("无法获取路径信息: {e}"))?;
-        let is_directory = meta.is_dir();
-        let bookmark = create_bookmark_for_path(&path, is_directory)?;
+        let (bookmark, is_directory) = create_bookmark_for_path(&path)?;
         Ok(PickedPathEntry {
             path,
             bookmark: Some(bookmark),

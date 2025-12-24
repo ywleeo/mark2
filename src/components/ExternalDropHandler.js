@@ -34,16 +34,18 @@ export class ExternalDropHandler {
         for (const file of files) {
             const path = file?.path || file?.webkitRelativePath;
             if (!path) continue;
+
+            if (typeof this.ensureSecurityScope === 'function') {
+                try {
+                    await this.ensureSecurityScope(path);
+                } catch (scopeError) {
+                    console.warn('[ExternalDropHandler] 捕获拖拽路径权限失败', scopeError);
+                }
+            }
+
             try {
                 const entries = await this.readDirectory?.(path);
                 if (Array.isArray(entries)) {
-                    if (typeof this.ensureSecurityScope === 'function') {
-                        try {
-                            await this.ensureSecurityScope(path);
-                        } catch (scopeError) {
-                            console.warn('[ExternalDropHandler] 捕获文件权限失败', scopeError);
-                        }
-                    }
                     await this.addRootFolder?.(path, { entries });
                     continue;
                 }
