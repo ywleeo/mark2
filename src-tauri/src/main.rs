@@ -1,6 +1,9 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(target_os = "macos")]
+mod macos_security;
+
 use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
@@ -30,6 +33,9 @@ use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 
 use headless_chrome::{Browser, LaunchOptions};
 use serde::{Deserialize, Serialize};
+
+#[cfg(target_os = "macos")]
+use crate::macos_security::{create_security_scoped_bookmark, start_access_from_bookmark, url_path};
 
 #[derive(Serialize)]
 struct FileMetadata {
@@ -219,6 +225,42 @@ pub struct WorkspaceState(pub Mutex<WorkspaceContextPayload>);
 #[derive(Default)]
 pub struct DocumentState(pub Mutex<DocumentSnapshotPayload>);
 
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileDialogOptions {
+    directory: Option<bool>,
+    multiple: Option<bool>,
+    allow_directories: Option<bool>,
+    allow_files: Option<bool>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PickedPathEntry {
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bookmark: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_directory: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SecurityScopedBookmarkEntry {
+    path: Option<String>,
+    bookmark: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SecurityScopeResult {
+    requested_path: Option<String>,
+    resolved_path: Option<String>,
+    granted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
 #[tauri::command]
 fn is_directory(path: String) -> Result<bool, String> {
     Path::new(&path)
@@ -376,42 +418,114 @@ fn update_document_snapshot(
 }
 
 #[tauri::command]
-fn pick_path(app: tauri::AppHandle) -> Result<Option<String>, String> {
+fn pick_path(
+    app: tauri::AppHandle,
+    options: Option<FileDialogOptions>,
+) -> Result<Vec<PickedPathEntry>, String> {
     #[cfg(target_os = "macos")]
     {
         use std::sync::mpsc;
 
+        let opts = options.unwrap_or_default();
+        let wants_directories = opts.directory.unwrap_or(false);
+        let allow_directories = opts.allow_directories.unwrap_or(true);
+        let allow_files = {
+            let allow_files_opt = opts.allow_files.unwrap_or(!wants_directories);
+            if !allow_directories && !allow_files_opt {
+                true
+            } else {
+                allow_files_opt
+            }
+        };
+        let allow_multiple = opts.multiple.unwrap_or(true);
+
         let (tx, rx) = mpsc::channel();
         app.run_on_main_thread(move || {
-            let selection = autoreleasepool(|_| {
+            let picker_result = autoreleasepool(|_| {
                 let mtm = MainThreadMarker::new().expect("pick_path must run on main thread");
                 let panel = NSOpenPanel::openPanel(mtm);
-                panel.setAllowsMultipleSelection(false);
-                panel.setCanChooseDirectories(true);
-                panel.setCanChooseFiles(true);
+                panel.setAllowsMultipleSelection(allow_multiple);
+                panel.setCanChooseDirectories(allow_directories);
+                panel.setCanChooseFiles(allow_files);
+                panel.setCanCreateDirectories(true);
 
-                if panel.runModal() == NSModalResponseOK {
-                    let urls = panel.URLs();
-                    if let Some(url) = urls.firstObject() {
-                        if let Some(path) = url.path() {
-                            return Some(path.to_string());
+                if panel.runModal() != NSModalResponseOK {
+                    return Ok(Vec::new());
+                }
+
+                let urls = panel.URLs();
+                let mut entries = Vec::new();
+                for idx in 0..urls.count() {
+                    let url = urls.objectAtIndex(idx);
+                    if let Some(path) = url_path(&url) {
+                        let bookmark = create_security_scoped_bookmark(&url).ok();
+                        let started = unsafe { url.startAccessingSecurityScopedResource() };
+                        if !started {
+                            eprintln!("failed to start security scoped resource for {}", path);
                         }
+                        let is_directory = url.hasDirectoryPath();
+                        entries.push(PickedPathEntry {
+                            path,
+                            bookmark,
+                            is_directory: Some(is_directory),
+                        });
                     }
                 }
 
-                None
+                Ok(entries)
             });
 
-            let _ = tx.send(selection);
+            let _ = tx.send(picker_result);
         })
         .map_err(|e| e.to_string())?;
 
-        rx.recv().map_err(|e| e.to_string())
+        rx.recv().map_err(|e| e.to_string())?
     }
 
     #[cfg(not(target_os = "macos"))]
     {
         Err("unsupported".to_string())
+    }
+}
+
+#[tauri::command]
+fn restore_security_scoped_access(
+    entries: Vec<SecurityScopedBookmarkEntry>,
+) -> Result<Vec<SecurityScopeResult>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut results = Vec::new();
+        for entry in entries {
+            match start_access_from_bookmark(&entry.bookmark) {
+                Ok(resolved_path) => results.push(SecurityScopeResult {
+                    requested_path: entry.path,
+                    resolved_path: Some(resolved_path),
+                    granted: true,
+                    error: None,
+                }),
+                Err(err) => results.push(SecurityScopeResult {
+                    requested_path: entry.path,
+                    resolved_path: None,
+                    granted: false,
+                    error: Some(err),
+                }),
+            }
+        }
+
+        Ok(results)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(entries
+            .into_iter()
+            .map(|entry| SecurityScopeResult {
+                requested_path: entry.path.clone(),
+                resolved_path: entry.path,
+                granted: true,
+                error: None,
+            })
+            .collect())
     }
 }
 
@@ -747,6 +861,7 @@ fn main() {
             rename_entry,
             create_directory,
             pick_path,
+            restore_security_scoped_access,
             list_fonts,
             capture_screenshot,
             export_to_pdf,

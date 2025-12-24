@@ -9,6 +9,7 @@ import { FileTreeContextMenu } from '../FileTreeContextMenu.js';
 import { FileTreeRenderer } from './FileTreeRenderer.js';
 import { FileTreeState } from './FileTreeState.js';
 import { FileTreeEvents } from './FileTreeEvents.js';
+import { rememberSecurityScopes } from '../../services/securityScopeService.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -222,16 +223,23 @@ export class FileTree {
 
         const isDirectory = meta?.isDirectory === true || meta?.targetType === 'folder';
         try {
-            const [{ open }, pathModule] = await Promise.all([
-                import('@tauri-apps/plugin-dialog'),
-                import('@tauri-apps/api/path'),
-            ]);
-
-            const selection = await open({
+            const pathModule = await import('@tauri-apps/api/path');
+            const fileService = this.ensureFileService();
+            const selections = await fileService.pick({
                 directory: true,
                 multiple: false,
+                allowFiles: false,
             });
-            const targetDirectory = Array.isArray(selection) ? selection[0] : selection;
+            const selectionEntries = Array.isArray(selections) ? selections.filter(Boolean) : [];
+            if (selectionEntries.length === 0) {
+                return;
+            }
+            try {
+                await rememberSecurityScopes(selectionEntries, { persist: false });
+            } catch (error) {
+                console.warn('[fileTree] 申请目标文件夹权限失败', error);
+            }
+            const targetDirectory = selectionEntries[0]?.path;
             const normalizedTargetDir = this.normalizePath(targetDirectory);
             if (!normalizedTargetDir) {
                 return;
@@ -243,8 +251,6 @@ export class FileTree {
             if (normalizedDestination && normalizedDestination === normalizedSource) {
                 return;
             }
-
-            const fileService = this.ensureFileService();
             await fileService.move(normalizedSource, normalizedDestination);
 
             const sourceParent = await pathModule.dirname(normalizedSource);
@@ -488,19 +494,26 @@ export class FileTree {
     }
 
     async requestOpenFolder() {
-        const { open } = await import('@tauri-apps/plugin-dialog');
         try {
-            const selected = await open({
+            const fileService = this.ensureFileService();
+            const selections = await fileService.pick({
                 directory: true,
                 multiple: true,
+                allowFiles: false,
             });
-
-            const selections = Array.isArray(selected)
-                ? selected.filter(Boolean)
-                : selected ? [selected] : [];
-
-            for (const folderPath of selections) {
-                await this.loadFolder(folderPath);
+            const entries = Array.isArray(selections) ? selections.filter(Boolean) : [];
+            if (entries.length === 0) {
+                return;
+            }
+            try {
+                await rememberSecurityScopes(entries);
+            } catch (error) {
+                console.warn('[fileTree] 记录文件夹权限失败', error);
+            }
+            for (const entry of entries) {
+                if (entry?.path) {
+                    await this.loadFolder(entry.path);
+                }
             }
         } catch (error) {
             console.error('打开文件夹失败:', error);

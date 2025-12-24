@@ -1,5 +1,5 @@
-import { open } from '@tauri-apps/plugin-dialog';
 import { getAppServices } from '../services/appServices.js';
+import { rememberSecurityScopes } from '../services/securityScopeService.js';
 
 export class FileTreeManager {
     constructor() {
@@ -12,15 +12,22 @@ export class FileTreeManager {
 
     async openFolder() {
         try {
-            const selected = await open({
+            const selections = await this.ensureFileService().pick({
                 directory: true,
                 multiple: false,
+                allowFiles: false,
             });
-
-            if (selected) {
-                this.currentFolder = selected;
-                await this.loadFileTree(selected);
+            const entries = Array.isArray(selections) ? selections.filter(Boolean) : [];
+            if (entries.length === 0) {
+                return;
             }
+            await rememberSecurityScopes(entries);
+            const target = entries[0]?.path;
+            if (!target) {
+                return;
+            }
+            this.currentFolder = target;
+            await this.loadFileTree(target);
         } catch (error) {
             console.error('打开文件夹失败:', error);
         }

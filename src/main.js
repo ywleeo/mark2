@@ -64,6 +64,7 @@ import { setupViewPanes } from './app/viewSetup.js';
 import { createEditorCallbacks, setupEditors } from './app/editorSetup.js';
 import { setupStatusBar, setupFileTree, setupTabManager } from './app/componentSetup.js';
 import { setupToolbarEvents } from './app/eventSetup.js';
+import { restoreStoredSecurityScopes } from './services/securityScopeService.js';
 
 // ========== 状态管理实例 ==========
 const appState = new AppState();
@@ -73,13 +74,22 @@ const editorRegistry = new EditorRegistry();
 let SettingsDialogCtor = null;
 let aiAssistant = null;
 
+function ensureFileService() {
+    if (typeof globalThis !== 'undefined') {
+        if (!globalThis.__MARK2_FILE_SERVICE__) {
+            globalThis.__MARK2_FILE_SERVICE__ = createFileService();
+        }
+        return globalThis.__MARK2_FILE_SERVICE__;
+    }
+    return createFileService();
+}
+
 console.log('Mark2 Tauri 版本已启动');
 
 // ========== 服务层实例 ==========
-const fileService = createFileService();
 const recentFilesService = createRecentFilesService();
 const fileSession = createFileSession({
-    fileService,
+    fileService: ensureFileService(),
     getViewModeForPath,
 });
 const documentSessions = createDocumentSessionManager();
@@ -362,7 +372,7 @@ appState.setDocumentIO(documentIO);
 registerDocumentIO(documentIO);
 scheduleDocumentSnapshotSync();
 appServices = createAppServices({
-    fileService,
+    fileService: ensureFileService(),
     getCurrentFile: () => appState.getCurrentFile(),
 });
 scheduleWorkspaceContextSync();
@@ -472,6 +482,11 @@ async function restoreWorkspaceStateFromStorage() {
     if (!workspaceController) {
         return;
     }
+    try {
+        await restoreStoredSecurityScopes();
+    } catch (error) {
+        console.warn('[main] 恢复文件权限失败', error);
+    }
     await workspaceController.restoreWorkspaceStateFromStorage();
     scheduleWorkspaceContextSync();
 }
@@ -549,7 +564,7 @@ const recentFilesActions = createRecentFilesActions({
     fileService: appServices.file,
     normalizeFsPath,
     getFileTree: () => appState.getFileTree(),
-    workspaceController,
+workspaceController,
 });
 const {
     updateRecentMenu,
@@ -1045,4 +1060,3 @@ function cleanupResources() {
     // 销毁所有编辑器
     editorRegistry.destroyAll();
 }
-

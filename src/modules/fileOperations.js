@@ -1,3 +1,5 @@
+import { rememberSecurityScopes } from '../services/securityScopeService.js';
+
 export function createFileOperations({
     getFileTree,
     getEditor,
@@ -79,7 +81,21 @@ export function createFileOperations({
 
 
     async function openPathsFromSelection(rawPaths) {
-        const selections = normalizeSelectedPaths(rawPaths)
+        const selectionEntries = Array.isArray(rawPaths)
+            ? rawPaths.filter(Boolean)
+            : rawPaths
+                ? [rawPaths]
+                : [];
+
+        if (selectionEntries.length > 0) {
+            try {
+                await rememberSecurityScopes(selectionEntries);
+            } catch (error) {
+                console.warn('[fileOperations] 记录文件权限失败', error);
+            }
+        }
+
+        const selections = normalizeSelectedPaths(selectionEntries)
             .map(normalizeFsPath)
             .filter(Boolean);
 

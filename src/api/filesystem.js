@@ -8,12 +8,39 @@ function ensurePath(path, method) {
 }
 
 function normalizeDialogOptions(options = {}) {
+    const wantsDirectoriesOnly = options.directory === true;
     return {
-        directory: options.directory ?? false,
+        directory: wantsDirectoriesOnly,
         multiple: options.multiple ?? true,
         defaultPath: options.defaultPath,
         filters: options.filters,
+        allowDirectories: options.allowDirectories ?? true,
+        allowFiles: options.allowFiles ?? !wantsDirectoriesOnly,
     };
+}
+
+function toSelectionArray(selection) {
+    if (!selection) {
+        return [];
+    }
+    return Array.isArray(selection) ? selection : [selection];
+}
+
+function mapSelectionEntries(selection) {
+    return toSelectionArray(selection)
+        .map((entry) => {
+            if (!entry) {
+                return null;
+            }
+            if (typeof entry === 'string') {
+                return { path: entry };
+            }
+            if (typeof entry === 'object' && typeof entry.path === 'string') {
+                return entry;
+            }
+            return null;
+        })
+        .filter(Boolean);
 }
 
 export async function readFile(path) {
@@ -53,12 +80,21 @@ export async function listDirectory(path) {
 }
 
 export async function pickPaths(options) {
+    const normalizedOptions = normalizeDialogOptions(options);
     try {
-        return await invoke('pick_path');
+        const result = await invoke('pick_path', { options: normalizedOptions });
+        return mapSelectionEntries(result);
     } catch (error) {
         const message = typeof error === 'string' ? error : error?.message;
         if (message === 'unsupported') {
-            return await openDialog(normalizeDialogOptions(options));
+            const fallbackOptions = {
+                directory: normalizedOptions.directory,
+                multiple: normalizedOptions.multiple,
+                defaultPath: normalizedOptions.defaultPath,
+                filters: normalizedOptions.filters,
+            };
+            const selection = await openDialog(fallbackOptions);
+            return mapSelectionEntries(selection);
         }
         throw error;
     }

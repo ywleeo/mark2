@@ -1,3 +1,5 @@
+import { rememberSecurityScopes } from '../services/securityScopeService.js';
+
 export function createFileMenuActions(options = {}) {
     const {
         confirm,
@@ -258,14 +260,22 @@ export function createFileMenuActions(options = {}) {
         }
 
         try {
-            const { open } = await import('@tauri-apps/plugin-dialog');
-            const selection = await open({
+            const selections = await fileService.pick({
                 directory: true,
                 multiple: false,
+                allowFiles: false,
             });
-            const [targetDirectory] = normalizeSelectedPaths(selection);
+            const selectionEntries = Array.isArray(selections) ? selections.filter(Boolean) : [];
+            const [targetDirectory] = normalizeSelectedPaths(selectionEntries);
             if (!targetDirectory) {
                 return;
+            }
+            if (selectionEntries.length > 0) {
+                try {
+                    await rememberSecurityScopes(selectionEntries, { persist: false });
+                } catch (error) {
+                    console.warn('[fileMenuActions] 申请目标目录权限失败', error);
+                }
             }
 
             const { dirname, join, basename } = await import('@tauri-apps/api/path');
