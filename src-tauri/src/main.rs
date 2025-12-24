@@ -35,7 +35,9 @@ use headless_chrome::{Browser, LaunchOptions};
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "macos")]
-use crate::macos_security::{create_security_scoped_bookmark, start_access_from_bookmark, url_path};
+use crate::macos_security::{
+    create_bookmark_for_path, create_security_scoped_bookmark, start_access_from_bookmark, url_path,
+};
 
 #[derive(Serialize)]
 struct FileMetadata {
@@ -529,6 +531,29 @@ fn restore_security_scoped_access(
     }
 }
 
+#[tauri::command]
+fn capture_security_scope(path: String) -> Result<PickedPathEntry, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::path::Path;
+        let meta = Path::new(&path)
+            .metadata()
+            .map_err(|e| format!("无法获取路径信息: {e}"))?;
+        let is_directory = meta.is_dir();
+        let bookmark = create_bookmark_for_path(&path, is_directory)?;
+        Ok(PickedPathEntry {
+            path,
+            bookmark: Some(bookmark),
+            is_directory: Some(is_directory),
+        })
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("unsupported".to_string())
+    }
+}
+
 fn register_plain_paste_shortcut(app_handle: &AppHandle) {
     #[cfg(target_os = "macos")]
     let shortcut = "Cmd+Shift+V";
@@ -861,6 +886,7 @@ fn main() {
             rename_entry,
             create_directory,
             pick_path,
+            capture_security_scope,
             restore_security_scoped_access,
             list_fonts,
             capture_screenshot,

@@ -145,3 +145,20 @@ export async function restoreStoredSecurityScopes() {
     applyResolvedPaths(store, results);
     return results;
 }
+
+export async function captureSecurityScopeForPath(path, options = {}) {
+    const normalized = normalizePath(path);
+    if (!normalized) {
+        return null;
+    }
+    try {
+        const result = await invoke('capture_security_scope', { path: normalized });
+        if (result && result.bookmark && options.persist !== false) {
+            await rememberSecurityScopes([result]);
+        }
+        return result;
+    } catch (error) {
+        console.warn('[securityScopeService] 捕获安全权限失败', error);
+        return null;
+    }
+}

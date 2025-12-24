@@ -5,12 +5,14 @@ export class ExternalDropHandler {
             readDirectory,
             addRootFolder,
             refreshFolder,
+            ensureSecurityScope,
         } = options;
 
         this.container = container;
         this.readDirectory = readDirectory;
         this.addRootFolder = addRootFolder;
         this.refreshFolder = refreshFolder;
+        this.ensureSecurityScope = ensureSecurityScope;
     }
 
     handleDragOver(event) {
@@ -35,6 +37,13 @@ export class ExternalDropHandler {
             try {
                 const entries = await this.readDirectory?.(path);
                 if (Array.isArray(entries)) {
+                    if (typeof this.ensureSecurityScope === 'function') {
+                        try {
+                            await this.ensureSecurityScope(path);
+                        } catch (scopeError) {
+                            console.warn('[ExternalDropHandler] 捕获文件权限失败', scopeError);
+                        }
+                    }
                     await this.addRootFolder?.(path, { entries });
                     continue;
                 }

@@ -29,7 +29,7 @@ export function ensureBashAlias(monaco) {
     monaco.languages.setMonarchTokensProvider('bash', shellLanguage);
 
     bashAliasReady = true;
-    console.log('[LanguageSupport] bash 语言已注册（使用 shell 语法定义）');
+    // console.log('[LanguageSupport] bash 语言已注册（使用 shell 语法定义）');
 }
 
 /**

@@ -9,7 +9,7 @@ import { FileTreeContextMenu } from '../FileTreeContextMenu.js';
 import { FileTreeRenderer } from './FileTreeRenderer.js';
 import { FileTreeState } from './FileTreeState.js';
 import { FileTreeEvents } from './FileTreeEvents.js';
-import { rememberSecurityScopes } from '../../services/securityScopeService.js';
+import { rememberSecurityScopes, captureSecurityScopeForPath } from '../../services/securityScopeService.js';
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -112,6 +112,7 @@ export class FileTree {
             readDirectory: (path) => this.readDirectory(path),
             addRootFolder: (path, { entries } = {}) => this.addRootFolder(path, entries || null),
             refreshFolder: (path) => this.refreshFolder(path),
+            ensureSecurityScope: (path) => this.ensureSecurityScope(path),
         });
 
         this.contextMenu = new FileTreeContextMenu({
@@ -124,6 +125,18 @@ export class FileTree {
             onCreateFile: (path /*, meta */) => this.createFileInFolder(path),
             onCreateFolder: (path /*, meta */) => this.createFolderInFolder(path),
         });
+    }
+
+    async ensureSecurityScope(path, options = {}) {
+        const normalized = this.normalizePath(path);
+        if (!normalized) {
+            return;
+        }
+        try {
+            await captureSecurityScopeForPath(normalized, options);
+        } catch (error) {
+            console.warn('[fileTree] 捕获安全权限失败', error);
+        }
     }
 
     normalizePath(path) {

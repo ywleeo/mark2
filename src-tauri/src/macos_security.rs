@@ -10,7 +10,7 @@ use base64::Engine;
 #[cfg(target_os = "macos")]
 use objc2::AnyThread;
 #[cfg(target_os = "macos")]
-use objc2::rc::Retained;
+use objc2::rc::{autoreleasepool, Retained};
 #[cfg(target_os = "macos")]
 use objc2::runtime::Bool;
 #[cfg(target_os = "macos")]
@@ -106,4 +106,19 @@ pub fn start_access_from_bookmark(bookmark_b64: &str) -> Result<String, String> 
     }
 
     url_path(&resolved).ok_or_else(|| "解析到的路径无效".to_string())
+}
+
+#[cfg(target_os = "macos")]
+pub fn create_bookmark_for_path(path: &str, is_directory: bool) -> Result<String, String> {
+    autoreleasepool(|_| {
+        let ns_path = NSString::from_str(path);
+        let url = if is_directory {
+            NSURL::fileURLWithPath_isDirectory(&ns_path, true)
+        } else {
+            NSURL::fileURLWithPath(&ns_path)
+        };
+        let bookmark = create_security_scoped_bookmark(&url)?;
+        let _ = unsafe { url.startAccessingSecurityScopedResource() };
+        Ok(bookmark)
+    })
 }
