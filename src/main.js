@@ -11,6 +11,7 @@ console.warn = function(...args) {
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
 import {
     applyEditorSettings,
@@ -726,6 +727,7 @@ async function initializeApplication() {
         onToggleSvgCodeView: toggleSvgCodeMode,
     }));
     appState.setCleanupFunction('menuListeners', await registerMenuListeners({
+        onAbout: showAboutDialog,
         onUndo: handleUndoCommand,
         onRedo: handleRedoCommand,
         onNewFile: handleCreateNewFile,
@@ -816,6 +818,38 @@ async function openSettingsDialog() {
     }
 
     settingsDialog.open(appState.getEditorSettings());
+}
+
+/**
+ * 显示 About 对话框
+ */
+async function showAboutDialog() {
+    const version = await getVersion();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'about-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'about-dialog';
+    dialog.innerHTML = `
+        <div class="about-app-name">Mark2</div>
+        <div class="about-version">Version ${version}</div>
+        <button class="about-ok-button">OK</button>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const closeDialog = () => {
+        document.body.removeChild(overlay);
+    };
+
+    dialog.querySelector('.about-ok-button').addEventListener('click', closeDialog);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeDialog();
+        }
+    });
 }
 
 /**

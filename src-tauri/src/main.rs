@@ -932,8 +932,12 @@ fn main() {
                     .accelerator("CmdOrCtrl+Shift+T")
                     .build(app)?;
 
+            let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
+
             // 应用菜单（macOS 默认菜单）
             let app_menu = SubmenuBuilder::new(app, "Mark2")
+                .item(&about_item)
+                .separator()
                 .item(&settings_item)
                 .separator()
                 .quit()

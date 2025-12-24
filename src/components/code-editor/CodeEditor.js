@@ -399,6 +399,9 @@ export class CodeEditor {
         if (language === 'markdown') {
             return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
         }
+        if (language === 'sql' || language === 'mysql' || language === 'pgsql') {
+            return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
+        }
         if (language === 'csv' && !isDarkMode) {
             return 'csv-theme';
         }

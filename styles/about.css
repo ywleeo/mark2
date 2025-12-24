@@ -1,0 +1,73 @@
+/* About 对话框样式 */
+
+.about-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.about-dialog {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    min-width: 300px;
+}
+
+:root[data-theme-appearance='dark'] .about-dialog {
+    background: #1e1e1e;
+    color: #d4d4d4;
+}
+
+.about-app-name {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-style: italic;
+    color: #ff3b30;
+    letter-spacing: 2px;
+}
+
+:root[data-theme-appearance='dark'] .about-app-name {
+    color: #ff3b30;
+}
+
+.about-version {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+:root[data-theme-appearance='dark'] .about-version {
+    color: #999;
+}
+
+.about-ok-button {
+    padding: 8px 24px;
+    background: #ff3b30;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.about-ok-button:hover {
+    background: #d32f2f;
+}
+
+.about-ok-button:active {
+    background: #b71c1c;
+}
