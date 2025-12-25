@@ -202,15 +202,15 @@ export class PromptComposer {
         const messages = [];
 
         // 1. System Prompt
-        // 插画和分镜任务不应该受文字风格约束（因为它们生成的是图片提示词）
-        const imageActions = ['illustration', 'storyboard'];
-        const preferencesForSystem = imageActions.includes(action)
-            ? {} // 插画和分镜使用默认系统提示词，不带文字风格
+        // 插画、分镜和翻译任务不应该受文字风格约束
+        const noStyleActions = ['illustration', 'storyboard', 'translate'];
+        const preferencesForSystem = noStyleActions.includes(action)
+            ? {} // 这些任务使用默认系统提示词，不带文字风格
             : this.preferences; // 其他任务使用用户选择的风格
 
         console.log('[PromptComposer] 用户偏好设置:', JSON.stringify(this.preferences));
         console.log('[PromptComposer] 输出风格:', this.preferences?.outputStyle);
-        console.log('[PromptComposer] 是否应用风格:', !imageActions.includes(action));
+        console.log('[PromptComposer] 是否应用风格:', !noStyleActions.includes(action));
         const systemPrompt = await adjustSystemPromptByPreferences(preferencesForSystem);
         console.log('[PromptComposer] System Prompt 长度:', systemPrompt.length);
 
@@ -219,33 +219,48 @@ export class PromptComposer {
             content: systemPrompt
         });
 
-        // 2. 提取上下文
-        const surrounding = this.contextBuilder.extractSurrounding(selection);
+        // 2. 提取上下文（翻译任务不需要上下文）
+        const contextFreeActions = ['translate'];
+        const surrounding = contextFreeActions.includes(action)
+            ? { before: '', after: '' }  // 翻译只处理选中内容，不读取上下文
+            : this.contextBuilder.extractSurrounding(selection);
 
-        // 3. 决定使用哪个风格：创作型任务用用户选择的风格，提炼型任务用文档分析的风格
+        // 3. 决定使用哪个风格：创作型任务用用户选择的风格，提炼型任务用文档分析的风格，翻译不使用风格
         const creativeActions = ['polish', 'continue', 'expand'];
-        let styleToUse = this.style; // 默认使用文档分析的风格
+        let styleToUse = null;
 
-        if (creativeActions.includes(action) && this.preferences?.outputStyle) {
-            // 对于创作型任务，使用用户选择的风格
-            const userStyle = this.convertOutputStyleToStyle(this.preferences.outputStyle);
-            if (userStyle) {
-                styleToUse = userStyle;
-                console.log('[PromptComposer] 创作型任务，使用用户选择的风格:', this.preferences.outputStyle, userStyle);
+        if (action !== 'translate') {
+            // 翻译任务不使用风格
+            styleToUse = this.style; // 默认使用文档分析的风格
+
+            if (creativeActions.includes(action) && this.preferences?.outputStyle) {
+                // 对于创作型任务，使用用户选择的风格
+                const userStyle = this.convertOutputStyleToStyle(this.preferences.outputStyle);
+                if (userStyle) {
+                    styleToUse = userStyle;
+                    console.log('[PromptComposer] 创作型任务，使用用户选择的风格:', this.preferences.outputStyle, userStyle);
+                }
+            } else {
+                console.log('[PromptComposer] 提炼型任务或无用户风格，使用文档分析的风格:', this.style);
             }
         } else {
-            console.log('[PromptComposer] 提炼型任务或无用户风格，使用文档分析的风格:', this.style);
+            console.log('[PromptComposer] 翻译任务，不使用风格');
         }
 
         // 4. 准备额外参数
         const taskParams = {
             selection,
             context: surrounding,
-            style: styleToUse,
             ...options
         };
 
+        // 只有非翻译任务才传入 style
+        if (styleToUse) {
+            taskParams.style = styleToUse;
+        }
+
         // 对于图片类任务，添加艺术风格参数
+        const imageActions = ['illustration', 'storyboard'];
         if (imageActions.includes(action) && this.preferences?.outputStyle) {
             taskParams.artStyle = this.convertImageStyleToArtStyle(this.preferences.outputStyle);
             console.log('[PromptComposer] 图片任务，使用艺术风格:', this.preferences.outputStyle, '->', taskParams.artStyle);
