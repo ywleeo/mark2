@@ -385,8 +385,14 @@ export class MarkdownToolbarManager {
     findEditorContainer() {
         // 根据编辑器类型查找容器
         if (this.editorType === 'tiptap') {
-            // 查找 TipTap 编辑器的容器
-            const tiptapEditor = document.querySelector('.tiptap-editor');
+            // 优先使用 markdown 内容容器，确保工具栏插入在外层 padding 之外
+            const markdownContent = document.querySelector('.markdown-pane .markdown-content');
+            if (markdownContent) {
+                return markdownContent;
+            }
+            // 回退到 TipTap 宿主
+            const tiptapEditor = document.querySelector('[data-markdown-editor-host]') ||
+                document.querySelector('.tiptap-editor');
             if (tiptapEditor) {
                 return tiptapEditor;
             }

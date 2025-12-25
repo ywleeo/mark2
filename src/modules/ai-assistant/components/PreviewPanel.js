@@ -322,6 +322,7 @@ export class PreviewPanel {
         this.resultText = text || '';
         if (answer) {
             answer.textContent = this.resultText || ' ';
+            this.scrollContentToBottom();
         }
     }
 
@@ -347,6 +348,7 @@ export class PreviewPanel {
         if (thinkPreview) {
             thinkPreview.textContent = this.getThinkPreviewText();
         }
+        this.scrollContentToBottom();
     }
 
     getThinkPreviewText() {
@@ -564,5 +566,18 @@ export class PreviewPanel {
             }
         });
         this.clickCleanups = [];
+    }
+
+    scrollContentToBottom() {
+        if (!this.element) {
+            return;
+        }
+        const content = this.element.querySelector('.ai-preview-content');
+        if (!content) {
+            return;
+        }
+        requestAnimationFrame(() => {
+            content.scrollTop = content.scrollHeight;
+        });
     }
 }

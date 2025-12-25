@@ -36,9 +36,30 @@ import {
     MIN_AUTO_SAVE_DELAY
 } from './constants.js';
 
+function ensureMarkdownContentElement(viewElement) {
+    if (!viewElement) {
+        throw new Error('[MarkdownEditor] 缺少有效的 view 容器');
+    }
+    let contentContainer = viewElement.querySelector('.markdown-content');
+    if (!contentContainer) {
+        contentContainer = document.createElement('div');
+        contentContainer.className = 'markdown-content';
+        viewElement.appendChild(contentContainer);
+    }
+    // TipTap 会占用传入的 DOM 节点，因此我们单独创建一个编辑器宿主节点
+    let editorHost = contentContainer.querySelector('[data-markdown-editor-host]');
+    if (!editorHost) {
+        editorHost = document.createElement('div');
+        editorHost.setAttribute('data-markdown-editor-host', 'true');
+        contentContainer.appendChild(editorHost);
+    }
+    return editorHost;
+}
+
 export class MarkdownEditor {
     constructor(element, callbacks = {}, options = {}) {
-        this.element = element;
+        this.viewElement = element;
+        this.element = ensureMarkdownContentElement(element);
         this.editor = null;
         this.currentFile = null;
         this.originalMarkdown = '';
@@ -77,6 +98,8 @@ export class MarkdownEditor {
         this.pendingMermaidRender = null;
         this.mermaidRenderFrame = null;
         this.plainPasteUnlisten = null;
+        this.emptyViewMouseDownHandler = null;
+        this.emptyViewFocusTarget = null;
         this.init();
     }
 
@@ -148,6 +171,7 @@ export class MarkdownEditor {
             editorProps: {
                 attributes: {
                     class: 'tiptap-editor',
+                    'data-markdown-editor-host': 'true',
                 },
             },
             onCreate: () => {
@@ -200,6 +224,20 @@ export class MarkdownEditor {
         }
 
         this.setupPlainPasteListener();
+        this.setupEmptyViewFocusHandler();
+    }
+
+    forceBlurEditorDom() {
+        const dom = this.editor?.view?.dom;
+        if (dom && typeof dom.blur === 'function') {
+            dom.blur();
+        }
+        if (typeof window !== 'undefined') {
+            const selection = window.getSelection?.();
+            if (selection?.removeAllRanges) {
+                selection.removeAllRanges();
+            }
+        }
     }
 
     setupPlainPasteListener() {
@@ -233,6 +271,104 @@ export class MarkdownEditor {
         }).catch(error => {
             console.warn('[MarkdownEditor] 无法监听 plain-paste 事件', error);
         });
+    }
+
+    // 点击视图任意空白区域时聚焦编辑器，避免必须点在第一行
+    setupEmptyViewFocusHandler() {
+        if (!this.viewElement) {
+            return;
+        }
+        const markdownContent = this.viewElement.querySelector('.markdown-content');
+        if (!markdownContent) {
+            return;
+        }
+        const handler = (event) => {
+            if (!this.editor || !this.editor.isEditable) {
+                return;
+            }
+            if (!this.currentFile) {
+                return;
+            }
+            if (!markdownContent.contains(event.target)) {
+                return;
+            }
+            const isInsideEditor = event.target.closest('[data-markdown-editor-host]') !== null;
+            const isEmpty = this.isEditorContentEmpty();
+            const shouldFocusFromOutside = !isInsideEditor;
+            const shouldFocusEmptyInside = isInsideEditor && isEmpty;
+            const shouldFocus = shouldFocusFromOutside || shouldFocusEmptyInside;
+
+            if (!shouldFocus) {
+                return;
+            }
+            event.preventDefault();
+            if (isEmpty) {
+                this.ensureTrailingParagraph({ preserveSelection: false });
+            }
+            const docSize = Math.max(0, this.editor.state?.doc?.content?.size ?? 0);
+            const clamp = (value) => Math.max(0, Math.min(value, docSize));
+            const targetSelection = isEmpty
+                ? { from: clamp(1), to: clamp(1) }
+                : null;
+            this.scheduleEditorFocus({
+                position: 'start',
+                selection: targetSelection,
+            });
+        };
+        this.emptyViewMouseDownHandler = handler;
+        this.emptyViewFocusTarget = markdownContent;
+        markdownContent.addEventListener('mousedown', handler);
+    }
+
+    isEditorContentEmpty() {
+        if (!this.editor) {
+            return true;
+        }
+        if (typeof this.editor.isEmpty === 'function') {
+            try {
+                return this.editor.isEmpty();
+            } catch (error) {
+                console.warn('[MarkdownEditor] isEmpty() 调用失败', error);
+            }
+        }
+        const doc = this.editor.state?.doc;
+        if (!doc) {
+            return true;
+        }
+        if (doc.childCount === 0) {
+            return true;
+        }
+        if (doc.childCount === 1) {
+            const firstChild = doc.child(0);
+            if (firstChild?.type?.name === 'paragraph' && firstChild?.content?.size === 0) {
+                return true;
+            }
+        }
+        const textContent = (doc.textContent || '').trim();
+        return textContent.length === 0;
+    }
+
+    scheduleEditorFocus(options = {}) {
+        const { position = null, selection = null } = options ?? {};
+        const applyFocus = () => {
+            if (!this.editor || !this.editor.commands?.focus) {
+                return;
+            }
+            const result = position
+                ? this.editor.commands.focus(position)
+                : this.editor.commands.focus();
+            if (selection && typeof this.editor.commands.setTextSelection === 'function') {
+                this.editor.commands.setTextSelection(selection);
+            } else if (!result && typeof this.editor.commands.setTextSelection === 'function') {
+                this.editor.commands.setTextSelection({ from: 0, to: 0 });
+            }
+            this.editor.view?.dom?.focus?.({ preventScroll: true });
+        };
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(applyFocus);
+        } else {
+            applyFocus();
+        }
     }
 
     isSessionActive(sessionId) {
@@ -479,6 +615,7 @@ export class MarkdownEditor {
             // 只在切换文件时禁用编辑器并清空内容
             // 重载当前文件时不清空，直接更新内容即可，避免失焦
             if (isFileSwitching) {
+                this.forceBlurEditorDom();
                 this.editor.setEditable(false);
                 this.editor.commands.setContent('');
             }
@@ -783,6 +920,7 @@ export class MarkdownEditor {
         }
         const { preserveSelection = true } = options;
         const doc = this.editor.state.doc;
+        const wasDocEmpty = doc.childCount === 0;
         const lastChild = doc.lastChild;
         const lastTypeName = lastChild?.type?.name ?? null;
         const hasParagraphAtEnd = lastTypeName === 'paragraph';
@@ -808,7 +946,13 @@ export class MarkdownEditor {
             );
             transaction.setMeta('addToHistory', false);
             this.editor.view.dispatch(transaction);
-            if (previousSelection && this.editor.state?.doc) {
+            if (!this.editor.state?.doc) {
+                return true;
+            }
+            if (wasDocEmpty) {
+                // 空文档时，强制把光标移动到新段落内部，避免浏览器回退到容器左上角
+                this.editor.commands.setTextSelection({ from: 1, to: 1 });
+            } else if (previousSelection) {
                 const docSize = this.editor.state.doc.content.size;
                 const clamp = (value) => Math.max(0, Math.min(value, docSize));
                 this.editor.commands.setTextSelection({
@@ -1180,6 +1324,11 @@ export class MarkdownEditor {
             this.mermaidClickCleanup();
             this.mermaidClickCleanup = null;
         }
+        if (this.emptyViewFocusTarget && this.emptyViewMouseDownHandler) {
+            this.emptyViewFocusTarget.removeEventListener('mousedown', this.emptyViewMouseDownHandler);
+            this.emptyViewMouseDownHandler = null;
+            this.emptyViewFocusTarget = null;
+        }
         if (this.mermaidRenderFrame !== null && typeof cancelAnimationFrame === 'function') {
             cancelAnimationFrame(this.mermaidRenderFrame);
             this.mermaidRenderFrame = null;
@@ -1202,6 +1351,7 @@ export class MarkdownEditor {
         if (!this.editor) {
             return;
         }
+        this.forceBlurEditorDom();
         this.suppressUpdateEvent = true;
         try {
             this.editor.commands.setContent('');
