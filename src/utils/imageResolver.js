@@ -152,31 +152,51 @@ export function detectMimeType(path) {
     return 'application/octet-stream';
 }
 
-// 将二进制数据转换为 Data URI
-export function binaryToDataUri(binary, path) {
-    const bytes = binary instanceof Uint8Array ? binary : new Uint8Array(binary);
-    const chunkSize = 0x8000;
-    let binaryString = '';
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        const chunk = bytes.subarray(i, i + chunkSize);
-        binaryString += String.fromCharCode.apply(null, chunk);
-    }
-    const base64 = btoa(binaryString);
-    const mime = detectMimeType(path);
-    return `data:${mime};base64,${base64}`;
-}
-
 // 从文件系统读取二进制文件
 export async function readBinaryFromFs(path) {
     try {
         const { readFile } = await import('@tauri-apps/plugin-fs');
         return readFile(path);
     } catch (error) {
-        const fsApi = window?.__TAURI__?.fs;
+        const maybeWindow = typeof window === 'undefined' ? undefined : window;
+        const fsApi = maybeWindow?.__TAURI__?.fs;
         if (fsApi?.readBinaryFile) {
             return fsApi.readBinaryFile(path);
         }
         throw error;
+    }
+}
+
+function createObjectUrl(binary, path) {
+    if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+        return null;
+    }
+    const bytes = binary instanceof Uint8Array ? binary : new Uint8Array(binary);
+    const mime = detectMimeType(path);
+    const blob = new Blob([bytes], { type: mime });
+    return URL.createObjectURL(blob);
+}
+
+const imageObjectUrlRegistry = new Set();
+
+export function releaseImageObjectUrls() {
+    if (typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') {
+        imageObjectUrlRegistry.clear();
+        return;
+    }
+    for (const url of imageObjectUrlRegistry) {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.warn('[imageResolver] 释放图片 URL 失败', error);
+        }
+    }
+    imageObjectUrlRegistry.clear();
+}
+
+function registerImageObjectUrl(url) {
+    if (typeof url === 'string' && url.length > 0) {
+        imageObjectUrlRegistry.add(url);
     }
 }
 
@@ -212,10 +232,15 @@ export async function resolveImageSources(html, currentFile) {
             }
 
             try {
-                // 读取图片并转换为 Data URI
                 const binary = await readBinaryFromFs(resolvedPath);
-                const dataUri = binaryToDataUri(binary, resolvedPath);
-                img.setAttribute('src', dataUri);
+                const objectUrl = createObjectUrl(binary, resolvedPath);
+                if (!objectUrl) {
+                    continue;
+                }
+                registerImageObjectUrl(objectUrl);
+                img.setAttribute('src', objectUrl);
+                img.setAttribute('data-image-path', resolvedPath);
+                img.setAttribute('data-image-object-url', objectUrl);
             } catch (error) {
                 console.error('读取图片失败:', {
                     resolvedPath,

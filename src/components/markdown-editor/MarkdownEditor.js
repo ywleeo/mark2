@@ -17,7 +17,7 @@ import {
     createConfiguredMarkdownIt,
     createConfiguredTurndownService
 } from '../../utils/markdownPlugins.js';
-import { resolveImageSources } from '../../utils/imageResolver.js';
+import { resolveImageSources, releaseImageObjectUrls } from '../../utils/imageResolver.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
@@ -524,6 +524,7 @@ export class MarkdownEditor {
         this.originalMarkdown = normalizedMarkdown;
         this.contentChanged = false;
         this.clearAutoSaveTimer();
+        releaseImageObjectUrls();
 
         const previousSelection = (!shouldFocusStart && this.editor?.state?.selection)
             ? {
@@ -1303,6 +1304,7 @@ export class MarkdownEditor {
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
         this.imageModal?.destroy();
+        releaseImageObjectUrls();
         this.clearAutoSaveTimer();
         if (typeof this.plainPasteUnlisten === 'function') {
             try {
