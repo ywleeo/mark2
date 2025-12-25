@@ -109,6 +109,10 @@ export function createViewController(options = {}) {
         },
     };
 
+    function getMarkdownScrollContainer() {
+        return options.getMarkdownPane?.() ?? getViewContainer();
+    }
+
     function rememberMarkdownScrollPosition(filePath = getCurrentFile(), viewMode = getActiveViewMode()) {
         if (!filePath) {
             return;
@@ -116,7 +120,7 @@ export function createViewController(options = {}) {
         if (viewMode !== 'markdown') {
             return;
         }
-        const container = getViewContainer();
+        const container = getMarkdownScrollContainer();
         if (!container) {
             return;
         }
@@ -128,7 +132,7 @@ export function createViewController(options = {}) {
         if (!filePath) {
             return;
         }
-        const container = getViewContainer();
+        const container = getMarkdownScrollContainer();
         if (!container) {
             return;
         }
@@ -136,7 +140,7 @@ export function createViewController(options = {}) {
         container.scrollTop = target;
         if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
             window.requestAnimationFrame(() => {
-                const refreshedContainer = getViewContainer();
+                const refreshedContainer = getMarkdownScrollContainer();
                 if (!refreshedContainer) {
                     return;
                 }
