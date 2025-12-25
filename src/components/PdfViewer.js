@@ -46,6 +46,9 @@ export class PdfViewer {
         this.pageInfoText = '';
         this.loadingElement = null;
         this.handleWindowResize = this.handleWindowResize.bind(this);
+        this.handlePagesScroll = this.handlePagesScroll.bind(this);
+        this.isPagesScrollListenerAttached = false;
+        this.renderVisibleRaf = null;
         window.addEventListener('resize', this.handleWindowResize);
         if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
             this.resizeObserver = new window.ResizeObserver(() => {
@@ -72,14 +75,25 @@ export class PdfViewer {
         this.pagesContainer = this.container.querySelector('.pdf-viewer__pages');
         this.emptyStateElement = this.container.querySelector('.pdf-viewer__empty');
         this.loadingElement = this.container.querySelector('.pdf-viewer__loading');
+        this.attachPagesScrollListener();
     }
 
     hide() {
-        this.container?.setAttribute('aria-hidden', 'true');
+        if (!this.container) {
+            return;
+        }
+        this.container.setAttribute('aria-hidden', 'true');
+        this.container.style.display = 'none';
+        this.container.style.pointerEvents = 'none';
     }
 
     show() {
-        this.container?.removeAttribute('aria-hidden');
+        if (!this.container) {
+            return;
+        }
+        this.container.removeAttribute('aria-hidden');
+        this.container.style.removeProperty('display');
+        this.container.style.removeProperty('pointer-events');
     }
 
     clear() {
@@ -151,7 +165,8 @@ export class PdfViewer {
             await this.updateFitScale({ rerender: false });
             this.pageInfoText = `共 ${this.pdfDocument.numPages} 页`;
             this.callbacks.onPageInfoChange?.(this.pageInfoText);
-            await this.renderAllPages({ resetPages: true });
+            await this.preparePagePlaceholders();
+            await this.renderVisiblePagesImmediately();
             this.setEmptyState(false);
             this.setLoadingState(false);
             this.show();
@@ -187,7 +202,8 @@ export class PdfViewer {
             return;
         }
         this.scale = clampedScale;
-        await this.renderAllPages();
+        this.markPagesForRerender();
+        await this.renderVisiblePagesImmediately();
         this.emitZoomChange();
     }
 
@@ -225,48 +241,35 @@ export class PdfViewer {
         }
     }
 
-    async renderAllPages({ resetPages = false } = {}) {
-        if (!this.pdfDocument || !this.pagesContainer) {
+    async renderSinglePage(pageNumber) {
+        if (!this.pdfDocument) {
             return;
         }
-        if (resetPages) {
-            this.clearPages();
+        const entry = this.pageElements.get(pageNumber);
+        if (!entry?.canvas) {
+            return;
         }
-        const previousScrollTop = this.pagesContainer.scrollTop;
-        const totalPages = this.pdfDocument.numPages;
-        for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
-            await this.renderSinglePage(pageNumber);
+        if (entry.activeRenderTask) {
+            try {
+                await entry.activeRenderTask.promise;
+            } catch {
+                // ignore
+            }
+            return;
         }
-        this.pagesContainer.scrollTop = Math.min(previousScrollTop, this.pagesContainer.scrollHeight);
-    }
-
-    async renderSinglePage(pageNumber) {
+        if (entry.renderedScale && Math.abs(entry.renderedScale - this.scale) < SCALE_EPSILON) {
+            return;
+        }
+        const currentDocument = this.pdfDocument;
         try {
-            const page = await this.pdfDocument.getPage(pageNumber);
+            const page = await currentDocument.getPage(pageNumber);
+            if (this.pdfDocument !== currentDocument) {
+                return;
+            }
             const viewport = page.getViewport({ scale: this.scale });
             const pixelRatio = window.devicePixelRatio || 1;
             const outputScale = Math.max(1, pixelRatio);
-
-            let pageEntry = this.pageElements.get(pageNumber);
-            if (!pageEntry) {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'pdf-viewer__page';
-                const canvasElement = document.createElement('canvas');
-                canvasElement.classList.add('pdf-viewer__canvas');
-                wrapper.appendChild(canvasElement);
-                this.pageElements.set(pageNumber, { wrapper, canvas: canvasElement });
-                this.pagesContainer.appendChild(wrapper);
-                pageEntry = this.pageElements.get(pageNumber);
-            }
-            let { wrapper: pageWrapper, canvas } = pageEntry || {};
-            if (!canvas) {
-                canvas = document.createElement('canvas');
-                canvas.classList.add('pdf-viewer__canvas');
-                pageWrapper.innerHTML = '';
-                pageWrapper.appendChild(canvas);
-                pageEntry.canvas = canvas;
-            }
-
+            const canvas = entry.canvas;
             const context = canvas.getContext('2d', { alpha: false });
             if (!context) {
                 console.warn('无法获取 PDF canvas 上下文');
@@ -277,19 +280,43 @@ export class PdfViewer {
             canvas.height = Math.floor(viewport.height * outputScale);
             canvas.style.width = `${viewport.width}px`;
             canvas.style.height = `${viewport.height}px`;
+            entry.wrapper.style.minHeight = `${viewport.height}px`;
             context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
 
             const renderTask = page.render({
                 canvasContext: context,
                 viewport,
             });
+            entry.activeRenderTask = renderTask;
             await renderTask.promise;
+            if (this.pdfDocument === currentDocument) {
+                entry.renderedScale = this.scale;
+            }
         } catch (error) {
-            console.error(`渲染第 ${pageNumber} 页失败:`, error);
+            if (error?.name !== 'RenderingCancelledException') {
+                console.error(`渲染第 ${pageNumber} 页失败:`, error);
+            }
+        } finally {
+            if (entry) {
+                entry.activeRenderTask = null;
+            }
         }
     }
 
     clearPages() {
+        this.pageElements.forEach((entry) => {
+            if (entry?.activeRenderTask?.cancel) {
+                try {
+                    entry.activeRenderTask.cancel();
+                } catch {
+                    // ignore
+                }
+            }
+        });
+        if (this.renderVisibleRaf) {
+            window.cancelAnimationFrame(this.renderVisibleRaf);
+            this.renderVisibleRaf = null;
+        }
         if (this.pagesContainer) {
             this.pagesContainer.innerHTML = '';
             this.pagesContainer.scrollTop = 0;
@@ -355,7 +382,8 @@ export class PdfViewer {
         this.scale = nextScale;
         this.manualScale = this.fitScale > 0 ? this.scale / this.fitScale : 1;
         if (shouldRender) {
-            await this.renderAllPages();
+            this.markPagesForRerender();
+            await this.renderVisiblePagesImmediately();
         }
         this.emitZoomChange();
     }
@@ -388,5 +416,93 @@ export class PdfViewer {
 
     emitZoomChange() {
         this.callbacks.onZoomChange?.(this.getZoomState());
+    }
+
+    attachPagesScrollListener() {
+        if (!this.pagesContainer || this.isPagesScrollListenerAttached) {
+            return;
+        }
+        this.pagesContainer.addEventListener('scroll', this.handlePagesScroll, { passive: true });
+        this.isPagesScrollListenerAttached = true;
+    }
+
+    handlePagesScroll() {
+        this.requestRenderForVisiblePages();
+    }
+
+    async preparePagePlaceholders() {
+        if (!this.pdfDocument || !this.pagesContainer) {
+            return;
+        }
+        this.clearPages();
+        const fragment = document.createDocumentFragment();
+        const totalPages = this.pdfDocument.numPages;
+        for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'pdf-viewer__page';
+            wrapper.dataset.pageNumber = `${pageNumber}`;
+            const canvasElement = document.createElement('canvas');
+            canvasElement.classList.add('pdf-viewer__canvas');
+            wrapper.appendChild(canvasElement);
+            fragment.appendChild(wrapper);
+            this.pageElements.set(pageNumber, {
+                wrapper,
+                canvas: canvasElement,
+                renderedScale: 0,
+                activeRenderTask: null,
+            });
+        }
+        this.pagesContainer.appendChild(fragment);
+        this.requestRenderForVisiblePages();
+    }
+
+    markPagesForRerender() {
+        this.pageElements.forEach((entry) => {
+            if (!entry) {
+                return;
+            }
+            entry.renderedScale = 0;
+            if (entry.activeRenderTask?.cancel) {
+                try {
+                    entry.activeRenderTask.cancel();
+                } catch {
+                    // ignore
+                }
+                entry.activeRenderTask = null;
+            }
+        });
+        this.requestRenderForVisiblePages();
+    }
+
+    requestRenderForVisiblePages() {
+        if (this.renderVisibleRaf) {
+            return;
+        }
+        if (typeof window === 'undefined') {
+            return;
+        }
+        this.renderVisibleRaf = window.requestAnimationFrame(() => {
+            this.renderVisibleRaf = null;
+            void this.renderVisiblePagesImmediately();
+        });
+    }
+
+    async renderVisiblePagesImmediately() {
+        if (!this.pagesContainer) {
+            return;
+        }
+        const containerRect = this.pagesContainer.getBoundingClientRect();
+        const buffer = 400;
+        const tasks = [];
+        this.pageElements.forEach((entry, pageNumber) => {
+            if (!entry?.wrapper) {
+                return;
+            }
+            const rect = entry.wrapper.getBoundingClientRect();
+            if (rect.bottom >= containerRect.top - buffer && rect.top <= containerRect.bottom + buffer) {
+                tasks.push(this.renderSinglePage(pageNumber));
+            }
+        });
+        await Promise.all(tasks);
     }
 }

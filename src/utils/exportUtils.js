@@ -129,19 +129,19 @@ export async function captureViewContent(ensureToPng) {
     captureContainer.style.alignItems = 'stretch';
     captureContainer.style.width = `${scrollWidth}px`;
     captureContainer.style.boxSizing = 'border-box';
-    captureContainer.style.paddingBottom = '5px';
+    captureContainer.style.paddingBottom = '15px';
     captureContainer.appendChild(clone);
 
     const separator = document.createElement('div');
     separator.style.width = '100%';
     separator.style.height = '1px';
-    separator.style.marginTop = '32px';
-    separator.style.background = 'rgba(0, 0, 0, 0.08)';
+    separator.style.marginTop = '10px';
+    separator.style.background = 'rgba(125, 125, 125, 0.2)';
     separator.style.alignSelf = 'stretch';
 
     const branding = document.createElement('div');
     branding.textContent = 'Mark2';
-    branding.style.margin = '8px auto 0';
+    branding.style.margin = '15px auto 0';
     branding.style.padding = '4px 18px';
     branding.style.fontSize = '12px';
     branding.style.fontWeight = '600';
@@ -150,8 +150,7 @@ export async function captureViewContent(ensureToPng) {
     branding.style.letterSpacing = '0.08em';
     branding.style.textTransform = 'uppercase';
     branding.style.color = '#ffffff';
-    branding.style.background = '#d92c34';
-    branding.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.15)';
+    branding.style.background = '#e3474eff';
 
     captureContainer.appendChild(separator);
     captureContainer.appendChild(branding);

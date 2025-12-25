@@ -13,17 +13,14 @@
 .pdf-viewer__body {
     flex: 1;
     position: relative;
-    overflow: hidden;
+    overflow: auto;
+    padding: 24px 16px 80px 16px;
+    scrollbar-width: thin;
 }
 
 .pdf-viewer__pages {
-    position: absolute;
-    inset: 0;
-    overflow: auto;
-    padding: 24px 16px 80px 16px;
-    background: #e5e7eb;
+    min-height: 100%;
 }
-
 .pdf-viewer__page {
     background: #ffffff;
     box-shadow: 0 10px 35px rgba(15, 23, 42, 0.15);

@@ -1011,7 +1011,9 @@ export class MarkdownEditor {
             return;
         }
         const content = typeof markdown === 'string' ? markdown : '';
-        const processedBold = this.preprocessBold(content);
+        // 在AI生成内容前后添加分割线
+        const contentWithSeparator = '\n\n---\n\n' + content + '\n\n---\n\n';
+        const processedBold = this.preprocessBold(contentWithSeparator);
         const processed = this.preprocessListIndentation(processedBold);
         const html = this.md.render(processed);
 
@@ -1025,7 +1027,7 @@ export class MarkdownEditor {
             // 有选中内容，在选中内容的末尾插入
             const endPos = selection.to;
 
-            // 先在末尾插入两个换行，然后插入 AI 内容
+            // 先在末尾插入一个空段落作为间隔，然后插入 AI 内容
             this.editor.chain()
                 .focus()
                 .setTextSelection(endPos)
