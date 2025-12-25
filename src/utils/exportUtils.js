@@ -44,13 +44,42 @@ export async function buildDefaultPdfPath() {
     return fileName;
 }
 
+function resolveCaptureElement(viewElement) {
+    const activePane = viewElement.querySelector('.view-pane.is-active');
+    if (!activePane) {
+        return viewElement;
+    }
+
+    // Map each view pane to the DOM nodes that preserve its intended padding/margins
+    const selectorsByPane = {
+        markdown: ['.markdown-content', '[data-markdown-editor-host]', '.tiptap-editor'],
+        code: ['.code-editor-pane', '.code-editor__instance', '.monaco-editor'],
+        image: ['.image-viewer-content', '.image-viewer'],
+        media: ['.media-viewer__content', '.media-viewer'],
+        spreadsheet: ['.spreadsheet-viewer__body', '.spreadsheet-viewer'],
+        pdf: ['.pdf-viewer__body', '.pdf-viewer'],
+        unsupported: ['.unsupported-viewer-content', '.unsupported-viewer'],
+    };
+
+    const paneKey = activePane.dataset?.pane || '';
+    const selectors = selectorsByPane[paneKey] || [];
+    for (const selector of selectors) {
+        const match = activePane.matches(selector) ? activePane : activePane.querySelector(selector);
+        if (match) {
+            return match;
+        }
+    }
+
+    return activePane;
+}
+
 export async function captureViewContent(ensureToPng) {
     const viewElement = document.getElementById('viewContent');
     if (!viewElement) {
         throw new Error('无法找到 viewContent 元素');
     }
 
-    const captureElement = viewElement.querySelector('.tiptap-editor') || viewElement;
+    const captureElement = resolveCaptureElement(viewElement);
 
     const transparentValues = new Set(['rgba(0, 0, 0, 0)', 'transparent']);
     const getBackground = (element) => {
@@ -89,12 +118,45 @@ export async function captureViewContent(ensureToPng) {
     const clone = captureElement.cloneNode(true);
     clone.style.paddingBottom = '0px';
     clone.style.marginBottom = '0px';
-    
     clone.style.width = `${scrollWidth}px`;
     clone.style.minHeight = `${scrollHeight}px`;
     clone.style.boxSizing = 'border-box';
 
-    wrapper.appendChild(clone);
+    // Build a container so we can attach a branded footer to every capture
+    const captureContainer = document.createElement('div');
+    captureContainer.style.display = 'flex';
+    captureContainer.style.flexDirection = 'column';
+    captureContainer.style.alignItems = 'stretch';
+    captureContainer.style.width = `${scrollWidth}px`;
+    captureContainer.style.boxSizing = 'border-box';
+    captureContainer.style.paddingBottom = '5px';
+    captureContainer.appendChild(clone);
+
+    const separator = document.createElement('div');
+    separator.style.width = '100%';
+    separator.style.height = '1px';
+    separator.style.marginTop = '32px';
+    separator.style.background = 'rgba(0, 0, 0, 0.08)';
+    separator.style.alignSelf = 'stretch';
+
+    const branding = document.createElement('div');
+    branding.textContent = 'Mark2';
+    branding.style.margin = '8px auto 0';
+    branding.style.padding = '4px 18px';
+    branding.style.fontSize = '12px';
+    branding.style.fontWeight = '600';
+    branding.style.fontFamily =
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+    branding.style.letterSpacing = '0.08em';
+    branding.style.textTransform = 'uppercase';
+    branding.style.color = '#ffffff';
+    branding.style.background = '#d92c34';
+    branding.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.15)';
+
+    captureContainer.appendChild(separator);
+    captureContainer.appendChild(branding);
+
+    wrapper.appendChild(captureContainer);
     document.body.appendChild(wrapper);
 
     await new Promise(resolve => requestAnimationFrame(resolve));
@@ -104,27 +166,27 @@ export async function captureViewContent(ensureToPng) {
         const targetWidth = Math.ceil(
             Math.max(
                 scrollWidth,
-                clone.scrollWidth,
-                clone.offsetWidth,
-                clone.clientWidth
+                captureContainer.scrollWidth,
+                captureContainer.offsetWidth,
+                captureContainer.clientWidth
             )
         );
         const targetHeight = Math.ceil(
             Math.max(
                 scrollHeight,
-                clone.scrollHeight,
-                clone.offsetHeight,
-                clone.clientHeight
+                captureContainer.scrollHeight,
+                captureContainer.offsetHeight,
+                captureContainer.clientHeight
             )
         );
 
         wrapper.style.width = `${targetWidth}px`;
+        captureContainer.style.width = `${targetWidth}px`;
         clone.style.width = `${targetWidth}px`;
-        clone.style.minHeight = `${targetHeight}px`;
 
         await document.fonts?.ready;
         const renderToPng = await ensureToPng();
-        const dataUrl = await renderToPng(clone, {
+        const dataUrl = await renderToPng(captureContainer, {
             backgroundColor,
             pixelRatio: scale,
             cacheBust: true,
