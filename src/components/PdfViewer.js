@@ -83,7 +83,7 @@ export class PdfViewer {
             return;
         }
         this.container.setAttribute('aria-hidden', 'true');
-        this.container.style.display = 'none';
+        this.container.style.visibility = 'hidden';
         this.container.style.pointerEvents = 'none';
     }
 
@@ -92,7 +92,7 @@ export class PdfViewer {
             return;
         }
         this.container.removeAttribute('aria-hidden');
-        this.container.style.removeProperty('display');
+        this.container.style.removeProperty('visibility');
         this.container.style.removeProperty('pointer-events');
     }
 
