@@ -69,6 +69,8 @@
     --ai-todo-progress: #3b82f6;
     --ai-todo-error: #ef4444;
     --ai-context-text: #999999;
+    --ai-preview-surface: rgba(248, 250, 252, 0.72);
+    --ai-preview-border: rgba(255, 255, 255, 0.6);
 }
 
 :root[data-theme-appearance='dark'] {
@@ -142,6 +144,8 @@
     --ai-todo-progress: #93c5fd;
     --ai-todo-error: #ff8a8a;
     --ai-context-text: rgba(196, 208, 228, 0.8);
+    --ai-preview-surface: rgba(24, 31, 44, 0.75);
+    --ai-preview-border: rgba(255, 255, 255, 0.12);
 }
 
 /* ==================== TODO List Styles ==================== */
@@ -209,13 +213,6 @@
 .ai-preview-panel.is-visible {
     display: flex;
     opacity: 1;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --ai-preview-surface: rgba(24, 31, 44, 0.75);
-        --ai-preview-border: rgba(255, 255, 255, 0.12);
-    }
 }
 
 .ai-preview-header {
