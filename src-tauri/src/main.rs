@@ -36,7 +36,8 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "macos")]
 use crate::macos_security::{
-    create_bookmark_for_path, create_security_scoped_bookmark, start_access_from_bookmark, url_path,
+    create_bookmark_for_path, create_security_scoped_bookmark, move_path_to_trash,
+    start_access_from_bookmark, url_path,
 };
 
 #[derive(Serialize)]
@@ -368,8 +369,15 @@ fn read_dir(path: String) -> Result<Vec<String>, String> {
 
 #[tauri::command]
 fn delete_entry(path: String) -> Result<(), String> {
-    // 将文件或文件夹移动到系统垃圾桶，而不是直接物理删除
-    trash::delete(&path).map_err(|e| e.to_string())
+    #[cfg(target_os = "macos")]
+    {
+        move_path_to_trash(&path)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        trash::delete(&path).map_err(|e| e.to_string())
+    }
 }
 
 #[tauri::command]

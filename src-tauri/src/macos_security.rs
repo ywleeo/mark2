@@ -16,7 +16,7 @@ use objc2::runtime::Bool;
 #[cfg(target_os = "macos")]
 use objc2_foundation::{
     NSData, NSError, NSString, NSURL, NSURLBookmarkCreationOptions, NSURLBookmarkResolutionOptions,
-    NSUInteger,
+    NSFileManager, NSUInteger,
 };
 #[cfg(target_os = "macos")]
 fn nsstring_to_string(value: &NSString) -> String {
@@ -116,5 +116,17 @@ pub fn create_bookmark_for_path(path: &str) -> Result<(String, bool), String> {
         let _ = unsafe { url.startAccessingSecurityScopedResource() };
         let is_directory = url.hasDirectoryPath();
         Ok((bookmark, is_directory))
+    })
+}
+
+#[cfg(target_os = "macos")]
+pub fn move_path_to_trash(path: &str) -> Result<(), String> {
+    autoreleasepool(|_| {
+        let ns_path = NSString::from_str(path);
+        let url = NSURL::fileURLWithPath(&ns_path);
+        let manager = NSFileManager::defaultManager();
+        manager
+            .trashItemAtURL_resultingItemURL_error(&url, None)
+            .map_err(error_to_string)
     })
 }

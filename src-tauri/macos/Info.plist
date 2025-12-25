@@ -24,11 +24,13 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.94</string>
+	<string>1.4.96</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.94</string>
+	<string>1.4.96</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key>
@@ -51,7 +53,5 @@
 		<string>zh-Hans</string>
 		<string>en</string>
 	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 </dict>
 </plist>
