@@ -73,7 +73,8 @@
     background: var(--content-bg, #ffffff);
 }
 
-.view-content:has(.markdown-pane.is-active) {
+.view-content:has(.markdown-pane.is-active),
+.view-content:has(.pdf-pane.is-active) {
     overflow: hidden;
 }
 
