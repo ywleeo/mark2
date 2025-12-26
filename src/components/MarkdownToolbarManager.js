@@ -75,6 +75,7 @@ export class MarkdownToolbarManager {
                 'clearFormatting',
                 'emoji',
                 'separator',
+                'toc',
                 'copyMarkdown',
                 'toggleViewMode'
             ]

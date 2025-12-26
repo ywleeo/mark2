@@ -117,8 +117,6 @@
 /* 三级标题 - 左侧装饰线 */
 .tiptap-editor h3 {
     font-size: 1.25em !important;
-    padding-left: 12px;
-    border-left: 3px solid var(--emerald-h3-border, var(--theme-heading-border));
     font-family: inherit;
 }
 

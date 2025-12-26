@@ -2,6 +2,7 @@ import { addClickHandler } from '../../utils/PointerHelper.js';
 import { liftTarget } from '@tiptap/pm/transform';
 import { BUTTON_CONFIG, DEFAULT_BUTTONS } from './toolbarConfig.js';
 import { EMOJI_LIST } from './emojiList.js';
+import { TocPanel } from '../TocPanel.js';
 
 /**
  * Markdown工具栏类
@@ -19,6 +20,7 @@ export class MarkdownToolbar {
         this.boundScrollHandler = null;
         this.emojiPicker = null;
         this.emojiPickerVisible = false;
+        this.tocPanel = null;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
             theme: 'light', // 'light' 或 'dark'
@@ -48,6 +50,11 @@ export class MarkdownToolbar {
      */
     setEditor(editor) {
         this.editor = editor;
+
+        // 同时设置 TocPanel 的编辑器
+        if (this.tocPanel) {
+            this.tocPanel.setEditor(editor);
+        }
     }
 
     /**
@@ -336,9 +343,15 @@ export class MarkdownToolbar {
      * @param {string} action - 动作类型
      */
     handleAction(action) {
-        // toggleViewMode 和 copyMarkdown 不需要编辑器实例，直接触发回调
+        // toggleViewMode、copyMarkdown 和 toc 不需要编辑器实例，直接触发回调
         if (action === 'toggleViewMode' || action === 'copyMarkdown') {
             this.emit('action', action);
+            return;
+        }
+
+        // 处理 TOC 按钮
+        if (action === 'toc') {
+            this.handleToc();
             return;
         }
 
@@ -1348,5 +1361,41 @@ export class MarkdownToolbar {
 
         // Fallback: 插入到光标位置
         this.insertTextAtCursor(emoji);
+    }
+
+    /**
+     * 初始化目录面板
+     */
+    initTocPanel() {
+        if (this.tocPanel) return;
+
+        this.tocPanel = new TocPanel();
+
+        // 查找 Markdown 面板容器
+        const markdownPane = document.querySelector('.markdown-pane');
+        if (markdownPane) {
+            this.tocPanel.init(markdownPane);
+
+            // 如果已经有编辑器，设置编辑器
+            if (this.editor) {
+                this.tocPanel.setEditor(this.editor);
+            }
+        }
+    }
+
+    /**
+     * 处理 TOC 按钮点击
+     */
+    handleToc() {
+        // 确保 TocPanel 已初始化
+        if (!this.tocPanel) {
+            this.initTocPanel();
+        }
+
+        if (this.tocPanel) {
+            this.tocPanel.toggle();
+        }
+
+        return true;
     }
 }

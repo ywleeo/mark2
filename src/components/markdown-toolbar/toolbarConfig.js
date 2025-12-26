@@ -145,6 +145,12 @@ export const BUTTON_CONFIG = {
         </svg>`,
         title: '切换代码/预览模式',
         shortcut: 'Ctrl+E'
+    },
+    toc: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19,3H5C3.9,3,3,3.9,3,5V19C3,20.1,3.9,21,5,21H19C20.1,21,21,20.1,21,19V5C21,3.9,20.1,3,19,3M19,19H5V5H19V19M7,9H17V7H7V9M7,13H17V11H7V13M7,17H17V15H7V17Z" />
+        </svg>`,
+        title: '显示/隐藏目录'
     }
 };
 
@@ -171,5 +177,6 @@ export const DEFAULT_BUTTONS = [
     'clearFormatting',
     'emoji',
     'separator',
+    'toc',
     'toggleViewMode'
 ];
