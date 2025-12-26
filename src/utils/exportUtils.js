@@ -218,7 +218,8 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
         pageWidth = paginated.pageWidth;
     } else {
         const clone = sanitizeExportNode(contentElement.cloneNode(true));
-        htmlContent = `<div class="mark2-export-wrapper">${clone.outerHTML}</div>`;
+        const branding = buildBrandingMarkup();
+        htmlContent = `<div class="mark2-export-wrapper">${clone.outerHTML}${branding}</div>`;
         pageWidth = viewElement.clientWidth || 800;
     }
 
@@ -266,6 +267,27 @@ body {
 .code-copy-button {
     display: none !important;
 }
+.mark2-export-branding {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 18px auto 6px;
+    max-width: 480px;
+    padding: 6px 0 0;
+}
+.mark2-export-branding__label {
+    display: inline-block;
+    background: #e3474f75;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 4px 18px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
 @page {
     margin: 20mm 6mm 20mm 6mm;
 }
@@ -292,6 +314,7 @@ body {
 .mark2-export-page {
     width: 210mm;
     min-height: 297mm;
+    height: 297mm;
     background: #ffffff;
     margin: 0 auto 12mm auto;
     box-shadow: 0 0 0 1px rgba(18, 22, 33, 0.08);
@@ -305,21 +328,29 @@ body {
     margin-bottom: 0;
 }
 .mark2-export-page__content {
-    padding: 15mm 12mm 18mm 12mm;
-    min-height: 297mm;
+    padding: 15mm 12mm 10mm 12mm;
     box-sizing: border-box;
     flex: 1;
     display: flex;
     flex-direction: column;
+    position: relative;
+    overflow: hidden;
 }
 .mark2-export-page__content > *:first-child {
     margin-top: 0 !important;
+}
+.mark2-export-page__footer {
+    padding: 0 12mm 10mm 12mm;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .mark2-export-flow-root {
     flex: 1;
     width: 100%;
     box-sizing: border-box;
-}
+    }
 .mark2-export-flow-root[data-export-source="monaco"] {
     display: block;
 }
@@ -380,6 +411,8 @@ async function buildPaginatedA4Document(contentElement) {
     const pxPerMm = 96 / 25.4;
     const pageWidthPx = Math.round(pxPerMm * 210);
     const pageHeightPx = Math.round(pxPerMm * 297);
+    const footerReservePx = Math.round(pxPerMm * 18);
+    const contentHeightPx = Math.max(100, pageHeightPx - footerReservePx);
 
     const hiddenHost = document.createElement('div');
     hiddenHost.style.position = 'fixed';
@@ -402,13 +435,22 @@ async function buildPaginatedA4Document(contentElement) {
         const containerTemplate = sanitizeExportNode(contentElement.cloneNode(false));
         const flowNodes = collectFlowNodes(sourceRoot);
 
-        let currentPage = createPaginatedPage(wrapper, containerTemplate, contentElement, 0);
+        let currentPage = createPaginatedPage(
+            wrapper,
+            containerTemplate,
+            contentElement,
+            0,
+            {
+                pageHeightPx,
+                contentHeightPx,
+            }
+        );
         const pages = [currentPage];
 
         for (const node of flowNodes) {
             currentPage.host.appendChild(node);
             const overflows =
-                currentPage.content.scrollHeight > pageHeightPx + 1 &&
+                currentPage.content.scrollHeight > contentHeightPx + 1 &&
                 currentPage.host.childNodes.length > 1;
             if (overflows) {
                 const overflowNode = currentPage.host.lastChild;
@@ -417,7 +459,11 @@ async function buildPaginatedA4Document(contentElement) {
                     wrapper,
                     containerTemplate,
                     contentElement,
-                    pages.length
+                    pages.length,
+                    {
+                        pageHeightPx,
+                        contentHeightPx,
+                    }
                 );
                 pages.push(currentPage);
                 currentPage.host.appendChild(overflowNode);
@@ -425,7 +471,12 @@ async function buildPaginatedA4Document(contentElement) {
         }
 
         if (pages.length === 0) {
-            pages.push(createPaginatedPage(wrapper, containerTemplate, contentElement, 0));
+            pages.push(
+                createPaginatedPage(wrapper, containerTemplate, contentElement, 0, {
+                    pageHeightPx,
+                    contentHeightPx,
+                })
+            );
         }
 
         wrapper.dataset.exportPageCount = String(pages.length);
@@ -439,13 +490,25 @@ async function buildPaginatedA4Document(contentElement) {
     return { htmlContent, pageWidth: pageWidthPx };
 }
 
-function createPaginatedPage(wrapper, template, sourceElement, index) {
+function createPaginatedPage(wrapper, template, sourceElement, index, options = {}) {
     const page = document.createElement('section');
     page.className = 'mark2-export-page';
     page.dataset.exportPage = String(index);
+    if (options.pageHeightPx) {
+        const heightPx = Math.max(100, options.pageHeightPx);
+        page.style.minHeight = `${heightPx}px`;
+        page.style.maxHeight = `${heightPx}px`;
+        page.style.height = `${heightPx}px`;
+    }
 
     const pageContent = document.createElement('div');
     pageContent.className = 'mark2-export-page__content';
+    if (options.contentHeightPx) {
+        const limit = Math.max(50, options.contentHeightPx);
+        pageContent.style.maxHeight = `${limit}px`;
+        pageContent.style.height = `${limit}px`;
+        pageContent.style.minHeight = `${limit}px`;
+    }
 
     let host =
         template && typeof template.cloneNode === 'function'
@@ -464,6 +527,11 @@ function createPaginatedPage(wrapper, template, sourceElement, index) {
 
     pageContent.appendChild(host);
     page.appendChild(pageContent);
+    const footer = document.createElement('footer');
+    footer.className = 'mark2-export-page__footer';
+    const branding = createBrandingElement();
+    footer.appendChild(branding);
+    page.appendChild(footer);
     wrapper.appendChild(page);
 
     return { page, content: pageContent, host };
@@ -488,6 +556,20 @@ function collectFlowNodes(root) {
         nodes.push(child);
     }
     return nodes.length ? nodes : [root];
+}
+
+function buildBrandingMarkup() {
+    return `
+<div class="mark2-export-branding">
+    <span class="mark2-export-branding__label">Mark2</span>
+</div>
+    `.trim();
+}
+
+function createBrandingElement() {
+    const container = document.createElement('div');
+    container.innerHTML = buildBrandingMarkup();
+    return container.firstElementChild || document.createElement('div');
 }
 
 async function waitForFonts() {

@@ -678,14 +678,6 @@ async fn export_to_pdf(
         }
     }
 
-    #[cfg(target_os = "macos")]
-    println!(
-        "[pdf] request destination={} html_len={} css_len={}",
-        destination,
-        html_content.len(),
-        css_content.len()
-    );
-
     let full_html = compose_full_html(&html_content, &css_content);
 
     #[cfg(not(target_os = "macos"))]
@@ -857,11 +849,6 @@ fn render_pdf_with_webkit(
                 .max(1.0);
             let capture_height = metrics.height.max(1.0).min(200_000.0);
 
-            println!(
-                "[pdf] render metrics width={} height={} capture_width={} capture_height={}",
-                metrics.width, metrics.height, capture_width, capture_height
-            );
-
             webview.setFrame(CGRect::new(
                 CGPoint::new(0.0, 0.0),
                 CGSize::new(capture_width as CGFloat, capture_height as CGFloat),
@@ -885,14 +872,6 @@ fn render_pdf_with_webkit(
                     mtm,
                 )?,
             };
-            println!(
-                "[pdf] render complete mode={:?} bytes={}",
-                match mode {
-                    PdfRenderMode::Continuous => "continuous",
-                    PdfRenderMode::PaginatedA4 => "a4",
-                },
-                pdf_bytes.len()
-            );
             Ok(pdf_bytes)
         });
 
@@ -991,11 +970,6 @@ fn capture_pdf_slice(
     rect: CGRect,
     mtm: MainThreadMarker,
 ) -> Result<Vec<u8>, String> {
-    println!(
-        "[pdf] capture slice origin=({}, {}) size=({}, {})",
-        rect.origin.x, rect.origin.y, rect.size.width, rect.size.height
-    );
-
     let pdf_config = unsafe { WKPDFConfiguration::init(WKPDFConfiguration::alloc(mtm)) };
     unsafe {
         pdf_config.setRect(rect);
@@ -1036,33 +1010,16 @@ fn create_paginated_pdf_document(
     let effective_width = width.max(1.0);
     let aspect = 297.0 / 210.0;
     let page_height = (effective_width * aspect).max(100.0);
-    println!(
-        "[pdf] paginated mode width={} height={} page_height={}",
-        effective_width, height, page_height
-    );
-
     let dom_slices = collect_dom_page_slices(webview, run_loop)?;
     if !dom_slices.is_empty() {
-        println!(
-            "[pdf] dom-defined pages count={} last_height={}",
-            dom_slices.len(),
-            dom_slices.last().map(|slice| slice.top + slice.height).unwrap_or(0.0)
-        );
         let mut result = Vec::new();
-        for (index, slice) in dom_slices.iter().enumerate() {
+        for slice in dom_slices.iter() {
             let slice_height = slice.height.max(1.0);
             let rect = CGRect::new(
                 CGPoint::new(0.0, slice.top as CGFloat),
                 CGSize::new(effective_width as CGFloat, slice_height as CGFloat),
             );
             let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
-            println!(
-                "[pdf] page {} offset={} slice_height={} bytes={}",
-                index,
-                slice.top,
-                slice_height,
-                data.len()
-            );
             result.push(data);
         }
         return merge_pdf_pages(&result);
@@ -1070,8 +1027,6 @@ fn create_paginated_pdf_document(
 
     let mut offset = 0.0;
     let mut slices = Vec::new();
-    let mut page_index = 0usize;
-
     while offset < height - 0.5 {
         let remaining = height - offset;
         let slice_height = page_height.min(remaining);
@@ -1080,16 +1035,8 @@ fn create_paginated_pdf_document(
             CGSize::new(effective_width as CGFloat, slice_height as CGFloat),
         );
         let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
-        println!(
-            "[pdf] page {} offset={} slice_height={} bytes={}",
-            page_index,
-            offset,
-            slice_height,
-            data.len()
-        );
         slices.push(data);
         offset += slice_height;
-        page_index += 1;
     }
 
     merge_pdf_pages(&slices)
