@@ -114,6 +114,9 @@ export class MarkdownEditor {
                     codeBlock: false,
                     link: false,
                     trailingNode: false,
+                    hardBreak: {
+                        keepMarks: true,
+                    },
                 }),
                 Link.configure({
                     openOnClick: false,
@@ -145,6 +148,17 @@ export class MarkdownEditor {
                 HtmlSpan,
                 HtmlDiv,
                 HtmlInline,
+                Extension.create({
+                    name: 'customEnterBehavior',
+                    addKeyboardShortcuts() {
+                        return {
+                            // Enter → 插入硬换行 <br/>
+                            'Enter': () => this.editor.commands.setHardBreak(),
+                            // Shift+Enter → 新段落 <p>
+                            'Shift-Enter': () => this.editor.commands.splitBlock(),
+                        };
+                    },
+                }),
                 Extension.create({
                     name: 'tabIndent',
                     addKeyboardShortcuts() {
