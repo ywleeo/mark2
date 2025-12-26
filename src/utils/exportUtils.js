@@ -134,9 +134,9 @@ export async function captureViewContent(ensureToPng) {
 
     const separator = document.createElement('div');
     separator.style.width = '100%';
-    separator.style.height = '1px';
+    separator.style.height = '0';
     separator.style.marginTop = '10px';
-    separator.style.background = 'rgba(125, 125, 125, 0.2)';
+    separator.style.borderTop = '1px dashed rgba(125, 125, 125, 0.2)';
     separator.style.alignSelf = 'stretch';
 
     const branding = document.createElement('div');

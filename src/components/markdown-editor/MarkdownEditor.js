@@ -1072,7 +1072,7 @@ export class MarkdownEditor {
         }
         const content = typeof markdown === 'string' ? markdown : '';
         // 在AI生成内容前后添加分割线
-        const contentWithSeparator = '\n\n---\n\n' + content + '\n\n---\n\n';
+        const contentWithSeparator = '\n\n### 🤖 生成内容\n\n' + content + '\n\n---\n\n';
         const processedBold = this.preprocessBold(contentWithSeparator);
         const processed = this.preprocessListIndentation(processedBold);
         const html = this.md.render(processed);
