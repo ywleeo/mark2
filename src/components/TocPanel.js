@@ -18,6 +18,8 @@ export class TocPanel {
         this.scrollHandler = null;
         this.updateInterval = null;
         this.ignoreScrollUpdate = false;
+        this.currentWarning = null;
+        this.warningTimeout = null;
     }
 
     /**
@@ -125,6 +127,11 @@ export class TocPanel {
      */
     extractHeadings() {
         if (!this.editor) return [];
+
+        // 检查是否是 Tiptap 编辑器（有 state.doc）
+        if (!this.editor.state || !this.editor.state.doc) {
+            return [];
+        }
 
         const headings = [];
         const doc = this.editor.state.doc;
@@ -373,6 +380,15 @@ export class TocPanel {
     show() {
         if (!this.container) return;
 
+        // 检查是否在 Markdown 编辑模式（Tiptap）
+        const isTiptapMode = this.editor && this.editor.state && this.editor.state.doc;
+
+        if (!isTiptapMode) {
+            // 在代码模式下显示提示
+            this.showModeWarning();
+            return;
+        }
+
         this.isVisible = true;
         this.container.style.display = 'flex';
         this.render();
@@ -383,6 +399,59 @@ export class TocPanel {
 
         // 启动定期更新（每2秒检查一次内容变化）
         this.startAutoUpdate();
+    }
+
+    /**
+     * 显示模式警告提示
+     */
+    showModeWarning() {
+        // 如果已经有警告存在，先移除
+        if (this.currentWarning) {
+            this.removeWarning();
+        }
+
+        // 创建临时提示元素
+        this.currentWarning = document.createElement('div');
+        this.currentWarning.className = 'toc-mode-warning';
+        this.currentWarning.textContent = '目录功能仅在 Markdown 预览模式下可用';
+
+        // 添加到页面
+        document.body.appendChild(this.currentWarning);
+
+        // 触发动画
+        setTimeout(() => {
+            if (this.currentWarning) {
+                this.currentWarning.classList.add('toc-mode-warning--visible');
+            }
+        }, 10);
+
+        // 2秒后移除
+        this.warningTimeout = setTimeout(() => {
+            this.removeWarning();
+        }, 2000);
+    }
+
+    /**
+     * 移除警告提示
+     */
+    removeWarning() {
+        // 清除定时器
+        if (this.warningTimeout) {
+            clearTimeout(this.warningTimeout);
+            this.warningTimeout = null;
+        }
+
+        // 移除元素
+        if (this.currentWarning) {
+            this.currentWarning.classList.remove('toc-mode-warning--visible');
+
+            setTimeout(() => {
+                if (this.currentWarning && this.currentWarning.parentNode) {
+                    this.currentWarning.parentNode.removeChild(this.currentWarning);
+                }
+                this.currentWarning = null;
+            }, 200);
+        }
     }
 
     /**
@@ -447,6 +516,9 @@ export class TocPanel {
     destroy() {
         // 停止自动更新
         this.stopAutoUpdate();
+
+        // 清理警告提示
+        this.removeWarning();
 
         // 清理滚动事件
         if (this.scrollContainer && this.scrollHandler) {

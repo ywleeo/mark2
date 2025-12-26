@@ -5,7 +5,7 @@
     box-sizing: border-box;
     background: var(--content-bg, #ffffff);
     --scrollbar-size: 8px;
-    --scrollbar-thumb-color: rgba(148, 163, 184, 0.45);
+    --scrollbar-thumb-color: rgba(82, 91, 102, 0.45);
     --scrollbar-thumb-hover-color: rgba(148, 163, 184, 0.7);
 }
 

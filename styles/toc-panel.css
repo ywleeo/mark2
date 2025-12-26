@@ -235,6 +235,39 @@
     }
 }
 
+/* 模式警告提示 */
+.toc-mode-warning {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.75);
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+}
+
+:root[data-theme-appearance='dark'] .toc-mode-warning {
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toc-mode-warning--visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 /* 进入和离开动画 */
 @keyframes toc-panel-enter {
     from {
