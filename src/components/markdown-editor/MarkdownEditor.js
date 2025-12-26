@@ -152,8 +152,27 @@ export class MarkdownEditor {
                     name: 'customEnterBehavior',
                     addKeyboardShortcuts() {
                         return {
-                            // Enter → 插入硬换行 <br/>
-                            'Enter': () => this.editor.commands.setHardBreak(),
+                            // Enter → 插入硬换行 <br/>（仅在普通段落中）
+                            'Enter': () => {
+                                const { state } = this.editor;
+                                const { $from } = state.selection;
+
+                                // 检查是否在特殊节点中（列表、标题、代码块等）
+                                if ($from.parent.type.name !== 'paragraph') {
+                                    return false; // 使用默认行为
+                                }
+
+                                // 检查是否在列表项中
+                                for (let d = $from.depth; d > 0; d--) {
+                                    const node = $from.node(d);
+                                    if (node.type.name === 'listItem' || node.type.name === 'taskItem') {
+                                        return false; // 使用默认行为
+                                    }
+                                }
+
+                                // 在普通段落中，插入硬换行
+                                return this.editor.commands.setHardBreak();
+                            },
                             // Shift+Enter → 新段落 <p>
                             'Shift-Enter': () => this.editor.commands.splitBlock(),
                         };
