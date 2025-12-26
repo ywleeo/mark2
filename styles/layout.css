@@ -579,17 +579,6 @@ body.is-internal-drag .content-wrapper::after {
     scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
 }
 
-/* Sidebar 和文件树的 Firefox 滚动条 - 使用统一变量 */
-.sidebar,
-.section-content {
-    /* scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) transparent !important; */
-}
-
-:root[data-theme-appearance='dark'] .sidebar,
-:root[data-theme-appearance='dark'] .section-content {
-    /* scrollbar-color: var(--scrollbar-thumb-color, rgba(255, 255, 255, 0.32)) transparent !important; */
-}
-
 .sidebar::-webkit-scrollbar,
 .content-area::-webkit-scrollbar,
 .section-content::-webkit-scrollbar,
