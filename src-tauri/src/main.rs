@@ -7,37 +7,54 @@ mod macos_security;
 use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
+use percent_encoding::percent_decode_str;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::SystemTime;
-use tauri::menu::*;
-use tauri::http::header::{
-    ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE,
-};
-use tauri::http::{Response, StatusCode};
-use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri::async_runtime;
-use percent_encoding::percent_decode_str;
+use tauri::http::header::{ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE};
+use tauri::http::{Response, StatusCode};
+use tauri::menu::*;
+use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[cfg(target_os = "macos")]
-use objc2::rc::autoreleasepool;
+use block2::StackBlock;
 #[cfg(target_os = "macos")]
-use objc2::MainThreadMarker;
+use lopdf::{Document, Object};
+#[cfg(target_os = "macos")]
+use objc2::rc::{autoreleasepool, Retained};
+#[cfg(target_os = "macos")]
+use objc2::runtime::AnyObject;
+#[cfg(target_os = "macos")]
+use objc2::{MainThreadMarker, MainThreadOnly};
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+#[cfg(target_os = "macos")]
+use objc2_core_foundation::{CGFloat, CGPoint, CGRect, CGSize};
+#[cfg(target_os = "macos")]
+use objc2_foundation::{NSData, NSDate, NSError, NSRunLoop, NSString};
+#[cfg(target_os = "macos")]
+use objc2_web_kit::{WKPDFConfiguration, WKWebView, WKWebViewConfiguration};
 
+#[cfg(not(target_os = "macos"))]
 use headless_chrome::{Browser, LaunchOptions};
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "macos")]
+use std::cell::RefCell;
+#[cfg(target_os = "macos")]
+use std::rc::Rc;
+#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
 
 #[cfg(target_os = "macos")]
 use crate::macos_security::{
-    create_bookmark_for_path, create_security_scoped_bookmark, move_path_to_trash,
-    start_access_from_bookmark, url_path,
+    create_bookmark_for_path, create_security_scoped_bookmark, error_to_string, move_path_to_trash,
+    nsdata_to_vec, nsstring_to_string, start_access_from_bookmark, url_path,
 };
 
 #[derive(Serialize)]
@@ -63,7 +80,8 @@ struct PlainPastePayload {
 
 struct ExportMenuHandles {
     image: MenuItem<Wry>,
-    pdf: MenuItem<Wry>,
+    pdf_continuous: MenuItem<Wry>,
+    pdf_paginated: MenuItem<Wry>,
 }
 
 struct ExportMenuState {
@@ -71,9 +89,17 @@ struct ExportMenuState {
 }
 
 impl ExportMenuState {
-    fn new(image: MenuItem<Wry>, pdf: MenuItem<Wry>) -> Self {
+    fn new(
+        image: MenuItem<Wry>,
+        pdf_continuous: MenuItem<Wry>,
+        pdf_paginated: MenuItem<Wry>,
+    ) -> Self {
         Self {
-            handles: Mutex::new(ExportMenuHandles { image, pdf }),
+            handles: Mutex::new(ExportMenuHandles {
+                image,
+                pdf_continuous,
+                pdf_paginated,
+            }),
         }
     }
 }
@@ -135,74 +161,74 @@ fn guess_mime(path: &str) -> &'static str {
     }
 }
 
-fn build_stream_response(request: &tauri::http::Request<Vec<u8>>) -> Result<tauri::http::Response<Vec<u8>>, Box<dyn std::error::Error>> {
-        let raw_path = request.uri().path();
-        let decoded_path = percent_decode_str(raw_path)
-            .decode_utf8_lossy()
-            .to_string();
-        let file_path = if cfg!(windows) && decoded_path.starts_with('/') && decoded_path.len() > 2 {
-            // 处理形如 /C:/path 的情况
-            decoded_path.trim_start_matches('/').to_string()
-        } else {
-            decoded_path.clone()
-        };
+fn build_stream_response(
+    request: &tauri::http::Request<Vec<u8>>,
+) -> Result<tauri::http::Response<Vec<u8>>, Box<dyn std::error::Error>> {
+    let raw_path = request.uri().path();
+    let decoded_path = percent_decode_str(raw_path).decode_utf8_lossy().to_string();
+    let file_path = if cfg!(windows) && decoded_path.starts_with('/') && decoded_path.len() > 2 {
+        // 处理形如 /C:/path 的情况
+        decoded_path.trim_start_matches('/').to_string()
+    } else {
+        decoded_path.clone()
+    };
 
-        let mut file = File::open(&file_path).map_err(|e| e.to_string())?;
-        let metadata = file.metadata().map_err(|e| e.to_string())?;
-        let file_size = metadata.len();
-        let mut status = StatusCode::OK;
-        let mut start: u64 = 0;
-        let mut end: u64 = file_size.saturating_sub(1);
+    let mut file = File::open(&file_path).map_err(|e| e.to_string())?;
+    let metadata = file.metadata().map_err(|e| e.to_string())?;
+    let file_size = metadata.len();
+    let mut status = StatusCode::OK;
+    let mut start: u64 = 0;
+    let mut end: u64 = file_size.saturating_sub(1);
 
-        if let Some(range_header) = request.headers().get(RANGE) {
-            if let Ok(range_str) = range_header.to_str() {
-                if let Some(range_value) = range_str.strip_prefix("bytes=") {
-                    let mut parts = range_value.split('-');
-                    if let Some(start_part) = parts.next() {
-                        if !start_part.is_empty() {
-                            start = start_part.parse::<u64>().unwrap_or(0);
-                        }
+    if let Some(range_header) = request.headers().get(RANGE) {
+        if let Ok(range_str) = range_header.to_str() {
+            if let Some(range_value) = range_str.strip_prefix("bytes=") {
+                let mut parts = range_value.split('-');
+                if let Some(start_part) = parts.next() {
+                    if !start_part.is_empty() {
+                        start = start_part.parse::<u64>().unwrap_or(0);
                     }
-                    if let Some(end_part) = parts.next() {
-                        if !end_part.is_empty() {
-                            end = end_part.parse::<u64>().unwrap_or(end);
-                        }
-                    }
-                    if start >= file_size {
-                        start = file_size.saturating_sub(1);
-                    }
-                    if end >= file_size {
-                        end = file_size.saturating_sub(1);
-                    }
-                    if end < start {
-                        end = start;
-                    }
-                    status = StatusCode::PARTIAL_CONTENT;
                 }
+                if let Some(end_part) = parts.next() {
+                    if !end_part.is_empty() {
+                        end = end_part.parse::<u64>().unwrap_or(end);
+                    }
+                }
+                if start >= file_size {
+                    start = file_size.saturating_sub(1);
+                }
+                if end >= file_size {
+                    end = file_size.saturating_sub(1);
+                }
+                if end < start {
+                    end = start;
+                }
+                status = StatusCode::PARTIAL_CONTENT;
             }
         }
+    }
 
-        let chunk_size = (end - start + 1) as usize;
-        let mut buffer = Vec::with_capacity(chunk_size);
-        file.seek(SeekFrom::Start(start))
-            .map_err(|e| e.to_string())?;
-        let mut limited = file.take(chunk_size as u64);
-        limited
-            .read_to_end(&mut buffer)
-            .map_err(|e| e.to_string())?;
+    let chunk_size = (end - start + 1) as usize;
+    let mut buffer = Vec::with_capacity(chunk_size);
+    file.seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
+    let mut limited = file.take(chunk_size as u64);
+    limited
+        .read_to_end(&mut buffer)
+        .map_err(|e| e.to_string())?;
 
-        let mut response = Response::builder()
-            .status(status)
-            .header(CONTENT_TYPE, guess_mime(&file_path))
-            .header(ACCEPT_RANGES, "bytes")
-            .header(CONTENT_LENGTH, buffer.len().to_string());
+    let mut response = Response::builder()
+        .status(status)
+        .header(CONTENT_TYPE, guess_mime(&file_path))
+        .header(ACCEPT_RANGES, "bytes")
+        .header(CONTENT_LENGTH, buffer.len().to_string());
 
-        if status == StatusCode::PARTIAL_CONTENT {
-            let content_range = format!("bytes {}-{}/{}", start, end, file_size);
-            response = response.header(CONTENT_RANGE, content_range);
-        }
+    if status == StatusCode::PARTIAL_CONTENT {
+        let content_range = format!("bytes {}-{}/{}", start, end, file_size);
+        response = response.header(CONTENT_RANGE, content_range);
+    }
 
-        response.body(buffer).map_err(|e| e.into())
+    response.body(buffer).map_err(|e| e.into())
 }
 
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -563,35 +589,42 @@ fn register_plain_paste_shortcut(app_handle: &AppHandle) {
     #[cfg(not(target_os = "macos"))]
     let shortcut = "Ctrl+Shift+V";
 
-    let result = app_handle.global_shortcut().on_shortcut(shortcut, move |app, _shortcut, event| {
-        if event.state != ShortcutState::Pressed {
-            return;
-        }
-        let emit_handle = app.clone();
-        let clipboard_handle = app.clone();
-        async_runtime::spawn(async move {
-            let read_result =
-                async_runtime::spawn_blocking(move || clipboard_handle.clipboard().read_text()).await;
-            match read_result {
-                Ok(Ok(text)) => {
-                    if text.is_empty() {
-                        return;
-                    }
-                    if let Some(window) = emit_handle.get_webview_window("main") {
-                        if let Err(err) = window.emit("plain-paste", PlainPastePayload { text }) {
-                            eprintln!("Failed to emit plain paste event: {:?}", err);
+    let result =
+        app_handle
+            .global_shortcut()
+            .on_shortcut(shortcut, move |app, _shortcut, event| {
+                if event.state != ShortcutState::Pressed {
+                    return;
+                }
+                let emit_handle = app.clone();
+                let clipboard_handle = app.clone();
+                async_runtime::spawn(async move {
+                    let read_result = async_runtime::spawn_blocking(move || {
+                        clipboard_handle.clipboard().read_text()
+                    })
+                    .await;
+                    match read_result {
+                        Ok(Ok(text)) => {
+                            if text.is_empty() {
+                                return;
+                            }
+                            if let Some(window) = emit_handle.get_webview_window("main") {
+                                if let Err(err) =
+                                    window.emit("plain-paste", PlainPastePayload { text })
+                                {
+                                    eprintln!("Failed to emit plain paste event: {:?}", err);
+                                }
+                            }
+                        }
+                        Ok(Err(err)) => {
+                            eprintln!("Failed to read clipboard: {:?}", err);
+                        }
+                        Err(err) => {
+                            eprintln!("Clipboard task join error: {:?}", err);
                         }
                     }
-                }
-                Ok(Err(err)) => {
-                    eprintln!("Failed to read clipboard: {:?}", err);
-                }
-                Err(err) => {
-                    eprintln!("Clipboard task join error: {:?}", err);
-                }
-            }
-        });
-    });
+                });
+            });
 
     if let Err(err) = result {
         eprintln!("Failed to register plain paste shortcut: {:?}", err);
@@ -632,10 +665,12 @@ async fn capture_screenshot(destination: String, image_data: String) -> Result<(
 
 #[tauri::command]
 async fn export_to_pdf(
+    app: tauri::AppHandle,
     destination: String,
     html_content: String,
     css_content: String,
-    _page_width: Option<f64>,
+    page_width: Option<f64>,
+    export_mode: Option<String>,
 ) -> Result<(), String> {
     if let Some(parent) = Path::new(&destination).parent() {
         if !parent.exists() {
@@ -643,8 +678,37 @@ async fn export_to_pdf(
         }
     }
 
-    // 创建完整的 HTML 文档
-    let full_html = format!(
+    #[cfg(target_os = "macos")]
+    println!(
+        "[pdf] request destination={} html_len={} css_len={}",
+        destination,
+        html_content.len(),
+        css_content.len()
+    );
+
+    let full_html = compose_full_html(&html_content, &css_content);
+
+    #[cfg(not(target_os = "macos"))]
+    let _ = page_width;
+
+    #[cfg(target_os = "macos")]
+    #[cfg(target_os = "macos")]
+    let pdf_bytes = {
+        let mode = PdfRenderMode::from_option(export_mode.as_deref());
+        render_pdf_with_webkit(&app, full_html, page_width, mode)?
+    };
+
+    #[cfg(not(target_os = "macos"))]
+    let pdf_bytes = {
+        let _ = export_mode;
+        render_pdf_with_headless(full_html)?
+    };
+
+    fs::write(&destination, pdf_bytes).map_err(|err| err.to_string())
+}
+
+fn compose_full_html(html_content: &str, css_content: &str) -> String {
+    format!(
         r#"<!DOCTYPE html>
 <html>
 <head>
@@ -656,9 +720,11 @@ async fn export_to_pdf(
 </body>
 </html>"#,
         css_content, html_content
-    );
+    )
+}
 
-    // 启动 headless chrome
+#[cfg(not(target_os = "macos"))]
+fn render_pdf_with_headless(full_html: String) -> Result<Vec<u8>, String> {
     let browser = Browser::new(LaunchOptions {
         headless: true,
         ..Default::default()
@@ -669,19 +735,14 @@ async fn export_to_pdf(
         .new_tab()
         .map_err(|e| format!("创建标签页失败: {}", e))?;
 
-    // 加载 HTML 内容
     tab.navigate_to(&format!(
         "data:text/html,{}",
         urlencoding::encode(&full_html)
     ))
     .map_err(|e| format!("加载 HTML 失败: {}", e))?;
 
-    // 等待页面加载完成
     tab.wait_until_navigated()
         .map_err(|e| format!("等待页面加载失败: {}", e))?;
-
-    // 配置 PDF 选项
-    use headless_chrome::types::PrintToPdfOptions;
 
     let header_template =
         "<div style=\"width:100%;font-size:0;margin:0;padding:0;\">&nbsp;</div>".to_string();
@@ -691,9 +752,10 @@ async fn export_to_pdf(
             <span style="display:inline-block;background:#ff3b30;color:#ffffff;font-weight:700;font-size:12px;letter-spacing:0.4px;padding:2px 14px;border-radius:4px;">Mark2</span>
             <span style="flex:1;height:1px;background:#e5e5e5;"></span>
         </div>
-    "#.to_string();
+    "#
+    .to_string();
 
-    let pdf_options = PrintToPdfOptions {
+    let pdf_options = headless_chrome::types::PrintToPdfOptions {
         landscape: Some(false),
         display_header_footer: Some(true),
         print_background: Some(true),
@@ -714,14 +776,425 @@ async fn export_to_pdf(
         generate_tagged_pdf: None,
     };
 
-    // 生成 PDF
-    let pdf_data = tab
-        .print_to_pdf(Some(pdf_options))
-        .map_err(|e| format!("生成 PDF 失败: {}", e))?;
+    tab.print_to_pdf(Some(pdf_options))
+        .map_err(|e| format!("生成 PDF 失败: {}", e))
+}
 
-    // 保存 PDF 文件
-    fs::write(&destination, pdf_data).map_err(|err| err.to_string())?;
+#[cfg(target_os = "macos")]
+#[derive(Deserialize)]
+struct DocumentMetrics {
+    width: f64,
+    height: f64,
+}
 
+#[cfg(target_os = "macos")]
+#[derive(Deserialize)]
+struct ExportPageSlice {
+    top: f64,
+    height: f64,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Clone, Copy)]
+enum PdfRenderMode {
+    Continuous,
+    PaginatedA4,
+}
+
+#[cfg(target_os = "macos")]
+impl PdfRenderMode {
+    fn from_option(mode: Option<&str>) -> Self {
+        match mode {
+            Some(value) if value.eq_ignore_ascii_case("a4") => Self::PaginatedA4,
+            _ => Self::Continuous,
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn render_pdf_with_webkit(
+    app: &tauri::AppHandle,
+    full_html: String,
+    page_width: Option<f64>,
+    mode: PdfRenderMode,
+) -> Result<Vec<u8>, String> {
+    use std::sync::mpsc;
+
+    let (tx, rx) = mpsc::channel();
+
+    let html = full_html;
+    app.run_on_main_thread(move || {
+        let result = autoreleasepool(|_| {
+            let mtm = MainThreadMarker::new()
+                .ok_or_else(|| "export_to_pdf 需要在主线程上执行".to_string())?;
+
+            let config = unsafe { WKWebViewConfiguration::init(WKWebViewConfiguration::alloc(mtm)) };
+            let initial_width = page_width.unwrap_or(900.0).max(320.0);
+            let frame = CGRect::new(
+                CGPoint::new(0.0, 0.0),
+                CGSize::new(initial_width as CGFloat, 2000.0 as CGFloat),
+            );
+            let webview = unsafe {
+                WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), frame, &config)
+            };
+
+            let html_ns = NSString::from_str(&html);
+            unsafe {
+                webview
+                    .loadHTMLString_baseURL(&html_ns, None)
+                    .ok_or_else(|| "无法加载 HTML 内容".to_string())?;
+            }
+
+            let run_loop = NSRunLoop::currentRunLoop();
+            wait_for_condition(&run_loop, Duration::from_secs(10), || unsafe {
+                !webview.isLoading()
+            })?;
+
+            let metrics = collect_document_metrics(&webview, &run_loop)?;
+            let capture_width = metrics
+                .width
+                .max(page_width.unwrap_or(metrics.width))
+                .max(1.0);
+            let capture_height = metrics.height.max(1.0).min(200_000.0);
+
+            println!(
+                "[pdf] render metrics width={} height={} capture_width={} capture_height={}",
+                metrics.width, metrics.height, capture_width, capture_height
+            );
+
+            webview.setFrame(CGRect::new(
+                CGPoint::new(0.0, 0.0),
+                CGSize::new(capture_width as CGFloat, capture_height as CGFloat),
+            ));
+            webview.setNeedsDisplay(true);
+            webview.layoutSubtreeIfNeeded();
+            webview.displayIfNeeded();
+
+            let pdf_bytes = match mode {
+                PdfRenderMode::Continuous => {
+                    capture_pdf_slice(&webview, &run_loop, CGRect::new(
+                        CGPoint::new(0.0, 0.0),
+                        CGSize::new(capture_width as CGFloat, capture_height as CGFloat),
+                    ), mtm)?
+                }
+                PdfRenderMode::PaginatedA4 => create_paginated_pdf_document(
+                    &webview,
+                    &run_loop,
+                    capture_width,
+                    capture_height,
+                    mtm,
+                )?,
+            };
+            println!(
+                "[pdf] render complete mode={:?} bytes={}",
+                match mode {
+                    PdfRenderMode::Continuous => "continuous",
+                    PdfRenderMode::PaginatedA4 => "a4",
+                },
+                pdf_bytes.len()
+            );
+            Ok(pdf_bytes)
+        });
+
+        let _ = tx.send(result);
+    })
+    .map_err(|e| e.to_string())?;
+
+    rx.recv().map_err(|e| e.to_string())?
+}
+
+#[cfg(target_os = "macos")]
+fn collect_document_metrics(
+    webview: &WKWebView,
+    run_loop: &NSRunLoop,
+) -> Result<DocumentMetrics, String> {
+    let script = r#"(() => {
+        const root = document.scrollingElement || document.documentElement || document.body;
+        const collect = () => {
+            const width = Math.ceil((root?.scrollWidth || document.body?.scrollWidth || 0));
+            const height = Math.ceil(
+                (root?.scrollHeight || document.body?.scrollHeight || 0)
+            );
+            return JSON.stringify({ width, height });
+        };
+        if (document.fonts && document.fonts.status !== 'loaded') {
+            return document.fonts.ready.then(collect).catch(collect);
+        }
+        return collect();
+    })()"#;
+
+    let serialized = wait_for_js_string(webview, run_loop, script, Duration::from_secs(10))?;
+    serde_json::from_str(&serialized).map_err(|err| format!("解析页面尺寸失败: {err}"))
+}
+
+#[cfg(target_os = "macos")]
+fn collect_dom_page_slices(
+    webview: &WKWebView,
+    run_loop: &NSRunLoop,
+) -> Result<Vec<ExportPageSlice>, String> {
+    let script = r#"(() => {
+        const root = document.scrollingElement || document.documentElement || document.body;
+        const scrollTop = root?.scrollTop || window.pageYOffset || 0;
+        const pages = Array.from(document.querySelectorAll('.mark2-export-page'));
+        if (!pages.length) {
+            return "[]";
+        }
+        const payload = pages.map(page => {
+            const rect = page.getBoundingClientRect();
+            return {
+                top: rect.top + scrollTop,
+                height: rect.height
+            };
+        });
+        return JSON.stringify(payload);
+    })()"#;
+    let serialized = wait_for_js_string(webview, run_loop, script, Duration::from_secs(5))?;
+    serde_json::from_str(&serialized).map_err(|err| format!("解析分页信息失败: {err}"))
+}
+
+#[cfg(target_os = "macos")]
+fn wait_for_js_string(
+    webview: &WKWebView,
+    run_loop: &NSRunLoop,
+    script: &str,
+    timeout: Duration,
+) -> Result<String, String> {
+    let result = Rc::new(RefCell::new(None));
+    let sender = Rc::clone(&result);
+
+    let script_ns = NSString::from_str(script);
+    let block = StackBlock::new(move |value: *mut AnyObject, error: *mut NSError| {
+        let outcome = if !error.is_null() {
+            let retained = unsafe { Retained::retain(error).unwrap() };
+            Err(error_to_string(retained))
+        } else if value.is_null() {
+            Err("evaluateJavaScript 返回空值".to_string())
+        } else {
+            let ns_string = unsafe { &*(value as *mut NSString) };
+            Ok(nsstring_to_string(ns_string))
+        };
+        *sender.borrow_mut() = Some(outcome);
+    })
+    .copy();
+
+    unsafe {
+        webview.evaluateJavaScript_completionHandler(&script_ns, Some(&block));
+    }
+
+    wait_for_async_result(run_loop, &result, timeout)
+}
+
+#[cfg(target_os = "macos")]
+fn capture_pdf_slice(
+    webview: &WKWebView,
+    run_loop: &NSRunLoop,
+    rect: CGRect,
+    mtm: MainThreadMarker,
+) -> Result<Vec<u8>, String> {
+    println!(
+        "[pdf] capture slice origin=({}, {}) size=({}, {})",
+        rect.origin.x, rect.origin.y, rect.size.width, rect.size.height
+    );
+
+    let pdf_config = unsafe { WKPDFConfiguration::init(WKPDFConfiguration::alloc(mtm)) };
+    unsafe {
+        pdf_config.setRect(rect);
+        pdf_config.setAllowTransparentBackground(false);
+    }
+
+    let result = Rc::new(RefCell::new(None));
+    let sender = Rc::clone(&result);
+
+    let block = StackBlock::new(move |data_ptr: *mut NSData, error_ptr: *mut NSError| {
+        let outcome = if !error_ptr.is_null() {
+            let retained = unsafe { Retained::retain(error_ptr).unwrap() };
+            Err(error_to_string(retained))
+        } else if let Some(data) = unsafe { data_ptr.as_ref() } {
+            Ok(nsdata_to_vec(data))
+        } else {
+            Err("WKWebView 未返回 PDF 数据".to_string())
+        };
+        *sender.borrow_mut() = Some(outcome);
+    })
+    .copy();
+
+    unsafe {
+        webview.createPDFWithConfiguration_completionHandler(Some(&pdf_config), &block);
+    }
+
+    wait_for_async_result(run_loop, &result, Duration::from_secs(20))
+}
+
+#[cfg(target_os = "macos")]
+fn create_paginated_pdf_document(
+    webview: &WKWebView,
+    run_loop: &NSRunLoop,
+    width: f64,
+    height: f64,
+    mtm: MainThreadMarker,
+) -> Result<Vec<u8>, String> {
+    let effective_width = width.max(1.0);
+    let aspect = 297.0 / 210.0;
+    let page_height = (effective_width * aspect).max(100.0);
+    println!(
+        "[pdf] paginated mode width={} height={} page_height={}",
+        effective_width, height, page_height
+    );
+
+    let dom_slices = collect_dom_page_slices(webview, run_loop)?;
+    if !dom_slices.is_empty() {
+        println!(
+            "[pdf] dom-defined pages count={} last_height={}",
+            dom_slices.len(),
+            dom_slices.last().map(|slice| slice.top + slice.height).unwrap_or(0.0)
+        );
+        let mut result = Vec::new();
+        for (index, slice) in dom_slices.iter().enumerate() {
+            let slice_height = slice.height.max(1.0);
+            let rect = CGRect::new(
+                CGPoint::new(0.0, slice.top as CGFloat),
+                CGSize::new(effective_width as CGFloat, slice_height as CGFloat),
+            );
+            let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
+            println!(
+                "[pdf] page {} offset={} slice_height={} bytes={}",
+                index,
+                slice.top,
+                slice_height,
+                data.len()
+            );
+            result.push(data);
+        }
+        return merge_pdf_pages(&result);
+    }
+
+    let mut offset = 0.0;
+    let mut slices = Vec::new();
+    let mut page_index = 0usize;
+
+    while offset < height - 0.5 {
+        let remaining = height - offset;
+        let slice_height = page_height.min(remaining);
+        let rect = CGRect::new(
+            CGPoint::new(0.0, offset as CGFloat),
+            CGSize::new(effective_width as CGFloat, slice_height as CGFloat),
+        );
+        let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
+        println!(
+            "[pdf] page {} offset={} slice_height={} bytes={}",
+            page_index,
+            offset,
+            slice_height,
+            data.len()
+        );
+        slices.push(data);
+        offset += slice_height;
+        page_index += 1;
+    }
+
+    merge_pdf_pages(&slices)
+}
+
+#[cfg(target_os = "macos")]
+fn merge_pdf_pages(pages: &[Vec<u8>]) -> Result<Vec<u8>, String> {
+    use lopdf::{Dictionary, ObjectId};
+
+    if pages.is_empty() {
+        return Err("没有可合并的 PDF 页面".to_string());
+    }
+
+    let mut document = Document::with_version("1.5");
+    let mut max_id = 1;
+    let mut page_refs: Vec<ObjectId> = Vec::new();
+
+    for data in pages {
+        let mut single =
+            Document::load_mem(data).map_err(|e| format!("解析单页 PDF 失败: {e}"))?;
+        single.renumber_objects_with(max_id);
+        max_id = single.max_id + 1;
+
+        for (_, object_id) in single.get_pages() {
+            page_refs.push(object_id);
+        }
+
+        document.objects.extend(single.objects);
+    }
+
+    // 确保新创建的对象 ID 不会覆盖已有对象
+    document.max_id = max_id.saturating_sub(1);
+
+    let pages_id = document.new_object_id();
+    let kids = page_refs
+        .iter()
+        .map(|id| Object::Reference(*id))
+        .collect::<Vec<_>>();
+    document.objects.insert(
+        pages_id,
+        Dictionary::from_iter([
+            ("Type", Object::Name(b"Pages".to_vec())),
+            ("Kids", Object::Array(kids)),
+            ("Count", Object::Integer(page_refs.len() as i64)),
+        ])
+        .into(),
+    );
+
+    for page_id in &page_refs {
+        if let Some(Object::Dictionary(dict)) = document.objects.get_mut(page_id) {
+            dict.set("Parent", Object::Reference(pages_id));
+        }
+    }
+
+    let catalog_id = document.new_object_id();
+    document.objects.insert(
+        catalog_id,
+        Dictionary::from_iter([
+            ("Type", Object::Name(b"Catalog".to_vec())),
+            ("Pages", Object::Reference(pages_id)),
+        ])
+        .into(),
+    );
+    document.trailer.set("Root", Object::Reference(catalog_id));
+
+    let mut buffer = Vec::new();
+    document
+        .save_to(&mut buffer)
+        .map_err(|e| format!("合并 PDF 失败: {e}"))?;
+    Ok(buffer)
+}
+
+#[cfg(target_os = "macos")]
+fn wait_for_async_result<T>(
+    run_loop: &NSRunLoop,
+    cell: &Rc<RefCell<Option<Result<T, String>>>>,
+    timeout: Duration,
+) -> Result<T, String> {
+    wait_for_condition(run_loop, timeout, || cell.borrow().is_some())?;
+    cell.borrow_mut()
+        .take()
+        .unwrap_or_else(|| Err("操作被中断".to_string()))
+}
+
+#[cfg(target_os = "macos")]
+fn wait_for_condition<F>(
+    run_loop: &NSRunLoop,
+    timeout: Duration,
+    mut ready: F,
+) -> Result<(), String>
+where
+    F: FnMut() -> bool,
+{
+    if ready() {
+        return Ok(());
+    }
+
+    let start = Instant::now();
+    while !ready() {
+        if start.elapsed() > timeout {
+            return Err("等待 WebKit 响应超时".to_string());
+        }
+        let tick = NSDate::dateWithTimeIntervalSinceNow(0.01);
+        run_loop.runUntilDate(&tick);
+    }
     Ok(())
 }
 
@@ -774,7 +1247,11 @@ fn set_export_menu_enabled(
         .set_enabled(enabled)
         .map_err(|e| e.to_string())?;
     handles
-        .pdf
+        .pdf_continuous
+        .set_enabled(enabled)
+        .map_err(|e| e.to_string())?;
+    handles
+        .pdf_paginated
         .set_enabled(enabled)
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -922,6 +1399,10 @@ fn main() {
             let export_pdf_item = MenuItemBuilder::with_id("export-pdf", "Export as PDF...")
                 .accelerator("CmdOrCtrl+Shift+P")
                 .build(app)?;
+            let export_pdf_a4_item =
+                MenuItemBuilder::with_id("export-pdf-a4", "Export as PDF (A4 Pages)")
+                    .accelerator("CmdOrCtrl+Shift+Option+P")
+                    .build(app)?;
 
             let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
                 .accelerator("CmdOrCtrl+K")
@@ -950,6 +1431,7 @@ fn main() {
             let export_submenu = SubmenuBuilder::new(app, "Export")
                 .item(&export_image_item)
                 .item(&export_pdf_item)
+                .item(&export_pdf_a4_item)
                 .build()?;
 
             let new_file_item = MenuItemBuilder::with_id("file-new", "New...")
@@ -988,6 +1470,7 @@ fn main() {
             app.manage(ExportMenuState::new(
                 export_image_item.clone(),
                 export_pdf_item.clone(),
+                export_pdf_a4_item.clone(),
             ));
 
             let recent_menu_state = RecentMenuState::new(open_recent_submenu.clone());

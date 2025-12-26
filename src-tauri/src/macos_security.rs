@@ -8,18 +8,18 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 #[cfg(target_os = "macos")]
 use base64::Engine;
 #[cfg(target_os = "macos")]
-use objc2::AnyThread;
-#[cfg(target_os = "macos")]
 use objc2::rc::{autoreleasepool, Retained};
 #[cfg(target_os = "macos")]
 use objc2::runtime::Bool;
 #[cfg(target_os = "macos")]
+use objc2::AnyThread;
+#[cfg(target_os = "macos")]
 use objc2_foundation::{
-    NSData, NSError, NSString, NSURL, NSURLBookmarkCreationOptions, NSURLBookmarkResolutionOptions,
-    NSFileManager, NSUInteger,
+    NSData, NSError, NSFileManager, NSString, NSUInteger, NSURLBookmarkCreationOptions,
+    NSURLBookmarkResolutionOptions, NSURL,
 };
 #[cfg(target_os = "macos")]
-fn nsstring_to_string(value: &NSString) -> String {
+pub(crate) fn nsstring_to_string(value: &NSString) -> String {
     unsafe {
         let ptr = value.UTF8String();
         if ptr.is_null() {
@@ -31,13 +31,13 @@ fn nsstring_to_string(value: &NSString) -> String {
 }
 
 #[cfg(target_os = "macos")]
-fn error_to_string(error: Retained<NSError>) -> String {
+pub(crate) fn error_to_string(error: Retained<NSError>) -> String {
     let description = error.localizedDescription();
     nsstring_to_string(&description)
 }
 
 #[cfg(target_os = "macos")]
-fn nsdata_to_vec(data: &NSData) -> Vec<u8> {
+pub(crate) fn nsdata_to_vec(data: &NSData) -> Vec<u8> {
     let length = data.length() as usize;
     if length == 0 {
         return Vec::new();

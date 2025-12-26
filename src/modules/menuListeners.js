@@ -20,6 +20,7 @@ export async function registerMenuListeners(handlers) {
     await register('menu-settings', handlers.onSettings);
     await register('menu-export-image', handlers.onExportImage);
     await register('menu-export-pdf', handlers.onExportPdf);
+    await register('menu-export-pdf-a4', handlers.onExportPdfA4);
     await register('menu-toggle-sidebar', handlers.onToggleSidebar);
     await register('menu-toggle-status-bar', handlers.onToggleStatusBar);
     await register('menu-toggle-markdown-code-view', handlers.onToggleMarkdownCodeView);

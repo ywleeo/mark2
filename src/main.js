@@ -25,7 +25,11 @@ import {
 import { normalizeFsPath, normalizeSelectedPaths } from './utils/pathUtils.js';
 import { setupKeyboardShortcuts } from './utils/shortcuts.js';
 import { setupSidebarResizer } from './utils/sidebarResizer.js';
-import { exportCurrentViewToImage, exportCurrentViewToPdf } from './modules/menuExports.js';
+import {
+    exportCurrentViewToImage,
+    exportCurrentViewToPdf,
+    exportCurrentViewToPdfA4,
+} from './modules/menuExports.js';
 import {
     listFonts,
 } from './api/filesystem.js';
@@ -735,6 +739,7 @@ async function initializeApplication() {
         onSettings: openSettingsDialog,
         onExportImage: () => exportCurrentViewToImage({ ensureToPng, statusBarController: appState.getStatusBarController() }),
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),
+        onExportPdfA4: () => exportCurrentViewToPdfA4({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,

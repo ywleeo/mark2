@@ -16,7 +16,13 @@ export async function captureScreenshot(destination, imageData) {
     return await invoke('capture_screenshot', { destination, imageData });
 }
 
-export async function exportToPdf({ destination, htmlContent, cssContent, pageWidth } = {}) {
+export async function exportToPdf({
+    destination,
+    htmlContent,
+    cssContent,
+    pageWidth,
+    mode,
+} = {}) {
     ensureString(destination, 'exportToPdf.destination');
     ensureString(htmlContent, 'exportToPdf.htmlContent');
     ensureString(cssContent, 'exportToPdf.cssContent');
@@ -25,5 +31,6 @@ export async function exportToPdf({ destination, htmlContent, cssContent, pageWi
         htmlContent,
         cssContent,
         pageWidth,
+        exportMode: mode,
     });
 }

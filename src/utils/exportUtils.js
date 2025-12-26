@@ -202,31 +202,32 @@ export async function captureViewContent(ensureToPng) {
     }
 }
 
-export async function collectContentForPdf(activeViewMode) {
+export async function collectContentForPdf(activeViewMode, options = {}) {
     const viewElement = document.getElementById('viewContent');
     if (!viewElement) {
         throw new Error('无法找到 viewContent 元素');
     }
 
-    let contentElement;
-    if (activeViewMode === 'markdown') {
-        contentElement = viewElement.querySelector('.tiptap-editor');
+    const contentElement = resolveExportContentRoot(viewElement, activeViewMode);
+
+    let htmlContent;
+    let pageWidth;
+    if (options.pageFormat === 'a4') {
+        const paginated = await buildPaginatedA4Document(contentElement);
+        htmlContent = paginated.htmlContent;
+        pageWidth = paginated.pageWidth;
     } else {
-        contentElement = viewElement.querySelector('.monaco-editor');
+        const clone = sanitizeExportNode(contentElement.cloneNode(true));
+        htmlContent = `<div class="mark2-export-wrapper">${clone.outerHTML}</div>`;
+        pageWidth = viewElement.clientWidth || 800;
     }
 
-    if (!contentElement) {
-        contentElement = viewElement;
-    }
-
-    const htmlContent = `<div class="mark2-export-wrapper">${contentElement.outerHTML}</div>`;
-    const cssContent = await collectAllStyles();
-    const pageWidth = viewElement.clientWidth || 800;
+    const cssContent = await collectAllStyles(options);
 
     return { htmlContent, cssContent, pageWidth };
 }
 
-async function collectAllStyles() {
+async function collectAllStyles(options = {}) {
     const styles = [];
 
     const bundledStyles = getBundledStyles();
@@ -270,5 +271,231 @@ body {
 }
     `);
 
+    if (options.pageFormat === 'a4') {
+        styles.push(`
+@page {
+    size: A4;
+    margin: 15mm 12mm 18mm 12mm;
+}
+body {
+    width: 210mm !important;
+    margin: 0 auto !important;
+}
+.mark2-export-wrapper {
+    max-width: 210mm !important;
+    width: 210mm !important;
+    margin: 0 auto !important;
+}
+.mark2-export-wrapper--a4 {
+    padding: 0;
+}
+.mark2-export-page {
+    width: 210mm;
+    min-height: 297mm;
+    background: #ffffff;
+    margin: 0 auto 12mm auto;
+    box-shadow: 0 0 0 1px rgba(18, 22, 33, 0.08);
+    page-break-after: always;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+.mark2-export-page:last-child {
+    page-break-after: auto;
+    margin-bottom: 0;
+}
+.mark2-export-page__content {
+    padding: 15mm 12mm 18mm 12mm;
+    min-height: 297mm;
+    box-sizing: border-box;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.mark2-export-page__content > *:first-child {
+    margin-top: 0 !important;
+}
+.mark2-export-flow-root {
+    flex: 1;
+    width: 100%;
+    box-sizing: border-box;
+}
+.mark2-export-flow-root[data-export-source="monaco"] {
+    display: block;
+}
+        `);
+    }
+
     return styles.join('\\n');
+}
+
+function resolveExportContentRoot(viewElement, activeViewMode) {
+    if (activeViewMode === 'markdown') {
+        return (
+            viewElement.querySelector('.tiptap-editor .ProseMirror') ||
+            viewElement.querySelector('.tiptap-editor') ||
+            viewElement
+        );
+    }
+    if (activeViewMode === 'code') {
+        return (
+            viewElement.querySelector('.monaco-editor .view-lines') ||
+            viewElement.querySelector('.monaco-editor') ||
+            viewElement
+        );
+    }
+    return (
+        viewElement.querySelector('.tiptap-editor .ProseMirror') ||
+        viewElement.querySelector('.tiptap-editor') ||
+        viewElement
+    );
+}
+
+function sanitizeExportNode(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) {
+        return node;
+    }
+    const stack = [node];
+    while (stack.length) {
+        const current = stack.pop();
+        current.removeAttribute?.('contenteditable');
+        current.removeAttribute?.('spellcheck');
+        current.removeAttribute?.('role');
+        current.removeAttribute?.('aria-label');
+        current.removeAttribute?.('data-placeholder');
+        if (current.childNodes) {
+            for (const child of current.childNodes) {
+                if (child.nodeType === Node.ELEMENT_NODE) {
+                    stack.push(child);
+                }
+            }
+        }
+    }
+    return node;
+}
+
+async function buildPaginatedA4Document(contentElement) {
+    await waitForFonts();
+
+    const pxPerMm = 96 / 25.4;
+    const pageWidthPx = Math.round(pxPerMm * 210);
+    const pageHeightPx = Math.round(pxPerMm * 297);
+
+    const hiddenHost = document.createElement('div');
+    hiddenHost.style.position = 'fixed';
+    hiddenHost.style.left = '-20000px';
+    hiddenHost.style.top = '0';
+    hiddenHost.style.width = `${pageWidthPx}px`;
+    hiddenHost.style.maxWidth = `${pageWidthPx}px`;
+    hiddenHost.style.pointerEvents = 'none';
+    hiddenHost.style.opacity = '0';
+    hiddenHost.style.zIndex = '-1';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mark2-export-wrapper mark2-export-wrapper--a4';
+    hiddenHost.appendChild(wrapper);
+    document.body.appendChild(hiddenHost);
+
+    let htmlContent = '';
+    try {
+        const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
+        const containerTemplate = sanitizeExportNode(contentElement.cloneNode(false));
+        const flowNodes = collectFlowNodes(sourceRoot);
+
+        let currentPage = createPaginatedPage(wrapper, containerTemplate, contentElement, 0);
+        const pages = [currentPage];
+
+        for (const node of flowNodes) {
+            currentPage.host.appendChild(node);
+            const overflows =
+                currentPage.content.scrollHeight > pageHeightPx + 1 &&
+                currentPage.host.childNodes.length > 1;
+            if (overflows) {
+                const overflowNode = currentPage.host.lastChild;
+                currentPage.host.removeChild(overflowNode);
+                currentPage = createPaginatedPage(
+                    wrapper,
+                    containerTemplate,
+                    contentElement,
+                    pages.length
+                );
+                pages.push(currentPage);
+                currentPage.host.appendChild(overflowNode);
+            }
+        }
+
+        if (pages.length === 0) {
+            pages.push(createPaginatedPage(wrapper, containerTemplate, contentElement, 0));
+        }
+
+        wrapper.dataset.exportPageCount = String(pages.length);
+        htmlContent = wrapper.outerHTML;
+    } finally {
+        if (hiddenHost.parentNode) {
+            hiddenHost.parentNode.removeChild(hiddenHost);
+        }
+    }
+
+    return { htmlContent, pageWidth: pageWidthPx };
+}
+
+function createPaginatedPage(wrapper, template, sourceElement, index) {
+    const page = document.createElement('section');
+    page.className = 'mark2-export-page';
+    page.dataset.exportPage = String(index);
+
+    const pageContent = document.createElement('div');
+    pageContent.className = 'mark2-export-page__content';
+
+    let host =
+        template && typeof template.cloneNode === 'function'
+            ? template.cloneNode(false)
+            : document.createElement('div');
+
+    if (host.nodeType !== Node.ELEMENT_NODE) {
+        host = document.createElement('div');
+    }
+    host.classList.add('mark2-export-flow-root');
+    const isMonaco =
+        !!sourceElement &&
+        sourceElement.nodeType === Node.ELEMENT_NODE &&
+        sourceElement.className?.toLowerCase?.().includes('monaco');
+    host.setAttribute('data-export-source', isMonaco ? 'monaco' : 'content');
+
+    pageContent.appendChild(host);
+    page.appendChild(pageContent);
+    wrapper.appendChild(page);
+
+    return { page, content: pageContent, host };
+}
+
+function collectFlowNodes(root) {
+    const nodes = [];
+    const children = root?.childNodes ? Array.from(root.childNodes) : [];
+    if (!children.length) {
+        nodes.push(root);
+        return nodes;
+    }
+    for (const child of children) {
+        if (child.nodeType === Node.TEXT_NODE) {
+            if (child.textContent?.trim()) {
+                const span = document.createElement('span');
+                span.textContent = child.textContent;
+                nodes.push(span);
+            }
+            continue;
+        }
+        nodes.push(child);
+    }
+    return nodes.length ? nodes : [root];
+}
+
+async function waitForFonts() {
+    if (document.fonts && document.fonts.status === 'loading') {
+        try {
+            await document.fonts.ready;
+        } catch (error) {
+            console.warn('等待字体加载失败，继续导出', error);
+        }
+    }
 }

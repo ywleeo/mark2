@@ -53,12 +53,20 @@ export async function exportCurrentViewToImage({ ensureToPng, statusBarControlle
     }
 }
 
-export async function exportCurrentViewToPdf({ activeViewMode, statusBarController }) {
+async function exportPdfWithMode({
+    activeViewMode,
+    statusBarController,
+    mode,
+    pageFormat,
+    dialogTitle,
+    progressLabel,
+    successLabel,
+}) {
     let progressShown = false;
     try {
         const defaultPath = await buildDefaultPdfPath();
         const targetPath = await save({
-            title: '导出 PDF',
+            title: dialogTitle,
             filters: [
                 {
                     name: 'PDF 文件',
@@ -72,18 +80,22 @@ export async function exportCurrentViewToPdf({ activeViewMode, statusBarControll
             return;
         }
 
-        statusBarController?.showProgress?.('正在导出 PDF…');
+        statusBarController?.showProgress?.(progressLabel);
         progressShown = true;
 
-        const { htmlContent, cssContent, pageWidth } = await collectContentForPdf(activeViewMode);
+        const { htmlContent, cssContent, pageWidth } = await collectContentForPdf(
+            activeViewMode,
+            { pageFormat }
+        );
         await exportToPdf({
             destination: targetPath,
             htmlContent,
             cssContent,
             pageWidth,
+            mode,
         });
 
-        statusBarController?.showProgress?.('PDF 已保存：' + targetPath, { state: 'success' });
+        statusBarController?.showProgress?.(successLabel + targetPath, { state: 'success' });
         statusBarController?.hideProgress?.({ delay: 2200 });
         progressShown = false;
     } catch (error) {
@@ -102,4 +114,28 @@ export async function exportCurrentViewToPdf({ activeViewMode, statusBarControll
             statusBarController?.hideProgress?.();
         }
     }
+}
+
+export function exportCurrentViewToPdf({ activeViewMode, statusBarController }) {
+    return exportPdfWithMode({
+        activeViewMode,
+        statusBarController,
+        mode: undefined,
+        pageFormat: undefined,
+        dialogTitle: '导出 PDF',
+        progressLabel: '正在导出 PDF…',
+        successLabel: 'PDF 已保存：',
+    });
+}
+
+export function exportCurrentViewToPdfA4({ activeViewMode, statusBarController }) {
+    return exportPdfWithMode({
+        activeViewMode,
+        statusBarController,
+        mode: 'a4',
+        pageFormat: 'a4',
+        dialogTitle: '导出 A4 PDF',
+        progressLabel: '正在生成 A4 PDF…',
+        successLabel: 'A4 PDF 已保存：',
+    });
 }
