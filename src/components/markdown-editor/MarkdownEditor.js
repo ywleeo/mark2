@@ -487,16 +487,76 @@ export class MarkdownEditor {
             if (!svgElement) return;
 
             try {
+                const svgStyles = window.getComputedStyle(svgElement);
+                const parsePadding = (value) => {
+                    const parsed = parseFloat(value);
+                    return Number.isFinite(parsed) ? parsed : 0;
+                };
+                const padding = {
+                    top: parsePadding(svgStyles.paddingTop),
+                    right: parsePadding(svgStyles.paddingRight),
+                    bottom: parsePadding(svgStyles.paddingBottom),
+                    left: parsePadding(svgStyles.paddingLeft)
+                };
+                const backgroundColor = svgStyles.backgroundColor && svgStyles.backgroundColor !== 'rgba(0, 0, 0, 0)'
+                    ? svgStyles.backgroundColor
+                    : '#fff';
+
                 // 克隆 SVG 并设置固定尺寸
                 const clonedSvg = svgElement.cloneNode(true);
-                const bbox = svgElement.getBBox();
+                const bbox = typeof svgElement.getBBox === 'function' ? svgElement.getBBox() : null;
+                const fallbackRect = svgElement.viewBox?.baseVal;
+                const baseWidth =
+                    (bbox && Number.isFinite(bbox.width) && bbox.width > 0 && bbox.width) ||
+                    (fallbackRect && fallbackRect.width) ||
+                    parseFloat(svgElement.getAttribute('width')) ||
+                    svgElement.getBoundingClientRect?.().width ||
+                    800;
+                const baseHeight =
+                    (bbox && Number.isFinite(bbox.height) && bbox.height > 0 && bbox.height) ||
+                    (fallbackRect && fallbackRect.height) ||
+                    parseFloat(svgElement.getAttribute('height')) ||
+                    svgElement.getBoundingClientRect?.().height ||
+                    600;
 
-                // 设置 viewBox 和尺寸
-                if (!clonedSvg.hasAttribute('viewBox') && bbox) {
-                    clonedSvg.setAttribute('viewBox', `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`);
-                }
-                clonedSvg.setAttribute('width', bbox.width || 800);
-                clonedSvg.setAttribute('height', bbox.height || 600);
+                const totalWidth = baseWidth + padding.left + padding.right;
+                const totalHeight = baseHeight + padding.top + padding.bottom;
+                const translateX = padding.left - (bbox ? bbox.x : 0);
+                const translateY = padding.top - (bbox ? bbox.y : 0);
+                const svgNS = 'http://www.w3.org/2000/svg';
+
+                // 将内容整体平移，补齐 padding
+                const translateGroup = document.createElementNS(svgNS, 'g');
+                translateGroup.setAttribute('transform', `translate(${translateX}, ${translateY})`);
+                clonedSvg.appendChild(translateGroup);
+
+                const elementNodeType = typeof Node !== 'undefined' ? Node.ELEMENT_NODE : 1;
+                const keepAtRoot = new Set(['defs', 'style', 'title', 'desc']);
+                Array.from(clonedSvg.childNodes).forEach((node) => {
+                    if (node === translateGroup) return;
+                    if (node.nodeType === elementNodeType) {
+                        const tag = node.nodeName.toLowerCase();
+                        if (keepAtRoot.has(tag)) {
+                            return;
+                        }
+                    }
+                    translateGroup.appendChild(node);
+                });
+
+                // 添加背景填充，确保导出的 SVG 仍有白底
+                const backgroundRect = document.createElementNS(svgNS, 'rect');
+                backgroundRect.setAttribute('x', 0);
+                backgroundRect.setAttribute('y', 0);
+                backgroundRect.setAttribute('width', totalWidth);
+                backgroundRect.setAttribute('height', totalHeight);
+                backgroundRect.setAttribute('fill', backgroundColor);
+                clonedSvg.insertBefore(backgroundRect, translateGroup);
+
+                clonedSvg.setAttribute('overflow', 'visible');
+                clonedSvg.setAttribute('width', totalWidth);
+                clonedSvg.setAttribute('height', totalHeight);
+                clonedSvg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
+                clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
                 // 将 SVG 转为 data URL
                 const svgData = new XMLSerializer().serializeToString(clonedSvg);
