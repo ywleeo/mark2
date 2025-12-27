@@ -17,6 +17,7 @@ import {
     ensureCsvLanguage,
     ensureBashAlias,
     ensureMarkdownSqlThemes,
+    ensureYamlLanguage,
 } from './LanguageSupport.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
@@ -134,6 +135,7 @@ export class CodeEditor {
         ensurePythonLanguage(monaco);
         ensureCsvLanguage(monaco);
         ensureBashAlias(monaco);
+        ensureYamlLanguage(monaco);
         ensureMarkdownSqlThemes(monaco);
         this.monaco = monaco;
         this.editor = monaco.editor.create(this.editorHost, {

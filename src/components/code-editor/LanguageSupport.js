@@ -4,6 +4,7 @@
  */
 import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../../config/monaco-python.js';
 import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../../config/monaco-csv.js';
+import { conf as yamlLanguageConfiguration, language as yamlLanguage } from '../../config/monaco-yaml.js';
 import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution';
 import { conf as shellConf, language as shellLanguage } from 'monaco-editor/esm/vs/basic-languages/shell/shell.js';
 import { markdownSqlDarkTheme, markdownSqlLightTheme } from '../../config/markdown-sql-themes.js';
@@ -12,6 +13,7 @@ let pythonLanguageReady = false;
 let csvLanguageReady = false;
 let bashAliasReady = false;
 let markdownThemeReady = false;
+let yamlLanguageReady = false;
 
 /**
  * 确保 bash 作为 shell 语言的别名已注册
@@ -72,6 +74,23 @@ export function ensureCsvLanguage(monaco) {
     });
 
     csvLanguageReady = true;
+}
+
+/**
+ * 确保 YAML 语言支持已加载（优化版，修复 markdown 语法高亮问题）
+ * @param {Object} monaco - Monaco 实例
+ */
+export function ensureYamlLanguage(monaco) {
+    if (yamlLanguageReady || !yamlLanguage?.tokenizer) {
+        return;
+    }
+
+    // 使用优化后的 YAML 配置覆盖默认配置
+    monaco.languages.setMonarchTokensProvider('yaml', yamlLanguage);
+    if (yamlLanguageConfiguration) {
+        monaco.languages.setLanguageConfiguration('yaml', yamlLanguageConfiguration);
+    }
+    yamlLanguageReady = true;
 }
 
 /**
