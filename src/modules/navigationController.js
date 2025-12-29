@@ -197,7 +197,6 @@ export function createNavigationController({
                         return;
                     }
                 }
-                fileSession.clearEntry(targetPath);
             }
 
             const normalizedTarget = typeof fileTree?.normalizePath === 'function'
@@ -249,6 +248,7 @@ export function createNavigationController({
             const markdownEditor = getEditor();
             codeEditor?.forgetViewStateForTab?.(normalizedTarget);
             markdownEditor?.forgetViewStateForTab?.(normalizedTarget);
+            fileSession.clearEntry(targetPath);
             return;
         }
 
@@ -268,7 +268,6 @@ export function createNavigationController({
                     if (!saved) {
                         return;
                     }
-                    fileSession.clearEntry(targetPath);
                 }
 
                 if (!fileTree?.isInOpenList(targetPath)) {
@@ -279,6 +278,7 @@ export function createNavigationController({
                 const markdownEditor = getEditor();
                 codeEditor?.forgetViewStateForTab?.(tab.id || null);
                 markdownEditor?.forgetViewStateForTab?.(tab.id || null);
+                fileSession.clearEntry(targetPath);
             }
 
             if (!tab.fallbackPath) {

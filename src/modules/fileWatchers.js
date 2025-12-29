@@ -59,11 +59,6 @@ export function createFileWatcherController({
             return;
         }
 
-        const isOpenFile = fileTree?.isFileOpen?.(normalizedPath);
-        if (!isOpenFile) {
-            return;
-        }
-
         const editor = getEditor();
         const codeEditor = getCodeEditor();
         const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
@@ -129,12 +124,18 @@ export function createFileWatcherController({
 
         const timer = setTimeout(async () => {
             fileRefreshTimers.delete(normalizedPath);
-            if (!fileTree?.isFileOpen?.(normalizedPath)) {
+            const currentFilePath = normalizeFsPath(getCurrentFile());
+            const isTrackedOpenFile = typeof fileTree?.isFileOpen === 'function'
+                ? fileTree.isFileOpen(normalizedPath)
+                : false;
+            const isActiveFile = currentFilePath === normalizedPath;
+
+            if (!isTrackedOpenFile && !isActiveFile) {
+                fileSession.clearEntry(normalizedPath);
                 return;
             }
 
-            const currentFilePath = normalizeFsPath(getCurrentFile());
-            if (currentFilePath !== normalizedPath) {
+            if (!isActiveFile) {
                 fileSession.clearEntry(normalizedPath);
                 return;
             }
