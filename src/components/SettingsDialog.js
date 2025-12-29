@@ -115,6 +115,19 @@ export class SettingsDialog {
                     <section class="settings-body hidden" data-tab-content="code">
                         <p class="settings-subtitle">设置代码模式的字体样式</p>
                         <label class="settings-field">
+                            <span class="settings-label">主题</span>
+                            <select name="codeTheme">
+                                <option value="auto">跟随颜色模式 (默认)</option>
+                                <option value="vs">VS Code</option>
+                                <option value="monokai">Monokai</option>
+                                <option value="dracula">Dracula</option>
+                                <option value="one-dark-pro">One Dark Pro</option>
+                                <option value="github">GitHub</option>
+                                <option value="night-owl">Night Owl</option>
+                                <option value="solarized">Solarized</option>
+                            </select>
+                        </label>
+                        <label class="settings-field">
                             <span class="settings-label">字体</span>
                             <select name="codeFontFamily"></select>
                         </label>
@@ -216,6 +229,7 @@ export class SettingsDialog {
         this.fontWeightSelect = this.form.querySelector('select[name="fontWeight"]');
 
         // Code 模式设置字段
+        this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
         this.codeFontFamilySelect = this.form.querySelector('select[name="codeFontFamily"]');
         this.codeFontSizeInput = this.form.querySelector('input[name="codeFontSize"]');
         this.codeLineHeightInput = this.form.querySelector('input[name="codeLineHeight"]');
@@ -317,6 +331,7 @@ export class SettingsDialog {
         this.syncFontWeight(editorPrefs.fontWeight);
 
         // Code 模式设置
+        this.codeThemeSelect.value = editorPrefs.codeTheme || 'auto';
         this.codeFontFamilySelect.value = editorPrefs.codeFontFamily || '';
         this.codeFontSizeInput.value = Number(editorPrefs.codeFontSize) || 14;
         this.codeLineHeightInput.value = Number(editorPrefs.codeLineHeight) || 1.5;
@@ -387,6 +402,7 @@ export class SettingsDialog {
         const normalizedLineHeight = Number.isFinite(lineHeight) ? this.clamp(lineHeight, 1.0, 3.0) : 1.6;
 
         // Code 模式设置
+        const codeTheme = (this.codeThemeSelect.value || '').trim();
         const codeFontSize = Number(this.codeFontSizeInput.value);
         const codeLineHeight = Number(this.codeLineHeightInput.value);
         const codeFontFamily = (this.codeFontFamilySelect.value || '').trim();
@@ -404,6 +420,7 @@ export class SettingsDialog {
             lineHeight: Number(normalizedLineHeight.toFixed(2)),
             fontFamily: fontFamily || '',
             fontWeight: Number.isFinite(fontWeight) ? fontWeight : 400,
+            codeTheme: codeTheme || 'auto',
             codeFontSize: normalizedCodeSize,
             codeLineHeight: Number(normalizedCodeLineHeight.toFixed(2)),
             codeFontFamily: codeFontFamily || '',

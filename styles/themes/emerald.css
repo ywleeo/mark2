@@ -35,7 +35,7 @@
 }
 
 :root[data-theme-appearance='dark'] {
-    --theme-bg: #151515;
+    --theme-bg: #000000;
     --theme-text: #b8b8b8;
     --theme-text-secondary: #b3d4c6;
     --theme-border: #7878787e;

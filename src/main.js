@@ -690,6 +690,7 @@ async function initializeApplication() {
                 forceReload: true,
                 autoFocus: false,
                 tabId: normalized,
+                suppressMissingFileErrors: true,
             });
         },
         fileSession,

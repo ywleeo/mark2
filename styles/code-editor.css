@@ -27,6 +27,11 @@
     background: var(--content-bg, #ffffff);
 }
 
+/* 锁定行号区域背景色，不受主题影响 */
+.code-editor-pane .monaco-editor .margin-view-overlays {
+    background: var(--content-bg, #ffffff) !important;
+}
+
 .code-editor-pane .monaco-scrollable-element > .scrollbar {
     width: var(--scrollbar-size, 6px) !important;
     height: var(--scrollbar-size, 6px) !important;

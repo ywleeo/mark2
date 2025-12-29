@@ -18,7 +18,9 @@ import {
     ensureBashAlias,
     ensureMarkdownSqlThemes,
     ensureYamlLanguage,
+    ensureCodeThemes,
 } from './LanguageSupport.js';
+import { getThemeVariant } from '../../config/code-themes.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
     DEFAULT_LINE_HEIGHT_RATIO,
@@ -137,6 +139,7 @@ export class CodeEditor {
         ensureBashAlias(monaco);
         ensureYamlLanguage(monaco);
         ensureMarkdownSqlThemes(monaco);
+        ensureCodeThemes(monaco);
         this.monaco = monaco;
         this.editor = monaco.editor.create(this.editorHost, {
             value: '',
@@ -295,6 +298,7 @@ export class CodeEditor {
         }
 
         const {
+            codeTheme,
             codeFontSize,
             codeLineHeight,
             codeFontFamily,
@@ -306,6 +310,7 @@ export class CodeEditor {
         const parsedFontWeight = Number(codeFontWeight);
 
         this.preferences = {
+            theme: typeof codeTheme === 'string' ? codeTheme.trim() : 'auto',
             fontSize: Number.isFinite(parsedFontSize) ? parsedFontSize : null,
             lineHeight: Number.isFinite(parsedLineHeight) ? parsedLineHeight : null,
             fontFamily: typeof codeFontFamily === 'string' ? codeFontFamily.trim() : '',
@@ -398,16 +403,26 @@ export class CodeEditor {
         const appearance = document?.documentElement?.dataset?.themeAppearance;
         const isDarkMode = appearance === 'dark';
 
-        if (language === 'markdown') {
-            return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
+        // 获取用户选择的主题
+        const userTheme = this.preferences?.theme || 'auto';
+
+        // auto 模式：对特殊语言使用专用主题
+        if (userTheme === 'auto') {
+            if (language === 'markdown') {
+                return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
+            }
+            if (language === 'sql' || language === 'mysql' || language === 'pgsql') {
+                return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
+            }
+            if (language === 'csv' && !isDarkMode) {
+                return 'csv-theme';
+            }
+            // 默认使用 VS Code 主题
+            return isDarkMode ? 'vs-dark' : 'vs';
         }
-        if (language === 'sql' || language === 'mysql' || language === 'pgsql') {
-            return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
-        }
-        if (language === 'csv' && !isDarkMode) {
-            return 'csv-theme';
-        }
-        return isDarkMode ? 'vs-dark' : 'vs';
+
+        // 用户选择了具体主题：根据当前颜色模式获取对应的 light/dark 版本
+        return getThemeVariant(userTheme, isDarkMode);
     }
 
     onDidChangeContent(handler) {

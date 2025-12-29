@@ -9,6 +9,7 @@ export const defaultEditorSettings = {
     lineHeight: 1.6,
     fontFamily: '',
     fontWeight: 400,
+    codeTheme: 'auto',
     codeFontSize: 14,
     codeLineHeight: 1.5,
     codeFontFamily: '',
@@ -101,6 +102,11 @@ export function normalizeEditorSettings(candidate) {
                 const clampedHeight = clamp(height, 1.0, 3.0);
                 prefs.codeLineHeight = Number(clampedHeight.toFixed(2));
             }
+        }
+
+        if (typeof candidate.codeTheme === 'string') {
+            const theme = candidate.codeTheme.trim() || 'auto';
+            prefs.codeTheme = theme;
         }
 
         if (typeof candidate.codeFontFamily === 'string') {

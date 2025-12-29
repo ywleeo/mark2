@@ -8,12 +8,27 @@ import { conf as yamlLanguageConfiguration, language as yamlLanguage } from '../
 import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution';
 import { conf as shellConf, language as shellLanguage } from 'monaco-editor/esm/vs/basic-languages/shell/shell.js';
 import { markdownSqlDarkTheme, markdownSqlLightTheme } from '../../config/markdown-sql-themes.js';
+import {
+    monokaiDarkTheme,
+    monokaiLightTheme,
+    draculaDarkTheme,
+    draculaLightTheme,
+    oneDarkProDarkTheme,
+    oneDarkProLightTheme,
+    solarizedDarkTheme,
+    solarizedLightTheme,
+    githubDarkTheme,
+    githubLightTheme,
+    nightOwlDarkTheme,
+    nightOwlLightTheme,
+} from '../../config/code-themes.js';
 
 let pythonLanguageReady = false;
 let csvLanguageReady = false;
 let bashAliasReady = false;
 let markdownThemeReady = false;
 let yamlLanguageReady = false;
+let codeThemesReady = false;
 
 /**
  * 确保 bash 作为 shell 语言的别名已注册
@@ -104,4 +119,40 @@ export function ensureMarkdownSqlThemes(monaco) {
     monaco.editor.defineTheme('markdown-sql-dark', markdownSqlDarkTheme);
     monaco.editor.defineTheme('markdown-sql-light', markdownSqlLightTheme);
     markdownThemeReady = true;
+}
+
+/**
+ * 注册所有代码编辑器主题
+ * @param {Object} monaco - Monaco 实例
+ */
+export function ensureCodeThemes(monaco) {
+    if (codeThemesReady) {
+        return;
+    }
+
+    // Monokai
+    monaco.editor.defineTheme('monokai-dark', monokaiDarkTheme);
+    monaco.editor.defineTheme('monokai-light', monokaiLightTheme);
+
+    // Dracula
+    monaco.editor.defineTheme('dracula-dark', draculaDarkTheme);
+    monaco.editor.defineTheme('dracula-light', draculaLightTheme);
+
+    // One Dark Pro
+    monaco.editor.defineTheme('one-dark-pro-dark', oneDarkProDarkTheme);
+    monaco.editor.defineTheme('one-dark-pro-light', oneDarkProLightTheme);
+
+    // GitHub
+    monaco.editor.defineTheme('github-dark', githubDarkTheme);
+    monaco.editor.defineTheme('github-light', githubLightTheme);
+
+    // Night Owl
+    monaco.editor.defineTheme('night-owl-dark', nightOwlDarkTheme);
+    monaco.editor.defineTheme('night-owl-light', nightOwlLightTheme);
+
+    // Solarized
+    monaco.editor.defineTheme('solarized-dark', solarizedDarkTheme);
+    monaco.editor.defineTheme('solarized-light', solarizedLightTheme);
+
+    codeThemesReady = true;
 }

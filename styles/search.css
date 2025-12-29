@@ -1,15 +1,15 @@
 /* 查找框容器 */
 .search-box {
     position: fixed;
-    top: 20px;
+    top: 120px;
     right: 20px;
-    background: rgba(128, 128, 128, 0.5);
+    background: var(--search-box-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid var(--search-box-border);
     border-radius: 10px;
     padding: 10px 14px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--search-box-shadow);
     z-index: 1000;
     display: none;
     align-items: center;
@@ -26,24 +26,24 @@
     flex: 1;
     min-width: 180px;
     padding: 7px 12px;
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: var(--search-input-bg);
+    border: 1px solid var(--search-input-border);
     border-radius: 6px;
     font-size: 14px;
-    color: #333;
+    color: var(--search-input-text);
     outline: none;
     transition: all 0.2s;
 }
 
 .search-box .search-input:focus,
 .search-box .replace-input:focus {
-    background: rgba(255, 255, 255, 1);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--search-input-bg-focus);
+    border-color: var(--search-input-border-focus);
 }
 
 .search-box .search-input::placeholder,
 .search-box .replace-input::placeholder {
-    color: rgba(0, 0, 0, 0.4);
+    color: var(--search-input-placeholder);
 }
 
 .search-box .replace-input {
@@ -53,7 +53,7 @@
 
 .search-info {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--search-info-text);
     user-select: none;
     min-width: 50px;
     text-align: center;
@@ -64,11 +64,11 @@
     width: 30px;
     height: 30px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: var(--search-button-bg);
+    border: 1px solid var(--search-button-border);
     border-radius: 6px;
     font-size: 16px;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--search-button-text);
     cursor: pointer;
     transition: all 0.2s;
     user-select: none;
@@ -96,24 +96,24 @@
     stroke-linejoin: round;
 }
 .search-button:hover {
-    background: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: var(--search-button-bg-hover);
+    border-color: var(--search-button-border-hover);
 }
 
 .search-button:active {
-    background: rgba(255, 255, 255, 0.4);
+    background: var(--search-button-bg-active);
 }
 
 .search-button.close-btn {
-    background: rgba(255, 255, 255, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--search-close-btn-bg);
+    border: 1px solid var(--search-close-btn-border);
     font-size: 18px;
-    color: rgba(255, 255, 255, 0.8);
+    color: var(--search-close-btn-text);
 }
 
 .search-button.close-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    color: rgba(255, 255, 255, 0.95);
+    background: var(--search-close-btn-bg-hover);
+    color: var(--search-close-btn-text-hover);
 }
 
 /* 搜索结果高亮 */
@@ -126,4 +126,66 @@
     background-color: rgba(255, 165, 0, 0.6);
     outline: 2px solid rgba(255, 140, 0, 0.8);
     outline-offset: 1px;
+}
+
+/* ============================================================================
+   Dark Mode 深色模式
+   ============================================================================ */
+[data-theme-appearance="dark"] {
+    --search-box-bg: rgba(30, 30, 30, 0.2);
+    --search-box-border: rgba(255, 255, 255, 0.2);
+    --search-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+    --search-input-bg: rgba(255, 255, 255, 0.15);
+    --search-input-bg-focus: rgba(255, 255, 255, 0.25);
+    --search-input-border: rgba(255, 255, 255, 0.01);
+    --search-input-border-focus: rgba(255, 255, 255, 0.5);
+    --search-input-text: rgba(255, 255, 255, 0.95);
+    --search-input-placeholder: rgba(255, 255, 255, 0.4);
+
+    --search-info-text: rgba(255, 255, 255, 0.85);
+
+    --search-button-bg: rgba(255, 255, 255, 0.2);
+    --search-button-bg-hover: rgba(255, 255, 255, 0.3);
+    --search-button-bg-active: rgba(255, 255, 255, 0.4);
+    --search-button-border: rgba(255, 255, 255, 0.3);
+    --search-button-border-hover: rgba(255, 255, 255, 0.4);
+    --search-button-text: rgba(255, 255, 255, 0.9);
+
+    --search-close-btn-bg: rgba(255, 255, 255, 0.15);
+    --search-close-btn-bg-hover: rgba(255, 255, 255, 0.25);
+    --search-close-btn-border: rgba(255, 255, 255, 0.2);
+    --search-close-btn-text: rgba(255, 255, 255, 0.8);
+    --search-close-btn-text-hover: rgba(255, 255, 255, 0.95);
+}
+
+/* ============================================================================
+   Light Mode 浅色模式
+   ============================================================================ */
+[data-theme-appearance="light"] {
+    --search-box-bg: rgba(255, 255, 255, 0.2);
+    --search-box-border: rgba(0, 0, 0, 0.15);
+    --search-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    --search-input-bg: rgba(0, 0, 0, 0.05);
+    --search-input-bg-focus: rgba(255, 255, 255, 1);
+    --search-input-border: rgba(0, 0, 0, 0.01);
+    --search-input-border-focus: rgba(0, 0, 0, 0.3);
+    --search-input-text: rgba(0, 0, 0, 0.9);
+    --search-input-placeholder: rgba(0, 0, 0, 0.4);
+
+    --search-info-text: rgba(0, 0, 0, 0.7);
+
+    --search-button-bg: rgba(0, 0, 0, 0.08);
+    --search-button-bg-hover: rgba(0, 0, 0, 0.12);
+    --search-button-bg-active: rgba(0, 0, 0, 0.18);
+    --search-button-border: rgba(0, 0, 0, 0.15);
+    --search-button-border-hover: rgba(0, 0, 0, 0.25);
+    --search-button-text: rgba(0, 0, 0, 0.75);
+
+    --search-close-btn-bg: rgba(0, 0, 0, 0.05);
+    --search-close-btn-bg-hover: rgba(0, 0, 0, 0.1);
+    --search-close-btn-border: rgba(0, 0, 0, 0.12);
+    --search-close-btn-text: rgba(0, 0, 0, 0.6);
+    --search-close-btn-text-hover: rgba(0, 0, 0, 0.85);
 }

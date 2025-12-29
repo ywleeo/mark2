@@ -1,5 +1,41 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
 
+function isMissingFileError(error) {
+    if (!error) {
+        return false;
+    }
+    if (typeof error === 'object' && typeof error.code === 'string') {
+        if (error.code.toUpperCase() === 'ENOENT') {
+            return true;
+        }
+    }
+    const message = typeof error === 'string'
+        ? error
+        : (error.message || error.error || '');
+    if (!message) {
+        return false;
+    }
+    const normalized = message.toLowerCase();
+    return normalized.includes('no such file')
+        || normalized.includes('not found')
+        || normalized.includes('does not exist')
+        || normalized.includes('不存在')
+        || normalized.includes('找不到');
+}
+
+function getReadableErrorMessage(error) {
+    if (typeof error === 'string') {
+        return error;
+    }
+    if (error && typeof error.message === 'string') {
+        return error.message;
+    }
+    if (error && typeof error.toString === 'function') {
+        return error.toString();
+    }
+    return '未知错误';
+}
+
 export function createFileOperations({
     getFileTree,
     getEditor,
@@ -235,7 +271,12 @@ export function createFileOperations({
     let loadPipeline = Promise.resolve();
 
     async function performLoad(filePath, options = {}) {
-        const { skipWatchSetup = false, forceReload = false, autoFocus = true } = options;
+        const {
+            skipWatchSetup = false,
+            forceReload = false,
+            autoFocus = true,
+            suppressMissingFileErrors = false,
+        } = options;
         const session = documentSessions.beginSession(filePath);
         const sessionId = session?.id ?? null;
         const shouldAbort = (phase) => {
@@ -541,8 +582,18 @@ export function createFileOperations({
             if (sessionId) {
                 documentSessions.closeSession(sessionId);
             }
-            console.error('读取文件失败:', error);
-            alert('读取文件失败: ' + error);
+            // 如果读取失败，清理缓存，避免下次仍然返回旧内容
+            if (fileSession?.clearEntry && filePath) {
+                fileSession.clearEntry(filePath);
+            }
+
+            if (suppressMissingFileErrors && isMissingFileError(error)) {
+                return;
+            }
+
+            const readableMessage = getReadableErrorMessage(error);
+            console.error('读取文件失败:', readableMessage, error);
+            alert('读取文件失败: ' + readableMessage);
             throw error;
         }
     }
