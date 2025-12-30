@@ -1,8 +1,8 @@
 /* 查找框容器 */
 .search-box {
     position: fixed;
-    top: 120px;
-    right: 20px;
+    bottom: 35px;
+    right: 10px;
     background: var(--search-box-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
