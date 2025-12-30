@@ -86,6 +86,7 @@ export class FileWatcher {
             const unwatch = await watch(
                 normalizedPath,
                 (event) => {
+                    console.log('[FileWatcher] 文件变化事件:', { path: normalizedPath, event });
                     const state = this.fileWatchers.get(normalizedPath);
                     if (state) {
                         state.lastEventTimestamp = Date.now();
