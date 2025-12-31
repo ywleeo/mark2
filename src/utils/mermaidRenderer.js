@@ -50,21 +50,14 @@ const encodeMermaidCode = value => {
 function parseChartValues(mermaidCode) {
     if (!mermaidCode) return [];
 
-    const values = [];
-    // 匹配 bar 和 line 行的数值数组
+    // 只匹配 bar 行的数值数组（柱状图的数据）
     const barMatch = mermaidCode.match(/bar\s*\[([^\]]+)\]/);
-    const lineMatch = mermaidCode.match(/line\s*\[([^\]]+)\]/);
 
     if (barMatch) {
-        const barValues = barMatch[1].split(',').map(v => v.trim());
-        values.push(...barValues);
-    }
-    if (lineMatch) {
-        const lineValues = lineMatch[1].split(',').map(v => v.trim());
-        values.push(...lineValues);
+        return barMatch[1].split(',').map(v => v.trim());
     }
 
-    return values;
+    return [];
 }
 
 // 创建浮层 tooltip 元素
@@ -126,38 +119,126 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
     const rects = Array.from(svgElement.querySelectorAll('rect'));
 
     // 过滤掉背景和坐标轴的 rect，只保留数据条
+    // 背景通常宽度很大，数据条的宽度相对小
     const dataRects = rects.filter(rect => {
+        const width = parseFloat(rect.getAttribute('width') || 0);
         const height = parseFloat(rect.getAttribute('height') || 0);
-        return height > 10;
+        // 过滤掉背景（宽度太大）和太小的元素
+        return width < 100 && height > 0;
     });
+
+    // 按 x 坐标从左到右排序（确保顺序和数据一致）
+    dataRects.sort((a, b) => {
+        const xA = parseFloat(a.getAttribute('x') || 0);
+        const xB = parseFloat(b.getAttribute('x') || 0);
+        return xA - xB;
+    });
+
     console.log('[Tooltip] 数据 rect 数量:', dataRects.length, '数值数量:', values.length);
 
-    // 为每个数据条添加交互事件
-    dataRects.forEach((rect, index) => {
-        if (index < values.length) {
-            const value = values[index];
+    // 打印排序后的 rect 和对应的数据
+    dataRects.forEach((rect, i) => {
+        const x = parseFloat(rect.getAttribute('x') || 0);
+        const width = parseFloat(rect.getAttribute('width') || 0);
+        console.log(`[Tooltip] rect[${i}]: x=${x}, width=${width}, 对应数值=${values[i]}`);
+    });
 
-            // 添加鼠标进入事件
-            rect.addEventListener('mouseenter', (e) => {
-                showTooltip(value, e);
-                rect.style.opacity = '0.8';
-                rect.style.cursor = 'pointer';
-            });
+    // 预先计算每个柱子的中心 x 坐标
+    const barCenters = dataRects.map(rect => {
+        const x = parseFloat(rect.getAttribute('x') || 0);
+        const width = parseFloat(rect.getAttribute('width') || 0);
+        return x + width / 2;
+    });
 
-            // 添加鼠标移动事件（让 tooltip 跟随鼠标）
-            rect.addEventListener('mousemove', (e) => {
-                showTooltip(value, e);
-            });
+    let currentHighlightIndex = -1;
 
-            // 添加鼠标离开事件
-            rect.addEventListener('mouseleave', () => {
-                hideTooltip();
-                rect.style.opacity = '1';
-            });
+    // 创建指示器竖线
+    const indicator = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    indicator.setAttribute('stroke', 'rgba(0, 0, 0, 0.3)');
+    indicator.setAttribute('stroke-width', '1');
+    indicator.setAttribute('y1', '0');
+    indicator.setAttribute('y2', svgElement.getAttribute('height') || '300');
+    indicator.style.transition = 'opacity 0.1s ease-out';
+    indicator.style.pointerEvents = 'none';
+    indicator.style.opacity = '0';
+    svgElement.appendChild(indicator);
 
-            console.log(`[Tooltip] rect[${index}] 绑定事件，数值:`, value);
+    // 找到离鼠标最近的柱子
+    function findNearestBar(mouseX) {
+        let nearestIndex = 0;
+        let minDistance = Infinity;
+
+        barCenters.forEach((centerX, index) => {
+            const distance = Math.abs(centerX - mouseX);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestIndex = index;
+            }
+        });
+
+        return nearestIndex;
+    }
+
+    // 高亮指定的柱子
+    function highlightBar(index) {
+        // 清除之前的高亮
+        if (currentHighlightIndex >= 0 && currentHighlightIndex < dataRects.length) {
+            dataRects[currentHighlightIndex].style.opacity = '1';
+        }
+
+        // 设置新的高亮
+        if (index >= 0 && index < dataRects.length) {
+            dataRects[index].style.opacity = '0.8';
+            currentHighlightIndex = index;
+
+            // 淡出 -> 移动 -> 淡入
+            const centerX = barCenters[index];
+
+            // 淡出
+            indicator.style.opacity = '0';
+
+            // 等淡出完成后移动位置并淡入
+            setTimeout(() => {
+                indicator.setAttribute('x1', centerX);
+                indicator.setAttribute('x2', centerX);
+                indicator.style.opacity = '1';
+            }, 100);
+        }
+    }
+
+    // 在整个 SVG 上监听鼠标移动
+    svgElement.addEventListener('mousemove', (e) => {
+        // 获取 SVG 的边界
+        const svgRect = svgElement.getBoundingClientRect();
+        // 计算鼠标在 SVG 坐标系中的 x 位置
+        const mouseX = e.clientX - svgRect.left;
+
+        // 找到最近的柱子
+        const nearestIndex = findNearestBar(mouseX);
+
+        // 如果和当前高亮的不同，更新高亮
+        if (nearestIndex !== currentHighlightIndex) {
+            highlightBar(nearestIndex);
+        }
+
+        // 显示 tooltip
+        if (nearestIndex >= 0 && nearestIndex < values.length) {
+            showTooltip(values[nearestIndex], e);
         }
     });
+
+    // 鼠标离开 SVG 时隐藏 tooltip 和高亮
+    svgElement.addEventListener('mouseleave', () => {
+        hideTooltip();
+        indicator.style.opacity = '0';
+        if (currentHighlightIndex >= 0 && currentHighlightIndex < dataRects.length) {
+            dataRects[currentHighlightIndex].style.opacity = '1';
+            currentHighlightIndex = -1;
+        }
+    });
+
+    // 设置鼠标样式
+    svgElement.style.cursor = 'pointer';
 }
 
 export async function renderMermaidIn(rootElement) {
