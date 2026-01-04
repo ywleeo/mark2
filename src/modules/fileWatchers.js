@@ -54,10 +54,8 @@ export function createFileWatcherController({
 
     function handleFileWatcherEvent(filePath) {
         const normalizedPath = normalizeFsPath(filePath);
-        console.log('[FileWatcherController] handleFileWatcherEvent 被调用:', normalizedPath);
         if (!normalizedPath) return;
         if (shouldIgnoreLocalWrite(normalizedPath)) {
-            console.log('[FileWatcherController] 忽略本地写入事件:', normalizedPath);
             return;
         }
 
@@ -71,30 +69,18 @@ export function createFileWatcherController({
         const cachedEntry = fileSession?.getCachedEntry?.(normalizedPath);
         const hasCachedChanges = cachedEntry?.hasChanges;
 
-        console.log('[FileWatcherController] 文件状态检查:', {
-            normalizedPath,
-            currentFilePath,
-            isMarkdownActive,
-            isCodeActive,
-            hasCachedChanges
-        });
-
         if (isMarkdownActive && typeof editor?.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-            console.log('[FileWatcherController] Markdown 编辑器有未保存修改，跳过刷新');
             return;
         }
 
         if (isCodeActive && codeEditor?.hasUnsavedChanges?.()) {
-            console.log('[FileWatcherController] 代码编辑器有未保存修改，跳过刷新');
             return;
         }
 
         if (!isMarkdownActive && !isCodeActive && hasCachedChanges) {
-            console.log('[FileWatcherController] 文件未激活但有缓存修改，跳过刷新');
             return;
         }
 
-        console.log('[FileWatcherController] 准备刷新文件:', normalizedPath);
         handleFileRefresh(normalizedPath);
     }
 
@@ -144,26 +130,16 @@ export function createFileWatcherController({
                 : false;
             const isActiveFile = currentFilePath === normalizedPath;
 
-            console.log('[FileWatcherController] scheduleFileRefresh 定时器触发:', {
-                normalizedPath,
-                currentFilePath,
-                isTrackedOpenFile,
-                isActiveFile
-            });
-
             if (!isTrackedOpenFile && !isActiveFile) {
-                console.log('[FileWatcherController] 文件未被追踪且未激活，仅清除缓存');
                 fileSession.clearEntry(normalizedPath);
                 return;
             }
 
             if (!isActiveFile) {
-                console.log('[FileWatcherController] 文件未激活，仅清除缓存，不重新加载');
                 fileSession.clearEntry(normalizedPath);
                 return;
             }
 
-            console.log('[FileWatcherController] 文件已激活，准备重新加载');
             try {
                 await scheduleLoadFile(normalizedPath);
             } catch (error) {

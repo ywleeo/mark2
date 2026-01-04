@@ -114,6 +114,23 @@ export function joinPaths(baseDir, relativePath, isWindows) {
     }
 }
 
+function decodePercentEncodedPath(path, isWindows) {
+    if (!path || !path.includes('%')) {
+        return path;
+    }
+    try {
+        if (isWindows) {
+            const forwardSlashes = path.replace(/\\/g, '/');
+            const decoded = decodeURI(forwardSlashes);
+            return decoded.replace(/\//g, '\\');
+        }
+        return decodeURI(path);
+    } catch (error) {
+        console.warn('[imageResolver] 解码路径失败:', { path, error });
+        return path;
+    }
+}
+
 // 解析图片路径(相对路径转绝对路径)
 export function resolveImagePath(src, currentFile) {
     const trimmed = src.trim();
@@ -128,7 +145,8 @@ export function resolveImagePath(src, currentFile) {
     }
 
     if (isAbsoluteLocalPath(trimmed)) {
-        return normalizeAbsolutePath(trimmed, isWindows);
+        const normalized = normalizeAbsolutePath(trimmed, isWindows);
+        return decodePercentEncodedPath(normalized, isWindows);
     }
 
     const baseDir = getCurrentDirectory(currentFile);
@@ -136,7 +154,8 @@ export function resolveImagePath(src, currentFile) {
         return null;
     }
 
-    return joinPaths(baseDir, trimmed, isWindows);
+    const joined = joinPaths(baseDir, trimmed, isWindows);
+    return decodePercentEncodedPath(joined, isWindows);
 }
 
 // 检测图片 MIME 类型
@@ -153,16 +172,94 @@ export function detectMimeType(path) {
 }
 
 // 从文件系统读取二进制文件
-export async function readBinaryFromFs(path) {
+async function requestFileAccess(filePath) {
+    if (typeof window === 'undefined' || !window.__TAURI__) {
+        return null;
+    }
+
+    try {
+        const { invoke } = window.__TAURI__.core;
+
+        // 获取文件所在的目录
+        const pathParts = filePath.split('/');
+        const fileName = pathParts.pop() || '文件';
+        const folderName = pathParts[pathParts.length - 1] || '文件夹';
+        const folderPath = pathParts.join('/');
+
+        // 弹出文件夹选择器，让用户授权访问该文件夹
+        const selections = await invoke('pick_path', {
+            options: {
+                directory: true,
+                multiple: false,
+                allowDirectories: true,
+                allowFiles: false,
+                defaultPath: folderPath,
+                title: '需要访问文件夹权限',
+                message: `应用需要访问 "${fileName}" 文件，请选择 "${folderName}" 文件夹以授予访问权限。`,
+                prompt: 'Allow'
+            }
+        });
+
+        if (!selections || selections.length === 0) {
+            return null;
+        }
+
+        // 保存 security-scoped bookmark（保存的是文件夹权限）
+        const { rememberSecurityScopes } = await import('../services/securityScopeService.js');
+        await rememberSecurityScopes(selections);
+
+        return selections[0];
+    } catch (error) {
+        console.warn('[imageResolver] 请求文件访问权限失败', error);
+        return null;
+    }
+}
+
+export async function readBinaryFromFs(path, options = {}) {
     try {
         const { readFile } = await import('@tauri-apps/plugin-fs');
-        return readFile(path);
+        return await readFile(path);
     } catch (error) {
         const maybeWindow = typeof window === 'undefined' ? undefined : window;
         const fsApi = maybeWindow?.__TAURI__?.fs;
+
+        // 尝试使用备用 API
         if (fsApi?.readBinaryFile) {
-            return fsApi.readBinaryFile(path);
+            try {
+                return await fsApi.readBinaryFile(path);
+            } catch (fallbackError) {
+                // 如果两次都失败，且允许请求权限，则请求用户授权
+                if (options.requestAccessOnError && typeof window !== 'undefined' && window.__TAURI__) {
+                    console.log('[imageResolver] 文件读取失败，请求用户授权:', path);
+                    const granted = await requestFileAccess(path);
+                    if (granted) {
+                        // 重新尝试读取
+                        try {
+                            const { readFile } = await import('@tauri-apps/plugin-fs');
+                            return await readFile(path);
+                        } catch (retryError) {
+                            if (fsApi?.readBinaryFile) {
+                                return await fsApi.readBinaryFile(path);
+                            }
+                            throw retryError;
+                        }
+                    }
+                }
+                throw fallbackError;
+            }
         }
+
+        // 如果允许请求权限且在 Tauri 环境
+        if (options.requestAccessOnError && typeof window !== 'undefined' && window.__TAURI__) {
+            console.log('[imageResolver] 文件读取失败，请求用户授权:', path);
+            const granted = await requestFileAccess(path);
+            if (granted) {
+                // 重新尝试读取
+                const { readFile } = await import('@tauri-apps/plugin-fs');
+                return await readFile(path);
+            }
+        }
+
         throw error;
     }
 }
@@ -232,7 +329,8 @@ export async function resolveImageSources(html, currentFile) {
             }
 
             try {
-                const binary = await readBinaryFromFs(resolvedPath);
+                // 启用权限请求，如果读取失败会自动请求用户授权
+                const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
                 const objectUrl = createObjectUrl(binary, resolvedPath);
                 if (!objectUrl) {
                     continue;

@@ -33,11 +33,11 @@ use objc2::runtime::AnyObject;
 #[cfg(target_os = "macos")]
 use objc2::{MainThreadMarker, MainThreadOnly};
 #[cfg(target_os = "macos")]
-use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+use objc2_app_kit::{NSModalResponseOK, NSOpenPanel, NSPasteboard};
 #[cfg(target_os = "macos")]
 use objc2_core_foundation::{CGFloat, CGPoint, CGRect, CGSize};
 #[cfg(target_os = "macos")]
-use objc2_foundation::{NSData, NSDate, NSError, NSRunLoop, NSString};
+use objc2_foundation::{NSData, NSDate, NSError, NSRunLoop, NSString, NSURL};
 #[cfg(target_os = "macos")]
 use objc2_web_kit::{WKPDFConfiguration, WKWebView, WKWebViewConfiguration};
 
@@ -261,6 +261,10 @@ struct FileDialogOptions {
     multiple: Option<bool>,
     allow_directories: Option<bool>,
     allow_files: Option<bool>,
+    default_path: Option<String>,
+    title: Option<String>,
+    message: Option<String>,
+    prompt: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -330,6 +334,64 @@ fn read_image_base64(path: String) -> Result<String, String> {
 #[tauri::command]
 fn read_binary_base64(path: String) -> Result<String, String> {
     encode_file_base64(&path)
+}
+
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
+    use objc2::rc::autoreleasepool;
+    use objc2::ClassType;
+    use objc2_foundation::NSArray;
+    use crate::macos_security::nsstring_to_string;
+
+    unsafe {
+        autoreleasepool(|_| {
+            // 获取通用剪贴板
+            let pasteboard = NSPasteboard::generalPasteboard();
+
+            // 检查剪贴板是否包含文件 URL
+            let types = pasteboard.types();
+            if types.is_none() {
+                return Ok(Vec::new());
+            }
+
+            // 创建类数组
+            let classes = NSArray::from_slice(&[NSURL::class()]);
+
+            // 读取文件 URL
+            let urls = pasteboard.readObjectsForClasses_options(&classes, None);
+
+            if let Some(urls) = urls {
+                let mut file_paths = Vec::new();
+
+                // 遍历 NSArray
+                let count = urls.len();
+                for i in 0..count {
+                    let url = urls.objectAtIndex(i);
+
+                    // 将 AnyObject 转换为 NSURL 指针
+                    let url_ref = &*(&*url as *const _ as *const NSURL);
+
+                    // 检查是否是文件 URL
+                    if url_ref.isFileURL() {
+                        if let Some(path) = url_ref.path() {
+                            file_paths.push(nsstring_to_string(&path));
+                        }
+                    }
+                }
+
+                Ok(file_paths)
+            } else {
+                Ok(Vec::new())
+            }
+        })
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
+    Err("此功能仅在 macOS 上可用".to_string())
 }
 
 fn data_type_to_string(cell: &Data) -> String {
@@ -474,7 +536,12 @@ fn pick_path(
             }
         };
         let allow_multiple = opts.multiple.unwrap_or(true);
+        let treat_default_path_as_directory = wants_directories || (!allow_files && allow_directories);
 
+        let default_path = opts.default_path.clone();
+        let title = opts.title.clone();
+        let message = opts.message.clone();
+        let prompt = opts.prompt.clone();
         let (tx, rx) = mpsc::channel();
         app.run_on_main_thread(move || {
             let picker_result = autoreleasepool(|_| {
@@ -484,6 +551,50 @@ fn pick_path(
                 panel.setCanChooseDirectories(allow_directories);
                 panel.setCanChooseFiles(allow_files);
                 panel.setCanCreateDirectories(true);
+
+                // 设置标题
+                if let Some(title_str) = title {
+                    let ns_title = NSString::from_str(&title_str);
+                    panel.setTitle(Some(&ns_title));
+                }
+
+                // 设置提示信息
+                if let Some(message_str) = message {
+                    let ns_message = NSString::from_str(&message_str);
+                    panel.setMessage(Some(&ns_message));
+                }
+
+                if let Some(prompt_str) = prompt {
+                    let ns_prompt = NSString::from_str(&prompt_str);
+                    panel.setPrompt(Some(&ns_prompt));
+                }
+
+                // 设置默认路径
+                if let Some(path_str) = default_path {
+                    let path = Path::new(&path_str);
+                    let directory_to_open = if treat_default_path_as_directory {
+                        path
+                    } else {
+                        path.parent().unwrap_or(path)
+                    };
+
+                    // 尝试设置目录和文件名（即使文件在沙盒外也能定位）
+                    if let Some(dir_str) = directory_to_open.to_str() {
+                        let ns_parent = NSString::from_str(dir_str);
+                        let parent_url = NSURL::fileURLWithPath(&ns_parent);
+                        panel.setDirectoryURL(Some(&parent_url));
+                    }
+
+                    // 设置文件名（在文件选择器中预填）
+                    if !treat_default_path_as_directory {
+                        if let Some(filename) = path.file_name() {
+                            if let Some(filename_str) = filename.to_str() {
+                                let ns_filename = NSString::from_str(filename_str);
+                                panel.setNameFieldStringValue(&ns_filename);
+                            }
+                        }
+                    }
+                }
 
                 if panel.runModal() != NSModalResponseOK {
                     return Ok(Vec::new());
@@ -1306,6 +1417,7 @@ fn main() {
             read_file,
             read_image_base64,
             read_binary_base64,
+            read_clipboard_file_paths,
             read_spreadsheet,
             write_file,
             read_dir,

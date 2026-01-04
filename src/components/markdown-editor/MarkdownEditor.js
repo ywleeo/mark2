@@ -257,6 +257,7 @@ export class MarkdownEditor {
         }
 
         this.setupPlainPasteListener();
+        this.setupImagePasteHandler();
         this.setupEmptyViewFocusHandler();
     }
 
@@ -303,6 +304,129 @@ export class MarkdownEditor {
             this.plainPasteUnlisten = unlisten;
         }).catch(error => {
             console.warn('[MarkdownEditor] 无法监听 plain-paste 事件', error);
+        });
+    }
+
+    // 处理粘贴图片或一般文件
+    setupImagePasteHandler() {
+        if (typeof window === 'undefined' || !window.__TAURI__) {
+            return;
+        }
+
+        const editorDom = this.editor?.view?.dom;
+        if (!editorDom) {
+            return;
+        }
+
+        const { invoke } = window.__TAURI__.core;
+        const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico'];
+        let pathModulePromise = null;
+
+        const isImageFile = (path) => {
+            if (!path || typeof path !== 'string') {
+                return false;
+            }
+            const lowerPath = path.toLowerCase();
+            return IMAGE_EXTENSIONS.some(ext => lowerPath.endsWith(ext));
+        };
+
+        const getFallbackFileName = (path) => {
+            if (!path) {
+                return '文件';
+            }
+            const normalized = path.replace(/\\/g, '/');
+            const parts = normalized.split('/');
+            const candidate = parts[parts.length - 1];
+            return candidate && candidate.length > 0 ? candidate : path;
+        };
+
+        const escapeMarkdownLabel = (text) => {
+            if (!text) {
+                return '';
+            }
+            return text.replace(/([\[\]])/g, '\\$1');
+        };
+
+        editorDom.addEventListener('paste', async (event) => {
+            // 只在编辑器可编辑且获得焦点时处理
+            if (!this.editor || !this.editor.isEditable) {
+                return;
+            }
+            if (typeof this.editor.isFocused === 'function' && !this.editor.isFocused()) {
+                return;
+            }
+
+            try {
+                // 调用 Tauri 命令读取剪贴板文件路径
+                const filePaths = await invoke('read_clipboard_file_paths');
+
+                if (!filePaths || filePaths.length === 0) {
+                    // 没有文件，允许默认粘贴行为
+                    return;
+                }
+
+                const imagePaths = [];
+                const otherPaths = [];
+                filePaths.forEach((path) => {
+                    if (isImageFile(path)) {
+                        imagePaths.push(path);
+                    } else {
+                        otherPaths.push(path);
+                    }
+                });
+
+                if (imagePaths.length === 0 && otherPaths.length === 0) {
+                    // 没有可处理的文件，允许默认粘贴行为
+                    return;
+                }
+
+                // 阻止默认粘贴行为
+                event.preventDefault();
+
+                const markdownSegments = [];
+
+                if (imagePaths.length > 0) {
+                    markdownSegments.push(imagePaths.map(path => `![](${path})`).join('\n'));
+                }
+
+                if (otherPaths.length > 0) {
+                    if (!pathModulePromise) {
+                        pathModulePromise = import('@tauri-apps/api/path');
+                    }
+                    let basenameFn = null;
+                    try {
+                        const pathModule = await pathModulePromise;
+                        basenameFn = pathModule?.basename;
+                    } catch (error) {
+                        console.warn('[MarkdownEditor] 动态加载 path 模块失败:', error);
+                        pathModulePromise = null;
+                    }
+                    const linkMarkdown = [];
+                    for (const filePath of otherPaths) {
+                        let displayName = null;
+                        if (typeof basenameFn === 'function') {
+                            try {
+                                displayName = await basenameFn(filePath);
+                            } catch (error) {
+                                console.warn('[MarkdownEditor] 解析文件名失败:', error);
+                            }
+                        }
+                        const fallbackName = getFallbackFileName(filePath);
+                        const linkText = escapeMarkdownLabel(displayName || fallbackName || '文件');
+                        linkMarkdown.push(`[${linkText}](${filePath})`);
+                    }
+                    markdownSegments.push(linkMarkdown.join('\n'));
+                }
+
+                const finalMarkdown = markdownSegments.filter(Boolean).join('\n');
+                if (finalMarkdown) {
+                    this.insertTextAtCursor(finalMarkdown);
+                }
+
+            } catch (error) {
+                console.warn('[MarkdownEditor] 读取剪贴板文件路径失败', error);
+                // 出错时允许默认粘贴行为
+            }
         });
     }
 
@@ -445,6 +569,48 @@ export class MarkdownEditor {
         return /^https?:\/\//.test(href) || /^mailto:/.test(href);
     }
 
+    isFileUrl(href) {
+        return typeof href === 'string' && href.trim().toLowerCase().startsWith('file://');
+    }
+
+    isAbsoluteLocalPath(href) {
+        return /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(href);
+    }
+
+    fileUrlToFsPath(urlString) {
+        try {
+            const url = new URL(urlString);
+            if (url.protocol !== 'file:') {
+                return null;
+            }
+            let pathname = decodeURIComponent(url.pathname || '');
+            if (url.host) {
+                pathname = `//${url.host}${pathname}`;
+            }
+            if (/^\/[A-Za-z]:/.test(pathname)) {
+                pathname = pathname.slice(1);
+            }
+            return pathname;
+        } catch (error) {
+            console.warn('解析 file:// 链接失败:', { urlString, error });
+            return null;
+        }
+    }
+
+    ensureMarkdownExtension(path) {
+        if (!path) {
+            return path;
+        }
+        const trimmed = path.replace(/[\\/]+$/, '');
+        const lower = trimmed.toLowerCase();
+        const hasMarkdownExt = lower.endsWith('.md') || lower.endsWith('.markdown');
+        const hasAnyExt = /\.[A-Za-z0-9]+$/.test(trimmed);
+        if (!hasMarkdownExt && !hasAnyExt) {
+            return `${trimmed}.md`;
+        }
+        return trimmed;
+    }
+
     // 打开外部链接
     async openExternalLink(url) {
         try {
@@ -472,16 +638,25 @@ export class MarkdownEditor {
             const decodedHref = decodeURIComponent(href);
 
             // 解析相对路径为绝对路径
-            let targetPath = await join(currentDir, decodedHref);
-
-            // 如果没有 .md 扩展名，尝试添加
-            if (!targetPath.endsWith('.md') && !targetPath.endsWith('.markdown')) {
-                targetPath = targetPath + '.md';
+            let targetPath = null;
+            if (this.isFileUrl(decodedHref)) {
+                targetPath = this.fileUrlToFsPath(decodedHref);
+            } else if (this.isAbsoluteLocalPath(decodedHref)) {
+                targetPath = decodedHref;
+            } else {
+                targetPath = await join(currentDir, decodedHref);
             }
+
+            if (!targetPath) {
+                console.warn('[MarkdownEditor] 无法解析链接路径:', href);
+                return;
+            }
+
+            const normalizedTarget = this.ensureMarkdownExtension(normalizeFsPath(targetPath) || targetPath);
 
             // 触发文件打开事件
             window.dispatchEvent(new CustomEvent('open-file', {
-                detail: { path: targetPath }
+                detail: { path: normalizedTarget }
             }));
         } catch (error) {
             console.error('打开文档链接失败:', error);
@@ -627,7 +802,8 @@ export class MarkdownEditor {
             : null;
 
         const processedBold = this.preprocessBold(normalizedMarkdown);
-        const processed = this.preprocessListIndentation(processedBold);
+        const processedLinks = this.preprocessLinkDestinations(processedBold);
+        const processed = this.preprocessListIndentation(processedLinks);
         const html = this.md.render(processed);
         const resolvedHtml = await resolveImageSources(html, this.currentFile);
         if (sessionId && sessionId !== this.currentSessionId) {
@@ -740,6 +916,31 @@ export class MarkdownEditor {
             /(^|[^*])\*\*([\s\S]+?)\*\*(?!\*)/g,
             (match, prefix, content) => `${prefix}<strong>${content}</strong>`
         );
+    }
+
+    // 预处理包含空格的图片/链接地址，将其自动包裹在尖括号中，便于 MarkdownIt 正常解析
+    preprocessLinkDestinations(markdown) {
+        if (!markdown) {
+            return '';
+        }
+        const pattern = /(!?\[[^\]]*\]\()([^)\n]+)(\))/g;
+        return markdown.replace(pattern, (match, prefix, target, suffix) => {
+            const trimmed = target.trim();
+            if (!trimmed || trimmed.startsWith('<')) {
+                return match;
+            }
+            if (!/\s/.test(trimmed)) {
+                return match;
+            }
+            // 如果包含潜在的标题（"title" 或 'title'），跳过避免误处理
+            if (trimmed.includes('"') || trimmed.includes("'")) {
+                return match;
+            }
+            const leading = target.match(/^\s*/)?.[0] ?? '';
+            const trailing = target.match(/\s*$/)?.[0] ?? '';
+            const escaped = trimmed.replace(/>/g, '\\>');
+            return `${prefix}${leading}<${escaped}>${trailing}${suffix}`;
+        });
     }
 
     // 预处理列表缩进
@@ -1073,7 +1274,8 @@ export class MarkdownEditor {
         }
         const content = typeof markdown === 'string' ? markdown : '';
         const processedBold = this.preprocessBold(content);
-        const processed = this.preprocessListIndentation(processedBold);
+        const processedLinks = this.preprocessLinkDestinations(processedBold);
+        const processed = this.preprocessListIndentation(processedLinks);
         const html = this.md.render(processed);
 
         const { state } = this.editor;
@@ -1107,7 +1309,8 @@ export class MarkdownEditor {
         // 在AI生成内容前后添加分割线
         const contentWithSeparator = '\n\n### 🤖 生成内容\n\n' + content + '\n\n---\n\n';
         const processedBold = this.preprocessBold(contentWithSeparator);
-        const processed = this.preprocessListIndentation(processedBold);
+        const processedLinks = this.preprocessLinkDestinations(processedBold);
+        const processed = this.preprocessListIndentation(processedLinks);
         const html = this.md.render(processed);
 
         const { state } = this.editor;
@@ -1270,7 +1473,8 @@ export class MarkdownEditor {
 
         if (content.length > 0) {
             const processedBold = this.preprocessBold(content);
-            const processed = this.preprocessListIndentation(processedBold);
+            const processedLinks = this.preprocessLinkDestinations(processedBold);
+            const processed = this.preprocessListIndentation(processedLinks);
             const html = this.md.render(processed);
             chain = chain.insertContent(html);
         }
