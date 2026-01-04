@@ -106,6 +106,7 @@ export class SelectionToolbar {
                             <div class="ai-style-option" data-value="wechat">公众号</div>
                             <div class="ai-style-option" data-value="toutiao">头条</div>
                             <div class="ai-style-option" data-value="douyin">抖音</div>
+                            <div class="ai-style-option" data-value="shipinhao">视频号</div>
                             <div class="ai-style-option" data-value="taobao">淘宝</div>
                         </div>
                         <div class="ai-style-group">
