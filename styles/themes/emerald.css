@@ -59,7 +59,7 @@
     --theme-code-bg: rgba(79, 209, 197, 0.22);
     --theme-code-block-bg: #19291f;
     --theme-link: #7df3d5;
-    --theme-heading-border: #4ade80;
+    --theme-heading-border: #aaaaaa4d;
     --theme-quote-border: #8bf19b;
     --theme-quote-text: #9f9f9f;
     --theme-table-header-bg: #1c2d22;
@@ -142,7 +142,6 @@
     font-size: 1.5em !important;
     margin-bottom: 15px;
     padding: 8px 0;
-    border-bottom: none;
     font-family: inherit;
 }
 
