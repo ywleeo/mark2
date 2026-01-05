@@ -18,6 +18,24 @@
     --theme-table-border: #e9e9e7;
     --theme-inline-code-color: #eb5757;
     --theme-accent: #0b6e99;
+
+    /* Checkbox 颜色 */
+    --task-checkbox-bg: transparent;
+    --task-checkbox-border-color: #d3d1cb;
+    --task-checkbox-shadow: none;
+    --task-checkbox-hover-border: #0b6e99;
+    --task-checkbox-checked-bg: #0b6e99;
+    --task-checkbox-checked-border: #0b6e997d;
+    --task-checkbox-checked-shadow: none;
+    --task-checkbox-check-color: #37352f;
+
+    /* Checkbox 尺寸微调 */
+    --task-checkbox-size: 1.25em;
+    --task-checkbox-border-width: 1.4px;
+    --task-checkbox-radius: 3px;
+    --task-checkbox-check-width: 1.3em;
+    --task-checkbox-check-height: 0.48em;
+    --task-checkbox-check-translate-y: -75%;
 }
 
 :root[data-theme-appearance='dark'] {
@@ -37,6 +55,22 @@
     --theme-table-border: #4b4c50;
     --theme-inline-code-color: #ffc3ac;
     --theme-accent: #7f9cff;
+
+    /* Checkbox 颜色 */
+    --task-checkbox-bg: transparent;
+    --task-checkbox-border-color: #5a5b5f;
+    --task-checkbox-shadow: none;
+    --task-checkbox-hover-border: #80caff;
+    --task-checkbox-checked-bg: #7f9cff;
+    --task-checkbox-checked-border: #7f9dff86;
+    --task-checkbox-checked-shadow: none;
+    --task-checkbox-check-color: #ffffff;
+
+    /* Checkbox 尺寸微调 */
+    --task-checkbox-size: 1.25em;
+    --task-checkbox-border-width: 1.4px;
+    --task-checkbox-radius: 3px;
+    --task-checkbox-check-translate-x: -52%;
 }
 
 /* 标题颜色 */
