@@ -1,33 +1,233 @@
 /**
  * AI 助手模块
- * 提供选中文本的 AI 辅助功能
+ * 提供 Sidebar 式对话交互
  */
+
 import { SelectionToolbar } from './components/SelectionToolbar.js';
-import { PreviewPanel } from './components/PreviewPanel.js';
+import { AISidebar } from './components/AISidebar.js';
+import { createMessageService } from './services/messageService.js';
+import { createContextService } from './services/contextService.js';
+import { createLayoutService } from './services/layoutService.js';
 import { aiService } from './aiService.js';
+import { buildAiRequest } from './prompts/promptComposer.js';
 
 /**
  * 初始化 AI 助手
  */
-export function initAIAssistant({ eventBus, getEditor }) {
+export async function initAIAssistant({ eventBus, getEditor }) {
     console.log('[AI Assistant] 正在初始化...');
 
-    const selectionToolbar = new SelectionToolbar();
-    const previewPanel = new PreviewPanel();
+    // 创建服务
+    const messageService = await createMessageService();
+    const contextService = createContextService({ getEditor });
+    const layoutService = await createLayoutService();
+
     let markdownEditorInstance = null;
+    let currentTaskId = null;
 
-    // 处理 AI 操作
-    const handleAIAction = async (action) => {
-        console.log('[AI Assistant] handleAIAction 被调用', { action });
+    // 创建 Sidebar
+    const sidebar = new AISidebar({
+        messageService,
+        layoutService,
+        onSendMessage: handleSendMessage,
+        onInsertText: handleInsertText,
+        onReplaceText: handleReplaceText,
+        onCancelTask: handleCancelTask,
+    });
 
-        // 隐藏工具栏菜单
-        selectionToolbar.hide();
+    // 渲染 sidebar 到 body
+    document.body.appendChild(sidebar.render());
 
-        const editor = markdownEditorInstance || getEditor();
-        if (!editor) {
-            console.warn('[AI Assistant] 没有可用的编辑器实例');
+    // 创建选择工具栏（保留，用于快速触发）
+    const selectionToolbar = new SelectionToolbar();
+
+    /**
+     * 处理发送消息（chat 输入）
+     */
+    async function handleSendMessage({ message }) {
+        console.log('[AI Assistant] 发送消息:', message);
+
+        // 检查配置
+        const config = aiService.getConfig();
+        if (!config.apiKey) {
+            sidebar.onAIError({ message: '请先在设置中配置 API Key' });
             return;
         }
+
+        // 获取当前上下文
+        const context = contextService.getContext();
+
+        // 构建对话历史
+        const messages = messageService.getAll();
+        const history = messages.map(msg => ({
+            role: msg.role,
+            content: msg.content,
+        }));
+
+        // 添加一个空的 AI 消息占位
+        const assistantMessageIndex = messageService.getCount();
+        messageService.addMessage({
+            role: 'assistant',
+            content: '',
+            thinking: '',
+        });
+
+        // 调用 AI（流式模式）
+        try {
+            currentTaskId = aiService.generateTaskId();
+
+            const systemPrompt = buildSystemPrompt(context);
+            const apiMessages = [
+                {
+                    role: 'system',
+                    content: systemPrompt,
+                },
+                ...history,
+            ];
+
+            // 订阅流式事件
+            const streamUnsubscribe = aiService.subscribe((event) => {
+                if (!event || event.id !== currentTaskId) {
+                    return;
+                }
+
+                switch (event.type) {
+                    case 'task-stream-start':
+                        break;
+
+                    case 'task-stream-chunk':
+                        sidebar.updateStreamMessage(assistantMessageIndex, {
+                            content: event.buffer || '',
+                        });
+                        break;
+
+                    case 'task-stream-think':
+                        sidebar.updateStreamMessage(assistantMessageIndex, {
+                            thinking: event.buffer || '',
+                        });
+                        break;
+
+                    case 'task-stream-end':
+                        // 更新 UI
+                        sidebar.updateStreamMessage(assistantMessageIndex, {
+                            content: event.buffer || '',
+                            thinking: event.thinkBuffer || '',
+                        });
+                        // 保存到存储
+                        messageService.updateMessage(assistantMessageIndex, {
+                            content: event.buffer || '',
+                            thinking: event.thinkBuffer || '',
+                        });
+                        sidebar.onAIComplete();
+                        streamUnsubscribe();
+                        currentTaskId = null;
+                        break;
+
+                    case 'task-failed':
+                        sidebar.onAIError({ message: event.error || 'AI 处理失败' });
+                        streamUnsubscribe();
+                        currentTaskId = null;
+                        break;
+
+                    case 'task-cancelled':
+                        sidebar.onAIComplete();
+                        messageService.addMessage({
+                            role: 'assistant',
+                            content: '已取消操作',
+                        });
+                        streamUnsubscribe();
+                        currentTaskId = null;
+                        break;
+                }
+            });
+
+            // 开始任务
+            await aiService.runTask({
+                messages: apiMessages,
+                temperature: 0.7,
+                taskId: currentTaskId,
+            });
+        } catch (error) {
+            console.error('[AI Assistant] AI 处理失败:', error);
+            // 如果是取消操作，不显示错误
+            if (error.message !== '请求已取消') {
+                sidebar.onAIError(error);
+            }
+            currentTaskId = null;
+        }
+    }
+
+    /**
+     * 构建系统提示词
+     */
+    function buildSystemPrompt(context) {
+        let prompt = '你是一个专业的写作助手。';
+
+        if (context.hasSelection) {
+            prompt += `\n\n用户当前选中的文本：\n${context.selectedText}`;
+        }
+
+        if (context.documentContent) {
+            prompt += `\n\n文档上下文（前500字）：\n${context.documentContent.substring(0, 500)}`;
+        }
+
+        return prompt;
+    }
+
+    /**
+     * 插入文本到编辑器
+     */
+    function handleInsertText(content) {
+        const editor = markdownEditorInstance || getEditor();
+        if (!editor) {
+            console.warn('[AI Assistant] 没有可用的编辑器');
+            return;
+        }
+
+        if (editor.insertAfterSelectionWithAIContent) {
+            editor.insertAfterSelectionWithAIContent(content);
+        } else if (editor.replaceSelectionWithAIContent) {
+            editor.replaceSelectionWithAIContent(content);
+        } else {
+            console.warn('[AI Assistant] 编辑器不支持插入内容');
+        }
+    }
+
+    /**
+     * 替换选中文本
+     */
+    function handleReplaceText(content) {
+        const editor = markdownEditorInstance || getEditor();
+        if (!editor) {
+            console.warn('[AI Assistant] 没有可用的编辑器');
+            return;
+        }
+
+        if (editor.replaceSelectionWithAIContent) {
+            editor.replaceSelectionWithAIContent(content);
+        } else {
+            console.warn('[AI Assistant] 编辑器不支持替换内容');
+        }
+    }
+
+    /**
+     * 取消当前任务
+     */
+    function handleCancelTask() {
+        if (currentTaskId) {
+            aiService.cancelTask(currentTaskId);
+            currentTaskId = null;
+        }
+    }
+
+    /**
+     * 处理 AI 操作（从工具栏或右键菜单触发）
+     */
+    const handleAIAction = async (action) => {
+        console.log('[AI Assistant] 工具栏触发:', action);
+
+        // 隐藏工具栏
+        selectionToolbar.hide();
 
         // 检查配置
         const config = aiService.getConfig();
@@ -36,49 +236,140 @@ export function initAIAssistant({ eventBus, getEditor }) {
             return;
         }
 
-        // 获取选中文本
-        let selectedText = editor?.getSelectedMarkdown?.();
-        if (!selectedText || selectedText.trim().length === 0) {
+        // 获取选中文本和文档内容
+        const context = contextService.getContext();
+        if (!context.hasSelection) {
             console.warn('[AI Assistant] 没有选中文本');
             return;
         }
 
-        // 获取完整文档
-        let documentContent = editor?.getMarkdown?.() || '';
+        // 打开 sidebar
+        sidebar.show();
 
-        // 获取工具栏选择的风格（优先级高于设置中的默认风格）
-        // 根据 action 类型获取对应的风格
-        const currentStyle = selectionToolbar.getCurrentStyle(action);
-
-        // 显示预览面板并处理
-        await previewPanel.show(action, selectedText, documentContent, {
-            outputStyle: currentStyle, // 传入当前选择的风格
-            onApply: (resultText, mode = 'replace') => {
-                if (mode === 'replace') {
-                    // 替换选中内容
-                    if (editor?.replaceSelectionWithAIContent) {
-                        editor.replaceSelectionWithAIContent(resultText);
-                    } else {
-                        console.warn('[AI Assistant] 编辑器不支持替换内容');
-                    }
-                    console.log('[AI Assistant] 已替换 AI 结果');
-                } else if (mode === 'append') {
-                    // 在选中内容后增加
-                    if (editor?.insertAfterSelectionWithAIContent) {
-                        editor.insertAfterSelectionWithAIContent(resultText);
-                        console.log('[AI Assistant] 已增加 AI 结果');
-                    } else {
-                        console.warn('[AI Assistant] 编辑器不支持插入内容');
-                    }
-                }
-            },
-            onCancel: () => {
-                console.log('[AI Assistant] 用户取消');
-            },
+        // 添加用户消息（显示友好的提示）
+        const actionLabels = {
+            polish: '帮我润色这段文字',
+            continue: '继续写这段内容',
+            expand: '扩写这段内容',
+            compress: '精简这段内容',
+            simplify: '精简这段内容',
+            summarize: '总结这段内容',
+            translate: '翻译这段内容',
+        };
+        const userMessage = actionLabels[action] || '处理这段文字';
+        messageService.addMessage({
+            role: 'user',
+            content: userMessage,
         });
+
+        // 显示处理状态
+        const actionStatusLabels = {
+            polish: '正在润色',
+            continue: '正在续写',
+            expand: '正在扩写',
+            compress: '正在精简',
+            simplify: '正在精简',
+            summarize: '正在总结',
+            translate: '正在翻译',
+        };
+        const statusText = actionStatusLabels[action] || '正在处理';
+        sidebar.onAIStart(statusText);
+
+        // 添加 AI 消息占位
+        const assistantMessageIndex = messageService.getCount();
+        messageService.addMessage({
+            role: 'assistant',
+            content: '',
+            thinking: '',
+        });
+
+        try {
+            // 使用和 PreviewPanel 相同的方式构建请求
+            const request = await buildAiRequest(
+                action,
+                context.selectedText,
+                context.documentContent,
+                config.preferences
+            );
+
+            const taskId = aiService.generateTaskId();
+            currentTaskId = taskId;
+
+            // 订阅流式事件
+            const streamUnsubscribe = aiService.subscribe((event) => {
+                if (!event || event.id !== taskId) {
+                    return;
+                }
+
+                switch (event.type) {
+                    case 'task-stream-start':
+                        break;
+
+                    case 'task-stream-chunk':
+                        sidebar.updateStreamMessage(assistantMessageIndex, {
+                            content: event.buffer || '',
+                        });
+                        break;
+
+                    case 'task-stream-think':
+                        sidebar.updateStreamMessage(assistantMessageIndex, {
+                            thinking: event.buffer || '',
+                        });
+                        break;
+
+                    case 'task-stream-end':
+                        // 更新 UI
+                        sidebar.updateStreamMessage(assistantMessageIndex, {
+                            content: event.buffer || '',
+                            thinking: event.thinkBuffer || '',
+                        });
+                        // 保存到存储
+                        messageService.updateMessage(assistantMessageIndex, {
+                            content: event.buffer || '',
+                            thinking: event.thinkBuffer || '',
+                        });
+                        sidebar.onAIComplete();
+                        streamUnsubscribe();
+                        currentTaskId = null;
+                        break;
+
+                    case 'task-failed':
+                        sidebar.onAIError({ message: event.error || 'AI 处理失败' });
+                        streamUnsubscribe();
+                        currentTaskId = null;
+                        break;
+
+                    case 'task-cancelled':
+                        sidebar.onAIComplete();
+                        messageService.addMessage({
+                            role: 'assistant',
+                            content: '已取消操作',
+                        });
+                        streamUnsubscribe();
+                        currentTaskId = null;
+                        break;
+                }
+            });
+
+            // 运行任务
+            await aiService.runTask({
+                messages: request.messages,
+                temperature: request.temperature,
+                taskId,
+            });
+        } catch (error) {
+            console.error('[AI Assistant] AI 处理失败:', error);
+            // 如果是取消操作，不显示错误
+            if (error.message !== '请求已取消') {
+                sidebar.onAIError(error);
+            }
+            currentTaskId = null;
+        }
     };
 
-    // 绑定编辑器
+    /**
+     * 绑定 Markdown 编辑器
+     */
     const bindMarkdownEditor = (editorInstance) => {
         if (!editorInstance) {
             console.warn('[AI Assistant] bindMarkdownEditor 调用时没有可用的编辑器实例');
@@ -93,6 +384,7 @@ export function initAIAssistant({ eventBus, getEditor }) {
         markdownEditorInstance = editorInstance;
         console.log('[AI Assistant] Markdown 编辑器已绑定');
 
+        // 仍然保留工具栏，用于快速操作
         if (selectionToolbar) {
             selectionToolbar.init(editorInstance, handleAIAction);
         }
@@ -100,7 +392,7 @@ export function initAIAssistant({ eventBus, getEditor }) {
 
     // 监听编辑器就绪事件
     if (eventBus) {
-        const unsubscribe = eventBus.on('editor:ready', (payload = {}) => {
+        eventBus.on('editor:ready', (payload = {}) => {
             console.log('[AI Assistant] 收到 editor:ready 事件');
             if (payload?.markdownEditor) {
                 bindMarkdownEditor(payload.markdownEditor);
@@ -116,12 +408,24 @@ export function initAIAssistant({ eventBus, getEditor }) {
 
     // 导出 API
     return {
+        sidebar,
         selectionToolbar,
-        previewPanel,
+        messageService,
+        contextService,
+        layoutService,
         aiService,
+        toggleSidebar() {
+            sidebar.toggle();
+        },
+        showSidebar() {
+            sidebar.show();
+        },
+        hideSidebar() {
+            sidebar.hide();
+        },
         destroy() {
             selectionToolbar?.destroy?.();
-            previewPanel?.destroy?.();
+            sidebar?.destroy?.();
             markdownEditorInstance = null;
         }
     };

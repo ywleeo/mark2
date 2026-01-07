@@ -632,7 +632,7 @@ async function initializeApplication() {
     });
 
     // 初始化 AI 助手
-    aiAssistant = initAIAssistant({
+    aiAssistant = await initAIAssistant({
         eventBus,
         getEditor: () => editorRegistry.getMarkdownEditor(),
     });
@@ -745,6 +745,7 @@ async function initializeApplication() {
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
+        onToggleAISidebar: () => aiAssistant?.toggleSidebar?.(),
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
         onRenameActiveFile: handleRenameActiveFile,

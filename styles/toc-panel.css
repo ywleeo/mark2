@@ -13,7 +13,7 @@
     overflow: hidden;
     opacity: 0;
     transform: translateX(20px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease, right 0.3s ease;
     pointer-events: none;
 
     /* 毛玻璃效果 */
@@ -24,6 +24,11 @@
     border: 1px solid rgba(255, 255, 255, 0.3);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1),
                 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* AI Sidebar 显示时调整 TOC 位置 */
+body.ai-sidebar-visible .toc-panel {
+    right: calc(20px + var(--ai-sidebar-width, 380px));
 }
 
 /* 暗色模式 */
