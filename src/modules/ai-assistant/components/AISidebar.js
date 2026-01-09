@@ -3,6 +3,7 @@
  * 组装所有子组件并协调交互
  */
 
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { ResizeHandle } from './ResizeHandle.js';
 import { SidebarHeader } from './SidebarHeader.js';
 import { ConversationList } from './ConversationList.js';
@@ -53,6 +54,7 @@ export class AISidebar {
         this.conversationList = new ConversationList({
             onInsert: (content) => this.handleInsert(content),
             onReplace: (content) => this.handleReplace(content),
+            onDelete: (index) => this.handleDelete(index),
         });
 
         this.chatInput = new ChatInput({
@@ -109,6 +111,7 @@ export class AISidebar {
 
         // 设置处理中状态
         this.chatInput.setProcessing(true, '正在思考');
+        this.conversationList.setProcessing(true);
 
         // 调用外部发送处理
         if (this.onSendMessage) {
@@ -118,6 +121,7 @@ export class AISidebar {
 
     handleCancel() {
         this.chatInput.setProcessing(false);
+        this.conversationList.setProcessing(false);
         if (this.onCancelTask) {
             this.onCancelTask();
         }
@@ -135,8 +139,21 @@ export class AISidebar {
         }
     }
 
+    async handleDelete(index) {
+        const confirmed = await confirm('确定要删除这条消息吗？', {
+            title: '删除消息',
+            kind: 'warning',
+        });
+        if (confirmed) {
+            this.messageService.deleteMessage(index);
+        }
+    }
+
     async handleClearHistory() {
-        const confirmed = await confirm('确定要清除所有对话历史吗？');
+        const confirmed = await confirm('确定要清除所有对话历史吗？', {
+            title: '清除历史',
+            kind: 'warning',
+        });
         if (confirmed) {
             this.messageService.clearAll();
         }
@@ -163,6 +180,7 @@ export class AISidebar {
      */
     onAIStart(actionText = '处理中') {
         this.chatInput.setProcessing(true, actionText);
+        this.conversationList.setProcessing(true);
     }
 
     /**
@@ -170,6 +188,7 @@ export class AISidebar {
      */
     onAIComplete() {
         this.chatInput.setProcessing(false);
+        this.conversationList.setProcessing(false);
         this.chatInput.focus();
     }
 
@@ -183,6 +202,7 @@ export class AISidebar {
         });
 
         this.chatInput.setProcessing(false);
+        this.conversationList.setProcessing(false);
     }
 
     /**

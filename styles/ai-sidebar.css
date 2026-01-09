@@ -273,6 +273,11 @@ body.ai-sidebar-visible .ai-sidebar {
     margin-top: 4px;
 }
 
+/* AI 处理中隐藏操作按钮 */
+.ai-conversation-list.ai-processing .ai-message-actions {
+    display: none;
+}
+
 .ai-action-btn {
     padding: 6px 12px;
     font-size: 12px;
@@ -322,6 +327,27 @@ body.ai-sidebar-visible .ai-sidebar {
     opacity: 0.6;
 }
 
+.ai-sidebar-input-field {
+    scrollbar-width: thin; /* Firefox */
+}
+
+.ai-sidebar-input-field::-webkit-scrollbar {
+    width: 2px !important; /* Chrome/Safari/Edge */
+}
+
+.ai-sidebar-input-field::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-sidebar-input-field::-webkit-scrollbar-thumb {
+    background: var(--ai-sidebar-border);
+    border-radius: 1px;
+}
+
+.ai-sidebar-input-field::-webkit-scrollbar-thumb:hover {
+    background: var(--ai-sidebar-text-secondary);
+}
+
 .ai-sidebar-input-actions {
     display: flex;
     gap: 8px;
@@ -365,8 +391,12 @@ body.ai-sidebar-visible .ai-sidebar {
 }
 
 /* 滚动条样式 */
+.ai-conversation-list {
+    scrollbar-width: thin; /* Firefox */
+}
+
 .ai-conversation-list::-webkit-scrollbar {
-    width: 6px;
+    width: 2px !important; /* Chrome/Safari/Edge */
 }
 
 .ai-conversation-list::-webkit-scrollbar-track {
@@ -375,7 +405,7 @@ body.ai-sidebar-visible .ai-sidebar {
 
 .ai-conversation-list::-webkit-scrollbar-thumb {
     background: var(--ai-sidebar-border);
-    border-radius: 3px;
+    border-radius: 1px;
 }
 
 .ai-conversation-list::-webkit-scrollbar-thumb:hover {

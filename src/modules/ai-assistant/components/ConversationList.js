@@ -156,6 +156,18 @@ export class ConversationList {
     }
 
     /**
+     * 设置 AI 处理状态（控制按钮可见性）
+     */
+    setProcessing(processing) {
+        if (!this.element) return;
+        if (processing) {
+            this.element.classList.add('ai-processing');
+        } else {
+            this.element.classList.remove('ai-processing');
+        }
+    }
+
+    /**
      * 绑定操作按钮事件
      */
     bindActions(container) {
