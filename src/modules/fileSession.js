@@ -1,3 +1,5 @@
+import { parseCsvToSpreadsheetData } from '../utils/csvParser.js';
+
 const UTF8_ERROR_SNIPPETS = [
     'valid utf-8',
     'invalid utf-8',
@@ -24,6 +26,7 @@ export function createFileSession({
     readSpreadsheet,
     readBinaryBase64,
     getViewModeForPath,
+    isCsvFilePath,
 }) {
     if (typeof getViewModeForPath !== 'function') {
         throw new Error('createFileSession 需要提供 getViewModeForPath 函数');
@@ -99,7 +102,16 @@ export function createFileSession({
 
         try {
             if (viewMode === 'spreadsheet') {
-                const workbook = await readSpreadsheetFn(filePath);
+                let workbook;
+                // CSV 文件使用 JavaScript 解析器
+                if (isCsvFilePath && isCsvFilePath(filePath)) {
+                    const csvText = await readText(filePath);
+                    const fileName = filePath.split(/[/\\]/).pop() || 'Sheet1';
+                    workbook = parseCsvToSpreadsheetData(csvText, fileName);
+                } else {
+                    // Excel 文件使用 Rust 后端解析
+                    workbook = await readSpreadsheetFn(filePath);
+                }
                 const result = {
                     content: workbook,
                     hasChanges: false,

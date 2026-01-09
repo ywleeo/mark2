@@ -8,6 +8,7 @@ export function setupKeyboardShortcuts({
     // onToggleSidebar 由 Tauri 菜单统一处理
     onToggleMarkdownCodeView,
     onToggleSvgCodeView,
+    onToggleCsvTableView,
 }) {
     const handler = async (event) => {
         const isMeta = event.metaKey || event.ctrlKey;
@@ -43,19 +44,20 @@ export function setupKeyboardShortcuts({
         if (isMeta && key === 'e') {
             event.preventDefault();
             // 根据文件类型决定调用哪个切换函数
-            if (onToggleSvgCodeView && onToggleMarkdownCodeView) {
-                // 如果两个函数都存在，让它们内部自己检查文件类型
-                // 先尝试 SVG 切换
+            // 优先级：SVG -> CSV -> Markdown
+            if (onToggleSvgCodeView) {
                 const svgResult = await onToggleSvgCodeView();
-                // 如果 SVG 切换没有生效（不是 SVG 文件），再尝试 Markdown 切换
-                if (!svgResult) {
-                    // svgResult 为 undefined，说明 SVG 切换没有生效，尝试 Markdown 切换
-                    await onToggleMarkdownCodeView();
+                if (svgResult) {
+                    return; // SVG 切换成功，直接返回
                 }
-                // 如果 svgResult 有值（不管 changed 是 true 还是 false），说明 SVG 函数已经处理了
-            } else if (onToggleSvgCodeView) {
-                await onToggleSvgCodeView();
-            } else if (onToggleMarkdownCodeView) {
+            }
+            if (onToggleCsvTableView) {
+                const csvResult = await onToggleCsvTableView();
+                if (csvResult) {
+                    return; // CSV 切换成功，直接返回
+                }
+            }
+            if (onToggleMarkdownCodeView) {
                 await onToggleMarkdownCodeView();
             }
             return;

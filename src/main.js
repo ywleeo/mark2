@@ -12,7 +12,7 @@ import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath } from './utils/fileTypeUtils.js';
+import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath, isCsvFilePath } from './utils/fileTypeUtils.js';
 import {
     applyEditorSettings,
     // 龙来撒来
@@ -34,7 +34,7 @@ import {
     listFonts,
 } from './api/filesystem.js';
 import { registerDocumentIO, getDocumentApi } from './api/document.js';
-import { setExportMenuEnabled } from './api/native.js';
+import { setExportMenuEnabled, setAISidebarMenuEnabled } from './api/native.js';
 import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
 import { createRecentFilesService } from './services/recentFilesService.js';
@@ -45,6 +45,7 @@ import { createFileWatcherController } from './modules/fileWatchers.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
 import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
 import { createSvgCodeMode } from './modules/svgCodeMode.js';
+import { createCsvTableMode } from './modules/csvTableMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
 import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
@@ -96,6 +97,7 @@ const recentFilesService = createRecentFilesService();
 const fileSession = createFileSession({
     fileService: ensureFileService(),
     getViewModeForPath,
+    isCsvFilePath,
 });
 const documentSessions = createDocumentSessionManager();
 let appServices = null;
@@ -139,6 +141,23 @@ async function updateExportMenuState() {
         await setExportMenuEnabled(shouldEnable);
     } catch (error) {
         console.warn('更新导出菜单状态失败:', error);
+    }
+}
+
+async function updateAISidebarMenuState() {
+    const currentFile = appState.getCurrentFile();
+    const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
+
+    if (appState.getAISidebarMenuEnabledState() === hasMarkdownFile) {
+        return;
+    }
+
+    appState.setAISidebarMenuEnabledState(hasMarkdownFile);
+
+    try {
+        await setAISidebarMenuEnabled(hasMarkdownFile);
+    } catch (error) {
+        console.warn('更新 AI 助手菜单状态失败:', error);
     }
 }
 
@@ -207,6 +226,7 @@ const editorActions = createEditorActions({
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getSvgCodeMode: () => appState.getSvgCodeMode(),
+    getCsvTableMode: () => appState.getCsvTableMode(),
     getCurrentFile: () => appState.getCurrentFile(),
     setHasUnsavedChanges: (value) => {
         appState.setHasUnsavedChanges(value);
@@ -218,6 +238,7 @@ const editorActions = createEditorActions({
     updateWindowTitle,
     fileSession,
     getImageViewer: () => editorRegistry.getImageViewer(),
+    getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getFileService: () => appServices?.file,
     getLoadFile: () => ({ openPathsFromSelection, loadFile }),
 });
@@ -225,6 +246,7 @@ const {
     insertTextIntoActiveEditor,
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
+    toggleCsvTableMode,
     requestActiveEditorContext,
 } = editorActions;
 
@@ -316,6 +338,26 @@ function handleToolbarOnFileChange(nextPath) {
     }
 
     syncToolbarWithCurrentContext();
+}
+
+function handleAISidebarOnFileChange(nextPath) {
+    // 更新菜单状态
+    void updateAISidebarMenuState();
+
+    if (!aiAssistant) {
+        return;
+    }
+
+    // 如果不是 markdown 文件，隐藏 AI sidebar
+    if (!nextPath || !isMarkdownFilePath(nextPath)) {
+        aiAssistant.hideSidebar?.();
+        return;
+    }
+
+    // markdown 文件时，如果之前在 MD 文件中打开过，则自动恢复打开状态
+    if (appState.getAISidebarWasOpenInMarkdown()) {
+        aiAssistant.showSidebar?.();
+    }
 }
 
 function syncToolbarWithCurrentContext(options = {}) {
@@ -414,6 +456,7 @@ const {
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
         handleToolbarOnFileChange(value);
+        handleAISidebarOnFileChange(value);
     },
     getActiveViewMode: () => appState.getActiveViewMode(),
     setHasUnsavedChanges: (value) => {
@@ -450,6 +493,7 @@ function clearActiveFileView() {
     appState.setCurrentFile(null);
     appState.setHasUnsavedChanges(false);
     handleToolbarOnFileChange(null);
+    handleAISidebarOnFileChange(null);
     documentSessions.closeActiveSession();
 
     editorRegistry.clearAllContents();
@@ -542,6 +586,7 @@ const {
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
         handleToolbarOnFileChange(value);
+        handleAISidebarOnFileChange(value);
     },
     getHasUnsavedChanges: () => appState.getHasUnsavedChanges(),
     setHasUnsavedChanges: (value) => {
@@ -638,6 +683,17 @@ async function initializeApplication() {
     });
     console.log('[App] AI 助手已初始化');
 
+    // 订阅 AI sidebar 可见性变化，自动更新状态
+    if (aiAssistant?.layoutService) {
+        aiAssistant.layoutService.subscribe((state) => {
+            const currentFile = appState.getCurrentFile();
+            // 只在 MD 文件激活时记录状态
+            if (currentFile && isMarkdownFilePath(currentFile)) {
+                appState.setAISidebarWasOpenInMarkdown(state.visible);
+            }
+        });
+    }
+
     const markdownCodeMode = createMarkdownCodeMode({
         detectLanguageForPath,
         isMarkdownFilePath,
@@ -651,6 +707,14 @@ async function initializeApplication() {
         activateImageView,
     });
     appState.setSvgCodeMode(svgCodeMode);
+
+    const csvTableMode = createCsvTableMode({
+        isCsvFilePath,
+        activateSpreadsheetView,
+        activateCodeView,
+        detectLanguageForPath,
+    });
+    appState.setCsvTableMode(csvTableMode);
 
     // 初始化文件树
     const fileTree = setupFileTree({
@@ -730,6 +794,7 @@ async function initializeApplication() {
         onToggleSidebar: toggleSidebarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleSvgCodeView: toggleSvgCodeMode,
+        onToggleCsvTableView: toggleCsvTableMode,
     }));
     appState.setCleanupFunction('menuListeners', await registerMenuListeners({
         onAbout: showAboutDialog,
@@ -745,7 +810,10 @@ async function initializeApplication() {
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
-        onToggleAISidebar: () => aiAssistant?.toggleSidebar?.(),
+        onToggleAISidebar: () => {
+            aiAssistant?.toggleSidebar?.();
+            // 状态更新由 layoutService.subscribe 自动处理
+        },
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
         onRenameActiveFile: handleRenameActiveFile,
@@ -769,6 +837,7 @@ async function initializeApplication() {
     // 发布应用初始化完成事件
     eventBus.emit('app:initialized');
     void updateExportMenuState();
+    void updateAISidebarMenuState();
 
     // 更新最近文件菜单
     void updateRecentMenu();

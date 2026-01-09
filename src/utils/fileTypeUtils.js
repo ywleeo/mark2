@@ -23,6 +23,7 @@ const SPREADSHEET_EXTENSIONS = new Set([
     'xlt',
     'xltx',
     'xltm',
+    'csv',
 ]);
 const PDF_EXTENSIONS = new Set(['pdf']);
 const CODE_SUFFIX_LANGUAGE_MAP = [
@@ -187,6 +188,11 @@ export function isSpreadsheetFilePath(filePath) {
     }
 
     return SPREADSHEET_EXTENSIONS.has(match[1]);
+}
+
+export function isCsvFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    return normalized.endsWith('.csv');
 }
 
 export function isPdfFilePath(filePath) {

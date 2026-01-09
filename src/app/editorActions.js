@@ -5,6 +5,7 @@ export function createEditorActions({
     getCodeEditor,
     getMarkdownCodeMode,
     getSvgCodeMode,
+    getCsvTableMode,
     getCurrentFile,
     setHasUnsavedChanges,
     saveCurrentEditorContentToCache,
@@ -12,6 +13,7 @@ export function createEditorActions({
     updateWindowTitle,
     fileSession,
     getImageViewer,
+    getSpreadsheetViewer,
     getFileService,
     getLoadFile,
 }) {
@@ -179,6 +181,33 @@ export function createEditorActions({
         void updateWindowTitle?.();
     }
 
+    async function toggleCsvTableMode() {
+        const csvTableMode = getCsvTableMode?.();
+        if (!csvTableMode) {
+            return;
+        }
+
+        const spreadsheetViewer = getSpreadsheetViewer?.();
+        const codeEditor = getCodeEditor?.();
+        const result = await csvTableMode.toggle({
+            currentFile: getCurrentFile?.(),
+            activeViewMode: getActiveViewMode?.(),
+            spreadsheetViewer,
+            codeEditor,
+        });
+
+        if (!result?.changed) {
+            return;
+        }
+
+        setActiveViewMode?.(result.nextViewMode);
+        setHasUnsavedChanges?.(result.hasUnsavedChanges);
+
+        saveCurrentEditorContentToCache?.();
+        persistWorkspaceState?.();
+        void updateWindowTitle?.();
+    }
+
     async function requestActiveEditorContext(options = {}) {
         const preferSelection = options?.preferSelection !== false;
         const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -287,6 +316,7 @@ export function createEditorActions({
         insertTextIntoActiveEditor,
         toggleMarkdownCodeMode,
         toggleSvgCodeMode,
+        toggleCsvTableMode,
         requestActiveEditorContext,
     };
 }

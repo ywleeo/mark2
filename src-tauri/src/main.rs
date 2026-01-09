@@ -104,6 +104,18 @@ impl ExportMenuState {
     }
 }
 
+struct AISidebarMenuState {
+    item: Mutex<MenuItem<Wry>>,
+}
+
+impl AISidebarMenuState {
+    fn new(item: MenuItem<Wry>) -> Self {
+        Self {
+            item: Mutex::new(item),
+        }
+    }
+}
+
 struct RecentMenuState {
     submenu: Mutex<Submenu<Wry>>,
     app_handle: Mutex<Option<tauri::AppHandle>>,
@@ -1315,6 +1327,20 @@ fn set_export_menu_enabled(
     Ok(())
 }
 
+#[tauri::command]
+fn set_ai_sidebar_menu_enabled(
+    state: tauri::State<AISidebarMenuState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let item = state
+        .item
+        .lock()
+        .map_err(|_| "failed to lock ai sidebar menu state")?;
+    item.set_enabled(enabled)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize)]
 struct RecentItem {
     label: String,
@@ -1436,6 +1462,7 @@ fn main() {
             update_document_snapshot,
             reveal_in_file_manager,
             set_export_menu_enabled,
+            set_ai_sidebar_menu_enabled,
             update_recent_menu
         ])
         .setup(|app| {
@@ -1536,6 +1563,8 @@ fn main() {
                 export_pdf_item.clone(),
                 export_pdf_a4_item.clone(),
             ));
+
+            app.manage(AISidebarMenuState::new(toggle_ai_sidebar_item.clone()));
 
             let recent_menu_state = RecentMenuState::new(open_recent_submenu.clone());
             recent_menu_state.set_app_handle(app.handle().clone());

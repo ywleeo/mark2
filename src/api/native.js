@@ -10,6 +10,10 @@ export async function setExportMenuEnabled(enabled) {
     return await invoke('set_export_menu_enabled', { enabled: Boolean(enabled) });
 }
 
+export async function setAISidebarMenuEnabled(enabled) {
+    return await invoke('set_ai_sidebar_menu_enabled', { enabled: Boolean(enabled) });
+}
+
 export async function captureScreenshot(destination, imageData) {
     ensureString(destination, 'captureScreenshot.destination');
     ensureString(imageData, 'captureScreenshot.imageData');
