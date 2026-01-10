@@ -56,6 +56,7 @@ export class CardSidebar {
         this.baseFontSize = null;
         this.baseLineHeightRatio = null;
         this.fontWeight = 400;
+        this.fontWeightModified = false;
         this.verticalAlign = 'top';
         this.isExporting = false;
         this.selectionListenerActive = false;
@@ -573,11 +574,13 @@ export class CardSidebar {
                 return;
             }
             const styles = window.getComputedStyle(markdownContent);
-            const parsedWeight = parseInt(styles.fontWeight, 10);
-            if (Number.isFinite(parsedWeight)) {
-                this.fontWeight = Math.min(FONT_WEIGHT_MAX, Math.max(FONT_WEIGHT_MIN, parsedWeight));
-            } else if (!Number.isFinite(this.fontWeight)) {
-                this.fontWeight = 400;
+            if (!this.fontWeightModified) {
+                const parsedWeight = parseInt(styles.fontWeight, 10);
+                if (Number.isFinite(parsedWeight)) {
+                    this.fontWeight = Math.min(FONT_WEIGHT_MAX, Math.max(FONT_WEIGHT_MIN, parsedWeight));
+                } else if (!Number.isFinite(this.fontWeight)) {
+                    this.fontWeight = 400;
+                }
             }
             this.cardTextElement.style.fontFamily = styles.fontFamily;
             this.applyFontWeight();
@@ -675,6 +678,21 @@ export class CardSidebar {
         exportCard.style.position = 'relative';
         exportCard.style.width = `${previewWidth}px`;
         exportCard.style.height = `${previewHeight}px`;
+        exportCard.style.display = 'flex';
+        exportCard.style.flexDirection = 'column';
+        exportCard.style.justifyContent = 'flex-start';
+        const exportBody = exportCard.querySelector('.card-preview-card__body');
+        if (exportBody) {
+            if (this.verticalAlign === 'center') {
+                exportBody.style.height = 'auto';
+                exportBody.style.marginTop = 'auto';
+                exportBody.style.marginBottom = 'auto';
+            } else {
+                exportBody.style.height = '100%';
+                exportBody.style.marginTop = '0';
+                exportBody.style.marginBottom = '0';
+            }
+        }
         if (this.currentContentHtml) {
             const cloneContent = exportCard.querySelector('.card-preview-card__content');
             if (cloneContent) {
@@ -891,6 +909,7 @@ export class CardSidebar {
             return;
         }
         this.fontWeight = next;
+        this.fontWeightModified = true;
         this.applyFontWeight();
         this.syncTextControlState();
     }

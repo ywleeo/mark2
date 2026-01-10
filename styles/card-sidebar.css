@@ -214,10 +214,9 @@ body.card-sidebar-visible .card-sidebar {
 
 .card-sidebar__selection {
     background: var(--card-sidebar-selection-bg);
-    border-radius: 12px;
-    padding: 14px 16px;
+    border-radius: 6px;
+    padding: 10px;
     min-height: 120px;
-    border: 1px dashed rgba(148, 163, 184, 0.4);
 }
 
 .card-sidebar__selection-text {
@@ -254,7 +253,7 @@ body.card-sidebar-visible .card-sidebar {
 
 .card-sidebar__size-select {
     width: 100%;
-    border-radius: 10px;
+    border-radius: 5px;
     border: 1px solid var(--card-sidebar-border);
     padding: 10px 12px;
     background: var(--card-sidebar-bg);
@@ -264,7 +263,7 @@ body.card-sidebar-visible .card-sidebar {
     appearance: none;
     background-image: linear-gradient(45deg, transparent 50%, var(--card-sidebar-muted) 50%),
         linear-gradient(135deg, var(--card-sidebar-muted) 50%, transparent 50%);
-    background-position: calc(100% - 20px) calc(50% - 2px), calc(100% - 15px) calc(50% - 2px);
+    background-position: calc(100% - 20px) calc(50% - 0px), calc(100% - 14px) calc(50% - 0px);
     background-size: 6px 6px, 6px 6px;
     background-repeat: no-repeat;
 }
@@ -313,7 +312,8 @@ body.card-sidebar-visible .card-sidebar {
     padding: 10px 22px;
     border-radius: 999px;
     cursor: pointer;
-    transition: transform 0.1s ease, opacity 0.2s ease;
+    transition: transform 0.12s ease, opacity 0.2s ease, filter 0.12s ease, box-shadow 0.12s ease;
+    will-change: transform, filter, box-shadow;
 }
 
 .card-sidebar__export-btn:disabled {
@@ -322,7 +322,14 @@ body.card-sidebar-visible .card-sidebar {
 }
 
 .card-sidebar__export-btn:not(:disabled):hover {
-    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.18);
+}
+
+.card-sidebar__export-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    filter: brightness(0.98);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.12);
 }
 
 .card-sidebar__status {
