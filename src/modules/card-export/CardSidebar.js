@@ -3,6 +3,7 @@ import { ensureToPng } from '../../app/coreModules.js';
 import { captureScreenshot } from '../../api/native.js';
 import { buildDefaultCardImagePath } from '../../utils/exportUtils.js';
 import { CardSidebarResizeHandle } from './ResizeHandle.js';
+import { addClickHandler } from '../../utils/PointerHelper.js';
 
 const PREVIEW_RETINA_SCALE = 2;
 const PREVIEW_MAX_HEIGHT = 520;
@@ -20,6 +21,17 @@ const CARD_PRESETS = [
     { id: 'xiaohongshu', label: '小红书竖图', hint: '3:4', width: 960, height: 1280 },
     { id: 'wechat', label: '公众号竖图', hint: '2:3', width: 900, height: 1350 },
     { id: 'square', label: '方形配图', hint: '1:1', width: 900, height: 900 },
+];
+
+const BACKGROUND_PRESETS = [
+    { id: 'purple-blue', color: '#8b5cf6', gradient: 'linear-gradient(125deg, #a78bfa, #6366f1, #38bdf8)' },
+    { id: 'dots', color: '#e2e8f0', gradient: 'radial-gradient(circle, #64748b 1px, transparent 1px) 0 0 / 16px 16px, #f1f5f9' },
+    { id: 'green-teal', color: '#10b981', gradient: 'linear-gradient(125deg, #34d399, #14b8a6, #06b6d4)' },
+    { id: 'blue-cyan', color: '#3b82f6', gradient: 'linear-gradient(125deg, #60a5fa, #38bdf8, #22d3ee)' },
+    { id: 'rose-red', color: '#f43f5e', gradient: 'linear-gradient(125deg, #fb7185, #f43f5e, #e11d48)' },
+    { id: 'grid', color: '#cbd5e1', gradient: 'linear-gradient(#94a3b8 0.5px, transparent 0.5px) 0 0 / 24px 24px, linear-gradient(90deg, #94a3b8 0.5px, transparent 0.5px) 0 0 / 24px 24px, #f8fafc' },
+    { id: 'slate-gray', color: '#64748b', gradient: 'linear-gradient(125deg, #94a3b8, #64748b, #475569)' },
+    { id: 'neutral', color: '#e2e8f0', gradient: 'linear-gradient(135deg, #f8fafc, #e2e8f0)' },
 ];
 
 export class CardSidebar {
@@ -58,6 +70,9 @@ export class CardSidebar {
         this.fontWeight = 400;
         this.fontWeightModified = false;
         this.verticalAlign = 'top';
+        this.selectedBackgroundId = BACKGROUND_PRESETS[0].id;
+        this.backgroundSwatchElements = [];
+        this.cardBackgroundElement = null;
         this.isExporting = false;
         this.selectionListenerActive = false;
         this.selectionChangeDebounce = null;
@@ -66,6 +81,7 @@ export class CardSidebar {
         this.themeObserver = null;
 
         this.unsubscribeLayout = null;
+        this.clickCleanups = [];
         this.handleSelectionChange = this.handleSelectionChange.bind(this);
         this.handleWindowResize = this.handleWindowResize.bind(this);
     }
@@ -85,6 +101,7 @@ export class CardSidebar {
         body.className = 'card-sidebar__body';
         body.appendChild(this.buildSelectionSection());
         body.appendChild(this.buildSizeSection());
+        body.appendChild(this.buildBackgroundSection());
         body.appendChild(this.buildTextControlsSection());
         body.appendChild(this.buildPreviewSection());
         this.element.appendChild(body);
@@ -100,6 +117,7 @@ export class CardSidebar {
 
         this.updateContentPreview();
         this.updatePresetUI();
+        this.applyBackground();
         this.applyFontScale();
         this.applyFontWeight();
         this.applyVerticalAlign();
@@ -131,7 +149,7 @@ export class CardSidebar {
                     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
             </svg>
         `;
-        closeBtn.addEventListener('click', () => this.layoutService.hide());
+        this.clickCleanups.push(addClickHandler(closeBtn, () => this.layoutService.hide()));
 
         header.appendChild(titleWrap);
         header.appendChild(closeBtn);
@@ -164,9 +182,9 @@ export class CardSidebar {
         this.refreshButton.type = 'button';
         this.refreshButton.className = 'card-sidebar__refresh-btn';
         this.refreshButton.textContent = '使用当前选中内容';
-        this.refreshButton.addEventListener('click', () => {
+        this.clickCleanups.push(addClickHandler(this.refreshButton, () => {
             this.captureSelection(true);
-        });
+        }));
 
         header.appendChild(label);
         header.appendChild(this.refreshButton);
@@ -200,6 +218,62 @@ export class CardSidebar {
 
         section.appendChild(this.sizeSelectElement);
         return section;
+    }
+
+    buildBackgroundSection() {
+        const section = document.createElement('section');
+        section.className = 'card-sidebar__section card-sidebar__section--compact';
+
+        const label = document.createElement('div');
+        label.className = 'card-sidebar__section-title';
+        label.textContent = '背景样式';
+        section.appendChild(label);
+
+        const swatchContainer = document.createElement('div');
+        swatchContainer.className = 'card-sidebar__bg-swatches';
+
+        this.backgroundSwatchElements = [];
+        BACKGROUND_PRESETS.forEach((preset) => {
+            const swatch = document.createElement('button');
+            swatch.type = 'button';
+            swatch.className = 'card-sidebar__bg-swatch';
+            swatch.style.backgroundColor = preset.color;
+            swatch.setAttribute('title', preset.id);
+            swatch.setAttribute('data-bg-id', preset.id);
+            if (preset.id === this.selectedBackgroundId) {
+                swatch.classList.add('is-active');
+            }
+            this.clickCleanups.push(addClickHandler(swatch, () => this.handleBackgroundChange(preset.id)));
+            swatchContainer.appendChild(swatch);
+            this.backgroundSwatchElements.push(swatch);
+        });
+
+        section.appendChild(swatchContainer);
+        return section;
+    }
+
+    handleBackgroundChange(bgId) {
+        if (bgId === this.selectedBackgroundId) {
+            return;
+        }
+        this.selectedBackgroundId = bgId;
+        this.updateBackgroundUI();
+        this.applyBackground();
+    }
+
+    updateBackgroundUI() {
+        this.backgroundSwatchElements.forEach((swatch) => {
+            const id = swatch.getAttribute('data-bg-id');
+            swatch.classList.toggle('is-active', id === this.selectedBackgroundId);
+        });
+    }
+
+    applyBackground() {
+        if (!this.cardBackgroundElement) {
+            return;
+        }
+        const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
+        this.cardBackgroundElement.style.background = preset.gradient;
     }
 
     buildTextControlsSection() {
@@ -314,7 +388,7 @@ export class CardSidebar {
         this.exportButton.type = 'button';
         this.exportButton.className = 'card-sidebar__export-btn';
         this.exportButton.textContent = '导出 PNG';
-        this.exportButton.addEventListener('click', () => this.handleExport());
+        this.clickCleanups.push(addClickHandler(this.exportButton, () => this.handleExport()));
         actions.appendChild(this.exportButton);
 
         this.statusElement = document.createElement('div');
@@ -331,6 +405,7 @@ export class CardSidebar {
 
         const gradient = document.createElement('div');
         gradient.className = 'card-preview-card__background';
+        this.cardBackgroundElement = gradient;
         card.appendChild(gradient);
 
         const body = document.createElement('div');
@@ -364,7 +439,10 @@ export class CardSidebar {
         this.updatePreviewDimensions();
         this.syncTextStylesFromMarkdown();
         if (!this.themeObserver) {
-            this.themeObserver = new MutationObserver(() => this.syncTextStylesFromMarkdown());
+            this.themeObserver = new MutationObserver(() => {
+                // 延迟执行，确保浏览器完成 CSS 样式重算
+                requestAnimationFrame(() => this.syncTextStylesFromMarkdown());
+            });
         }
         this.themeObserver.observe(document.documentElement, {
             attributes: true,
@@ -731,6 +809,13 @@ export class CardSidebar {
             return;
         }
 
+        // 应用背景样式
+        const bgElement = cardNode.querySelector('.card-preview-card__background');
+        if (bgElement) {
+            const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
+            bgElement.style.background = preset.gradient;
+        }
+
         const markdownRoot =
             document.querySelector('.markdown-pane .tiptap-editor') ||
             document.querySelector('.tiptap-editor') ||
@@ -802,6 +887,8 @@ export class CardSidebar {
             this.unsubscribeLayout();
             this.unsubscribeLayout = null;
         }
+        this.clickCleanups.forEach(cleanup => cleanup?.());
+        this.clickCleanups = [];
         this.resizeHandle?.destroy();
         this.element = null;
     }
@@ -956,7 +1043,7 @@ export class CardSidebar {
             button.setAttribute('aria-label', title);
         }
         button.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">${svg}</svg>`;
-        button.addEventListener('click', onClick);
+        this.clickCleanups.push(addClickHandler(button, onClick));
         return button;
     }
 

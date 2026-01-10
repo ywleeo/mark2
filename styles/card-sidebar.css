@@ -161,6 +161,31 @@ body.card-sidebar-visible .card-sidebar {
     color: var(--card-sidebar-muted);
 }
 
+.card-sidebar__bg-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.card-sidebar__bg-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-sidebar__bg-swatch:hover {
+    transform: scale(1.1);
+}
+
+.card-sidebar__bg-swatch.is-active {
+    border-color: var(--card-sidebar-accent);
+    box-shadow: 0 0 0 2px var(--card-sidebar-accent-soft), 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
 .card-sidebar__text-controls {
     display: flex;
     flex-wrap: wrap;
