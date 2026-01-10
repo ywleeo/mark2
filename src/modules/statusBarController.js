@@ -338,6 +338,13 @@ export function createStatusBarController({
         }
 
         try {
+            const exists = typeof fileService.exists === 'function'
+                ? await fileService.exists(filePath)
+                : true;
+            if (!exists) {
+                return null;
+            }
+
             const metadata = await fileService.metadata(filePath);
             if (!metadata || !metadata.modified_time) return null;
 
@@ -361,6 +368,11 @@ export function createStatusBarController({
                 day: '2-digit',
             });
         } catch (error) {
+            const message = typeof error === 'string' ? error : error?.message;
+            if (message?.includes('No such file or directory')) {
+                // 文件已经被删除，UI 上不需要打扰用户
+                return null;
+            }
             console.error('获取文件修改时间失败:', error);
             return null;
         }

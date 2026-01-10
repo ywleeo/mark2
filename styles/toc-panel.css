@@ -31,6 +31,14 @@ body.ai-sidebar-visible .toc-panel {
     right: calc(20px + var(--ai-sidebar-width, 380px));
 }
 
+body.card-sidebar-visible .toc-panel {
+    right: calc(20px + var(--card-sidebar-width, 380px));
+}
+
+body.ai-sidebar-visible.card-sidebar-visible .toc-panel {
+    right: calc(20px + var(--ai-sidebar-width, 380px) + var(--card-sidebar-width, 380px));
+}
+
 /* 暗色模式 */
 :root[data-theme-appearance='dark'] .toc-panel {
     border: 1px solid rgba(255, 255, 255, 0.1);

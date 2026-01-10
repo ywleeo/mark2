@@ -16,6 +16,7 @@ export class MarkdownToolbarManager {
         this.editorType = null; // 'tiptap' 或 'monaco'
         this.isInitialized = false;
         this.onToggleViewMode = options.onToggleViewMode || null;
+        this.onCardExport = options.onCardExport || null;
 
         // 从设置中加载工具栏可见性
         this.loadVisibility();
@@ -74,6 +75,7 @@ export class MarkdownToolbarManager {
                 'separator',
                 'clearFormatting',
                 'emoji',
+                'cardExport',
                 'separator',
                 'toc',
                 'copyMarkdown',
@@ -463,6 +465,9 @@ export class MarkdownToolbarManager {
             if (action === 'copyMarkdown') {
                 this.copyMarkdown();
             }
+            if (action === 'cardExport' && this.onCardExport) {
+                this.onCardExport();
+            }
         });
     }
 
@@ -642,6 +647,14 @@ export class MarkdownToolbarManager {
      */
     setToggleViewModeCallback(callback) {
         this.onToggleViewMode = callback;
+    }
+
+    /**
+     * 设置卡片导出回调
+     * @param {Function} callback - 回调函数
+     */
+    setCardExportCallback(callback) {
+        this.onCardExport = callback;
     }
 
     /**

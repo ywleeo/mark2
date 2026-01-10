@@ -344,7 +344,7 @@ export class MarkdownToolbar {
      */
     handleAction(action) {
         // toggleViewMode、copyMarkdown 和 toc 不需要编辑器实例，直接触发回调
-        if (action === 'toggleViewMode' || action === 'copyMarkdown') {
+        if (action === 'toggleViewMode' || action === 'copyMarkdown' || action === 'cardExport') {
             this.emit('action', action);
             return;
         }

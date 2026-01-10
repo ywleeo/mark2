@@ -28,6 +28,27 @@ export async function buildDefaultScreenshotPath() {
     return fileName;
 }
 
+export async function buildDefaultCardImagePath(label) {
+    const timestamp = formatTimestampForFilename(new Date());
+    const normalized = (label || 'Card').toString().trim();
+    const slug = normalized
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'card';
+    const fileName = `Mark2-Card-${slug}-${timestamp}.png`;
+
+    try {
+        const desktop = await desktopDir();
+        if (desktop && desktop.length > 0) {
+            return await join(desktop, fileName);
+        }
+    } catch (error) {
+        console.warn('无法获取桌面路径，使用默认文件名', error);
+    }
+
+    return fileName;
+}
+
 export async function buildDefaultPdfPath() {
     const timestamp = formatTimestampForFilename(new Date());
     const fileName = `Mark2-Export-${timestamp}.pdf`;

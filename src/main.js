@@ -55,6 +55,7 @@ import { createRecentFilesActions } from './modules/recentFilesActions.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
 import { initAIAssistant } from './modules/ai-assistant/index.js';
+import { initCardExportSidebar } from './modules/card-export/index.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { ensureToPng } from './app/coreModules.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
@@ -79,6 +80,7 @@ const editorRegistry = new EditorRegistry();
 // ========== 构造函数（动态加载） ==========
 let SettingsDialogCtor = null;
 let aiAssistant = null;
+let cardExportSidebar = null;
 
 function ensureFileService() {
     if (typeof globalThis !== 'undefined') {
@@ -292,13 +294,15 @@ function toggleMarkdownToolbar() {
     if (markdownToolbarManager) {
         // 确保回调已设置
         markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
+        markdownToolbarManager.setCardExportCallback?.(() => showCardExportSidebar());
         markdownToolbarManager.toggle();
     } else {
         console.log('markdownToolbarManager is null, trying to initialize...');
         // 如果还没有初始化，先初始化 - 根据当前视图模式选择编辑器
         if (appServices) {
             const newManager = new MarkdownToolbarManager(appServices, {
-                onToggleViewMode: toggleMarkdownCodeMode
+                onToggleViewMode: toggleMarkdownCodeMode,
+                onCardExport: () => showCardExportSidebar(),
             });
             appState.setMarkdownToolbarManager(newManager);
 
@@ -319,6 +323,21 @@ function toggleMarkdownToolbar() {
             }
         }
     }
+}
+
+function showCardExportSidebar() {
+    if (!cardExportSidebar) {
+        console.warn('Card sidebar 未初始化');
+        return;
+    }
+
+    const currentFile = appState.getCurrentFile();
+    if (!currentFile || !isMarkdownFilePath(currentFile)) {
+        console.log('Card sidebar 仅支持 Markdown 文件');
+        return;
+    }
+
+    cardExportSidebar.showSidebar?.();
 }
 
 // 处理视图模式切换时的 toolbar 状态
@@ -360,6 +379,15 @@ function handleAISidebarOnFileChange(nextPath) {
     }
 }
 
+function handleCardSidebarOnFileChange(nextPath) {
+    if (!cardExportSidebar) {
+        return;
+    }
+    if (!nextPath || !isMarkdownFilePath(nextPath)) {
+        cardExportSidebar.hideSidebar?.();
+    }
+}
+
 function syncToolbarWithCurrentContext(options = {}) {
     const markdownToolbarManager = appState.getMarkdownToolbarManager();
     if (!markdownToolbarManager) {
@@ -387,6 +415,7 @@ function syncToolbarWithCurrentContext(options = {}) {
     }
 
     markdownToolbarManager.setToggleViewModeCallback?.(toggleMarkdownCodeMode);
+    markdownToolbarManager.setCardExportCallback?.(() => showCardExportSidebar());
 
     if (!markdownToolbarManager.isInitialized) {
         markdownToolbarManager.initialize(targetEditor, editorType);
@@ -450,14 +479,15 @@ const {
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getCurrentFile: () => appState.getCurrentFile(),
-    setCurrentFile: (value) => {
-        appState.setCurrentFile(value);
-        scheduleWorkspaceContextSync();
-        scheduleDocumentSnapshotSync();
-        void updateExportMenuState();
-        handleToolbarOnFileChange(value);
-        handleAISidebarOnFileChange(value);
-    },
+        setCurrentFile: (value) => {
+            appState.setCurrentFile(value);
+            scheduleWorkspaceContextSync();
+            scheduleDocumentSnapshotSync();
+            void updateExportMenuState();
+            handleToolbarOnFileChange(value);
+            handleAISidebarOnFileChange(value);
+            handleCardSidebarOnFileChange(value);
+        },
     getActiveViewMode: () => appState.getActiveViewMode(),
     setHasUnsavedChanges: (value) => {
         appState.setHasUnsavedChanges(value);
@@ -494,6 +524,7 @@ function clearActiveFileView() {
     appState.setHasUnsavedChanges(false);
     handleToolbarOnFileChange(null);
     handleAISidebarOnFileChange(null);
+    handleCardSidebarOnFileChange(null);
     documentSessions.closeActiveSession();
 
     editorRegistry.clearAllContents();
@@ -682,6 +713,10 @@ async function initializeApplication() {
         getEditor: () => editorRegistry.getMarkdownEditor(),
     });
     console.log('[App] AI 助手已初始化');
+
+    cardExportSidebar = await initCardExportSidebar();
+    console.log('[App] 卡片导出侧边栏已初始化');
+    handleCardSidebarOnFileChange(appState.getCurrentFile());
 
     // 订阅 AI sidebar 可见性变化，自动更新状态
     if (aiAssistant?.layoutService) {
