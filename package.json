@@ -44,6 +44,7 @@
     "markdown-it-task-lists": "^2.1.1",
     "mermaid": "^11.12.1",
     "monaco-editor": "^0.50.0",
+    "pagedjs": "^0.4.3",
     "pdfjs-dist": "^4.6.82",
     "prosemirror-markdown": "^1.13.2",
     "turndown": "^7.2.1",

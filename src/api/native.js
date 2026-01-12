@@ -24,6 +24,7 @@ export async function exportToPdf({
     destination,
     htmlContent,
     cssContent,
+    htmlAttributes,
     pageWidth,
     mode,
 } = {}) {
@@ -34,6 +35,7 @@ export async function exportToPdf({
         destination,
         htmlContent,
         cssContent,
+        htmlAttributes,
         pageWidth,
         exportMode: mode,
     });

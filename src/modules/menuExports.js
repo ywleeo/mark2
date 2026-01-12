@@ -83,7 +83,7 @@ async function exportPdfWithMode({
         statusBarController?.showProgress?.(progressLabel);
         progressShown = true;
 
-        const { htmlContent, cssContent, pageWidth } = await collectContentForPdf(
+        const { htmlContent, cssContent, pageWidth, htmlAttributes } = await collectContentForPdf(
             activeViewMode,
             { pageFormat }
         );
@@ -91,6 +91,7 @@ async function exportPdfWithMode({
             destination: targetPath,
             htmlContent,
             cssContent,
+            htmlAttributes,
             pageWidth,
             mode,
         });

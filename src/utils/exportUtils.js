@@ -230,12 +230,14 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
     }
 
     const contentElement = resolveExportContentRoot(viewElement, activeViewMode);
+    let cssContent = await collectAllStyles(options);
 
     let htmlContent;
     let pageWidth;
     if (options.pageFormat === 'a4') {
-        const paginated = await buildPaginatedA4Document(contentElement);
-        htmlContent = paginated.htmlContent;
+        // A4 格式：前端分页生成 .mark2-export-page 容器
+        const paginated = await buildPaginatedA4Html(contentElement);
+        htmlContent = paginated.html;
         pageWidth = paginated.pageWidth;
     } else {
         const clone = sanitizeExportNode(contentElement.cloneNode(true));
@@ -244,9 +246,8 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
         pageWidth = viewElement.clientWidth || 800;
     }
 
-    const cssContent = await collectAllStyles(options);
-
-    return { htmlContent, cssContent, pageWidth };
+    const htmlAttributes = collectHtmlAttributes();
+    return { htmlContent, cssContent, pageWidth, htmlAttributes };
 }
 
 async function collectAllStyles(options = {}) {
@@ -255,6 +256,12 @@ async function collectAllStyles(options = {}) {
     const bundledStyles = getBundledStyles();
     if (bundledStyles) {
         styles.push(bundledStyles);
+    }
+
+    // Include runtime-injected <style> tags (e.g., editor/theme plugins).
+    const runtimeStyles = collectRuntimeStyles();
+    if (runtimeStyles) {
+        styles.push(runtimeStyles);
     }
 
     styles.push(`
@@ -319,61 +326,50 @@ body {
 @page {
     size: A4;
     margin: 15mm 12mm 18mm 12mm;
+    @bottom-center {
+        content: "Mark2";
+        font-size: 10px;
+        font-weight: 600;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #fff;
+        background: #e3474f;
+        padding: 3px 14px;
+        border-radius: 3px;
+    }
 }
 body {
-    width: 210mm !important;
-    margin: 0 auto !important;
-}
-.mark2-export-wrapper {
-    max-width: 210mm !important;
-    width: 210mm !important;
-    margin: 0 auto !important;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
 }
 .mark2-export-wrapper--a4 {
+    width: 210mm;
+    margin: 0;
     padding: 0;
 }
 .mark2-export-page {
     width: 210mm;
-    min-height: 297mm;
     height: 297mm;
+    box-sizing: border-box;
     background: #ffffff;
-    margin: 0 auto 12mm auto;
-    box-shadow: 0 0 0 1px rgba(18, 22, 33, 0.08);
-    page-break-after: always;
-    position: relative;
     display: flex;
     flex-direction: column;
-}
-.mark2-export-page:last-child {
-    page-break-after: auto;
-    margin-bottom: 0;
+    overflow: hidden;
 }
 .mark2-export-page__content {
-    padding: 15mm 12mm 10mm 12mm;
-    box-sizing: border-box;
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
+    padding: 20mm 20mm 18mm 20mm;
+    box-sizing: border-box;
     overflow: hidden;
 }
 .mark2-export-page__content > *:first-child {
     margin-top: 0 !important;
 }
 .mark2-export-page__footer {
-    padding: 0 12mm 10mm 12mm;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.mark2-export-flow-root {
-    flex: 1;
-    width: 100%;
-    box-sizing: border-box;
-    }
-.mark2-export-flow-root[data-export-source="monaco"] {
-    display: block;
+    padding: 0 12mm 12mm 12mm;
+    text-align: center;
 }
         `);
     }
@@ -381,11 +377,57 @@ body {
     return styles.join('\\n');
 }
 
+function collectRuntimeStyles() {
+    if (typeof document === 'undefined') {
+        return '';
+    }
+
+    const styleNodes = Array.from(document.querySelectorAll('style'));
+    return styleNodes
+        .map(node => node.textContent || '')
+        .filter(Boolean)
+        .join('\\n');
+}
+
+function collectHtmlAttributes() {
+    if (typeof document === 'undefined') {
+        return {};
+    }
+
+    const htmlElement = document.documentElement;
+    const appearance = htmlElement.getAttribute('data-theme-appearance');
+    const appearancePreference = htmlElement.getAttribute('data-theme-appearance-preference');
+    const inlineStyle = htmlElement.style?.cssText;
+    const attributes = {};
+
+    if (appearance) {
+        attributes['data-theme-appearance'] = 'light';
+    }
+    if (appearancePreference) {
+        attributes['data-theme-appearance-preference'] = 'light';
+    }
+    if (inlineStyle) {
+        attributes.style = normalizeHtmlStyleForExport(inlineStyle);
+    }
+
+    return attributes;
+}
+
+function normalizeHtmlStyleForExport(styleText) {
+    const declarations = styleText
+        .split(';')
+        .map(item => item.trim())
+        .filter(Boolean)
+        .filter(item => !item.startsWith('color-scheme'));
+    declarations.push('color-scheme: light');
+    return declarations.join('; ') + ';';
+}
+
 function resolveExportContentRoot(viewElement, activeViewMode) {
     if (activeViewMode === 'markdown') {
         return (
-            viewElement.querySelector('.tiptap-editor .ProseMirror') ||
             viewElement.querySelector('.tiptap-editor') ||
+            viewElement.querySelector('.tiptap-editor .ProseMirror') ||
             viewElement
         );
     }
@@ -397,8 +439,8 @@ function resolveExportContentRoot(viewElement, activeViewMode) {
         );
     }
     return (
-        viewElement.querySelector('.tiptap-editor .ProseMirror') ||
         viewElement.querySelector('.tiptap-editor') ||
+        viewElement.querySelector('.tiptap-editor .ProseMirror') ||
         viewElement
     );
 }
@@ -426,157 +468,73 @@ function sanitizeExportNode(node) {
     return node;
 }
 
-async function buildPaginatedA4Document(contentElement) {
-    await waitForFonts();
-
+async function buildPaginatedA4Html(contentElement) {
     const pxPerMm = 96 / 25.4;
     const pageWidthPx = Math.round(pxPerMm * 210);
     const pageHeightPx = Math.round(pxPerMm * 297);
-    const footerReservePx = Math.round(pxPerMm * 18);
-    const contentHeightPx = Math.max(100, pageHeightPx - footerReservePx);
+    const paddingPx = Math.round(pxPerMm * 15); // 15mm padding
+    const contentHeightPx = pageHeightPx - paddingPx * 2;
 
-    const hiddenHost = document.createElement('div');
-    hiddenHost.style.position = 'fixed';
-    hiddenHost.style.left = '-20000px';
-    hiddenHost.style.top = '0';
-    hiddenHost.style.width = `${pageWidthPx}px`;
-    hiddenHost.style.maxWidth = `${pageWidthPx}px`;
-    hiddenHost.style.pointerEvents = 'none';
-    hiddenHost.style.opacity = '0';
-    hiddenHost.style.zIndex = '-1';
+    // 创建测量容器
+    const measureHost = document.createElement('div');
+    measureHost.style.position = 'fixed';
+    measureHost.style.left = '0';
+    measureHost.style.top = '0';
+    measureHost.style.width = `${pageWidthPx - paddingPx * 2}px`;
+    measureHost.style.opacity = '0';
+    measureHost.style.pointerEvents = 'none';
+    measureHost.style.zIndex = '-9999';
+    document.body.appendChild(measureHost);
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mark2-export-wrapper mark2-export-wrapper--a4';
-    hiddenHost.appendChild(wrapper);
-    document.body.appendChild(hiddenHost);
+    const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
+    const useEditorWrapper = sourceRoot.classList?.contains('tiptap-editor');
+    const children = Array.from(sourceRoot.children);
 
-    let htmlContent = '';
-    try {
-        const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
-        const containerTemplate = sanitizeExportNode(contentElement.cloneNode(false));
-        const flowNodes = collectFlowNodes(sourceRoot);
+    const pages = [];
+    let currentPageContent = [];
+    let currentHeight = 0;
 
-        let currentPage = createPaginatedPage(
-            wrapper,
-            containerTemplate,
-            contentElement,
-            0,
-            {
-                pageHeightPx,
-                contentHeightPx,
-            }
-        );
-        const pages = [currentPage];
-
-        for (const node of flowNodes) {
-            currentPage.host.appendChild(node);
-            const overflows =
-                currentPage.content.scrollHeight > contentHeightPx + 1 &&
-                currentPage.host.childNodes.length > 1;
-            if (overflows) {
-                const overflowNode = currentPage.host.lastChild;
-                currentPage.host.removeChild(overflowNode);
-                currentPage = createPaginatedPage(
-                    wrapper,
-                    containerTemplate,
-                    contentElement,
-                    pages.length,
-                    {
-                        pageHeightPx,
-                        contentHeightPx,
-                    }
-                );
-                pages.push(currentPage);
-                currentPage.host.appendChild(overflowNode);
-            }
-        }
-
-        if (pages.length === 0) {
-            pages.push(
-                createPaginatedPage(wrapper, containerTemplate, contentElement, 0, {
-                    pageHeightPx,
-                    contentHeightPx,
-                })
-            );
-        }
-
-        wrapper.dataset.exportPageCount = String(pages.length);
-        htmlContent = wrapper.outerHTML;
-    } finally {
-        if (hiddenHost.parentNode) {
-            hiddenHost.parentNode.removeChild(hiddenHost);
-        }
-    }
-
-    return { htmlContent, pageWidth: pageWidthPx };
-}
-
-function createPaginatedPage(wrapper, template, sourceElement, index, options = {}) {
-    const page = document.createElement('section');
-    page.className = 'mark2-export-page';
-    page.dataset.exportPage = String(index);
-    if (options.pageHeightPx) {
-        const heightPx = Math.max(100, options.pageHeightPx);
-        page.style.minHeight = `${heightPx}px`;
-        page.style.maxHeight = `${heightPx}px`;
-        page.style.height = `${heightPx}px`;
-    }
-
-    const pageContent = document.createElement('div');
-    pageContent.className = 'mark2-export-page__content';
-    if (options.contentHeightPx) {
-        const limit = Math.max(50, options.contentHeightPx);
-        pageContent.style.maxHeight = `${limit}px`;
-        pageContent.style.height = `${limit}px`;
-        pageContent.style.minHeight = `${limit}px`;
-    }
-
-    let host =
-        template && typeof template.cloneNode === 'function'
-            ? template.cloneNode(false)
-            : document.createElement('div');
-
-    if (host.nodeType !== Node.ELEMENT_NODE) {
-        host = document.createElement('div');
-    }
-    host.classList.add('mark2-export-flow-root');
-    const isMonaco =
-        !!sourceElement &&
-        sourceElement.nodeType === Node.ELEMENT_NODE &&
-        sourceElement.className?.toLowerCase?.().includes('monaco');
-    host.setAttribute('data-export-source', isMonaco ? 'monaco' : 'content');
-
-    pageContent.appendChild(host);
-    page.appendChild(pageContent);
-    const footer = document.createElement('footer');
-    footer.className = 'mark2-export-page__footer';
-    const branding = createBrandingElement();
-    footer.appendChild(branding);
-    page.appendChild(footer);
-    wrapper.appendChild(page);
-
-    return { page, content: pageContent, host };
-}
-
-function collectFlowNodes(root) {
-    const nodes = [];
-    const children = root?.childNodes ? Array.from(root.childNodes) : [];
-    if (!children.length) {
-        nodes.push(root);
-        return nodes;
-    }
     for (const child of children) {
-        if (child.nodeType === Node.TEXT_NODE) {
-            if (child.textContent?.trim()) {
-                const span = document.createElement('span');
-                span.textContent = child.textContent;
-                nodes.push(span);
-            }
-            continue;
+        // 测量元素高度
+        measureHost.innerHTML = '';
+        const clone = child.cloneNode(true);
+        measureHost.appendChild(clone);
+        const childHeight = measureHost.scrollHeight;
+
+        if (currentHeight + childHeight > contentHeightPx && currentPageContent.length > 0) {
+            // 当前页满了，创建新页
+            pages.push(currentPageContent);
+            currentPageContent = [];
+            currentHeight = 0;
         }
-        nodes.push(child);
+
+        currentPageContent.push(child.outerHTML);
+        currentHeight += childHeight;
     }
-    return nodes.length ? nodes : [root];
+
+    // 添加最后一页
+    if (currentPageContent.length > 0) {
+        pages.push(currentPageContent);
+    }
+
+    // 清理测量容器
+    measureHost.parentNode?.removeChild(measureHost);
+
+    // 生成 HTML
+    const pagesHtml = pages.map((pageContent, i) => `
+        <div class="mark2-export-page" data-page="${i + 1}">
+            <div class="mark2-export-page__content">
+                ${useEditorWrapper ? `<div class="tiptap-editor">${pageContent.join('')}</div>` : pageContent.join('')}
+            </div>
+            <div class="mark2-export-page__footer">
+                <span class="mark2-export-branding__label">Mark2</span>
+            </div>
+        </div>
+    `).join('');
+
+    const html = `<div class="mark2-export-wrapper mark2-export-wrapper--a4">${pagesHtml}</div>`;
+
+    return { html, pageWidth: pageWidthPx };
 }
 
 function buildBrandingMarkup() {
@@ -585,20 +543,4 @@ function buildBrandingMarkup() {
     <span class="mark2-export-branding__label">Mark2</span>
 </div>
     `.trim();
-}
-
-function createBrandingElement() {
-    const container = document.createElement('div');
-    container.innerHTML = buildBrandingMarkup();
-    return container.firstElementChild || document.createElement('div');
-}
-
-async function waitForFonts() {
-    if (document.fonts && document.fonts.status === 'loading') {
-        try {
-            await document.fonts.ready;
-        } catch (error) {
-            console.warn('等待字体加载失败，继续导出', error);
-        }
-    }
 }

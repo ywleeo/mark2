@@ -8,6 +8,7 @@ use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
 use percent_encoding::percent_decode_str;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -792,6 +793,7 @@ async fn export_to_pdf(
     destination: String,
     html_content: String,
     css_content: String,
+    html_attributes: Option<HashMap<String, String>>,
     page_width: Option<f64>,
     export_mode: Option<String>,
 ) -> Result<(), String> {
@@ -801,7 +803,7 @@ async fn export_to_pdf(
         }
     }
 
-    let full_html = compose_full_html(&html_content, &css_content);
+    let full_html = compose_full_html(&html_content, &css_content, html_attributes);
 
     #[cfg(not(target_os = "macos"))]
     let _ = page_width;
@@ -822,10 +824,15 @@ async fn export_to_pdf(
     fs::write(&destination, pdf_bytes).map_err(|err| err.to_string())
 }
 
-fn compose_full_html(html_content: &str, css_content: &str) -> String {
+fn compose_full_html(
+    html_content: &str,
+    css_content: &str,
+    html_attributes: Option<HashMap<String, String>>,
+) -> String {
+    let html_attributes = build_html_attribute_string(html_attributes);
     format!(
         r#"<!DOCTYPE html>
-<html>
+<html{}>
 <head>
     <meta charset="UTF-8">
     <style>{}</style>
@@ -834,8 +841,37 @@ fn compose_full_html(html_content: &str, css_content: &str) -> String {
     {}
 </body>
 </html>"#,
-        css_content, html_content
+        html_attributes, css_content, html_content
     )
+}
+
+fn build_html_attribute_string(attributes: Option<HashMap<String, String>>) -> String {
+    let mut items = Vec::new();
+    if let Some(attributes) = attributes {
+        for (key, value) in attributes {
+            let key = key.trim();
+            let value = value.trim();
+            if key.is_empty() || value.is_empty() {
+                continue;
+            }
+            let escaped = escape_html_attribute(value);
+            items.push(format!(r#"{}="{}""#, key, escaped));
+        }
+    }
+
+    if items.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", items.join(" "))
+    }
+}
+
+fn escape_html_attribute(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -1034,10 +1070,11 @@ fn collect_dom_page_slices(
     webview: &WKWebView,
     run_loop: &NSRunLoop,
 ) -> Result<Vec<ExportPageSlice>, String> {
+    // 支持 pagedjs 生成的 .pagedjs_page 和自定义的 .mark2-export-page
     let script = r#"(() => {
         const root = document.scrollingElement || document.documentElement || document.body;
         const scrollTop = root?.scrollTop || window.pageYOffset || 0;
-        const pages = Array.from(document.querySelectorAll('.mark2-export-page'));
+        const pages = Array.from(document.querySelectorAll('.pagedjs_page, .mark2-export-page'));
         if (!pages.length) {
             return "[]";
         }
