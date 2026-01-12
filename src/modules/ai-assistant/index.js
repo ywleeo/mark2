@@ -222,9 +222,11 @@ export async function initAIAssistant({ eventBus, getEditor }) {
 
     /**
      * 处理 AI 操作（从工具栏或右键菜单触发）
+     * @param {string} action - 操作类型
+     * @param {string} style - 输出风格（可选）
      */
-    const handleAIAction = async (action) => {
-        console.log('[AI Assistant] 工具栏触发:', action);
+    const handleAIAction = async (action, style) => {
+        console.log('[AI Assistant] 工具栏触发:', action, '风格:', style);
 
         // 隐藏工具栏
         selectionToolbar.hide();
@@ -246,7 +248,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
         // 打开 sidebar
         sidebar.show();
 
-        // 添加用户消息（显示友好的提示）
+        // 添加用户消息（显示友好的提示，包含风格信息）
         const actionLabels = {
             polish: '帮我润色这段文字',
             continue: '继续写这段内容',
@@ -256,7 +258,19 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             summarize: '总结这段内容',
             translate: '翻译这段内容',
         };
-        const userMessage = actionLabels[action] || '处理这段文字';
+        const styleLabels = {
+            balanced: '平衡', rational: '理性', humorous: '幽默', cute: '可爱',
+            business_style: '商务', literary: '文艺',
+            novel_romance: '言情', novel_mystery: '悬疑', novel_costume: '古偶',
+            novel_wuxia: '武侠', novel_xianxia: '修仙', novel_history: '历史',
+            xiaohongshu: '小红书', zhihu: '知乎', weibo: '微博', bilibili: 'B站',
+            wechat: '公众号', toutiao: '头条', douyin: '抖音', shipinhao: '视频号', taobao: '淘宝',
+            novel_master: '大师', standup_comedy: '脱口秀',
+            ghibli: '吉卜力', shinkai: '新海诚', kyoani: '京都动画', pixar: '皮克斯',
+        };
+        const baseMessage = actionLabels[action] || '处理这段文字';
+        const styleLabel = style ? styleLabels[style] || style : null;
+        const userMessage = styleLabel ? `${baseMessage}（${styleLabel}风格）` : baseMessage;
         messageService.addMessage({
             role: 'user',
             content: userMessage,
@@ -285,11 +299,16 @@ export async function initAIAssistant({ eventBus, getEditor }) {
 
         try {
             // 使用和 PreviewPanel 相同的方式构建请求
+            // 如果传入了风格参数，覆盖 preferences 中的 outputStyle
+            const preferences = {
+                ...config.preferences,
+                ...(style && { outputStyle: style })
+            };
             const request = await buildAiRequest(
                 action,
                 context.selectedText,
                 context.documentContent,
-                config.preferences
+                preferences
             );
 
             const taskId = aiService.generateTaskId();

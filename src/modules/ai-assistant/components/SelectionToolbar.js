@@ -292,7 +292,8 @@ export class SelectionToolbar {
             }
 
             if (action && typeof this.onActionClick === 'function') {
-                this.onActionClick(action);
+                const style = this.getCurrentStyle(action);
+                this.onActionClick(action, style);
             }
         });
 
