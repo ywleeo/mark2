@@ -31,35 +31,50 @@ export class FileRenamer {
     }
 
     start(path) {
+        console.log('[FileRenamer] start called with path:', path);
         const normalized = this.normalizePath?.(path);
-        if (!normalized) return;
+        if (!normalized) {
+            console.log('[FileRenamer] normalized is falsy, returning');
+            return;
+        }
         if (this.renamingPath && this.renamingPath !== normalized) {
             this.cancel();
         }
 
         const treeItem = this.container?.querySelector(`.tree-file[data-path="${normalized}"]`);
         const openFileItem = this.container?.querySelector(`.open-file-item[data-path="${normalized}"]`);
-        const item = treeItem || openFileItem;
-        if (!item) return;
+        console.log('[FileRenamer] treeItem:', treeItem, 'openFileItem:', openFileItem);
+        // 优先使用 openFileItem，因为用户更可能从打开文件列表触发重命名
+        const item = openFileItem || treeItem;
+        if (!item) {
+            console.log('[FileRenamer] item not found, returning');
+            return;
+        }
 
-        const nameSpan = treeItem
-            ? item.querySelector('.tree-item-name')
-            : item.querySelector('.open-file-name');
-        if (!nameSpan) return;
+        const useOpenFileItem = item === openFileItem;
+        const nameSpan = useOpenFileItem
+            ? item.querySelector('.open-file-name')
+            : item.querySelector('.tree-item-name');
+        console.log('[FileRenamer] nameSpan:', nameSpan);
+        if (!nameSpan) {
+            console.log('[FileRenamer] nameSpan not found, returning');
+            return;
+        }
 
         const fileName = nameSpan.textContent || normalized.split('/').pop();
-        if (!treeItem && !item.hasAttribute('tabindex')) {
+        if (useOpenFileItem && !item.hasAttribute('tabindex')) {
             item.tabIndex = -1;
         }
 
         const input = document.createElement('input');
         input.type = 'text';
-        input.className = treeItem
-            ? 'tree-file-rename-input'
-            : 'tree-file-rename-input open-file-rename-input';
+        input.className = useOpenFileItem
+            ? 'tree-file-rename-input open-file-rename-input'
+            : 'tree-file-rename-input';
         input.value = fileName;
         nameSpan.replaceWith(input);
         this.renamingPath = normalized;
+        console.log('[FileRenamer] renamingPath set to:', normalized);
 
         let submitting = false;
         const submit = async () => {
@@ -70,7 +85,7 @@ export class FileRenamer {
                 normalized,
                 fileName,
                 nextLabel,
-                { input, item, nameClass: treeItem ? 'tree-item-name' : 'open-file-name' }
+                { input, item, nameClass: useOpenFileItem ? 'open-file-name' : 'tree-item-name' }
             );
             if (!ok) {
                 submitting = false;
@@ -82,7 +97,7 @@ export class FileRenamer {
             input,
             item,
             originalName: fileName,
-            nameClass: treeItem ? 'tree-item-name' : 'open-file-name',
+            nameClass: useOpenFileItem ? 'open-file-name' : 'tree-item-name',
         });
         const onKeyDown = (e) => {
             if (e.key === 'Enter') {
@@ -116,13 +131,17 @@ export class FileRenamer {
     }
 
     cancel(ctx = {}) {
+        console.log('[FileRenamer] cancel called, current renamingPath:', this.renamingPath);
         const {
             input,
             item,
             originalName,
             nameClass = 'tree-item-name',
         } = ctx;
-        if (!this.renamingPath) return;
+        if (!this.renamingPath) {
+            console.log('[FileRenamer] renamingPath is falsy, returning from cancel');
+            return;
+        }
         if (this._renameCleanup) this._renameCleanup();
         if (input && item) {
             const span = document.createElement('span');
@@ -135,6 +154,7 @@ export class FileRenamer {
             } catch {}
         }
         this.renamingPath = null;
+        console.log('[FileRenamer] renamingPath cleared');
     }
 
     async submitRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {
