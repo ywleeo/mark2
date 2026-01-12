@@ -1,5 +1,6 @@
 import { desktopDir, join } from '@tauri-apps/api/path';
 import { getBundledStyles } from '../config/bundled-styles.js';
+import { detectMimeType, resolveImagePath } from './imageResolver.js';
 
 export function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
@@ -241,6 +242,7 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
         pageWidth = paginated.pageWidth;
     } else {
         const clone = sanitizeExportNode(contentElement.cloneNode(true));
+        await embedImagesAsBase64(clone);
         const branding = buildBrandingMarkup();
         htmlContent = `<div class="mark2-export-wrapper">${clone.outerHTML}${branding}</div>`;
         pageWidth = viewElement.clientWidth || 800;
@@ -487,6 +489,7 @@ async function buildPaginatedA4Html(contentElement) {
     document.body.appendChild(measureHost);
 
     const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
+    await embedImagesAsBase64(sourceRoot);
     const useEditorWrapper = sourceRoot.classList?.contains('tiptap-editor');
     const children = Array.from(sourceRoot.children);
 
@@ -543,4 +546,74 @@ function buildBrandingMarkup() {
     <span class="mark2-export-branding__label">Mark2</span>
 </div>
     `.trim();
+}
+
+async function embedImagesAsBase64(element) {
+    const images = Array.from(element.querySelectorAll('img'));
+    console.log('[exportUtils] 找到图片数量:', images.length);
+    if (images.length === 0) return;
+
+    const tasks = images.map(async (img) => {
+        const src = img.getAttribute('src') || '';
+        const imagePath = img.getAttribute('data-image-path');
+        const originalSrc = img.getAttribute('data-original-src');
+        // 打印所有属性帮助调试
+        const attrs = {};
+        for (const attr of img.attributes) {
+            attrs[attr.name] = attr.value.slice(0, 80);
+        }
+        console.log('[exportUtils] 处理图片:', JSON.stringify({ src: src.slice(0, 100), imagePath, originalSrc, attrs }, null, 2));
+
+        try {
+            // 本地图片：优先使用 data-image-path，其次用 data-original-src 解析
+            let localPath = imagePath;
+            if (!localPath && originalSrc && !/^https?:\/\//i.test(originalSrc)) {
+                const currentFile = window.currentFile;
+                console.log('[exportUtils] 解析相对路径:', { originalSrc, currentFile });
+                localPath = resolveImagePath(originalSrc, currentFile);
+                console.log('[exportUtils] 解析后路径:', localPath);
+            }
+
+            if (localPath) {
+                console.log('[exportUtils] 读取本地图片:', localPath);
+                const { invoke } = window.__TAURI__.core;
+                const base64 = await invoke('read_image_base64', { path: localPath });
+                const mime = detectMimeType(localPath);
+                console.log('[exportUtils] 本地图片读取成功, mime:', mime, 'base64长度:', base64.length);
+                img.setAttribute('src', `data:${mime};base64,${base64}`);
+                return;
+            }
+
+            // 外部图片：http/https（src 或 originalSrc）
+            const httpSrc = /^https?:\/\//i.test(src) ? src : (/^https?:\/\//i.test(originalSrc) ? originalSrc : null);
+            if (httpSrc) {
+                console.log('[exportUtils] 下载外部图片:', httpSrc);
+                const response = await fetch(httpSrc);
+                if (!response.ok) {
+                    console.warn('[exportUtils] 外部图片下载失败:', response.status);
+                    return;
+                }
+                const blob = await response.blob();
+                const base64 = await blobToBase64(blob);
+                console.log('[exportUtils] 外部图片下载成功, base64长度:', base64.length);
+                img.setAttribute('src', base64);
+                return;
+            }
+
+            console.log('[exportUtils] 图片未处理，跳过:', src.slice(0, 50));
+        } catch (error) {
+            console.warn('[exportUtils] 嵌入图片失败:', src || imagePath, error);
+        }
+    });
+
+    await Promise.all(tasks);
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
