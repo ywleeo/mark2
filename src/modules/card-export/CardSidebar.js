@@ -5,8 +5,8 @@ import { buildDefaultCardImagePath } from '../../utils/exportUtils.js';
 import { CardSidebarResizeHandle } from './ResizeHandle.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 
-const PREVIEW_RETINA_SCALE = 2;
 const PREVIEW_MAX_HEIGHT = 520;
+const PREVIEW_FIXED_WIDTH = 340; // 固定预览宽度，不随 sidebar 变化
 const FONT_SCALE_MIN = 0.3;
 const FONT_SCALE_MAX = 1.8;
 const FONT_SCALE_STEP = 0.1;
@@ -16,6 +16,7 @@ const LINE_HEIGHT_SCALE_STEP = 0.1;
 const FONT_WEIGHT_MIN = 300;
 const FONT_WEIGHT_MAX = 800;
 const FONT_WEIGHT_STEP = 100;
+const EXPORT_FONT_SCALE = 1.02;
 
 const CARD_PRESETS = [
     { id: 'xiaohongshu', label: '小红书竖图', hint: '3:4', width: 960, height: 1280 },
@@ -595,12 +596,7 @@ export class CardSidebar {
             this.sizeSelectElement.value = preset.id;
         }
 
-        this.cardElement.style.width = `${preset.width}px`;
-        this.cardElement.style.height = `${preset.height}px`;
-        this.previewInner.style.width = `${preset.width}px`;
-        this.previewInner.style.height = `${preset.height}px`;
         this.previewMetaElement.textContent = `${preset.label} · ${preset.width} × ${preset.height} (${preset.hint})`;
-
         this.applyPreviewScale(preset);
     }
 
@@ -617,8 +613,8 @@ export class CardSidebar {
             return;
         }
 
-        const containerWidth = this.previewContainer?.clientWidth || 320;
-        const availableWidth = Math.max(containerWidth - 20, 200);
+        // 使用固定宽度，不随 sidebar 变化
+        const availableWidth = Math.max(PREVIEW_FIXED_WIDTH - 20, 200);
         let displayWidth = Math.min(availableWidth, preset.width);
         let displayHeight = Math.round((displayWidth / preset.width) * preset.height);
 
@@ -733,73 +729,52 @@ export class CardSidebar {
     }
 
     async renderCardToDataUrl({ width, height }) {
-        const previewWidth = this.previewRenderedWidth || this.cardElement?.clientWidth || width;
-        const previewHeight = this.previewRenderedHeight || this.cardElement?.clientHeight || height;
-
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'fixed';
-        wrapper.style.left = '-20000px';
-        wrapper.style.top = '0';
-        wrapper.style.width = `${width}px`;
-        wrapper.style.height = `${height}px`;
-        wrapper.style.padding = '0';
-        wrapper.style.margin = '0';
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'flex-start';
-        wrapper.style.justifyContent = 'flex-start';
-        wrapper.style.background = getComputedStyle(document.body).backgroundColor || '#ffffff';
-
-        const exportCard = this.cardElement.cloneNode(true);
-        exportCard.classList.remove('is-empty');
-        this.embedInlineStyles(exportCard);
-        exportCard.style.transform = 'none';
-        exportCard.style.position = 'relative';
-        exportCard.style.width = `${previewWidth}px`;
-        exportCard.style.height = `${previewHeight}px`;
-        exportCard.style.display = 'flex';
-        exportCard.style.flexDirection = 'column';
-        exportCard.style.justifyContent = 'flex-start';
-        const exportBody = exportCard.querySelector('.card-preview-card__body');
-        if (exportBody) {
-            if (this.verticalAlign === 'center') {
-                exportBody.style.height = 'auto';
-                exportBody.style.marginTop = 'auto';
-                exportBody.style.marginBottom = 'auto';
-            } else {
-                exportBody.style.height = '100%';
-                exportBody.style.marginTop = '0';
-                exportBody.style.marginBottom = '0';
-            }
-        }
-        if (this.currentContentHtml) {
-            const cloneContent = exportCard.querySelector('.card-preview-card__content');
-            if (cloneContent) {
-                cloneContent.innerHTML = this.currentContentHtml;
-            }
+        if (!this.cardElement) {
+            throw new Error('无法找到卡片预览元素');
         }
 
-        const scaleX = width / previewWidth;
-        const scaleY = height / previewHeight;
-        const scale = Math.min(scaleX, scaleY);
-        exportCard.style.transform = `scale(${scale})`;
-        exportCard.style.transformOrigin = 'top left';
+        const previewWidth = this.previewRenderedWidth || this.cardElement.clientWidth || width;
+        const previewHeight = this.previewRenderedHeight || this.cardElement.clientHeight || height;
+        // 直接以预览 DOM 排版，导出时只放大像素密度，保证折行一致
+        const scale = width / previewWidth;
 
-        wrapper.appendChild(exportCard);
-        document.body.appendChild(wrapper);
+        const contentNode = this.cardTextElement;
+        const originalInline = contentNode
+            ? {
+                fontSize: contentNode.style.fontSize,
+                lineHeight: contentNode.style.lineHeight,
+                letterSpacing: contentNode.style.letterSpacing,
+            }
+            : null;
 
         try {
+            if (contentNode && EXPORT_FONT_SCALE !== 1) {
+                const computed = window.getComputedStyle(contentNode);
+                const baseFontSize = parseFloat(computed.fontSize) || 16;
+                const parsedLineHeight = parseFloat(computed.lineHeight);
+                const baseLineHeight = Number.isFinite(parsedLineHeight)
+                    ? parsedLineHeight
+                    : baseFontSize * 1.6;
+                const parsedLetterSpacing = parseFloat(computed.letterSpacing);
+                const baseLetterSpacing = Number.isFinite(parsedLetterSpacing) ? parsedLetterSpacing : 0;
+
+                contentNode.style.fontSize = `${baseFontSize * EXPORT_FONT_SCALE}px`;
+                contentNode.style.lineHeight = `${baseLineHeight * EXPORT_FONT_SCALE}px`;
+                contentNode.style.letterSpacing = `${baseLetterSpacing * EXPORT_FONT_SCALE}px`;
+            }
+
             await document.fonts?.ready;
             const toPng = await ensureToPng();
-            return await toPng(exportCard, {
+            return await toPng(this.cardElement, {
                 backgroundColor: '#ffffff',
-                pixelRatio: 2,
+                pixelRatio: scale,
                 cacheBust: true,
-                width,
-                height,
             });
         } finally {
-            if (wrapper.parentNode) {
-                wrapper.parentNode.removeChild(wrapper);
+            if (contentNode && originalInline) {
+                contentNode.style.fontSize = originalInline.fontSize;
+                contentNode.style.lineHeight = originalInline.lineHeight;
+                contentNode.style.letterSpacing = originalInline.letterSpacing;
             }
         }
     }
@@ -808,41 +783,11 @@ export class CardSidebar {
         if (!cardNode) {
             return;
         }
-
-        // 应用背景样式
+        // 只处理背景样式，其他样式在 renderCardToDataUrl 中处理
         const bgElement = cardNode.querySelector('.card-preview-card__background');
         if (bgElement) {
             const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
             bgElement.style.background = preset.gradient;
-        }
-
-        const markdownRoot =
-            document.querySelector('.markdown-pane .tiptap-editor') ||
-            document.querySelector('.tiptap-editor') ||
-            document.querySelector('.markdown-pane .markdown-content') ||
-            document.querySelector('.markdown-content');
-        if (!markdownRoot) {
-            return;
-        }
-
-        const computed = window.getComputedStyle(markdownRoot);
-        const targetContent = cardNode.querySelector('.card-preview-card__content');
-        if (targetContent) {
-            const parsedWeight = parseInt(computed.fontWeight, 10);
-            const baseWeight = Number.isFinite(parsedWeight) ? parsedWeight : this.fontWeight || 400;
-            const appliedWeight = Number.isFinite(this.fontWeight) ? this.fontWeight : baseWeight;
-            targetContent.style.fontFamily = computed.fontFamily;
-            targetContent.style.fontWeight = `${appliedWeight}`;
-            targetContent.style.letterSpacing = computed.letterSpacing;
-            targetContent.style.color = computed.color;
-            const baseSize = Number.isFinite(parseFloat(computed.fontSize))
-                ? parseFloat(computed.fontSize)
-                : this.baseFontSize || 16;
-            const ratio = this.baseLineHeightRatio
-                ?? this.getLineHeightRatio(computed.lineHeight, baseSize)
-                ?? 1.6;
-            targetContent.style.fontSize = `${baseSize * this.fontScale}px`;
-            targetContent.style.lineHeight = `${baseSize * this.fontScale * ratio * this.lineHeightScale}px`;
         }
     }
 
