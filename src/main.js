@@ -57,6 +57,7 @@ import { createDocumentIO } from './core/DocumentIO.js';
 import { initAIAssistant } from './modules/ai-assistant/index.js';
 import { initCardExportSidebar } from './modules/card-export/index.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
+import { untitledFileManager } from './modules/untitledFileManager.js';
 import { ensureToPng } from './app/coreModules.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
 import { createEditorActions } from './app/editorActions.js';
@@ -513,6 +514,8 @@ const {
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
+    untitledFileManager,
+    saveUntitledFile,
 });
 
 /**
@@ -540,6 +543,131 @@ function clearActiveFileView() {
 function persistWorkspaceState(overrides = {}, options = {}) {
     workspaceController?.persistWorkspaceState(overrides, options);
     scheduleWorkspaceContextSync();
+}
+
+/**
+ * 创建新的 untitled 文件并打开
+ */
+async function handleCreateUntitled() {
+    const untitledPath = untitledFileManager.createUntitledFile();
+    const displayName = untitledFileManager.getDisplayName(untitledPath);
+
+    // 创建一个虚拟的 tab
+    const tabManager = appState.getTabManager();
+    if (tabManager) {
+        // 直接添加到 fileTabs 中
+        tabManager.fileTabs.unshift({
+            id: untitledPath,
+            type: 'file',
+            path: untitledPath,
+            label: displayName,
+        });
+        tabManager.setActiveTab(untitledPath, { silent: true });
+        tabManager.render();
+    }
+
+    // 设置当前文件并初始化编辑器
+    appState.setCurrentFile(untitledPath);
+    appState.setHasUnsavedChanges(false);
+
+    // 激活 markdown 视图并清空编辑器
+    const editor = editorRegistry.getMarkdownEditor();
+    if (editor) {
+        editor.setContent?.('');
+        editor.currentFile = untitledPath;
+        activateMarkdownView();
+        // 聚焦到编辑器
+        setTimeout(() => {
+            editor.focus?.();
+        }, 50);
+    }
+
+    void updateWindowTitle();
+    scheduleWorkspaceContextSync();
+    scheduleDocumentSnapshotSync();
+}
+
+/**
+ * 保存 untitled 文件到磁盘
+ * @param {string} untitledPath - untitled 文件的虚拟路径
+ * @param {string} content - 文件内容
+ * @returns {Promise<boolean>} 是否保存成功
+ */
+async function saveUntitledFile(untitledPath, content) {
+    try {
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const displayName = untitledFileManager.getDisplayName(untitledPath);
+
+        const targetPath = await save({
+            title: '保存文件',
+            defaultPath: displayName,
+            filters: [{
+                name: 'Markdown',
+                extensions: ['md'],
+            }],
+        });
+
+        if (!targetPath) {
+            // 用户取消了保存对话框
+            return false;
+        }
+
+        const normalizedPath = normalizeFsPath(targetPath);
+        if (!normalizedPath) {
+            return false;
+        }
+
+        // 写入文件
+        await appServices.file.writeText(normalizedPath, content);
+
+        // 转换为正常文件 tab
+        await convertUntitledToRealFile(untitledPath, normalizedPath);
+
+        return true;
+    } catch (error) {
+        console.error('保存 untitled 文件失败:', error);
+        alert('保存文件失败: ' + (error?.message || error));
+        return false;
+    }
+}
+
+/**
+ * 将 untitled 虚拟文件转换为正常文件
+ * @param {string} untitledPath - untitled 文件的虚拟路径
+ * @param {string} realPath - 实际保存的文件路径
+ */
+async function convertUntitledToRealFile(untitledPath, realPath) {
+    const tabManager = appState.getTabManager();
+    const fileTree = appState.getFileTree();
+    const currentFile = appState.getCurrentFile();
+
+    // 从 untitledFileManager 中移除
+    untitledFileManager.removeUntitledFile(untitledPath);
+
+    // 更新 tab 信息
+    if (tabManager && Array.isArray(tabManager.fileTabs)) {
+        const tabIndex = tabManager.fileTabs.findIndex(tab => tab.path === untitledPath);
+        if (tabIndex !== -1) {
+            // 移除旧的 untitled tab
+            tabManager.fileTabs.splice(tabIndex, 1);
+        }
+    }
+
+    // 清理 session
+    documentSessions.closeSessionForPath(untitledPath);
+    const editor = editorRegistry.getMarkdownEditor();
+    const codeEditor = editorRegistry.getCodeEditor();
+    editor?.forgetViewStateForTab?.(untitledPath);
+    codeEditor?.forgetViewStateForTab?.(untitledPath);
+    fileSession.clearEntry(untitledPath);
+
+    // 如果当前文件是这个 untitled 文件，切换到新的真实文件
+    if (currentFile === untitledPath) {
+        // 添加到 fileTree 的打开文件列表
+        fileTree?.addToOpenFiles?.(realPath);
+        // 选中新文件（这会触发正常的文件加载流程）
+        fileTree?.selectFile?.(realPath);
+    }
 }
 
 function handleTabReorder(reorderPayload) {
@@ -594,6 +722,8 @@ const {
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     confirm,
+    untitledFileManager,
+    saveUntitledFile,
 });
 
 const {
@@ -773,6 +903,7 @@ async function initializeApplication() {
         handleTabRenameConfirm,
         handleTabRenameCancel,
         handleTabReorder,
+        handleCreateUntitled,
     });
 
     const fileWatcherController = createFileWatcherController({
@@ -899,11 +1030,28 @@ async function initializeApplication() {
  * 将当前活跃编辑器内容写入会话缓存。
  */
 function saveCurrentEditorContentToCache() {
+    const currentFile = appState.getCurrentFile();
+    const activeViewMode = appState.getActiveViewMode();
+    const editor = editorRegistry.getMarkdownEditor();
+    const codeEditor = editorRegistry.getCodeEditor();
+
+    // 对于 untitled 文件，保存到 untitledFileManager 中
+    if (currentFile && untitledFileManager.isUntitledPath(currentFile)) {
+        let content = '';
+        if (activeViewMode === 'markdown' && editor) {
+            content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'code' && codeEditor) {
+            content = codeEditor.getValue?.() || '';
+        }
+        untitledFileManager.setContent(currentFile, content);
+        return;
+    }
+
     fileSession.saveCurrentEditorContentToCache({
-        currentFile: appState.getCurrentFile(),
-        activeViewMode: appState.getActiveViewMode(),
-        editor: editorRegistry.getMarkdownEditor(),
-        codeEditor: editorRegistry.getCodeEditor(),
+        currentFile,
+        activeViewMode,
+        editor,
+        codeEditor,
     });
 }
 
@@ -1155,13 +1303,108 @@ async function updateWindowTitle() {
 }
 
 /**
- * 计算编辑器内容的字数统计。
- */
-/**
  * 注册窗口卸载时的清理钩子。
  */
 function setupCleanupHandlers() {
     window.addEventListener('beforeunload', cleanupResources);
+    setupWindowCloseHandler();
+}
+
+/**
+ * 设置窗口关闭拦截，检查未保存的 untitled 文件
+ */
+async function setupWindowCloseHandler() {
+    try {
+        const currentWindow = getCurrentWindow();
+        await currentWindow.onCloseRequested(async (event) => {
+            // 检查是否有未保存的 untitled 文件
+            const tabManager = appState.getTabManager();
+            const allTabs = tabManager?.getAllTabs() || [];
+            const untitledTabs = allTabs.filter(tab =>
+                tab.path && untitledFileManager.isUntitledPath(tab.path)
+            );
+
+            if (untitledTabs.length === 0) {
+                return; // 没有 untitled 文件，允许关闭
+            }
+
+            // 获取当前文件的内容
+            const currentFile = appState.getCurrentFile();
+            let hasContent = false;
+
+            for (const tab of untitledTabs) {
+                if (tab.path === currentFile) {
+                    // 当前激活的 untitled 文件，从编辑器获取内容
+                    const editor = editorRegistry.getMarkdownEditor();
+                    const codeEditor = editorRegistry.getCodeEditor();
+                    const activeViewMode = appState.getActiveViewMode();
+
+                    let content = '';
+                    if (activeViewMode === 'markdown' && editor) {
+                        content = editor.getMarkdown?.() || '';
+                    } else if (activeViewMode === 'code' && codeEditor) {
+                        content = codeEditor.getValue?.() || '';
+                    }
+
+                    if (content.trim().length > 0) {
+                        hasContent = true;
+                        untitledFileManager.setContent(tab.path, content);
+                    }
+                } else {
+                    // 非当前激活的 untitled 文件，检查缓存内容
+                    if (untitledFileManager.hasUnsavedChanges(tab.path)) {
+                        hasContent = true;
+                    }
+                }
+            }
+
+            if (!hasContent) {
+                return; // 所有 untitled 文件都是空的，允许关闭
+            }
+
+            // 阻止关闭并询问用户
+            event.preventDefault();
+
+            const displayNames = untitledTabs
+                .filter(tab => {
+                    if (tab.path === currentFile) {
+                        const content = untitledFileManager.getContent(tab.path) || '';
+                        return content.trim().length > 0;
+                    }
+                    return untitledFileManager.hasUnsavedChanges(tab.path);
+                })
+                .map(tab => untitledFileManager.getDisplayName(tab.path))
+                .join(', ');
+
+            const shouldSave = await confirm(
+                `"${displayNames}" 尚未保存，是否保存？`,
+                {
+                    title: '保存文件',
+                    kind: 'warning',
+                    okLabel: '保存',
+                    cancelLabel: '不保存',
+                }
+            );
+
+            if (shouldSave === true) {
+                // 用户选择保存，逐个保存 untitled 文件
+                for (const tab of untitledTabs) {
+                    const content = untitledFileManager.getContent(tab.path) || '';
+                    if (content.trim().length > 0) {
+                        const saved = await saveUntitledFile(tab.path, content);
+                        if (!saved) {
+                            // 用户取消了保存对话框，不关闭窗口
+                            return;
+                        }
+                    }
+                }
+            }
+            // 用户选择"不保存"或保存完成后，关闭窗口
+            currentWindow.destroy();
+        });
+    } catch (error) {
+        console.warn('设置窗口关闭处理器失败:', error);
+    }
 }
 
 /**

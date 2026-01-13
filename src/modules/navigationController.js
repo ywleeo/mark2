@@ -13,6 +13,8 @@ export function createNavigationController({
     getEditor,
     getCodeEditor,
     confirm,
+    untitledFileManager,
+    saveUntitledFile,
 }) {
     if (typeof getFileTree !== 'function') {
         throw new Error('navigationController 需要提供 getFileTree');
@@ -124,11 +126,14 @@ export function createNavigationController({
             await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
 
             const isOpenTab = fileTree?.isInOpenList?.(filePath);
+            // untitled 文件已经在 fileTabs 中，直接激活
+            const isUntitledInFileTabs = untitledFileManager?.isUntitledPath?.(filePath)
+                && tabManager?.fileTabs?.some(tab => tab.path === filePath);
 
             if (isOpeningFromLink) {
                 tabManager?.showSharedTab(filePath);
                 isOpeningFromLink = false;
-            } else if (isOpenTab) {
+            } else if (isOpenTab || isUntitledInFileTabs) {
                 tabManager?.setActiveFileTab(filePath, { silent: true });
             } else {
                 tabManager?.showSharedTab(filePath);
@@ -178,6 +183,11 @@ export function createNavigationController({
         const fileTree = getFileTree();
         const tabManager = getTabManager();
         if (!tab) return;
+
+        // 处理 untitled 文件的关闭
+        if (tab.path && untitledFileManager?.isUntitledPath?.(tab.path)) {
+            return handleUntitledTabClose(tab);
+        }
 
         if (tab.type === 'file' && tab.path) {
             const targetPath = tab.path;
@@ -314,6 +324,10 @@ export function createNavigationController({
         if (!currentPath) {
             return true;
         }
+        // untitled 文件不自动保存
+        if (untitledFileManager?.isUntitledPath?.(currentPath)) {
+            return true;
+        }
         const hasChanges = await checkFileHasUnsavedChanges(currentPath);
         if (!hasChanges) {
             return true;
@@ -333,6 +347,106 @@ export function createNavigationController({
             return;
         }
         await tabManager.handleTabClose(tabManager.activeTabId);
+    }
+
+    /**
+     * 处理 untitled 文件的关闭
+     * untitled 文件不自动保存，关闭时询问用户是否保存
+     */
+    async function handleUntitledTabClose(tab) {
+        const tabManager = getTabManager();
+        const targetPath = tab.path;
+
+        // 清除自动保存定时器
+        const editor = getEditor();
+        editor?.clearAutoSaveTimer?.();
+
+        // 获取当前编辑器内容
+        const activeViewMode = getActiveViewMode();
+        let content = '';
+        if (activeViewMode === 'markdown' && editor) {
+            content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'code') {
+            const codeEditor = getCodeEditor();
+            content = codeEditor?.getValue?.() || '';
+        }
+
+        // 更新 untitledFileManager 中的内容
+        untitledFileManager?.setContent?.(targetPath, content);
+
+        // 检查是否有内容需要保存
+        const hasContent = content.trim().length > 0;
+
+        if (hasContent && confirm) {
+            const displayName = untitledFileManager?.getDisplayName?.(targetPath) || 'untitled.md';
+            try {
+                const shouldSave = await confirm(
+                    `"${displayName}" 尚未保存，是否保存？`,
+                    {
+                        title: '保存文件',
+                        kind: 'warning',
+                        okLabel: '保存',
+                        cancelLabel: '不保存',
+                    }
+                );
+
+                if (shouldSave) {
+                    // 调用 saveUntitledFile 弹出保存对话框
+                    const saved = await saveUntitledFile?.(targetPath, content);
+                    if (!saved) {
+                        // 用户取消了保存对话框，不关闭 tab
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.warn('确认保存弹窗失败', error);
+            }
+        }
+
+        // 清理 untitled 文件资源
+        untitledFileManager?.removeUntitledFile?.(targetPath);
+
+        // 清理视图状态
+        const currentFile = getCurrentFile();
+        const wasActive = currentFile === targetPath;
+
+        // 从 tabManager.fileTabs 中移除 untitled tab
+        if (tabManager && Array.isArray(tabManager.fileTabs)) {
+            const tabIndex = tabManager.fileTabs.findIndex(t => t.path === targetPath);
+            if (tabIndex !== -1) {
+                tabManager.fileTabs.splice(tabIndex, 1);
+            }
+        }
+
+        // 找到备选 tab
+        let fallbackTab = null;
+        if (wasActive && tabManager) {
+            const remainingTabs = tabManager.getAllTabs() || [];
+            if (remainingTabs.length > 0) {
+                fallbackTab = remainingTabs[remainingTabs.length - 1];
+            }
+        }
+
+        if (wasActive) {
+            tabManager?.setActiveTab(null, { silent: true });
+            clearActiveFileView();
+        }
+
+        // 重新渲染 tab bar
+        tabManager?.render?.();
+
+        // 切换到备选 tab
+        if (wasActive && fallbackTab) {
+            tabManager?.setActiveTab(fallbackTab.id);
+        }
+
+        // 清理 session
+        documentSessions.closeSessionForPath(targetPath);
+        const codeEditor = getCodeEditor();
+        const markdownEditor = getEditor();
+        codeEditor?.forgetViewStateForTab?.(targetPath);
+        markdownEditor?.forgetViewStateForTab?.(targetPath);
+        fileSession.clearEntry(targetPath);
     }
 
     function setupLinkNavigationListener() {

@@ -1068,6 +1068,14 @@ export class MarkdownEditor {
         if (!targetFile) {
             return false;
         }
+        // untitled 文件不进行自动保存（只能通过 Cmd+S 触发保存对话框）
+        if (targetFile.startsWith('untitled://')) {
+            if (reason === 'auto') {
+                return true; // 跳过自动保存
+            }
+            // 手动保存由外部处理（fileOperations.saveCurrentFile）
+            return false;
+        }
         if (targetSessionId && !this.isSessionActive(targetSessionId)) {
             return false;
         }

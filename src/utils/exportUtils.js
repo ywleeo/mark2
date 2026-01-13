@@ -510,12 +510,14 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
 
     document.body.appendChild(measureHost);
 
-    console.log('[PDF分页] 测量容器样式:', {
-        width: contentWidthPx,
-        fontFamily: editorStyle.fontFamily,
-        fontSize: editorStyle.fontSize,
-        lineHeight: editorStyle.lineHeight
-    });
+    if (options.debugPagination) {
+        console.log('[PDF分页] 测量容器样式:', {
+            width: contentWidthPx,
+            fontFamily: editorStyle.fontFamily,
+            fontSize: editorStyle.fontSize,
+            lineHeight: editorStyle.lineHeight
+        });
+    }
 
     const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
     await embedImagesAsBase64(sourceRoot);
@@ -698,11 +700,13 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
         };
     });
 
-    console.log('[PDF分页] contentHeightPx:', contentHeightPx, '元素总数:', originalCount, 'bottomPaddingMm:', bottomPaddingMm, 'bottomSafeMargin:', bottomSafeMargin);
+    if (options.debugPagination) {
+        console.log('[PDF分页] contentHeightPx:', contentHeightPx, '元素总数:', originalCount, 'bottomPaddingMm:', bottomPaddingMm, 'bottomSafeMargin:', bottomSafeMargin);
+    }
 
     // 辅助函数：打印换页信息
     const logPageBreak = (pageNum, pageContent, totalHeight, reason) => {
-        if (pageNum <= 3) {
+        if (options.debugPagination && pageNum <= 3) {
             const firstEl = pageContent[0] || '';
             const lastEl = pageContent[pageContent.length - 1] || '';
             const firstText = firstEl.replace(/<[^>]*>/g, '').slice(0, 30);
@@ -729,7 +733,7 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
                 return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
             })();
 
-        if (pages.length < 3) {
+        if (options.debugPagination && pages.length < 3) {
             const tagName = item.node.tagName;
             const textPreview = item.node.textContent?.slice(0, 20) || '';
             console.log(`[PDF分页] 元素${i} <${tagName}>: "${textPreview}..." top=${bounds.top.toFixed(1)}, bottom=${bounds.bottom.toFixed(1)} pageStart=${pageStartY.toFixed(1)} pageEnd=${pageEndY.toFixed(1)}`);

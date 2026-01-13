@@ -72,6 +72,10 @@ export class FileWatcher {
     }
 
     async watchFile(path, options = {}) {
+        // 跳过 untitled 虚拟文件的监听
+        if (typeof path === 'string' && path.startsWith('untitled://')) {
+            return;
+        }
         const normalizedPath = this.normalizePath?.(path);
         if (!normalizedPath) return;
 
@@ -139,6 +143,10 @@ export class FileWatcher {
     }
 
     async ensureFileWatcherHealth(path, options = {}) {
+        // 跳过 untitled 虚拟文件
+        if (typeof path === 'string' && path.startsWith('untitled://')) {
+            return;
+        }
         const normalizedPath = this.normalizePath?.(path);
         if (!normalizedPath) return;
 

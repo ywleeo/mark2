@@ -1,0 +1,146 @@
+/**
+ * 管理 untitled 虚拟文件
+ * 使用 untitled://untitled-{n}.md 格式的路径标识
+ */
+
+const UNTITLED_PROTOCOL = 'untitled://';
+
+/**
+ * 创建 untitled 文件管理器
+ */
+export function createUntitledFileManager() {
+    // 存储所有 untitled 文件的内容
+    // key: untitled 路径, value: { content: string, hasChanges: boolean }
+    const untitledFiles = new Map();
+    let counter = 0;
+
+    /**
+     * 检查路径是否是 untitled 文件
+     */
+    function isUntitledPath(path) {
+        return typeof path === 'string' && path.startsWith(UNTITLED_PROTOCOL);
+    }
+
+    /**
+     * 生成新的 untitled 文件路径
+     */
+    function generateUntitledPath() {
+        counter += 1;
+        return `${UNTITLED_PROTOCOL}untitled-${counter}.md`;
+    }
+
+    /**
+     * 创建新的 untitled 文件
+     * @returns {string} 新文件的路径
+     */
+    function createUntitledFile() {
+        const path = generateUntitledPath();
+        untitledFiles.set(path, {
+            content: '',
+            hasChanges: false,
+        });
+        return path;
+    }
+
+    /**
+     * 获取 untitled 文件的内容
+     */
+    function getContent(path) {
+        if (!isUntitledPath(path)) {
+            return null;
+        }
+        const file = untitledFiles.get(path);
+        return file ? file.content : '';
+    }
+
+    /**
+     * 设置 untitled 文件的内容
+     */
+    function setContent(path, content) {
+        if (!isUntitledPath(path)) {
+            return false;
+        }
+        const file = untitledFiles.get(path);
+        if (file) {
+            file.content = content;
+            file.hasChanges = true;
+            return true;
+        }
+        // 如果文件不存在，创建它
+        untitledFiles.set(path, {
+            content,
+            hasChanges: true,
+        });
+        return true;
+    }
+
+    /**
+     * 检查 untitled 文件是否有未保存的更改
+     */
+    function hasUnsavedChanges(path) {
+        if (!isUntitledPath(path)) {
+            return false;
+        }
+        const file = untitledFiles.get(path);
+        // 只要有内容就认为有更改（因为 untitled 文件从未保存过）
+        return file ? (file.content.length > 0 || file.hasChanges) : false;
+    }
+
+    /**
+     * 标记文件为无更改（保存后调用）
+     */
+    function markAsSaved(path) {
+        if (!isUntitledPath(path)) {
+            return;
+        }
+        const file = untitledFiles.get(path);
+        if (file) {
+            file.hasChanges = false;
+        }
+    }
+
+    /**
+     * 删除 untitled 文件
+     */
+    function removeUntitledFile(path) {
+        if (!isUntitledPath(path)) {
+            return false;
+        }
+        return untitledFiles.delete(path);
+    }
+
+    /**
+     * 获取 untitled 文件的显示名称
+     */
+    function getDisplayName(path) {
+        if (!isUntitledPath(path)) {
+            return null;
+        }
+        // 从 untitled://untitled-1.md 提取 untitled-1.md
+        return path.slice(UNTITLED_PROTOCOL.length);
+    }
+
+    /**
+     * 清除所有 untitled 文件
+     */
+    function clearAll() {
+        untitledFiles.clear();
+        counter = 0;
+    }
+
+    return {
+        isUntitledPath,
+        createUntitledFile,
+        getContent,
+        setContent,
+        hasUnsavedChanges,
+        markAsSaved,
+        removeUntitledFile,
+        getDisplayName,
+        clearAll,
+        UNTITLED_PROTOCOL,
+    };
+}
+
+// 导出单例实例
+export const untitledFileManager = createUntitledFileManager();

@@ -126,6 +126,7 @@ export function setupTabManager({
     handleTabRenameConfirm,
     handleTabRenameCancel,
     handleTabReorder,
+    handleCreateUntitled,
 }) {
     const tabBarElement = document.getElementById('tabBar');
     const tabManager = new TabManagerCtor(tabBarElement, {
@@ -134,6 +135,7 @@ export function setupTabManager({
         onRenameConfirm: handleTabRenameConfirm,
         onRenameCancel: handleTabRenameCancel,
         onTabReorder: handleTabReorder,
+        onCreateUntitled: handleCreateUntitled,
     });
 
     appState.setTabManager(tabManager);

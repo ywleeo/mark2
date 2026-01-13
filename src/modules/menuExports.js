@@ -89,7 +89,7 @@ async function exportPdfWithMode({
             activeViewMode,
             {
                 pageFormat,
-                contentBottomPadding: 10, // 内容区底部到 footer 的距离（mm），可调整
+                contentBottomPadding: 15, // 内容区底部到 footer 的距离（mm），可调整
                 debugPagination: PDF_PAGINATION_DEBUG,
             }
         );

@@ -30,6 +30,7 @@ export class TabManager {
                 window.removeEventListener('pointercancel', this.handleGlobalPointerUp);
             });
         }
+        this.setupContainerDoubleClick();
         this.render();
     }
 
@@ -364,6 +365,36 @@ export class TabManager {
         });
 
         this.updateActiveState();
+    }
+
+    /**
+     * 设置容器双击事件，用于在空白区域双击时创建新文件
+     */
+    setupContainerDoubleClick() {
+        if (!this.container) {
+            return;
+        }
+
+        const handleDoubleClick = (event) => {
+            // 检查点击目标是否在任何 tab 元素上
+            const target = event.target;
+            if (target instanceof Element) {
+                // 如果点击在 tab 元素或其子元素上，不处理
+                if (target.closest('.tab')) {
+                    return;
+                }
+            }
+
+            // 只有点击在容器的空白区域才触发
+            if (target === this.container) {
+                this.callbacks.onCreateUntitled?.();
+            }
+        };
+
+        this.container.addEventListener('dblclick', handleDoubleClick);
+        this.persistentCleanups.push(() => {
+            this.container.removeEventListener('dblclick', handleDoubleClick);
+        });
     }
 
     dispose() {

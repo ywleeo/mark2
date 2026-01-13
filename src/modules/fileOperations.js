@@ -71,6 +71,8 @@ export function createFileOperations({
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn,
+    untitledFileManager,
+    saveUntitledFile,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -190,6 +192,12 @@ export function createFileOperations({
         if (!currentFile) {
             return false;
         }
+
+        // 处理 untitled 文件的保存
+        if (untitledFileManager?.isUntitledPath?.(currentFile)) {
+            return saveUntitledFileFromEditor(currentFile);
+        }
+
         const activeSession = documentSessions.getActiveSession();
         if (!activeSession || activeSession.filePath !== currentFile) {
             return false;
@@ -236,6 +244,32 @@ export function createFileOperations({
             }
         }
 
+        return false;
+    }
+
+    /**
+     * 保存 untitled 文件 - 获取编辑器内容并弹出保存对话框
+     */
+    async function saveUntitledFileFromEditor(untitledPath) {
+        const editor = getEditor();
+        const codeEditor = getCodeEditor();
+        const activeViewMode = getActiveViewMode();
+
+        let content = '';
+        if (activeViewMode === 'markdown' && editor) {
+            content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'code' && codeEditor) {
+            content = codeEditor.getValue?.() || '';
+        }
+
+        if (typeof saveUntitledFile === 'function') {
+            const saved = await saveUntitledFile(untitledPath, content);
+            if (saved) {
+                setHasUnsavedChanges(false);
+                await updateWindowTitle();
+            }
+            return saved;
+        }
         return false;
     }
 
@@ -337,6 +371,25 @@ export function createFileOperations({
             codeEditor?.prepareForDocument?.(session, filePath, tabId);
             // 关闭旧文件可能仍在等待自动保存，提前清除避免写入到新文件
             editor?.clearAutoSaveTimer?.();
+
+            // 处理 untitled 虚拟文件：不监听文件，不从磁盘读取，直接显示编辑器
+            if (untitledFileManager?.isUntitledPath?.(filePath)) {
+                activateMarkdownView();
+                const untitledContent = untitledFileManager.getContent?.(filePath) || '';
+                if (editor) {
+                    await editor.loadFile(session, filePath, untitledContent, { autoFocus });
+                    if (shouldAbort('untitled-editor-load')) {
+                        return;
+                    }
+                }
+                setHasUnsavedChanges(untitledContent.trim().length > 0);
+                await updateWindowTitle();
+                if (shouldAbort('untitled-title')) {
+                    return;
+                }
+                markSessionReady();
+                return;
+            }
 
             if (initialViewMode === 'image') {
                 activateImageView();
