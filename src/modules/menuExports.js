@@ -85,7 +85,10 @@ async function exportPdfWithMode({
 
         const { htmlContent, cssContent, pageWidth, htmlAttributes } = await collectContentForPdf(
             activeViewMode,
-            { pageFormat }
+            {
+                pageFormat,
+                contentBottomPadding: 10, // 内容区底部到 footer 的距离（mm），可调整
+            }
         );
         await exportToPdf({
             destination: targetPath,
