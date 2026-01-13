@@ -7,6 +7,8 @@ import {
 } from '../utils/exportUtils.js';
 import { captureScreenshot, exportToPdf } from '../api/native.js';
 
+const PDF_PAGINATION_DEBUG = 'verbose';
+
 export async function exportCurrentViewToImage({ ensureToPng, statusBarController }) {
     let progressShown = false;
     try {
@@ -88,6 +90,7 @@ async function exportPdfWithMode({
             {
                 pageFormat,
                 contentBottomPadding: 10, // 内容区底部到 footer 的距离（mm），可调整
+                debugPagination: PDF_PAGINATION_DEBUG,
             }
         );
         await exportToPdf({

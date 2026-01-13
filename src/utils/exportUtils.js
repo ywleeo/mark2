@@ -520,7 +520,8 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
     const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
     await embedImagesAsBase64(sourceRoot);
     const useEditorWrapper = sourceRoot.classList?.contains('tiptap-editor');
-    const children = Array.from(sourceRoot.children);
+    const sourceChildren = Array.from(sourceRoot.children);
+    const originalCount = sourceChildren.length;
 
     // 辅助函数：检测是否是标题元素
     const isHeading = (el) => /^H[1-6]$/i.test(el?.tagName);
@@ -530,50 +531,25 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
         contentElement?.closest?.('.tiptap-editor')
     );
 
-    // 辅助函数：测量元素高度（包含 margin，限制图片最大高度）
-    // 标题元素保留完整 margin，普通元素做 margin 折叠处理
-    const measureChildHeight = (child) => {
-        measureHost.innerHTML = '';
-        const clone = child.cloneNode(true);
-        // 给图片设置最大高度，避免单张图片超过页面
-        const imgs = clone.querySelectorAll('img');
-        imgs.forEach(img => {
-            img.style.maxHeight = `${contentHeightPx - 50}px`;
-            img.style.width = 'auto';
-            img.style.maxWidth = '100%';
-        });
-        if (shouldWrapForMeasure) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'tiptap-editor';
-            wrapper.style.width = '100%';
-            wrapper.appendChild(clone);
-            measureHost.appendChild(wrapper);
-        } else {
-            measureHost.appendChild(clone);
-        }
-        // 获取元素高度 + margin
-        const style = window.getComputedStyle(clone);
-        const marginTop = parseFloat(style.marginTop) || 0;
-        const marginBottom = parseFloat(style.marginBottom) || 0;
-        const offsetHeight = clone.offsetHeight;
-        const heading = isHeading(child);
-
-        return {
-            offsetHeight,
-            marginTop,
-            marginBottom,
-            isHeading: heading,
-            // 页首元素：offsetHeight（CSS 移除 marginTop）+ marginBottom（标题保留，普通元素不算）
-            heightForFirst: heading ? offsetHeight + marginBottom : offsetHeight,
-            // 非页首元素：标题用完整高度，普通元素只加 marginTop（和上一个元素的 marginBottom 折叠）
-            heightForRest: heading ? offsetHeight + marginTop + marginBottom : offsetHeight + marginTop
-        };
-    };
-
-    const unsplittableTags = new Set([
-        'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
-        'PRE', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'TABLE'
-    ]);
+    const measureRoot = sourceRoot.cloneNode(true);
+    const measureImages = measureRoot.querySelectorAll('img');
+    measureImages.forEach(img => {
+        img.style.maxHeight = `${contentHeightPx - 50}px`;
+        img.style.width = 'auto';
+        img.style.maxWidth = '100%';
+    });
+    if (shouldWrapForMeasure) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tiptap-editor';
+        wrapper.style.width = '100%';
+        wrapper.appendChild(measureRoot);
+        measureHost.appendChild(wrapper);
+    } else {
+        measureHost.appendChild(measureRoot);
+    }
+    await document.fonts?.ready;
+    const measureChildren = Array.from(measureRoot.children);
+    const measureTop = measureRoot.getBoundingClientRect().top;
 
     const isSplittableParagraph = (el) => el?.tagName === 'P';
 
@@ -595,6 +571,15 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
         return null;
     };
 
+    const findStartPosition = (root) => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        const node = walker.nextNode();
+        if (!node) {
+            return null;
+        }
+        return { node, offset: 0 };
+    };
+
     const pruneEmptyElements = (root) => {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
         const toRemove = [];
@@ -610,75 +595,110 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
         toRemove.forEach(item => item.parentNode?.removeChild(item));
     };
 
-    const createParagraphSlice = (paragraph, length, keepHead) => {
-        const clone = paragraph.cloneNode(true);
-        const position = findSplitPosition(clone, length);
-        if (!position) {
+    const createRangeFromOffsets = (root, startOffset, endOffset) => {
+        if (!root || endOffset <= startOffset) {
+            return null;
+        }
+        const startPos = startOffset === 0 ? findStartPosition(root) : findSplitPosition(root, startOffset);
+        const endPos = findSplitPosition(root, endOffset);
+        if (!startPos || !endPos) {
             return null;
         }
         const range = document.createRange();
-        if (keepHead) {
-            range.setStart(position.node, position.offset);
-            range.setEndAfter(clone.lastChild || clone);
-        } else {
-            range.setStart(clone, 0);
-            range.setEnd(position.node, position.offset);
+        range.setStart(startPos.node, startPos.offset);
+        range.setEnd(endPos.node, endPos.offset);
+        return range;
+    };
+
+    const createParagraphSliceByOffsets = (paragraph, startOffset, endOffset) => {
+        const clone = paragraph.cloneNode(true);
+        const endPos = findSplitPosition(clone, endOffset);
+        if (!endPos) {
+            return null;
         }
-        range.deleteContents();
+        const endRange = document.createRange();
+        endRange.setStart(endPos.node, endPos.offset);
+        endRange.setEndAfter(clone.lastChild || clone);
+        endRange.deleteContents();
+        if (startOffset > 0) {
+            const startPos = findSplitPosition(clone, startOffset);
+            if (!startPos) {
+                return null;
+            }
+            const startRange = document.createRange();
+            startRange.setStart(clone, 0);
+            startRange.setEnd(startPos.node, startPos.offset);
+            startRange.deleteContents();
+        }
         pruneEmptyElements(clone);
         return clone;
     };
 
-    const splitParagraphToFit = (paragraph, availableHeight, isFirstInPage) => {
-        const totalLength = paragraph.textContent?.length || 0;
-        if (!totalLength || availableHeight <= 0) {
+    const getParagraphSegmentBounds = (paragraph, startOffset, endOffset) => {
+        const range = createRangeFromOffsets(paragraph, startOffset, endOffset);
+        if (!range) {
+            const rect = paragraph.getBoundingClientRect();
+            return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
+        }
+        const rects = Array.from(range.getClientRects());
+        if (!rects.length) {
+            const rect = paragraph.getBoundingClientRect();
+            return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
+        }
+        const firstRect = rects[0];
+        const lastRect = rects[rects.length - 1];
+        return { top: firstRect.top - measureTop, bottom: lastRect.bottom - measureTop };
+    };
+
+    const findParagraphSplitOffsetByLayout = (paragraph, startOffset, endOffset, pageBottomY) => {
+        if (endOffset <= startOffset) {
             return null;
         }
-        let low = 1;
-        let high = totalLength;
-        let best = 0;
-
-        // 二分查找可放下的最大文本长度，避免按元素整体高度导致吞内容或留白
+        let low = startOffset + 1;
+        let high = endOffset;
+        let best = null;
         while (low <= high) {
             const mid = Math.floor((low + high) / 2);
-            const head = createParagraphSlice(paragraph, mid, true);
-            if (!head) {
+            const range = createRangeFromOffsets(paragraph, startOffset, mid);
+            if (!range) {
                 high = mid - 1;
                 continue;
             }
-            const measured = measureChildHeight(head);
-            const height = isFirstInPage ? measured.heightForFirst : measured.heightForRest;
-            if (height <= availableHeight) {
+            const rects = Array.from(range.getClientRects());
+            if (!rects.length) {
+                high = mid - 1;
+                continue;
+            }
+            const lastRect = rects[rects.length - 1];
+            const lastBottom = lastRect.bottom - measureTop;
+            if (lastBottom <= pageBottomY) {
                 best = mid;
                 low = mid + 1;
             } else {
                 high = mid - 1;
             }
         }
-
-        if (!best || best >= totalLength) {
-            return null;
-        }
-
-        const head = createParagraphSlice(paragraph, best, true);
-        const tail = createParagraphSlice(paragraph, best, false);
-        if (!head || !tail) {
-            return null;
-        }
-        const tailHasContent = tail.textContent?.trim() || tail.querySelector('img,video,svg,canvas,iframe');
-        if (!tailHasContent) {
-            return null;
-        }
-        return { head, tail };
+        return best;
     };
 
     const pages = [];
     let currentPageContent = [];
     let currentHeight = 0;
-    let i = 0;
     let splitParagraphCount = 0;
+    const effectivePageHeight = contentHeightPx - bottomSafeMargin;
+    const items = sourceChildren.map((node, idx) => {
+        const measureNode = measureChildren[idx];
+        const textLength = node.textContent?.length || 0;
+        return {
+            node,
+            measureNode,
+            isParagraph: isSplittableParagraph(node) && textLength > 0,
+            startOffset: 0,
+            endOffset: textLength
+        };
+    });
 
-    console.log('[PDF分页] contentHeightPx:', contentHeightPx, '元素总数:', children.length, 'bottomPaddingMm:', bottomPaddingMm, 'bottomSafeMargin:', bottomSafeMargin);
+    console.log('[PDF分页] contentHeightPx:', contentHeightPx, '元素总数:', originalCount, 'bottomPaddingMm:', bottomPaddingMm, 'bottomSafeMargin:', bottomSafeMargin);
 
     // 辅助函数：打印换页信息
     const logPageBreak = (pageNum, pageContent, totalHeight, reason) => {
@@ -694,117 +714,106 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
         }
     };
 
-    while (i < children.length) {
-        const child = children[i];
-        const measured = measureChildHeight(child);
-        const nextChild = children[i + 1];
+    let pageIndex = 0;
+    let i = 0;
+    while (i < items.length) {
+        const item = items[i];
+        const nextItem = items[i + 1];
+        const pageStartY = pageIndex * effectivePageHeight;
+        const pageEndY = pageStartY + effectivePageHeight;
 
-        // 页首元素不需要 marginTop（CSS 会移除它）
-        // 非页首元素考虑 margin 折叠，只加 marginTop
-        const isFirstInPage = currentPageContent.length === 0;
-        const childHeight = isFirstInPage ? measured.heightForFirst : measured.heightForRest;
+        const bounds = item.isParagraph
+            ? getParagraphSegmentBounds(item.measureNode, item.startOffset, item.endOffset)
+            : (() => {
+                const rect = item.measureNode.getBoundingClientRect();
+                return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
+            })();
 
-        // 打印每个元素的高度（仅前3页）
         if (pages.length < 3) {
-            const tagName = child.tagName;
-            const textPreview = child.textContent?.slice(0, 20) || '';
-            console.log(`[PDF分页] 元素${i} <${tagName}>: "${textPreview}..." offsetH=${measured.offsetHeight}, mT=${measured.marginTop.toFixed(1)}, 使用h=${childHeight.toFixed(1)}${isFirstInPage ? '(页首)' : ''}`);
+            const tagName = item.node.tagName;
+            const textPreview = item.node.textContent?.slice(0, 20) || '';
+            console.log(`[PDF分页] 元素${i} <${tagName}>: "${textPreview}..." top=${bounds.top.toFixed(1)}, bottom=${bounds.bottom.toFixed(1)} pageStart=${pageStartY.toFixed(1)} pageEnd=${pageEndY.toFixed(1)}`);
         }
 
-        // 标题绑定：标题和下一个元素尽量放在一起，避免标题单独在页面底部
-        if (isHeading(child) && nextChild) {
-            const nextMeasured = measureChildHeight(nextChild);
-            // 标题后的元素需要 marginTop（非页首）
-            const nextHeight = nextMeasured.heightForRest;
-            // 如果标题是页首，不需要 marginTop
-            const headingHeight = isFirstInPage ? measured.heightForFirst : measured.heightForRest;
-            // 换页后标题变成页首的组合高度
-            const combinedHeightAsFirst = measured.heightForFirst + nextMeasured.heightForRest;
-
-            if (pages.length < 5) {
-                console.log(`[PDF分页] 标题绑定检查 元素${i}+${i+1}: 标题h=${headingHeight.toFixed(1)}, 下一个h=${nextHeight.toFixed(1)}, 组合=${(headingHeight + nextHeight).toFixed(1)}, 累计=${currentHeight.toFixed(1)}, 可用=${contentHeightPx - bottomSafeMargin}`);
-            }
-
-            // 如果当前页放不下标题+下一个元素，但新页面可以放下，就换页
-            if (currentHeight + headingHeight + nextHeight > contentHeightPx - bottomSafeMargin &&
-                currentPageContent.length > 0 &&
-                combinedHeightAsFirst <= contentHeightPx - bottomSafeMargin) {
-                if (pages.length < 5) {
-                    console.log(`[PDF分页] 标题绑定换页: 元素${i} <${child.tagName}> + 元素${i+1} <${nextChild.tagName}>`);
-                }
-                logPageBreak(pages.length + 1, currentPageContent, currentHeight, '标题绑定换页');
-                pages.push(currentPageContent);
-                currentPageContent = [];
-                currentHeight = 0;
-                // 换页后标题变成页首
-                currentPageContent.push(child.outerHTML);
-                currentPageContent.push(nextChild.outerHTML);
-                currentHeight += combinedHeightAsFirst;
-                i += 2;
-                continue;
-            }
-
-            // 如果当前页能放下标题+下一个元素，一起加入
-            if (currentHeight + headingHeight + nextHeight <= contentHeightPx - bottomSafeMargin) {
-                if (pages.length < 5) {
-                    console.log(`[PDF分页] 标题绑定加入: 元素${i} <${child.tagName}> + 元素${i+1} <${nextChild.tagName}>`);
-                }
-                currentPageContent.push(child.outerHTML);
-                currentPageContent.push(nextChild.outerHTML);
-                currentHeight += headingHeight + nextHeight;
-                i += 2;
-                continue;
-            }
-            // 组合太大（超过一页），走常规逻辑分开处理（不要跳过，继续处理标题）
-            if (pages.length < 5) {
-                console.log(`[PDF分页] 标题绑定跳过(组合太大): 元素${i} <${child.tagName}> 走常规逻辑`);
-            }
-        }
-
-        const availableHeight = contentHeightPx - bottomSafeMargin - currentHeight;
-
-        // 段落可拆分：当剩余空间不足时，切成可放下的最大部分
-        if (
-            isSplittableParagraph(child) &&
-            !unsplittableTags.has(child.tagName) &&
-            childHeight > availableHeight &&
-            availableHeight > 0
-        ) {
-            const split = splitParagraphToFit(child, availableHeight, isFirstInPage);
-            if (split) {
-                const headMeasured = measureChildHeight(split.head);
-                const headHeight = isFirstInPage ? headMeasured.heightForFirst : headMeasured.heightForRest;
-                currentPageContent.push(split.head.outerHTML);
-                currentHeight += headHeight;
-
-                logPageBreak(pages.length + 1, currentPageContent, currentHeight, '段落拆分页');
-                pages.push(currentPageContent);
-                currentPageContent = [];
-                currentHeight = 0;
-
-                children[i] = split.tail;
-                splitParagraphCount += 1;
-                continue;
-            }
-        }
-
-        // 常规分页逻辑（预留底部安全边距）
-        if (currentHeight + childHeight > contentHeightPx - bottomSafeMargin && currentPageContent.length > 0) {
+        if (bounds.top >= pageEndY && currentPageContent.length > 0) {
             logPageBreak(pages.length + 1, currentPageContent, currentHeight, '常规换页');
             pages.push(currentPageContent);
             currentPageContent = [];
             currentHeight = 0;
+            pageIndex += 1;
+            continue;
+        }
+        if (bounds.top >= pageEndY && currentPageContent.length === 0) {
+            pageIndex += 1;
+            continue;
         }
 
-        // 安全检查：无论如何都要把元素加入，不能丢失内容
-        // 即使元素超高，也要加入（可能会溢出，但不能丢失）
-        const finalHeight = currentPageContent.length === 0 ? measured.heightForFirst : measured.heightForRest;
-        if (finalHeight > contentHeightPx - bottomSafeMargin) {
-            console.warn(`[PDF分页] 警告：元素${i}高度(${finalHeight})超过页面可用高度(${contentHeightPx - bottomSafeMargin})，可能溢出`);
+        if (isHeading(item.node) && nextItem && currentPageContent.length > 0) {
+            let canPlaceNext = false;
+            if (nextItem.isParagraph) {
+                const offset = findParagraphSplitOffsetByLayout(nextItem.measureNode, nextItem.startOffset, nextItem.endOffset, pageEndY);
+                canPlaceNext = Boolean(offset);
+            } else {
+                const rect = nextItem.measureNode.getBoundingClientRect();
+                const nextBottom = rect.bottom - measureTop;
+                canPlaceNext = nextBottom <= pageEndY;
+            }
+            if (bounds.bottom <= pageEndY && !canPlaceNext) {
+                logPageBreak(pages.length + 1, currentPageContent, currentHeight, '标题孤行换页');
+                pages.push(currentPageContent);
+                currentPageContent = [];
+                currentHeight = 0;
+                pageIndex += 1;
+                continue;
+            }
         }
-        currentPageContent.push(child.outerHTML);
-        currentHeight += finalHeight;
-        i++;
+
+        if (bounds.bottom <= pageEndY) {
+            if (item.isParagraph) {
+                const slice = createParagraphSliceByOffsets(item.node, item.startOffset, item.endOffset);
+                currentPageContent.push(slice ? slice.outerHTML : item.node.outerHTML);
+            } else {
+                currentPageContent.push(item.node.outerHTML);
+            }
+            currentHeight = Math.max(currentHeight, bounds.bottom - pageStartY);
+            i += 1;
+            continue;
+        }
+
+        if (item.isParagraph) {
+            const splitOffset = findParagraphSplitOffsetByLayout(item.measureNode, item.startOffset, item.endOffset, pageEndY);
+            if (splitOffset) {
+                const head = createParagraphSliceByOffsets(item.node, item.startOffset, splitOffset);
+                const tail = createParagraphSliceByOffsets(item.node, splitOffset, item.endOffset);
+                const tailHasContent = tail?.textContent?.trim() || tail?.querySelector('img,video,svg,canvas,iframe');
+                if (head && tail && tailHasContent) {
+                    currentPageContent.push(head.outerHTML);
+                    currentHeight = Math.max(currentHeight, pageEndY - pageStartY);
+                    item.startOffset = splitOffset;
+                    splitParagraphCount += 1;
+                    logPageBreak(pages.length + 1, currentPageContent, currentHeight, '段落拆分页');
+                    pages.push(currentPageContent);
+                    currentPageContent = [];
+                    currentHeight = 0;
+                    pageIndex += 1;
+                    continue;
+                }
+            }
+        }
+
+        if (currentPageContent.length > 0) {
+            logPageBreak(pages.length + 1, currentPageContent, currentHeight, '常规换页');
+            pages.push(currentPageContent);
+            currentPageContent = [];
+            currentHeight = 0;
+            pageIndex += 1;
+            continue;
+        }
+
+        console.warn(`[PDF分页] 警告：元素${i}高度超过页面可用高度，可能溢出`);
+        currentPageContent.push(item.node.outerHTML);
+        currentHeight = Math.max(currentHeight, bounds.bottom - pageStartY);
+        i += 1;
     }
 
     // 添加最后一页
@@ -815,12 +824,12 @@ async function buildPaginatedA4Html(contentElement, options = {}) {
 
     // 安全检查：确认所有元素都被处理了
     const totalElementsInPages = pages.reduce((sum, page) => sum + page.length, 0);
-    const expectedElements = children.length + splitParagraphCount;
+    const expectedElements = originalCount + splitParagraphCount;
     if (totalElementsInPages !== expectedElements) {
-        console.error(`[PDF分页] 错误：元素数量不匹配！源元素: ${children.length}, 拆分增量: ${splitParagraphCount}, 页面元素: ${totalElementsInPages}`);
+        console.error(`[PDF分页] 错误：元素数量不匹配！源元素: ${originalCount}, 拆分增量: ${splitParagraphCount}, 页面元素: ${totalElementsInPages}`);
         // 找出哪些元素丢失了
         const processedHtmlSet = new Set(pages.flat());
-        children.forEach((child, idx) => {
+        sourceChildren.forEach((child, idx) => {
             if (!processedHtmlSet.has(child.outerHTML)) {
                 console.error(`[PDF分页] 丢失元素 ${idx}: <${child.tagName}> "${child.textContent?.slice(0, 30)}..."`);
             }
