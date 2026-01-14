@@ -437,6 +437,20 @@ body.card-sidebar-visible .card-sidebar {
     flex: 1;
 }
 
+.card-preview-card .card-preview-card__content ul,
+.card-preview-card .card-preview-card__content ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+}
+
+.card-preview-card .card-preview-card__content li {
+    margin: 0.8em 0;
+}
+
+.card-preview-card .card-preview-card__content li > p {
+    margin: 0;
+}
+
 .card-preview-card__footer {
     font-size: 14px;
     color: rgba(15, 23, 42, 0.6);

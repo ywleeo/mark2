@@ -521,9 +521,11 @@ export class CardSidebar {
             container.appendChild(fragment);
             this.sanitizeSelectionHtml(container);
 
+            const html = container.innerHTML.trim();
+            console.log('[CardSidebar] 选中内容 HTML:', html);
             return {
                 text,
-                html: container.innerHTML.trim(),
+                html,
                 inMarkdown: true,
             };
         } catch (error) {
@@ -546,6 +548,16 @@ export class CardSidebar {
                 }
             });
         });
+
+        // 检测孤立的 li 元素（没有 ul/ol 父级），用 ul 包裹
+        const orphanLis = [...container.children].filter(
+            child => child.tagName === 'LI'
+        );
+        if (orphanLis.length > 0) {
+            const ul = document.createElement('ul');
+            orphanLis.forEach(li => ul.appendChild(li));
+            container.appendChild(ul);
+        }
     }
 
     updateContentPreview({ text = '', html = '' } = {}) {
