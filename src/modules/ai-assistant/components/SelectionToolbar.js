@@ -115,6 +115,7 @@ export class SelectionToolbar {
                             <div class="ai-style-option" data-value="standup_comedy">脱口秀</div>
                             <div class="ai-style-option" data-value="podcast_solo">播客-单人</div>
                             <div class="ai-style-option" data-value="podcast_duo">播客-双人</div>
+                            <div class="ai-style-option" data-value="brainstorm">头脑风暴</div>
                         </div>
                     </div>
                 </div>

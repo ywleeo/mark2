@@ -130,6 +130,11 @@ export class PromptComposer {
                 person: '第三人称',
                 tone: '厚重严谨、正史笔法',
                 vocabulary: '历史用语、时代感'
+            },
+            'brainstorm': {
+                person: '第一人称',
+                tone: '发散创意、脑洞大开',
+                vocabulary: '多角度联想、跨界思维'
             }
         };
 
@@ -297,6 +302,11 @@ export class PromptComposer {
         };
 
         const modifier = creativityModifier[this.preferences.creativity] || 0;
+
+        // 头脑风暴风格使用更高的温度（0.9）
+        if (this.preferences?.outputStyle === 'brainstorm') {
+            return 0.9;
+        }
 
         return Math.max(0, Math.min(1, baseTemp + modifier));
     }
