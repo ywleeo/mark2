@@ -265,7 +265,8 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             novel_wuxia: '武侠', novel_xianxia: '修仙', novel_history: '历史',
             xiaohongshu: '小红书', zhihu: '知乎', weibo: '微博', bilibili: 'B站',
             wechat: '公众号', toutiao: '头条', douyin: '抖音', shipinhao: '视频号', taobao: '淘宝',
-            novel_master: '大师', standup_comedy: '脱口秀',
+            novel_master: '大师', standup_comedy: '脱口秀', brainstorm: '头脑风暴',
+            podcast_solo: '播客-单人', podcast_duo: '播客-双人',
             ghibli: '吉卜力', shinkai: '新海诚', kyoani: '京都动画', pixar: '皮克斯',
         };
         const baseMessage = actionLabels[action] || '处理这段文字';
