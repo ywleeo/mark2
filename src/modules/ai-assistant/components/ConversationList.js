@@ -100,6 +100,7 @@ export class ConversationList {
 
             const actionsHtml = hasContent
                 ? `<div class="ai-message-actions">
+                       <button class="ai-action-btn ai-copy-btn" data-index="${index}">复制</button>
                        <button class="ai-action-btn ai-insert-btn" data-index="${index}">插入</button>
                        <button class="ai-action-btn ai-replace-btn" data-index="${index}">替换</button>
                        <button class="ai-action-btn ai-delete-btn" data-index="${index}" title="删除这条消息">删除</button>
@@ -173,6 +174,30 @@ export class ConversationList {
     bindActions(container) {
         // 清理旧的事件
         this.cleanupClicks();
+
+        // 复制按钮
+        const copyBtns = container.querySelectorAll('.ai-copy-btn');
+        copyBtns.forEach(btn => {
+            const cleanup = addClickHandler(btn, async () => {
+                const index = parseInt(btn.getAttribute('data-index'));
+                const message = this.messages[index];
+                if (message) {
+                    try {
+                        await navigator.clipboard.writeText(message.content);
+                        const originalText = btn.textContent;
+                        btn.textContent = '已复制';
+                        setTimeout(() => {
+                            btn.textContent = originalText;
+                        }, 1500);
+                    } catch (err) {
+                        console.error('复制失败:', err);
+                    }
+                }
+            });
+            if (cleanup) {
+                this.clickCleanups.push(cleanup);
+            }
+        });
 
         // 插入按钮
         const insertBtns = container.querySelectorAll('.ai-insert-btn');
