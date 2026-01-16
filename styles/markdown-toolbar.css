@@ -26,38 +26,41 @@
     scrollbar-gutter: stable !important;
 }
 
-/* Markdown 编辑器滚动条一直显示 */
+/* Markdown 编辑器滚动条 - thin 样式 */
+.view-pane.markdown-pane.is-active {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
 .view-pane.markdown-pane.is-active::-webkit-scrollbar {
-    width: 6px !important;
-    -webkit-appearance: none !important;
+    width: 2px;
+    -webkit-appearance: none;
 }
 
 .view-pane.markdown-pane.is-active::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.06) !important;
+    background: transparent;
 }
 
 .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.25) !important;
-    border-radius: 3px !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 1px;
 }
 
 .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.4) !important;
+    background: rgba(0, 0, 0, 0.35);
 }
 
 /* 深色模式 */
-:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.04) !important;
+:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active {
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 :root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15) !important;
-    border-color: rgba(255, 255, 255, 0.04) !important;
+    background: rgba(255, 255, 255, 0.15);
 }
 
 :root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.25);
 }
 
 .view-pane.markdown-pane > * {

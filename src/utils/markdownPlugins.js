@@ -147,6 +147,15 @@ export function createConfiguredMarkdownIt() {
             return `<div class="mermaid" data-mermaid-code="${encoded}"></div>`;
         }
 
+        // JSON 代码块自动格式化缩进
+        if (info === 'json') {
+            try {
+                token.content = JSON.stringify(JSON.parse(token.content), null, 2);
+            } catch (e) {
+                // 解析失败保持原样
+            }
+        }
+
         return defaultFenceRenderer(tokens, idx, options, env, self);
     };
 
