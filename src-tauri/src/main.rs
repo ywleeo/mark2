@@ -4,6 +4,8 @@
 #[cfg(target_os = "macos")]
 mod macos_security;
 
+mod pty;
+
 use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
@@ -1470,6 +1472,7 @@ fn main() {
         })
         .manage(WorkspaceState::default())
         .manage(DocumentState::default())
+        .manage(pty::PtyState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -1500,7 +1503,11 @@ fn main() {
             reveal_in_file_manager,
             set_export_menu_enabled,
             set_ai_sidebar_menu_enabled,
-            update_recent_menu
+            update_recent_menu,
+            pty::pty_spawn,
+            pty::pty_write,
+            pty::pty_resize,
+            pty::pty_kill
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -1541,6 +1548,11 @@ fn main() {
 
             let toggle_ai_sidebar_item =
                 MenuItemBuilder::with_id("toggle-ai-sidebar", "AI Assistant")
+                    .build(app)?;
+
+            let toggle_terminal_sidebar_item =
+                MenuItemBuilder::with_id("toggle-terminal-sidebar", "Terminal")
+                    .accelerator("CmdOrCtrl+`")
                     .build(app)?;
 
             let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
@@ -1593,6 +1605,7 @@ fn main() {
                 .item(&toggle_status_bar_item)
                 .item(&toggle_markdown_toolbar_item)
                 .item(&toggle_ai_sidebar_item)
+                .item(&toggle_terminal_sidebar_item)
                 .build()?;
 
             app.manage(ExportMenuState::new(

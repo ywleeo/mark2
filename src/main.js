@@ -55,6 +55,7 @@ import { createRecentFilesActions } from './modules/recentFilesActions.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
 import { initAIAssistant } from './modules/ai-assistant/index.js';
+import { initTerminalSidebar } from './modules/terminal-sidebar/index.js';
 import { initCardExportSidebar } from './modules/card-export/index.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { untitledFileManager } from './modules/untitledFileManager.js';
@@ -81,6 +82,7 @@ const editorRegistry = new EditorRegistry();
 // ========== 构造函数（动态加载） ==========
 let SettingsDialogCtor = null;
 let aiAssistant = null;
+let terminalSidebar = null;
 let cardExportSidebar = null;
 
 function ensureFileService() {
@@ -845,6 +847,14 @@ async function initializeApplication() {
     });
     console.log('[App] AI 助手已初始化');
 
+    // 初始化 Terminal Sidebar
+    terminalSidebar = await initTerminalSidebar({
+        eventBus,
+        getAISidebar: () => aiAssistant,
+        getWorkspacePath: () => appServices?.workspace?.getCurrentDirectory?.(),
+    });
+    console.log('[App] Terminal Sidebar 已初始化');
+
     cardExportSidebar = await initCardExportSidebar();
     console.log('[App] 卡片导出侧边栏已初始化');
     handleCardSidebarOnFileChange(appState.getCurrentFile());
@@ -980,6 +990,9 @@ async function initializeApplication() {
         onToggleAISidebar: () => {
             aiAssistant?.toggleSidebar?.();
             // 状态更新由 layoutService.subscribe 自动处理
+        },
+        onToggleTerminalSidebar: () => {
+            terminalSidebar?.toggleSidebar?.();
         },
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,

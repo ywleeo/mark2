@@ -1,0 +1,115 @@
+/**
+ * Terminal Sidebar 样式
+ */
+
+/* 复用 AI Sidebar 的颜色变量 */
+
+.terminal-sidebar {
+    position: relative;
+    width: 450px;
+    height: calc(100vh - var(--titlebar-height, 30px));
+    background: var(--ai-sidebar-bg, #151c25);
+    border-left: 1px solid var(--ai-sidebar-border, #2c3542);
+    display: none;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* Terminal Sidebar 显示时 */
+.terminal-sidebar.visible {
+    display: flex;
+}
+
+/* 调节手柄 */
+.terminal-sidebar-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: ew-resize;
+    background: transparent;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.terminal-sidebar-resize-handle:hover {
+    background: var(--ai-sidebar-primary, #58a6ff);
+}
+
+/* 头部 */
+.terminal-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ai-sidebar-border, #2c3542);
+    flex-shrink: 0;
+}
+
+.terminal-sidebar-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ai-sidebar-text, #f0f3f8);
+}
+
+.terminal-sidebar-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.terminal-sidebar-close-btn {
+    padding: 4px;
+    background: transparent;
+    border: none;
+    color: var(--ai-sidebar-text-secondary, #b5bdc98f);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.terminal-sidebar-close-btn:hover {
+    background: var(--ai-sidebar-hover-bg, #222a38);
+    color: var(--ai-sidebar-text, #f0f3f8);
+}
+
+/* 内容区域 */
+.terminal-sidebar-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 占位提示 */
+.terminal-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--ai-sidebar-text-secondary, #b5bdc98f);
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+}
+
+/* xterm 容器样式 */
+.terminal-sidebar-content {
+    padding: 8px;
+}
+
+.terminal-sidebar-content .xterm {
+    height: 100%;
+}
+
+.terminal-sidebar-content .xterm-viewport {
+    overflow-y: auto;
+}
+
+.terminal-sidebar-content .xterm-screen {
+    padding: 4px;
+}
