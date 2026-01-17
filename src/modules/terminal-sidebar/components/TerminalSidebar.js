@@ -130,6 +130,16 @@ export class TerminalSidebar {
             }
         });
 
+        // 处理 Cmd+K 清屏
+        this.terminal.attachCustomKeyEventHandler((event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+                event.preventDefault();
+                this.terminal.clear();
+                return false;
+            }
+            return true;
+        });
+
         // 监听主题变化
         this.setupThemeObserver();
 

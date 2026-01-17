@@ -1535,7 +1535,7 @@ fn main() {
                     .build(app)?;
 
             let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
-                .accelerator("CmdOrCtrl+K")
+                .accelerator("CmdOrCtrl+B")
                 .build(app)?;
 
             let toggle_status_bar_item =
@@ -1552,7 +1552,7 @@ fn main() {
 
             let toggle_terminal_sidebar_item =
                 MenuItemBuilder::with_id("toggle-terminal-sidebar", "Terminal")
-                    .accelerator("CmdOrCtrl+`")
+                    .accelerator("CmdOrCtrl+J")
                     .build(app)?;
 
             let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;

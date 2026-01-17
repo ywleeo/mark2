@@ -867,6 +867,19 @@ async function initializeApplication() {
             if (currentFile && isMarkdownFilePath(currentFile)) {
                 appState.setAISidebarWasOpenInMarkdown(state.visible);
             }
+            // 触发 Monaco 编辑器重新布局
+            window.requestAnimationFrame(() => {
+                editorRegistry.getCodeEditor()?.requestLayout?.();
+            });
+        });
+    }
+
+    // 订阅 Terminal sidebar 可见性变化，触发编辑器重新布局
+    if (terminalSidebar?.layoutService) {
+        terminalSidebar.layoutService.subscribe(() => {
+            window.requestAnimationFrame(() => {
+                editorRegistry.getCodeEditor()?.requestLayout?.();
+            });
         });
     }
 
