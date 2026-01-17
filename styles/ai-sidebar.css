@@ -177,6 +177,23 @@ body.ai-sidebar-visible .ai-sidebar {
     color: var(--ai-sidebar-text);
 }
 
+/* 系统消息（取消操作等提示） */
+.ai-message-system {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.ai-message-system .ai-message-content {
+    background: transparent;
+    color: var(--ai-sidebar-text-secondary);
+    font-size: 12px;
+    font-style: italic;
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px dashed var(--ai-sidebar-border);
+}
+
 .ai-message-loading {
     opacity: 0.6;
     font-style: italic;

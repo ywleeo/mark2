@@ -131,10 +131,10 @@ export class PromptComposer {
                 tone: '厚重严谨、正史笔法',
                 vocabulary: '历史用语、时代感'
             },
-            'brainstorm': {
+            'shipinhao': {
                 person: '第一人称',
-                tone: '发散创意、脑洞大开',
-                vocabulary: '多角度联想、跨界思维'
+                tone: '正能量、温暖治愈',
+                vocabulary: '生活感悟、情感共鸣'
             }
         };
 
@@ -230,7 +230,8 @@ export class PromptComposer {
             ? { before: '', after: '' }  // 翻译只处理选中内容，不读取上下文
             : this.contextBuilder.extractSurrounding(selection);
 
-        // 3. 决定使用哪个风格：创作型任务用用户选择的风格，提炼型任务用文档分析的风格，翻译不使用风格
+        // 3. 决定使用哪个风格：创作型任务用用户选择的风格，提炼型任务用文档分析的风格
+        // 特殊格式任务（brainstorm, slogan, podcast_solo, podcast_duo）不使用风格
         const creativeActions = ['polish', 'continue', 'expand'];
         let styleToUse = null;
 
@@ -302,11 +303,6 @@ export class PromptComposer {
         };
 
         const modifier = creativityModifier[this.preferences.creativity] || 0;
-
-        // 头脑风暴风格使用更高的温度（0.9）
-        if (this.preferences?.outputStyle === 'brainstorm') {
-            return 0.9;
-        }
 
         return Math.max(0, Math.min(1, baseTemp + modifier));
     }

@@ -119,6 +119,16 @@ export class ConversationList {
             return div;
         }
 
+        // 系统消息（如取消操作提示）
+        if (message.role === 'system') {
+            const div = document.createElement('div');
+            div.className = 'ai-message ai-message-system';
+            div.innerHTML = `
+                <div class="ai-message-content">${this.escapeHtml(message.content)}</div>
+            `;
+            return div;
+        }
+
         return document.createElement('div');
     }
 

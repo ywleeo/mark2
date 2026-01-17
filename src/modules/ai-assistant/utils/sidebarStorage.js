@@ -47,15 +47,29 @@ async function fileExists(path) {
 }
 
 /**
+ * 确保目录存在
+ */
+async function ensureDirExists(filePath) {
+    try {
+        const { dirname } = await import('@tauri-apps/api/path');
+        const dir = await dirname(filePath);
+        await invoke('ensure_dir_exists', { path: dir });
+    } catch {
+        // 静默处理，目录可能已存在
+    }
+}
+
+/**
  * 保存对话历史
  */
 export async function saveConversations(conversations) {
     try {
         const limited = conversations.slice(-DEFAULTS.MAX_CONVERSATIONS);
         const path = await getConversationsPath();
+        await ensureDirExists(path);
         await writeFile(path, JSON.stringify(limited, null, 2));
-    } catch (error) {
-        console.error('[SidebarStorage] 保存对话失败:', error);
+    } catch {
+        // 静默处理保存失败，不影响用户体验
     }
 }
 
@@ -103,9 +117,10 @@ async function loadSettings() {
 async function saveSettings(settings) {
     try {
         const path = await getSettingsPath();
+        await ensureDirExists(path);
         await writeFile(path, JSON.stringify(settings, null, 2));
-    } catch (error) {
-        console.error('[SidebarStorage] 保存设置失败:', error);
+    } catch {
+        // 静默处理保存失败
     }
 }
 

@@ -113,12 +113,27 @@ export class SelectionToolbar {
                             <div class="ai-style-group-title">特色风格</div>
                             <div class="ai-style-option" data-value="novel_master">大师</div>
                             <div class="ai-style-option" data-value="standup_comedy">脱口秀</div>
-                            <div class="ai-style-option" data-value="podcast_solo">播客-单人</div>
-                            <div class="ai-style-option" data-value="podcast_duo">播客-双人</div>
-                            <div class="ai-style-option" data-value="brainstorm">头脑风暴</div>
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="ai-toolbar-row ai-toolbar-special">
+                <button class="ai-selection-btn" data-action="brainstorm" title="头脑风暴">
+                    <span>💡</span>
+                    <span class="ai-selection-btn-label">脑暴</span>
+                </button>
+                <button class="ai-selection-btn" data-action="slogan" title="生成Slogan">
+                    <span>🏷️</span>
+                    <span class="ai-selection-btn-label">Slogan</span>
+                </button>
+                <button class="ai-selection-btn" data-action="podcast_solo" title="播客-单人独白">
+                    <span>🎙️</span>
+                    <span class="ai-selection-btn-label">播客单人</span>
+                </button>
+                <button class="ai-selection-btn" data-action="podcast_duo" title="播客-双人对话">
+                    <span>🎧</span>
+                    <span class="ai-selection-btn-label">播客双人</span>
+                </button>
             </div>
             <div class="ai-toolbar-row ai-toolbar-image">
                 <button class="ai-selection-btn" data-action="illustration" title="生成插画提示词">
@@ -705,10 +720,16 @@ export class SelectionToolbar {
      * 获取当前选择的风格
      */
     getCurrentStyle(action) {
-        // 根据action类型返回对应的风格
+        // 图片任务使用图片风格
         if (action === 'illustration' || action === 'storyboard') {
             return this.currentImageStyleValue || 'ghibli';
         }
+        // 特殊格式任务不使用风格
+        const specialActions = ['brainstorm', 'slogan', 'podcast_solo', 'podcast_duo'];
+        if (specialActions.includes(action)) {
+            return null;
+        }
+        // 其他文字任务使用文字风格
         return this.currentTextStyleValue || 'balanced';
     }
 

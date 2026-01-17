@@ -132,7 +132,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                     case 'task-cancelled':
                         sidebar.onAIComplete();
                         messageService.addMessage({
-                            role: 'assistant',
+                            role: 'system',
                             content: '已取消操作',
                         });
                         streamUnsubscribe();
@@ -148,9 +148,9 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                 taskId: currentTaskId,
             });
         } catch (error) {
-            console.error('[AI Assistant] AI 处理失败:', error);
-            // 如果是取消操作，不显示错误
+            // 取消操作不记录错误
             if (error.message !== '请求已取消') {
+                console.error('[AI Assistant] AI 处理失败:', error);
                 sidebar.onAIError(error);
             }
             currentTaskId = null;
@@ -257,6 +257,10 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             simplify: '精简这段内容',
             summarize: '总结这段内容',
             translate: '翻译这段内容',
+            brainstorm: '对这个主题进行脑暴',
+            slogan: '为这个内容生成 Slogan',
+            podcast_solo: '转换为播客单人独白',
+            podcast_duo: '转换为播客双人对话',
         };
         const styleLabels = {
             balanced: '平衡', rational: '理性', humorous: '幽默', cute: '可爱',
@@ -265,8 +269,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             novel_wuxia: '武侠', novel_xianxia: '修仙', novel_history: '历史',
             xiaohongshu: '小红书', zhihu: '知乎', weibo: '微博', bilibili: 'B站',
             wechat: '公众号', toutiao: '头条', douyin: '抖音', shipinhao: '视频号', taobao: '淘宝',
-            novel_master: '大师', standup_comedy: '脱口秀', brainstorm: '头脑风暴',
-            podcast_solo: '播客-单人', podcast_duo: '播客-双人',
+            novel_master: '大师', standup_comedy: '脱口秀',
             ghibli: '吉卜力', shinkai: '新海诚', kyoani: '京都动画', pixar: '皮克斯',
         };
         const baseMessage = actionLabels[action] || '处理这段文字';
@@ -286,6 +289,10 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             simplify: '正在精简',
             summarize: '正在总结',
             translate: '正在翻译',
+            brainstorm: '正在脑暴',
+            slogan: '正在生成 Slogan',
+            podcast_solo: '正在生成播客独白',
+            podcast_duo: '正在生成播客对话',
         };
         const statusText = actionStatusLabels[action] || '正在处理';
         sidebar.onAIStart(statusText);
@@ -362,7 +369,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                     case 'task-cancelled':
                         sidebar.onAIComplete();
                         messageService.addMessage({
-                            role: 'assistant',
+                            role: 'system',
                             content: '已取消操作',
                         });
                         streamUnsubscribe();
@@ -378,9 +385,9 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                 taskId,
             });
         } catch (error) {
-            console.error('[AI Assistant] AI 处理失败:', error);
-            // 如果是取消操作，不显示错误
+            // 取消操作不记录错误
             if (error.message !== '请求已取消') {
+                console.error('[AI Assistant] AI 处理失败:', error);
                 sidebar.onAIError(error);
             }
             currentTaskId = null;

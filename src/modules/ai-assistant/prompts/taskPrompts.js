@@ -144,6 +144,38 @@ export const TASK_PROMPTS = {
         const builder = await createTaskPromptBuilder('storyboard');
         return builder(params);
     },
+
+    /**
+     * 头脑风暴
+     */
+    brainstorm: async (params) => {
+        const builder = await createTaskPromptBuilder('brainstorm');
+        return builder(params);
+    },
+
+    /**
+     * 生成Slogan
+     */
+    slogan: async (params) => {
+        const builder = await createTaskPromptBuilder('slogan');
+        return builder(params);
+    },
+
+    /**
+     * 播客-单人独白
+     */
+    podcast_solo: async (params) => {
+        const builder = await createTaskPromptBuilder('podcast_solo');
+        return builder(params);
+    },
+
+    /**
+     * 播客-双人对话
+     */
+    podcast_duo: async (params) => {
+        const builder = await createTaskPromptBuilder('podcast_duo');
+        return builder(params);
+    },
 };
 
 /**
@@ -174,6 +206,10 @@ export const ACTION_LABELS = {
     translate: '翻译',
     illustration: '插画',
     storyboard: '分镜',
+    brainstorm: '脑暴',
+    slogan: 'Slogan',
+    podcast_solo: '播客单人',
+    podcast_duo: '播客双人',
 };
 
 export const ACTION_TEMPERATURES = {
@@ -187,4 +223,8 @@ export const ACTION_TEMPERATURES = {
     translate: 0.3,
     illustration: 0.7,
     storyboard: 0.7,
+    brainstorm: 0.9,
+    slogan: 0.8,
+    podcast_solo: 0.7,
+    podcast_duo: 0.7,
 };
