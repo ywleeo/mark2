@@ -425,6 +425,11 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                 bindMarkdownEditor(payload.markdownEditor);
             }
         });
+
+        // 监听 tab 切换事件，隐藏选择工具栏
+        eventBus.on('tab:switch', () => {
+            selectionToolbar?.hide();
+        });
     }
 
     // 尝试立即绑定已存在的编辑器

@@ -15,6 +15,7 @@ export function createNavigationController({
     confirm,
     untitledFileManager,
     saveUntitledFile,
+    eventBus,
 }) {
     if (typeof getFileTree !== 'function') {
         throw new Error('navigationController 需要提供 getFileTree');
@@ -152,6 +153,9 @@ export function createNavigationController({
     }
 
     function handleTabSelect(tab) {
+        // 发出 tab 切换事件，用于通知其他模块（如 AI 工具栏）
+        eventBus?.emit('tab:switch', { tab });
+
         if (!tab) return;
         if ((tab.type === 'file' || tab.type === 'shared') && tab.path) {
             getFileTree()?.selectFile(tab.path);

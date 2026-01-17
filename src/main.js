@@ -724,6 +724,7 @@ const {
     confirm,
     untitledFileManager,
     saveUntitledFile,
+    eventBus,
 });
 
 const {
