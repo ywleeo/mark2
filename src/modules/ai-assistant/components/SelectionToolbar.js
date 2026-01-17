@@ -63,18 +63,6 @@ export class SelectionToolbar {
                     <span>📝</span>
                     <span class="ai-selection-btn-label">扩写</span>
                 </button>
-                <button class="ai-selection-btn" data-action="compress" title="精简压缩">
-                    <span>✂️</span>
-                    <span class="ai-selection-btn-label">精简</span>
-                </button>
-                <button class="ai-selection-btn" data-action="summarize" title="总结提炼">
-                    <span>📋</span>
-                    <span class="ai-selection-btn-label">总结</span>
-                </button>
-                <button class="ai-selection-btn" data-action="translate" title="智能翻译">
-                    <span>🌐</span>
-                    <span class="ai-selection-btn-label">翻译</span>
-                </button>
                 <div class="ai-selection-divider"></div>
                 <div class="ai-style-selector ai-text-style-selector" title="文字输出风格">
                     <div class="ai-style-current"></div>
@@ -118,6 +106,18 @@ export class SelectionToolbar {
                 </div>
             </div>
             <div class="ai-toolbar-row ai-toolbar-special">
+                <button class="ai-selection-btn" data-action="compress" title="精简压缩">
+                    <span>✂️</span>
+                    <span class="ai-selection-btn-label">精简</span>
+                </button>
+                <button class="ai-selection-btn" data-action="summarize" title="总结提炼">
+                    <span>📋</span>
+                    <span class="ai-selection-btn-label">总结</span>
+                </button>
+                <button class="ai-selection-btn" data-action="translate" title="智能翻译">
+                    <span>🌐</span>
+                    <span class="ai-selection-btn-label">翻译</span>
+                </button>
                 <button class="ai-selection-btn" data-action="brainstorm" title="头脑风暴">
                     <span>💡</span>
                     <span class="ai-selection-btn-label">脑暴</span>
@@ -725,7 +725,7 @@ export class SelectionToolbar {
             return this.currentImageStyleValue || 'ghibli';
         }
         // 特殊格式任务不使用风格
-        const specialActions = ['brainstorm', 'slogan', 'podcast_solo', 'podcast_duo'];
+        const specialActions = ['compress', 'summarize', 'translate', 'brainstorm', 'slogan', 'podcast_solo', 'podcast_duo'];
         if (specialActions.includes(action)) {
             return null;
         }
