@@ -122,6 +122,7 @@ export class TerminalSidebar {
 
         // 监听终端输入
         this.terminal.onData((data) => {
+            this.markInputHandled(data); // 标记 xterm 已处理，避免 IME workaround 重复发送
             if (this.onTerminalData) {
                 this.onTerminalData(data);
             }
@@ -136,6 +137,10 @@ export class TerminalSidebar {
 
         // 处理 Cmd+K 清屏
         this.terminal.attachCustomKeyEventHandler((event) => {
+            // IME 输入中（包括中文标点），不拦截
+            if (event.isComposing || event.key === 'Process') {
+                return true;
+            }
             if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
                 event.preventDefault();
                 this.terminal.clear();
@@ -149,6 +154,10 @@ export class TerminalSidebar {
 
         // 设置触控板选择保护
         this.setupTapSelectionGuard();
+
+        // 修复 xterm.js 在 macOS 上中文标点输入需要按两下的问题
+        // xterm.js 的 CompositionHelper 对非 composition 的直接输入（如中文标点）处理有 bug
+        this.setupIMEWorkaround();
 
         console.log('[Terminal Sidebar] xterm.js 已初始化');
     }
@@ -284,6 +293,73 @@ export class TerminalSidebar {
             window.removeEventListener('pointerup', pointerUp, true);
             window.removeEventListener('pointercancel', pointerCancel, true);
             this.tapGuardState = null;
+        };
+    }
+
+    /**
+     * 修复 xterm.js 在 macOS 上中文标点输入需要按两下的问题
+     * xterm.js 的 CompositionHelper 对非 composition 的直接输入处理有 bug
+     *
+     * 两种情况：
+     * - 问号：input 触发但 onData 不触发 → 需要手动发送
+     * - 逗号：onData 先触发，input 后触发 → 不需要手动发送
+     */
+    setupIMEWorkaround() {
+        if (!this.terminal?.textarea) {
+            return;
+        }
+
+        const textarea = this.terminal.textarea;
+        this._pendingIMEInput = null;
+        this._recentOnData = null;
+
+        textarea.addEventListener('input', (e) => {
+            // 只处理非 composition 的 insertText 输入（中文标点等）
+            if (e.inputType === 'insertText' && e.data && !e.isComposing) {
+                const now = Date.now();
+
+                // 检查是否刚刚有相同数据的 onData 触发过（50ms 内）
+                if (this._recentOnData &&
+                    this._recentOnData.data === e.data &&
+                    now - this._recentOnData.time < 50) {
+                    // xterm 已经处理过了，不需要再发送
+                    return;
+                }
+
+                this._pendingIMEInput = {
+                    data: e.data,
+                    time: now,
+                };
+
+                // 延迟检查 xterm 是否已处理
+                setTimeout(() => {
+                    const pending = this._pendingIMEInput;
+                    if (pending && pending.data === e.data && Date.now() - pending.time < 100) {
+                        // xterm 没处理，手动发送
+                        if (this.onTerminalData) {
+                            this.onTerminalData(pending.data);
+                        }
+                        this._pendingIMEInput = null;
+                    }
+                }, 30);
+            }
+        });
+    }
+
+    /**
+     * 标记 xterm 已处理输入（在 onData 触发时调用）
+     */
+    markInputHandled(data) {
+        // 控制序列（ESC 开头）不清除 pending，因为可能是输入法发送的光标移动
+        // 例如输入《时，输入法会发送《》然后发送左箭头移动光标
+        if (data && data.charCodeAt(0) === 0x1b) {
+            return;
+        }
+        this._pendingIMEInput = null;
+        // 记录最近的 onData，用于检测 onData 先于 input 触发的情况
+        this._recentOnData = {
+            data: data,
+            time: Date.now(),
         };
     }
 
