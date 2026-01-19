@@ -851,7 +851,20 @@ async function initializeApplication() {
     terminalSidebar = await initTerminalSidebar({
         eventBus,
         getAISidebar: () => aiAssistant,
-        getWorkspacePath: () => appServices?.workspace?.getCurrentDirectory?.(),
+        getWorkspacePath: () => {
+            // 获取当前文件所属的工作区根目录
+            const currentFile = appState.getCurrentFile();
+            const roots = appServices?.workspace?.getWorkspaceRoots?.() || [];
+            if (currentFile && roots.length > 0) {
+                // 找到当前文件属于哪个根目录
+                const matchedRoot = roots.find(root => currentFile.startsWith(root + '/') || currentFile === root);
+                if (matchedRoot) {
+                    return matchedRoot;
+                }
+            }
+            // 降级：返回第一个根目录或当前目录
+            return roots[0] || appServices?.workspace?.getCurrentDirectory?.();
+        },
     });
     console.log('[App] Terminal Sidebar 已初始化');
 

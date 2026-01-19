@@ -74,6 +74,7 @@ pub fn pty_spawn(
     // 设置环境变量
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    cmd.env_remove("PATH"); // 移除继承的 PATH，让 login shell 自己加载
 
     // 启动子进程
     let mut child = pair

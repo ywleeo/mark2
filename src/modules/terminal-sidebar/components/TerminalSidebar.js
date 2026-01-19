@@ -40,6 +40,10 @@ export class TerminalSidebar {
         // 主题监听
         this.themeObserver = null;
         this.handleThemeChange = this.handleThemeChange.bind(this);
+
+        // 触控板选择保护
+        this.tapGuardState = null;
+        this.tapGuardCleanup = null;
     }
 
     render() {
@@ -143,7 +147,144 @@ export class TerminalSidebar {
         // 监听主题变化
         this.setupThemeObserver();
 
+        // 设置触控板选择保护
+        this.setupTapSelectionGuard();
+
         console.log('[Terminal Sidebar] xterm.js 已初始化');
+    }
+
+    /**
+     * 设置触控板/触摸选择保护，防止移动触控板时意外选中内容
+     */
+    setupTapSelectionGuard() {
+        if (!this.terminalContainer) {
+            return;
+        }
+        if (this.tapGuardCleanup) {
+            this.tapGuardCleanup();
+            this.tapGuardCleanup = null;
+        }
+        this.tapGuardState = null;
+
+        const target = this.terminalContainer;
+
+        const normalizedPointerType = (event) => {
+            const pointerType = typeof event.pointerType === 'string'
+                ? event.pointerType.toLowerCase()
+                : '';
+            return pointerType || 'mouse';
+        };
+
+        const shouldGuardPointer = (event) => {
+            const pointerType = normalizedPointerType(event);
+            if (pointerType === 'touch' || pointerType === 'pen') {
+                return true;
+            }
+            if (pointerType === 'mouse') {
+                // 触控板移动时 buttons === 0 且 pressure === 0
+                if (typeof event.buttons === 'number' && event.buttons === 0) {
+                    return true;
+                }
+                if (typeof event.pressure === 'number') {
+                    return event.pressure === 0;
+                }
+            }
+            return false;
+        };
+
+        const stopEventForTap = (event) => {
+            if (!event) {
+                return;
+            }
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            } else if (typeof event.stopPropagation === 'function') {
+                event.stopPropagation();
+            }
+            if (event.cancelable) {
+                event.preventDefault();
+            }
+        };
+
+        const pointerDown = (event) => {
+            if (event.button !== 0 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
+                this.tapGuardState = null;
+                return;
+            }
+            if (!shouldGuardPointer(event)) {
+                this.tapGuardState = null;
+                return;
+            }
+
+            const pointerType = normalizedPointerType(event);
+            const blockTapDrag = pointerType === 'touch'
+                || pointerType === 'pen'
+                || (pointerType === 'mouse' && (typeof event.buttons !== 'number' || event.buttons === 0));
+
+            this.tapGuardState = {
+                pointerId: event.pointerId,
+                guardActive: blockTapDrag,
+                blockTapDrag,
+                startClientX: event.clientX,
+                startClientY: event.clientY,
+                pointerType,
+            };
+
+            if (blockTapDrag) {
+                stopEventForTap(event);
+            }
+        };
+
+        const pointerMove = (event) => {
+            const state = this.tapGuardState;
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+            if (state.blockTapDrag) {
+                stopEventForTap(event);
+                return;
+            }
+
+            // 检测是否有移动
+            const dx = Math.abs(event.clientX - (state.startClientX ?? event.clientX));
+            const dy = Math.abs(event.clientY - (state.startClientY ?? event.clientY));
+            const movementExceedsThreshold = dx > 1 || dy > 1;
+
+            if (!state.guardActive && movementExceedsThreshold && shouldGuardPointer(event)) {
+                state.guardActive = true;
+                stopEventForTap(event);
+            } else if (state.guardActive) {
+                stopEventForTap(event);
+            }
+        };
+
+        const pointerUp = (event) => {
+            const state = this.tapGuardState;
+            if (!state || event.pointerId !== state.pointerId) {
+                return;
+            }
+            if (state.guardActive) {
+                stopEventForTap(event);
+            }
+            this.tapGuardState = null;
+        };
+
+        const pointerCancel = () => {
+            this.tapGuardState = null;
+        };
+
+        target.addEventListener('pointerdown', pointerDown, true);
+        window.addEventListener('pointermove', pointerMove, true);
+        window.addEventListener('pointerup', pointerUp, true);
+        window.addEventListener('pointercancel', pointerCancel, true);
+
+        this.tapGuardCleanup = () => {
+            target.removeEventListener('pointerdown', pointerDown, true);
+            window.removeEventListener('pointermove', pointerMove, true);
+            window.removeEventListener('pointerup', pointerUp, true);
+            window.removeEventListener('pointercancel', pointerCancel, true);
+            this.tapGuardState = null;
+        };
     }
 
     setupThemeObserver() {
@@ -374,6 +515,10 @@ export class TerminalSidebar {
         if (this.themeObserver) {
             this.themeObserver.disconnect();
             this.themeObserver = null;
+        }
+        if (this.tapGuardCleanup) {
+            this.tapGuardCleanup();
+            this.tapGuardCleanup = null;
         }
         document.removeEventListener('mousemove', this.handleResizeMouseMove);
         document.removeEventListener('mouseup', this.handleResizeMouseUp);

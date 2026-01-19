@@ -596,6 +596,10 @@ export class CodeEditor {
                 await services.file.writeText(filePath, content);
                 if (!sessionId || sessionId === this.currentSessionId) {
                     this.markSaved();
+                    // 自动保存后恢复焦点，防止输入中断
+                    if (this.isVisible && this.editor) {
+                        this.editor.focus();
+                    }
                 }
                 console.log('[CodeEditor] 自动保存成功');
                 return true;
