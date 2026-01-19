@@ -224,6 +224,17 @@ body.ai-sidebar-visible.card-sidebar-visible .toc-panel {
     color: rgba(255, 255, 255, 0.6);
 }
 
+.toc-panel__item--level4 {
+    font-weight: 400;
+    padding-left: 52px;
+    font-size: 11.5px;
+    color: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme-appearance='dark'] .toc-panel__item--level4 {
+    color: rgba(255, 255, 255, 0.5);
+}
+
 /* 空状态 */
 .toc-panel__empty {
     display: none;

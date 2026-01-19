@@ -73,7 +73,7 @@
     --emerald-inline-code-color: #a0ffe8;
     --emerald-code-accent: #4188681e;
     --emerald-code-background: #4548467b;
-    --emerald-quote-accent: #f1b68b34;
+    --emerald-quote-accent: #4f6e7e84;
     --emerald-quote-bg: rgba(45, 44, 64, 0.113);
     --emerald-quote-nested-1: rgba(41, 39, 70, 0.233);
     --emerald-quote-nested-2: rgba(41, 39, 70, 0.233);
@@ -223,10 +223,11 @@
 /* 引用块 */
 .tiptap-editor blockquote {
     border-left: 2px solid var(--emerald-quote-accent, var(--theme-quote-border));
-    padding: 8px 20px;
-    margin: 20px 0;
+    /* padding: 0 5px; */
+    margin: 10px 0;
     font-style: italic;
-    background-color: var(--emerald-quote-bg);
+    font-size: 90%;
+    /* background-color: var(--emerald-quote-bg); */
     border-radius: 0 4px 4px 0;
     font-family: inherit;
     font-size: 0.9em;

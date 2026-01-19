@@ -122,10 +122,6 @@ export class SelectionToolbar {
                     <span>💡</span>
                     <span class="ai-selection-btn-label">脑暴</span>
                 </button>
-                <button class="ai-selection-btn" data-action="slogan" title="生成Slogan">
-                    <span>🏷️</span>
-                    <span class="ai-selection-btn-label">Slogan</span>
-                </button>
                 <button class="ai-selection-btn" data-action="podcast_solo" title="播客-单人独白">
                     <span>🎙️</span>
                     <span class="ai-selection-btn-label">播客单人</span>
@@ -725,7 +721,7 @@ export class SelectionToolbar {
             return this.currentImageStyleValue || 'ghibli';
         }
         // 特殊格式任务不使用风格
-        const specialActions = ['compress', 'summarize', 'translate', 'brainstorm', 'slogan', 'podcast_solo', 'podcast_duo'];
+        const specialActions = ['compress', 'summarize', 'translate', 'brainstorm', 'podcast_solo', 'podcast_duo'];
         if (specialActions.includes(action)) {
             return null;
         }

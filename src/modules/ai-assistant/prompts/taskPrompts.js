@@ -154,14 +154,6 @@ export const TASK_PROMPTS = {
     },
 
     /**
-     * 生成Slogan
-     */
-    slogan: async (params) => {
-        const builder = await createTaskPromptBuilder('slogan');
-        return builder(params);
-    },
-
-    /**
      * 播客-单人独白
      */
     podcast_solo: async (params) => {
@@ -207,7 +199,6 @@ export const ACTION_LABELS = {
     illustration: '插画',
     storyboard: '分镜',
     brainstorm: '脑暴',
-    slogan: 'Slogan',
     podcast_solo: '播客单人',
     podcast_duo: '播客双人',
 };
@@ -224,7 +215,6 @@ export const ACTION_TEMPERATURES = {
     illustration: 0.7,
     storyboard: 0.7,
     brainstorm: 0.9,
-    slogan: 0.8,
     podcast_solo: 0.7,
     podcast_duo: 0.7,
 };

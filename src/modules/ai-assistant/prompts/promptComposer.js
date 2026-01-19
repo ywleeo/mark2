@@ -231,7 +231,7 @@ export class PromptComposer {
             : this.contextBuilder.extractSurrounding(selection);
 
         // 3. 决定使用哪个风格：创作型任务用用户选择的风格，提炼型任务用文档分析的风格
-        // 特殊格式任务（brainstorm, slogan, podcast_solo, podcast_duo）不使用风格
+        // 特殊格式任务（brainstorm, podcast_solo, podcast_duo）不使用风格
         const creativeActions = ['polish', 'continue', 'expand'];
         let styleToUse = null;
 

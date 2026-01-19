@@ -586,6 +586,9 @@ export class CodeEditor {
         const content = this.getValueForSave();
         const localWriteKey = normalizeFsPath(filePath) || filePath;
 
+        // 保存前记录焦点是否在编辑器上，只有焦点在编辑器时保存后才恢复焦点
+        const hadFocusBeforeSave = this.editor?.hasTextFocus?.() ?? false;
+
         this.isSaving = true;
         const savePromise = (async () => {
             try {
@@ -596,8 +599,8 @@ export class CodeEditor {
                 await services.file.writeText(filePath, content);
                 if (!sessionId || sessionId === this.currentSessionId) {
                     this.markSaved();
-                    // 自动保存后恢复焦点，防止输入中断
-                    if (this.isVisible && this.editor) {
+                    // 只有保存前焦点在编辑器时才恢复焦点，避免抢走用户在其他地方（如 terminal）的焦点
+                    if (hadFocusBeforeSave && this.isVisible && this.editor) {
                         this.editor.focus();
                     }
                 }

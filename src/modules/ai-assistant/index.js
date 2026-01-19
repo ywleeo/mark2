@@ -258,7 +258,6 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             summarize: '总结这段内容',
             translate: '翻译这段内容',
             brainstorm: '对这个主题进行脑暴',
-            slogan: '为这个内容生成 Slogan',
             podcast_solo: '转换为播客单人独白',
             podcast_duo: '转换为播客双人对话',
         };
@@ -290,7 +289,6 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             summarize: '正在总结',
             translate: '正在翻译',
             brainstorm: '正在脑暴',
-            slogan: '正在生成 Slogan',
             podcast_solo: '正在生成播客独白',
             podcast_duo: '正在生成播客对话',
         };
