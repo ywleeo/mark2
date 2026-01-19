@@ -220,13 +220,24 @@ export function createFileOperations({
         if (activeViewMode === 'code' && codeEditor) {
             const localWriteKey = getSessionPathKey(currentFile);
             try {
+                const raw = codeEditor.getValue();
                 const content = typeof codeEditor.getValueForSave === 'function'
                     ? codeEditor.getValueForSave()
-                    : codeEditor.getValue();
+                    : raw;
                 if (localWriteKey && documentSessions.markLocalWrite) {
                     documentSessions.markLocalWrite(localWriteKey);
                 }
                 await fileService.writeText(currentFile, content);
+                // 如果内容被格式化了，同步更新编辑器内容
+                if (content !== raw && codeEditor.editor) {
+                    const position = codeEditor.editor.getPosition();
+                    codeEditor.suppressChange = true;
+                    codeEditor.editor.setValue(content);
+                    codeEditor.suppressChange = false;
+                    if (position) {
+                        codeEditor.editor.setPosition(position);
+                    }
+                }
                 const markdownCodeMode = getMarkdownCodeMode();
                 markdownCodeMode?.handleCodeSaved(content);
                 codeEditor.markSaved();

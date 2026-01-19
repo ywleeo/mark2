@@ -524,6 +524,18 @@ export class CodeEditor {
 
     getValueForSave() {
         const raw = this.getValue();
+
+        // JSON 文件保存时自动格式化
+        if (this.currentFile?.toLowerCase().endsWith('.json')) {
+            try {
+                const parsed = JSON.parse(raw);
+                return JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                // JSON 解析失败，返回原始内容
+                return raw;
+            }
+        }
+
         if (!shouldEnforceMarkdownTrailingEmptyLine(this.currentFile, this.currentLanguage)) {
             return raw;
         }
@@ -583,7 +595,9 @@ export class CodeEditor {
         }
 
         const filePath = this.currentFile;
+        const raw = this.getValue();
         const content = this.getValueForSave();
+        const contentChanged = content !== raw;
         const localWriteKey = normalizeFsPath(filePath) || filePath;
 
         // 保存前记录焦点是否在编辑器上，只有焦点在编辑器时保存后才恢复焦点
@@ -598,6 +612,16 @@ export class CodeEditor {
                 }
                 await services.file.writeText(filePath, content);
                 if (!sessionId || sessionId === this.currentSessionId) {
+                    // 如果内容被格式化了，同步更新编辑器内容
+                    if (contentChanged && this.editor) {
+                        const position = this.editor.getPosition();
+                        this.suppressChange = true;
+                        this.editor.setValue(content);
+                        this.suppressChange = false;
+                        if (position) {
+                            this.editor.setPosition(position);
+                        }
+                    }
                     this.markSaved();
                     // 只有保存前焦点在编辑器时才恢复焦点，避免抢走用户在其他地方（如 terminal）的焦点
                     if (hadFocusBeforeSave && this.isVisible && this.editor) {
