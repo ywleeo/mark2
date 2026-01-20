@@ -688,6 +688,53 @@ function handleSidebarStateChange(sidebarState) {
     workspaceController?.handleSidebarStateChange(sidebarState);
 }
 
+/**
+ * 在终端中运行脚本文件
+ * @param {string} filePath - 要运行的文件路径
+ */
+async function handleRunFile(filePath) {
+    if (!filePath) return;
+
+    const lowerPath = filePath.toLowerCase();
+    let runCommand = '';
+
+    if (lowerPath.endsWith('.sh')) {
+        runCommand = `sh "${filePath}"`;
+    } else if (lowerPath.endsWith('.py')) {
+        runCommand = `python3 "${filePath}"`;
+    } else {
+        return;
+    }
+
+    // 查找文件所属的根文件夹
+    const fileTree = appState.getFileTree();
+    let rootFolder = null;
+    if (fileTree?.rootPaths) {
+        for (const rootPath of fileTree.rootPaths) {
+            if (filePath.startsWith(rootPath + '/') || filePath === rootPath) {
+                rootFolder = rootPath;
+                break;
+            }
+        }
+    }
+
+    // 显示终端 sidebar
+    terminalSidebar?.showSidebar?.();
+
+    // 等待终端初始化
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // 写入命令并执行
+    if (terminalSidebar?.ptyService) {
+        if (rootFolder) {
+            // 先 cd 到根文件夹，再执行脚本
+            terminalSidebar.ptyService.write(`cd "${rootFolder}" && ${runCommand}\n`);
+        } else {
+            terminalSidebar.ptyService.write(runCommand + '\n');
+        }
+    }
+}
+
 async function restoreWorkspaceStateFromStorage() {
     if (!workspaceController) {
         return;
@@ -929,6 +976,7 @@ async function initializeApplication() {
         handleTabClose,
         normalizeFsPath,
         documentSessions,
+        onRunFile: handleRunFile,
     });
 
     // 初始化标签管理器

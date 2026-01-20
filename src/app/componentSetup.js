@@ -84,6 +84,7 @@ export function setupFileTree({
     handleTabClose,
     normalizeFsPath,
     documentSessions,
+    onRunFile,
 }) {
     const fileTreeElement = document.getElementById('fileTree');
     const fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
@@ -106,6 +107,7 @@ export function setupFileTree({
                 path: normalized,
             });
         },
+        onRunFile,
         documentSessions,
     });
 

@@ -10,6 +10,7 @@ export class FileTreeContextMenu {
             onDelete,
             onCreateFile,
             onCreateFolder,
+            onRun,
             getTargetPath,
         } = options;
 
@@ -20,6 +21,7 @@ export class FileTreeContextMenu {
         this.onDelete = onDelete;
         this.onCreateFile = onCreateFile;
         this.onCreateFolder = onCreateFolder;
+        this.onRun = onRun;
         this.getTargetPath = getTargetPath;
 
         this.element = null;
@@ -40,6 +42,7 @@ export class FileTreeContextMenu {
         const menu = document.createElement('div');
         menu.className = 'file-tree-context-menu hidden';
         menu.innerHTML = `
+            <button type="button" class="file-tree-context-menu__item runnable-only" data-action="run">Run</button>
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-file">Create File</button>
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-folder">Create Folder</button>
             <button type="button" class="file-tree-context-menu__item" data-action="rename">Rename</button>
@@ -145,6 +148,12 @@ export class FileTreeContextMenu {
         this.targetPath = null;
     }
 
+    isRunnableFile(path) {
+        if (!path || typeof path !== 'string') return false;
+        const lowerPath = path.toLowerCase();
+        return lowerPath.endsWith('.sh') || lowerPath.endsWith('.py');
+    }
+
     showMenu(x, y) {
         if (!this.element) return;
 
@@ -153,6 +162,13 @@ export class FileTreeContextMenu {
         const isFolder = this.targetType === 'folder';
         folderOnlyItems.forEach(item => {
             item.style.display = isFolder ? 'block' : 'none';
+        });
+
+        // 根据文件类型显示/隐藏 Run 菜单项
+        const runnableOnlyItems = this.element.querySelectorAll('.runnable-only');
+        const isRunnable = !isFolder && this.isRunnableFile(this.targetPath);
+        runnableOnlyItems.forEach(item => {
+            item.style.display = isRunnable ? 'block' : 'none';
         });
 
         this.element.classList.remove('hidden');
@@ -191,6 +207,9 @@ export class FileTreeContextMenu {
         const meta = { targetType };
 
         switch (action) {
+            case 'run':
+                await this.onRun?.(targetPath, meta);
+                break;
             case 'create-file':
                 await this.onCreateFile?.(targetPath, meta);
                 break;

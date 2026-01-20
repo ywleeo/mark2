@@ -20,8 +20,11 @@ export class FileTree {
             onStateChange,
             onCloseFileRequest,
             onPathRenamed,
+            onRunFile,
             documentSessions = null,
         } = callbacks;
+
+        this.onRunFile = onRunFile;
 
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
@@ -124,6 +127,7 @@ export class FileTree {
             onDelete: (path /*, meta */) => this.confirmAndDelete(path),
             onCreateFile: (path /*, meta */) => this.createFileInFolder(path),
             onCreateFolder: (path /*, meta */) => this.createFolderInFolder(path),
+            onRun: (path /*, meta */) => this.onRunFile?.(path),
         });
     }
 
