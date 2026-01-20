@@ -26,7 +26,7 @@ const CARD_PRESETS = [
 
 const BACKGROUND_PRESETS = [
     { id: 'purple-blue', color: '#8b5cf6', gradient: 'linear-gradient(125deg, #a78bfa, #6366f1, #38bdf8)' },
-    { id: 'dots', color: '#e2e8f0', gradient: 'radial-gradient(circle, #64748b 1px, transparent 1px) 0 0 / 16px 16px, #f1f5f9' },
+    { id: 'frame', color: '#de7e7e', gradient: '#fff9f7', boxShadow: 'inset 0 0 0 24px #de7e7e', opacity: 1 },
     { id: 'green-teal', color: '#10b981', gradient: 'linear-gradient(125deg, #34d399, #14b8a6, #06b6d4)' },
     { id: 'blue-cyan', color: '#3b82f6', gradient: 'linear-gradient(125deg, #60a5fa, #38bdf8, #22d3ee)' },
     { id: 'rose-red', color: '#f43f5e', gradient: 'linear-gradient(125deg, #fb7185, #f43f5e, #e11d48)' },
@@ -275,6 +275,8 @@ export class CardSidebar {
         }
         const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
         this.cardBackgroundElement.style.background = preset.gradient;
+        this.cardBackgroundElement.style.boxShadow = preset.boxShadow || 'none';
+        this.cardBackgroundElement.style.opacity = preset.opacity !== undefined ? preset.opacity : '';
     }
 
     buildTextControlsSection() {
@@ -413,21 +415,16 @@ export class CardSidebar {
         body.className = 'card-preview-card__body';
         this.cardBodyElement = body;
 
-        this.cardBadgeElement = document.createElement('div');
-        this.cardBadgeElement.className = 'card-preview-card__badge';
-        this.cardBadgeElement.textContent = 'Mark2 · 摘要';
-
         this.cardTextElement = document.createElement('div');
         this.cardTextElement.className = 'card-preview-card__content tiptap-editor';
 
         const footer = document.createElement('div');
         footer.className = 'card-preview-card__footer';
-        // footer.textContent = 'via Mark2';
+        footer.textContent = "- MARK2 -";
 
-        body.appendChild(this.cardBadgeElement);
        body.appendChild(this.cardTextElement);
-       body.appendChild(footer);
        card.appendChild(body);
+       card.appendChild(footer);
 
         this.applyVerticalAlign();
         return card;
