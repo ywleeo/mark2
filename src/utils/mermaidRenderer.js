@@ -113,7 +113,6 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
 
     // 解析图表数值
     const values = parseChartValues(mermaidCode);
-    console.log('[Tooltip] 解析的数值:', values);
 
     // 查找所有 rect 元素（柱状图的条）
     const rects = Array.from(svgElement.querySelectorAll('rect'));
@@ -132,15 +131,6 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
         const xA = parseFloat(a.getAttribute('x') || 0);
         const xB = parseFloat(b.getAttribute('x') || 0);
         return xA - xB;
-    });
-
-    console.log('[Tooltip] 数据 rect 数量:', dataRects.length, '数值数量:', values.length);
-
-    // 打印排序后的 rect 和对应的数据
-    dataRects.forEach((rect, i) => {
-        const x = parseFloat(rect.getAttribute('x') || 0);
-        const width = parseFloat(rect.getAttribute('width') || 0);
-        console.log(`[Tooltip] rect[${i}]: x=${x}, width=${width}, 对应数值=${values[i]}`);
     });
 
     // 预先计算每个柱子的中心 x 坐标

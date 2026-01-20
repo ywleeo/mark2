@@ -308,3 +308,93 @@
 :root[data-theme-appearance='dark'] .markdown-toolbar-emoji-item:hover {
     background: rgba(255, 255, 255, 0.12);
 }
+
+/* Table Bubble Toolbar */
+.table-bubble-toolbar {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    user-select: none;
+}
+
+.table-bubble-toolbar.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.table-bubble-toolbar__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: #475569;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.table-bubble-toolbar__btn:hover {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+
+.table-bubble-toolbar__btn:active {
+    background: rgba(15, 23, 42, 0.12);
+}
+
+.table-bubble-toolbar__btn--danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.table-bubble-toolbar__sep {
+    width: 1px;
+    height: 16px;
+    background: rgba(15, 23, 42, 0.12);
+    margin: 0 2px;
+}
+
+/* Dark theme */
+:root[data-theme-appearance='dark'] .table-bubble-toolbar {
+    background: rgba(38, 38, 38, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme-appearance='dark'] .table-bubble-toolbar__btn {
+    color: #cbd5e1;
+}
+
+:root[data-theme-appearance='dark'] .table-bubble-toolbar__btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+:root[data-theme-appearance='dark'] .table-bubble-toolbar__btn:active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme-appearance='dark'] .table-bubble-toolbar__btn--danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+:root[data-theme-appearance='dark'] .table-bubble-toolbar__sep {
+    background: rgba(255, 255, 255, 0.15);
+}

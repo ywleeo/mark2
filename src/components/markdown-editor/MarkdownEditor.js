@@ -138,7 +138,7 @@ export class MarkdownEditor {
                 DisableInlineCodeShortcut,
                 Table.configure({
                     resizable: false,
-                    allowTableNodeSelection: false,
+                    allowTableNodeSelection: true,
                 }),
                 TableRow,
                 TableHeader,
@@ -259,6 +259,7 @@ export class MarkdownEditor {
         this.setupPlainPasteListener();
         this.setupImagePasteHandler();
         this.setupEmptyViewFocusHandler();
+        this.setupTableBubbleToolbar();
     }
 
     forceBlurEditorDom() {
@@ -475,6 +476,110 @@ export class MarkdownEditor {
         this.emptyViewMouseDownHandler = handler;
         this.emptyViewFocusTarget = markdownContent;
         markdownContent.addEventListener('mousedown', handler);
+    }
+
+    setupTableBubbleToolbar() {
+        // 创建工具栏 DOM
+        this.tableBubbleToolbar = document.createElement('div');
+        this.tableBubbleToolbar.className = 'table-bubble-toolbar';
+        this.tableBubbleToolbar.innerHTML = `
+            <button class="table-bubble-toolbar__btn" data-action="addRowBefore">上插行</button>
+            <button class="table-bubble-toolbar__btn" data-action="addRowAfter">下插行</button>
+            <button class="table-bubble-toolbar__btn table-bubble-toolbar__btn--danger" data-action="deleteRow">删行</button>
+            <span class="table-bubble-toolbar__sep"></span>
+            <button class="table-bubble-toolbar__btn" data-action="addColumnBefore">左插列</button>
+            <button class="table-bubble-toolbar__btn" data-action="addColumnAfter">右插列</button>
+            <button class="table-bubble-toolbar__btn table-bubble-toolbar__btn--danger" data-action="deleteColumn">删列</button>
+            <span class="table-bubble-toolbar__sep"></span>
+            <button class="table-bubble-toolbar__btn table-bubble-toolbar__btn--danger" data-action="deleteTable">删表格</button>
+        `;
+        document.body.appendChild(this.tableBubbleToolbar);
+
+        // 绑定按钮点击事件（用 mousedown 阻止编辑器失焦）
+        this.tableBubbleToolbar.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            this.executeTableAction(btn.dataset.action);
+        });
+
+        // 监听选区变化
+        this.editor.on('selectionUpdate', () => this.updateTableToolbarPosition());
+        // 点击工具栏时不应隐藏，所以 blur 时需要检查
+        this.editor.on('blur', () => {
+            // 延迟检查，避免点击工具栏时立即隐藏
+            setTimeout(() => {
+                if (!this.tableBubbleToolbar?.matches(':hover')) {
+                    this.hideTableToolbar();
+                }
+            }, 100);
+        });
+
+        // 监听滚动，隐藏工具栏
+        this.viewElement?.addEventListener('scroll', () => this.hideTableToolbar(), { passive: true });
+    }
+
+    executeTableAction(action) {
+        if (!this.editor) return;
+        const commands = {
+            addRowBefore: () => this.editor.chain().focus().addRowBefore().run(),
+            addRowAfter: () => this.editor.chain().focus().addRowAfter().run(),
+            deleteRow: () => this.editor.chain().focus().deleteRow().run(),
+            addColumnBefore: () => this.editor.chain().focus().addColumnBefore().run(),
+            addColumnAfter: () => this.editor.chain().focus().addColumnAfter().run(),
+            deleteColumn: () => this.editor.chain().focus().deleteColumn().run(),
+            deleteTable: () => this.editor.chain().focus().deleteTable().run(),
+        };
+        commands[action]?.();
+        // 执行操作后延迟更新工具栏位置
+        setTimeout(() => this.updateTableToolbarPosition(), 10);
+    }
+
+    updateTableToolbarPosition() {
+        if (!this.editor || !this.tableBubbleToolbar) return;
+
+        // 检查光标是否在表格中
+        const { $from } = this.editor.state.selection;
+        let inTable = false;
+        let tableNode = null;
+        for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            if (node.type.name === 'table') {
+                inTable = true;
+                tableNode = this.editor.view.nodeDOM($from.before(d));
+                break;
+            }
+        }
+
+        if (!inTable || !tableNode) {
+            this.hideTableToolbar();
+            return;
+        }
+
+        // 先显示工具栏以获取正确尺寸
+        this.tableBubbleToolbar.style.visibility = 'hidden';
+        this.tableBubbleToolbar.classList.add('is-visible');
+
+        // 获取表格和工具栏的位置
+        const tableRect = tableNode.getBoundingClientRect();
+        const toolbarRect = this.tableBubbleToolbar.getBoundingClientRect();
+
+        // 定位在表格上方居中
+        let left = tableRect.left + (tableRect.width - toolbarRect.width) / 2;
+        let top = tableRect.top - toolbarRect.height - 8;
+
+        // 确保不超出视口
+        left = Math.max(8, Math.min(left, window.innerWidth - toolbarRect.width - 8));
+        top = Math.max(8, top);
+
+        this.tableBubbleToolbar.style.left = `${left}px`;
+        this.tableBubbleToolbar.style.top = `${top}px`;
+        this.tableBubbleToolbar.style.visibility = 'visible';
+    }
+
+    hideTableToolbar() {
+        this.tableBubbleToolbar?.classList.remove('is-visible');
     }
 
     isEditorContentEmpty() {
@@ -980,10 +1085,16 @@ export class MarkdownEditor {
         // 1. 移除 colgroup（turndown 不需要）
         cleanedHtml = cleanedHtml.replace(/<colgroup>[\s\S]*?<\/colgroup>/gi, '');
 
-        // 2. 清理单元格：移除 <p> 标签并规范化空白字符
+        // 2. 清理单元格：移除 <p> 标签并规范化空白字符，保留 <br> 换行
+        // 使用占位符保护 <br>，避免被 turndown 转换为换行符
+        const BR_PLACEHOLDER = '{{TABLE_BR}}';
         cleanedHtml = cleanedHtml.replace(/<(td|th)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, attrs, content) => {
-            // 移除内部的 <p> 标签
-            let cleaned = content.replace(/<\/?p>/gi, '');
+            // 保护 <br> 标签，用占位符替换
+            let cleaned = content.replace(/<br\s*\/?>/gi, BR_PLACEHOLDER);
+            // 把段落换行 </p><p> 转为 <br>
+            cleaned = cleaned.replace(/<\/p>\s*<p>/gi, BR_PLACEHOLDER);
+            // 移除首尾的 <p> 标签
+            cleaned = cleaned.replace(/^<p>|<\/p>$/gi, '');
             // 移除空的 mermaid div（可能是编辑器渲染产生的）
             cleaned = cleaned.replace(/<div[^>]*class="mermaid"[^>]*data-mermaid-code=""[^>]*><\/div>/gi, '');
             // 移除其他空的 div
@@ -1005,7 +1116,9 @@ export class MarkdownEditor {
             '<thead>$1</thead><tbody>'
         );
 
-        const markdown = this.turndownService.turndown(cleanedHtml);
+        let markdown = this.turndownService.turndown(cleanedHtml);
+        // 还原表格单元格中的 <br> 标签
+        markdown = markdown.replace(/\{\{TABLE_BR\}\}/g, '<br>');
         return ensureMarkdownTrailingEmptyLine(markdown);
     }
 
@@ -1641,6 +1754,10 @@ export class MarkdownEditor {
         if (this.mermaidRenderFrame !== null && typeof cancelAnimationFrame === 'function') {
             cancelAnimationFrame(this.mermaidRenderFrame);
             this.mermaidRenderFrame = null;
+        }
+        if (this.tableBubbleToolbar) {
+            this.tableBubbleToolbar.remove();
+            this.tableBubbleToolbar = null;
         }
         if (this.editor) {
             this.editor.destroy();

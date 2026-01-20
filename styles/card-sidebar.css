@@ -399,8 +399,45 @@ body.card-sidebar-visible .card-sidebar {
 .card-preview-card__background {
     position: absolute;
     inset: 0;
-    background: linear-gradient(125deg, #a78bfa, #6366f1, #38bdf8);
     opacity: 0.3;
+}
+
+/* 背景预设 - 方便自定义修改 */
+.card-preview-card__background--purple-blue {
+    background: linear-gradient(125deg, #a78bfa, #6366f1, #38bdf8);
+}
+
+.card-preview-card__background--frame {
+    background: #fff9f7;
+    box-shadow: inset 0 0 0 10px #de7e7e;
+    opacity: 1;
+}
+
+.card-preview-card__background--green-teal {
+    background: linear-gradient(125deg, #34d399, #14b8a6, #06b6d4);
+}
+
+.card-preview-card__background--blue-cyan {
+    background: linear-gradient(125deg, #60a5fa, #38bdf8, #22d3ee);
+}
+
+.card-preview-card__background--rose-red {
+    background: linear-gradient(125deg, #fb7185, #f43f5e, #e11d48);
+}
+
+.card-preview-card__background--grid {
+    background:
+        linear-gradient(#94a3b8 0.5px, transparent 0.5px) 0 0 / 24px 24px,
+        linear-gradient(90deg, #94a3b8 0.5px, transparent 0.5px) 0 0 / 24px 24px,
+        #f8fafc;
+}
+
+.card-preview-card__background--slate-gray {
+    background: linear-gradient(125deg, #94a3b8, #64748b, #475569);
+}
+
+.card-preview-card__background--neutral {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
 }
 
 .card-preview-card__body {

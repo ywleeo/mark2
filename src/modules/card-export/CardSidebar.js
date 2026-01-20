@@ -24,15 +24,16 @@ const CARD_PRESETS = [
     { id: 'square', label: '方形配图', hint: '1:1', width: 900, height: 900 },
 ];
 
+// 背景预设 - 样式定义在 card-sidebar.css 中，这里只保留 id 和色块颜色
 const BACKGROUND_PRESETS = [
-    { id: 'purple-blue', color: '#8b5cf6', gradient: 'linear-gradient(125deg, #a78bfa, #6366f1, #38bdf8)' },
-    { id: 'frame', color: '#de7e7e', gradient: '#fff9f7', boxShadow: 'inset 0 0 0 24px #de7e7e', opacity: 1 },
-    { id: 'green-teal', color: '#10b981', gradient: 'linear-gradient(125deg, #34d399, #14b8a6, #06b6d4)' },
-    { id: 'blue-cyan', color: '#3b82f6', gradient: 'linear-gradient(125deg, #60a5fa, #38bdf8, #22d3ee)' },
-    { id: 'rose-red', color: '#f43f5e', gradient: 'linear-gradient(125deg, #fb7185, #f43f5e, #e11d48)' },
-    { id: 'grid', color: '#cbd5e1', gradient: 'linear-gradient(#94a3b8 0.5px, transparent 0.5px) 0 0 / 24px 24px, linear-gradient(90deg, #94a3b8 0.5px, transparent 0.5px) 0 0 / 24px 24px, #f8fafc' },
-    { id: 'slate-gray', color: '#64748b', gradient: 'linear-gradient(125deg, #94a3b8, #64748b, #475569)' },
-    { id: 'neutral', color: '#e2e8f0', gradient: 'linear-gradient(135deg, #f8fafc, #e2e8f0)' },
+    { id: 'purple-blue', color: '#8b5cf6' },
+    { id: 'frame', color: '#de7e7e' },
+    { id: 'green-teal', color: '#10b981' },
+    { id: 'blue-cyan', color: '#3b82f6' },
+    { id: 'rose-red', color: '#f43f5e' },
+    { id: 'grid', color: '#cbd5e1' },
+    { id: 'slate-gray', color: '#64748b' },
+    { id: 'neutral', color: '#e2e8f0' },
 ];
 
 export class CardSidebar {
@@ -273,10 +274,13 @@ export class CardSidebar {
         if (!this.cardBackgroundElement) {
             return;
         }
-        const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
-        this.cardBackgroundElement.style.background = preset.gradient;
-        this.cardBackgroundElement.style.boxShadow = preset.boxShadow || 'none';
-        this.cardBackgroundElement.style.opacity = preset.opacity !== undefined ? preset.opacity : '';
+        const presetId = this.selectedBackgroundId || BACKGROUND_PRESETS[0].id;
+        // 移除所有背景预设类
+        BACKGROUND_PRESETS.forEach(p => {
+            this.cardBackgroundElement.classList.remove(`card-preview-card__background--${p.id}`);
+        });
+        // 添加当前选中的背景类
+        this.cardBackgroundElement.classList.add(`card-preview-card__background--${presetId}`);
     }
 
     buildTextControlsSection() {
@@ -792,11 +796,13 @@ export class CardSidebar {
         if (!cardNode) {
             return;
         }
-        // 只处理背景样式，其他样式在 renderCardToDataUrl 中处理
+        // 把背景的 CSS 类样式转换为内联样式（导出需要）
         const bgElement = cardNode.querySelector('.card-preview-card__background');
         if (bgElement) {
-            const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
-            bgElement.style.background = preset.gradient;
+            const computed = window.getComputedStyle(bgElement);
+            bgElement.style.background = computed.background;
+            bgElement.style.boxShadow = computed.boxShadow;
+            bgElement.style.opacity = computed.opacity;
         }
     }
 
