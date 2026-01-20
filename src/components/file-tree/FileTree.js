@@ -1279,7 +1279,7 @@ export class FileTree {
         };
         const onBlur = () => {
             if (!submitting) {
-                cancel();
+                void submit();
             }
         };
         input.addEventListener('keydown', onKeyDown);

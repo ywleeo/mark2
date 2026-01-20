@@ -90,6 +90,7 @@ export class FileTreeContextMenu {
 
         const fileItem = event.target.closest?.('.tree-file');
         const folderHeader = event.target.closest?.('.tree-folder-header');
+        const openFileItem = event.target.closest?.('.open-file-item');
 
         let targetElement = null;
         let targetType = null;
@@ -103,6 +104,9 @@ export class FileTreeContextMenu {
                 targetElement = folderItem;
                 targetType = 'folder';
             }
+        } else if (openFileItem && this.container.contains(openFileItem)) {
+            targetElement = openFileItem;
+            targetType = 'file';
         }
 
         if (!targetElement) {
