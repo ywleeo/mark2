@@ -2,6 +2,24 @@ let mermaidPromise = null;
 let mermaidInstance = null;
 let initialized = false;
 
+// 渲染队列
+let renderQueue = [];
+let isRendering = false;
+const BATCH_SIZE = 2; // 每批渲染数量
+
+// 内存缓存：code hash -> svg string
+const svgCache = new Map();
+
+// 简单 hash 函数
+function hashCode(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return hash.toString(36);
+}
+
 async function loadMermaid() {
     if (mermaidInstance) {
         return mermaidInstance;
@@ -26,6 +44,30 @@ async function loadMermaid() {
             });
     }
     return mermaidPromise;
+}
+
+// 处理渲染队列
+async function processQueue() {
+    if (isRendering || renderQueue.length === 0) return;
+
+    isRendering = true;
+
+    // 取出一批元素
+    const batch = renderQueue.splice(0, BATCH_SIZE);
+
+    // 并行渲染这一批
+    await Promise.all(batch.map(el => renderSingleMermaid(el)));
+
+    isRendering = false;
+
+    // 如果还有待渲染的，用 requestIdleCallback 继续
+    if (renderQueue.length > 0) {
+        if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(() => processQueue(), { timeout: 100 });
+        } else {
+            setTimeout(processQueue, 50);
+        }
+    }
 }
 
 const decodeMermaidCode = value => {
@@ -231,6 +273,81 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
     svgElement.style.cursor = 'pointer';
 }
 
+// 渲染单个 mermaid 元素
+async function renderSingleMermaid(element) {
+    if (element.getAttribute('data-processed') === 'true') {
+        return;
+    }
+
+    const encodedAttr = element.getAttribute('data-mermaid-code') || '';
+    const existingCode = decodeMermaidCode(encodedAttr);
+    const sourceNode = element.querySelector('.mermaid-source');
+    const rawSource = sourceNode ? sourceNode.textContent : element.textContent || '';
+    const raw = existingCode || rawSource;
+    const code = raw ? raw.trim() : '';
+
+    if (!code) {
+        element.setAttribute('data-processed', 'true');
+        return;
+    }
+
+    element.setAttribute('data-mermaid-code', encodeMermaidCode(code));
+    const cacheKey = hashCode(code);
+
+    // 检查缓存
+    const cached = svgCache.get(cacheKey);
+    if (cached) {
+        element.innerHTML = cached.svg;
+        // 保留 minHeight，让内容自然撑起高度，避免滚动位置跳动
+        const svgElement = element.querySelector('svg');
+        if (svgElement) {
+            addTooltipsToNodes(svgElement, code);
+        }
+        element.setAttribute('data-processed', 'true');
+        element.classList.add('mermaid--clickable');
+        return;
+    }
+
+    try {
+        const mermaid = await loadMermaid();
+        element.classList.remove('mermaid--failed');
+        const uniqueId =
+            element.getAttribute('data-mermaid-id') ||
+            `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        element.setAttribute('data-mermaid-id', uniqueId);
+        const { svg } = await mermaid.render(uniqueId, code);
+
+        element.innerHTML = svg;
+        const svgElement = element.querySelector('svg');
+        if (svgElement) {
+            svgElement.removeAttribute('width');
+            svgElement.removeAttribute('height');
+            svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svgElement.style.overflow = 'visible';
+            svgElement.style.display = 'block';
+
+            // 为节点添加 hover tooltip
+            addTooltipsToNodes(svgElement, code);
+        }
+        element.setAttribute('data-processed', 'true');
+        element.classList.add('mermaid--clickable');
+        // 保留 minHeight，让内容自然撑起高度
+
+        // 渲染完成后获取实际高度，存入缓存
+        const height = element.offsetHeight;
+        svgCache.set(cacheKey, { svg, height });
+    } catch (error) {
+        console.warn('[MermaidRenderer] 渲染失败', error);
+        element.setAttribute('data-processed', 'true');
+        element.classList.add('mermaid--failed');
+        element.innerHTML = '';
+        const fallback = document.createElement('pre');
+        fallback.className = 'mermaid-fallback';
+        fallback.textContent = code;
+        element.appendChild(fallback);
+    }
+}
+
 export async function renderMermaidIn(rootElement) {
     if (typeof window === 'undefined' || !rootElement) {
         return;
@@ -252,53 +369,26 @@ export async function renderMermaidIn(rootElement) {
         return;
     }
 
-    const mermaid = await loadMermaid();
-
-    await Promise.all(targets.map(async element => {
+    // 先给所有元素设置占位高度（如果有缓存）
+    targets.forEach(element => {
         const encodedAttr = element.getAttribute('data-mermaid-code') || '';
         const existingCode = decodeMermaidCode(encodedAttr);
         const sourceNode = element.querySelector('.mermaid-source');
         const rawSource = sourceNode ? sourceNode.textContent : element.textContent || '';
         const raw = existingCode || rawSource;
         const code = raw ? raw.trim() : '';
-
-        if (!code) {
-            element.setAttribute('data-processed', 'true');
-            return;
-        }
-
-        element.setAttribute('data-mermaid-code', encodeMermaidCode(code));
-
-        try {
-            element.classList.remove('mermaid--failed');
-            const uniqueId =
-                element.getAttribute('data-mermaid-id') ||
-                `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-            element.setAttribute('data-mermaid-id', uniqueId);
-            const { svg } = await mermaid.render(uniqueId, code);
-            element.innerHTML = svg;
-            const svgElement = element.querySelector('svg');
-            if (svgElement) {
-                svgElement.removeAttribute('width');
-                svgElement.removeAttribute('height');
-                svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                svgElement.style.overflow = 'visible';
-                svgElement.style.display = 'block';
-
-                // 为节点添加 hover tooltip
-                addTooltipsToNodes(svgElement, code);
+        if (code) {
+            const cacheKey = hashCode(code);
+            const cached = svgCache.get(cacheKey);
+            if (cached?.height) {
+                element.style.minHeight = cached.height + 'px';
             }
-            element.setAttribute('data-processed', 'true');
-            element.classList.add('mermaid--clickable');
-        } catch (error) {
-            console.warn('[MermaidRenderer] 渲染失败', error);
-            element.setAttribute('data-processed', 'true');
-            element.classList.add('mermaid--failed');
-            element.innerHTML = '';
-            const fallback = document.createElement('pre');
-            fallback.className = 'mermaid-fallback';
-            fallback.textContent = code;
-            element.appendChild(fallback);
         }
-    }));
+    });
+
+    // 添加到渲染队列
+    targets.forEach(element => renderQueue.push(element));
+
+    // 启动队列处理
+    processQueue();
 }

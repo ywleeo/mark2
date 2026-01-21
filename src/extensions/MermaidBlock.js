@@ -80,12 +80,22 @@ export const MermaidBlock = Node.create({
     renderHTML({ node }) {
         const code = typeof node.attrs.code === 'string' ? node.attrs.code : '';
         const encoded = encodeMermaidCode(code);
+        // 添加隐藏的 .mermaid-source 占位符，使元素不为空
+        // 这样可以避免 .mermaid:empty { display: none } 规则隐藏元素
         return [
             'div',
             {
                 class: 'mermaid',
                 'data-mermaid-code': encoded,
             },
+            [
+                'span',
+                {
+                    class: 'mermaid-source',
+                    style: 'display: none;',
+                },
+                code,
+            ],
         ];
     },
 });

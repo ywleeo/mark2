@@ -1301,21 +1301,33 @@ export class MarkdownEditor {
             ? tabId
             : this.currentTabId;
         this.currentTabId = nextTabId;
-        const hasSavedViewState = nextTabId ? this.hasViewStateForTab(nextTabId) : false;
-        const focusOnStart = autoFocus && !hasSavedViewState;
 
         try {
-            const applied = await this.setContent(content, focusOnStart);
-            if (!applied) {
-                return;
-            }
-            if (nextTabId && hasSavedViewState) {
-                this.restoreViewStateForTab(nextTabId);
+            // 尝试恢复保存的状态（含撤销历史）
+            // 如果文件内容没变，直接恢复，跳过 setContent
+            const normalizedContent = ensureMarkdownTrailingEmptyLine(
+                typeof content === 'string' ? content : ''
+            );
+            if (nextTabId && this.restoreViewStateForTab(nextTabId, normalizedContent)) {
+                // 成功恢复状态，启用编辑器并聚焦
+                this.suppressUpdateEvent = true;
+                try {
+                    this.editor.setEditable(true);
+                } finally {
+                    this.suppressUpdateEvent = false;
+                }
                 if (autoFocus) {
                     this.editor.commands.focus();
                 }
-            } else if (!focusOnStart && autoFocus) {
-                this.editor.commands.focus('start');
+                this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+                this.scheduleMermaidRender();
+                return;
+            }
+
+            // 没有保存的状态或内容变了，正常加载
+            const applied = await this.setContent(content, autoFocus);
+            if (!applied) {
+                return;
             }
 
             if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
@@ -1653,18 +1665,22 @@ export class MarkdownEditor {
         if (!tabId || !this.editor) {
             return;
         }
-        const selection = this.editor.state?.selection;
         const scrollContainer = this.getScrollContainer();
         const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
         this.tabViewStates.set(tabId, {
-            selection: selection
-                ? { from: selection.from, to: selection.to }
-                : null,
+            editorState: this.editor.state,  // 保存完整状态（含撤销历史）
+            markdown: this.originalMarkdown, // 记录当时的内容，用于判断是否可恢复
             scrollTop,
         });
     }
 
-    restoreViewStateForTab(tabId) {
+    /**
+     * 尝试恢复 tab 的视图状态（含撤销历史）
+     * @param {string} tabId
+     * @param {string} currentMarkdown - 当前文件的 markdown 内容
+     * @returns {boolean} 是否成功恢复（返回 true 表示可跳过 setContent）
+     */
+    restoreViewStateForTab(tabId, currentMarkdown) {
         if (!tabId || !this.editor) {
             return false;
         }
@@ -1672,29 +1688,32 @@ export class MarkdownEditor {
         if (!snapshot) {
             return false;
         }
-        const { selection, scrollTop } = snapshot;
-        if (selection) {
-            const docSize = Math.max(0, this.editor.state?.doc?.content?.size ?? 0);
-            const clamp = (value) => Math.max(0, Math.min(value, docSize));
-            this.editor.commands.setTextSelection({
-                from: clamp(selection.from),
-                to: clamp(selection.to),
-            });
-        }
-        const scrollContainer = this.getScrollContainer();
-        if (scrollContainer) {
-            const applyScroll = () => {
-                scrollContainer.scrollTop = scrollTop;
-            };
-            if (typeof requestAnimationFrame === 'function') {
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(applyScroll);
-                });
-            } else {
-                applyScroll();
+        const { editorState, markdown: savedMarkdown, scrollTop } = snapshot;
+
+        // 只有当文件内容没变时才恢复 EditorState（保留撤销历史）
+        if (editorState && savedMarkdown === currentMarkdown) {
+            this.editor.view.updateState(editorState);
+            this.originalMarkdown = savedMarkdown;
+            this.contentChanged = false;
+
+            // 恢复滚动位置
+            const scrollContainer = this.getScrollContainer();
+            if (scrollContainer) {
+                const applyScroll = () => {
+                    scrollContainer.scrollTop = scrollTop;
+                };
+                if (typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(applyScroll);
+                    });
+                } else {
+                    applyScroll();
+                }
             }
+            return true; // 成功恢复，调用方可跳过 setContent
         }
-        return true;
+
+        return false; // 内容变了，需要重新加载
     }
 
     forgetViewStateForTab(tabId) {

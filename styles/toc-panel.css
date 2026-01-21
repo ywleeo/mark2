@@ -65,7 +65,11 @@ body.ai-sidebar-visible.card-sidebar-visible .toc-panel {
 
 :root[data-theme-appearance='dark'] .toc-panel__header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.6);
+}
+
+:root[data-theme-appearance='dark'] .toc-panel__content {
+    background: rgba(0, 0, 0, 0.6);
 }
 
 .toc-panel__title {
@@ -114,24 +118,7 @@ body.ai-sidebar-visible.card-sidebar-visible .toc-panel {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 8px 0;
-}
-
-/* 自定义滚动条 */
-.toc-panel__content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.toc-panel__content::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.toc-panel__content::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 3px;
-}
-
-.toc-panel__content::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
+    scrollbar-width: thin;
 }
 
 :root[data-theme-appearance='dark'] .toc-panel__content::-webkit-scrollbar-thumb {
@@ -152,7 +139,7 @@ body.ai-sidebar-visible.card-sidebar-visible .toc-panel {
 /* 目录项 */
 .toc-panel__item {
     display: block;
-    padding: 6px 16px;
+    padding: 2px 16px;
     font-size: 13px;
     line-height: 1.5;
     color: rgba(0, 0, 0, 0.7);
