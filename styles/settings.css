@@ -1,6 +1,6 @@
 :root {
     --settings-backdrop: rgba(0, 0, 0, 0.35);
-    --settings-surface: #ffffff9f;
+    --settings-surface: #ffffffad;
     --settings-surface-contrast: #111827;
     --settings-divider: rgba(15, 23, 42, 0.08);
     --settings-muted: #64748b;
@@ -32,7 +32,7 @@
 
 :root[data-theme-appearance='dark'] {
     --settings-backdrop: rgba(0, 0, 0, 0.55);
-    --settings-surface: #212b3a2c;
+    --settings-surface: #212b3ac5;
     --settings-surface-contrast: #f4f7fb;
     --settings-divider: rgba(255, 255, 255, 0.08);
     --settings-muted: #a5b4cb;

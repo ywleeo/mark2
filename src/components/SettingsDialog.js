@@ -46,6 +46,16 @@ export class SettingsDialog {
             { label: 'Courier New', value: "'Courier New', monospace" },
         ];
 
+        this.terminalFonts = [
+            { label: 'Menlo', value: 'Menlo, Monaco, "Courier New", monospace' },
+            { label: 'Monaco', value: 'Monaco, Menlo, "Courier New", monospace' },
+            { label: 'JetBrains Mono', value: '"JetBrains Mono", Menlo, monospace' },
+            { label: 'Fira Code', value: '"Fira Code", Menlo, monospace' },
+            { label: 'Source Code Pro', value: '"Source Code Pro", Menlo, monospace' },
+            { label: 'Consolas', value: 'Consolas, "Courier New", monospace' },
+            { label: 'Courier New', value: '"Courier New", Courier, monospace' },
+        ];
+
         this.currentTab = 'editor'; // 'editor', 'code', or 'ai'
 
         this.root = document.createElement('div');
@@ -56,8 +66,9 @@ export class SettingsDialog {
                     <header class="settings-header">
                         <h2 id="settingsDialogTitle">应用设置</h2>
                         <nav class="settings-tabs">
-                            <button type="button" class="settings-tab active" data-tab="editor">Markdown模式</button>
+                            <button type="button" class="settings-tab active" data-tab="editor">Markdown</button>
                             <button type="button" class="settings-tab" data-tab="code">代码模式</button>
+                            <button type="button" class="settings-tab" data-tab="terminal">终端</button>
                             <button type="button" class="settings-tab" data-tab="ai">AI 助手</button>
                         </nav>
                     </header>
@@ -161,6 +172,19 @@ export class SettingsDialog {
                         </div>
                     </section>
 
+                    <!-- 终端设置 -->
+                    <section class="settings-body hidden" data-tab-content="terminal">
+                        <p class="settings-subtitle">设置终端的字体和字号</p>
+                        <label class="settings-field">
+                            <span class="settings-label">字体</span>
+                            <select name="terminalFontFamily"></select>
+                        </label>
+                        <label class="settings-field">
+                            <span class="settings-label">字号 (px)</span>
+                            <input type="number" name="terminalFontSize" min="10" max="24" step="1" />
+                        </label>
+                    </section>
+
                     <!-- AI 助手设置 -->
                     <section class="settings-body hidden" data-tab-content="ai">
                         <p class="settings-subtitle">配置 AI 服务和输出偏好</p>
@@ -189,9 +213,9 @@ export class SettingsDialog {
                             <input
                                 type="text"
                                 name="aiModel"
-                                placeholder="gpt-4o"
+                                placeholder="deepseek-reasoner"
                             >
-                            <span class="settings-hint">如：gpt-4o, claude-3-5-sonnet-20241022</span>
+                            <span class="settings-hint">如：deepseek-chat, qwen-plus</span>
                         </label>
 
                         <label class="settings-field">
@@ -236,6 +260,10 @@ export class SettingsDialog {
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
         this.markdownTabSizeInput = this.form.querySelector('input[name="markdownTabSize"]');
 
+        // 终端设置字段
+        this.terminalFontFamilySelect = this.form.querySelector('select[name="terminalFontFamily"]');
+        this.terminalFontSizeInput = this.form.querySelector('input[name="terminalFontSize"]');
+
         // AI 助手设置字段
         this.aiApiKeyInput = this.form.querySelector('input[name="aiApiKey"]');
         this.aiBaseUrlInput = this.form.querySelector('input[name="aiBaseUrl"]');
@@ -277,6 +305,7 @@ export class SettingsDialog {
         this.availableFonts = [];
         this.setAvailableFonts([]);
         this.initCodeFontOptions();
+        this.initTerminalFontOptions();
     }
 
     switchTab(tabName) {
@@ -317,6 +346,22 @@ export class SettingsDialog {
         });
     }
 
+    initTerminalFontOptions() {
+        this.terminalFontFamilySelect.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Menlo (默认)';
+        this.terminalFontFamilySelect.appendChild(defaultOption);
+
+        this.terminalFonts.forEach(font => {
+            const option = document.createElement('option');
+            option.value = font.value;
+            option.textContent = font.label;
+            this.terminalFontFamilySelect.appendChild(option);
+        });
+    }
+
     async open(settings) {
         const editorPrefs = settings || {};
 
@@ -337,6 +382,10 @@ export class SettingsDialog {
         this.codeLineHeightInput.value = Number(editorPrefs.codeLineHeight) || 1.5;
         this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
         this.markdownTabSizeInput.value = Number(editorPrefs.markdownTabSize) || 2;
+
+        // 终端设置
+        this.terminalFontFamilySelect.value = editorPrefs.terminalFontFamily || '';
+        this.terminalFontSizeInput.value = Number(editorPrefs.terminalFontSize) || 13;
 
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
@@ -413,6 +462,11 @@ export class SettingsDialog {
         const normalizedCodeLineHeight = Number.isFinite(codeLineHeight) ? this.clamp(codeLineHeight, 1.0, 3.0) : 1.5;
         const normalizedMarkdownTabSize = Number.isFinite(markdownTabSize) ? this.clamp(markdownTabSize, 1, 8) : 2;
 
+        // 终端设置
+        const terminalFontSize = Number(this.terminalFontSizeInput.value);
+        const terminalFontFamily = (this.terminalFontFamilySelect.value || '').trim();
+        const normalizedTerminalFontSize = Number.isFinite(terminalFontSize) ? this.clamp(terminalFontSize, 10, 24) : 13;
+
         const sanitized = {
             theme: theme,
             appearance: ['light', 'dark', 'system'].includes(appearance) ? appearance : 'system',
@@ -426,6 +480,8 @@ export class SettingsDialog {
             codeFontFamily: codeFontFamily || '',
             codeFontWeight: Number.isFinite(codeFontWeight) ? codeFontWeight : 400,
             markdownTabSize: normalizedMarkdownTabSize,
+            terminalFontSize: normalizedTerminalFontSize,
+            terminalFontFamily: terminalFontFamily || '',
         };
 
         // AI 助手设置 - 通过 aiService 保存

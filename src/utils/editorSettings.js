@@ -15,6 +15,8 @@ export const defaultEditorSettings = {
     codeFontFamily: '',
     codeFontWeight: 400,
     markdownTabSize: 2,
+    terminalFontSize: 13,
+    terminalFontFamily: '',
 };
 
 function clamp(value, min, max) {
@@ -125,6 +127,17 @@ export function normalizeEditorSettings(candidate) {
             if (Number.isFinite(size)) {
                 prefs.markdownTabSize = clamp(size, 1, 8);
             }
+        }
+
+        if (candidate.terminalFontSize !== undefined) {
+            const size = Number(candidate.terminalFontSize);
+            if (Number.isFinite(size)) {
+                prefs.terminalFontSize = clamp(size, 10, 24);
+            }
+        }
+
+        if (typeof candidate.terminalFontFamily === 'string') {
+            prefs.terminalFontFamily = candidate.terminalFontFamily.trim();
         }
     }
 

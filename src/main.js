@@ -1223,6 +1223,9 @@ async function handleSettingsSubmit(nextSettings) {
     applyEditorSettings(normalizedSettings);
     editorRegistry.getCodeEditor()?.applyPreferences?.(normalizedSettings);
     saveEditorSettings(normalizedSettings);
+
+    // 更新终端字体设置
+    terminalSidebar?.sidebar?.updateFontSettings?.();
 }
 
 function handleUndoCommand() {

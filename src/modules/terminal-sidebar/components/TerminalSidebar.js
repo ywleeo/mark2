@@ -4,6 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { loadEditorSettings } from '../../../utils/editorSettings.js';
 
 export class TerminalSidebar {
     constructor({ layoutService, onClose }) {
@@ -99,11 +100,16 @@ export class TerminalSidebar {
             return;
         }
 
+        // 读取用户设置
+        const settings = loadEditorSettings();
+        const fontSize = settings.terminalFontSize || 13;
+        const fontFamily = settings.terminalFontFamily || 'Menlo, Monaco, "Courier New", monospace';
+
         // 创建 xterm 终端
         this.terminal = new Terminal({
             cursorBlink: true,
-            fontSize: 13,
-            fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+            fontSize,
+            fontFamily,
             theme: this.getTerminalTheme(),
             allowProposedApi: true,
         });
@@ -389,6 +395,23 @@ export class TerminalSidebar {
             this.terminal.options.theme = theme;
             console.log('[Terminal Sidebar] 主题已切换');
         }
+    }
+
+    /**
+     * 更新终端字体设置
+     */
+    updateFontSettings() {
+        if (!this.terminal) {
+            return;
+        }
+        const settings = loadEditorSettings();
+        const fontSize = settings.terminalFontSize || 13;
+        const fontFamily = settings.terminalFontFamily || 'Menlo, Monaco, "Courier New", monospace';
+
+        this.terminal.options.fontSize = fontSize;
+        this.terminal.options.fontFamily = fontFamily;
+        this.fitTerminal();
+        console.log('[Terminal Sidebar] 字体设置已更新');
     }
 
     getTerminalTheme() {
