@@ -47,6 +47,7 @@ import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
 import { createSvgCodeMode } from './modules/svgCodeMode.js';
 import { createCsvTableMode } from './modules/csvTableMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
+import { createWindowFocusHandler } from './modules/windowFocusHandler.js';
 import { createWorkspaceController } from './modules/workspaceController.js';
 import { createNavigationController } from './modules/navigationController.js';
 import { createFileOperations } from './modules/fileOperations.js';
@@ -1112,6 +1113,14 @@ async function initializeApplication() {
         handleToolbarOnViewModeChange,
         handleToolbarOnFileChange,
     });
+
+    // 初始化窗口焦点处理器（用于校验文件树状态）
+    const windowFocusHandler = createWindowFocusHandler({
+        getFileTree: () => appState.getFileTree(),
+        normalizePath: normalizeFsPath,
+    });
+    appState.setCleanupFunction('windowFocusHandler', () => windowFocusHandler.dispose());
+    await windowFocusHandler.setup();
 }
 
 /**
