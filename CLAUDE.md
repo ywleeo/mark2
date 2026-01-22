@@ -1,3 +1,8 @@
+## 项目文档
+- 项目架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 开发规范：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)（点击事件处理、代码风格、MAS 发布）
+- Workflow 设计：[docs/WORKFLOW_DESIGN.md](docs/WORKFLOW_DESIGN.md)（AI 卡片工作流编辑器）
+
 ## 改 bug 时注意：
 - 改 bug 的时候，没明确定位到问题之前先不改代码，先和用户一起定位问题。
 - 如果 review 代码也无法定位问题，可以尝试打一些 log寻找问题。

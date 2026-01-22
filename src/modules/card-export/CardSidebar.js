@@ -760,6 +760,18 @@ export class CardSidebar {
             }
             : null;
 
+        // 保存背景元素原始内联样式
+        const bgElement = this.cardElement.querySelector('.card-preview-card__background');
+        const originalBgInline = bgElement
+            ? {
+                background: bgElement.style.background,
+                boxShadow: bgElement.style.boxShadow,
+                opacity: bgElement.style.opacity,
+                border: bgElement.style.border,
+                boxSizing: bgElement.style.boxSizing,
+            }
+            : null;
+
         try {
             if (contentNode && EXPORT_FONT_SCALE !== 1) {
                 const computed = window.getComputedStyle(contentNode);
@@ -776,6 +788,9 @@ export class CardSidebar {
                 contentNode.style.letterSpacing = `${baseLetterSpacing * EXPORT_FONT_SCALE}px`;
             }
 
+            // 把背景样式转为内联样式（导出需要）
+            this.embedInlineStyles(this.cardElement);
+
             await document.fonts?.ready;
             const toPng = await ensureToPng();
             return await toPng(this.cardElement, {
@@ -789,6 +804,14 @@ export class CardSidebar {
                 contentNode.style.lineHeight = originalInline.lineHeight;
                 contentNode.style.letterSpacing = originalInline.letterSpacing;
             }
+            // 恢复背景元素原始内联样式
+            if (bgElement && originalBgInline) {
+                bgElement.style.background = originalBgInline.background;
+                bgElement.style.boxShadow = originalBgInline.boxShadow;
+                bgElement.style.opacity = originalBgInline.opacity;
+                bgElement.style.border = originalBgInline.border;
+                bgElement.style.boxSizing = originalBgInline.boxSizing;
+            }
         }
     }
 
@@ -801,8 +824,14 @@ export class CardSidebar {
         if (bgElement) {
             const computed = window.getComputedStyle(bgElement);
             bgElement.style.background = computed.background;
-            bgElement.style.boxShadow = computed.boxShadow;
             bgElement.style.opacity = computed.opacity;
+            // html-to-image 不支持 inset box-shadow，frame 样式用 border 代替
+            if (bgElement.classList.contains('card-preview-card__background--frame')) {
+                bgElement.style.border = '10px solid #de7e7e';
+                bgElement.style.boxSizing = 'border-box';
+            } else {
+                bgElement.style.boxShadow = computed.boxShadow;
+            }
         }
     }
 
