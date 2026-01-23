@@ -48,7 +48,7 @@ export function createFileSession({
 
     const cache = new Map();
 
-    function saveCurrentEditorContentToCache({ currentFile, activeViewMode, editor, codeEditor }) {
+    function saveCurrentEditorContentToCache({ currentFile, activeViewMode, editor, codeEditor, workflowEditor }) {
         if (!currentFile) return;
 
         const viewMode = activeViewMode;
@@ -67,6 +67,9 @@ export function createFileSession({
                 ? codeEditor.getValueForSave()
                 : codeEditor.getValue();
             hasChanges = codeEditor.hasUnsavedChanges();
+        } else if (viewMode === 'workflow' && workflowEditor) {
+            content = workflowEditor.getContent();
+            hasChanges = workflowEditor.hasUnsavedChanges();
         }
 
         if (content !== null) {

@@ -12,6 +12,7 @@ export function createNavigationController({
     getActiveViewMode,
     getEditor,
     getCodeEditor,
+    getWorkflowEditor,
     confirm,
     untitledFileManager,
     saveUntitledFile,
@@ -55,6 +56,9 @@ export function createNavigationController({
     }
     if (typeof getCodeEditor !== 'function') {
         throw new Error('navigationController 需要提供 getCodeEditor');
+    }
+    if (typeof getWorkflowEditor !== 'function') {
+        throw new Error('navigationController 需要提供 getWorkflowEditor');
     }
 
     let isOpeningFromLink = false;
@@ -140,7 +144,7 @@ export function createNavigationController({
                 tabManager?.showSharedTab(filePath);
             }
         } catch (error) {
-            console.error('文件选择失败，保持当前 tab 状态');
+            console.error('文件选择失败，保持当前 tab 状态', { filePath, error });
             isOpeningFromLink = false;
         }
     }
@@ -273,6 +277,8 @@ export function createNavigationController({
                 // 清除自动保存定时器
                 const editor = getEditor();
                 editor?.clearAutoSaveTimer?.();
+                const workflowEditor = getWorkflowEditor();
+                workflowEditor?.clearAutoSaveTimer?.();
 
                 const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
@@ -310,12 +316,16 @@ export function createNavigationController({
             const activeViewMode = getActiveViewMode();
             const editor = getEditor();
             const codeEditor = getCodeEditor();
+            const workflowEditor = getWorkflowEditor();
 
             if (activeViewMode === 'markdown' && editor) {
                 return editor.hasUnsavedChanges();
             }
             if (activeViewMode === 'code' && codeEditor) {
                 return codeEditor.hasUnsavedChanges();
+            }
+            if (activeViewMode === 'workflow' && workflowEditor) {
+                return workflowEditor.hasUnsavedChanges();
             }
         }
 

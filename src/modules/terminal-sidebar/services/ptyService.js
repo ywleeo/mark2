@@ -23,14 +23,14 @@ export function createPtyService() {
      * @param {number} options.rows - 行数
      * @param {string} [options.cwd] - 工作目录
      */
-    async function spawn({ cols = 80, rows = 24, cwd = null } = {}) {
+    async function spawn({ cols = 80, rows = 24, cwd = null, command = null } = {}) {
         if (ptyId) {
             console.warn('[PTY Service] PTY already spawned');
             return ptyId;
         }
 
         try {
-            ptyId = await invoke('pty_spawn', { cols, rows, cwd });
+            ptyId = await invoke('pty_spawn', { cols, rows, cwd, command });
             console.log('[PTY Service] Spawned:', ptyId);
 
             // 监听数据事件
@@ -41,11 +41,11 @@ export function createPtyService() {
             });
 
             // 监听退出事件
-            exitUnlisten = await listen(`pty-exit:${ptyId}`, () => {
+            exitUnlisten = await listen(`pty-exit:${ptyId}`, (event) => {
                 console.log('[PTY Service] Exit:', ptyId);
                 cleanup();
                 if (onExitCallback) {
-                    onExitCallback();
+                    onExitCallback(event?.payload || null);
                 }
             });
 

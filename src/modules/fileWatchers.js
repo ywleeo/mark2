@@ -5,6 +5,7 @@ export function createFileWatcherController({
     getActiveViewMode,
     getEditor,
     getCodeEditor,
+    getWorkflowEditor,
     scheduleLoadFile,
     fileSession,
     documentSessions,
@@ -35,17 +36,23 @@ export function createFileWatcherController({
                 return;
             }
             shouldRefreshRoot = true;
-            if (fileTree?.isFileOpen?.(changedPath)) {
-                const editor = getEditor();
-                const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
-                if (editor && editorPath === changedPath) {
-                    if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
-                        return;
-                    }
+        if (fileTree?.isFileOpen?.(changedPath)) {
+            const editor = getEditor();
+            const workflowEditor = getWorkflowEditor?.();
+            const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
+            if (editor && editorPath === changedPath) {
+                if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+                    return;
                 }
-                handleFileRefresh(changedPath);
             }
-        });
+            if (workflowEditor && typeof workflowEditor.hasUnsavedChanges === 'function'
+                && workflowEditor.currentFile === changedPath
+                && workflowEditor.hasUnsavedChanges()) {
+                return;
+            }
+            handleFileRefresh(changedPath);
+        }
+    });
 
         if (shouldRefreshRoot) {
             scheduleFolderRefresh(normalizedRoot);
@@ -61,10 +68,12 @@ export function createFileWatcherController({
 
         const editor = getEditor();
         const codeEditor = getCodeEditor();
+        const workflowEditor = getWorkflowEditor?.();
         const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
         const currentFilePath = normalizeFsPath(getCurrentFile());
         const isMarkdownActive = editor && editorPath === normalizedPath;
         const isCodeActive = getActiveViewMode() === 'code' && currentFilePath === normalizedPath;
+        const isWorkflowActive = getActiveViewMode() === 'workflow' && currentFilePath === normalizedPath;
 
         const cachedEntry = fileSession?.getCachedEntry?.(normalizedPath);
         const hasCachedChanges = cachedEntry?.hasChanges;
@@ -76,8 +85,11 @@ export function createFileWatcherController({
         if (isCodeActive && codeEditor?.hasUnsavedChanges?.()) {
             return;
         }
+        if (isWorkflowActive && workflowEditor?.hasUnsavedChanges?.()) {
+            return;
+        }
 
-        if (!isMarkdownActive && !isCodeActive && hasCachedChanges) {
+        if (!isMarkdownActive && !isCodeActive && !isWorkflowActive && hasCachedChanges) {
             return;
         }
 

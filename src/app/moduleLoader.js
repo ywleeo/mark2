@@ -30,6 +30,7 @@ export async function loadAndRegisterModules(editorRegistry) {
         SpreadsheetViewer: coreModules.SpreadsheetViewer,
         PdfViewer: coreModules.PdfViewer,
         UnsupportedViewer: coreModules.UnsupportedViewer,
+        WorkflowEditor: coreModules.WorkflowEditor,
         FileTree: coreModules.FileTree,
         TabManager: coreModules.TabManager,
         SettingsDialog: coreModules.SettingsDialog,

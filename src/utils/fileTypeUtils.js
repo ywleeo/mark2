@@ -1,4 +1,5 @@
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
+const WORKFLOW_EXTENSIONS = new Set(['workflow']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
 const AUDIO_EXTENSIONS = new Set([
     'mp3',
@@ -207,6 +208,18 @@ export function isPdfFilePath(filePath) {
     return PDF_EXTENSIONS.has(match[1]);
 }
 
+export function isWorkflowFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+    return WORKFLOW_EXTENSIONS.has(match[1]);
+}
+
 export function isUnsupportedFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -244,6 +257,9 @@ export function detectLanguageForPath(filePath) {
 export function getViewModeForPath(filePath) {
     if (isMarkdownFilePath(filePath)) {
         return 'markdown';
+    }
+    if (isWorkflowFilePath(filePath)) {
+        return 'workflow';
     }
     if (isImageFilePath(filePath)) {
         return 'image';

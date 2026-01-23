@@ -31,10 +31,8 @@ export class FileRenamer {
     }
 
     start(path) {
-        console.log('[FileRenamer] start called with path:', path);
         const normalized = this.normalizePath?.(path);
         if (!normalized) {
-            console.log('[FileRenamer] normalized is falsy, returning');
             return;
         }
         if (this.renamingPath && this.renamingPath !== normalized) {
@@ -43,11 +41,9 @@ export class FileRenamer {
 
         const treeItem = this.container?.querySelector(`.tree-file[data-path="${normalized}"]`);
         const openFileItem = this.container?.querySelector(`.open-file-item[data-path="${normalized}"]`);
-        console.log('[FileRenamer] treeItem:', treeItem, 'openFileItem:', openFileItem);
         // 优先使用 openFileItem，因为用户更可能从打开文件列表触发重命名
         const item = openFileItem || treeItem;
         if (!item) {
-            console.log('[FileRenamer] item not found, returning');
             return;
         }
 
@@ -55,9 +51,7 @@ export class FileRenamer {
         const nameSpan = useOpenFileItem
             ? item.querySelector('.open-file-name')
             : item.querySelector('.tree-item-name');
-        console.log('[FileRenamer] nameSpan:', nameSpan);
         if (!nameSpan) {
-            console.log('[FileRenamer] nameSpan not found, returning');
             return;
         }
 
@@ -74,7 +68,6 @@ export class FileRenamer {
         input.value = fileName;
         nameSpan.replaceWith(input);
         this.renamingPath = normalized;
-        console.log('[FileRenamer] renamingPath set to:', normalized);
 
         let submitting = false;
         const submit = async () => {
@@ -131,7 +124,6 @@ export class FileRenamer {
     }
 
     cancel(ctx = {}) {
-        console.log('[FileRenamer] cancel called, current renamingPath:', this.renamingPath);
         const {
             input,
             item,
@@ -139,7 +131,6 @@ export class FileRenamer {
             nameClass = 'tree-item-name',
         } = ctx;
         if (!this.renamingPath) {
-            console.log('[FileRenamer] renamingPath is falsy, returning from cancel');
             return;
         }
         if (this._renameCleanup) this._renameCleanup();
@@ -154,7 +145,6 @@ export class FileRenamer {
             } catch {}
         }
         this.renamingPath = null;
-        console.log('[FileRenamer] renamingPath cleared');
     }
 
     async submitRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {

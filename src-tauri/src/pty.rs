@@ -2,7 +2,7 @@
  * PTY (Pseudo Terminal) 管理模块
  * 提供终端模拟功能
  */
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
+use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, PtyPair, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
@@ -13,6 +13,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 pub struct PtyInstance {
     pub pair: PtyPair,
     pub writer: Box<dyn Write + Send>,
+    pub killer: Box<dyn ChildKiller + Send + Sync>,
 }
 
 /// PTY 管理器状态
@@ -28,6 +29,30 @@ impl Default for PtyState {
     }
 }
 
+/// 获取用户的默认 shell
+/// macOS 使用 dscl 查询用户的 UserShell，不依赖可能被修改的 SHELL 环境变量
+fn get_user_shell() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(username) = std::env::var("USER") {
+            if let Ok(output) = std::process::Command::new("dscl")
+                .args([".", "-read", &format!("/Users/{}", username), "UserShell"])
+                .output()
+            {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // 输出格式: "UserShell: /bin/zsh"
+                    if let Some(shell) = stdout.trim().strip_prefix("UserShell:") {
+                        return shell.trim().to_string();
+                    }
+                }
+            }
+        }
+    }
+    // fallback: 使用 SHELL 环境变量或默认 /bin/zsh
+    std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+}
+
 /// 生成唯一的 PTY ID
 fn generate_pty_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -38,6 +63,11 @@ fn generate_pty_id() -> String {
     format!("pty_{}", timestamp)
 }
 
+#[derive(serde::Serialize, Clone)]
+struct PtyExitPayload {
+    code: Option<u32>,
+}
+
 /// 创建新的 PTY 实例
 #[tauri::command]
 pub fn pty_spawn(
@@ -46,6 +76,7 @@ pub fn pty_spawn(
     cols: u16,
     rows: u16,
     cwd: Option<String>,
+    command: Option<String>,
 ) -> Result<String, String> {
     let pty_system = native_pty_system();
 
@@ -60,11 +91,16 @@ pub fn pty_spawn(
         .openpty(size)
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
-    // 获取默认 shell
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    // 获取用户的默认 shell（macOS 使用 dscl 查询，不依赖可能被修改的 SHELL 环境变量）
+    let shell = get_user_shell();
 
     let mut cmd = CommandBuilder::new(&shell);
     cmd.arg("-l"); // login shell
+    if let Some(command) = command {
+        cmd.arg("-i"); // interactive, load rc files for env
+        cmd.arg("-c");
+        cmd.arg(command);
+    }
 
     // 设置工作目录
     if let Some(dir) = cwd {
@@ -74,13 +110,17 @@ pub fn pty_spawn(
     // 设置环境变量
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
-    cmd.env_remove("PATH"); // 移除继承的 PATH，让 login shell 自己加载
+    if let Ok(path) = std::env::var("PATH") {
+        cmd.env("PATH", path);
+    }
 
     // 启动子进程
     let mut child = pair
         .slave
         .spawn_command(cmd)
         .map_err(|e| format!("Failed to spawn shell: {}", e))?;
+
+    let killer = child.clone_killer();
 
     // 获取读写句柄
     let reader = pair
@@ -96,7 +136,11 @@ pub fn pty_spawn(
     let pty_id_clone = pty_id.clone();
 
     // 创建 PTY 实例
-    let instance = Arc::new(Mutex::new(PtyInstance { pair, writer }));
+    let instance = Arc::new(Mutex::new(PtyInstance {
+        pair,
+        writer,
+        killer,
+    }));
 
     // 存储实例
     {
@@ -116,7 +160,6 @@ pub fn pty_spawn(
                 Ok(0) => {
                     // EOF - 进程已退出
                     println!("[PTY {}] EOF", pty_id_clone);
-                    let _ = app_handle.emit(&format!("pty-exit:{}", pty_id_clone), ());
                     break;
                 }
                 Ok(n) => {
@@ -125,7 +168,6 @@ pub fn pty_spawn(
                 }
                 Err(e) => {
                     eprintln!("[PTY {}] Read error: {}", pty_id_clone, e);
-                    let _ = app_handle.emit(&format!("pty-exit:{}", pty_id_clone), ());
                     break;
                 }
             }
@@ -137,8 +179,16 @@ pub fn pty_spawn(
             instances.remove(&pty_id_for_cleanup);
         }
 
-        // 等待子进程退出
-        let _ = child.wait();
+        // 等待子进程退出并发出退出事件
+        let exit_payload = match child.wait() {
+            Ok(status) => PtyExitPayload {
+                code: Some(status.exit_code()),
+            },
+            Err(_) => PtyExitPayload {
+                code: None,
+            },
+        };
+        let _ = app_handle.emit(&format!("pty-exit:{}", pty_id_clone), exit_payload);
     });
 
     println!("[PTY] Spawned: {}", pty_id);
@@ -199,10 +249,12 @@ pub fn pty_resize(
 pub fn pty_kill(state: State<'_, PtyState>, pty_id: String) -> Result<(), String> {
     let mut instances = state.instances.lock().unwrap();
 
-    if instances.remove(&pty_id).is_some() {
+    if let Some(instance) = instances.remove(&pty_id) {
+        if let Ok(mut instance) = instance.lock() {
+            let _ = instance.killer.kill();
+        }
         println!("[PTY] Killed: {}", pty_id);
-        Ok(())
-    } else {
-        Err(format!("PTY not found: {}", pty_id))
+        return Ok(());
     }
+    Err(format!("PTY not found: {}", pty_id))
 }

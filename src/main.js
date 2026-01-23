@@ -176,12 +176,14 @@ const viewController = createViewController({
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
+    getWorkflowEditor: () => editorRegistry.get('workflow'),
     getMarkdownPane: () => appState.getPaneElement('markdown'),
     getCodePane: () => appState.getPaneElement('code'),
     getImagePane: () => appState.getPaneElement('image'),
     getMediaPane: () => appState.getPaneElement('media'),
     getSpreadsheetPane: () => appState.getPaneElement('spreadsheet'),
     getPdfPane: () => appState.getPaneElement('pdf'),
+    getWorkflowPane: () => appState.getPaneElement('workflow'),
     getUnsupportedPane: () => appState.getPaneElement('unsupported'),
     getViewContainer: () => appState.getPaneElement('viewContainer'),
     getStatusBarController: () => appState.getStatusBarController(),
@@ -216,6 +218,7 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateWorkflowView,
     activateUnsupportedView,
     updateZoomDisplayForActiveView,
     handleZoomControl,
@@ -481,6 +484,7 @@ const {
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
+    getWorkflowEditor: () => editorRegistry.get('workflow'),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getCurrentFile: () => appState.getCurrentFile(),
         setCurrentFile: (value) => {
@@ -514,6 +518,7 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateWorkflowView,
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
@@ -771,6 +776,7 @@ const {
     getActiveViewMode: () => appState.getActiveViewMode(),
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
+    getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
     confirm,
     untitledFileManager,
     saveUntitledFile,
@@ -999,6 +1005,7 @@ async function initializeApplication() {
         getActiveViewMode: () => appState.getActiveViewMode(),
         getEditor: () => editorRegistry.getMarkdownEditor(),
         getCodeEditor: () => editorRegistry.getCodeEditor(),
+        getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
         scheduleLoadFile: async (path) => {
             const normalized = normalizeFsPath(path) || path || null;
             await loadFile(path, {
@@ -1131,6 +1138,7 @@ function saveCurrentEditorContentToCache() {
     const activeViewMode = appState.getActiveViewMode();
     const editor = editorRegistry.getMarkdownEditor();
     const codeEditor = editorRegistry.getCodeEditor();
+    const workflowEditor = editorRegistry.getWorkflowEditor();
 
     // 对于 untitled 文件，保存到 untitledFileManager 中
     if (currentFile && untitledFileManager.isUntitledPath(currentFile)) {
@@ -1149,6 +1157,7 @@ function saveCurrentEditorContentToCache() {
         activeViewMode,
         editor,
         codeEditor,
+        workflowEditor,
     });
 }
 

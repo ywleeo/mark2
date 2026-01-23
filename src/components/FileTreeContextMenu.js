@@ -47,6 +47,7 @@ export class FileTreeContextMenu {
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-folder">Create Folder</button>
             <button type="button" class="file-tree-context-menu__item" data-action="rename">Rename</button>
             <button type="button" class="file-tree-context-menu__item" data-action="move">Move To...</button>
+            <button type="button" class="file-tree-context-menu__item" data-action="copy-path">Copy Path</button>
             <button type="button" class="file-tree-context-menu__item" data-action="reveal">Find in Finder</button>
             <button type="button" class="file-tree-context-menu__item danger" data-action="delete">Delete</button>
         `;
@@ -224,6 +225,11 @@ export class FileTreeContextMenu {
                 break;
             case 'move':
                 await this.onMove?.(targetPath, meta);
+                break;
+            case 'copy-path':
+                if (targetPath) {
+                    await navigator.clipboard.writeText(targetPath);
+                }
                 break;
             case 'reveal':
                 await this.onReveal?.(targetPath, meta);
