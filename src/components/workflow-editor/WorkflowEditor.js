@@ -26,6 +26,8 @@ export class WorkflowEditor {
         this.toolbar = null;
         this.layerRenderer = null;
         this.executionEngine = null;
+        this.layerStates = new Map();
+        this.workflowState = null;
 
         // 编辑状态
         this.editingCardId = null;
@@ -57,6 +59,7 @@ export class WorkflowEditor {
         this.toolbar = new WorkflowToolbar(toolbarContainer, {
             onAddLayer: () => this.addLayer(),
             onExecuteAll: () => this.executeAll(),
+            onStopAll: () => this.cancelAll(),
             onExportMarkdown: () => this.exportMarkdown(),
             onSave: () => this.save(),
         });
@@ -72,12 +75,15 @@ export class WorkflowEditor {
             onAddCard: (layerId) => this.addCard(layerId),
             onDeleteLayer: (layerId) => this.deleteLayer(layerId),
             onExecuteLayer: (layerId) => this.executeLayer(layerId),
+            onCancelLayer: (layerId) => this.cancelLayer(layerId),
         });
 
         // 初始化执行引擎
         this.executionEngine = new ExecutionEngine({
             getWorkflowData: () => this.workflowData,
             onCardStateChange: (cardId, state) => this.updateCardState(cardId, state),
+            onLayerStateChange: (layerId, state) => this.updateLayerState(layerId, state),
+            onWorkflowStateChange: (state) => this.updateWorkflowState(state),
             readFile: (path) => this.readRelativeFile(path),
             getWorkflowDir: () => this.getWorkflowDir(),
         });
@@ -410,6 +416,16 @@ export class WorkflowEditor {
         }
     }
 
+    updateLayerState(layerId, state) {
+        this.layerStates.set(layerId, state);
+        this.layerRenderer.updateLayerState(layerId, state);
+    }
+
+    updateWorkflowState(state) {
+        this.workflowState = state;
+        this.toolbar.updateWorkflowState(state);
+    }
+
     // ========== 执行操作 ==========
 
     async executeCard(cardId) {
@@ -433,8 +449,80 @@ export class WorkflowEditor {
         await this.executionEngine.executeAll();
     }
 
+    async cancelAll() {
+        await this.executionEngine.cancelAll();
+        const runningLayerId = this.getRunningLayerId();
+        if (runningLayerId) {
+            const layer = this.workflowData?.layers?.find((l) => l.id === runningLayerId) || null;
+            if (layer) {
+                for (const card of layer.cards) {
+                    if (card._state?.status === 'running') {
+                        this.updateCardState(card.id, {
+                            status: 'cancelled',
+                            error: '已终止',
+                        });
+                    }
+                }
+                const priorState = this.layerStates.get(runningLayerId);
+                const startTime = priorState?.startTime;
+                const duration = typeof startTime === 'number' ? (Date.now() - startTime) : undefined;
+                this.updateLayerState(runningLayerId, {
+                    status: 'cancelled',
+                    ...(duration !== undefined ? { duration } : {}),
+                });
+            }
+        }
+        const workflowStartTime = this.workflowState?.startTime;
+        const workflowDuration = typeof workflowStartTime === 'number'
+            ? (Date.now() - workflowStartTime)
+            : undefined;
+        this.updateWorkflowState({
+            status: 'cancelled',
+            ...(workflowDuration !== undefined ? { duration: workflowDuration } : {}),
+        });
+    }
+
     async executeLayer(layerId) {
         await this.executionEngine.executeLayer(layerId);
+    }
+
+    async cancelLayer(layerId) {
+        const layer = this.workflowData?.layers?.find((l) => l.id === layerId) || null;
+        if (layer) {
+            for (const card of layer.cards) {
+                if (card._state?.status === 'running') {
+                    this.updateCardState(card.id, {
+                        status: 'cancelled',
+                        error: '已终止',
+                    });
+                }
+            }
+            const priorState = this.layerStates.get(layerId);
+            const startTime = priorState?.startTime;
+            const duration = typeof startTime === 'number' ? (Date.now() - startTime) : undefined;
+            this.updateLayerState(layerId, {
+                status: 'cancelled',
+                ...(duration !== undefined ? { duration } : {}),
+            });
+        }
+        await this.executionEngine.cancelLayer(layerId);
+    }
+
+    getRunningLayerId() {
+        for (const [layerId, state] of this.layerStates.entries()) {
+            if (state?.status === 'running') {
+                return layerId;
+            }
+        }
+        if (!this.workflowData?.layers) {
+            return null;
+        }
+        for (const layer of this.workflowData.layers) {
+            if (layer.cards.some((card) => card._state?.status === 'running')) {
+                return layer.id;
+            }
+        }
+        return null;
     }
 
     // ========== 导出 ==========

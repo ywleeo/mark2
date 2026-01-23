@@ -24,9 +24,13 @@ export class ExecutionEngine {
     constructor(options = {}) {
         this.getWorkflowData = options.getWorkflowData;
         this.onCardStateChange = options.onCardStateChange;
+        this.onLayerStateChange = options.onLayerStateChange;
+        this.onWorkflowStateChange = options.onWorkflowStateChange;
         this.readFile = options.readFile;
         this.getWorkflowDir = options.getWorkflowDir;
-        this.runningCommands = new Map();
+        this.runningTasks = new Map(); // 存储所有正在运行的卡片 { abortController, ptyService? }
+        this.aborted = false; // 用于中止执行流程
+        this.cancelledLayers = new Set();
     }
 
     /**
@@ -39,8 +43,12 @@ export class ExecutionEngine {
         const card = this.findCard(data, cardId);
         if (!card) return;
 
+        const startTime = Date.now();
+        const abortController = new AbortController();
+        this.runningTasks.set(cardId, { abortController });
+
         // 标记为执行中
-        this.onCardStateChange?.(cardId, { status: 'running' });
+        this.onCardStateChange?.(cardId, { status: 'running', startTime });
 
         try {
             // 解析输入
@@ -52,19 +60,23 @@ export class ExecutionEngine {
             if (card.type === 'input') {
                 result = card.config?.content || '';
             } else if (card.type === 'generate') {
-                result = await this.executeGenerate(card, inputContent);
+                result = await this.executeGenerate(card, inputContent, abortController.signal);
             } else if (card.type === 'execute') {
-                result = await this.executeCommand(card, inputContent);
+                result = await this.executeCommand(card, inputContent, abortController.signal);
             }
+
+            const duration = Date.now() - startTime;
 
             // 标记完成
             this.onCardStateChange?.(cardId, {
                 status: 'done',
                 result,
+                duration,
             });
 
             return result;
         } catch (error) {
+            const duration = Date.now() - startTime;
             console.error('[ExecutionEngine] 执行失败:', error);
             this.onCardStateChange?.(cardId, {
                 status: error?.name === 'CommandCancelled'
@@ -73,10 +85,11 @@ export class ExecutionEngine {
                 error: error?.name === 'CommandCancelled'
                     ? '已终止'
                     : (error.message || '执行失败'),
+                duration,
             });
             throw error;
         } finally {
-            this.runningCommands.delete(cardId);
+            this.runningTasks.delete(cardId);
         }
     }
 
@@ -87,18 +100,33 @@ export class ExecutionEngine {
         const data = this.getWorkflowData?.();
         if (!data) return;
 
+        this.aborted = false;
+
+        // 重置所有卡片状态
         for (const layer of data.layers) {
             for (const card of layer.cards) {
-                // 只执行 pending 状态的卡片
-                if (card.status === 'pending' || !card._state?.result) {
-                    try {
-                        await this.executeCard(card.id);
-                    } catch (error) {
-                        // 继续执行其他卡片
-                        console.error(`[ExecutionEngine] 卡片 ${card.id} 执行失败:`, error);
-                    }
-                }
+                this.onCardStateChange?.(card.id, { status: 'idle' });
             }
+        }
+
+        const workflowStartTime = Date.now();
+        this.onWorkflowStateChange?.({ status: 'running', startTime: workflowStartTime });
+
+        try {
+            for (const layer of data.layers) {
+                if (this.aborted) break;
+                await this.executeLayer(layer.id);
+            }
+
+            const workflowDuration = Date.now() - workflowStartTime;
+            this.onWorkflowStateChange?.({
+                status: this.aborted ? 'cancelled' : 'done',
+                duration: workflowDuration,
+            });
+        } catch (error) {
+            const workflowDuration = Date.now() - workflowStartTime;
+            this.onWorkflowStateChange?.({ status: 'error', duration: workflowDuration, error: error.message });
+            throw error;
         }
     }
 
@@ -112,6 +140,10 @@ export class ExecutionEngine {
         const layer = data.layers.find((l) => l.id === layerId);
         if (!layer) return;
 
+        this.cancelledLayers.delete(layerId);
+        const startTime = Date.now();
+        this.onLayerStateChange?.(layerId, { status: 'running', startTime });
+
         const tasks = layer.cards.map((card) => {
             if (card._state?.status === 'running') {
                 return Promise.resolve();
@@ -122,6 +154,14 @@ export class ExecutionEngine {
         });
 
         await Promise.all(tasks);
+
+        const duration = Date.now() - startTime;
+        const cancelled = this.cancelledLayers.has(layerId);
+        this.onLayerStateChange?.(layerId, {
+            status: cancelled ? 'cancelled' : 'done',
+            duration,
+        });
+        this.cancelledLayers.delete(layerId);
     }
 
     /**
@@ -169,20 +209,32 @@ export class ExecutionEngine {
     /**
      * 执行 AI 生成
      */
-    async executeGenerate(card, inputContent) {
+    async executeGenerate(card, inputContent, signal) {
         const promptTemplate = card.config?.prompt || '';
         const prompt = promptTemplate.replace(/\{\{input\}\}/g, inputContent);
 
         const messages = [{ role: 'user', content: prompt }];
 
-        const response = await aiService.chat({ messages });
+        // 使用 Promise.race 实现可取消的请求
+        const abortPromise = new Promise((_, reject) => {
+            signal?.addEventListener('abort', () => {
+                const error = new Error('已终止');
+                error.name = 'CommandCancelled';
+                reject(error);
+            });
+        });
+
+        const response = await Promise.race([
+            aiService.chat({ messages }),
+            abortPromise,
+        ]);
         return response.content || '';
     }
 
     /**
      * 执行命令
      */
-    async executeCommand(card, inputContent) {
+    async executeCommand(card, inputContent, signal) {
         const commandTemplate = card.config?.command || '';
 
         if (!commandTemplate) {
@@ -195,19 +247,18 @@ export class ExecutionEngine {
         const resolvedWorkingDir = workingDir || this.getWorkflowDir?.();
 
         const ptyService = createPtyService();
-        const commandEntry = {
-            ptyService,
-            cancelled: false,
-            exited: false, // 标记进程是否已退出
-        };
-        this.runningCommands.set(card.id, commandEntry);
+        const taskEntry = this.runningTasks.get(card.id) || {};
+        taskEntry.ptyService = ptyService;
+        taskEntry.cancelled = false;
+        taskEntry.exited = false;
+        this.runningTasks.set(card.id, taskEntry);
 
         let stdout = '';
         const stream = [];
 
         const updateStreamingState = () => {
             // 如果进程已退出，不再更新为 running 状态
-            if (commandEntry.exited) return;
+            if (taskEntry.exited) return;
             const result = stream.map((item) => item.text).join('');
             this.onCardStateChange?.(card.id, {
                 status: 'running',
@@ -229,9 +280,9 @@ export class ExecutionEngine {
             });
 
             ptyService.onExit((payload) => {
-                commandEntry.exited = true; // 标记已退出
+                taskEntry.exited = true; // 标记已退出
                 const code = payload?.code;
-                if (commandEntry.cancelled) {
+                if (taskEntry.cancelled) {
                     const cancelled = new Error('已终止');
                     cancelled.name = 'CommandCancelled';
                     reject(cancelled);
@@ -264,22 +315,76 @@ export class ExecutionEngine {
     }
 
     async cancelCard(cardId) {
-        const entry = this.runningCommands.get(cardId);
+        console.log('[cancelCard] 尝试取消卡片:', cardId);
+        const entry = this.runningTasks.get(cardId);
         if (!entry) {
+            console.warn('[cancelCard] 卡片不在 runningTasks 中:', cardId);
             return false;
         }
         entry.cancelled = true;
         try {
+            // 触发 AbortController（用于 generate 类型）
+            if (entry.abortController) {
+                console.log('[cancelCard] 触发 AbortController');
+                entry.abortController.abort();
+            }
+            // 终止 PTY 进程（用于 execute 类型）
             if (entry.ptyService) {
+                console.log('[cancelCard] 终止 PTY 进程');
                 await entry.ptyService.kill();
-            } else if (entry.child) {
-                await entry.child.kill();
             }
             return true;
         } catch (error) {
             console.warn('[ExecutionEngine] 终止命令失败:', error);
             return false;
         }
+    }
+
+    /**
+     * 取消所有正在执行的卡片
+     */
+    async cancelAll() {
+        this.aborted = true;
+        const cancelPromises = [];
+        for (const cardId of this.runningTasks.keys()) {
+            cancelPromises.push(this.cancelCard(cardId));
+        }
+        await Promise.all(cancelPromises);
+    }
+
+    /**
+     * 取消指定层内所有正在执行的卡片
+     */
+    async cancelLayer(layerId) {
+        const data = this.getWorkflowData?.();
+        if (!data) {
+            console.warn('[cancelLayer] 无法获取 workflow 数据');
+            return;
+        }
+
+        const layer = data.layers.find((l) => l.id === layerId);
+        if (!layer) {
+            console.warn('[cancelLayer] 找不到 layer:', layerId);
+            return;
+        }
+
+        this.cancelledLayers.add(layerId);
+        console.log('[cancelLayer] runningTasks keys:', [...this.runningTasks.keys()]);
+        console.log('[cancelLayer] layer.cards ids:', layer.cards.map((c) => c.id));
+
+        const cancelPromises = [];
+        for (const card of layer.cards) {
+            if (this.runningTasks.has(card.id)) {
+                console.log('[cancelLayer] 取消卡片:', card.id);
+                cancelPromises.push(this.cancelCard(card.id));
+            }
+        }
+
+        if (cancelPromises.length === 0) {
+            console.warn('[cancelLayer] 没有找到正在运行的卡片');
+        }
+
+        await Promise.all(cancelPromises);
     }
 
     /**

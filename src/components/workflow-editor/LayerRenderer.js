@@ -12,6 +12,7 @@ export class LayerRenderer {
         this.layers = [];
         this.editingCardId = null;
         this.cardRenderers = new Map();
+        this.layerStates = new Map(); // 存储 layer 执行状态
     }
 
     render(layers) {
@@ -39,6 +40,7 @@ export class LayerRenderer {
             <span class="workflow-layer-title">Layer ${index}</span>
             <div class="workflow-layer-actions">
                 <button class="workflow-btn workflow-btn-sm" data-action="execute-layer">▶ 执行</button>
+                <button class="workflow-btn workflow-btn-sm workflow-btn-danger" data-action="stop-layer" style="display: none;">⏹ 停止</button>
                 <button class="workflow-btn workflow-btn-sm" data-action="add-card">+ 卡片</button>
                 <button class="workflow-btn workflow-btn-sm workflow-btn-danger" data-action="delete-layer">删除层</button>
             </div>
@@ -46,6 +48,10 @@ export class LayerRenderer {
 
         header.querySelector('[data-action="execute-layer"]').addEventListener('click', () => {
             this.callbacks.onExecuteLayer?.(layer.id);
+        });
+
+        header.querySelector('[data-action="stop-layer"]').addEventListener('click', () => {
+            this.callbacks.onCancelLayer?.(layer.id);
         });
 
         header.querySelector('[data-action="add-card"]').addEventListener('click', () => {
@@ -129,10 +135,65 @@ export class LayerRenderer {
         }
     }
 
+    updateLayerState(layerId, state) {
+        this.layerStates.set(layerId, state);
+        const layerEl = this.container.querySelector(`[data-layer-id="${layerId}"]`);
+        if (!layerEl) return;
+
+        const header = layerEl.querySelector('.workflow-layer-header');
+        if (!header) return;
+
+        // 移除旧的状态显示
+        const oldStatus = header.querySelector('.workflow-layer-status');
+        if (oldStatus) {
+            oldStatus.remove();
+        }
+
+        // 添加新的状态显示
+        const statusEl = document.createElement('span');
+        statusEl.className = 'workflow-layer-status';
+
+        if (state.status === 'running') {
+            statusEl.classList.add('running');
+            statusEl.textContent = '执行中...';
+        } else if (state.status === 'done' && state.duration !== undefined) {
+            statusEl.classList.add('done');
+            statusEl.textContent = this.formatDuration(state.duration);
+        } else if (state.status === 'cancelled' && state.duration !== undefined) {
+            statusEl.classList.add('cancelled');
+            statusEl.textContent = `已停止 (${this.formatDuration(state.duration)})`;
+        }
+
+        const titleEl = header.querySelector('.workflow-layer-title');
+        if (titleEl) {
+            titleEl.after(statusEl);
+        }
+
+        // 切换执行/停止按钮显示
+        const executeBtn = header.querySelector('[data-action="execute-layer"]');
+        const stopBtn = header.querySelector('[data-action="stop-layer"]');
+        const isRunning = state.status === 'running';
+        if (executeBtn) executeBtn.style.display = isRunning ? 'none' : '';
+        if (stopBtn) stopBtn.style.display = isRunning ? '' : 'none';
+    }
+
+    formatDuration(ms) {
+        if (ms < 1000) {
+            return `${ms}ms`;
+        } else if (ms < 60000) {
+            return `${(ms / 1000).toFixed(1)}s`;
+        } else {
+            const minutes = Math.floor(ms / 60000);
+            const seconds = ((ms % 60000) / 1000).toFixed(0);
+            return `${minutes}m ${seconds}s`;
+        }
+    }
+
     clear() {
         this.layers = [];
         this.editingCardId = null;
         this.cardRenderers.clear();
+        this.layerStates.clear();
         this.container.innerHTML = '';
     }
 }

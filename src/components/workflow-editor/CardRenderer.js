@@ -134,19 +134,34 @@ export class CardRenderer {
     }
 
     getStatusBadge(runtimeState) {
+        const duration = runtimeState?.duration;
+        const durationText = duration !== undefined ? ` ${this.formatDuration(duration)}` : '';
+
         if (runtimeState?.status === 'running') {
             return '<span class="status-badge status-running">🔄 执行中</span>';
         }
         if (runtimeState?.status === 'cancelled') {
-            return '<span class="status-badge status-cancelled">⛔ 已终止</span>';
+            return `<span class="status-badge status-cancelled">⛔ 已终止${durationText}</span>`;
         }
         if (runtimeState?.status === 'error') {
-            return '<span class="status-badge status-error">❌ 错误</span>';
+            return `<span class="status-badge status-error">❌ 错误${durationText}</span>`;
         }
         if (runtimeState?.status === 'done') {
-            return '<span class="status-badge status-done">✅ 完成</span>';
+            return `<span class="status-badge status-done">✅ 完成${durationText}</span>`;
         }
         return '';
+    }
+
+    formatDuration(ms) {
+        if (ms < 1000) {
+            return `${ms}ms`;
+        } else if (ms < 60000) {
+            return `${(ms / 1000).toFixed(1)}s`;
+        } else {
+            const minutes = Math.floor(ms / 60000);
+            const seconds = ((ms % 60000) / 1000).toFixed(0);
+            return `${minutes}m ${seconds}s`;
+        }
     }
 
     formatInputs(inputs) {
