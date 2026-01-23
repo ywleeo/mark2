@@ -130,8 +130,31 @@ export class WorkflowEditor {
             this.workflowData = this.createEmptyWorkflow();
         }
 
+        // 重置所有 running 状态的卡片（进程已不存在）
+        this.resetStaleRunningCards();
+
         this.isDirty = false;
         this.render();
+    }
+
+    /**
+     * 重置加载时处于 running 状态的卡片
+     * 因为进程在 app 关闭时已终止，需要清除过期的运行状态
+     */
+    resetStaleRunningCards() {
+        if (!this.workflowData?.layers) return;
+
+        for (const layer of this.workflowData.layers) {
+            for (const card of layer.cards) {
+                if (card._state?.status === 'running') {
+                    card._state = {
+                        ...card._state,
+                        status: 'cancelled',
+                        error: '执行被中断（应用已关闭）',
+                    };
+                }
+            }
+        }
     }
 
     /**
@@ -285,6 +308,11 @@ export class WorkflowEditor {
         this.workflowData.layers.push(newLayer);
         this.markDirty();
         this.render();
+
+        // 滚动到新添加的层
+        const layersContainer = this.container.querySelector('.workflow-layers-container');
+        const newLayerEl = layersContainer?.querySelector(`[data-layer-id="${newLayer.id}"]`);
+        newLayerEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     deleteLayer(layerId) {
@@ -373,6 +401,13 @@ export class WorkflowEditor {
 
         found.card._state = state;
         this.layerRenderer.updateCardState(cardId, state);
+
+        // 执行开始时滚动到该卡片所在的层
+        if (state.status === 'running') {
+            const layersContainer = this.container.querySelector('.workflow-layers-container');
+            const layerEl = layersContainer?.querySelector(`[data-layer-id="${found.layer.id}"]`);
+            layerEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 
     // ========== 执行操作 ==========
@@ -383,10 +418,13 @@ export class WorkflowEditor {
 
     async cancelCard(cardId) {
         const cancelled = await this.executionEngine.cancelCard(cardId);
-        if (cancelled) {
+        // 无论是否成功终止进程，都更新 card 状态
+        // 处理场景：app 关闭后重新打开，PTY 进程已不存在但 card 仍显示 running
+        const found = this.findCard(cardId);
+        if (found?.card?._state?.status === 'running') {
             this.updateCardState(cardId, {
                 status: 'cancelled',
-                error: '已终止',
+                error: cancelled ? '已终止' : '执行被中断',
             });
         }
     }

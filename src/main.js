@@ -563,8 +563,8 @@ async function handleCreateUntitled() {
     // 创建一个虚拟的 tab
     const tabManager = appState.getTabManager();
     if (tabManager) {
-        // 直接添加到 fileTabs 中
-        tabManager.fileTabs.unshift({
+        // 直接添加到 fileTabs 末尾
+        tabManager.fileTabs.push({
             id: untitledPath,
             type: 'file',
             path: untitledPath,

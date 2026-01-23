@@ -31,6 +31,11 @@
     /* 阴影 */
     --wf-shadow: rgba(0, 0, 0, 0.1);
     --wf-shadow-lg: rgba(0, 0, 0, 0.15);
+
+    /* 终端输出 - 浅色模式 */
+    --wf-terminal-bg: #f1f5f9;
+    --wf-terminal-text: #334155;
+    --wf-terminal-text-error: #dc2626;
 }
 
 /* 深色模式 - 通过 data-theme-appearance 属性 */
@@ -54,6 +59,11 @@
 
     --wf-shadow: rgba(0, 0, 0, 0.3);
     --wf-shadow-lg: rgba(0, 0, 0, 0.4);
+
+    /* 终端输出 - 深色模式 */
+    --wf-terminal-bg: #0f172a;
+    --wf-terminal-text: #a8e6cf;
+    --wf-terminal-text-error: #ff6b6b;
 }
 
 /* 系统偏好深色模式（当没有显式设置主题时） */
@@ -77,6 +87,11 @@
 
         --wf-shadow: rgba(0, 0, 0, 0.3);
         --wf-shadow-lg: rgba(0, 0, 0, 0.4);
+
+        /* 终端输出 - 深色模式 */
+        --wf-terminal-bg: #0f172a;
+        --wf-terminal-text: #a8e6cf;
+        --wf-terminal-text-error: #ff6b6b;
     }
 }
 
@@ -87,6 +102,7 @@
     background: var(--wf-bg-base);
     color: var(--wf-text-primary);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 12px;
 }
 
 /* 工具栏 */
@@ -94,7 +110,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 20px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--wf-border);
     background: var(--wf-bg-card);
 }
@@ -102,84 +118,95 @@
 .workflow-toolbar-left {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 8px;
 }
 
 .workflow-toolbar-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .workflow-title {
     margin: 0;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--wf-text-primary);
 }
 
-/* 层级容器 */
+/* 层级容器 - 水平看板布局 */
 .workflow-layers-container {
     flex: 1;
-    overflow-y: auto;
-    padding: 10px;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: flex-start;
+    scrollbar-width: thin;
 }
 
-/* 层级 */
+/* 层级 - 固定宽度列 */
 .workflow-layer {
-    margin-bottom: 8px;
-    border: 1px solid var(--wf-border);
-    border-radius: 12px;
-    background: var(--wf-bg-card);
+    flex-shrink: 0;
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    /* border: 1px solid var(--wf-border); */
+    border-radius: 8px;
+    /* background: var(--wf-bg-elevated); */
     overflow: hidden;
+    max-height: 100%;
 }
 
 .workflow-layer-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 3px 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--wf-border);
     background: var(--wf-bg-elevated);
+    flex-shrink: 0;
 }
 
 .workflow-layer-title {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 12px;
     color: var(--wf-text-secondary);
 }
 
 .workflow-layer-actions {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 2px;
 }
 
-/* 卡片容器 */
+/* 卡片容器 - 网格布局 */
 .workflow-cards-container {
     display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 10px;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    scrollbar-width: thin;
 }
 
 .workflow-card-wrapper {
-    flex: 1;
-    min-width: 300px;
-    max-width: 420px;
+    min-width: 0;
 }
 
 /* 卡片 */
 .workflow-card {
     border: 1px solid var(--wf-border);
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--wf-bg-card);
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     overflow: hidden;
 }
 
 .workflow-card:hover {
     border-color: var(--wf-primary);
-    box-shadow: 0 0 0 1px var(--wf-primary);
 }
 
 .workflow-card.is-confirmed {
@@ -188,33 +215,34 @@
 
 .workflow-card.is-running {
     border-color: var(--wf-warning);
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
 }
 
 .workflow-card.is-error {
     border-color: var(--wf-error);
-    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.15);
 }
 
 .workflow-card-header {
     display: flex;
     align-items: center;
-    padding: 3px 12px;
+    padding: 6px 8px;
     border-bottom: 1px solid var(--wf-border);
-    gap: 8px;
-    background: var(--wf-bg-elevated);
+    gap: 6px;
+    background: var(--wf-bg-card);
 }
 
 .workflow-card-icon {
-    font-size: 16px;
+    font-size: 14px;
     display: flex;
     align-items: center;
+    color: var(--wf-text-muted);
 }
 
 .workflow-card-title {
     flex: 1;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: 500;
+    font-size: 12px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -223,9 +251,9 @@
 
 .workflow-card-actions {
     display: flex;
+    align-items: center;
     gap: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
+    margin-left: auto;
 }
 
 .workflow-card:hover .workflow-card-actions {
@@ -233,46 +261,48 @@
 }
 
 .workflow-card-inputs {
-    padding: 10px 16px;
-    font-size: 12px;
+    padding: 6px 8px;
+    font-size: 11px;
     color: var(--wf-text-secondary);
     background: var(--wf-bg-elevated);
     border-bottom: 1px solid var(--wf-border);
 }
 
 .workflow-card-content {
-    padding: 16px;
-    min-height: 60px;
-    max-height: 200px;
+    padding: 8px;
+    max-height: 180px;
     overflow-y: auto;
+    scrollbar-width: thin;
+    background: var(--wf-terminal-bg);
 }
 
 .workflow-card-content.is-terminal {
-    max-height: 200px;
+    max-height: 180px;
     overflow-y: auto;
 }
 
 .workflow-card-text,
 .workflow-card-prompt,
 .workflow-card-result {
-    font-size: 14px;
-    line-height: 1.6;
+    font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
-    color: var(--wf-text-primary);
+    color: var(--wf-terminal-text);
 }
 
 .workflow-card-command {
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 11px;
+    line-height: 1.4;
     white-space: pre-wrap;
     word-break: break-word;
 }
 
 .workflow-card-command code {
     font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 1px 4px;
+    border-radius: 3px;
     background: var(--wf-bg-elevated);
     color: var(--wf-text-primary);
 }
@@ -280,63 +310,64 @@
 .workflow-card-placeholder {
     color: var(--wf-text-muted);
     font-style: italic;
+    font-size: 11px;
 }
 
 .workflow-card-error {
-    color: var(--wf-error);
+    color: var(--wf-terminal-text-error);
 }
 
 /* Terminal 风格输出 */
 .workflow-card-terminal {
     font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
-    padding: 12px;
-    border-radius: 6px;
-    background: #1a1a2e;
-    color: #a8e6cf;
+    padding: 8px;
+    border-radius: 0;
+    background: var(--wf-terminal-bg);
+    color: var(--wf-terminal-text);
     max-height: none;
     overflow: visible;
 }
 
 .workflow-card-terminal-stdout {
-    color: #a8e6cf;
+    color: var(--wf-terminal-text);
 }
 
 .workflow-card-terminal-stderr {
-    color: #ff6b6b;
+    color: var(--wf-terminal-text-error);
 }
 
 .workflow-card-terminal-error {
-    color: #ff6b6b;
+    color: var(--wf-terminal-text-error);
 }
 
 .workflow-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 3px 12px;
+    padding: 4px 8px;
     border-top: 1px solid var(--wf-border);
-    background: var(--wf-bg-elevated);
+    background: var(--wf-bg-card);
 }
 
 .workflow-card-footer-actions {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     margin-left: auto;
 }
 
-/* 状态徽章 */
+/* 状态徽章 - 紧凑设计 */
 .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: 6px;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
 }
 
 .status-pending {
@@ -345,50 +376,50 @@
 }
 
 .status-confirmed {
-    background: rgba(34, 197, 94, 0.15);
+    background: rgba(34, 197, 94, 0.1);
     color: var(--wf-success);
 }
 
 .status-running {
-    background: rgba(245, 158, 11, 0.15);
+    background: rgba(245, 158, 11, 0.1);
     color: var(--wf-warning);
 }
 
 .status-done {
-    background: rgba(34, 197, 94, 0.15);
+    background: rgba(34, 197, 94, 0.1);
     color: var(--wf-success);
 }
 
 .status-error {
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.1);
     color: var(--wf-error);
 }
 
 .status-cancelled {
-    background: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.1);
     color: var(--wf-error);
 }
 
-/* 按钮 */
+/* 按钮 - 紧凑设计 */
 .workflow-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 6px 16px;
+    gap: 4px;
+    padding: 4px 12px;
     border: 1px solid var(--wf-border);
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--wf-bg-elevated);
     color: var(--wf-text-primary);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .workflow-btn:hover {
     background: var(--wf-bg-card);
-    border-color: var(--wf-border-light);
+    border-color: var(--wf-primary);
 }
 
 .workflow-btn:active {
@@ -396,26 +427,30 @@
 }
 
 .workflow-btn-sm {
-    padding: 6px 12px;
-    font-size: 12px;
+    padding: 3px 8px;
+    font-size: 11px;
+    background: transparent;
+}
+
+.workflow-btn-sm:hover {
+    color: var(--wf-primary);
+    background: transparent;
 }
 
 .workflow-btn-icon {
-    padding: 6px 8px;
-    min-width: 28px;
+    padding: 4px 6px;
+    min-width: 24px;
 }
 
 .workflow-btn-primary {
     background: var(--wf-primary);
     border-color: var(--wf-primary);
     color: #fff;
-    box-shadow: 0 0 15px var(--wf-primary-glow);
 }
 
 .workflow-btn-primary:hover {
     background: var(--wf-primary-hover);
     border-color: var(--wf-primary-hover);
-    box-shadow: 0 0 25px var(--wf-primary-glow-hover);
 }
 
 .workflow-btn-primary:active {
@@ -423,19 +458,21 @@
 }
 
 .workflow-btn-danger {
-    color: var(--wf-error);
+    color: rgba(239, 68, 68, 0.8);
+    border: none;
+    background: transparent;
 }
 
 .workflow-btn-danger:hover {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: var(--wf-error);
+    color: var(--wf-error);
+    background: transparent;
 }
 
 .workflow-btn-ghost {
-    padding: 4px 6px;
+    padding: 4px;
     border: none;
     background: transparent;
-    color: var(--wf-text-secondary);
+    color: var(--wf-text-muted);
 }
 
 .workflow-btn-ghost:hover {
@@ -448,11 +485,11 @@
 }
 
 .workflow-btn-text {
-    padding: 4px 8px;
+    padding: 2px 6px;
     border: none;
     background: transparent;
     color: var(--wf-primary);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
 }
 
@@ -461,42 +498,68 @@
     text-decoration: underline;
 }
 
-/* 添加层按钮 */
-.workflow-add-layer-btn {
-    display: block;
-    width: 100%;
-    padding: 20px;
-    border: 2px dashed var(--wf-border);
-    border-radius: 12px;
-    background: transparent;
-    color: var(--wf-text-muted);
-    font-size: 14px;
+/* 执行按钮 - 卡片内 */
+.workflow-btn-execute {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border: none;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--wf-primary);
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.15s;
+}
+
+.workflow-btn-execute:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+/* 添加层按钮 - 看板占位符 */
+.workflow-add-layer-btn {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 300px;
+    height: 120px;
+    padding: 16px;
+    border: 2px dashed var(--wf-border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--wf-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0.6;
 }
 
 .workflow-add-layer-btn:hover {
     border-color: var(--wf-primary);
     color: var(--wf-primary);
-    background: rgba(59, 130, 246, 0.05);
+    opacity: 1;
 }
 
-/* 卡片表单 */
+/* 卡片表单 - 紧凑设计 */
 .workflow-card-form {
-    padding: 24px;
+    padding: 16px;
     border: 1px solid var(--wf-border);
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--wf-bg-card);
-    box-shadow: 0 25px 50px -12px var(--wf-shadow-lg);
+    box-shadow: 0 10px 25px -5px var(--wf-shadow-lg);
 }
 
 .workflow-card-form-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    font-size: 18px;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--wf-text-primary);
 }
@@ -506,13 +569,13 @@
 }
 
 .workflow-form-group {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .workflow-form-group label {
     display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
+    margin-bottom: 6px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--wf-text-secondary);
 }
@@ -524,20 +587,20 @@
 
 .workflow-input {
     width: 100%;
-    padding: 10px 16px;
+    padding: 6px 10px;
     border: 1px solid var(--wf-border);
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--wf-bg-input);
     color: var(--wf-text-primary);
-    font-size: 14px;
+    font-size: 12px;
     box-sizing: border-box;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .workflow-input:focus {
     outline: none;
     border-color: var(--wf-primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .workflow-input::placeholder {
@@ -551,16 +614,17 @@
 
 .workflow-input-with-icon .icon {
     position: absolute;
-    left: 12px;
+    left: 8px;
     top: 50%;
     transform: translateY(-50%);
     color: var(--wf-text-muted);
-    transition: color 0.2s;
+    font-size: 14px;
+    transition: color 0.15s;
     pointer-events: none;
 }
 
 .workflow-input-with-icon .workflow-input {
-    padding-left: 40px;
+    padding-left: 30px;
 }
 
 .workflow-input-with-icon:focus-within .icon {
@@ -569,27 +633,27 @@
 
 .workflow-textarea {
     width: 100%;
-    min-height: 80px;
-    padding: 10px 16px;
+    min-height: 60px;
+    padding: 6px 10px;
     border: 1px solid var(--wf-border);
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--wf-bg-input);
     color: var(--wf-text-primary);
-    font-size: 14px;
+    font-size: 12px;
     font-family: inherit;
     resize: vertical;
     box-sizing: border-box;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .workflow-textarea-lg {
-    min-height: 120px;
+    min-height: 80px;
 }
 
 .workflow-textarea:focus {
     outline: none;
     border-color: var(--wf-primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 .workflow-textarea::placeholder {
@@ -600,10 +664,10 @@
 .workflow-type-selector {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
-    padding: 4px;
+    gap: 2px;
+    padding: 3px;
     background: var(--wf-bg-elevated);
-    border-radius: 8px;
+    border-radius: 4px;
     border: 1px solid var(--wf-border);
 }
 
@@ -611,16 +675,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: 4px;
+    padding: 5px 8px;
     border: none;
-    border-radius: 6px;
+    border-radius: 3px;
     background: transparent;
     color: var(--wf-text-secondary);
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .workflow-type-option:hover {
@@ -631,28 +695,28 @@
 .workflow-type-option.active {
     background: var(--wf-bg-card);
     color: var(--wf-primary);
-    box-shadow: 0 1px 3px var(--wf-shadow);
+    box-shadow: 0 1px 2px var(--wf-shadow);
 }
 
 .workflow-type-option .icon {
-    font-size: 16px;
+    font-size: 14px;
 }
 
 /* 旧版 Radio Group 样式（兼容） */
 .workflow-radio-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 12px;
 }
 
 .workflow-radio {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding-left: 26px;
+    gap: 6px;
+    padding-left: 20px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 11px;
     color: var(--wf-text-primary);
 }
 
@@ -671,12 +735,12 @@
     left: 0;
     top: 50%;
     transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     border: 1px solid var(--wf-border-light);
     border-radius: 50%;
     background: var(--wf-bg-input);
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 /* 选中状态 */
@@ -699,14 +763,14 @@
 .workflow-form-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
-    margin-top: 24px;
-    padding-top: 20px;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid var(--wf-border);
 }
 
 .workflow-output-file-path {
-    margin-top: 12px;
+    margin-top: 8px;
 }
 
 .workflow-output-file-path.hidden {
@@ -722,23 +786,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .workflow-input-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    min-height: 44px;
-    padding: 10px;
-    border-radius: 8px;
+    gap: 6px;
+    min-height: 32px;
+    padding: 6px 8px;
+    border-radius: 4px;
     background: var(--wf-bg-input);
     border: 1px dashed var(--wf-border);
 }
 
 .workflow-input-empty {
     color: var(--wf-text-muted);
-    font-size: 13px;
+    font-size: 11px;
     align-self: center;
     padding: 0 4px;
 }
@@ -747,19 +811,19 @@
 .workflow-input-item {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: 4px;
+    padding: 3px 6px;
     border: 1px solid var(--wf-border);
-    border-radius: 6px;
+    border-radius: 4px;
     background: var(--wf-bg-card);
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 500;
     color: var(--wf-text-secondary);
 }
 
 .workflow-input-item .status-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: var(--wf-success);
     flex-shrink: 0;
@@ -769,16 +833,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     padding: 0;
     border: none;
     border-radius: 50%;
     background: transparent;
     color: var(--wf-text-muted);
-    font-size: 14px;
+    font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
 }
 
 .workflow-input-item .remove-btn:hover {
@@ -792,12 +856,12 @@
     left: 0;
     right: 0;
     z-index: 100;
-    margin-top: 4px;
+    margin-top: 2px;
     border: 1px solid var(--wf-border);
-    border-radius: 8px;
+    border-radius: 4px;
     background: var(--wf-bg-card);
-    box-shadow: 0 10px 40px var(--wf-shadow-lg);
-    max-height: 240px;
+    box-shadow: 0 4px 16px var(--wf-shadow-lg);
+    max-height: 180px;
     overflow-y: auto;
 }
 
@@ -806,8 +870,8 @@
 }
 
 .workflow-input-group-title {
-    padding: 10px 14px 6px;
-    font-size: 11px;
+    padding: 6px 10px 4px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--wf-text-muted);
     text-transform: uppercase;
@@ -815,8 +879,8 @@
 }
 
 .workflow-input-option {
-    padding: 10px 14px;
-    font-size: 13px;
+    padding: 6px 10px;
+    font-size: 11px;
     color: var(--wf-text-primary);
     cursor: pointer;
     transition: background 0.15s;
@@ -829,4 +893,31 @@
 /* 隐藏工具类 */
 .hidden {
     display: none !important;
+}
+
+/* 滚动条样式 */
+.workflow-layers-container::-webkit-scrollbar,
+.workflow-cards-container::-webkit-scrollbar,
+.workflow-card-content::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.workflow-layers-container::-webkit-scrollbar-track,
+.workflow-cards-container::-webkit-scrollbar-track,
+.workflow-card-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.workflow-layers-container::-webkit-scrollbar-thumb,
+.workflow-cards-container::-webkit-scrollbar-thumb,
+.workflow-card-content::-webkit-scrollbar-thumb {
+    background: var(--wf-border);
+    border-radius: 3px;
+}
+
+.workflow-layers-container::-webkit-scrollbar-thumb:hover,
+.workflow-cards-container::-webkit-scrollbar-thumb:hover,
+.workflow-card-content::-webkit-scrollbar-thumb:hover {
+    background: var(--wf-border-light);
 }

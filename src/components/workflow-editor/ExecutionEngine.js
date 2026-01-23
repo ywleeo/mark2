@@ -198,6 +198,7 @@ export class ExecutionEngine {
         const commandEntry = {
             ptyService,
             cancelled: false,
+            exited: false, // 标记进程是否已退出
         };
         this.runningCommands.set(card.id, commandEntry);
 
@@ -205,6 +206,8 @@ export class ExecutionEngine {
         const stream = [];
 
         const updateStreamingState = () => {
+            // 如果进程已退出，不再更新为 running 状态
+            if (commandEntry.exited) return;
             const result = stream.map((item) => item.text).join('');
             this.onCardStateChange?.(card.id, {
                 status: 'running',
@@ -226,6 +229,7 @@ export class ExecutionEngine {
             });
 
             ptyService.onExit((payload) => {
+                commandEntry.exited = true; // 标记已退出
                 const code = payload?.code;
                 if (commandEntry.cancelled) {
                     const cancelled = new Error('已终止');

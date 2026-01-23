@@ -50,7 +50,7 @@ export class CardRenderer {
                 <div class="workflow-card-footer">
                     ${statusBadge ? `<span class="workflow-card-status">${statusBadge}</span>` : ''}
                     <div class="workflow-card-footer-actions">
-                        ${card._state?.result ? `
+                        ${card._state?.result || card._state?.error ? `
                             <button class="workflow-btn workflow-btn-sm workflow-btn-ghost" data-action="copy" title="复制输出">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -70,6 +70,14 @@ export class CardRenderer {
         `;
 
         this.bindEvents();
+        this.scrollToBottom();
+    }
+
+    scrollToBottom() {
+        const content = this.container.querySelector('.workflow-card-content');
+        if (content) {
+            content.scrollTop = content.scrollHeight;
+        }
     }
 
     bindEvents() {
@@ -96,11 +104,11 @@ export class CardRenderer {
         });
 
         this.container.querySelector('[data-action="copy"]')?.addEventListener('click', async (e) => {
-            const result = this.card._state?.result;
-            if (!result) return;
+            const content = this.card._state?.result || this.card._state?.error;
+            if (!content) return;
 
             try {
-                await navigator.clipboard.writeText(result);
+                await navigator.clipboard.writeText(content);
                 // 显示复制成功提示
                 const btn = e.currentTarget;
                 const originalTitle = btn.title;

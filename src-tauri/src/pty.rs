@@ -110,6 +110,7 @@ pub fn pty_spawn(
     // 设置环境变量
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
+    cmd.env("CLICOLOR", "1"); // macOS: 让 ls 等命令自动显示颜色
     if let Ok(path) = std::env::var("PATH") {
         cmd.env("PATH", path);
     }
