@@ -1,4 +1,4 @@
-export function createLayoutControls({ getStatusBarController }) {
+export function createLayoutControls({ getStatusBarController, getCodeEditor }) {
     let isSidebarHidden = false;
 
     function setSidebarVisibility(hidden) {
@@ -34,6 +34,9 @@ export function createLayoutControls({ getStatusBarController }) {
         }
 
         isSidebarHidden = hidden;
+
+        // 触发 Monaco 编辑器重新布局
+        getCodeEditor?.()?.requestLayout?.();
     }
 
     function toggleSidebarVisibility() {

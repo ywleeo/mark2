@@ -9,6 +9,7 @@ export function setupKeyboardShortcuts({
     onToggleMarkdownCodeView,
     onToggleSvgCodeView,
     onToggleCsvTableView,
+    onToggleWorkflowCodeView,
 }) {
     const handler = async (event) => {
         const isMeta = event.metaKey || event.ctrlKey;
@@ -44,7 +45,13 @@ export function setupKeyboardShortcuts({
         if (isMeta && key === 'e') {
             event.preventDefault();
             // 根据文件类型决定调用哪个切换函数
-            // 优先级：SVG -> CSV -> Markdown
+            // 优先级：Workflow -> SVG -> CSV -> Markdown
+            if (onToggleWorkflowCodeView) {
+                const workflowResult = await onToggleWorkflowCodeView();
+                if (workflowResult) {
+                    return; // Workflow 切换成功，直接返回
+                }
+            }
             if (onToggleSvgCodeView) {
                 const svgResult = await onToggleSvgCodeView();
                 if (svgResult) {

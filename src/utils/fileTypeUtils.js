@@ -1,5 +1,5 @@
 const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown', 'mdx']);
-const WORKFLOW_EXTENSIONS = new Set(['workflow']);
+const WORKFLOW_EXTENSIONS = new Set(['mflow']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico']);
 const AUDIO_EXTENSIONS = new Set([
     'mp3',

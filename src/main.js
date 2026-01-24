@@ -46,6 +46,7 @@ import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } f
 import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
 import { createSvgCodeMode } from './modules/svgCodeMode.js';
 import { createCsvTableMode } from './modules/csvTableMode.js';
+import { createWorkflowCodeMode } from './modules/workflowCodeMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
 import { createWindowFocusHandler } from './modules/windowFocusHandler.js';
 import { createWorkspaceController } from './modules/workspaceController.js';
@@ -236,6 +237,7 @@ const editorActions = createEditorActions({
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getSvgCodeMode: () => appState.getSvgCodeMode(),
     getCsvTableMode: () => appState.getCsvTableMode(),
+    getWorkflowCodeMode: () => appState.getWorkflowCodeMode(),
     getCurrentFile: () => appState.getCurrentFile(),
     setHasUnsavedChanges: (value) => {
         appState.setHasUnsavedChanges(value);
@@ -248,6 +250,7 @@ const editorActions = createEditorActions({
     fileSession,
     getImageViewer: () => editorRegistry.getImageViewer(),
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
+    getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
     getFileService: () => appServices?.file,
     getLoadFile: () => ({ openPathsFromSelection, loadFile }),
 });
@@ -256,11 +259,13 @@ const {
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
     toggleCsvTableMode,
+    toggleWorkflowCodeMode,
     requestActiveEditorContext,
 } = editorActions;
 
 const layoutControls = createLayoutControls({
     getStatusBarController: () => appState.getStatusBarController(),
+    getCodeEditor: () => editorRegistry.getCodeEditor(),
 });
 const {
     setSidebarVisibility,
@@ -972,6 +977,12 @@ async function initializeApplication() {
     });
     appState.setCsvTableMode(csvTableMode);
 
+    const workflowCodeMode = createWorkflowCodeMode({
+        activateCodeView,
+        activateWorkflowView,
+    });
+    appState.setWorkflowCodeMode(workflowCodeMode);
+
     // 初始化文件树
     const fileTree = setupFileTree({
         FileTreeCtor: coreModules.FileTree,
@@ -1054,6 +1065,7 @@ async function initializeApplication() {
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleCsvTableView: toggleCsvTableMode,
+        onToggleWorkflowCodeView: toggleWorkflowCodeMode,
     }));
     appState.setCleanupFunction('menuListeners', await registerMenuListeners({
         onAbout: showAboutDialog,

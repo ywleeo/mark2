@@ -60,7 +60,7 @@ Layer 5: 最终产出
 
 ## 文件格式
 
-工作流保存为 `.workflow` 文件，本质是 JSON 格式：
+工作流保存为 `.mflow` 文件，本质是 JSON 格式：
 
 ```json
 {
@@ -394,14 +394,14 @@ styles/
 
 ### Phase 1: 基础框架
 
-1. 添加 `.workflow` 文件类型识别（`fileTypeUtils.js`）
+1. 添加 `.mflow` 文件类型识别（`fileTypeUtils.js`）
 2. 创建 `WorkflowEditor` 空壳类
 3. 注册到 `EditorRegistry`
 4. 添加视图面板和切换逻辑
 
 ### Phase 2: 数据和渲染
 
-1. 实现 `.workflow` 文件解析和保存
+1. 实现 `.mflow` 文件解析和保存
 2. 实现层级渲染（`LayerRenderer`）
 3. 实现卡片渲染（`CardRenderer`）
 4. 基础样式

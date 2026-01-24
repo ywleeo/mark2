@@ -147,7 +147,8 @@ export class TerminalSidebar {
             if (event.isComposing || event.key === 'Process') {
                 return true;
             }
-            if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+            const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+            if ((event.metaKey || event.ctrlKey) && key === 'k') {
                 event.preventDefault();
                 this.terminal.clear();
                 return false;

@@ -564,8 +564,8 @@ export class WorkflowEditor {
             return '';
         }
         const lower = fileName.toLowerCase();
-        if (lower.endsWith('.workflow')) {
-            return fileName.slice(0, -'.workflow'.length) || fileName;
+        if (lower.endsWith('.mflow')) {
+            return fileName.slice(0, -'.mflow'.length) || fileName;
         }
         const dotIndex = fileName.lastIndexOf('.');
         if (dotIndex > 0) {

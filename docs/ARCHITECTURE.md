@@ -111,12 +111,12 @@ loadFile(filePath)
 
 ## 添加新的文件类型/视图
 
-以添加 `.workflow` 文件类型为例：
+以添加 `.mflow` 文件类型为例：
 
 ### Step 1: 文件类型检测
 `src/utils/fileTypeUtils.js`:
 ```javascript
-const WORKFLOW_EXTENSIONS = new Set(['workflow', 'wf']);
+const WORKFLOW_EXTENSIONS = new Set(['mflow']);
 
 export function isWorkflowFilePath(filePath) {
   return WORKFLOW_EXTENSIONS.has(getExtension(filePath));
