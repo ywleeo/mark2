@@ -31,7 +31,8 @@ export class CardForm {
                 <div class="workflow-form-group">
                     <label>卡片标题</label>
                     <input type="text" class="workflow-input" data-field="title"
-                        placeholder="输入节点名称..." value="${this.escapeAttr(this.card.title || '')}">
+                        placeholder="输入节点名称..." value="${this.escapeAttr(this.card.title || '')}"
+                        autocorrect="off" autocapitalize="off" spellcheck="false">
                 </div>
 
                 <div class="workflow-form-group">
@@ -78,7 +79,8 @@ export class CardForm {
                     </div>
                     <div class="workflow-output-file-path ${this.card.output?.mode !== 'file' ? 'hidden' : ''}">
                         <input type="text" class="workflow-input" data-field="outputFilePath"
-                            placeholder="输出文件路径" value="${this.escapeAttr(this.card.output?.filePath || '')}">
+                            placeholder="输出文件路径" value="${this.escapeAttr(this.card.output?.filePath || '')}"
+                            autocorrect="off" autocapitalize="off" spellcheck="false">
                     </div>
                 </div>
 
@@ -109,14 +111,16 @@ export class CardForm {
         if (this.card.type === 'input') {
             return `
                 <label>内容</label>
-                <textarea class="workflow-textarea" data-field="content" placeholder="输入内容...">${this.escapeHtml(this.card.config?.content || '')}</textarea>
+                <textarea class="workflow-textarea" data-field="content" placeholder="输入内容..."
+                    autocorrect="off" autocapitalize="off" spellcheck="false">${this.escapeHtml(this.card.config?.content || '')}</textarea>
             `;
         }
 
         if (this.card.type === 'generate') {
             return `
                 <label>Prompt 模板 <small>(使用 {{input}} 引用输入内容)</small></label>
-                <textarea class="workflow-textarea workflow-textarea-lg" data-field="prompt" placeholder="请输入 Prompt...">${this.escapeHtml(this.card.config?.prompt || '')}</textarea>
+                <textarea class="workflow-textarea workflow-textarea-lg" data-field="prompt" placeholder="请输入 Prompt..."
+                    autocorrect="off" autocapitalize="off" spellcheck="false">${this.escapeHtml(this.card.config?.prompt || '')}</textarea>
             `;
         }
 
@@ -125,12 +129,14 @@ export class CardForm {
                 <label>执行命令</label>
                 <div class="workflow-input-with-icon">
                     <span class="icon">💻</span>
-                    <input type="text" class="workflow-input" data-field="command" placeholder="例如: node script.js" value="${this.escapeAttr(this.card.config?.command || '')}">
+                    <input type="text" class="workflow-input" data-field="command" placeholder="例如: node script.js" value="${this.escapeAttr(this.card.config?.command || '')}"
+                        autocorrect="off" autocapitalize="off" spellcheck="false">
                 </div>
                 <label style="margin-top: 16px;">工作目录（可选）</label>
                 <div class="workflow-input-with-icon">
                     <span class="icon">📁</span>
-                    <input type="text" class="workflow-input" data-field="workingDir" placeholder="留空使用工作流文件所在目录" value="${this.escapeAttr(this.card.config?.workingDir || '')}">
+                    <input type="text" class="workflow-input" data-field="workingDir" placeholder="留空使用工作流文件所在目录" value="${this.escapeAttr(this.card.config?.workingDir || '')}"
+                        autocorrect="off" autocapitalize="off" spellcheck="false">
                 </div>
             `;
         }

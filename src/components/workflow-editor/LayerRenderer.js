@@ -103,7 +103,7 @@ export class LayerRenderer {
                 },
                 onCancel: () => {
                     this.editingCardId = null;
-                    this.render(this.layers);
+                    this.rerenderCard(card.id);
                 },
             });
             form.render();
@@ -241,6 +241,69 @@ export class LayerRenderer {
             wrapper.remove();
             this.cardRenderers.delete(cardId);
         }
+    }
+
+    /**
+     * 删除层级（局部更新）
+     */
+    removeLayer(layerId) {
+        const layerEl = this.container.querySelector(`[data-layer-id="${layerId}"]`);
+        if (!layerEl) return;
+
+        // 先清理该层内所有卡片的 renderer
+        const layer = this.layers.find(l => l.id === layerId);
+        if (layer) {
+            for (const card of layer.cards) {
+                this.cardRenderers.delete(card.id);
+            }
+        }
+
+        // 从 layers 数组中移除
+        const index = this.layers.findIndex(l => l.id === layerId);
+        if (index !== -1) {
+            this.layers.splice(index, 1);
+        }
+
+        // 清理 layer 状态
+        this.layerStates.delete(layerId);
+
+        // 移除 DOM 元素
+        layerEl.remove();
+
+        // 更新剩余层的标题序号
+        this.updateLayerIndices();
+    }
+
+    /**
+     * 更新所有层的序号显示
+     */
+    updateLayerIndices() {
+        const layerEls = this.container.querySelectorAll('.workflow-layer');
+        layerEls.forEach((el, i) => {
+            const titleEl = el.querySelector('.workflow-layer-title');
+            if (titleEl) {
+                titleEl.textContent = `Layer ${i + 1}`;
+            }
+        });
+    }
+
+    /**
+     * 追加新层级（局部更新）
+     */
+    appendLayer(layer) {
+        this.layers.push(layer);
+        const index = this.layers.length;
+        const layerEl = this.createLayerElement(layer, index);
+        this.container.appendChild(layerEl);
+
+        // 新层内的第一个卡片直接进入编辑模式
+        if (layer.cards?.length > 0) {
+            const firstCard = layer.cards[0];
+            this.editingCardId = firstCard.id;
+            this.rerenderCard(firstCard.id);
+        }
+
+        return layerEl;
     }
 
     updateCardState(cardId, state) {

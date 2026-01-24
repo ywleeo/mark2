@@ -313,11 +313,9 @@ export class WorkflowEditor {
 
         this.workflowData.layers.push(newLayer);
         this.markDirty();
-        this.render();
+        const newLayerEl = this.layerRenderer.appendLayer(newLayer);
 
         // 滚动到新添加的层
-        const layersContainer = this.container.querySelector('.workflow-layers-container');
-        const newLayerEl = layersContainer?.querySelector(`[data-layer-id="${newLayer.id}"]`);
         newLayerEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -328,7 +326,7 @@ export class WorkflowEditor {
         if (index !== -1) {
             this.workflowData.layers.splice(index, 1);
             this.markDirty();
-            this.render();
+            this.layerRenderer.removeLayer(layerId);
         }
     }
 
@@ -390,7 +388,7 @@ export class WorkflowEditor {
 
         this.applyCardUpdates(found.card, updates);
         this.markDirty();
-        this.render();
+        this.layerRenderer.rerenderCard(cardId);
     }
 
     updateCardDraft(cardId, updates) {
