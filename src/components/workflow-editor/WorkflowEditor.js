@@ -362,7 +362,7 @@ export class WorkflowEditor {
 
         layer.cards.push(newCard);
         this.markDirty();
-        this.render();
+        this.layerRenderer.appendCard(layerId, newCard);
     }
 
     deleteCard(cardId) {
@@ -373,7 +373,7 @@ export class WorkflowEditor {
             if (index !== -1) {
                 layer.cards.splice(index, 1);
                 this.markDirty();
-                this.render();
+                this.layerRenderer.removeCard(cardId);
                 return;
             }
         }

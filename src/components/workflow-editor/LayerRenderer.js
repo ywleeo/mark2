@@ -84,7 +84,7 @@ export class LayerRenderer {
         return el;
     }
 
-    createCardElement(card, layer) {
+    createCardElement(card, _layer) {
         const wrapper = document.createElement('div');
         wrapper.className = 'workflow-card-wrapper';
         wrapper.dataset.cardId = card.id;
@@ -124,8 +124,123 @@ export class LayerRenderer {
     }
 
     setEditingCard(cardId) {
+        const prevEditingCardId = this.editingCardId;
         this.editingCardId = cardId;
-        this.render(this.layers);
+
+        // 恢复之前编辑的卡片到展示模式
+        if (prevEditingCardId && prevEditingCardId !== cardId) {
+            this.rerenderCard(prevEditingCardId);
+        }
+
+        // 切换当前卡片到编辑模式
+        if (cardId) {
+            this.rerenderCard(cardId);
+        }
+    }
+
+    /**
+     * 局部重新渲染单个卡片
+     */
+    rerenderCard(cardId) {
+        const wrapper = this.container.querySelector(`[data-card-id="${cardId}"]`);
+        if (!wrapper) return;
+
+        // 找到对应的 card 数据
+        let cardData = null;
+        for (const layer of this.layers) {
+            const found = layer.cards.find(c => c.id === cardId);
+            if (found) {
+                cardData = found;
+                break;
+            }
+        }
+        if (!cardData) return;
+
+        // 清空并重新渲染
+        wrapper.innerHTML = '';
+        this.cardRenderers.delete(cardId);
+
+        if (this.editingCardId === cardId) {
+            // 编辑模式
+            const form = new CardForm(wrapper, {
+                card: cardData,
+                layers: this.layers,
+                onSave: (updates) => {
+                    this.editingCardId = null;
+                    this.callbacks.onCardUpdate?.(cardId, updates);
+                },
+                onDraftChange: (updates) => {
+                    this.callbacks.onCardDraftChange?.(cardId, updates);
+                },
+                onCancel: () => {
+                    this.editingCardId = null;
+                    this.rerenderCard(cardId);
+                },
+            });
+            form.render();
+        } else {
+            // 展示模式
+            const renderer = new CardRenderer(wrapper, {
+                card: cardData,
+                onEdit: () => this.callbacks.onCardEdit?.(cardId),
+                onDelete: () => this.callbacks.onCardDelete?.(cardId),
+                onExecute: () => this.callbacks.onCardExecute?.(cardId),
+                onCancel: () => this.callbacks.onCardCancel?.(cardId),
+            });
+            renderer.render();
+            this.cardRenderers.set(cardId, renderer);
+        }
+    }
+
+    /**
+     * 在指定 layer 追加新卡片（局部更新）
+     */
+    appendCard(layerId, card) {
+        const layerEl = this.container.querySelector(`[data-layer-id="${layerId}"]`);
+        if (!layerEl) return;
+
+        const cardsContainer = layerEl.querySelector('.workflow-cards-container');
+        if (!cardsContainer) return;
+
+        // 找到 layer 数据
+        const layer = this.layers.find(l => l.id === layerId);
+        if (!layer) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'workflow-card-wrapper';
+        wrapper.dataset.cardId = card.id;
+
+        // 直接进入编辑模式
+        this.editingCardId = card.id;
+        const form = new CardForm(wrapper, {
+            card,
+            layers: this.layers,
+            onSave: (updates) => {
+                this.editingCardId = null;
+                this.callbacks.onCardUpdate?.(card.id, updates);
+            },
+            onDraftChange: (updates) => {
+                this.callbacks.onCardDraftChange?.(card.id, updates);
+            },
+            onCancel: () => {
+                this.editingCardId = null;
+                this.rerenderCard(card.id);
+            },
+        });
+        form.render();
+
+        cardsContainer.appendChild(wrapper);
+    }
+
+    /**
+     * 删除卡片（局部更新）
+     */
+    removeCard(cardId) {
+        const wrapper = this.container.querySelector(`[data-card-id="${cardId}"]`);
+        if (wrapper) {
+            wrapper.remove();
+            this.cardRenderers.delete(cardId);
+        }
     }
 
     updateCardState(cardId, state) {
