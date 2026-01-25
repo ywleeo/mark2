@@ -7,7 +7,94 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 /**
- * 创建 PTY 服务
+ * 生成唯一的任务 ID
+ */
+function generateTaskId() {
+    return `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * 创建任务执行器（用于 Workflow 执行命令）
+ * 关键：先设置好事件监听器，再启动进程，避免竞态条件
+ *
+ * @param {Object} options
+ * @param {string} options.command - 要执行的命令
+ * @param {string} [options.cwd] - 工作目录
+ * @param {number} [options.cols] - 终端列数
+ * @param {number} [options.rows] - 终端行数
+ * @param {Function} options.onData - 数据回调
+ * @param {Function} options.onExit - 退出回调
+ * @returns {Promise<{ ptyId: string, kill: Function }>}
+ */
+export async function createTaskRunner({
+    command,
+    cwd = null,
+    cols = 120,
+    rows = 30,
+    onData,
+    onExit,
+}) {
+    const taskId = generateTaskId();
+    let ptyId = null;
+    let dataUnlisten = null;
+    let exitUnlisten = null;
+    let exited = false;
+
+    // 1. 先设置好事件监听器（使用 taskId 作为事件名）
+    dataUnlisten = await listen(`pty-data:${taskId}`, (event) => {
+        onData?.(event.payload);
+    });
+
+    exitUnlisten = await listen(`pty-exit:${taskId}`, (event) => {
+        exited = true;
+        cleanup();
+        onExit?.(event?.payload || null);
+    });
+
+    function cleanup() {
+        if (dataUnlisten) {
+            dataUnlisten();
+            dataUnlisten = null;
+        }
+        if (exitUnlisten) {
+            exitUnlisten();
+            exitUnlisten = null;
+        }
+    }
+
+    try {
+        // 2. 再启动进程，传入 taskId 作为 event_id
+        ptyId = await invoke('pty_spawn', {
+            cols,
+            rows,
+            cwd,
+            command,
+            eventId: taskId,
+        });
+    } catch (error) {
+        cleanup();
+        console.error('[TaskRunner] Spawn failed:', error);
+        throw error;
+    }
+
+    return {
+        ptyId,
+        taskId,
+        isExited: () => exited,
+        kill: async () => {
+            if (!ptyId) return;
+            try {
+                await invoke('pty_kill', { ptyId });
+            } catch (error) {
+                console.warn('[TaskRunner] Kill failed:', error);
+            }
+            cleanup();
+        },
+    };
+}
+
+/**
+ * 创建 PTY 服务（用于交互式终端）
  */
 export function createPtyService() {
     let ptyId = null;

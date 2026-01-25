@@ -1,5 +1,5 @@
 import { aiService } from '../../modules/ai-assistant/aiService.js';
-import { createPtyService } from '../../modules/terminal-sidebar/services/ptyService.js';
+import { createTaskRunner } from '../../modules/terminal-sidebar/services/ptyService.js';
 
 /**
  * 过滤终端控制序列
@@ -62,7 +62,7 @@ export class ExecutionEngine {
             } else if (card.type === 'generate') {
                 result = await this.executeGenerate(card, inputContent, abortController.signal);
             } else if (card.type === 'execute') {
-                result = await this.executeCommand(card, inputContent, abortController.signal);
+                result = await this.executeCommand(card, inputContent);
             }
 
             const duration = Date.now() - startTime;
@@ -140,15 +140,24 @@ export class ExecutionEngine {
         const layer = data.layers.find((l) => l.id === layerId);
         if (!layer) return;
 
+        // 如果没有卡片，直接返回
+        if (layer.cards.length === 0) {
+            return;
+        }
+
         this.cancelledLayers.delete(layerId);
         const startTime = Date.now();
         this.onLayerStateChange?.(layerId, { status: 'running', startTime });
 
+        // 重置该层所有卡片状态为 idle，避免残留状态影响
+        for (const card of layer.cards) {
+            this.onCardStateChange?.(card.id, { status: 'idle' });
+        }
+
+        // 并行执行所有卡片
         const tasks = layer.cards.map((card) => {
-            if (card._state?.status === 'running') {
-                return Promise.resolve();
-            }
             return this.executeCard(card.id).catch((error) => {
+                // 记录错误但不阻止其他卡片执行
                 console.error(`[ExecutionEngine] 卡片 ${card.id} 执行失败:`, error);
             });
         });
@@ -234,7 +243,7 @@ export class ExecutionEngine {
     /**
      * 执行命令
      */
-    async executeCommand(card, inputContent, signal) {
+    async executeCommand(card, inputContent) {
         const commandTemplate = card.config?.command || '';
 
         if (!commandTemplate) {
@@ -244,94 +253,89 @@ export class ExecutionEngine {
         // 替换 {{input}} 占位符
         const command = commandTemplate.replace(/\{\{input\}\}/g, inputContent);
         const workingDir = (card.config?.workingDir || '').trim();
-        const resolvedWorkingDir = workingDir || this.getWorkflowDir?.();
-
-        const ptyService = createPtyService();
-        const taskEntry = this.runningTasks.get(card.id) || {};
-        taskEntry.ptyService = ptyService;
-        taskEntry.cancelled = false;
-        taskEntry.exited = false;
-        this.runningTasks.set(card.id, taskEntry);
+        const cwd = workingDir || this.getWorkflowDir?.() || null;
 
         let stdout = '';
         const stream = [];
+        let taskRunner = null;
 
-        const updateStreamingState = () => {
-            // 如果进程已退出，不再更新为 running 状态
-            if (taskEntry.exited) return;
-            const result = stream.map((item) => item.text).join('');
-            this.onCardStateChange?.(card.id, {
-                status: 'running',
-                result,
-                stdout,
-                stderr: '',
-                stream,
-            });
-        };
+        const taskEntry = this.runningTasks.get(card.id) || {};
+        taskEntry.cancelled = false;
+        this.runningTasks.set(card.id, taskEntry);
 
-        return await new Promise((resolve, reject) => {
-            ptyService.onData((data) => {
-                const raw = typeof data === 'string' ? data : String(data);
-                const text = stripAnsiSequences(raw);
-                if (!text) return; // 跳过纯控制序列
-                stdout += text;
-                stream.push({ type: 'stdout', text });
-                updateStreamingState();
-            });
-
-            ptyService.onExit((payload) => {
-                taskEntry.exited = true; // 标记已退出
-                const code = payload?.code;
-                if (taskEntry.cancelled) {
-                    const cancelled = new Error('已终止');
-                    cancelled.name = 'CommandCancelled';
-                    reject(cancelled);
-                    return;
-                }
-                if (typeof code === 'number' && code !== 0) {
-                    const errorInfo = [
-                        stdout,
-                        typeof code === 'number' ? `退出码: ${code}` : null,
-                    ]
-                        .filter(Boolean)
-                        .join('\n');
-                    reject(new Error(errorInfo || '执行失败'));
-                    return;
-                }
-                resolve(stdout);
-            });
-
-            ptyService
-                .spawn({
+        return await new Promise(async (resolve, reject) => {
+            try {
+                // 使用 createTaskRunner：先设置 listener，再启动进程
+                taskRunner = await createTaskRunner({
+                    command,
+                    cwd,
                     cols: 120,
                     rows: 30,
-                    cwd: resolvedWorkingDir || null,
-                    command, // 直接传命令，避免回显和 prompt
-                })
-                .catch((error) => {
-                    reject(error instanceof Error ? error : new Error(String(error)));
+                    onData: (data) => {
+                        const raw = typeof data === 'string' ? data : String(data);
+                        const text = stripAnsiSequences(raw);
+                        if (!text) return; // 跳过纯控制序列
+                        stdout += text;
+                        stream.push({ type: 'stdout', text });
+
+                        // 更新流式输出状态
+                        if (!taskRunner?.isExited?.()) {
+                            this.onCardStateChange?.(card.id, {
+                                status: 'running',
+                                result: stream.map((item) => item.text).join(''),
+                                stdout,
+                                stderr: '',
+                                stream,
+                            });
+                        }
+                    },
+                    onExit: (payload) => {
+                        const code = payload?.code;
+
+                        if (taskEntry.cancelled) {
+                            const cancelled = new Error('已终止');
+                            cancelled.name = 'CommandCancelled';
+                            reject(cancelled);
+                            return;
+                        }
+
+                        if (typeof code === 'number' && code !== 0) {
+                            const errorInfo = [
+                                stdout,
+                                `退出码: ${code}`,
+                            ].filter(Boolean).join('\n');
+                            reject(new Error(errorInfo || '执行失败'));
+                            return;
+                        }
+
+                        resolve(stdout);
+                    },
                 });
+
+                // 保存 taskRunner 的 kill 方法，用于取消
+                taskEntry.kill = taskRunner.kill;
+                this.runningTasks.set(card.id, taskEntry);
+
+            } catch (error) {
+                reject(error instanceof Error ? error : new Error(String(error)));
+            }
         });
     }
 
     async cancelCard(cardId) {
-        console.log('[cancelCard] 尝试取消卡片:', cardId);
         const entry = this.runningTasks.get(cardId);
         if (!entry) {
-            console.warn('[cancelCard] 卡片不在 runningTasks 中:', cardId);
             return false;
         }
         entry.cancelled = true;
         try {
             // 触发 AbortController（用于 generate 类型）
             if (entry.abortController) {
-                console.log('[cancelCard] 触发 AbortController');
                 entry.abortController.abort();
             }
-            // 终止 PTY 进程（用于 execute 类型）
-            if (entry.ptyService) {
-                console.log('[cancelCard] 终止 PTY 进程');
-                await entry.ptyService.kill();
+            // 终止进程（用于 execute 类型）
+            if (entry.kill) {
+                await entry.kill();
             }
             return true;
         } catch (error) {
@@ -357,32 +361,16 @@ export class ExecutionEngine {
      */
     async cancelLayer(layerId) {
         const data = this.getWorkflowData?.();
-        if (!data) {
-            console.warn('[cancelLayer] 无法获取 workflow 数据');
-            return;
-        }
+        if (!data) return;
 
         const layer = data.layers.find((l) => l.id === layerId);
-        if (!layer) {
-            console.warn('[cancelLayer] 找不到 layer:', layerId);
-            return;
-        }
+        if (!layer) return;
 
         this.cancelledLayers.add(layerId);
-        console.log('[cancelLayer] runningTasks keys:', [...this.runningTasks.keys()]);
-        console.log('[cancelLayer] layer.cards ids:', layer.cards.map((c) => c.id));
 
-        const cancelPromises = [];
-        for (const card of layer.cards) {
-            if (this.runningTasks.has(card.id)) {
-                console.log('[cancelLayer] 取消卡片:', card.id);
-                cancelPromises.push(this.cancelCard(card.id));
-            }
-        }
-
-        if (cancelPromises.length === 0) {
-            console.warn('[cancelLayer] 没有找到正在运行的卡片');
-        }
+        const cancelPromises = layer.cards
+            .filter((card) => this.runningTasks.has(card.id))
+            .map((card) => this.cancelCard(card.id));
 
         await Promise.all(cancelPromises);
     }

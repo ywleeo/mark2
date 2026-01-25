@@ -69,6 +69,8 @@ struct PtyExitPayload {
 }
 
 /// 创建新的 PTY 实例
+/// event_id: 可选的事件 ID，用于事件命名。如果提供，使用 event_id 作为事件名；否则使用 ptyId
+///           这允许 JS 端在调用 spawn 之前先设置好 listener，避免竞态条件
 #[tauri::command]
 pub fn pty_spawn(
     app: AppHandle,
@@ -77,6 +79,7 @@ pub fn pty_spawn(
     rows: u16,
     cwd: Option<String>,
     command: Option<String>,
+    event_id: Option<String>,
 ) -> Result<String, String> {
     let pty_system = native_pty_system();
 
@@ -134,7 +137,9 @@ pub fn pty_spawn(
         .map_err(|e| format!("Failed to take writer: {}", e))?;
 
     let pty_id = generate_pty_id();
-    let pty_id_clone = pty_id.clone();
+    // 使用 event_id（如果提供）或 pty_id 作为事件名
+    let event_name = event_id.unwrap_or_else(|| pty_id.clone());
+    let event_name_clone = event_name.clone();
 
     // 创建 PTY 实例
     let instance = Arc::new(Mutex::new(PtyInstance {
@@ -160,15 +165,15 @@ pub fn pty_spawn(
             match reader.read(&mut buf) {
                 Ok(0) => {
                     // EOF - 进程已退出
-                    println!("[PTY {}] EOF", pty_id_clone);
+                    println!("[PTY {}] EOF", event_name_clone);
                     break;
                 }
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app_handle.emit(&format!("pty-data:{}", pty_id_clone), data);
+                    let _ = app_handle.emit(&format!("pty-data:{}", event_name_clone), data);
                 }
                 Err(e) => {
-                    eprintln!("[PTY {}] Read error: {}", pty_id_clone, e);
+                    eprintln!("[PTY {}] Read error: {}", event_name_clone, e);
                     break;
                 }
             }
@@ -189,10 +194,10 @@ pub fn pty_spawn(
                 code: None,
             },
         };
-        let _ = app_handle.emit(&format!("pty-exit:{}", pty_id_clone), exit_payload);
+        let _ = app_handle.emit(&format!("pty-exit:{}", event_name_clone), exit_payload);
     });
 
-    println!("[PTY] Spawned: {}", pty_id);
+    println!("[PTY] Spawned: {} (event_name: {})", pty_id, event_name);
     Ok(pty_id)
 }
 
