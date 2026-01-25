@@ -16,22 +16,11 @@
     --theme-table-header-bg: #f8fafc;
     --theme-table-border: #e5e7eb;
     --theme-accent: #10b981;
-    --emerald-h1-border: #3498db;
-    --emerald-h2-bg: #f9fff1;
-    --emerald-h3-border: #608bdf;
-    --emerald-h4-text: #374151;
-    --emerald-inline-code-bg: rgba(99, 102, 241, 0.1);
+
+    /* Emerald 特有颜色 */
     --emerald-inline-code-color: #6366f1;
-    --emerald-code-accent: #10b98127;
-    --emerald-code-background: #f8fafc;
-    --emerald-quote-accent: #fb24d32c;
-    --emerald-quote-bg: rgba(245, 159, 11, 0.012);
-    --emerald-quote-nested-1: rgba(245, 158, 11, 0.03);
-    --emerald-quote-nested-2: rgba(245, 158, 11, 0.02);
-    --emerald-delete-color: #f8717180;
+    --emerald-delete-color: #f87171;
     --emerald-strong-bg: rgba(76, 149, 201, 0.15);
-    --emerald-list-bullet: #319227;
-    --emerald-ordered-color: #36b5a8;
 
     /* Checkbox 颜色 */
     --task-checkbox-bg: #ffffff;
@@ -42,12 +31,6 @@
     --task-checkbox-checked-border: #0f9d7a95;
     --task-checkbox-checked-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
     --task-checkbox-check-color: #374151;
-
-    /* Checkbox 尺寸微调 */
-    --task-checkbox-border-width: 1.6px;
-    --task-checkbox-check-width: 1.3em;
-    --task-checkbox-check-height: 0.48em;
-    --task-checkbox-check-translate-y: -74%;
 }
 
 :root[data-theme-appearance='dark'] {
@@ -65,23 +48,12 @@
     --theme-table-header-bg: #1c2d22;
     --theme-table-border: #2a3c33;
     --theme-accent: #4ade80;
-    --emerald-h1-border: #464646;
-    --emerald-h2-bg: rgba(58, 78, 66, 0.18);
-    --emerald-h3-border: #5da9ff;
-    --emerald-h4-text: #a8cbbe;
-    --emerald-inline-code-bg: rgba(79, 209, 197, 0.28);
+
+    /* Emerald 特有颜色 */
     --emerald-inline-code-color: #a0ffe8;
-    --emerald-code-accent: #4188681e;
-    --emerald-code-background: #4548467b;
-    --emerald-quote-accent: #4f6e7e84;
-    --emerald-quote-bg: rgba(45, 44, 64, 0.113);
-    --emerald-quote-nested-1: rgba(41, 39, 70, 0.233);
-    --emerald-quote-nested-2: rgba(41, 39, 70, 0.233);
     --emerald-delete-color: #fecdd3;
     --emerald-strong-bg: #ffffff11;
     --emerald-strong-color: #d7d7d7;
-    --emerald-list-bullet: #4f4f4f;
-    --emerald-ordered-color: #b7ffd1;
 
     /* Checkbox 颜色 */
     --task-checkbox-bg: #0f1812;
@@ -92,214 +64,27 @@
     --task-checkbox-checked-border: #4ade807c;
     --task-checkbox-checked-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.45);
     --task-checkbox-check-color: #ffffff;
-
-    /* Checkbox 尺寸微调 */
-    --task-checkbox-border-width: 1.6px;
-    --task-checkbox-check-translate-x: -52%;
-    --task-checkbox-check-translate-y: -70%;
 }
 
-/* 基础编辑器样式 */
-.tiptap-editor {
-    font-family: var(
-        --editor-font-family,
-        'Inter',
-        -apple-system,
-        BlinkMacSystemFont,
-        'Segoe UI',
-        'Microsoft YaHei',
-        'SimHei',
-        sans-serif
-    );
-    color: var(--theme-text);
-}
-
-/* 段落 */
-.tiptap-editor p {
-    margin: 1em 0;
-    text-align: left;
-    font-family: inherit;
-}
-
-/* 水平线 */
-.tiptap-editor hr {
-    border: none;
-    border-top: 1px solid var(--theme-border);
-    margin: 20px 0;
-}
-
-/* 一级标题 - 简洁下划线风格 */
-.tiptap-editor h1 {
-    font-size: 2em !important;
-    margin: 35px 0;
-    border-bottom: 3px solid var(--emerald-h1-border, var(--theme-heading-border));
-    padding-bottom: 10px;
-    font-family: inherit;
-}
-
-/* 二级标题 - 浅色背景块 */
-.tiptap-editor h2 {
-    font-size: 1.5em !important;
-    margin-bottom: 15px;
-    padding: 8px 0;
-    font-family: inherit;
-}
-
-/* 三级标题 - 左侧装饰线 */
-.tiptap-editor h3 {
-    font-size: 1.25em !important;
-    font-family: inherit;
-}
-
-/* h4-h6 标题样式 */
-.tiptap-editor h4 {
-    font-size: 1.125em !important;
-    margin: 15px 0 12px 0;
-    color: var(--emerald-h4-text, var(--theme-text));
-    font-family: inherit;
-}
-
-.tiptap-editor h5 {
-    font-size: 1em !important;
-    margin: 15px 0 12px 0;
-    font-family: inherit;
-}
-
-.tiptap-editor h6 {
-    font-size: 0.875em !important;
-    margin: 15px 0 12px 0;
-    font-family: inherit;
-}
-
-/* 行内代码 */
+/* 颜色覆盖（不改布局） */
 .tiptap-editor code {
-    padding: 2px 4px;
-    border-radius: 4px;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
-    background-color: var(--emerald-inline-code-bg, var(--theme-code-bg));
+    background-color: var(--theme-code-bg);
     color: var(--emerald-inline-code-color, var(--theme-text));
-    font-size: 0.9em;
 }
 
-/* 代码块 */
-.tiptap-editor pre {
-    padding: 10px;
-    margin: 15px 0 !important;
-    border-radius: 0 5px 5px 0;
-    overflow-x: auto;
-    border: 1px solid var(--emerald-code-accent, var(--theme-accent));
-    background-color: var(--emerald-code-background, var(--theme-code-block-bg));
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-size: 0.95em;
-}
-
-/* 代码块内的代码不重复样式 */
-.tiptap-editor pre code {
-    padding: 0;
-    background: none;
-    color: inherit;
-    font-size: inherit;
-    border-radius: 0;
-}
-
-/* 删除线 */
 .tiptap-editor del {
     color: var(--emerald-delete-color);
-    font-style: italic;
 }
 
-/* 加粗 */
 .tiptap-editor strong,
 .tiptap-editor b {
-    background-color: var(--emerald-strong-bg, rgba(122, 252, 255, 0.15));
-    padding: 0px 2px;
+    background-color: var(--emerald-strong-bg);
+    padding: 0 2px;
     border-radius: 2px;
-    font-weight: 600;
-    display: inline;
     color: var(--emerald-strong-color);
 }
 
-/* 引用块 */
-.tiptap-editor blockquote {
-    border-left: 2px solid var(--emerald-quote-accent, var(--theme-quote-border));
-    /* padding: 0 5px; */
-    margin: 10px 0;
-    font-style: italic;
-    font-size: 90%;
-    /* background-color: var(--emerald-quote-bg); */
-    border-radius: 0 4px 4px 0;
-    font-family: inherit;
-    font-size: 0.9em;
-}
-
-/* 嵌套引用块 */
-.tiptap-editor blockquote blockquote {
-    margin: 10px 0;
-    padding: 8px 16px;
-    border-left-width: 3px;
-    opacity: 0.9;
-    background-color: var(--emerald-quote-nested-1);
-}
-
-.tiptap-editor blockquote blockquote blockquote {
-    margin: 5px 0;
-    padding: 6px 12px;
-    border-left-width: 2px;
-    opacity: 0.75;
-    background-color: var(--emerald-quote-nested-2);
-}
-
-/* 列表基础样式 */
-.tiptap-editor ul,
-.tiptap-editor ol {
-    padding: 0;
-    margin-left: 28px;
-    font-family: inherit;
-}
-
-.tiptap-editor li {
-    margin: 6px 0;
-    font-family: inherit;
-}
-
-.tiptap-editor li > span {
-    border-radius: 3px;
-}
-
-.tiptap-editor li ol,
-.tiptap-editor li ul,
-.tiptap-editor li blockquote,
-.tiptap-editor li pre {
-    margin: 0 0 0 22px;
-}
-
-/* 无序列表 - 使用浏览器默认样式 */
-.tiptap-editor ul {
-    list-style: disc;
-}
-
-/* 有序列表 - 使用浏览器默认样式 */
-.tiptap-editor ol {
-    list-style: decimal;
-}
-
-/* 链接 */
-.tiptap-editor a {
-    color: var(--theme-link);
-}
-
-/* 表格 */
-.tiptap-editor table td,
-.tiptap-editor table th {
-    border-color: var(--theme-border);
-}
-
-.tiptap-editor table th {
-    background-color: var(--theme-table-header-bg);
-}
-
-/* 代码高亮 */
+/* 代码高亮 - Emerald 风格 */
 :root[data-theme-appearance='light'] .hljs {
     background: #f8fafc;
     color: #374151;
