@@ -64,6 +64,7 @@ export class WorkflowEditor {
         this.toolbar = new WorkflowToolbar(toolbarContainer, {
             onAddLayer: () => this.addLayer(),
             onExecuteAll: () => this.executeAll(),
+            onResume: () => this.resumeExecution(),
             onStopAll: () => this.cancelAll(),
             onExportMarkdown: () => this.exportMarkdown(),
             onSave: () => this.save(),
@@ -146,24 +147,29 @@ export class WorkflowEditor {
         // 检查是否是切换回同一个文件
         const isSameFile = this.currentFile === filePath;
         const scrollLeftToRestore = isSameFile ? this.savedScrollLeft : 0;
+        const isExecuting = this.executionEngine?.isExecuting();
 
         this.currentFile = filePath;
         this.clearAutoSaveTimer();
 
-        try {
-            if (content && content.trim()) {
-                this.workflowData = JSON.parse(content);
-            } else {
+        // 如果是切换回同一个正在执行的文件，不要重新解析 JSON，保持当前的 workflowData
+        // 这样才能保留运行时的 card._state
+        if (!(isSameFile && isExecuting)) {
+            try {
+                if (content && content.trim()) {
+                    this.workflowData = JSON.parse(content);
+                } else {
+                    this.workflowData = this.createEmptyWorkflow();
+                }
+            } catch (error) {
+                console.error('[WorkflowEditor] 解析工作流文件失败:', error);
                 this.workflowData = this.createEmptyWorkflow();
             }
-        } catch (error) {
-            console.error('[WorkflowEditor] 解析工作流文件失败:', error);
-            this.workflowData = this.createEmptyWorkflow();
         }
 
         // 重置所有 running 状态的卡片（进程已不存在）
         // 但如果 executionEngine 还在执行，说明是切换 tab 后切回来，不需要重置
-        if (!this.executionEngine?.isExecuting()) {
+        if (!isExecuting) {
             this.resetStaleRunningCards();
         }
 
@@ -180,6 +186,36 @@ export class WorkflowEditor {
                     layersContainer.scrollLeft = scrollLeftToRestore;
                 });
             }
+        }
+    }
+
+    /**
+     * 根据 workflowData 中的状态更新 toolbar
+     */
+    updateToolbarStateFromData() {
+        if (!this.workflowData?.layers) return;
+
+        // 检查是否有中断或错误的层
+        let hasInterrupted = false;
+        let allDone = true;
+
+        for (const layer of this.workflowData.layers) {
+            const state = layer._state;
+            if (state?.status === 'cancelled' || state?.status === 'error') {
+                hasInterrupted = true;
+                allDone = false;
+                break;
+            }
+            if (!state || state.status !== 'done') {
+                allDone = false;
+            }
+        }
+
+        // 更新 toolbar 状态
+        if (hasInterrupted) {
+            this.toolbar.updateWorkflowState({ status: 'cancelled' });
+        } else if (allDone && this.workflowData.layers.length > 0) {
+            this.toolbar.updateWorkflowState({ status: 'done' });
         }
     }
 
@@ -216,6 +252,12 @@ export class WorkflowEditor {
             title: displayTitle || this.workflowData.meta?.title || '工作流',
         });
         this.layerRenderer.render(this.workflowData.layers);
+
+        // 根据文件中的状态更新 toolbar（显示"继续执行"按钮）
+        // 但如果正在执行，toolbar 状态由 executionEngine 控制
+        if (!this.executionEngine?.isExecuting()) {
+            this.updateToolbarStateFromData();
+        }
     }
 
     /**
@@ -477,6 +519,16 @@ export class WorkflowEditor {
     updateLayerState(layerId, state) {
         this.layerStates.set(layerId, state);
         this.layerRenderer.updateLayerState(layerId, state);
+
+        // 保存状态到 workflowData（持久化）
+        const layer = this.workflowData?.layers?.find((l) => l.id === layerId);
+        if (layer) {
+            layer._state = state;
+            // 执行完成时保存状态
+            if (['done', 'error', 'cancelled'].includes(state.status)) {
+                this.markDirty();
+            }
+        }
     }
 
     updateWorkflowState(state) {
@@ -505,6 +557,38 @@ export class WorkflowEditor {
 
     async executeAll() {
         await this.executionEngine.executeAll();
+    }
+
+    async resumeExecution() {
+        const resumeLayerId = this.findResumeLayerId();
+        if (!resumeLayerId) {
+            // 没有可继续的层，执行全部
+            await this.executeAll();
+            return;
+        }
+        await this.executionEngine.executeFromLayer(resumeLayerId);
+    }
+
+    /**
+     * 找到应该继续执行的层 ID
+     * 规则：找到第一个未完成（cancelled/error/idle）的层
+     */
+    findResumeLayerId() {
+        if (!this.workflowData?.layers) return null;
+
+        for (const layer of this.workflowData.layers) {
+            const layerState = layer._state || this.layerStates.get(layer.id);
+            // 如果层状态是 cancelled 或 error，从这里继续
+            if (layerState?.status === 'cancelled' || layerState?.status === 'error') {
+                return layer.id;
+            }
+            // 如果层没有状态或状态是 idle，从这里开始
+            if (!layerState || layerState.status === 'idle') {
+                return layer.id;
+            }
+            // 如果层状态是 done，继续检查下一层
+        }
+        return null;
     }
 
     async cancelAll() {

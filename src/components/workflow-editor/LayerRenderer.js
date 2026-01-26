@@ -26,9 +26,19 @@ export class LayerRenderer {
             this.container.appendChild(layerEl);
         }
 
-        // 恢复 layer 执行状态（切换 tab 后切回时需要）
-        for (const [layerId, state] of this.layerStates.entries()) {
-            this.applyLayerStateToDOM(layerId, state);
+        // 恢复 layer 执行状态
+        // 优先使用运行时状态（layerStates），其次使用持久化状态（layer._state）
+        for (const layer of this.layers) {
+            const runtimeState = this.layerStates.get(layer.id);
+            const persistedState = layer._state;
+            const state = runtimeState || persistedState;
+            if (state) {
+                // 同步到 layerStates（确保后续更新能正确工作）
+                if (!runtimeState && persistedState) {
+                    this.layerStates.set(layer.id, persistedState);
+                }
+                this.applyLayerStateToDOM(layer.id, state);
+            }
         }
     }
 

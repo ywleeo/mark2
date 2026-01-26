@@ -131,6 +131,48 @@ export class ExecutionEngine {
     }
 
     /**
+     * 从指定层开始执行（用于继续执行）
+     */
+    async executeFromLayer(startLayerId) {
+        const data = this.getWorkflowData?.();
+        if (!data) return;
+
+        this.aborted = false;
+
+        // 找到起始层的索引
+        const startIndex = data.layers.findIndex((l) => l.id === startLayerId);
+        if (startIndex === -1) return;
+
+        // 只重置从起始层开始的卡片状态
+        for (let i = startIndex; i < data.layers.length; i++) {
+            const layer = data.layers[i];
+            for (const card of layer.cards) {
+                this.onCardStateChange?.(card.id, { status: 'idle' });
+            }
+        }
+
+        const workflowStartTime = Date.now();
+        this.onWorkflowStateChange?.({ status: 'running', startTime: workflowStartTime });
+
+        try {
+            for (let i = startIndex; i < data.layers.length; i++) {
+                if (this.aborted) break;
+                await this.executeLayer(data.layers[i].id);
+            }
+
+            const workflowDuration = Date.now() - workflowStartTime;
+            this.onWorkflowStateChange?.({
+                status: this.aborted ? 'cancelled' : 'done',
+                duration: workflowDuration,
+            });
+        } catch (error) {
+            const workflowDuration = Date.now() - workflowStartTime;
+            this.onWorkflowStateChange?.({ status: 'error', duration: workflowDuration, error: error.message });
+            throw error;
+        }
+    }
+
+    /**
      * 并行执行指定层内所有卡片
      */
     async executeLayer(layerId) {

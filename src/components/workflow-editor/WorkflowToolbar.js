@@ -24,6 +24,9 @@ export class WorkflowToolbar {
                     <button class="workflow-btn" data-action="execute-all">
                         <span>▶ 执行全部</span>
                     </button>
+                    <button class="workflow-btn" data-action="resume" style="display: none;">
+                        <span>▶ 继续执行</span>
+                    </button>
                     <button class="workflow-btn workflow-btn-danger" data-action="stop-all" style="display: none;">
                         <span>⏹ 停止</span>
                     </button>
@@ -53,11 +56,16 @@ export class WorkflowToolbar {
         this.container.querySelector('[data-action="export-md"]')?.addEventListener('click', () => {
             this.callbacks.onExportMarkdown?.();
         });
+
+        this.container.querySelector('[data-action="resume"]')?.addEventListener('click', () => {
+            this.callbacks.onResume?.();
+        });
     }
 
     updateWorkflowState(state) {
         const statusEl = this.container.querySelector('.workflow-status');
         const executeBtn = this.container.querySelector('[data-action="execute-all"]');
+        const resumeBtn = this.container.querySelector('[data-action="resume"]');
         const stopBtn = this.container.querySelector('[data-action="stop-all"]');
 
         if (statusEl) {
@@ -78,9 +86,11 @@ export class WorkflowToolbar {
             }
         }
 
-        // 切换执行/停止按钮显示
+        // 切换执行/停止/继续按钮显示
         const isRunning = state.status === 'running';
+        const canResume = state.status === 'cancelled' || state.status === 'error';
         if (executeBtn) executeBtn.style.display = isRunning ? 'none' : '';
+        if (resumeBtn) resumeBtn.style.display = canResume && !isRunning ? '' : 'none';
         if (stopBtn) stopBtn.style.display = isRunning ? '' : 'none';
     }
 
