@@ -31,7 +31,7 @@ const BACKGROUND_PRESETS = [
     { id: 'green-teal', color: '#10b981' },
     { id: 'blue-cyan', color: '#3b82f6' },
     { id: 'rose-red', color: '#f43f5e' },
-    { id: 'grid', color: '#cbd5e1' },
+    { id: 'grid', color: '#8fa3b8' },
     { id: 'slate-gray', color: '#64748b' },
     { id: 'neutral', color: '#e2e8f0' },
 ];
@@ -160,7 +160,7 @@ export class CardSidebar {
 
     buildSelectionSection() {
         const section = document.createElement('section');
-        section.className = 'card-sidebar__section';
+        section.className = 'card-sidebar__section card-sidebar__section--collapsible is-collapsed';
 
         const header = document.createElement('div');
         header.className = 'card-sidebar__section-header';
@@ -168,6 +168,11 @@ export class CardSidebar {
         const label = document.createElement('div');
         label.className = 'card-sidebar__section-title';
         label.textContent = '选中内容';
+
+        const toggle = document.createElement('span');
+        toggle.className = 'card-sidebar__section-toggle';
+        toggle.textContent = '▶';
+        label.prepend(toggle);
 
         const selectionBox = document.createElement('div');
         selectionBox.className = 'card-sidebar__selection';
@@ -186,6 +191,12 @@ export class CardSidebar {
         this.refreshButton.textContent = '使用当前选中内容';
         this.clickCleanups.push(addClickHandler(this.refreshButton, () => {
             this.captureSelection(true);
+        }));
+
+        // 点击 header 展开/收起
+        this.clickCleanups.push(addClickHandler(header, (e) => {
+            if (e.target === this.refreshButton) return;
+            section.classList.toggle('is-collapsed');
         }));
 
         header.appendChild(label);
@@ -589,6 +600,77 @@ export class CardSidebar {
         this.applyFontScale();
         this.applyFontWeight();
         this.applyVerticalAlign();
+        // 内容更新后自动调整字号和行距
+        if (normalized) {
+            this.autoFitContent();
+        }
+    }
+
+    /**
+     * 自动调整字号和行距，确保内容完全显示不溢出
+     */
+    autoFitContent() {
+        if (!this.cardTextElement || !this.currentContent) {
+            return;
+        }
+
+        // 重置到默认缩放值
+        this.fontScale = 1;
+        this.lineHeightScale = 1;
+        this.applyFontScale();
+        // 移除自动调整标记
+        this.cardElement.classList.remove('card-preview-card--auto-fit');
+
+        // 等待 DOM 更新后检测溢出
+        requestAnimationFrame(() => {
+            this._adjustToFit();
+        });
+    }
+
+    /**
+     * 递减调整字号和行距直到内容不溢出
+     */
+    _adjustToFit() {
+        const isOverflowing = () => {
+            // 检测内容是否超出可视区域
+            return this.cardTextElement.scrollHeight > this.cardTextElement.clientHeight + 2;
+        };
+
+        // 如果没有溢出，不需要调整
+        if (!isOverflowing()) {
+            this.syncTextControlState();
+            return;
+        }
+
+        // 触发了自动调整，增加上下 padding 留出水印位置
+        this.cardElement.classList.add('card-preview-card--auto-fit');
+
+        const STEP = 0.05;
+        let iterations = 0;
+        const MAX_ITERATIONS = 50;
+
+        while (isOverflowing() && iterations < MAX_ITERATIONS) {
+            iterations++;
+
+            // 先缩小字体
+            if (this.fontScale > FONT_SCALE_MIN + STEP) {
+                this.fontScale = Math.max(FONT_SCALE_MIN, this.fontScale - STEP);
+                this.applyFontScale();
+                continue;
+            }
+
+            // 字体到最小后，缩小行高
+            if (this.lineHeightScale > LINE_HEIGHT_SCALE_MIN + STEP) {
+                this.lineHeightScale = Math.max(LINE_HEIGHT_SCALE_MIN, this.lineHeightScale - STEP);
+                this.applyLineHeightScale();
+                continue;
+            }
+
+            // 都到最小值了，退出
+            break;
+        }
+
+        this.syncTextControlState();
     }
 
     handlePresetChange(presetId) {
@@ -773,6 +855,9 @@ export class CardSidebar {
             : null;
 
         try {
+            // 闪光效果遮盖样式变化（放在父容器上，避免被导出）
+            this.previewInner.classList.add('is-capturing');
+
             if (contentNode && EXPORT_FONT_SCALE !== 1) {
                 const computed = window.getComputedStyle(contentNode);
                 const baseFontSize = parseFloat(computed.fontSize) || 16;
@@ -812,6 +897,12 @@ export class CardSidebar {
                 bgElement.style.border = originalBgInline.border;
                 bgElement.style.boxSizing = originalBgInline.boxSizing;
             }
+            // 闪光恢复动画
+            this.previewInner.classList.remove('is-capturing');
+            this.previewInner.classList.add('is-capture-done');
+            setTimeout(() => {
+                this.previewInner.classList.remove('is-capture-done');
+            }, 500);
         }
     }
 
