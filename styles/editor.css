@@ -400,7 +400,7 @@
 }
 
 .tiptap-editor img:hover {
-    transform: scale(1.01);
+    /* transform: scale(1.01); */
 }
 
 /* 表格样式 */

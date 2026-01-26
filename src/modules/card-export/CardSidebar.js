@@ -534,7 +534,6 @@ export class CardSidebar {
             this.sanitizeSelectionHtml(container);
 
             const html = container.innerHTML.trim();
-            console.log('[CardSidebar] 选中内容 HTML:', html);
             return {
                 text,
                 html,
@@ -854,9 +853,15 @@ export class CardSidebar {
             }
             : null;
 
+        // 保存图片原始 src，用于导出后恢复
+        const imgSrcBackup = new Map();
+
         try {
             // 闪光效果遮盖样式变化（放在父容器上，避免被导出）
             this.previewInner.classList.add('is-capturing');
+
+            // 预处理图片：移除无效图片，转换 blob URL 为 data URL
+            await this.prepareImagesForExport(imgSrcBackup);
 
             if (contentNode && EXPORT_FONT_SCALE !== 1) {
                 const computed = window.getComputedStyle(contentNode);
@@ -877,6 +882,7 @@ export class CardSidebar {
             this.embedInlineStyles(this.cardElement);
 
             await document.fonts?.ready;
+
             const toPng = await ensureToPng();
             return await toPng(this.cardElement, {
                 backgroundColor: '#ffffff',
@@ -897,6 +903,16 @@ export class CardSidebar {
                 bgElement.style.border = originalBgInline.border;
                 bgElement.style.boxSizing = originalBgInline.boxSizing;
             }
+            // 恢复图片状态
+            for (const [img, backup] of imgSrcBackup) {
+                if (backup.type === 'removed') {
+                    // 恢复被移除的图片
+                    backup.parent?.insertBefore(img, backup.nextSibling);
+                } else if (backup.type === 'src') {
+                    // 恢复原始 src
+                    img.src = backup.value;
+                }
+            }
             // 闪光恢复动画
             this.previewInner.classList.remove('is-capturing');
             this.previewInner.classList.add('is-capture-done');
@@ -904,6 +920,50 @@ export class CardSidebar {
                 this.previewInner.classList.remove('is-capture-done');
             }, 500);
         }
+    }
+
+    /**
+     * 预处理图片以便导出：
+     * 1. 移除无效图片（空 src 或 ProseMirror 占位符）
+     * 2. 将 blob URL 转换为 data URL
+     */
+    async prepareImagesForExport(backupMap) {
+        const imgs = [...this.cardElement.querySelectorAll('img')];
+        const promises = [];
+
+        for (const img of imgs) {
+            // 移除空 src 或 ProseMirror 占位符图片
+            if (!img.src || img.classList.contains('ProseMirror-separator')) {
+                backupMap.set(img, { type: 'removed', parent: img.parentNode, nextSibling: img.nextSibling });
+                img.remove();
+                continue;
+            }
+
+            // 转换 blob URL 为 data URL
+            if (img.src.startsWith('blob:')) {
+                backupMap.set(img, { type: 'src', value: img.src });
+
+                const promise = fetch(img.src)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        return new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                                img.src = reader.result;
+                                resolve();
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                    })
+                    .catch(err => {
+                        console.warn('[CardSidebar] blob 转 dataUrl 失败:', img.src, err);
+                    });
+                promises.push(promise);
+            }
+        }
+
+        await Promise.all(promises);
     }
 
     embedInlineStyles(cardNode) {
