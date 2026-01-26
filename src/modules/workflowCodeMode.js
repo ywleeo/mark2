@@ -57,7 +57,7 @@ export function createWorkflowCodeMode({
             const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
 
             activateWorkflowView();
-            await workflowEditor.loadFile(currentFile, codeContent);
+            await workflowEditor.loadFile(null, currentFile, codeContent);
 
             if (hadUnsavedChanges) {
                 workflowEditor.markDirty?.();

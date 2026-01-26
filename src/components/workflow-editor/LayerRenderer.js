@@ -26,6 +26,10 @@ export class LayerRenderer {
             this.container.appendChild(layerEl);
         }
 
+        // 恢复 layer 执行状态（切换 tab 后切回时需要）
+        for (const [layerId, state] of this.layerStates.entries()) {
+            this.applyLayerStateToDOM(layerId, state);
+        }
     }
 
     createLayerElement(layer, index) {
@@ -39,12 +43,45 @@ export class LayerRenderer {
         header.innerHTML = `
             <span class="workflow-layer-title">Layer ${index}</span>
             <div class="workflow-layer-actions">
+                <div class="workflow-layer-move-dropdown">
+                    <button class="workflow-btn workflow-btn-sm" data-action="move-layer">移动</button>
+                    <div class="workflow-layer-move-menu"></div>
+                </div>
                 <button class="workflow-btn workflow-btn-sm" data-action="execute-layer">▶ 执行</button>
                 <button class="workflow-btn workflow-btn-sm workflow-btn-danger" data-action="stop-layer" style="display: none;">⏹ 停止</button>
                 <button class="workflow-btn workflow-btn-sm" data-action="add-card">+ 卡片</button>
                 <button class="workflow-btn workflow-btn-sm workflow-btn-danger" data-action="delete-layer">删除层</button>
             </div>
         `;
+
+        // 移动按钮下拉菜单
+        const moveDropdown = header.querySelector('.workflow-layer-move-dropdown');
+        const moveBtn = header.querySelector('[data-action="move-layer"]');
+        const moveMenu = header.querySelector('.workflow-layer-move-menu');
+
+        moveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 关闭其他已打开的菜单
+            document.querySelectorAll('.workflow-layer-move-menu.show').forEach(menu => {
+                if (menu !== moveMenu) menu.classList.remove('show');
+            });
+            // 生成菜单选项
+            this.populateMoveMenu(moveMenu, layer.id);
+
+            // 计算菜单位置（使用 fixed 定位）
+            const btnRect = moveBtn.getBoundingClientRect();
+            moveMenu.style.top = `${btnRect.bottom + 4}px`;
+            moveMenu.style.left = `${btnRect.left}px`;
+
+            moveMenu.classList.toggle('show');
+        });
+
+        // 点击外部关闭菜单
+        document.addEventListener('click', (e) => {
+            if (!moveDropdown.contains(e.target)) {
+                moveMenu.classList.remove('show');
+            }
+        });
 
         header.querySelector('[data-action="execute-layer"]').addEventListener('click', () => {
             this.callbacks.onExecuteLayer?.(layer.id);
@@ -288,6 +325,67 @@ export class LayerRenderer {
     }
 
     /**
+     * 生成移动菜单选项
+     */
+    populateMoveMenu(menuEl, layerId) {
+        menuEl.innerHTML = '';
+        const currentIndex = this.layers.findIndex(l => l.id === layerId);
+        if (currentIndex === -1) return;
+
+        for (let i = 0; i < this.layers.length; i++) {
+            if (i === currentIndex) continue; // 跳过当前位置
+
+            const item = document.createElement('div');
+            item.className = 'workflow-layer-move-item';
+            item.textContent = `移到位置 ${i + 1}`;
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menuEl.classList.remove('show');
+                this.callbacks.onMoveLayer?.(layerId, i);
+            });
+            menuEl.appendChild(item);
+        }
+
+        // 如果只有一个 layer，显示提示
+        if (this.layers.length <= 1) {
+            const item = document.createElement('div');
+            item.className = 'workflow-layer-move-item disabled';
+            item.textContent = '没有其他位置';
+            menuEl.appendChild(item);
+        }
+    }
+
+    /**
+     * 移动层级到指定位置（局部更新）
+     * @param {string} layerId - 要移动的层 ID
+     * @param {number} fromIndex - 原位置索引
+     * @param {number} toIndex - 目标位置索引
+     */
+    moveLayer(layerId, fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+
+        const layerEl = this.container.querySelector(`[data-layer-id="${layerId}"]`);
+        if (!layerEl) return;
+
+        const allLayerEls = Array.from(this.container.querySelectorAll('.workflow-layer'));
+
+        if (toIndex === 0) {
+            this.container.insertBefore(layerEl, this.container.firstChild);
+        } else if (toIndex >= allLayerEls.length - 1) {
+            this.container.appendChild(layerEl);
+        } else {
+            // 找到目标位置的参考元素
+            const refEl = fromIndex < toIndex
+                ? allLayerEls[toIndex + 1]
+                : allLayerEls[toIndex];
+            this.container.insertBefore(layerEl, refEl);
+        }
+
+        // 更新所有层的序号
+        this.updateLayerIndices();
+    }
+
+    /**
      * 追加新层级（局部更新）
      */
     appendLayer(layer) {
@@ -315,6 +413,13 @@ export class LayerRenderer {
 
     updateLayerState(layerId, state) {
         this.layerStates.set(layerId, state);
+        this.applyLayerStateToDOM(layerId, state);
+    }
+
+    /**
+     * 将 layer 状态应用到 DOM（不修改 layerStates）
+     */
+    applyLayerStateToDOM(layerId, state) {
         const layerEl = this.container.querySelector(`[data-layer-id="${layerId}"]`);
         if (!layerEl) return;
 

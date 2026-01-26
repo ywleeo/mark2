@@ -385,4 +385,11 @@ export class ExecutionEngine {
         }
         return null;
     }
+
+    /**
+     * 检查是否有任务正在执行
+     */
+    isExecuting() {
+        return this.runningTasks.size > 0;
+    }
 }

@@ -237,6 +237,49 @@
     gap: 2px;
 }
 
+/* Layer 移动下拉菜单 */
+.workflow-layer-move-dropdown {
+    position: relative;
+}
+
+.workflow-layer-move-menu {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    min-width: 120px;
+    padding: 4px 0;
+    border: 1px solid var(--wf-border);
+    border-radius: 6px;
+    background: var(--wf-bg-card);
+    box-shadow: 0 4px 12px var(--wf-shadow-lg);
+}
+
+.workflow-layer-move-menu.show {
+    display: block;
+}
+
+.workflow-layer-move-item {
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--wf-text-primary);
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+
+.workflow-layer-move-item:hover {
+    background: var(--wf-bg-elevated);
+}
+
+.workflow-layer-move-item.disabled {
+    color: var(--wf-text-muted);
+    cursor: not-allowed;
+}
+
+.workflow-layer-move-item.disabled:hover {
+    background: transparent;
+}
+
 /* 卡片容器 - 网格布局 */
 .workflow-cards-container {
     display: flex;

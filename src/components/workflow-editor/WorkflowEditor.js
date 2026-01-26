@@ -32,6 +32,11 @@ export class WorkflowEditor {
         // 编辑状态
         this.editingCardId = null;
 
+        // 滚动控制：用户手动滚动时暂停自动滚动
+        this.userScrolling = false;
+        this.scrollDebounceTimer = null;
+        this.savedScrollLeft = 0; // 保存滚动位置（横向滚动）
+
         this.init();
     }
 
@@ -76,6 +81,7 @@ export class WorkflowEditor {
             onDeleteLayer: (layerId) => this.deleteLayer(layerId),
             onExecuteLayer: (layerId) => this.executeLayer(layerId),
             onCancelLayer: (layerId) => this.cancelLayer(layerId),
+            onMoveLayer: (layerId, targetIndex) => this.moveLayer(layerId, targetIndex),
         });
 
         // 初始化执行引擎
@@ -86,6 +92,21 @@ export class WorkflowEditor {
             onWorkflowStateChange: (state) => this.updateWorkflowState(state),
             readFile: (path) => this.readRelativeFile(path),
             getWorkflowDir: () => this.getWorkflowDir(),
+        });
+
+        // 监听用户滚动，暂停自动滚动，并实时保存滚动位置
+        layersContainer.addEventListener('scroll', () => {
+            this.userScrolling = true;
+            // 实时保存滚动位置（横向）
+            this.savedScrollLeft = layersContainer.scrollLeft;
+
+            if (this.scrollDebounceTimer) {
+                clearTimeout(this.scrollDebounceTimer);
+            }
+            // 用户停止滚动 1.5 秒后恢复自动滚动
+            this.scrollDebounceTimer = setTimeout(() => {
+                this.userScrolling = false;
+            }, 1500);
         });
     }
 
@@ -122,6 +143,10 @@ export class WorkflowEditor {
      * 加载工作流文件
      */
     async loadFile(session, filePath, content, options = {}) {
+        // 检查是否是切换回同一个文件
+        const isSameFile = this.currentFile === filePath;
+        const scrollLeftToRestore = isSameFile ? this.savedScrollLeft : 0;
+
         this.currentFile = filePath;
         this.clearAutoSaveTimer();
 
@@ -137,10 +162,25 @@ export class WorkflowEditor {
         }
 
         // 重置所有 running 状态的卡片（进程已不存在）
-        this.resetStaleRunningCards();
+        // 但如果 executionEngine 还在执行，说明是切换 tab 后切回来，不需要重置
+        if (!this.executionEngine?.isExecuting()) {
+            this.resetStaleRunningCards();
+        }
 
         this.isDirty = false;
+
         this.render();
+
+        // render 之后恢复滚动位置（如果是切回同一个文件）
+        if (scrollLeftToRestore > 0) {
+            const layersContainer = this.container.querySelector('.workflow-layers-container');
+            if (layersContainer) {
+                // 使用 requestAnimationFrame 确保 DOM 已更新
+                requestAnimationFrame(() => {
+                    layersContainer.scrollLeft = scrollLeftToRestore;
+                });
+            }
+        }
     }
 
     /**
@@ -330,6 +370,21 @@ export class WorkflowEditor {
         }
     }
 
+    moveLayer(layerId, targetIndex) {
+        if (!this.workflowData) return;
+
+        const currentIndex = this.workflowData.layers.findIndex((l) => l.id === layerId);
+        if (currentIndex === -1 || currentIndex === targetIndex) return;
+
+        // 更新数据
+        const [layer] = this.workflowData.layers.splice(currentIndex, 1);
+        this.workflowData.layers.splice(targetIndex, 0, layer);
+        this.markDirty();
+
+        // 更新 UI（传递原位置和目标位置）
+        this.layerRenderer.moveLayer(layerId, currentIndex, targetIndex);
+    }
+
     // ========== 卡片操作 ==========
 
     findCard(cardId) {
@@ -406,11 +461,16 @@ export class WorkflowEditor {
         found.card._state = state;
         this.layerRenderer.updateCardState(cardId, state);
 
-        // 执行开始时滚动到该卡片所在的层
-        if (state.status === 'running') {
+        // 执行开始时滚动到该卡片所在的层（用户手动滚动时不打断）
+        if (state.status === 'running' && !this.userScrolling) {
             const layersContainer = this.container.querySelector('.workflow-layers-container');
             const layerEl = layersContainer?.querySelector(`[data-layer-id="${found.layer.id}"]`);
             layerEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // 执行完成时保存状态（done/error/cancelled）
+        if (['done', 'error', 'cancelled'].includes(state.status)) {
+            this.markDirty();
         }
     }
 
@@ -623,6 +683,13 @@ export class WorkflowEditor {
         }
     }
 
+    /**
+     * 检查是否有任务正在执行
+     */
+    isExecuting() {
+        return this.executionEngine?.isExecuting() || false;
+    }
+
     // ========== 生命周期 ==========
 
     clear() {
@@ -631,15 +698,30 @@ export class WorkflowEditor {
         this.isDirty = false;
         this.editingCardId = null;
         this.clearAutoSaveTimer();
+        if (this.scrollDebounceTimer) {
+            clearTimeout(this.scrollDebounceTimer);
+            this.scrollDebounceTimer = null;
+        }
+        this.userScrolling = false;
         this.layerRenderer?.clear();
     }
 
     hide() {
+        // 保存滚动位置（横向）
+        const layersContainer = this.container.querySelector('.workflow-layers-container');
+        if (layersContainer) {
+            this.savedScrollLeft = layersContainer.scrollLeft;
+        }
         this.container.style.display = 'none';
     }
 
     show() {
         this.container.style.display = 'flex';
+        // 恢复滚动位置（横向）
+        const layersContainer = this.container.querySelector('.workflow-layers-container');
+        if (layersContainer && this.savedScrollLeft > 0) {
+            layersContainer.scrollLeft = this.savedScrollLeft;
+        }
     }
 
     destroy() {
