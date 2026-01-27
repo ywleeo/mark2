@@ -1,150 +1,108 @@
 /* Notion 风格主题 */
 
-/* 基础颜色 */
-:root[data-theme-appearance='light'] {
-    --theme-bg: #ffffff;
-    --theme-text: #37352f;
-    --theme-text-secondary: #787774;
-    --theme-border: #e9e9e7;
-    --theme-border-strong: #d3d1cb;
-    --theme-code-bg: #f7f6f3;
-    --theme-code-block-bg: #f7f6f3;
-    --theme-link: #0b6e99;
-    --theme-heading-border: #e9e9e7;
-    --theme-quote-border: #d3d1cb;
-    --theme-quote-text: #787774;
-    --theme-quote-background: #f7f6f3;
-    --theme-table-header-bg: #f7f6f3;
-    --theme-table-border: #e9e9e7;
-    --theme-inline-code-color: #eb5757;
-    --theme-accent: #0b6e99;
-
-    /* Checkbox 颜色 */
-    --task-checkbox-bg: transparent;
-    --task-checkbox-border-color: #d3d1cb;
-    --task-checkbox-shadow: none;
-    --task-checkbox-hover-border: #0b6e99;
-    --task-checkbox-checked-bg: #0b6e99;
-    --task-checkbox-checked-border: #0b6e997d;
-    --task-checkbox-checked-shadow: none;
-    --task-checkbox-check-color: #37352f;
-
-    /* Checkbox 尺寸微调 */
-    --task-checkbox-size: 1.25em;
-    --task-checkbox-border-width: 1.4px;
-    --task-checkbox-radius: 3px;
-    --task-checkbox-check-width: 1.3em;
-    --task-checkbox-check-height: 0.48em;
-    --task-checkbox-check-translate-y: -75%;
+/* ===== Light Mode ===== */
+:root[data-theme-appearance='light'] .tiptap-editor,
+:root[data-theme-appearance='light'] .markdown-content {
+    color: #37352f;
+    background-color: #ffffff;
 }
 
-:root[data-theme-appearance='dark'] {
-    --theme-bg: #262930;
-    --theme-text: #f8f7f1;
-    --theme-text-secondary: #d7d5cb;
-    --theme-border: #434447;
-    --theme-border-strong: #555659;
-    --theme-code-bg: #313238;
-    --theme-code-block-bg: #313238;
-    --theme-link: #80caff;
-    --theme-heading-border: #4a4b50;
-    --theme-quote-border: #5a5b5f;
-    --theme-quote-text: #e0ded6;
-    --theme-quote-background: #2f3036;
-    --theme-table-header-bg: #323338;
-    --theme-table-border: #4b4c50;
-    --theme-inline-code-color: #ffc3ac;
-    --theme-accent: #7f9cff;
-
-    /* Checkbox 颜色 */
-    --task-checkbox-bg: transparent;
-    --task-checkbox-border-color: #5a5b5f;
-    --task-checkbox-shadow: none;
-    --task-checkbox-hover-border: #80caff;
-    --task-checkbox-checked-bg: #7f9cff;
-    --task-checkbox-checked-border: #7f9dff86;
-    --task-checkbox-checked-shadow: none;
-    --task-checkbox-check-color: #ffffff;
-
-    /* Checkbox 尺寸微调 */
-    --task-checkbox-size: 1.25em;
-    --task-checkbox-border-width: 1.4px;
-    --task-checkbox-radius: 3px;
-    --task-checkbox-check-translate-x: -52%;
-}
-
-/* 标题颜色 */
-.tiptap-editor h1,
-.tiptap-editor h2,
-.tiptap-editor h3,
-.tiptap-editor h4,
-.tiptap-editor h5,
-.tiptap-editor h6 {
-    color: var(--theme-text);
+:root[data-theme-appearance='light'] .tiptap-editor h1,
+:root[data-theme-appearance='light'] .tiptap-editor h2,
+:root[data-theme-appearance='light'] .tiptap-editor h3,
+:root[data-theme-appearance='light'] .tiptap-editor h4,
+:root[data-theme-appearance='light'] .tiptap-editor h5,
+:root[data-theme-appearance='light'] .tiptap-editor h6 {
+    color: #37352f;
     font-weight: 600;
 }
 
-.tiptap-editor h1 {
+:root[data-theme-appearance='light'] .tiptap-editor h1 {
     font-weight: 700;
 }
 
-.tiptap-editor h2,
-.tiptap-editor h3 {
-    font-weight: 600;
+:root[data-theme-appearance='light'] .tiptap-editor h2 {
+    border-bottom-color: #e9e9e7;
 }
 
-/* 段落 */
-.tiptap-editor p {
-    color: var(--theme-text);
+:root[data-theme-appearance='light'] .tiptap-editor p {
+    color: #37352f;
 }
 
-/* 代码块样式 */
-.tiptap-editor pre {
-    background: var(--theme-code-block-bg);
-    border: 1px solid var(--theme-border);
+:root[data-theme-appearance='light'] .tiptap-editor pre {
+    background: #f7f6f3;
+    border: 1px solid #e9e9e7;
 }
 
-.tiptap-editor code {
-    background: var(--theme-code-bg);
-    color: var(--theme-inline-code-color, var(--theme-text));
+:root[data-theme-appearance='light'] .tiptap-editor code {
+    background: #f7f6f3;
+    color: #eb5757;
     padding: 3px 6px;
 }
 
-/* 引用 */
-.tiptap-editor blockquote {
-    border-left: 3px solid var(--theme-quote-border);
-    color: var(--theme-quote-text);
-    background: var(--theme-quote-background, transparent);
+:root[data-theme-appearance='light'] .tiptap-editor blockquote {
+    border-left-color: #d3d1cb;
+    border-left-width: 3px;
+    color: #787774;
+    background: #f7f6f3;
     padding: 4px 16px;
 }
 
-/* 链接 */
-.tiptap-editor a {
-    color: var(--theme-link);
+:root[data-theme-appearance='light'] .tiptap-editor a {
+    color: #0b6e99;
     border-bottom: 1px solid transparent;
     transition: border-color 0.2s;
 }
 
-.tiptap-editor a:hover {
-    border-bottom-color: var(--theme-link);
+:root[data-theme-appearance='light'] .tiptap-editor a:hover {
+    border-bottom-color: #0b6e99;
 }
 
-/* 表格 */
-.tiptap-editor table td,
-.tiptap-editor table th {
-    border-color: var(--theme-table-border);
+:root[data-theme-appearance='light'] .tiptap-editor hr {
+    border-top-color: #e9e9e7;
+    border-top-width: 1px;
 }
 
-.tiptap-editor table th {
-    background-color: var(--theme-table-header-bg);
+:root[data-theme-appearance='light'] .tiptap-editor table td,
+:root[data-theme-appearance='light'] .tiptap-editor table th {
+    border-color: #e9e9e7;
 }
 
-/* 水平线 */
-.tiptap-editor hr {
-    border-top: 1px solid var(--theme-border);
+:root[data-theme-appearance='light'] .tiptap-editor table th {
+    background-color: #f7f6f3;
 }
 
-/* 代码高亮 - Notion 风格 */
+:root[data-theme-appearance='light'] .tiptap-editor p.is-editor-empty:first-child::before {
+    color: #787774;
+}
+
+/* Checkbox - Light */
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"] {
+    background: transparent;
+    border-color: #d3d1cb;
+    border-width: 1.4px;
+    border-radius: 3px;
+    width: 1.25em;
+    height: 1.25em;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:hover {
+    border-color: #0b6e99;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked {
+    border-color: #0b6e997d;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked::after {
+    border-right-color: #37352f;
+    border-bottom-color: #37352f;
+    width: 1.3em;
+    height: 0.48em;
+    transform: translate(-50%, -75%) scaleX(-1) rotate(45deg);
+}
+
+/* 代码高亮 - Light */
 :root[data-theme-appearance='light'] .hljs {
     background: #f7f6f3;
     color: #37352f;
@@ -195,6 +153,107 @@
     color: #a40e26;
 }
 
+/* ===== Dark Mode ===== */
+:root[data-theme-appearance='dark'] .tiptap-editor,
+:root[data-theme-appearance='dark'] .markdown-content {
+    color: #f8f7f1;
+    background-color: #262930;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h1,
+:root[data-theme-appearance='dark'] .tiptap-editor h2,
+:root[data-theme-appearance='dark'] .tiptap-editor h3,
+:root[data-theme-appearance='dark'] .tiptap-editor h4,
+:root[data-theme-appearance='dark'] .tiptap-editor h5,
+:root[data-theme-appearance='dark'] .tiptap-editor h6 {
+    color: #f8f7f1;
+    font-weight: 600;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h1 {
+    font-weight: 700;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h2 {
+    border-bottom-color: #4a4b50;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor p {
+    color: #f8f7f1;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor pre {
+    background: #313238;
+    border: 1px solid #434447;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor code {
+    background: #313238;
+    color: #ffc3ac;
+    padding: 3px 6px;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor blockquote {
+    border-left-color: #5a5b5f;
+    border-left-width: 3px;
+    color: #e0ded6;
+    background: #2f3036;
+    padding: 4px 16px;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor a {
+    color: #80caff;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor a:hover {
+    border-bottom-color: #80caff;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor hr {
+    border-top-color: #434447;
+    border-top-width: 1px;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor table td,
+:root[data-theme-appearance='dark'] .tiptap-editor table th {
+    border-color: #4b4c50;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor table th {
+    background-color: #323338;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor p.is-editor-empty:first-child::before {
+    color: #d7d5cb;
+}
+
+/* Checkbox - Dark */
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"] {
+    background: transparent;
+    border-color: #5a5b5f;
+    border-width: 1.4px;
+    border-radius: 3px;
+    width: 1.25em;
+    height: 1.25em;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:hover {
+    border-color: #80caff;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked {
+    border-color: #7f9dff86;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked::after {
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
+    transform: translate(-52%, -72%) scaleX(-1) rotate(45deg);
+}
+
+/* 代码高亮 - Dark */
 :root[data-theme-appearance='dark'] .hljs {
     background: #323338;
     color: #f8f7f1;

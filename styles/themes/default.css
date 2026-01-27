@@ -1,122 +1,85 @@
 /* 默认主题 - GitHub 风格 */
 
-/* 基础颜色 */
-:root[data-theme-appearance='light'] {
-    --theme-bg: #ffffff;
-    --theme-text: #24292f;
-    --theme-text-secondary: #57606a;
-    --theme-border: #e1e4e8;
-    --theme-border-strong: #d0d7de;
-    --theme-code-bg: #f0f0f0;
-    --theme-code-block-bg: #f6f8fa;
-    --theme-link: #0969da;
-    --theme-heading-border: #d0d7de;
-    --theme-quote-border: #d8dee4;
-    --theme-quote-text: #57606a;
-    --theme-table-header-bg: #f6f8fa;
-    --theme-table-border: #d0d7de;
-    --theme-accent: #3fb950;
-
-    /* Checkbox 颜色 */
-    --task-checkbox-bg: #ffffff;
-    --task-checkbox-border-color: #d0d7de;
-    --task-checkbox-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
-    --task-checkbox-hover-border: #1f6feb;
-    --task-checkbox-checked-bg: #1f883d;
-    --task-checkbox-checked-border: #1f883d6a;
-    --task-checkbox-checked-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    --task-checkbox-check-color: #24292f;
-
-    /* Checkbox 尺寸微调 */
-    --task-checkbox-check-width: 1.3em;
-    --task-checkbox-check-height: 0.48em;
-    --task-checkbox-check-translate-x: -48%;
-    --task-checkbox-check-translate-y: -76%;
+/* ===== Light Mode ===== */
+:root[data-theme-appearance='light'] .tiptap-editor,
+:root[data-theme-appearance='light'] .markdown-content {
+    color: #24292f;
+    background-color: #ffffff;
 }
 
-:root[data-theme-appearance='dark'] {
-    --theme-bg: #151c25;
-    --theme-text: #f0f3f8;
-    --theme-text-secondary: #b5bdc9;
-    --theme-border: #2c3542;
-    --theme-border-strong: #404a59;
-    --theme-code-bg: #1f2632;
-    --theme-code-block-bg: #222a38;
-    --theme-link: #58a6ff;
-    --theme-heading-border: #2f3847;
-    --theme-quote-border: #3f5166;
-    --theme-quote-text: #c6d5ed;
-    --theme-table-header-bg: #222a38;
-    --theme-table-border: #333d4f;
-    --theme-accent: #3fb950;
-
-    /* Checkbox 颜色 */
-    --task-checkbox-bg: #151c25;
-    --task-checkbox-border-color: #404a59;
-    --task-checkbox-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
-    --task-checkbox-hover-border: #58a6ff;
-    --task-checkbox-checked-bg: #2ea043;
-    --task-checkbox-checked-border: #2ea0437f;
-    --task-checkbox-checked-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.4);
-    --task-checkbox-check-color: #f6f8fa;
+:root[data-theme-appearance='light'] .tiptap-editor h1,
+:root[data-theme-appearance='light'] .tiptap-editor h2,
+:root[data-theme-appearance='light'] .tiptap-editor h3,
+:root[data-theme-appearance='light'] .tiptap-editor h4,
+:root[data-theme-appearance='light'] .tiptap-editor h5,
+:root[data-theme-appearance='light'] .tiptap-editor h6 {
+    color: #24292f;
 }
 
-/* 标题颜色 */
-.tiptap-editor h1,
-.tiptap-editor h2,
-.tiptap-editor h3,
-.tiptap-editor h4,
-.tiptap-editor h5,
-.tiptap-editor h6 {
-    color: var(--theme-text);
+:root[data-theme-appearance='light'] .tiptap-editor h2 {
+    border-bottom-color: #d0d7de;
 }
 
-.tiptap-editor h2 {
-    border-bottom-color: var(--theme-heading-border);
+:root[data-theme-appearance='light'] .tiptap-editor p {
+    color: #24292f;
 }
 
-/* 段落 */
-.tiptap-editor p {
-    color: var(--theme-text);
+:root[data-theme-appearance='light'] .tiptap-editor pre {
+    background: #f6f8fa;
 }
 
-/* 代码块样式 */
-.tiptap-editor pre {
-    background: var(--theme-code-block-bg);
+:root[data-theme-appearance='light'] .tiptap-editor code {
+    background: #f0f0f0;
+    color: #24292f;
 }
 
-.tiptap-editor code {
-    background: var(--theme-code-bg);
-    color: var(--theme-text);
+:root[data-theme-appearance='light'] .tiptap-editor blockquote {
+    border-left-color: #d8dee4;
+    color: #57606a;
 }
 
-/* 引用 */
-.tiptap-editor blockquote {
-    border-left-color: var(--theme-quote-border);
-    color: var(--theme-quote-text);
+:root[data-theme-appearance='light'] .tiptap-editor a {
+    color: #0969da;
 }
 
-/* 链接 */
-.tiptap-editor a {
-    color: var(--theme-link);
+:root[data-theme-appearance='light'] .tiptap-editor hr {
+    border-top-color: #e1e4e8;
 }
 
-/* 表格 */
-.tiptap-editor table td,
-.tiptap-editor table th {
-    border-color: var(--theme-table-border);
+:root[data-theme-appearance='light'] .tiptap-editor table td,
+:root[data-theme-appearance='light'] .tiptap-editor table th {
+    border-color: #d0d7de;
 }
 
-.tiptap-editor table th {
-    background-color: var(--theme-table-header-bg);
+:root[data-theme-appearance='light'] .tiptap-editor table th {
+    background-color: #f6f8fa;
 }
 
-/* 水平线 */
-.tiptap-editor hr {
-    border-top-color: var(--theme-border);
+:root[data-theme-appearance='light'] .tiptap-editor p.is-editor-empty:first-child::before {
+    color: #57606a;
 }
 
-/* 代码高亮 - GitHub 风格 */
+/* Checkbox - Light */
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"] {
+    background: #ffffff;
+    border-color: #d0d7de;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:hover {
+    border-color: #1f6feb;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked {
+    border-color: #1f883d6a;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked::after {
+    border-right-color: #24292f;
+    border-bottom-color: #24292f;
+}
+
+/* 代码高亮 - Light */
 :root[data-theme-appearance='light'] .hljs {
     background: #f6f8fa;
     color: #24292e;
@@ -167,6 +130,86 @@
     color: #b31d28;
 }
 
+/* ===== Dark Mode ===== */
+:root[data-theme-appearance='dark'] .tiptap-editor,
+:root[data-theme-appearance='dark'] .markdown-content {
+    color: #f0f3f8;
+    background-color: #151c25;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h1,
+:root[data-theme-appearance='dark'] .tiptap-editor h2,
+:root[data-theme-appearance='dark'] .tiptap-editor h3,
+:root[data-theme-appearance='dark'] .tiptap-editor h4,
+:root[data-theme-appearance='dark'] .tiptap-editor h5,
+:root[data-theme-appearance='dark'] .tiptap-editor h6 {
+    color: #f0f3f8;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h2 {
+    border-bottom-color: #2f3847;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor p {
+    color: #f0f3f8;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor pre {
+    background: #222a38;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor code {
+    background: #1f2632;
+    color: #f0f3f8;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor blockquote {
+    border-left-color: #3f5166;
+    color: #c6d5ed;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor a {
+    color: #58a6ff;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor hr {
+    border-top-color: #2c3542;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor table td,
+:root[data-theme-appearance='dark'] .tiptap-editor table th {
+    border-color: #333d4f;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor table th {
+    background-color: #222a38;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor p.is-editor-empty:first-child::before {
+    color: #b5bdc9;
+}
+
+/* Checkbox - Dark */
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"] {
+    background: #151c25;
+    border-color: #404a59;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:hover {
+    border-color: #58a6ff;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked {
+    border-color: #2ea0437f;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked::after {
+    border-right-color: #f6f8fa;
+    border-bottom-color: #f6f8fa;
+}
+
+/* 代码高亮 - Dark */
 :root[data-theme-appearance='dark'] .hljs {
     background: #1e2633;
     color: #eff4fc;

@@ -1,5 +1,5 @@
 import { desktopDir, join } from '@tauri-apps/api/path';
-import { getBundledStyles } from '../config/bundled-styles.js';
+import { getBundledStyles, getThemeStyles } from '../config/bundled-styles.js';
 import { detectMimeType, resolveImagePath } from './imageResolver.js';
 
 export function formatTimestampForFilename(date) {
@@ -262,7 +262,21 @@ async function collectAllStyles(options = {}) {
         styles.push(bundledStyles);
     }
 
+    // 获取当前主题样式（从预加载的主题模块中获取，避免 Vite 开发模式下 fetch 返回 JS 模块）
+    const themeLink = document.getElementById('markdown-theme-stylesheet');
+    let themeName = 'default';
+    if (themeLink && themeLink.href) {
+        // 从 href 中提取主题名称，如 "/styles/themes/emerald.css" -> "emerald"
+        const match = themeLink.href.match(/\/([^/]+)\.css(?:\?|$)/);
+        themeName = match?.[1] || 'default';
+    }
+    const themeStyles = getThemeStyles(themeName);
+    if (themeStyles) {
+        styles.push(themeStyles);
+    }
+
     // Include runtime-injected <style> tags (e.g., editor/theme plugins).
+    // 过滤掉包含主题选择器的样式，避免覆盖用户选择的主题
     const runtimeStyles = collectRuntimeStyles();
     if (runtimeStyles) {
         styles.push(runtimeStyles);
@@ -424,7 +438,9 @@ function collectRuntimeStyles() {
     return styleNodes
         .map(node => node.textContent || '')
         .filter(Boolean)
-        .join('\\n');
+        // 过滤掉包含主题变量定义的样式（避免 Vite 注入的主题样式覆盖用户选择的主题）
+        .filter(css => !css.includes(':root[data-theme-appearance='))
+        .join('\n');
 }
 
 function collectHtmlAttributes() {

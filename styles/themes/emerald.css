@@ -1,90 +1,96 @@
 /* 竹林清风主题 - Emerald */
 
-/* 基础颜色 */
-:root[data-theme-appearance='light'] {
-    --theme-bg: #ffffff;
-    --theme-text: #374151;
-    --theme-text-secondary: #6b7280;
-    --theme-border: #e5e7eb;
-    --theme-border-strong: #d4dae5;
-    --theme-code-bg: rgba(99, 102, 241, 0.1);
-    --theme-code-block-bg: #f8fafc;
-    --theme-link: #36b5a8;
-    --theme-heading-border: #3498db;
-    --theme-quote-border: #a2fb24;
-    --theme-quote-text: #6b7280;
-    --theme-table-header-bg: #f8fafc;
-    --theme-table-border: #e5e7eb;
-    --theme-accent: #10b981;
-
-    /* Emerald 特有颜色 */
-    --emerald-inline-code-color: #6366f1;
-    --emerald-delete-color: #f87171;
-    --emerald-strong-bg: rgba(76, 149, 201, 0.15);
-
-    /* Checkbox 颜色 */
-    --task-checkbox-bg: #ffffff;
-    --task-checkbox-border-color: #d4dae5;
-    --task-checkbox-shadow: inset 0 1px 1px rgba(16, 185, 129, 0.12);
-    --task-checkbox-hover-border: #0f9d7a;
-    --task-checkbox-checked-bg: #10b981;
-    --task-checkbox-checked-border: #0f9d7a95;
-    --task-checkbox-checked-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    --task-checkbox-check-color: #374151;
+/* ===== Light Mode ===== */
+:root[data-theme-appearance='light'] .tiptap-editor,
+:root[data-theme-appearance='light'] .markdown-content {
+    color: #374151;
+    background-color: #ffffff;
 }
 
-:root[data-theme-appearance='dark'] {
-    --theme-bg: #000000;
-    --theme-text: #b8b8b8;
-    --theme-text-secondary: #b3d4c6;
-    --theme-border: #7878787e;
-    --theme-border-strong: #929292;
-    --theme-code-bg: rgba(79, 209, 197, 0.22);
-    --theme-code-block-bg: #19291f;
-    --theme-link: #7df3d5;
-    --theme-heading-border: #aaaaaa4d;
-    --theme-quote-border: #8bf19b;
-    --theme-quote-text: #9f9f9f;
-    --theme-table-header-bg: #1c2d22;
-    --theme-table-border: #2a3c33;
-    --theme-accent: #4ade80;
-
-    /* Emerald 特有颜色 */
-    --emerald-inline-code-color: #a0ffe8;
-    --emerald-delete-color: #fecdd3;
-    --emerald-strong-bg: rgba(255, 248, 154, 0.08);
-    --emerald-strong-color: #d7d7d7;
-
-    /* Checkbox 颜色 */
-    --task-checkbox-bg: #0f1812;
-    --task-checkbox-border-color: #929292;
-    --task-checkbox-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4);
-    --task-checkbox-hover-border: #7df3d5;
-    --task-checkbox-checked-bg: #4ade80;
-    --task-checkbox-checked-border: #4ade807c;
-    --task-checkbox-checked-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.45);
-    --task-checkbox-check-color: #ffffff;
+:root[data-theme-appearance='light'] .tiptap-editor h1,
+:root[data-theme-appearance='light'] .tiptap-editor h2,
+:root[data-theme-appearance='light'] .tiptap-editor h3,
+:root[data-theme-appearance='light'] .tiptap-editor h4,
+:root[data-theme-appearance='light'] .tiptap-editor h5,
+:root[data-theme-appearance='light'] .tiptap-editor h6 {
+    color: #374151;
 }
 
-/* 颜色覆盖（不改布局） */
-.tiptap-editor code {
-    background-color: var(--theme-code-bg);
-    color: var(--emerald-inline-code-color, var(--theme-text));
+:root[data-theme-appearance='light'] .tiptap-editor h2 {
+    border-bottom-color: #3498db;
 }
 
-.tiptap-editor del {
-    color: var(--emerald-delete-color);
+:root[data-theme-appearance='light'] .tiptap-editor p {
+    color: #374151;
 }
 
-.tiptap-editor strong,
-.tiptap-editor b {
-    background-color: var(--emerald-strong-bg);
+:root[data-theme-appearance='light'] .tiptap-editor pre {
+    background: #f8fafc;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor code {
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor blockquote {
+    border-left-color: #a2fb24;
+    color: #6b7280;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor a {
+    color: #36b5a8;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor hr {
+    border-top-color: #e5e7eb;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor table td,
+:root[data-theme-appearance='light'] .tiptap-editor table th {
+    border-color: #e5e7eb;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor table th {
+    background-color: #f8fafc;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor p.is-editor-empty:first-child::before {
+    color: #6b7280;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor del {
+    color: #f87171;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor strong,
+:root[data-theme-appearance='light'] .tiptap-editor b {
+    background-color: rgba(76, 149, 201, 0.15);
     padding: 0 2px;
     border-radius: 2px;
-    color: var(--emerald-strong-color);
 }
 
-/* 代码高亮 - Emerald 风格 */
+/* Checkbox - Light */
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"] {
+    background: #ffffff;
+    border-color: #d4dae5;
+    box-shadow: inset 0 1px 1px rgba(16, 185, 129, 0.12);
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:hover {
+    border-color: #0f9d7a;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked {
+    border-color: #0f9d7a95;
+}
+
+:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked::after {
+    border-right-color: #374151;
+    border-bottom-color: #374151;
+}
+
+/* 代码高亮 - Light */
 :root[data-theme-appearance='light'] .hljs {
     background: #f8fafc;
     color: #374151;
@@ -135,6 +141,98 @@
     color: #b31d28;
 }
 
+/* ===== Dark Mode ===== */
+:root[data-theme-appearance='dark'] .tiptap-editor,
+:root[data-theme-appearance='dark'] .markdown-content {
+    color: #b8b8b8;
+    background-color: #000000;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h1,
+:root[data-theme-appearance='dark'] .tiptap-editor h2,
+:root[data-theme-appearance='dark'] .tiptap-editor h3,
+:root[data-theme-appearance='dark'] .tiptap-editor h4,
+:root[data-theme-appearance='dark'] .tiptap-editor h5,
+:root[data-theme-appearance='dark'] .tiptap-editor h6 {
+    color: #b8b8b8;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor h2 {
+    border-bottom-color: #aaaaaa4d;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor p {
+    color: #b8b8b8;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor pre {
+    background: #19291f;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor code {
+    background: rgba(79, 209, 197, 0.22);
+    color: #a0ffe8;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor blockquote {
+    border-left-color: #8bf19b;
+    color: #9f9f9f;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor a {
+    color: #7df3d5;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor hr {
+    border-top-color: #7878787e;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor table td,
+:root[data-theme-appearance='dark'] .tiptap-editor table th {
+    border-color: #2a3c33;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor table th {
+    background-color: #1c2d22;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor p.is-editor-empty:first-child::before {
+    color: #b3d4c6;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor del {
+    color: #fecdd3;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor strong,
+:root[data-theme-appearance='dark'] .tiptap-editor b {
+    background-color: rgba(255, 248, 154, 0.08);
+    color: #d7d7d7;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Checkbox - Dark */
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"] {
+    background: #0f1812;
+    border-color: #929292;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:hover {
+    border-color: #7df3d5;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked {
+    border-color: #4ade807c;
+}
+
+:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked::after {
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
+}
+
+/* 代码高亮 - Dark */
 :root[data-theme-appearance='dark'] .hljs {
     background: #2b424e21;
     color: #f8fff0;
@@ -183,9 +281,4 @@
 
 :root[data-theme-appearance='dark'] .hljs-deletion {
     color: #ffd3c4;
-}
-
-/* 链接 */
-.tiptap-editor a {
-    color: var(--theme-link);
 }
