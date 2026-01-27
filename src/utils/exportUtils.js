@@ -163,7 +163,7 @@ export async function captureViewContent(ensureToPng) {
     separator.style.alignSelf = 'stretch';
 
     const branding = document.createElement('div');
-    branding.textContent = 'Mark2';
+    branding.textContent = 'MARK2';
     branding.style.margin = '15px auto 0';
     branding.style.padding = '4px 18px';
     branding.style.fontSize = '12px';
@@ -232,18 +232,19 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
     }
 
     const contentElement = resolveExportContentRoot(viewElement, activeViewMode);
-    let cssContent = await collectAllStyles(options);
+    const cssContent = await collectAllStyles(options);
+
+    const clone = sanitizeExportNode(contentElement.cloneNode(true));
+    await embedImagesAsBase64(clone);
 
     let htmlContent;
     let pageWidth;
     if (options.pageFormat === 'a4') {
-        // A4 格式：前端分页生成 .mark2-export-page 容器
-        const paginated = await buildPaginatedA4Html(contentElement, options);
-        htmlContent = paginated.html;
-        pageWidth = paginated.pageWidth;
+        // A4 格式：使用系统原生分页，不做前端分页计算
+        const a4Footer = `<div class="mark2-a4-footer"><span class="mark2-a4-footer__label">MARK2</span></div>`;
+        htmlContent = `<div class="mark2-export-wrapper mark2-export-wrapper--a4">${clone.outerHTML}${a4Footer}</div>`;
+        pageWidth = Math.round((96 / 25.4) * 210); // A4 宽度 210mm
     } else {
-        const clone = sanitizeExportNode(contentElement.cloneNode(true));
-        await embedImagesAsBase64(clone);
         const branding = buildBrandingMarkup();
         htmlContent = `<div class="mark2-export-wrapper">${clone.outerHTML}${branding}</div>`;
         pageWidth = viewElement.clientWidth || 800;
@@ -299,24 +300,18 @@ body {
     display: none !important;
 }
 .mark2-export-branding {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin: 18px auto 6px;
-    max-width: 480px;
-    padding: 6px 0 0;
+    text-align: right;
+    padding: 15mm 0 0 0;
 }
 .mark2-export-branding__label {
     display: inline-block;
-    background: #e3474f75;
+    background: #ff3b30;
     color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    padding: 4px 18px;
-    border-radius: 4px;
-    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: 0.3px;
+    padding: 2px 10px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 @page {
@@ -328,56 +323,91 @@ body {
         styles.push(`
 @page {
     size: A4;
-    margin: 15mm 12mm 18mm 12mm;
-    @bottom-center {
-        content: "Mark2";
-        font-size: 10px;
-        font-weight: 600;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #fff;
-        background: #e3474f;
-        padding: 3px 14px;
-        border-radius: 3px;
+    margin: 20mm 15mm 25mm 15mm;
+}
+@media screen {
+    html {
+        background: #e8e8e8;
+    }
+    body {
+        margin: 0;
+        padding: 40px 0;
+        background: #e8e8e8;
+    }
+    .mark2-export-wrapper--a4 {
+        max-width: 210mm;
+        margin: 0 auto;
+        padding: 20mm 15mm;
+        background: #ffffff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-sizing: border-box;
     }
 }
-body {
-    margin: 0;
-    padding: 0;
-    background: #ffffff;
+@media print {
+    body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+    }
+    .mark2-export-wrapper--a4 {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        box-sizing: border-box;
+    }
 }
-.mark2-export-wrapper--a4 {
-    width: 210mm;
-    margin: 0;
-    padding: 0;
+.mark2-export-wrapper--a4 .tiptap-editor,
+.mark2-export-wrapper--a4 .ProseMirror {
+    max-width: 100% !important;
+    width: 100% !important;
 }
-.mark2-export-page {
-    width: 210mm;
-    height: 297mm;
-    box-sizing: border-box;
-    background: #ffffff;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-.mark2-export-page__content {
-    flex: 1;
-    padding: 20mm 20mm ${options.contentBottomPadding ?? 10}mm 20mm;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-.mark2-export-page__content > *:first-child {
-    margin-top: 0 !important;
-}
-.mark2-export-page__content img {
-    max-height: calc(297mm - 20mm - 18mm - 20mm - 50px);
-    width: auto;
+.mark2-export-wrapper--a4 img {
     max-width: 100%;
+    height: auto;
+    page-break-inside: avoid;
 }
-.mark2-export-page__footer {
-    padding: 0 12mm 12mm 12mm;
-    text-align: center;
+.mark2-export-wrapper--a4 pre,
+.mark2-export-wrapper--a4 code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.mark2-export-wrapper--a4 h1,
+.mark2-export-wrapper--a4 h2,
+.mark2-export-wrapper--a4 h3,
+.mark2-export-wrapper--a4 h4,
+.mark2-export-wrapper--a4 h5,
+.mark2-export-wrapper--a4 h6 {
+    page-break-after: avoid;
+}
+.mark2-export-wrapper--a4 p,
+.mark2-export-wrapper--a4 li {
+    orphans: 2;
+    widows: 2;
+}
+.mark2-a4-footer {
+    text-align: right;
+    padding: 15mm 0 0 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+@media screen {
+    .mark2-a4-footer {
+        display: none;
+    }
+}
+.mark2-a4-footer__label {
+    display: inline-block;
+    background: #ff3b30 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    font-size: 10px;
+    font-style: italic;
+    letter-spacing: 0.3px;
+    padding: 2px 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
         `);
     }
@@ -476,394 +506,11 @@ function sanitizeExportNode(node) {
     return node;
 }
 
-async function buildPaginatedA4Html(contentElement, options = {}) {
-    const pxPerMm = 96 / 25.4;
-    const pageWidthPx = Math.round(pxPerMm * 210);
-    // 与 CSS 保持一致
-    const horizontalPaddingMm = 20;
-    const topPaddingMm = 20;
-    const bottomPaddingMm = options.contentBottomPadding ?? 10;
-    const footerHeightMm = 15; // footer padding 12mm + label ~3mm
-    const contentWidthPx = Math.round(pxPerMm * (210 - horizontalPaddingMm * 2));
-    const contentHeightPx = Math.round(pxPerMm * (297 - topPaddingMm - bottomPaddingMm - footerHeightMm));
-    // 底部安全边距：为最后一个元素的 marginBottom 预留空间
-    const bottomSafeMargin = 20;
-
-    // 创建测量容器
-    const measureHost = document.createElement('div');
-    measureHost.style.position = 'fixed';
-    measureHost.style.left = '0';
-    measureHost.style.top = '0';
-    measureHost.style.width = `${contentWidthPx}px`;
-    measureHost.style.opacity = '0';
-    measureHost.style.pointerEvents = 'none';
-    measureHost.style.zIndex = '-9999';
-
-    // 从编辑器获取实际样式
-    const editorEl = contentElement.closest('.tiptap-editor') || contentElement;
-    const editorStyle = window.getComputedStyle(editorEl);
-    measureHost.style.fontFamily = editorStyle.fontFamily;
-    measureHost.style.fontSize = editorStyle.fontSize;
-    measureHost.style.lineHeight = editorStyle.lineHeight;
-    measureHost.style.letterSpacing = editorStyle.letterSpacing;
-    measureHost.style.wordSpacing = editorStyle.wordSpacing;
-
-    document.body.appendChild(measureHost);
-
-    if (options.debugPagination) {
-        console.log('[PDF分页] 测量容器样式:', {
-            width: contentWidthPx,
-            fontFamily: editorStyle.fontFamily,
-            fontSize: editorStyle.fontSize,
-            lineHeight: editorStyle.lineHeight
-        });
-    }
-
-    const sourceRoot = sanitizeExportNode(contentElement.cloneNode(true));
-    await embedImagesAsBase64(sourceRoot);
-    const useEditorWrapper = sourceRoot.classList?.contains('tiptap-editor');
-    const sourceChildren = Array.from(sourceRoot.children);
-    const originalCount = sourceChildren.length;
-
-    // 辅助函数：检测是否是标题元素
-    const isHeading = (el) => /^H[1-6]$/i.test(el?.tagName);
-
-    const shouldWrapForMeasure = Boolean(
-        contentElement?.classList?.contains('tiptap-editor') ||
-        contentElement?.closest?.('.tiptap-editor')
-    );
-
-    const measureRoot = sourceRoot.cloneNode(true);
-    const measureImages = measureRoot.querySelectorAll('img');
-    measureImages.forEach(img => {
-        img.style.maxHeight = `${contentHeightPx - 50}px`;
-        img.style.width = 'auto';
-        img.style.maxWidth = '100%';
-    });
-    if (shouldWrapForMeasure) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'tiptap-editor';
-        wrapper.style.width = '100%';
-        wrapper.appendChild(measureRoot);
-        measureHost.appendChild(wrapper);
-    } else {
-        measureHost.appendChild(measureRoot);
-    }
-    await document.fonts?.ready;
-    const measureChildren = Array.from(measureRoot.children);
-    const measureTop = measureRoot.getBoundingClientRect().top;
-
-    const isSplittableParagraph = (el) => el?.tagName === 'P';
-
-    const findSplitPosition = (root, length) => {
-        if (!root || length <= 0) {
-            return null;
-        }
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-        let remaining = length;
-        let node = walker.nextNode();
-        while (node) {
-            const text = node.textContent || '';
-            if (remaining <= text.length) {
-                return { node, offset: remaining };
-            }
-            remaining -= text.length;
-            node = walker.nextNode();
-        }
-        return null;
-    };
-
-    const findStartPosition = (root) => {
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-        const node = walker.nextNode();
-        if (!node) {
-            return null;
-        }
-        return { node, offset: 0 };
-    };
-
-    const pruneEmptyElements = (root) => {
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null);
-        const toRemove = [];
-        let node = walker.nextNode();
-        while (node) {
-            const hasMedia = node.querySelector?.('img,video,svg,canvas,iframe');
-            const isEmpty = !hasMedia && !node.textContent?.trim() && node.tagName !== 'BR';
-            if (isEmpty) {
-                toRemove.push(node);
-            }
-            node = walker.nextNode();
-        }
-        toRemove.forEach(item => item.parentNode?.removeChild(item));
-    };
-
-    const createRangeFromOffsets = (root, startOffset, endOffset) => {
-        if (!root || endOffset <= startOffset) {
-            return null;
-        }
-        const startPos = startOffset === 0 ? findStartPosition(root) : findSplitPosition(root, startOffset);
-        const endPos = findSplitPosition(root, endOffset);
-        if (!startPos || !endPos) {
-            return null;
-        }
-        const range = document.createRange();
-        range.setStart(startPos.node, startPos.offset);
-        range.setEnd(endPos.node, endPos.offset);
-        return range;
-    };
-
-    const createParagraphSliceByOffsets = (paragraph, startOffset, endOffset) => {
-        const clone = paragraph.cloneNode(true);
-        const endPos = findSplitPosition(clone, endOffset);
-        if (!endPos) {
-            return null;
-        }
-        const endRange = document.createRange();
-        endRange.setStart(endPos.node, endPos.offset);
-        endRange.setEndAfter(clone.lastChild || clone);
-        endRange.deleteContents();
-        if (startOffset > 0) {
-            const startPos = findSplitPosition(clone, startOffset);
-            if (!startPos) {
-                return null;
-            }
-            const startRange = document.createRange();
-            startRange.setStart(clone, 0);
-            startRange.setEnd(startPos.node, startPos.offset);
-            startRange.deleteContents();
-        }
-        pruneEmptyElements(clone);
-        return clone;
-    };
-
-    const getParagraphSegmentBounds = (paragraph, startOffset, endOffset) => {
-        const range = createRangeFromOffsets(paragraph, startOffset, endOffset);
-        if (!range) {
-            const rect = paragraph.getBoundingClientRect();
-            return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
-        }
-        const rects = Array.from(range.getClientRects());
-        if (!rects.length) {
-            const rect = paragraph.getBoundingClientRect();
-            return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
-        }
-        const firstRect = rects[0];
-        const lastRect = rects[rects.length - 1];
-        return { top: firstRect.top - measureTop, bottom: lastRect.bottom - measureTop };
-    };
-
-    const findParagraphSplitOffsetByLayout = (paragraph, startOffset, endOffset, pageBottomY) => {
-        if (endOffset <= startOffset) {
-            return null;
-        }
-        let low = startOffset + 1;
-        let high = endOffset;
-        let best = null;
-        while (low <= high) {
-            const mid = Math.floor((low + high) / 2);
-            const range = createRangeFromOffsets(paragraph, startOffset, mid);
-            if (!range) {
-                high = mid - 1;
-                continue;
-            }
-            const rects = Array.from(range.getClientRects());
-            if (!rects.length) {
-                high = mid - 1;
-                continue;
-            }
-            const lastRect = rects[rects.length - 1];
-            const lastBottom = lastRect.bottom - measureTop;
-            if (lastBottom <= pageBottomY) {
-                best = mid;
-                low = mid + 1;
-            } else {
-                high = mid - 1;
-            }
-        }
-        return best;
-    };
-
-    const pages = [];
-    let currentPageContent = [];
-    let currentHeight = 0;
-    let splitParagraphCount = 0;
-    const effectivePageHeight = contentHeightPx - bottomSafeMargin;
-    const items = sourceChildren.map((node, idx) => {
-        const measureNode = measureChildren[idx];
-        const textLength = node.textContent?.length || 0;
-        return {
-            node,
-            measureNode,
-            isParagraph: isSplittableParagraph(node) && textLength > 0,
-            startOffset: 0,
-            endOffset: textLength
-        };
-    });
-
-    if (options.debugPagination) {
-        console.log('[PDF分页] contentHeightPx:', contentHeightPx, '元素总数:', originalCount, 'bottomPaddingMm:', bottomPaddingMm, 'bottomSafeMargin:', bottomSafeMargin);
-    }
-
-    // 辅助函数：打印换页信息
-    const logPageBreak = (pageNum, pageContent, totalHeight, reason) => {
-        if (options.debugPagination && pageNum <= 3) {
-            const firstEl = pageContent[0] || '';
-            const lastEl = pageContent[pageContent.length - 1] || '';
-            const firstText = firstEl.replace(/<[^>]*>/g, '').slice(0, 30);
-            const lastText = lastEl.replace(/<[^>]*>/g, '').slice(0, 30);
-            console.log(`[PDF分页] === 第${pageNum}页完成 (${reason}) ===`);
-            console.log(`[PDF分页]   首元素: "${firstText}..."`);
-            console.log(`[PDF分页]   末元素: "${lastText}..."`);
-            console.log(`[PDF分页]   元素数: ${pageContent.length}, 累计高度: ${totalHeight}px, 可用: ${contentHeightPx}px, 剩余: ${contentHeightPx - totalHeight}px`);
-        }
-    };
-
-    let pageIndex = 0;
-    let i = 0;
-    while (i < items.length) {
-        const item = items[i];
-        const nextItem = items[i + 1];
-        const pageStartY = pageIndex * effectivePageHeight;
-        const pageEndY = pageStartY + effectivePageHeight;
-
-        const bounds = item.isParagraph
-            ? getParagraphSegmentBounds(item.measureNode, item.startOffset, item.endOffset)
-            : (() => {
-                const rect = item.measureNode.getBoundingClientRect();
-                return { top: rect.top - measureTop, bottom: rect.bottom - measureTop };
-            })();
-
-        if (options.debugPagination && pages.length < 3) {
-            const tagName = item.node.tagName;
-            const textPreview = item.node.textContent?.slice(0, 20) || '';
-            console.log(`[PDF分页] 元素${i} <${tagName}>: "${textPreview}..." top=${bounds.top.toFixed(1)}, bottom=${bounds.bottom.toFixed(1)} pageStart=${pageStartY.toFixed(1)} pageEnd=${pageEndY.toFixed(1)}`);
-        }
-
-        if (bounds.top >= pageEndY && currentPageContent.length > 0) {
-            logPageBreak(pages.length + 1, currentPageContent, currentHeight, '常规换页');
-            pages.push(currentPageContent);
-            currentPageContent = [];
-            currentHeight = 0;
-            pageIndex += 1;
-            continue;
-        }
-        if (bounds.top >= pageEndY && currentPageContent.length === 0) {
-            pageIndex += 1;
-            continue;
-        }
-
-        if (isHeading(item.node) && nextItem && currentPageContent.length > 0) {
-            let canPlaceNext = false;
-            if (nextItem.isParagraph) {
-                const offset = findParagraphSplitOffsetByLayout(nextItem.measureNode, nextItem.startOffset, nextItem.endOffset, pageEndY);
-                canPlaceNext = Boolean(offset);
-            } else {
-                const rect = nextItem.measureNode.getBoundingClientRect();
-                const nextBottom = rect.bottom - measureTop;
-                canPlaceNext = nextBottom <= pageEndY;
-            }
-            if (bounds.bottom <= pageEndY && !canPlaceNext) {
-                logPageBreak(pages.length + 1, currentPageContent, currentHeight, '标题孤行换页');
-                pages.push(currentPageContent);
-                currentPageContent = [];
-                currentHeight = 0;
-                pageIndex += 1;
-                continue;
-            }
-        }
-
-        if (bounds.bottom <= pageEndY) {
-            if (item.isParagraph) {
-                const slice = createParagraphSliceByOffsets(item.node, item.startOffset, item.endOffset);
-                currentPageContent.push(slice ? slice.outerHTML : item.node.outerHTML);
-            } else {
-                currentPageContent.push(item.node.outerHTML);
-            }
-            currentHeight = Math.max(currentHeight, bounds.bottom - pageStartY);
-            i += 1;
-            continue;
-        }
-
-        if (item.isParagraph) {
-            const splitOffset = findParagraphSplitOffsetByLayout(item.measureNode, item.startOffset, item.endOffset, pageEndY);
-            if (splitOffset) {
-                const head = createParagraphSliceByOffsets(item.node, item.startOffset, splitOffset);
-                const tail = createParagraphSliceByOffsets(item.node, splitOffset, item.endOffset);
-                const tailHasContent = tail?.textContent?.trim() || tail?.querySelector('img,video,svg,canvas,iframe');
-                if (head && tail && tailHasContent) {
-                    currentPageContent.push(head.outerHTML);
-                    currentHeight = Math.max(currentHeight, pageEndY - pageStartY);
-                    item.startOffset = splitOffset;
-                    splitParagraphCount += 1;
-                    logPageBreak(pages.length + 1, currentPageContent, currentHeight, '段落拆分页');
-                    pages.push(currentPageContent);
-                    currentPageContent = [];
-                    currentHeight = 0;
-                    pageIndex += 1;
-                    continue;
-                }
-            }
-        }
-
-        if (currentPageContent.length > 0) {
-            logPageBreak(pages.length + 1, currentPageContent, currentHeight, '常规换页');
-            pages.push(currentPageContent);
-            currentPageContent = [];
-            currentHeight = 0;
-            pageIndex += 1;
-            continue;
-        }
-
-        console.warn(`[PDF分页] 警告：元素${i}高度超过页面可用高度，可能溢出`);
-        currentPageContent.push(item.node.outerHTML);
-        currentHeight = Math.max(currentHeight, bounds.bottom - pageStartY);
-        i += 1;
-    }
-
-    // 添加最后一页
-    if (currentPageContent.length > 0) {
-        logPageBreak(pages.length + 1, currentPageContent, currentHeight, '最后一页');
-        pages.push(currentPageContent);
-    }
-
-    // 安全检查：确认所有元素都被处理了
-    const totalElementsInPages = pages.reduce((sum, page) => sum + page.length, 0);
-    const expectedElements = originalCount + splitParagraphCount;
-    if (totalElementsInPages !== expectedElements) {
-        console.error(`[PDF分页] 错误：元素数量不匹配！源元素: ${originalCount}, 拆分增量: ${splitParagraphCount}, 页面元素: ${totalElementsInPages}`);
-        // 找出哪些元素丢失了
-        const processedHtmlSet = new Set(pages.flat());
-        sourceChildren.forEach((child, idx) => {
-            if (!processedHtmlSet.has(child.outerHTML)) {
-                console.error(`[PDF分页] 丢失元素 ${idx}: <${child.tagName}> "${child.textContent?.slice(0, 30)}..."`);
-            }
-        });
-    }
-
-    // 清理测量容器
-    measureHost.parentNode?.removeChild(measureHost);
-
-    // 生成 HTML
-    const pagesHtml = pages.map((pageContent, idx) => `
-        <div class="mark2-export-page" data-page="${idx + 1}">
-            <div class="mark2-export-page__content">
-                ${useEditorWrapper ? `<div class="tiptap-editor">${pageContent.join('')}</div>` : pageContent.join('')}
-            </div>
-            <div class="mark2-export-page__footer">
-                <span class="mark2-export-branding__label">Mark2</span>
-            </div>
-        </div>
-    `).join('');
-
-    const html = `<div class="mark2-export-wrapper mark2-export-wrapper--a4">${pagesHtml}</div>`;
-
-    return { html, pageWidth: pageWidthPx };
-}
 
 function buildBrandingMarkup() {
     return `
 <div class="mark2-export-branding">
-    <span class="mark2-export-branding__label">Mark2</span>
+    <span class="mark2-export-branding__label">MARK2</span>
 </div>
     `.trim();
 }

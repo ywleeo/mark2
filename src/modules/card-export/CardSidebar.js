@@ -806,7 +806,6 @@ export class CardSidebar {
 
             const dataUrl = await this.renderCardToDataUrl({
                 width: preset.width,
-                height: preset.height,
             });
             await captureScreenshot(targetPath, dataUrl);
             this.showStatus(`已保存：${targetPath}`, 'success', { persist: true });
@@ -822,13 +821,12 @@ export class CardSidebar {
         }
     }
 
-    async renderCardToDataUrl({ width, height }) {
+    async renderCardToDataUrl({ width }) {
         if (!this.cardElement) {
             throw new Error('无法找到卡片预览元素');
         }
 
         const previewWidth = this.previewRenderedWidth || this.cardElement.clientWidth || width;
-        const previewHeight = this.previewRenderedHeight || this.cardElement.clientHeight || height;
         // 直接以预览 DOM 排版，导出时只放大像素密度，保证折行一致
         const scale = width / previewWidth;
 

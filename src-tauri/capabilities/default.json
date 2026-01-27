@@ -17,7 +17,20 @@
     "core:window:allow-is-maximized",
     "dialog:default",
     "fs:default",
-    "shell:allow-open",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        {
+          "url": "^https://.*"
+        },
+        {
+          "url": "^http://.*"
+        },
+        {
+          "url": "^file://.*"
+        }
+      ]
+    },
     {
       "identifier": "fs:allow-watch",
       "allow": [
@@ -50,6 +63,7 @@
         }
       ]
     },
-    "fs:allow-unwatch"
+    "fs:allow-unwatch",
+    "fs:allow-temp-write"
   ]
 }

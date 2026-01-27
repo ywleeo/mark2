@@ -52,7 +52,7 @@
     /* Emerald 特有颜色 */
     --emerald-inline-code-color: #a0ffe8;
     --emerald-delete-color: #fecdd3;
-    --emerald-strong-bg: #ffffff11;
+    --emerald-strong-bg: rgba(255, 248, 154, 0.08);
     --emerald-strong-color: #d7d7d7;
 
     /* Checkbox 颜色 */
@@ -183,4 +183,9 @@
 
 :root[data-theme-appearance='dark'] .hljs-deletion {
     color: #ffd3c4;
+}
+
+/* 链接 */
+.tiptap-editor a {
+    color: var(--theme-link);
 }

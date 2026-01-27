@@ -1,4 +1,7 @@
 import { save, message } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { join, tempDir } from '@tauri-apps/api/path';
 import {
     buildDefaultPdfPath,
     buildDefaultScreenshotPath,
@@ -135,14 +138,58 @@ export function exportCurrentViewToPdf({ activeViewMode, statusBarController }) 
     });
 }
 
-export function exportCurrentViewToPdfA4({ activeViewMode, statusBarController }) {
-    return exportPdfWithMode({
-        activeViewMode,
-        statusBarController,
-        mode: 'a4',
-        pageFormat: 'a4',
-        dialogTitle: '导出 A4 PDF',
-        progressLabel: '正在生成 A4 PDF…',
-        successLabel: 'A4 PDF 已保存：',
-    });
+export async function exportCurrentViewToPdfA4({ activeViewMode, statusBarController }) {
+    try {
+        statusBarController?.showProgress?.('正在准备打印…');
+
+        const { htmlContent, cssContent, htmlAttributes } = await collectContentForPdf(
+            activeViewMode,
+            { pageFormat: 'a4' }
+        );
+
+        // 构建完整的 HTML 文档
+        const attrString = Object.entries(htmlAttributes || {})
+            .map(([key, value]) => `${key}="${value}"`)
+            .join(' ');
+
+        const fullHtml = `<!DOCTYPE html>
+<html ${attrString}>
+<head>
+    <meta charset="UTF-8">
+    <title>Mark2 PDF Export</title>
+    <style>${cssContent}</style>
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 800);
+        };
+    </script>
+</head>
+<body>
+    ${htmlContent}
+</body>
+</html>`;
+
+        // 保存为临时 HTML 文件
+        const tempDirPath = await tempDir();
+        const timestamp = Date.now();
+        const tempFileName = `mark2-print-${timestamp}.html`;
+        const tempFilePath = await join(tempDirPath, tempFileName);
+
+        await writeTextFile(tempFilePath, fullHtml);
+
+        statusBarController?.hideProgress?.();
+
+        // 用系统浏览器打开临时文件
+        await invoke('open_path_in_browser', { path: tempFilePath });
+
+    } catch (error) {
+        console.error('准备打印失败', error);
+        statusBarController?.hideProgress?.();
+        await message('准备打印失败: ' + (error?.message || String(error)), {
+            title: '打印失败',
+            kind: 'error',
+        });
+    }
 }

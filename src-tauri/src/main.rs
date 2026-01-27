@@ -310,6 +310,32 @@ struct SecurityScopeResult {
 }
 
 #[tauri::command]
+fn open_path_in_browser(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn is_directory(path: String) -> Result<bool, String> {
     Path::new(&path)
         .metadata()
@@ -941,13 +967,6 @@ struct DocumentMetrics {
 }
 
 #[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-struct ExportPageSlice {
-    top: f64,
-    height: f64,
-}
-
-#[cfg(target_os = "macos")]
 #[derive(Clone, Copy)]
 enum PdfRenderMode {
     Continuous,
@@ -973,6 +992,9 @@ fn render_pdf_with_webkit(
 ) -> Result<Vec<u8>, String> {
     use std::sync::mpsc;
 
+    // A4 标准宽度（72 DPI）
+    const A4_WIDTH: f64 = 595.28;
+
     let (tx, rx) = mpsc::channel();
 
     let html = full_html;
@@ -982,7 +1004,13 @@ fn render_pdf_with_webkit(
                 .ok_or_else(|| "export_to_pdf 需要在主线程上执行".to_string())?;
 
             let config = unsafe { WKWebViewConfiguration::init(WKWebViewConfiguration::alloc(mtm)) };
-            let initial_width = page_width.unwrap_or(900.0).max(320.0);
+
+            // A4 模式使用标准 A4 宽度，连续模式使用传入的宽度
+            let initial_width = match mode {
+                PdfRenderMode::PaginatedA4 => A4_WIDTH,
+                PdfRenderMode::Continuous => page_width.unwrap_or(900.0).max(320.0),
+            };
+
             let frame = CGRect::new(
                 CGPoint::new(0.0, 0.0),
                 CGSize::new(initial_width as CGFloat, 2000.0 as CGFloat),
@@ -1004,10 +1032,15 @@ fn render_pdf_with_webkit(
             })?;
 
             let metrics = collect_document_metrics(&webview, &run_loop)?;
-            let capture_width = metrics
-                .width
-                .max(page_width.unwrap_or(metrics.width))
-                .max(1.0);
+
+            // A4 模式固定使用 A4 宽度，连续模式使用实际内容宽度
+            let capture_width = match mode {
+                PdfRenderMode::PaginatedA4 => A4_WIDTH,
+                PdfRenderMode::Continuous => metrics
+                    .width
+                    .max(page_width.unwrap_or(metrics.width))
+                    .max(1.0),
+            };
             let capture_height = metrics.height.max(1.0).min(200_000.0);
 
             webview.setFrame(CGRect::new(
@@ -1065,32 +1098,6 @@ fn collect_document_metrics(
 
     let serialized = wait_for_js_string(webview, run_loop, script, Duration::from_secs(10))?;
     serde_json::from_str(&serialized).map_err(|err| format!("解析页面尺寸失败: {err}"))
-}
-
-#[cfg(target_os = "macos")]
-fn collect_dom_page_slices(
-    webview: &WKWebView,
-    run_loop: &NSRunLoop,
-) -> Result<Vec<ExportPageSlice>, String> {
-    // 支持 pagedjs 生成的 .pagedjs_page 和自定义的 .mark2-export-page
-    let script = r#"(() => {
-        const root = document.scrollingElement || document.documentElement || document.body;
-        const scrollTop = root?.scrollTop || window.pageYOffset || 0;
-        const pages = Array.from(document.querySelectorAll('.pagedjs_page, .mark2-export-page'));
-        if (!pages.length) {
-            return "[]";
-        }
-        const payload = pages.map(page => {
-            const rect = page.getBoundingClientRect();
-            return {
-                top: rect.top + scrollTop,
-                height: rect.height
-            };
-        });
-        return JSON.stringify(payload);
-    })()"#;
-    let serialized = wait_for_js_string(webview, run_loop, script, Duration::from_secs(5))?;
-    serde_json::from_str(&serialized).map_err(|err| format!("解析分页信息失败: {err}"))
 }
 
 #[cfg(target_os = "macos")]
@@ -1165,36 +1172,26 @@ fn capture_pdf_slice(
 fn create_paginated_pdf_document(
     webview: &WKWebView,
     run_loop: &NSRunLoop,
-    width: f64,
+    _width: f64,
     height: f64,
     mtm: MainThreadMarker,
 ) -> Result<Vec<u8>, String> {
-    let effective_width = width.max(1.0);
-    let aspect = 297.0 / 210.0;
-    let page_height = (effective_width * aspect).max(100.0);
-    let dom_slices = collect_dom_page_slices(webview, run_loop)?;
-    if !dom_slices.is_empty() {
-        let mut result = Vec::new();
-        for slice in dom_slices.iter() {
-            let slice_height = slice.height.max(1.0);
-            let rect = CGRect::new(
-                CGPoint::new(0.0, slice.top as CGFloat),
-                CGSize::new(effective_width as CGFloat, slice_height as CGFloat),
-            );
-            let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
-            result.push(data);
-        }
-        return merge_pdf_pages(&result);
-    }
+    // A4 尺寸（72 DPI，标准 PDF points）
+    // 页面边距：上下左右各 15mm ≈ 42.5 points
+    const A4_WIDTH: f64 = 595.28;
+    const A4_HEIGHT: f64 = 841.89;
+    const MARGIN: f64 = 42.5;
+    let content_height = A4_HEIGHT - MARGIN * 2.0; // 可用内容高度
 
+    // 按 A4 页面高度切割
     let mut offset = 0.0;
     let mut slices = Vec::new();
     while offset < height - 0.5 {
         let remaining = height - offset;
-        let slice_height = page_height.min(remaining);
+        let slice_height = content_height.min(remaining);
         let rect = CGRect::new(
             CGPoint::new(0.0, offset as CGFloat),
-            CGSize::new(effective_width as CGFloat, slice_height as CGFloat),
+            CGSize::new(A4_WIDTH as CGFloat, slice_height as CGFloat),
         );
         let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
         slices.push(data);
@@ -1479,6 +1476,7 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            open_path_in_browser,
             is_directory,
             read_file,
             read_image_base64,
