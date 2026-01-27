@@ -41,7 +41,9 @@ export const MermaidBlock = Node.create({
     atom: true,
     selectable: true,
     draggable: false,
-    priority: 1100,
+    // 优先级设为 51，低于 paragraph (100)，避免成为空内容时的默认节点
+    // 但高于其他普通扩展 (50)，确保 mermaid 内容能被正确解析
+    priority: 51,
 
     addAttributes() {
         return {
