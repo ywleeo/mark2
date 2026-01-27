@@ -7,15 +7,6 @@
     background-color: #ffffff;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor h1,
-:root[data-theme-appearance='light'] .tiptap-editor h2,
-:root[data-theme-appearance='light'] .tiptap-editor h3,
-:root[data-theme-appearance='light'] .tiptap-editor h4,
-:root[data-theme-appearance='light'] .tiptap-editor h5,
-:root[data-theme-appearance='light'] .tiptap-editor h6 {
-    color: #374151;
-}
-
 :root[data-theme-appearance='light'] .tiptap-editor h2 {
     border-bottom-color: #3498db;
 }
@@ -144,25 +135,12 @@
 /* ===== Dark Mode ===== */
 :root[data-theme-appearance='dark'] .tiptap-editor,
 :root[data-theme-appearance='dark'] .markdown-content {
-    color: #b8b8b8;
-    background-color: #000000;
-}
-
-:root[data-theme-appearance='dark'] .tiptap-editor h1,
-:root[data-theme-appearance='dark'] .tiptap-editor h2,
-:root[data-theme-appearance='dark'] .tiptap-editor h3,
-:root[data-theme-appearance='dark'] .tiptap-editor h4,
-:root[data-theme-appearance='dark'] .tiptap-editor h5,
-:root[data-theme-appearance='dark'] .tiptap-editor h6 {
-    color: #b8b8b8;
+    color: #f0f0f0;
+    background-color: #15171b;
 }
 
 :root[data-theme-appearance='dark'] .tiptap-editor h2 {
     border-bottom-color: #aaaaaa4d;
-}
-
-:root[data-theme-appearance='dark'] .tiptap-editor p {
-    color: #b8b8b8;
 }
 
 :root[data-theme-appearance='dark'] .tiptap-editor pre {
