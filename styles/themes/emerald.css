@@ -134,7 +134,7 @@
 /* ===== Dark Mode ===== */
 :root[data-theme-appearance='dark'] .tiptap-editor,
 :root[data-theme-appearance='dark'] .markdown-content {
-    color: #f0f0f0;
+    color: #dbdbdb;
     background-color: #15171b;
 }
 
