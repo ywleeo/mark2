@@ -3,6 +3,7 @@ import editorCss from '../../styles/editor.css?raw';
 import highlightCss from '../../styles/highlight.css?raw';
 import imageViewerCss from '../../styles/image-viewer.css?raw';
 import mediaViewerCss from '../../styles/media-viewer.css?raw';
+import htmlViewerCss from '../../styles/html-viewer.css?raw';
 import codeEditorCss from '../../styles/code-editor.css?raw';
 import markdownToolbarCss from '../../styles/markdown-toolbar.css?raw';
 
@@ -28,6 +29,7 @@ const bundledCssText = [
     highlightCss,
     imageViewerCss,
     mediaViewerCss,
+    htmlViewerCss,
     codeEditorCss,
     markdownToolbarCss,
     // 不再合并所有主题，主题通过 getThemeStyles 按需获取

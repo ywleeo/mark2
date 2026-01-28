@@ -44,6 +44,7 @@ export function createFileOperations({
     getMediaViewer,
     getSpreadsheetViewer,
     getPdfViewer,
+    getHtmlViewer,
     getUnsupportedViewer,
     getWorkflowEditor,
     getMarkdownCodeMode,
@@ -69,12 +70,14 @@ export function createFileOperations({
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateHtmlView,
     activateWorkflowView,
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn,
     untitledFileManager,
     saveUntitledFile,
+    getRendererRegistry,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -83,6 +86,7 @@ export function createFileOperations({
     if (typeof getMediaViewer !== 'function') throw new Error('fileOperations 需要 getMediaViewer');
     if (typeof getSpreadsheetViewer !== 'function') throw new Error('fileOperations 需要 getSpreadsheetViewer');
     if (typeof getPdfViewer !== 'function') throw new Error('fileOperations 需要 getPdfViewer');
+    if (typeof getHtmlViewer !== 'function') throw new Error('fileOperations 需要 getHtmlViewer');
     if (typeof getUnsupportedViewer !== 'function') throw new Error('fileOperations 需要 getUnsupportedViewer');
     if (typeof getWorkflowEditor !== 'function') throw new Error('fileOperations 需要 getWorkflowEditor');
     if (typeof getMarkdownCodeMode !== 'function') throw new Error('fileOperations 需要 getMarkdownCodeMode');
@@ -113,6 +117,7 @@ export function createFileOperations({
     if (typeof activateMediaView !== 'function') throw new Error('fileOperations 需要 activateMediaView');
     if (typeof activateSpreadsheetView !== 'function') throw new Error('fileOperations 需要 activateSpreadsheetView');
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
+    if (typeof activateHtmlView !== 'function') throw new Error('fileOperations 需要 activateHtmlView');
     if (typeof activateWorkflowView !== 'function') throw new Error('fileOperations 需要 activateWorkflowView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
@@ -209,6 +214,7 @@ export function createFileOperations({
 
         const editor = getEditor();
         const codeEditor = getCodeEditor();
+        const htmlViewer = getHtmlViewer();
         const workflowEditor = getWorkflowEditor();
         const activeViewMode = getActiveViewMode();
 
@@ -220,6 +226,34 @@ export function createFileOperations({
                 await updateWindowTitle();
             }
             return result;
+        }
+
+        if (activeViewMode === 'html' && htmlViewer) {
+            const localWriteKey = getSessionPathKey(currentFile);
+            try {
+                let content = htmlViewer.getHtml?.() || '';
+                if (!content && fileService?.readText) {
+                    content = await fileService.readText(currentFile);
+                }
+                if (localWriteKey && documentSessions.markLocalWrite) {
+                    documentSessions.markLocalWrite(localWriteKey);
+                }
+                await fileService.writeText(currentFile, content);
+                if (codeEditor && codeEditor.currentFile === currentFile) {
+                    codeEditor.markSaved();
+                }
+                setHasUnsavedChanges(false);
+                fileSession.clearEntry(currentFile);
+                await updateWindowTitle();
+                return true;
+            } catch (error) {
+                if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
+                    documentSessions.clearLocalWriteSuppression(localWriteKey);
+                }
+                console.error('保存失败:', error);
+                alert('保存失败: ' + error);
+                return false;
+            }
         }
 
         if (activeViewMode === 'code' && codeEditor) {
@@ -279,11 +313,14 @@ export function createFileOperations({
     async function saveUntitledFileFromEditor(untitledPath) {
         const editor = getEditor();
         const codeEditor = getCodeEditor();
+        const htmlViewer = getHtmlViewer();
         const activeViewMode = getActiveViewMode();
 
         let content = '';
         if (activeViewMode === 'markdown' && editor) {
             content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'html' && htmlViewer) {
+            content = htmlViewer.getHtml?.() || '';
         } else if (activeViewMode === 'code' && codeEditor) {
             content = codeEditor.getValue?.() || '';
         }
@@ -373,6 +410,9 @@ export function createFileOperations({
 
             // 计算目标文件的视图模式
             const initialViewMode = getViewModeForPath(filePath);
+            const rendererRegistry = getRendererRegistry?.();
+            const renderer = rendererRegistry?.getHandlerForPath?.(filePath) || null;
+            const rendererViewMode = renderer?.getViewMode?.(filePath) || null;
 
             const editor = getEditor();
             const codeEditor = getCodeEditor();
@@ -380,6 +420,7 @@ export function createFileOperations({
             const mediaViewer = getMediaViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
+            const htmlViewer = getHtmlViewer();
             const unsupportedViewer = getUnsupportedViewer();
             const fileTree = getFileTree();
             const normalizedTargetPath = typeof filePath === 'string'
@@ -418,10 +459,18 @@ export function createFileOperations({
             }
 
             if (initialViewMode === 'image') {
-                activateImageView();
-                editor?.clear?.();
-                codeEditor?.clear?.();
-                await imageViewer?.loadImage(filePath);
+                if (!renderer || rendererViewMode !== 'image') {
+                    throw new Error('缺少 image 渲染器');
+                }
+                await renderer.load({
+                    filePath,
+                    editorRegistry: {
+                        getMarkdownEditor: () => editor,
+                        getCodeEditor: () => codeEditor,
+                    },
+                    imageViewer,
+                    activateImageView,
+                });
                 if (shouldAbort('image-load')) {
                     return;
                 }
@@ -450,10 +499,18 @@ export function createFileOperations({
             }
 
             if (initialViewMode === 'media') {
-                activateMediaView();
-                editor?.clear?.();
-                codeEditor?.clear?.();
-                await mediaViewer?.loadMedia(filePath);
+                if (!renderer || rendererViewMode !== 'media') {
+                    throw new Error('缺少 media 渲染器');
+                }
+                await renderer.load({
+                    filePath,
+                    editorRegistry: {
+                        getMarkdownEditor: () => editor,
+                        getCodeEditor: () => codeEditor,
+                    },
+                    mediaViewer,
+                    activateMediaView,
+                });
                 if (shouldAbort('media-load')) {
                     return;
                 }
@@ -495,77 +552,6 @@ export function createFileOperations({
                 && isEditorMode(targetViewMode)
                 && previousViewMode !== targetViewMode;
 
-            if (targetViewMode === 'spreadsheet') {
-                activateSpreadsheetView();
-                editor?.clear?.();
-                codeEditor?.hide?.();
-                imageViewer?.hide?.();
-                mediaViewer?.hide?.();
-                unsupportedViewer?.hide?.();
-                await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content, { forceReload });
-                if (shouldAbort('spreadsheet-load')) {
-                    return;
-                }
-                setHasUnsavedChanges(false);
-                await updateWindowTitle();
-                if (shouldAbort('spreadsheet-title')) {
-                    return;
-                }
-                if (!skipWatchSetup) {
-                    try {
-                        await fileTree?.watchFile(filePath);
-                        if (shouldAbort('spreadsheet-watch')) {
-                            return;
-                        }
-                    } catch (error) {
-                        console.error('无法监听文件:', error);
-                    }
-                }
-                if (shouldAbort('spreadsheet-finalize')) {
-                    return;
-                }
-                fileTree?.clearExternalModification?.(filePath);
-                persistWorkspaceState();
-                markSessionReady();
-                return;
-            }
-
-            if (targetViewMode === 'pdf') {
-                activatePdfView();
-                editor?.clear?.();
-                codeEditor?.hide?.();
-                imageViewer?.hide?.();
-                mediaViewer?.hide?.();
-                spreadsheetViewer?.hide?.();
-                unsupportedViewer?.hide?.();
-                await pdfViewer?.loadDocument?.(filePath, fileData.content, { forceReload });
-                if (shouldAbort('pdf-load')) {
-                    return;
-                }
-                setHasUnsavedChanges(false);
-                await updateWindowTitle();
-                if (shouldAbort('pdf-title')) {
-                    return;
-                }
-                if (!skipWatchSetup) {
-                    try {
-                        await fileTree?.watchFile(filePath);
-                        if (shouldAbort('pdf-watch')) {
-                            return;
-                        }
-                    } catch (error) {
-                        console.error('无法监听文件:', error);
-                    }
-                }
-                if (shouldAbort('pdf-finalize')) {
-                    return;
-                }
-                fileTree?.clearExternalModification?.(filePath);
-                persistWorkspaceState();
-                markSessionReady();
-                return;
-            }
-
             if (targetViewMode === 'unsupported') {
                 activateUnsupportedView();
                 unsupportedViewer?.show(filePath, fileData.error);
@@ -586,83 +572,52 @@ export function createFileOperations({
                 return;
             }
 
-            if (targetViewMode === 'workflow') {
-                activateWorkflowView();
-                editor?.clear?.();
-                codeEditor?.hide?.();
-                imageViewer?.hide?.();
-                mediaViewer?.hide?.();
-                spreadsheetViewer?.hide?.();
-                pdfViewer?.hide?.();
-                unsupportedViewer?.hide?.();
-                const workflowEditor = getWorkflowEditor();
-                await workflowEditor?.loadFile?.(session, filePath, fileData.content, { forceReload });
-                if (shouldAbort('workflow-load')) {
-                    return;
-                }
+            let effectiveRenderer = renderer;
+            if (!effectiveRenderer || rendererViewMode !== targetViewMode) {
+                effectiveRenderer = rendererRegistry?.getHandlerById?.(targetViewMode) || null;
+            }
+            if (!effectiveRenderer) {
+                throw new Error(`缺少 ${targetViewMode} 渲染器`);
+            }
+
+            const handled = await effectiveRenderer.load({
+                filePath,
+                session,
+                fileData,
+                editorRegistry: {
+                    getMarkdownEditor: () => editor,
+                    getCodeEditor: () => codeEditor,
+                },
+                detectLanguageForPath,
+                activateMarkdownView,
+                activateCodeView,
+                restoreMarkdownScrollPosition,
+                setHasUnsavedChanges,
+                updateWindowTitle,
+                shouldAutoFocus,
+                tabId,
+                imageViewer,
+                mediaViewer,
+                spreadsheetViewer,
+                pdfViewer,
+                htmlViewer,
+                unsupportedViewer,
+                workflowEditor: getWorkflowEditor(),
+                activateSpreadsheetView,
+                activatePdfView,
+                activateHtmlView,
+                activateWorkflowView,
+                forceReload,
+            });
+            if (shouldAbort('renderer-load')) {
+                return;
+            }
+            if (!handled) {
+                console.warn('[fileOperations] renderer did not handle file:', filePath);
+            }
+            if (targetViewMode !== 'markdown' && targetViewMode !== 'code') {
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
-                if (shouldAbort('workflow-title')) {
-                    return;
-                }
-                if (!skipWatchSetup) {
-                    try {
-                        await fileTree?.watchFile(filePath);
-                        if (shouldAbort('workflow-watch')) {
-                            return;
-                        }
-                    } catch (error) {
-                        console.error('无法监听文件:', error);
-                    }
-                }
-                if (shouldAbort('workflow-finalize')) {
-                    return;
-                }
-                fileTree?.clearExternalModification?.(filePath);
-                persistWorkspaceState();
-                markSessionReady();
-                return;
-            }
-
-            if (targetViewMode === 'markdown') {
-                activateMarkdownView();
-                if (editor) {
-                    await editor.loadFile(session, filePath, fileData.content, { autoFocus: shouldAutoFocus });
-                    if (shouldAbort('markdown-editor-load')) {
-                        return;
-                    }
-                    restoreMarkdownScrollPosition(filePath);
-                    if (fileData.hasChanges) {
-                        editor.contentChanged = true;
-                        if (fileData.originalContent) {
-                            editor.originalMarkdown = fileData.originalContent;
-                        }
-                    }
-                }
-            } else {
-                activateCodeView();
-                editor?.clear?.();
-                const language = detectLanguageForPath(filePath);
-                await codeEditor?.show(filePath, fileData.content, language, session, {
-                    autoFocus: shouldAutoFocus,
-                    tabId,
-                });
-                if (shouldAbort('code-editor-load')) {
-                    return;
-                }
-                if (fileData.hasChanges) {
-                    codeEditor.isDirty = true;
-                }
-                editor?.refreshSearch?.();
-            }
-
-            if (shouldAbort('before-unsaved-state')) {
-                return;
-            }
-            setHasUnsavedChanges(fileData.hasChanges);
-            await updateWindowTitle();
-            if (shouldAbort('after-title-update')) {
-                return;
             }
 
             if (!skipWatchSetup) {

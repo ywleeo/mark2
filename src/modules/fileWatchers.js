@@ -36,23 +36,29 @@ export function createFileWatcherController({
                 return;
             }
             shouldRefreshRoot = true;
-        if (fileTree?.isFileOpen?.(changedPath)) {
-            const editor = getEditor();
-            const workflowEditor = getWorkflowEditor?.();
-            const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
-            if (editor && editorPath === changedPath) {
-                if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+            if (fileTree?.isFileOpen?.(changedPath)) {
+                const editor = getEditor();
+                const codeEditor = getCodeEditor?.();
+                const workflowEditor = getWorkflowEditor?.();
+                const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
+                if (editor && editorPath === changedPath) {
+                    if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+                        return;
+                    }
+                }
+                if (codeEditor && normalizeFsPath(codeEditor.currentFile) === changedPath) {
+                    if (typeof codeEditor.hasUnsavedChanges === 'function' && codeEditor.hasUnsavedChanges()) {
+                        return;
+                    }
+                }
+                if (workflowEditor && typeof workflowEditor.hasUnsavedChanges === 'function'
+                    && workflowEditor.currentFile === changedPath
+                    && workflowEditor.hasUnsavedChanges()) {
                     return;
                 }
+                handleFileRefresh(changedPath);
             }
-            if (workflowEditor && typeof workflowEditor.hasUnsavedChanges === 'function'
-                && workflowEditor.currentFile === changedPath
-                && workflowEditor.hasUnsavedChanges()) {
-                return;
-            }
-            handleFileRefresh(changedPath);
-        }
-    });
+        });
 
         if (shouldRefreshRoot) {
             scheduleFolderRefresh(normalizedRoot);
@@ -72,7 +78,8 @@ export function createFileWatcherController({
         const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
         const currentFilePath = normalizeFsPath(getCurrentFile());
         const isMarkdownActive = editor && editorPath === normalizedPath;
-        const isCodeActive = getActiveViewMode() === 'code' && currentFilePath === normalizedPath;
+        const activeViewMode = getActiveViewMode();
+        const isCodeActive = (activeViewMode === 'code' || activeViewMode === 'html') && currentFilePath === normalizedPath;
         const isWorkflowActive = getActiveViewMode() === 'workflow' && currentFilePath === normalizedPath;
 
         const cachedEntry = fileSession?.getCachedEntry?.(normalizedPath);

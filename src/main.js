@@ -12,7 +12,13 @@ import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { detectLanguageForPath, getViewModeForPath, isMarkdownFilePath, isCsvFilePath } from './utils/fileTypeUtils.js';
+import {
+    detectLanguageForPath,
+    getViewModeForPath,
+    isMarkdownFilePath,
+    isCsvFilePath,
+    isHtmlFilePath,
+} from './utils/fileTypeUtils.js';
 import {
     applyEditorSettings,
     // 龙来撒来
@@ -47,6 +53,7 @@ import { createMarkdownCodeMode } from './modules/markdownCodeMode.js';
 import { createSvgCodeMode } from './modules/svgCodeMode.js';
 import { createCsvTableMode } from './modules/csvTableMode.js';
 import { createWorkflowCodeMode } from './modules/workflowCodeMode.js';
+import { createHtmlCodeMode } from './modules/htmlCodeMode.js';
 import { createFileDropController } from './modules/fileDropController.js';
 import { createWindowFocusHandler } from './modules/windowFocusHandler.js';
 import { createWorkspaceController } from './modules/workspaceController.js';
@@ -76,10 +83,20 @@ import { createEditorCallbacks, setupEditors } from './app/editorSetup.js';
 import { setupStatusBar, setupFileTree, setupTabManager } from './app/componentSetup.js';
 import { setupToolbarEvents } from './app/eventSetup.js';
 import { restoreStoredSecurityScopes } from './services/securityScopeService.js';
+import { RendererRegistry } from './fileRenderers/registry.js';
+import { createMarkdownRenderer } from './fileRenderers/handlers/markdown.js';
+import { createCodeRenderer } from './fileRenderers/handlers/code.js';
+import { createImageRenderer } from './fileRenderers/handlers/image.js';
+import { createMediaRenderer } from './fileRenderers/handlers/media.js';
+import { createSpreadsheetRenderer } from './fileRenderers/handlers/spreadsheet.js';
+import { createPdfRenderer } from './fileRenderers/handlers/pdf.js';
+import { createWorkflowRenderer } from './fileRenderers/handlers/workflow.js';
+import { createHtmlRenderer } from './fileRenderers/handlers/html.js';
 
 // ========== 状态管理实例 ==========
 const appState = new AppState();
 const editorRegistry = new EditorRegistry();
+const rendererRegistry = new RendererRegistry();
 
 // ========== 构造函数（动态加载） ==========
 let SettingsDialogCtor = null;
@@ -112,6 +129,15 @@ let appServices = null;
 // ========== 初始化应用状态 ==========
 appState.setEditorSettings({ ...defaultEditorSettings });
 appState.setContentZoom(ZOOM_DEFAULT);
+appState.setRendererRegistry(rendererRegistry);
+rendererRegistry.register(createMarkdownRenderer());
+rendererRegistry.register(createImageRenderer());
+rendererRegistry.register(createMediaRenderer());
+rendererRegistry.register(createSpreadsheetRenderer());
+rendererRegistry.register(createPdfRenderer());
+rendererRegistry.register(createWorkflowRenderer());
+rendererRegistry.register(createHtmlRenderer());
+rendererRegistry.setDefaultHandler(createCodeRenderer());
 
 // ========== 外观变化监听 ==========
 appState.setCleanupFunction('appearanceChange', onEditorAppearanceChange(({ appearance }) => {
@@ -176,6 +202,7 @@ const viewController = createViewController({
     getMediaViewer: () => editorRegistry.getMediaViewer(),
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
+    getHtmlViewer: () => editorRegistry.getHtmlViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
     getWorkflowEditor: () => editorRegistry.get('workflow'),
     getMarkdownPane: () => appState.getPaneElement('markdown'),
@@ -184,6 +211,7 @@ const viewController = createViewController({
     getMediaPane: () => appState.getPaneElement('media'),
     getSpreadsheetPane: () => appState.getPaneElement('spreadsheet'),
     getPdfPane: () => appState.getPaneElement('pdf'),
+    getHtmlPane: () => appState.getPaneElement('html'),
     getWorkflowPane: () => appState.getPaneElement('workflow'),
     getUnsupportedPane: () => appState.getPaneElement('unsupported'),
     getViewContainer: () => appState.getPaneElement('viewContainer'),
@@ -219,6 +247,7 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateHtmlView,
     activateWorkflowView,
     activateUnsupportedView,
     updateZoomDisplayForActiveView,
@@ -235,6 +264,7 @@ const editorActions = createEditorActions({
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
+    getHtmlCodeMode: () => appState.getHtmlCodeMode(),
     getSvgCodeMode: () => appState.getSvgCodeMode(),
     getCsvTableMode: () => appState.getCsvTableMode(),
     getWorkflowCodeMode: () => appState.getWorkflowCodeMode(),
@@ -249,6 +279,7 @@ const editorActions = createEditorActions({
     updateWindowTitle,
     fileSession,
     getImageViewer: () => editorRegistry.getImageViewer(),
+    getHtmlViewer: () => editorRegistry.getHtmlViewer(),
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
     getFileService: () => appServices?.file,
@@ -488,6 +519,7 @@ const {
     getMediaViewer: () => editorRegistry.getMediaViewer(),
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
+    getHtmlViewer: () => editorRegistry.getHtmlViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
     getWorkflowEditor: () => editorRegistry.get('workflow'),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
@@ -523,12 +555,14 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateHtmlView,
     activateWorkflowView,
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
     untitledFileManager,
     saveUntitledFile,
+    getRendererRegistry: () => appState.getRendererRegistry(),
 });
 
 /**
@@ -963,6 +997,14 @@ async function initializeApplication() {
     });
     appState.setMarkdownCodeMode(markdownCodeMode);
 
+    const htmlCodeMode = createHtmlCodeMode({
+        isHtmlFilePath,
+        detectLanguageForPath,
+        activateHtmlView,
+        activateCodeView,
+    });
+    appState.setHtmlCodeMode(htmlCodeMode);
+
     const svgCodeMode = createSvgCodeMode({
         activateCodeView,
         activateImageView,
@@ -1137,6 +1179,23 @@ async function initializeApplication() {
     const windowFocusHandler = createWindowFocusHandler({
         getFileTree: () => appState.getFileTree(),
         normalizePath: normalizeFsPath,
+        fileService: appServices.file,
+        fileSession,
+        getEditor: () => editorRegistry.getMarkdownEditor(),
+        getCodeEditor: () => editorRegistry.getCodeEditor(),
+        getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
+        getCurrentFile: () => appState.getCurrentFile(),
+        getActiveViewMode: () => appState.getActiveViewMode(),
+        scheduleLoadFile: async (path) => {
+            const normalized = normalizeFsPath(path) || path || null;
+            await loadFile(path, {
+                skipWatchSetup: true,
+                forceReload: true,
+                autoFocus: false,
+                tabId: normalized,
+                suppressMissingFileErrors: true,
+            });
+        },
     });
     appState.setCleanupFunction('windowFocusHandler', () => windowFocusHandler.dispose());
     await windowFocusHandler.setup();
@@ -1151,12 +1210,15 @@ function saveCurrentEditorContentToCache() {
     const editor = editorRegistry.getMarkdownEditor();
     const codeEditor = editorRegistry.getCodeEditor();
     const workflowEditor = editorRegistry.getWorkflowEditor();
+    const htmlViewer = editorRegistry.getHtmlViewer();
 
     // 对于 untitled 文件，保存到 untitledFileManager 中
     if (currentFile && untitledFileManager.isUntitledPath(currentFile)) {
         let content = '';
         if (activeViewMode === 'markdown' && editor) {
             content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'html' && htmlViewer) {
+            content = htmlViewer.getHtml?.() || '';
         } else if (activeViewMode === 'code' && codeEditor) {
             content = codeEditor.getValue?.() || '';
         }
@@ -1170,6 +1232,7 @@ function saveCurrentEditorContentToCache() {
         editor,
         codeEditor,
         workflowEditor,
+        htmlViewer,
     });
 }
 

@@ -74,7 +74,8 @@
 }
 
 .view-content:has(.markdown-pane.is-active),
-.view-content:has(.pdf-pane.is-active) {
+.view-content:has(.pdf-pane.is-active),
+.view-content:has(.html-pane.is-active) {
     overflow: hidden;
 }
 

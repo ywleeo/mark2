@@ -1,118 +1,218 @@
 /**
  * 窗口焦点处理模块
- * 监听窗口焦点变化，在获取焦点时校验文件树状态
+ * 监听窗口焦点变化，在获取焦点时校验文件树状态和打开文件的更新
  */
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { confirm } from '@tauri-apps/plugin-dialog';
 
 /**
  * 创建窗口焦点处理器
  * @param {Object} options
  * @param {Function} options.getFileTree - 获取 FileTree 实例
  * @param {Function} options.normalizePath - 路径规范化函数
+ * @param {Object} options.fileService - 文件服务（用于获取 metadata）
+ * @param {Function} options.getEditor - 获取 Markdown 编辑器
+ * @param {Function} options.getCodeEditor - 获取代码编辑器
+ * @param {Function} options.getWorkflowEditor - 获取工作流编辑器
+ * @param {Function} options.getCurrentFile - 获取当前文件路径
+ * @param {Function} options.getActiveViewMode - 获取当前视图模式
+ * @param {Function} options.scheduleLoadFile - 刷新文件的函数
+ * @param {Object} options.fileSession - 文件会话（用于清除缓存）
  */
 export function createWindowFocusHandler(options = {}) {
-    const { getFileTree, normalizePath } = options;
+    const {
+        getFileTree,
+        normalizePath,
+        fileService,
+        getEditor,
+        getCodeEditor,
+        getWorkflowEditor,
+        getCurrentFile,
+        getActiveViewMode,
+        scheduleLoadFile,
+        fileSession,
+    } = options;
 
     let unlisten = null;
     let isChecking = false;
 
-    /**
-     * 从 DOM 中获取某个目录当前渲染的子项
-     * @param {HTMLElement} container - FileTree 容器
-     * @param {string} folderPath - 目录路径
-     * @returns {Set<string>} 子项路径集合
-     */
-    function getRenderedChildren(container, folderPath) {
-        const result = new Set();
-        const folderElement = container.querySelector(`.tree-folder[data-path="${folderPath}"]`);
-        if (!folderElement) {
-            return result;
+    // 缓存文件的修改时间（用于检测外部修改）
+    const fileModifiedTimeCache = new Map();
+    let lastSidebarRefreshAt = 0;
+    const SIDEBAR_REFRESH_COOLDOWN_MS = 800;
+
+    async function getFileModifiedTime(filePath) {
+        if (!filePath || typeof fileService?.metadata !== 'function') {
+            return null;
         }
-
-        const childrenContainer = folderElement.querySelector('.tree-folder-children');
-        if (!childrenContainer) {
-            return result;
-        }
-
-        // 遍历直接子项
-        for (const child of childrenContainer.children) {
-            const path = child.dataset?.path;
-            if (path) {
-                result.add(path);
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * 对比两个集合是否相同
-     */
-    function setsEqual(a, b) {
-        if (a.size !== b.size) return false;
-        for (const item of a) {
-            if (!b.has(item)) return false;
-        }
-        return true;
-    }
-
-    /**
-     * 递归校验目录及其展开的子目录
-     * @param {Object} fileTree - FileTree 实例
-     * @param {string} folderPath - 目录路径
-     * @param {Set<string>} checkedPaths - 已检查的路径（避免重复）
-     * @returns {Promise<boolean>} 是否有差异
-     */
-    async function checkFolderRecursively(fileTree, folderPath, checkedPaths = new Set()) {
-        if (checkedPaths.has(folderPath)) {
-            return false;
-        }
-        checkedPaths.add(folderPath);
-
-        const container = fileTree.container;
-        if (!container) {
-            return false;
-        }
-
-        // 获取 DOM 中渲染的子项
-        const renderedChildren = getRenderedChildren(container, folderPath);
-        if (renderedChildren.size === 0) {
-            // 目录可能未展开，跳过
-            return false;
-        }
-
-        // 读取文件系统实际状态
-        let actualEntries;
         try {
-            actualEntries = await fileTree.readDirectory(folderPath);
-        } catch (error) {
-            console.warn('[windowFocusHandler] 读取目录失败:', folderPath, error);
+            const metadata = await fileService.metadata(filePath);
+            if (!metadata || !metadata.modified_time) {
+                return null;
+            }
+            return metadata.modified_time;
+        } catch {
+            return null;
+        }
+    }
+
+    function hasUnsavedChangesForPath(filePath) {
+        if (!filePath) {
+            return false;
+        }
+        const normalized = typeof normalizePath === 'function' ? normalizePath(filePath) : filePath;
+        if (!normalized) {
             return false;
         }
 
-        const actualPaths = new Set(actualEntries.map(e => e.path));
-
-        // 对比
-        if (!setsEqual(renderedChildren, actualPaths)) {
-            return true; // 有差异
+        const cached = fileSession?.getCachedEntry?.(normalized);
+        if (cached?.hasChanges) {
+            return true;
         }
 
-        // 递归检查展开的子目录
-        for (const entry of actualEntries) {
-            if (!entry.isDir) continue;
+        const currentFile = getCurrentFile?.();
+        const currentNormalized = typeof normalizePath === 'function' ? normalizePath(currentFile) : currentFile;
+        if (currentNormalized !== normalized) {
+            return false;
+        }
 
-            const folderKey = fileTree.buildFolderKey(entry.path, folderPath, false);
-            const isExpanded = fileTree.expandedFolders.has(folderKey);
+        const activeViewMode = getActiveViewMode?.();
+        const editor = getEditor?.();
+        const codeEditor = getCodeEditor?.();
+        const workflowEditor = getWorkflowEditor?.();
 
-            if (isExpanded) {
-                const hasDiff = await checkFolderRecursively(fileTree, entry.path, checkedPaths);
-                if (hasDiff) {
-                    return true;
+        if (activeViewMode === 'markdown' && typeof editor?.hasUnsavedChanges === 'function') {
+            return editor.hasUnsavedChanges();
+        }
+        if (activeViewMode === 'code' && typeof codeEditor?.hasUnsavedChanges === 'function') {
+            return codeEditor.hasUnsavedChanges();
+        }
+        if (activeViewMode === 'html' && typeof codeEditor?.hasUnsavedChanges === 'function') {
+            return codeEditor.hasUnsavedChanges();
+        }
+        if (activeViewMode === 'workflow' && typeof workflowEditor?.hasUnsavedChanges === 'function') {
+            return workflowEditor.hasUnsavedChanges();
+        }
+
+        return false;
+    }
+
+    async function refreshOpenFilesOnFocus(fileTree) {
+        if (!fileTree) {
+            return;
+        }
+        const openFiles = typeof fileTree.getOpenFilePaths === 'function'
+            ? fileTree.getOpenFilePaths()
+            : (Array.isArray(fileTree.openFiles) ? fileTree.openFiles : []);
+
+        const normalizedOpenFiles = new Set();
+
+        const currentFile = getCurrentFile?.();
+        const currentNormalized = typeof normalizePath === 'function' ? normalizePath(currentFile) : currentFile;
+
+        const allTargets = new Set(
+            [currentNormalized, ...openFiles]
+                .filter(Boolean)
+                .map(path => (typeof normalizePath === 'function' ? normalizePath(path) : path))
+                .filter(Boolean)
+        );
+
+        for (const normalized of allTargets) {
+            if (!normalized) {
+                continue;
+            }
+            normalizedOpenFiles.add(normalized);
+
+            const latestModifiedTime = await getFileModifiedTime(normalized);
+            if (latestModifiedTime === null) {
+                fileModifiedTimeCache.delete(normalized);
+                fileSession?.clearEntry?.(normalized);
+                continue;
+            }
+
+            const previousModifiedTime = fileModifiedTimeCache.get(normalized);
+            if (previousModifiedTime === undefined) {
+                const cachedEntry = fileSession?.getCachedEntry?.(normalized);
+                const cachedModifiedTime = cachedEntry?.modifiedTime ?? null;
+                if (cachedModifiedTime !== null && cachedModifiedTime !== latestModifiedTime) {
+                    const isActive = currentNormalized === normalized;
+                    const hasUnsavedChanges = hasUnsavedChangesForPath(normalized);
+                    if (isActive && hasUnsavedChanges) {
+                        const shouldReload = await confirm(
+                            '检测到文件在外部被修改，是否重新加载并覆盖当前未保存内容？',
+                            {
+                                title: '文件已更新',
+                                kind: 'warning',
+                                okLabel: '重新加载',
+                                cancelLabel: '保留当前内容',
+                            }
+                        );
+                        if (shouldReload && typeof scheduleLoadFile === 'function') {
+                            await scheduleLoadFile(normalized);
+                        }
+                    } else if (!hasUnsavedChanges) {
+                        if (isActive && typeof scheduleLoadFile === 'function') {
+                            await scheduleLoadFile(normalized);
+                        } else {
+                            fileSession?.clearEntry?.(normalized);
+                        }
+                    }
+                }
+                fileModifiedTimeCache.set(normalized, latestModifiedTime);
+                continue;
+            }
+
+            if (latestModifiedTime !== previousModifiedTime) {
+                fileModifiedTimeCache.set(normalized, latestModifiedTime);
+                const isActive = currentNormalized === normalized;
+                const hasUnsavedChanges = hasUnsavedChangesForPath(normalized);
+
+                if (isActive && hasUnsavedChanges) {
+                    const shouldReload = await confirm(
+                        '检测到文件在外部被修改，是否重新加载并覆盖当前未保存内容？',
+                        {
+                            title: '文件已更新',
+                            kind: 'warning',
+                            okLabel: '重新加载',
+                            cancelLabel: '保留当前内容',
+                        }
+                    );
+                    if (shouldReload && typeof scheduleLoadFile === 'function') {
+                        await scheduleLoadFile(normalized);
+                    }
+                    continue;
+                }
+
+                if (hasUnsavedChanges) {
+                    continue;
+                }
+
+                if (isActive && typeof scheduleLoadFile === 'function') {
+                    await scheduleLoadFile(normalized);
+                } else {
+                    fileSession?.clearEntry?.(normalized);
                 }
             }
         }
 
-        return false;
+        for (const cachedPath of Array.from(fileModifiedTimeCache.keys())) {
+            if (!normalizedOpenFiles.has(cachedPath)) {
+                fileModifiedTimeCache.delete(cachedPath);
+            }
+        }
+    }
+
+    async function refreshSidebarOnFocus(fileTree) {
+        const now = Date.now();
+        if (now - lastSidebarRefreshAt < SIDEBAR_REFRESH_COOLDOWN_MS) {
+            return;
+        }
+        lastSidebarRefreshAt = now;
+        try {
+            await fileTree.refreshCurrentFolder?.();
+        } catch (error) {
+            console.error('[windowFocusHandler] 刷新侧边栏失败:', error);
+        }
     }
 
     /**
@@ -131,27 +231,8 @@ export function createWindowFocusHandler(options = {}) {
         isChecking = true;
 
         try {
-            const rootPaths = fileTree.getRootPaths();
-            if (rootPaths.length === 0) {
-                return;
-            }
-
-            const foldersToRefresh = [];
-
-            for (const rootPath of rootPaths) {
-                const hasDiff = await checkFolderRecursively(fileTree, rootPath);
-                if (hasDiff) {
-                    foldersToRefresh.push(rootPath);
-                }
-            }
-
-            // 刷新有差异的目录
-            if (foldersToRefresh.length > 0) {
-                console.log('[windowFocusHandler] 检测到文件变化，刷新目录:', foldersToRefresh);
-                await Promise.all(
-                    foldersToRefresh.map(path => fileTree.loadFolder(path))
-                );
-            }
+            await refreshSidebarOnFocus(fileTree);
+            await refreshOpenFilesOnFocus(fileTree);
         } catch (error) {
             console.error('[windowFocusHandler] 校验文件树失败:', error);
         } finally {

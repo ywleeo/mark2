@@ -48,12 +48,35 @@ export function createFileSession({
 
     const cache = new Map();
 
-    function saveCurrentEditorContentToCache({ currentFile, activeViewMode, editor, codeEditor, workflowEditor }) {
+    async function getFileModifiedTime(filePath) {
+        if (!filePath || typeof fileService?.metadata !== 'function') {
+            return null;
+        }
+        try {
+            const metadata = await fileService.metadata(filePath);
+            if (!metadata || !metadata.modified_time) {
+                return null;
+            }
+            return metadata.modified_time;
+        } catch {
+            return null;
+        }
+    }
+
+    function saveCurrentEditorContentToCache({
+        currentFile,
+        activeViewMode,
+        editor,
+        codeEditor,
+        workflowEditor,
+        htmlViewer,
+    }) {
         if (!currentFile) return;
 
         const viewMode = activeViewMode;
         const defaultViewMode = currentFile ? getViewModeForPath(currentFile) : null;
         const viewModeToStore = defaultViewMode === 'markdown' ? 'markdown' : viewMode;
+        const existing = cache.get(currentFile);
         let content = null;
         let originalContent = null;
         let hasChanges = false;
@@ -62,6 +85,17 @@ export function createFileSession({
             content = editor.getMarkdown();
             originalContent = editor.originalMarkdown;
             hasChanges = editor.hasUnsavedChanges();
+        } else if (viewMode === 'html') {
+            const canUseCodeEditor = codeEditor && codeEditor.currentFile === currentFile;
+            if (canUseCodeEditor) {
+                content = typeof codeEditor.getValueForSave === 'function'
+                    ? codeEditor.getValueForSave()
+                    : codeEditor.getValue();
+                hasChanges = codeEditor.hasUnsavedChanges?.() || false;
+            } else if (htmlViewer) {
+                content = htmlViewer.getHtml?.() || '';
+                hasChanges = content !== '';
+            }
         } else if (viewMode === 'code' && codeEditor) {
             content = typeof codeEditor.getValueForSave === 'function'
                 ? codeEditor.getValueForSave()
@@ -78,6 +112,7 @@ export function createFileSession({
                 originalContent,
                 hasChanges,
                 viewMode: viewModeToStore,
+                modifiedTime: existing?.modifiedTime ?? null,
             });
         }
     }
@@ -88,20 +123,35 @@ export function createFileSession({
         if (!skipCache) {
             const cached = cache.get(filePath);
             if (cached) {
+                if (!cached.hasChanges) {
+                    const latestModifiedTime = await getFileModifiedTime(filePath);
+                    if (latestModifiedTime !== null) {
+                        if (cached.modifiedTime === null || cached.modifiedTime === undefined) {
+                            cache.delete(filePath);
+                        } else if (latestModifiedTime !== cached.modifiedTime) {
+                            cache.delete(filePath);
+                        }
+                    }
+                }
+            }
+
+            const refreshed = cache.get(filePath);
+            if (refreshed) {
                 const defaultViewMode = getViewModeForPath(filePath);
-                if (defaultViewMode === 'markdown' && cached.viewMode !== 'markdown') {
+                if (defaultViewMode === 'markdown' && refreshed.viewMode !== 'markdown') {
                     const coerced = {
-                        ...cached,
+                        ...refreshed,
                         viewMode: 'markdown',
                     };
                     cache.set(filePath, coerced);
                     return coerced;
                 }
-                return cached;
+                return refreshed;
             }
         }
 
         const viewMode = getViewModeForPath(filePath);
+        const modifiedTime = await getFileModifiedTime(filePath);
 
         try {
             if (viewMode === 'spreadsheet') {
@@ -119,6 +169,7 @@ export function createFileSession({
                     content: workbook,
                     hasChanges: false,
                     viewMode,
+                    modifiedTime,
                 };
                 cache.set(filePath, result);
                 return result;
@@ -130,6 +181,7 @@ export function createFileSession({
                     content: base64,
                     hasChanges: false,
                     viewMode,
+                    modifiedTime,
                 };
                 cache.set(filePath, result);
                 return result;
@@ -140,17 +192,21 @@ export function createFileSession({
                     content: null,
                     hasChanges: false,
                     viewMode,
+                    modifiedTime,
                 };
                 cache.set(filePath, result);
                 return result;
             }
 
             const content = await readText(filePath);
-            return {
+            const result = {
                 content,
                 hasChanges: false,
                 viewMode,
+                modifiedTime,
             };
+            cache.set(filePath, result);
+            return result;
         } catch (error) {
             if (viewMode === 'spreadsheet' || viewMode === 'pdf' || isLikelyBinaryReadError(error)) {
                 return {
@@ -158,6 +214,7 @@ export function createFileSession({
                     hasChanges: false,
                     viewMode: 'unsupported',
                     error,
+                    modifiedTime,
                 };
             }
             throw error;

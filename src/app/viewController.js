@@ -3,7 +3,7 @@ export const ZOOM_MIN = 0.6;
 export const ZOOM_MAX = 2.4;
 export const ZOOM_STEP = 0.1;
 
-const ZOOM_SUPPORTED_VIEWS = new Set(['markdown', 'code', 'image', 'pdf', 'spreadsheet']);
+const ZOOM_SUPPORTED_VIEWS = new Set(['markdown', 'code', 'image', 'pdf', 'spreadsheet', 'html']);
 
 export function createViewController(options = {}) {
     const markdownScrollPositions = new Map();
@@ -31,6 +31,7 @@ export function createViewController(options = {}) {
                 options.getMediaViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
                 // 不在这里主动 focus Markdown 编辑器，交由 editor.loadFile(..., { autoFocus }) 控制，
@@ -44,6 +45,7 @@ export function createViewController(options = {}) {
                 options.getMediaViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
                 // 同样不在这里主动 focus 代码编辑器，交由 codeEditor.show(..., { autoFocus }) 控制，
@@ -59,6 +61,7 @@ export function createViewController(options = {}) {
                 options.getMediaViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
             },
@@ -71,6 +74,7 @@ export function createViewController(options = {}) {
                 options.getImageViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
                 options.getMediaViewer?.()?.show?.();
@@ -84,6 +88,7 @@ export function createViewController(options = {}) {
                 options.getImageViewer?.()?.hide?.();
                 options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.show?.();
@@ -97,9 +102,24 @@ export function createViewController(options = {}) {
                 options.getImageViewer?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getMediaViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
                 options.getPdfViewer?.()?.show?.();
+            },
+        },
+        html: {
+            getPane: () => options.getHtmlPane?.() ?? null,
+            onEnter: () => {
+                options.getEditor?.()?.clear?.();
+                options.getCodeEditor?.()?.hide?.();
+                options.getImageViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
+                options.getSpreadsheetViewer?.()?.hide?.();
+                options.getPdfViewer?.()?.hide?.();
+                options.getUnsupportedViewer?.()?.hide?.();
+                options.getWorkflowEditor?.()?.hide?.();
+                options.getHtmlViewer?.()?.show?.();
             },
         },
         unsupported: {
@@ -111,6 +131,7 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.hide?.();
             },
         },
@@ -123,6 +144,7 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
+                options.getHtmlViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
                 options.getWorkflowEditor?.()?.show?.();
             },
@@ -295,6 +317,7 @@ export function createViewController(options = {}) {
         activateMediaView: () => setActiveViewMode('media'),
         activateSpreadsheetView: () => setActiveViewMode('spreadsheet'),
         activatePdfView: () => setActiveViewMode('pdf'),
+        activateHtmlView: () => setActiveViewMode('html'),
         activateWorkflowView: () => setActiveViewMode('workflow'),
         activateUnsupportedView: () => setActiveViewMode('unsupported'),
         updateZoomDisplayForActiveView,

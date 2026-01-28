@@ -42,7 +42,9 @@ export class AppState {
         this.fileDropController = null;
         this.markdownCodeMode = null;
         this.svgCodeMode = null;
+        this.htmlCodeMode = null;
         this.documentIO = null;
+        this.rendererRegistry = null;
 
         // ========== DOM 元素引用 ==========
         this.paneElements = {
@@ -52,6 +54,7 @@ export class AppState {
             media: null,
             spreadsheet: null,
             pdf: null,
+            html: null,
             unsupported: null,
             viewContainer: null,
         };
@@ -194,6 +197,24 @@ export class AppState {
 
     setMarkdownToolbarManager(instance) {
         this.markdownToolbarManager = instance;
+    }
+
+    getHtmlCodeMode() {
+        return this.htmlCodeMode;
+    }
+
+    setHtmlCodeMode(instance) {
+        this.htmlCodeMode = instance;
+    }
+
+    // ========== 渲染器注册表管理 ==========
+
+    getRendererRegistry() {
+        return this.rendererRegistry;
+    }
+
+    setRendererRegistry(registry) {
+        this.rendererRegistry = registry;
     }
 
     // ========== 控制器实例管理 ==========

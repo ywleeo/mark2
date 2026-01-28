@@ -1,4 +1,4 @@
-import { isEditableFilePath, getViewModeForPath } from '../../utils/fileTypeUtils.js';
+import { getViewModeForPath } from '../../utils/fileTypeUtils.js';
 import { getAppServices } from '../../services/appServices.js';
 import { FileRenamer } from '../FileRenamer.js';
 import { FileMover } from '../FileMover.js';

@@ -17,6 +17,7 @@ const VIDEO_EXTENSIONS = new Set([
     'avi',
     'm4v',
 ]);
+const HTML_EXTENSIONS = new Set(['html', 'htm']);
 const SPREADSHEET_EXTENSIONS = new Set([
     'xls',
     'xlsx',
@@ -208,6 +209,18 @@ export function isPdfFilePath(filePath) {
     return PDF_EXTENSIONS.has(match[1]);
 }
 
+export function isHtmlFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) {
+        return false;
+    }
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) {
+        return false;
+    }
+    return HTML_EXTENSIONS.has(match[1]);
+}
+
 export function isWorkflowFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     if (!normalized) {
@@ -258,6 +271,9 @@ export function getViewModeForPath(filePath) {
     if (isMarkdownFilePath(filePath)) {
         return 'markdown';
     }
+    if (isHtmlFilePath(filePath)) {
+        return 'html';
+    }
     if (isWorkflowFilePath(filePath)) {
         return 'workflow';
     }
@@ -282,9 +298,4 @@ export function getViewModeForPath(filePath) {
 export function isSvgFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     return normalized.endsWith('.svg');
-}
-
-export function isEditableFilePath(filePath) {
-    const viewMode = getViewModeForPath(filePath);
-    return viewMode === 'markdown' || viewMode === 'code' || (viewMode === 'image' && filePath.toLowerCase().endsWith('.svg'));
 }
