@@ -225,6 +225,24 @@ export function createFileSession({
         return cache.get(filePath) || null;
     }
 
+    async function refreshModifiedTime(filePath) {
+        if (!filePath) {
+            return null;
+        }
+        const modifiedTime = await getFileModifiedTime(filePath);
+        if (modifiedTime === null) {
+            return null;
+        }
+        const existing = cache.get(filePath);
+        if (existing) {
+            cache.set(filePath, {
+                ...existing,
+                modifiedTime,
+            });
+        }
+        return modifiedTime;
+    }
+
     function clearEntry(filePath) {
         cache.delete(filePath);
     }
@@ -261,6 +279,7 @@ export function createFileSession({
         saveCurrentEditorContentToCache,
         getFileContent,
         getCachedEntry,
+        refreshModifiedTime,
         clearEntry,
         clearAll,
         renameEntry,

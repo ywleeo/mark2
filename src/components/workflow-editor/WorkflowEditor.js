@@ -754,13 +754,23 @@ export class WorkflowEditor {
     }
 
     async readRelativeFile(relativePath) {
-        if (!this.currentFile) return '';
+        if (!relativePath) return '';
 
-        const dir = this.currentFile.substring(0, this.currentFile.lastIndexOf('/'));
-        const fullPath = `${dir}/${relativePath.replace(/^\.\//, '')}`;
+        const isAbsolute = (path) => {
+            return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
+        };
+
+        const normalizePath = (path) => path.replace(/^\.\//, '');
+        const resolvedPath = isAbsolute(relativePath)
+            ? relativePath
+            : this.currentFile
+                ? `${this.currentFile.substring(0, this.currentFile.lastIndexOf('/'))}/${normalizePath(relativePath)}`
+                : '';
+
+        if (!resolvedPath) return '';
 
         try {
-            return await getAppServices().file.readText(fullPath);
+            return await getAppServices().file.readText(resolvedPath);
         } catch (error) {
             console.error('[WorkflowEditor] 读取文件失败:', error);
             return '';

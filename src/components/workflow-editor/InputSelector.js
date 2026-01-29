@@ -1,3 +1,5 @@
+import { pickPaths } from '../../api/filesystem.js';
+
 /**
  * 输入选择器 - 用于选择卡片的输入来源
  */
@@ -135,12 +137,26 @@ export class InputSelector {
         return html;
     }
 
-    showFileInput() {
-        const path = prompt('请输入文件路径（相对于工作流文件）:');
-        if (path && path.trim()) {
-            this.addInput({ type: 'file', path: path.trim() });
+    async showFileInput() {
+        try {
+            const selections = await pickPaths({
+                multiple: false,
+                allowFiles: true,
+                allowDirectories: false,
+            });
+            const selectedPath = selections?.[0]?.path;
+            if (selectedPath) {
+                this.addInput({ type: 'file', path: selectedPath });
+            }
+        } catch (error) {
+            console.warn('[InputSelector] 文件选择失败，回退到手动输入', error);
+            const path = prompt('请输入文件绝对路径:');
+            if (path && path.trim()) {
+                this.addInput({ type: 'file', path: path.trim() });
+            }
+        } finally {
+            this.container.querySelector('.workflow-input-dropdown')?.classList.add('hidden');
         }
-        this.container.querySelector('.workflow-input-dropdown')?.classList.add('hidden');
     }
 
     addInput(input) {

@@ -103,6 +103,7 @@ let SettingsDialogCtor = null;
 let aiAssistant = null;
 let terminalSidebar = null;
 let cardExportSidebar = null;
+let windowFocusHandler = null;
 
 function ensureFileService() {
     if (typeof globalThis !== 'undefined') {
@@ -915,6 +916,9 @@ async function initializeApplication() {
         normalizeFsPath,
         updateWindowTitle,
         scheduleDocumentSnapshotSync,
+        onFileSaved: async (filePath, modifiedTime) => {
+            await windowFocusHandler?.syncFileModifiedTime?.(filePath, modifiedTime);
+        },
     });
 
     // 初始化所有编辑器和查看器
@@ -1176,7 +1180,7 @@ async function initializeApplication() {
     });
 
     // 初始化窗口焦点处理器（用于校验文件树状态）
-    const windowFocusHandler = createWindowFocusHandler({
+    windowFocusHandler = createWindowFocusHandler({
         getFileTree: () => appState.getFileTree(),
         normalizePath: normalizeFsPath,
         fileService: appServices.file,

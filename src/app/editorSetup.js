@@ -17,6 +17,7 @@ export function createEditorCallbacks({
     normalizeFsPath,
     updateWindowTitle,
     scheduleDocumentSnapshotSync,
+    onFileSaved,
 }) {
     return {
         onContentChange: () => {
@@ -40,7 +41,23 @@ export function createEditorCallbacks({
             if (!targetPath) {
                 return;
             }
-            fileSession.clearEntry(targetPath);
+            const editor = editorRegistry.getMarkdownEditor();
+            const codeEditor = editorRegistry.getCodeEditor();
+            const workflowEditor = editorRegistry.getWorkflowEditor();
+            const htmlViewer = editorRegistry.getHtmlViewer();
+            const activeViewMode = appState.getActiveViewMode();
+
+            fileSession.saveCurrentEditorContentToCache({
+                currentFile: targetPath,
+                activeViewMode,
+                editor,
+                codeEditor,
+                workflowEditor,
+                htmlViewer,
+            });
+
+            const modifiedTime = await fileSession.refreshModifiedTime?.(targetPath);
+            await onFileSaved?.(targetPath, modifiedTime);
             if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
                 appState.setHasUnsavedChanges(false);
                 await updateWindowTitle();

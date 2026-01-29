@@ -215,6 +215,22 @@ export function createWindowFocusHandler(options = {}) {
         }
     }
 
+    async function syncFileModifiedTime(filePath, modifiedTime = null) {
+        if (!filePath) {
+            return null;
+        }
+        const normalized = typeof normalizePath === 'function' ? normalizePath(filePath) : filePath;
+        if (!normalized) {
+            return null;
+        }
+        const nextModifiedTime = modifiedTime ?? await getFileModifiedTime(normalized);
+        if (nextModifiedTime === null) {
+            return null;
+        }
+        fileModifiedTimeCache.set(normalized, nextModifiedTime);
+        return nextModifiedTime;
+    }
+
     /**
      * 窗口获取焦点时的处理逻辑
      */
@@ -277,5 +293,6 @@ export function createWindowFocusHandler(options = {}) {
         dispose,
         // 暴露手动触发的方法，方便测试
         checkNow: onWindowFocus,
+        syncFileModifiedTime,
     };
 }

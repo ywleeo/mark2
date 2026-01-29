@@ -363,10 +363,10 @@
 /* 表格样式 */
 .tiptap-editor table {
     border-collapse: collapse;
-    table-layout: fixed;
-    width: 100%;
+    table-layout: auto;
+    width: fit-content;
+    max-width: 100%;
     margin: 1em 0;
-    overflow: hidden;
 }
 
 .tiptap-editor table td,
