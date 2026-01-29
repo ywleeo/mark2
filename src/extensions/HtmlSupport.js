@@ -85,6 +85,13 @@ export const HtmlDiv = Node.create({
         return [
             {
                 tag: 'div',
+                getAttrs: element => {
+                    const className = `${element.getAttribute('class') || ''}`.toLowerCase();
+                    if (className.includes('mermaid')) {
+                        return false;
+                    }
+                    return null;
+                },
             },
         ];
     },

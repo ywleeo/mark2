@@ -2,11 +2,6 @@ let mermaidPromise = null;
 let mermaidInstance = null;
 let initialized = false;
 
-// 渲染队列
-let renderQueue = [];
-let isRendering = false;
-const BATCH_SIZE = 2; // 每批渲染数量
-
 // 内存缓存：code hash -> svg string
 const svgCache = new Map();
 
@@ -44,30 +39,6 @@ async function loadMermaid() {
             });
     }
     return mermaidPromise;
-}
-
-// 处理渲染队列
-async function processQueue() {
-    if (isRendering || renderQueue.length === 0) return;
-
-    isRendering = true;
-
-    // 取出一批元素
-    const batch = renderQueue.splice(0, BATCH_SIZE);
-
-    // 并行渲染这一批
-    await Promise.all(batch.map(el => renderSingleMermaid(el)));
-
-    isRendering = false;
-
-    // 如果还有待渲染的，用 requestIdleCallback 继续
-    if (renderQueue.length > 0) {
-        if (typeof requestIdleCallback === 'function') {
-            requestIdleCallback(() => processQueue(), { timeout: 100 });
-        } else {
-            setTimeout(processQueue, 50);
-        }
-    }
 }
 
 const decodeMermaidCode = value => {
@@ -285,7 +256,6 @@ async function renderSingleMermaid(element) {
     const rawSource = sourceNode ? sourceNode.textContent : element.textContent || '';
     const raw = existingCode || rawSource;
     const code = raw ? raw.trim() : '';
-
     if (!code) {
         element.setAttribute('data-processed', 'true');
         return;
@@ -316,7 +286,6 @@ async function renderSingleMermaid(element) {
             `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         element.setAttribute('data-mermaid-id', uniqueId);
         const { svg } = await mermaid.render(uniqueId, code);
-
         element.innerHTML = svg;
         const svgElement = element.querySelector('svg');
         if (svgElement) {
@@ -359,11 +328,22 @@ export async function renderMermaidIn(rootElement) {
         ? Array.from(rootElement.querySelectorAll('.mermaid'))
         : [];
     const candidates = [...fromRoot, ...fromChildren];
+ 
 
     const targets = candidates.filter(element => {
         const processed = element.getAttribute('data-processed');
-        return processed !== 'true';
+        if (processed !== 'true') {
+            return true;
+        }
+        const hasSvg = element.querySelector('svg');
+        const failed = element.classList.contains('mermaid--failed');
+        if (!hasSvg || failed) {
+            element.setAttribute('data-processed', 'false');
+            return true;
+        }
+        return false;
     });
+ 
 
     if (targets.length === 0) {
         return;
@@ -386,9 +366,5 @@ export async function renderMermaidIn(rootElement) {
         }
     });
 
-    // 添加到渲染队列
-    targets.forEach(element => renderQueue.push(element));
-
-    // 启动队列处理
-    processQueue();
+    await Promise.all(targets.map(element => renderSingleMermaid(element)));
 }

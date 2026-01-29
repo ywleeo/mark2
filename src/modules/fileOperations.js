@@ -603,6 +603,7 @@ export function createFileOperations({
                 htmlViewer,
                 unsupportedViewer,
                 workflowEditor: getWorkflowEditor(),
+                fileService,
                 activateSpreadsheetView,
                 activatePdfView,
                 activateHtmlView,
