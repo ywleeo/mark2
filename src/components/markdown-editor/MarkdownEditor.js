@@ -1321,7 +1321,11 @@ export class MarkdownEditor {
                 }
                 this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
                 this.scheduleMermaidRender();
-                if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
+                // 如果 search bar 已关闭，清除搜索高亮
+                const searchBoxVisible = this.searchBoxManager?.searchBox?.classList.contains('is-visible');
+                if (!searchBoxVisible && this.editor?.commands?.clearSearch) {
+                    this.editor.commands.clearSearch();
+                } else if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
                     this.searchBoxManager.refreshSearchOnDocumentChange();
                 }
                 return;

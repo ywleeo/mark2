@@ -254,7 +254,9 @@ export class CodeEditor {
             detectIndentation: false,
         });
 
+        // 切换文件时清除旧的搜索高亮（需在 dispose 旧 model 前）
         if (this.currentModel && this.currentModel !== model) {
+            this.clearSearchDecorations();
             this.currentModel.dispose();
         }
 
@@ -735,6 +737,8 @@ export class CodeEditor {
         if (!tabId || !this.editor) {
             return false;
         }
+        // 恢复视图状态前清除搜索高亮
+        this.clearSearchDecorations();
         const viewState = this.tabViewStates.get(tabId);
         if (!viewState) {
             return false;
