@@ -1435,6 +1435,28 @@ export class CodeEditor {
         return { applied: true, total: this.searchMatches.length };
     }
 
+    replaceAllSearchMatches(replacementText) {
+        if (!this.editor || !this.monaco || !this.searchMatches || this.searchMatches.length === 0) {
+            return { replaced: 0 };
+        }
+
+        const replacement = typeof replacementText === 'string' ? replacementText : '';
+        const edits = this.searchMatches.map(match => ({
+            range: match.range,
+            text: replacement,
+        }));
+
+        this.editor.focus();
+        this.editor.pushUndoStop();
+        this.editor.executeEdits('search-replace', edits);
+        this.editor.pushUndoStop();
+
+        const replacedCount = this.searchMatches.length;
+        this.clearSearch();
+
+        return { replaced: replacedCount };
+    }
+
     clearSearchDecorations() {
         if (!this.editor) {
             return;

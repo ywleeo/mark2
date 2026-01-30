@@ -194,12 +194,22 @@ export class SearchBoxManager {
             return;
         }
 
-        if (type === 'code' && typeof editor.selectAllSearchMatches === 'function') {
-            const result = editor.selectAllSearchMatches();
-            if (result?.applied && result.total > 0) {
-                this.showInfoMessage(`多光标 × ${result.total}`);
-            } else {
-                this.showInfoMessage('无结果');
+        if (type === 'code') {
+            const replaceText = this.replaceInput?.value ?? '';
+            if (replaceText && typeof editor.replaceAllSearchMatches === 'function') {
+                const result = editor.replaceAllSearchMatches(replaceText);
+                if (result?.replaced > 0) {
+                    this.showInfoMessage(`已替换 ${result.replaced} 处`);
+                } else {
+                    this.showInfoMessage('无结果');
+                }
+            } else if (typeof editor.selectAllSearchMatches === 'function') {
+                const result = editor.selectAllSearchMatches();
+                if (result?.applied && result.total > 0) {
+                    this.showInfoMessage(`多光标 × ${result.total}`);
+                } else {
+                    this.showInfoMessage('无结果');
+                }
             }
             return;
         }
