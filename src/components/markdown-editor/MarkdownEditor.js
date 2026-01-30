@@ -1321,6 +1321,9 @@ export class MarkdownEditor {
                 }
                 this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
                 this.scheduleMermaidRender();
+                if (isNewFile && this.searchBoxManager && this.isSessionActive(sessionId)) {
+                    this.searchBoxManager.refreshSearchOnDocumentChange();
+                }
                 return;
             }
 

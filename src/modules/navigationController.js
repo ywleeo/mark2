@@ -159,6 +159,7 @@ export function createNavigationController({
 
             const tabId = normalizedNext || filePath || null;
             await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
+            getEditor?.()?.refreshSearch?.();
 
             const isOpenTab = fileTree?.isInOpenList?.(filePath);
             // untitled 文件已经在 fileTabs 中，直接激活

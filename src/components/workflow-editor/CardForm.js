@@ -118,7 +118,7 @@ export class CardForm {
 
         if (this.card.type === 'generate') {
             return `
-                <label>Prompt 模板 <small>(使用 {{input}} 引用输入内容)</small></label>
+                <label>Prompt 模板 <small>(使用 {{input}} 或 {{input1}} 引用输入内容)</small></label>
                 <textarea class="workflow-textarea workflow-textarea-lg" data-field="prompt" placeholder="请输入 Prompt..."
                     autocorrect="off" autocapitalize="off" spellcheck="false">${this.escapeHtml(this.card.config?.prompt || '')}</textarea>
             `;
@@ -129,7 +129,7 @@ export class CardForm {
                 <label>执行命令</label>
                 <div class="workflow-input-with-icon">
                     <span class="icon">💻</span>
-                    <input type="text" class="workflow-input" data-field="command" placeholder="例如: node script.js" value="${this.escapeAttr(this.card.config?.command || '')}"
+                    <input type="text" class="workflow-input" data-field="command" placeholder="例如: node script.js {{input1}}（可用 {{input}} 或 {{input1}}）" value="${this.escapeAttr(this.card.config?.command || '')}"
                         autocorrect="off" autocapitalize="off" spellcheck="false">
                 </div>
                 <label style="margin-top: 16px;">工作目录（可选）</label>

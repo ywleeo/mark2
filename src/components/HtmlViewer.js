@@ -7,6 +7,8 @@ export class HtmlViewer {
         this.currentFile = null;
         this.lastHtml = '';
         this.loadToken = 0;
+        this.resolvedCache = new Map();
+        this.lastWrittenSignature = null;
         this.init();
     }
 
@@ -19,6 +21,15 @@ export class HtmlViewer {
         `;
 
         this.frameElement = this.container.querySelector('.html-viewer-frame');
+        if (this.frameElement) {
+            this.frameElement.addEventListener('load', () => {
+                const doc = this.frameElement?.contentDocument;
+                const bodyLength = doc?.body?.innerHTML?.length || 0;
+                if (doc?.URL === 'about:blank' && bodyLength === 0) {
+                    return;
+                }
+            });
+        }
     }
 
     async loadHtml(filePath, htmlContent) {
@@ -33,31 +44,44 @@ export class HtmlViewer {
         this.lastHtml = rawHtml;
         releaseImageObjectUrls();
 
+        const rawSignature = this.buildSignature(rawHtml);
+        const cached = this.resolvedCache.get(filePath);
         let resolvedHtml = rawHtml;
-        try {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(rawHtml, 'text/html');
-            const baseDir = getCurrentDirectory(filePath);
-            if (baseDir && doc.head && !doc.querySelector('base')) {
-                const base = doc.createElement('base');
-                const baseHref = this.resolveBaseHref(baseDir);
-                base.href = baseHref.endsWith('/') ? baseHref : `${baseHref}/`;
-                doc.head.insertBefore(base, doc.head.firstChild);
+        let resolveDuration = 0;
+        if (cached && cached.rawSignature === rawSignature) {
+            resolvedHtml = cached.resolvedHtml;
+        } else {
+            const resolveStartTime = performance.now();
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(rawHtml, 'text/html');
+                const baseDir = getCurrentDirectory(filePath);
+                let baseHref = null;
+                if (baseDir && doc.head && !doc.querySelector('base')) {
+                    const base = doc.createElement('base');
+                    baseHref = this.resolveBaseHref(baseDir);
+                    base.href = baseHref.endsWith('/') ? baseHref : `${baseHref}/`;
+                    doc.head.insertBefore(base, doc.head.firstChild);
+                }
+                const bodyHtml = doc.body?.innerHTML || '';
+                const hasImage = /<img\\s/i.test(bodyHtml);
+                const resolvedBody = hasImage
+                    ? await resolveImageSources(bodyHtml, filePath)
+                    : bodyHtml;
+                if (doc.body) {
+                    doc.body.innerHTML = resolvedBody || '';
+                }
+                const style = doc.createElement('style');
+                style.textContent = 'html{scrollbar-width:thin;}';
+                doc.head?.appendChild(style);
+                resolvedHtml = '<!doctype html>' + doc.documentElement.outerHTML;
+                resolveDuration = performance.now() - resolveStartTime;
+            } catch {
+                resolvedHtml = await resolveImageSources(rawHtml, filePath);
+                resolveDuration = performance.now() - resolveStartTime;
             }
-            const bodyHtml = doc.body?.innerHTML || '';
-            const hasImage = /<img\\s/i.test(bodyHtml);
-            const resolvedBody = hasImage
-                ? await resolveImageSources(bodyHtml, filePath)
-                : bodyHtml;
-            if (doc.body) {
-                doc.body.innerHTML = resolvedBody || '';
-            }
-            const style = doc.createElement('style');
-            style.textContent = 'html{scrollbar-width:thin;}';
-            doc.head?.appendChild(style);
-            resolvedHtml = '<!doctype html>' + doc.documentElement.outerHTML;
-        } catch {
-            resolvedHtml = await resolveImageSources(rawHtml, filePath);
+            this.resolvedCache.set(filePath, { rawSignature, resolvedHtml });
+            this.trimCache(5);
         }
         if (this.frameElement) {
             if (token !== this.loadToken || this.currentFile !== filePath) {
@@ -66,20 +90,31 @@ export class HtmlViewer {
             const nextHtml = (resolvedHtml && resolvedHtml.trim().length > 0)
                 ? resolvedHtml
                 : '<!doctype html><html><head></head><body></body></html>';
+            const nextSignature = this.buildSignature(nextHtml);
+            if (this.lastWrittenSignature === nextSignature) {
+                return;
+            }
             this.frameElement.srcdoc = '';
             this.frameElement.removeAttribute('src');
             window.requestAnimationFrame(() => {
                 if (token !== this.loadToken || this.currentFile !== filePath) {
                     return;
                 }
-                this.writeHtmlToFrame(nextHtml);
                 const rect = this.frameElement.getBoundingClientRect();
+                const writeStart = performance.now();
+                this.writeHtmlToFrame(nextHtml);
+                const writeDuration = performance.now() - writeStart;
+                this.lastWrittenSignature = nextSignature;
                 if (rect.width === 0 || rect.height === 0) {
                     setTimeout(() => {
                         if (token !== this.loadToken || this.currentFile !== filePath) {
                             return;
                         }
+                        const retryRect = this.frameElement.getBoundingClientRect();
+                        const retryStart = performance.now();
                         this.writeHtmlToFrame(nextHtml);
+                        const retryDuration = performance.now() - retryStart;
+                        this.lastWrittenSignature = nextSignature;
                     }, 50);
                 }
             });
@@ -116,8 +151,25 @@ export class HtmlViewer {
             doc.open();
             doc.write(html);
             doc.close();
+            const bodyLength = doc.body?.innerHTML?.length || 0;
         } catch (error) {
-            console.log('[HtmlViewer] write error', { error: error?.message || String(error) });
+        }
+    }
+
+    buildSignature(text) {
+        if (!text) return 'len:0|hash:0';
+        const limit = Math.min(text.length, 2048);
+        let hash = 5381;
+        for (let i = 0; i < limit; i += 1) {
+            hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+        }
+        return `len:${text.length}|hash:${hash >>> 0}`;
+    }
+
+    trimCache(maxSize) {
+        while (this.resolvedCache.size > maxSize) {
+            const firstKey = this.resolvedCache.keys().next().value;
+            this.resolvedCache.delete(firstKey);
         }
     }
 

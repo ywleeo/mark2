@@ -40,7 +40,7 @@ export class InputSelector {
                 const display = this.formatInputLabel(input);
                 return `
                     <div class="workflow-input-item" data-index="${index}">
-                        <span class="status-dot"></span>
+                        <span class="workflow-input-index">${index + 1}</span>
                         <span class="workflow-input-item-text">${display}</span>
                         <button class="remove-btn" data-action="remove" data-index="${index}">×</button>
                     </div>

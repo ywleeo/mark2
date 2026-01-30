@@ -17,7 +17,6 @@ export function createHtmlRenderer() {
 
             let htmlContent = typeof fileData?.content === 'string' ? fileData.content : '';
             if (!htmlContent && fileService?.readText) {
-                console.log('[HtmlRenderer] fileData empty, reading from disk', { filePath });
                 htmlContent = await fileService.readText(filePath);
             }
 

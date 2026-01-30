@@ -52,7 +52,7 @@ export class ExecutionEngine {
 
         try {
             // 解析输入
-            const inputContent = await this.resolveInputs(data, card.inputs);
+            const inputData = await this.resolveInputs(data, card.inputs);
 
             // 根据类型执行
             let result = '';
@@ -60,9 +60,9 @@ export class ExecutionEngine {
             if (card.type === 'input') {
                 result = card.config?.content || '';
             } else if (card.type === 'generate') {
-                result = await this.executeGenerate(card, inputContent, abortController.signal);
+                result = await this.executeGenerate(card, inputData, abortController.signal);
             } else if (card.type === 'execute') {
-                result = await this.executeCommand(card, inputContent);
+                result = await this.executeCommand(card, inputData);
             }
 
             const duration = Date.now() - startTime;
@@ -220,7 +220,7 @@ export class ExecutionEngine {
      */
     async resolveInputs(data, inputs) {
         if (!inputs || inputs.length === 0) {
-            return '';
+            return { parts: [], combined: '' };
         }
 
         const parts = [];
@@ -230,16 +230,22 @@ export class ExecutionEngine {
                 const card = this.findCard(data, input.cardId);
                 if (card) {
                     const content = card._state?.result || card.config?.content || '';
-                    parts.push(content);
+                    if (content) {
+                        parts.push(content);
+                    }
                 }
             } else if (input.type === 'layer') {
                 const layer = data.layers.find((l) => l.id === input.layerId);
                 if (layer) {
+                    const layerParts = [];
                     for (const card of layer.cards) {
                         const content = card._state?.result || card.config?.content || '';
                         if (content) {
-                            parts.push(`【${card.title}】\n${content}`);
+                            layerParts.push(`【${card.title}】\n${content}`);
                         }
+                    }
+                    if (layerParts.length > 0) {
+                        parts.push(layerParts.join('\n\n'));
                     }
                 }
             } else if (input.type === 'file') {
@@ -254,38 +260,85 @@ export class ExecutionEngine {
             }
         }
 
-        return parts.join('\n\n');
+        return { parts, combined: parts.join('\n\n') };
     }
 
     /**
      * 执行 AI 生成
      */
-    async executeGenerate(card, inputContent, signal) {
+    async executeGenerate(card, inputData, signal) {
         const promptTemplate = card.config?.prompt || '';
-        const prompt = promptTemplate.replace(/\{\{input\}\}/g, inputContent);
+        const prompt = this.applyInputPlaceholders(promptTemplate, inputData);
 
         const messages = [{ role: 'user', content: prompt }];
 
-        // 使用 Promise.race 实现可取消的请求
-        const abortPromise = new Promise((_, reject) => {
-            signal?.addEventListener('abort', () => {
-                const error = new Error('已终止');
-                error.name = 'CommandCancelled';
-                reject(error);
-            });
-        });
+        const taskId = `${card.id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        const taskEntry = this.runningTasks.get(card.id) || {};
+        taskEntry.aiTaskId = taskId;
+        this.runningTasks.set(card.id, taskEntry);
 
-        const response = await Promise.race([
-            aiService.chat({ messages }),
-            abortPromise,
-        ]);
-        return response.content || '';
+        let unsub = null;
+        const updateState = (partial = {}) => {
+            this.onCardStateChange?.(card.id, {
+                status: 'running',
+                ...partial,
+            });
+        };
+
+        const listener = (event) => {
+            if (!event || event.id !== taskId) {
+                return;
+            }
+            if (event.type === 'task-stream-start') {
+                updateState({ thinking: true, result: '' });
+                return;
+            }
+            if (event.type === 'task-stream-think') {
+                if (!taskEntry.thinkingNotified) {
+                    taskEntry.thinkingNotified = true;
+                    updateState({ thinking: true });
+                }
+                return;
+            }
+            if (event.type === 'task-stream-chunk') {
+                updateState({ thinking: false, result: event.buffer || '' });
+                return;
+            }
+            if (event.type === 'task-stream-end') {
+                updateState({ thinking: false, result: event.buffer || '' });
+            }
+        };
+
+        try {
+            unsub = aiService.subscribe(listener);
+            if (signal) {
+                signal.addEventListener('abort', () => {
+                    aiService.cancelTask(taskId);
+                }, { once: true });
+            }
+            const response = await aiService.runTask({ taskId, messages });
+            return response.content || '';
+        } catch (error) {
+            const isCancelled = signal?.aborted
+                || String(error?.message || '').includes('取消')
+                || String(error?.message || '').includes('已终止');
+            if (isCancelled) {
+                const cancelled = new Error('已终止');
+                cancelled.name = 'CommandCancelled';
+                throw cancelled;
+            }
+            throw error;
+        } finally {
+            if (unsub) {
+                unsub();
+            }
+        }
     }
 
     /**
      * 执行命令
      */
-    async executeCommand(card, inputContent) {
+    async executeCommand(card, inputData) {
         const commandTemplate = card.config?.command || '';
 
         if (!commandTemplate) {
@@ -293,7 +346,7 @@ export class ExecutionEngine {
         }
 
         // 替换 {{input}} 占位符
-        const command = commandTemplate.replace(/\{\{input\}\}/g, inputContent);
+        const command = this.applyInputPlaceholders(commandTemplate, inputData);
         const workingDir = (card.config?.workingDir || '').trim();
         const cwd = workingDir || this.getWorkflowDir?.() || null;
 
@@ -375,6 +428,9 @@ export class ExecutionEngine {
             if (entry.abortController) {
                 entry.abortController.abort();
             }
+            if (entry.aiTaskId) {
+                await aiService.cancelTask(entry.aiTaskId);
+            }
             // 终止进程（用于 execute 类型）
             if (entry.kill) {
                 await entry.kill();
@@ -415,6 +471,22 @@ export class ExecutionEngine {
             .map((card) => this.cancelCard(card.id));
 
         await Promise.all(cancelPromises);
+    }
+    
+    applyInputPlaceholders(template, inputData) {
+        const safeTemplate = typeof template === 'string' ? template : '';
+        const combined = inputData?.combined ?? '';
+        const parts = Array.isArray(inputData?.parts) ? inputData.parts : [];
+        return safeTemplate.replace(/\{\{input(\d+)?\}\}/g, (_match, indexText) => {
+            if (!indexText) {
+                return combined;
+            }
+            const index = Number.parseInt(indexText, 10) - 1;
+            if (Number.isNaN(index) || index < 0) {
+                return '';
+            }
+            return parts[index] ?? '';
+        });
     }
 
     /**

@@ -7,6 +7,7 @@ export class CardRenderer {
     constructor(container, options = {}) {
         this.container = container;
         this.card = options.card;
+        this.thinkingTimer = null;
         this.callbacks = {
             onEdit: options.onEdit,
             onDelete: options.onDelete,
@@ -29,6 +30,12 @@ export class CardRenderer {
                     <span class="workflow-card-icon">${typeIcon}</span>
                     <span class="workflow-card-title">${this.escapeHtml(card.title)}</span>
                     <div class="workflow-card-actions">
+                        ${(card.type === 'execute' || card.type === 'generate') && card._state?.status === 'running' ? `
+                            <button class="workflow-btn workflow-btn-icon workflow-btn-danger" data-action="cancel" title="终止">⏹</button>
+                        ` : ''}
+                        ${card.type !== 'input' && card._state?.status !== 'running' ? `
+                            <button class="workflow-btn workflow-btn-icon" data-action="execute" title="执行">▶</button>
+                        ` : ''}
                         <button class="workflow-btn workflow-btn-icon" data-action="edit" title="编辑">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -58,12 +65,6 @@ export class CardRenderer {
                                 </svg>
                             </button>
                         ` : ''}
-                        ${card.type === 'execute' && card._state?.status === 'running' ? `
-                            <button class="workflow-btn workflow-btn-sm workflow-btn-danger" data-action="cancel">终止</button>
-                        ` : ''}
-                        ${card.type !== 'input' && card._state?.status !== 'running' ? `
-                            <button class="workflow-btn workflow-btn-sm" data-action="execute">▶ 执行</button>
-                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -71,6 +72,7 @@ export class CardRenderer {
 
         this.bindEvents();
         this.scrollToBottom();
+        this.setupThinkingAnimation();
     }
 
     scrollToBottom() {
@@ -78,6 +80,41 @@ export class CardRenderer {
         if (content) {
             content.scrollTop = content.scrollHeight;
         }
+    }
+
+    setupThinkingAnimation() {
+        if (this.thinkingTimer) {
+            clearInterval(this.thinkingTimer);
+            this.thinkingTimer = null;
+        }
+
+        const el = this.container.querySelector('.workflow-thinking-animate');
+        if (!el) {
+            return;
+        }
+
+        const fullText = el.dataset.thinkingText || 'thinking...';
+        let index = 0;
+        let pauseTicks = 0;
+        const pauseFrames = 5;
+
+        const tick = () => {
+            if (pauseTicks > 0) {
+                pauseTicks -= 1;
+                return;
+            }
+            index += 1;
+            if (index > fullText.length) {
+                index = 0;
+                pauseTicks = pauseFrames;
+                el.textContent = '\u00a0';
+                return;
+            }
+            el.textContent = fullText.slice(0, index);
+        };
+
+        tick();
+        this.thinkingTimer = setInterval(tick, 140);
     }
 
     bindEvents() {
@@ -169,23 +206,38 @@ export class CardRenderer {
             return '';
         }
 
-        const formatted = inputs.map((input) => {
+        const formatted = inputs.map((input, index) => {
+            const prefix = `${index + 1}. `;
             if (input.type === 'card') {
-                return `🔗 卡片: ${input.cardId}`;
+                return `${prefix}🔗 卡片: ${input.cardId}`;
             }
             if (input.type === 'layer') {
-                return `🔗 层级: ${input.layerId}`;
+                return `${prefix}🔗 层级: ${input.layerId}`;
             }
             if (input.type === 'file') {
-                return `📁 文件: ${input.path}`;
+                return `${prefix}📁 文件: ${input.path}`;
             }
-            return '未知输入';
+            return `${prefix}未知输入`;
         });
 
         return `输入: ${formatted.join(', ')}`;
     }
 
     getCardContent(card) {
+        if (card.type === 'generate' && card._state?.status === 'running') {
+            const output = card._state?.result || '';
+            if (output) {
+                return `<div class="workflow-card-result">${this.escapeHtml(output)}</div>`;
+            }
+            if (card._state?.thinking) {
+                return `
+                    <div class="workflow-card-placeholder">
+                        <span class="workflow-thinking-animate" data-thinking-text="thinking...">\u00a0</span>
+                    </div>
+                `;
+            }
+        }
+
         if (card.type === 'execute' && card._state?.status === 'running') {
             const hasStream = Array.isArray(card._state?.stream) && card._state.stream.length > 0;
             const hasOutput = Boolean(card._state?.stdout || card._state?.stderr);

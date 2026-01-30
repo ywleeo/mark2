@@ -412,6 +412,11 @@
     font-size: 11px;
 }
 
+.workflow-thinking-animate {
+    color: var(--wf-text-primary);
+    font-style: italic;
+}
+
 .workflow-card-error {
     color: var(--wf-terminal-text-error);
 }
@@ -920,11 +925,16 @@
     color: var(--wf-text-secondary);
 }
 
-.workflow-input-item .status-dot {
-    width: 5px;
-    height: 5px;
+.workflow-input-item .workflow-input-index {
+    min-width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--wf-success);
+    color: #0f1b13;
+    font-size: 9px;
+    line-height: 14px;
+    text-align: center;
+    font-weight: 700;
     flex-shrink: 0;
 }
 

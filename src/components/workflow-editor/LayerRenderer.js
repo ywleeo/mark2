@@ -16,7 +16,7 @@ export class LayerRenderer {
     }
 
     render(layers) {
-        this.layers = layers || [];
+        this.layers = Array.isArray(layers) ? [...layers] : [];
         this.container.innerHTML = '';
         this.cardRenderers.clear();
 
@@ -389,6 +389,11 @@ export class LayerRenderer {
                 ? allLayerEls[toIndex + 1]
                 : allLayerEls[toIndex];
             this.container.insertBefore(layerEl, refEl);
+        }
+
+        const movedLayer = this.layers.splice(fromIndex, 1)[0];
+        if (movedLayer) {
+            this.layers.splice(toIndex, 0, movedLayer);
         }
 
         // 更新所有层的序号
