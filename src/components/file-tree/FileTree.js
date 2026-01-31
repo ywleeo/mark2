@@ -66,6 +66,7 @@ export class FileTree {
             getRootPaths: () => this.state.getRootPaths(),
             isRootPath: (path) => this.state.isRootPath(path),
             loadFolder: (path) => this.loadFolder(path),
+            getExpandedFolderPaths: () => this.getExpandedFolderPaths(),
         });
 
         this.mover = new FileMover({
@@ -1073,6 +1074,21 @@ export class FileTree {
 
     getRootPaths() {
         return Array.from(this.rootPaths);
+    }
+
+    getExpandedFolderPaths() {
+        const keys = this.state.getExpandedFolders();
+        const paths = new Set();
+        keys.forEach((key) => {
+            if (!key) return;
+            const segments = String(key).split('::');
+            const path = segments[segments.length - 1];
+            const normalized = this.normalizePath(path);
+            if (normalized) {
+                paths.add(normalized);
+            }
+        });
+        return Array.from(paths);
     }
 
     hasRoot(path) {

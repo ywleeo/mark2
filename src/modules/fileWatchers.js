@@ -21,11 +21,6 @@ export function createFileWatcherController({
 
     function handleFolderWatcherEvent(watchedPath, event) {
         if (!fileTree) return;
-        console.warn('[fileWatchers] handleFolderWatcherEvent', {
-            watchedPath,
-            type: event?.type,
-            paths: event?.paths,
-        });
 
         const normalizedRoot = normalizeFsPath(watchedPath);
         if (!normalizedRoot || !fileTree?.hasRoot?.(normalizedRoot)) {
