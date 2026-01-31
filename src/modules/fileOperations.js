@@ -543,7 +543,6 @@ export function createFileOperations({
                 return;
             }
             const targetViewMode = fileData.viewMode || initialViewMode;
-
             // 判断是否应该自动聚焦编辑器：
             // 只有在 markdown 和 code 编辑器之间切换时才自动聚焦
             const isEditorMode = (mode) => mode === 'markdown' || mode === 'code';
@@ -612,9 +611,6 @@ export function createFileOperations({
             });
             if (shouldAbort('renderer-load')) {
                 return;
-            }
-            if (!handled) {
-                console.warn('[fileOperations] renderer did not handle file:', filePath);
             }
             if (targetViewMode !== 'markdown' && targetViewMode !== 'code') {
                 setHasUnsavedChanges(false);

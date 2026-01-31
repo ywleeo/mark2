@@ -36,9 +36,15 @@ export class FileWatcher {
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
             const unwatch = await watch(normalizedPath, (event) => {
+                console.warn('[FileWatcher] folder event', {
+                    path: normalizedPath,
+                    type: event?.type,
+                    paths: event?.paths,
+                });
                 this.onFolderChange?.(normalizedPath, event);
             }, { recursive: true, delayMs: 100 });
             this.folderWatchers.set(normalizedPath, unwatch);
+            console.warn('[FileWatcher] folder watch ready', { path: normalizedPath });
         } catch (error) {
             console.error('目录监听失败:', error);
             this.folderWatchers.delete(normalizedPath);

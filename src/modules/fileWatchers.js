@@ -21,6 +21,11 @@ export function createFileWatcherController({
 
     function handleFolderWatcherEvent(watchedPath, event) {
         if (!fileTree) return;
+        console.warn('[fileWatchers] handleFolderWatcherEvent', {
+            watchedPath,
+            type: event?.type,
+            paths: event?.paths,
+        });
 
         const normalizedRoot = normalizeFsPath(watchedPath);
         if (!normalizedRoot || !fileTree?.hasRoot?.(normalizedRoot)) {
@@ -32,10 +37,10 @@ export function createFileWatcherController({
 
         eventPaths.forEach((changedPath) => {
             if (!changedPath) return;
+            shouldRefreshRoot = true;
             if (shouldIgnoreLocalWrite(changedPath)) {
                 return;
             }
-            shouldRefreshRoot = true;
             if (fileTree?.isFileOpen?.(changedPath)) {
                 const editor = getEditor();
                 const codeEditor = getCodeEditor?.();

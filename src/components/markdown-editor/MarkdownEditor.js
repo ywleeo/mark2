@@ -12,12 +12,16 @@ import { SearchExtension } from '../../extensions/SearchExtension.js';
 import { HtmlSpan, HtmlDiv, HtmlInline } from '../../extensions/HtmlSupport.js';
 import { CustomTaskItem } from '../../extensions/CustomTaskItem.js';
 import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
+import { MarkdownImage } from '../../utils/markdownPlugins.js';
 import {
-    MarkdownImage,
-    createConfiguredMarkdownIt,
-    createConfiguredTurndownService
-} from '../../utils/markdownPlugins.js';
-import { resolveImageSources, releaseImageObjectUrls } from '../../utils/imageResolver.js';
+    createImageObjectUrl,
+    isExternalImageSrc,
+    readBinaryFromFs,
+    registerImageObjectUrl,
+    releaseImageObjectUrls,
+    resolveImagePath
+} from '../../utils/imageResolver.js';
+import { createMarkdownParser, createMarkdownSerializer } from '../../utils/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
@@ -25,6 +29,7 @@ import { addClickHandler } from '../../utils/PointerHelper.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../../extensions/MermaidBlock.js';
 import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
+import { SourcePos } from '../../extensions/SourcePos.js';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import { ImageModal } from '../ImageModal.js';
@@ -82,9 +87,9 @@ export class MarkdownEditor {
         this.currentTabId = null;
         this.tabViewStates = new Map();
 
-        // 初始化 Markdown 和 Turndown 服务
-        this.md = createConfiguredMarkdownIt();
-        this.turndownService = createConfiguredTurndownService();
+        // 初始化 Markdown 解析/序列化
+        this.markdownParser = null;
+        this.markdownSerializer = null;
 
         // 初始化代码高亮
         this.lowlight = createConfiguredLowlight();
@@ -129,6 +134,7 @@ export class MarkdownEditor {
                     nested: true,
                 }),
                 MermaidBlock,
+                SourcePos,
                 CodeBlockLowlight.configure({
                     lowlight: this.lowlight,
                     HTMLAttributes: {
@@ -222,6 +228,9 @@ export class MarkdownEditor {
                 this.ensureTrailingParagraph();
             },
         });
+
+        this.markdownParser = createMarkdownParser(this.editor.schema);
+        this.markdownSerializer = createMarkdownSerializer(this.editor.schema);
 
         // 初始化功能管理器
         this.codeCopyManager = new CodeCopyManager(this.element);
@@ -909,8 +918,7 @@ export class MarkdownEditor {
         const processedBold = this.preprocessBold(normalizedMarkdown);
         const processedLinks = this.preprocessLinkDestinations(processedBold);
         const processed = this.preprocessListIndentation(processedLinks);
-        const html = this.md.render(processed);
-        const resolvedHtml = await resolveImageSources(html, this.currentFile);
+        const parsedDoc = this.markdownParser?.parse(processed) ?? null;
         if (sessionId && sessionId !== this.currentSessionId) {
             return false;
         }
@@ -922,7 +930,12 @@ export class MarkdownEditor {
         this.suppressUpdateEvent = true;
         try {
             this.editor.setEditable(true);
-            this.editor.commands.setContent(resolvedHtml);
+            if (parsedDoc) {
+                this.editor.commands.setContent(parsedDoc);
+            } else {
+                this.editor.commands.setContent('');
+            }
+            await this.resolveImageNodes(sessionId);
 
             if (shouldFocusStart) {
                 this.editor.commands.focus('start');
@@ -950,6 +963,80 @@ export class MarkdownEditor {
         this.resetUndoHistory();
 
         return true;
+    }
+
+    async resolveImageNodes(sessionId = null) {
+        if (!this.editor || !this.currentFile) {
+            return;
+        }
+
+        const { doc } = this.editor.state;
+        if (!doc) {
+            return;
+        }
+
+        const imageEntries = [];
+        doc.descendants((node, pos) => {
+            if (node.type?.name === 'image') {
+                imageEntries.push({ node, pos });
+            }
+        });
+
+        if (imageEntries.length === 0) {
+            return;
+        }
+
+        const tr = this.editor.state.tr;
+        let changed = false;
+
+        for (const { node, pos } of imageEntries) {
+            if (sessionId && sessionId !== this.currentSessionId) {
+                return;
+            }
+            const originalSrc = node.attrs?.dataOriginalSrc || node.attrs?.src || '';
+            if (!originalSrc) {
+                continue;
+            }
+            const nextAttrs = {
+                ...node.attrs,
+                dataOriginalSrc: originalSrc,
+            };
+
+            if (isExternalImageSrc(originalSrc)) {
+                if (node.attrs?.dataOriginalSrc !== originalSrc) {
+                    tr.setNodeMarkup(pos, null, nextAttrs);
+                    changed = true;
+                }
+                continue;
+            }
+
+            const resolvedPath = resolveImagePath(originalSrc, this.currentFile);
+            if (!resolvedPath) {
+                continue;
+            }
+
+            try {
+                const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
+                const objectUrl = createImageObjectUrl(binary, resolvedPath);
+                if (!objectUrl) {
+                    continue;
+                }
+                registerImageObjectUrl(objectUrl);
+                nextAttrs.src = objectUrl;
+                tr.setNodeMarkup(pos, null, nextAttrs);
+                changed = true;
+            } catch (error) {
+                console.error('读取图片失败:', {
+                    resolvedPath,
+                    message: error?.message,
+                    error,
+                });
+            }
+        }
+
+        if (changed) {
+            this.editor.view.dispatch(tr);
+        }
     }
 
     resetUndoHistory() {
@@ -1073,52 +1160,7 @@ export class MarkdownEditor {
         if (!this.contentChanged) {
             return this.originalMarkdown;
         }
-        const html = this.editor.getHTML();
-
-        // 清理 HTML，确保 turndown 正确转换
-        let cleanedHtml = html;
-
-        // 移除 TipTap 在列表项中生成的 <p> 标签
-        cleanedHtml = cleanedHtml.replace(/<li([^>]*)><p>/g, '<li$1>').replace(/<\/p><\/li>/g, '</li>');
-
-        // 清理表格 HTML，确保符合标准格式供 turndown 转换
-        // 1. 移除 colgroup（turndown 不需要）
-        cleanedHtml = cleanedHtml.replace(/<colgroup>[\s\S]*?<\/colgroup>/gi, '');
-
-        // 2. 清理单元格：移除 <p> 标签并规范化空白字符，保留 <br> 换行
-        // 使用占位符保护 <br>，避免被 turndown 转换为换行符
-        const BR_PLACEHOLDER = '{{TABLE_BR}}';
-        cleanedHtml = cleanedHtml.replace(/<(td|th)([^>]*)>([\s\S]*?)<\/\1>/gi, (match, tag, attrs, content) => {
-            // 保护 <br> 标签，用占位符替换
-            let cleaned = content.replace(/<br\s*\/?>/gi, BR_PLACEHOLDER);
-            // 把段落换行 </p><p> 转为 <br>
-            cleaned = cleaned.replace(/<\/p>\s*<p>/gi, BR_PLACEHOLDER);
-            // 移除首尾的 <p> 标签
-            cleaned = cleaned.replace(/^<p>|<\/p>$/gi, '');
-            // 移除空的 mermaid div（可能是编辑器渲染产生的）
-            cleaned = cleaned.replace(/<div[^>]*class="mermaid"[^>]*data-mermaid-code=""[^>]*><\/div>/gi, '');
-            // 移除其他空的 div
-            cleaned = cleaned.replace(/<div[^>]*>\s*<\/div>/gi, '');
-            // 移除多余的换行和空白，保留单个空格
-            cleaned = cleaned.replace(/\s+/g, ' ').trim();
-            return `<${tag}>${cleaned}</${tag}>`;
-        });
-
-        // 3. 清理表格元素的属性（保留基本结构）
-        cleanedHtml = cleanedHtml.replace(/<table[^>]*>/gi, '<table>');
-        cleanedHtml = cleanedHtml.replace(/<tbody[^>]*>/gi, '<tbody>');
-        cleanedHtml = cleanedHtml.replace(/<thead[^>]*>/gi, '<thead>');
-        cleanedHtml = cleanedHtml.replace(/<tr[^>]*>/gi, '<tr>');
-
-        // 4. TipTap 表格的第一行 <th> 在 <tbody> 里，需要移到 <thead> 中
-        cleanedHtml = cleanedHtml.replace(
-            /<tbody>(\s*<tr>(\s*<th>[\s\S]*?<\/th>\s*)+<\/tr>)/gi,
-            '<thead>$1</thead><tbody>'
-        );
-
-        let markdown = this.turndownService.turndown(cleanedHtml);
-        // 还原表格单元格中的 <br> 标签
-        markdown = markdown.replace(/\{\{TABLE_BR\}\}/g, '<br>');
+        const markdown = this.markdownSerializer?.serialize(this.editor.state.doc) ?? '';
         return ensureMarkdownTrailingEmptyLine(markdown);
     }
 
@@ -1416,7 +1458,7 @@ export class MarkdownEditor {
         const processedBold = this.preprocessBold(content);
         const processedLinks = this.preprocessLinkDestinations(processedBold);
         const processed = this.preprocessListIndentation(processedLinks);
-        const html = this.md.render(processed);
+        const parsed = this.markdownParser?.parse(processed) ?? null;
 
         const { state } = this.editor;
         const selection = state?.selection;
@@ -1425,11 +1467,13 @@ export class MarkdownEditor {
         if (selection && !selection.empty) {
             chain.deleteSelection();
         }
-        chain.insertContent(html).run();
+        const insertContent = parsed ? parsed.content : content;
+        chain.insertContent(insertContent).run();
 
         if (selection && !selection.empty) {
             const docSize = this.editor.state.doc?.content?.size ?? 0;
-            const position = Math.min(selection.from + html.length, docSize);
+            const insertSize = parsed?.content?.size ?? 0;
+            const position = Math.min(selection.from + insertSize, docSize);
             this.editor.commands.setTextSelection({ from: position, to: position });
         }
 
@@ -1451,24 +1495,27 @@ export class MarkdownEditor {
         const processedBold = this.preprocessBold(contentWithSeparator);
         const processedLinks = this.preprocessLinkDestinations(processedBold);
         const processed = this.preprocessListIndentation(processedLinks);
-        const html = this.md.render(processed);
+        const parsed = this.markdownParser?.parse(processed) ?? null;
 
         const { state } = this.editor;
         const selection = state?.selection;
 
         if (!selection || selection.empty) {
             // 如果没有选中内容，直接在光标处插入
-            this.editor.chain().focus().insertContent(html).run();
+            const insertContent = parsed ? parsed.content : contentWithSeparator;
+            this.editor.chain().focus().insertContent(insertContent).run();
         } else {
             // 有选中内容，在选中内容的末尾插入
             const endPos = selection.to;
 
             // 先在末尾插入一个空段落作为间隔，然后插入 AI 内容
-            this.editor.chain()
+            const insertContent = parsed ? parsed.content : contentWithSeparator;
+            this.editor
+                .chain()
                 .focus()
                 .setTextSelection(endPos)
-                .insertContent('<p></p>')  // 插入一个空段落作为间隔
-                .insertContent(html)
+                .insertContent('<p></p>')
+                .insertContent(insertContent)
                 .run();
         }
 
@@ -1507,6 +1554,53 @@ export class MarkdownEditor {
             return '';
         }
         return state.doc.textBetween(state.selection.from, state.selection.to, '\n');
+    }
+
+    getSelectionSourcepos() {
+        if (!this.editor) {
+            return null;
+        }
+        const { state } = this.editor;
+        const { from, to } = state.selection;
+        let startLine = null;
+        let endLine = null;
+
+        if (from === to) {
+            const $pos = state.doc.resolve(from);
+            for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+                const node = $pos.node(depth);
+                const sourcepos = node?.attrs?.sourcepos;
+                if (typeof sourcepos === 'string') {
+                    const [start, end] = sourcepos.split(':').map(Number);
+                    if (Number.isFinite(start) && Number.isFinite(end)) {
+                        return { startLine: start, endLine: end, sourcepos };
+                    }
+                }
+            }
+            return null;
+        }
+
+        state.doc.nodesBetween(from, to, node => {
+            const sourcepos = node?.attrs?.sourcepos;
+            if (typeof sourcepos !== 'string') {
+                return;
+            }
+            const [start, end] = sourcepos.split(':').map(Number);
+            if (!Number.isFinite(start) || !Number.isFinite(end)) {
+                return;
+            }
+            if (startLine === null || start < startLine) {
+                startLine = start;
+            }
+            if (endLine === null || end > endLine) {
+                endLine = end;
+            }
+        });
+
+        if (startLine === null || endLine === null) {
+            return null;
+        }
+        return { startLine, endLine, sourcepos: `${startLine}:${endLine}` };
     }
 
     undo() {
@@ -1615,8 +1709,10 @@ export class MarkdownEditor {
             const processedBold = this.preprocessBold(content);
             const processedLinks = this.preprocessLinkDestinations(processedBold);
             const processed = this.preprocessListIndentation(processedLinks);
-            const html = this.md.render(processed);
-            chain = chain.insertContent(html);
+            const parsed = this.markdownParser?.parse(processed);
+            if (parsed) {
+                chain = chain.insertContent(parsed.content);
+            }
         }
 
         chain.run();

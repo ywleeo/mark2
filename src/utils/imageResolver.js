@@ -264,7 +264,7 @@ export async function readBinaryFromFs(path, options = {}) {
     }
 }
 
-function createObjectUrl(binary, path) {
+export function createImageObjectUrl(binary, path) {
     if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
         return null;
     }
@@ -291,7 +291,7 @@ export function releaseImageObjectUrls() {
     imageObjectUrlRegistry.clear();
 }
 
-function registerImageObjectUrl(url) {
+export function registerImageObjectUrl(url) {
     if (typeof url === 'string' && url.length > 0) {
         imageObjectUrlRegistry.add(url);
     }
@@ -331,7 +331,7 @@ export async function resolveImageSources(html, currentFile) {
             try {
                 // 启用权限请求，如果读取失败会自动请求用户授权
                 const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
-                const objectUrl = createObjectUrl(binary, resolvedPath);
+                const objectUrl = createImageObjectUrl(binary, resolvedPath);
                 if (!objectUrl) {
                     continue;
                 }

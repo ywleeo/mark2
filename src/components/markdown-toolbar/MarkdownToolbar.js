@@ -170,7 +170,7 @@ export class MarkdownToolbar {
             case 'strikethrough':
                 return this.runTipTapCommand(chain => chain.toggleStrike());
             case 'code':
-                return this.runTipTapCommand(chain => chain.toggleCode());
+                return this.handleTipTapCodeAsBlock();
             case 'heading1':
                 return this.runTipTapCommand(chain => chain.toggleHeading({ level: 1 }), { blockedNodes: ['mermaidBlock'] });
             case 'heading2':
@@ -205,6 +205,50 @@ export class MarkdownToolbar {
             default:
                 return false;
         }
+    }
+
+    handleTipTapCodeAsBlock() {
+        if (!this.isTipTapEditor()) {
+            return false;
+        }
+        if (this.isSelectionInsideNode(['mermaidBlock'])) {
+            return 'blocked';
+        }
+
+        const { state } = this.editor;
+        const { from, to } = state.selection;
+
+        const $from = state.doc.resolve(from);
+        for (let depth = $from.depth; depth >= 0; depth--) {
+            if ($from.node(depth).type.name === 'codeBlock') {
+                return this.runTipTapCommand(chain => chain.toggleCodeBlock());
+            }
+        }
+
+        if (from === to) {
+            return this.runTipTapCommand(chain => chain.toggleCodeBlock());
+        }
+
+        const selectedText = state.doc.textBetween(from, to, '\n', '\n');
+        if (!selectedText || selectedText.trim() === '') {
+            return this.runTipTapCommand(chain => chain.toggleCodeBlock());
+        }
+
+        this.editor
+            .chain()
+            .focus()
+            .command(({ tr, state: cmdState }) => {
+                const { schema } = cmdState;
+                const codeBlockNode = schema.nodes.codeBlock.create(
+                    { language: 'plaintext' },
+                    schema.text(selectedText)
+                );
+                tr.replaceSelectionWith(codeBlockNode);
+                return true;
+            })
+            .run();
+
+        return true;
     }
 
     clearTipTapFormatting() {

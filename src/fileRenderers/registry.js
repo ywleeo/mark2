@@ -33,7 +33,7 @@ export class RendererRegistry {
         if (!filePath || typeof filePath !== 'string') {
             return null;
         }
-        const match = filePath.toLowerCase().match(/\\.([a-z0-9]+)$/);
+        const match = filePath.toLowerCase().match(/\.([a-z0-9]+)$/);
         if (!match) {
             return this.defaultHandler;
         }
