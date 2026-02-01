@@ -431,7 +431,7 @@ export class CardSidebar {
         this.cardBodyElement = body;
 
         this.cardTextElement = document.createElement('div');
-        this.cardTextElement.className = 'card-preview-card__content tiptap-editor';
+        this.cardTextElement.className = 'card-preview-card__content';
 
         const footer = document.createElement('div');
         footer.className = 'card-preview-card__footer';
@@ -558,6 +558,12 @@ export class CardSidebar {
                     node.removeAttribute(attr.name);
                 }
             });
+            // 移除背景相关的内联样式，使用卡片自身的背景色
+            if (node.style) {
+                node.style.removeProperty('background');
+                node.style.removeProperty('background-color');
+                node.style.removeProperty('background-image');
+            }
         });
 
         // 检测孤立的 li 元素（没有 ul/ol 父级），用 ul 包裹

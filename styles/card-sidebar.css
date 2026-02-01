@@ -529,6 +529,17 @@ body.card-sidebar-visible .card-sidebar {
     white-space: pre-wrap;
     word-break: break-word;
     flex: 1;
+    overflow: hidden;
+}
+
+/* 卡片内容区域：移除继承的背景色，使用卡片自身背景 */
+.card-preview-card__content pre,
+.card-preview-card__content code,
+.card-preview-card__content blockquote,
+.card-preview-card__content mark,
+.card-preview-card__content * {
+    background: transparent !important;
+    background-color: transparent !important;
 }
 
 .card-preview-card .card-preview-card__content ul,

@@ -235,6 +235,10 @@ const viewController = createViewController({
     onViewModeChange: (nextMode) => {
         void updateExportMenuState();
         handleToolbarOnViewModeChange(nextMode);
+        // 切换到非 markdown 视图时隐藏 card sidebar
+        if (nextMode !== 'markdown' && nextMode !== 'split') {
+            cardExportSidebar?.hideSidebar?.();
+        }
     },
 });
 
@@ -381,7 +385,54 @@ function showCardExportSidebar() {
         return;
     }
 
+    // 检查视图模式，code 模式下显示提示
+    const activeViewMode = appState.getActiveViewMode();
+    if (activeViewMode !== 'markdown' && activeViewMode !== 'split') {
+        showModeWarning('卡片功能仅在 Markdown 预览模式下可用');
+        return;
+    }
+
     cardExportSidebar.showSidebar?.();
+}
+
+let modeWarningElement = null;
+let modeWarningTimeout = null;
+
+function showModeWarning(message) {
+    // 如果已有警告，先移除
+    if (modeWarningElement) {
+        modeWarningElement.remove();
+        modeWarningElement = null;
+    }
+    if (modeWarningTimeout) {
+        clearTimeout(modeWarningTimeout);
+        modeWarningTimeout = null;
+    }
+
+    // 创建警告元素（复用 toc-mode-warning 样式）
+    modeWarningElement = document.createElement('div');
+    modeWarningElement.className = 'toc-mode-warning';
+    modeWarningElement.textContent = message;
+    document.body.appendChild(modeWarningElement);
+
+    // 触发动画
+    setTimeout(() => {
+        if (modeWarningElement) {
+            modeWarningElement.classList.add('toc-mode-warning--visible');
+        }
+    }, 10);
+
+    // 2秒后移除
+    modeWarningTimeout = setTimeout(() => {
+        if (modeWarningElement) {
+            modeWarningElement.classList.remove('toc-mode-warning--visible');
+            setTimeout(() => {
+                modeWarningElement?.remove();
+                modeWarningElement = null;
+            }, 200);
+        }
+        modeWarningTimeout = null;
+    }, 2000);
 }
 
 // 处理视图模式切换时的 toolbar 状态
