@@ -1650,7 +1650,13 @@ export class MarkdownEditor {
         // 计算光标在节点内的文本偏移
         const offsetInNode = from - sourceposNodeStart;
         // 获取光标前的文本，计算换行数和列位置
-        const textBefore = sourceposNode.textBetween(0, Math.min(offsetInNode, sourceposNode.content.size), '\n');
+        // 第四个参数指定 leaf 节点（如 hardBreak）的文本表示
+        const textBefore = sourceposNode.textBetween(
+            0,
+            Math.min(offsetInNode, sourceposNode.content.size),
+            '\n',
+            (node) => (node.type.name === 'hardBreak' ? '\n' : '')
+        );
         const lines = textBefore.split('\n');
         const lineOffset = lines.length - 1;
         const column = lines[lines.length - 1].length + 1;
@@ -1714,18 +1720,41 @@ export class MarkdownEditor {
         const lineOffset = lineNumber - start;
         const safeColumn = Math.max(1, column);
 
-        let textOffset = 0;
+        let targetPos = pos + 1;
         if (node.isTextblock && node.content.size > 0) {
-            const text = node.textContent;
+            // 使用 textBetween 正确处理 hardBreak 节点
+            const text = node.textBetween(0, node.content.size, '\n', (n) => (n.type.name === 'hardBreak' ? '\n' : ''));
             const lines = text.split('\n');
+            let textOffset = 0;
             for (let i = 0; i < lineOffset && i < lines.length; i++) {
                 textOffset += lines[i].length + 1;
             }
             const currentLineLength = lines[lineOffset]?.length ?? 0;
             textOffset += Math.min(safeColumn - 1, currentLineLength);
-        }
 
-        const targetPos = pos + 1 + Math.min(textOffset, node.content.size);
+            // 需要把文本偏移转换为实际的节点偏移（hardBreak 占 1 个位置）
+            let nodeOffset = 0;
+            let charCount = 0;
+            node.content.forEach((child, offset) => {
+                if (charCount >= textOffset) return;
+                if (child.type.name === 'hardBreak') {
+                    charCount += 1; // hardBreak 算作一个换行符
+                    nodeOffset = offset + child.nodeSize;
+                } else if (child.isText) {
+                    const remaining = textOffset - charCount;
+                    if (remaining <= child.text.length) {
+                        nodeOffset = offset + remaining;
+                        charCount = textOffset;
+                    } else {
+                        charCount += child.text.length;
+                        nodeOffset = offset + child.nodeSize;
+                    }
+                } else {
+                    nodeOffset = offset + child.nodeSize;
+                }
+            });
+            targetPos = pos + 1 + Math.min(nodeOffset, node.content.size);
+        }
 
         // 只设置选区，不滚动
         const tr = state.tr.setSelection(
