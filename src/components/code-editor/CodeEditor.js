@@ -548,6 +548,102 @@ export class CodeEditor {
         return !!this.isDirty;
     }
 
+    /**
+     * 获取当前光标所在行号
+     * @returns {number|null} 行号（从 1 开始），如果编辑器未就绪则返回 null
+     */
+    getCurrentLineNumber() {
+        if (!this.editor) {
+            return null;
+        }
+        const position = this.editor.getPosition();
+        return position?.lineNumber ?? null;
+    }
+
+    /**
+     * 获取当前光标位置（行号和列号）
+     * @returns {{ lineNumber: number, column: number }|null}
+     */
+    getCurrentPosition() {
+        if (!this.editor) {
+            return null;
+        }
+        const position = this.editor.getPosition();
+        if (!position) {
+            return null;
+        }
+        return { lineNumber: position.lineNumber, column: position.column };
+    }
+
+    /**
+     * 跳转到指定行并将光标设置到该行
+     * @param {number} lineNumber - 行号（从 1 开始）
+     */
+    revealLine(lineNumber) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
+            return;
+        }
+        this.editor.setPosition({ lineNumber, column: 1 });
+        this.editor.revealLineInCenter(lineNumber);
+    }
+
+    /**
+     * 跳转到指定位置（行号和列号）
+     * @param {number} lineNumber - 行号（从 1 开始）
+     * @param {number} column - 列号（从 1 开始）
+     */
+    revealPosition(lineNumber, column = 1) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
+            return;
+        }
+        const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
+        this.editor.setPosition({ lineNumber, column: safeColumn });
+        this.editor.revealLineInCenter(lineNumber);
+    }
+
+    /**
+     * 设置光标位置（不滚动）
+     * @param {number} lineNumber - 行号（从 1 开始）
+     * @param {number} column - 列号（从 1 开始）
+     */
+    setPositionOnly(lineNumber, column = 1) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
+            return;
+        }
+        const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
+        this.editor.setPosition({ lineNumber, column: safeColumn });
+    }
+
+    /**
+     * 获取当前可见区域中心的行号
+     * @returns {number|null}
+     */
+    getVisibleCenterLine() {
+        if (!this.editor) {
+            return null;
+        }
+        const visibleRanges = this.editor.getVisibleRanges();
+        if (!visibleRanges || visibleRanges.length === 0) {
+            return null;
+        }
+        const firstRange = visibleRanges[0];
+        const lastRange = visibleRanges[visibleRanges.length - 1];
+        const startLine = firstRange.startLineNumber;
+        const endLine = lastRange.endLineNumber;
+        return Math.floor((startLine + endLine) / 2);
+    }
+
+    /**
+     * 滚动到指定行（将该行置于视口中心），但不改变光标位置
+     * @param {number} lineNumber - 行号（从 1 开始）
+     */
+    scrollToLineInCenter(lineNumber) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
+            return;
+        }
+        this.editor.revealLineInCenter(lineNumber);
+    }
+
     markSaved() {
         if (!this.currentModel) {
             return;

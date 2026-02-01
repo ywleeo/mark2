@@ -1603,6 +1603,345 @@ export class MarkdownEditor {
         return { startLine, endLine, sourcepos: `${startLine}:${endLine}` };
     }
 
+    /**
+     * 获取当前光标位置对应的源码行号
+     * @returns {number|null} 源码行号，如果无法确定则返回 null
+     */
+    getCurrentSourceLine() {
+        const sourcepos = this.getSelectionSourcepos();
+        return sourcepos?.startLine ?? null;
+    }
+
+    /**
+     * 获取当前光标位置对应的源码位置（行号和列偏移）
+     * @returns {{ lineNumber: number, column: number }|null}
+     */
+    getCurrentSourcePosition() {
+        if (!this.editor) {
+            return null;
+        }
+        const { state } = this.editor;
+        const { from } = state.selection;
+        const $pos = state.doc.resolve(from);
+
+        // 找到包含光标的最近的带 sourcepos 的节点
+        let sourceposNode = null;
+        let sourceposNodeStart = 0;
+        for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+            const node = $pos.node(depth);
+            const sourcepos = node?.attrs?.sourcepos;
+            if (typeof sourcepos === 'string') {
+                const [start] = sourcepos.split(':').map(Number);
+                if (Number.isFinite(start)) {
+                    sourceposNode = node;
+                    sourceposNodeStart = $pos.start(depth);
+                    break;
+                }
+            }
+        }
+
+        if (!sourceposNode) {
+            return null;
+        }
+
+        const sourcepos = sourceposNode.attrs.sourcepos;
+        const [startLine] = sourcepos.split(':').map(Number);
+
+        // 计算光标在节点内的文本偏移
+        const offsetInNode = from - sourceposNodeStart;
+        // 获取光标前的文本，计算换行数和列位置
+        const textBefore = sourceposNode.textBetween(0, Math.min(offsetInNode, sourceposNode.content.size), '\n');
+        const lines = textBefore.split('\n');
+        const lineOffset = lines.length - 1;
+        const column = lines[lines.length - 1].length + 1;
+
+        return {
+            lineNumber: startLine + lineOffset,
+            column,
+        };
+    }
+
+    /**
+     * 根据源码行号滚动到对应的 DOM 位置
+     * @param {number} lineNumber - 源码行号
+     */
+    scrollToSourceLine(lineNumber) {
+        this.scrollToSourcePosition(lineNumber, 1);
+    }
+
+    /**
+     * 根据源码位置设置光标（不滚动）
+     * @param {number} lineNumber - 源码行号
+     * @param {number} column - 列号（从 1 开始）
+     */
+    setSourcePositionOnly(lineNumber, column = 1) {
+        if (!this.editor || !Number.isFinite(lineNumber)) {
+            return;
+        }
+
+        const { state, view } = this.editor;
+        if (!state || !view) {
+            return;
+        }
+
+        // 遍历文档找到包含目标行的节点
+        let bestMatch = null;
+
+        state.doc.descendants((node, pos) => {
+            const sourcepos = node.attrs?.sourcepos;
+            if (typeof sourcepos !== 'string') {
+                return true;
+            }
+
+            const [start, end] = sourcepos.split(':').map(Number);
+            if (!Number.isFinite(start) || !Number.isFinite(end)) {
+                return true;
+            }
+
+            if (lineNumber >= start && lineNumber <= end) {
+                if (!bestMatch || (end - start) < (bestMatch.end - bestMatch.start)) {
+                    bestMatch = { start, end, pos, node };
+                }
+            }
+            return true;
+        });
+
+        if (!bestMatch) {
+            return;
+        }
+
+        const { start, pos, node } = bestMatch;
+        const lineOffset = lineNumber - start;
+        const safeColumn = Math.max(1, column);
+
+        let textOffset = 0;
+        if (node.isTextblock && node.content.size > 0) {
+            const text = node.textContent;
+            const lines = text.split('\n');
+            for (let i = 0; i < lineOffset && i < lines.length; i++) {
+                textOffset += lines[i].length + 1;
+            }
+            const currentLineLength = lines[lineOffset]?.length ?? 0;
+            textOffset += Math.min(safeColumn - 1, currentLineLength);
+        }
+
+        const targetPos = pos + 1 + Math.min(textOffset, node.content.size);
+
+        // 只设置选区，不滚动
+        const tr = state.tr.setSelection(
+            this.editor.state.selection.constructor.near(state.doc.resolve(targetPos))
+        );
+        view.dispatch(tr);
+    }
+
+    /**
+     * 根据源码位置滚动并设置光标
+     * @param {number} lineNumber - 源码行号
+     * @param {number} column - 列号（从 1 开始）
+     */
+    scrollToSourcePosition(lineNumber, column = 1) {
+        if (!this.editor || !Number.isFinite(lineNumber)) {
+            return;
+        }
+
+        const { state, view } = this.editor;
+        if (!state || !view) {
+            return;
+        }
+
+        // 遍历文档找到包含目标行的节点
+        let targetPos = null;
+        let bestMatch = null;
+
+        state.doc.descendants((node, pos) => {
+            const sourcepos = node.attrs?.sourcepos;
+            if (typeof sourcepos !== 'string') {
+                return true;
+            }
+
+            const [start, end] = sourcepos.split(':').map(Number);
+            if (!Number.isFinite(start) || !Number.isFinite(end)) {
+                return true;
+            }
+
+            // 找到包含目标行的节点
+            if (lineNumber >= start && lineNumber <= end) {
+                // 优先选择范围更小（更精确）的节点
+                if (!bestMatch || (end - start) < (bestMatch.end - bestMatch.start)) {
+                    bestMatch = { start, end, pos, node };
+                }
+            }
+            return true;
+        });
+
+        if (bestMatch) {
+            const { start, pos, node } = bestMatch;
+            const lineOffset = lineNumber - start;
+            const safeColumn = Math.max(1, column);
+
+            // 计算目标位置：节点起始位置 + 行偏移对应的文本偏移 + 列偏移
+            let textOffset = 0;
+            if (node.isTextblock && node.content.size > 0) {
+                const text = node.textContent;
+                const lines = text.split('\n');
+                // 累计前面行的长度
+                for (let i = 0; i < lineOffset && i < lines.length; i++) {
+                    textOffset += lines[i].length + 1; // +1 for newline
+                }
+                // 加上当前行的列偏移
+                const currentLineLength = lines[lineOffset]?.length ?? 0;
+                textOffset += Math.min(safeColumn - 1, currentLineLength);
+            }
+
+            // 设置光标位置（pos + 1 进入节点内部，再加上文本偏移）
+            targetPos = pos + 1 + Math.min(textOffset, node.content.size);
+
+            // 设置选区并滚动
+            const tr = state.tr.setSelection(
+                this.editor.state.selection.constructor.near(state.doc.resolve(targetPos))
+            );
+            view.dispatch(tr);
+            view.focus();
+
+            // 滚动到光标位置
+            requestAnimationFrame(() => {
+                const coords = view.coordsAtPos(targetPos);
+                if (coords) {
+                    const editorRect = view.dom.getBoundingClientRect();
+                    const scrollContainer = view.dom.closest('.markdown-content') || view.dom.parentElement;
+                    if (scrollContainer) {
+                        const targetY = coords.top - editorRect.top + scrollContainer.scrollTop - scrollContainer.clientHeight / 2;
+                        scrollContainer.scrollTop = Math.max(0, targetY);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * 获取当前可见区域中心对应的源码行号
+     * @returns {number|null}
+     */
+    getVisibleCenterSourceLine() {
+        if (!this.editor?.view) {
+            return null;
+        }
+
+        const scrollContainer = this.getScrollContainer();
+        if (!scrollContainer) {
+            return null;
+        }
+
+        const { view } = this.editor;
+        const containerHeight = scrollContainer.clientHeight;
+
+        // 获取编辑器 DOM 相对于滚动容器的偏移
+        const editorRect = view.dom.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+
+        // 使用 posAtCoords 获取该位置对应的文档位置
+        const coords = view.posAtCoords({
+            left: editorRect.left + editorRect.width / 2,
+            top: containerRect.top + containerHeight / 2,
+        });
+
+        if (!coords) {
+            return null;
+        }
+
+        const pos = coords.pos;
+        const { state } = this.editor;
+        const $pos = state.doc.resolve(pos);
+
+        // 从该位置向上查找带 sourcepos 的节点
+        for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+            const node = $pos.node(depth);
+            const sourcepos = node?.attrs?.sourcepos;
+            if (typeof sourcepos === 'string') {
+                const [start, end] = sourcepos.split(':').map(Number);
+                if (Number.isFinite(start) && Number.isFinite(end)) {
+                    // 估算当前位置在节点内的行偏移
+                    const nodeStart = $pos.start(depth);
+                    const offsetInNode = pos - nodeStart;
+                    const textBefore = node.textBetween(0, Math.min(offsetInNode, node.content.size), '\n');
+                    const lineOffset = (textBefore.match(/\n/g) || []).length;
+                    return Math.min(start + lineOffset, end);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 滚动到指定源码行（将该行置于视口中心），但不改变光标位置
+     * @param {number} lineNumber - 源码行号
+     */
+    scrollToSourceLineInCenter(lineNumber) {
+        if (!this.editor || !Number.isFinite(lineNumber)) {
+            return;
+        }
+
+        const { state, view } = this.editor;
+        if (!state || !view) {
+            return;
+        }
+
+        // 遍历文档找到包含目标行的节点
+        let bestMatch = null;
+
+        state.doc.descendants((node, pos) => {
+            const sourcepos = node.attrs?.sourcepos;
+            if (typeof sourcepos !== 'string') {
+                return true;
+            }
+
+            const [start, end] = sourcepos.split(':').map(Number);
+            if (!Number.isFinite(start) || !Number.isFinite(end)) {
+                return true;
+            }
+
+            if (lineNumber >= start && lineNumber <= end) {
+                if (!bestMatch || (end - start) < (bestMatch.end - bestMatch.start)) {
+                    bestMatch = { start, end, pos, node };
+                }
+            }
+            return true;
+        });
+
+        if (!bestMatch) {
+            return;
+        }
+
+        const { start, pos, node } = bestMatch;
+        const lineOffset = lineNumber - start;
+
+        // 计算目标位置
+        let textOffset = 0;
+        if (node.isTextblock && node.content.size > 0) {
+            const text = node.textContent;
+            const lines = text.split('\n');
+            for (let i = 0; i < lineOffset && i < lines.length; i++) {
+                textOffset += lines[i].length + 1;
+            }
+        }
+
+        const targetPos = pos + 1 + Math.min(textOffset, node.content.size);
+
+        // 滚动到该位置（不改变光标）
+        requestAnimationFrame(() => {
+            const coords = view.coordsAtPos(targetPos);
+            if (coords) {
+                const scrollContainer = this.getScrollContainer();
+                if (scrollContainer) {
+                    const containerRect = scrollContainer.getBoundingClientRect();
+                    const targetY = coords.top - containerRect.top + scrollContainer.scrollTop - scrollContainer.clientHeight / 2;
+                    scrollContainer.scrollTop = Math.max(0, targetY);
+                }
+            }
+        });
+    }
+
     undo() {
         const tiptapEditor = this.editor;
         if (!tiptapEditor?.commands || typeof tiptapEditor.commands.undo !== 'function') {
