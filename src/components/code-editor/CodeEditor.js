@@ -151,6 +151,8 @@ export class CodeEditor {
             dragAndDrop: false,
             smoothScrolling: true,
             fontSize: 14,
+            cursorWidth: 4,
+            cursorBlinking: 'smooth',
             lineNumbers: 'on',
             renderWhitespace: 'selection',
             tabSize: 4,
