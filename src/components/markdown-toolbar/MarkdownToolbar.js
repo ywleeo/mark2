@@ -197,7 +197,7 @@ export class MarkdownToolbar {
             case 'horizontalRule':
                 return this.runTipTapCommand(chain => chain.setHorizontalRule(), { blockedNodes: ['mermaidBlock'] });
             case 'codeBlock':
-                return this.runTipTapCommand(chain => chain.toggleCodeBlock(), { blockedNodes: ['mermaidBlock'] });
+                return this.handleTipTapCodeAsBlock();
             case 'clearFormatting':
                 return this.clearTipTapFormatting();
             case 'emoji':
@@ -229,7 +229,7 @@ export class MarkdownToolbar {
             return this.runTipTapCommand(chain => chain.toggleCodeBlock());
         }
 
-        const selectedText = state.doc.textBetween(from, to, '\n', '\n');
+        const selectedText = state.doc.textBetween(from, to, '\n\n', '\n');
         if (!selectedText || selectedText.trim() === '') {
             return this.runTipTapCommand(chain => chain.toggleCodeBlock());
         }
