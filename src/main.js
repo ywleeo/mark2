@@ -11,6 +11,7 @@ console.warn = function(...args) {
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
 import {
     detectLanguageForPath,
@@ -1254,6 +1255,50 @@ async function initializeApplication() {
     });
     appState.setCleanupFunction('windowFocusHandler', () => windowFocusHandler.dispose());
     await windowFocusHandler.setup();
+
+    // 监听从系统传入的文件打开事件
+    setupOpenedFilesListener();
+}
+
+/**
+ * 处理从系统传入的文件路径（如通过"打开方式"）
+ */
+async function handleOpenedFiles(paths) {
+    if (!Array.isArray(paths) || paths.length === 0) {
+        return;
+    }
+    const fileTree = appState.getFileTree();
+    if (!fileTree) {
+        console.warn('[main] fileTree 未初始化，无法处理打开的文件');
+        return;
+    }
+    // 打开第一个文件
+    const firstPath = paths[0];
+    if (firstPath) {
+        fileTree.addToOpenFiles(firstPath);
+        fileTree.selectFile(firstPath);
+    }
+}
+
+/**
+ * 设置文件打开事件监听器
+ */
+async function setupOpenedFilesListener() {
+    // 监听后续的文件打开事件
+    await listen('files-opened', (event) => {
+        const paths = event?.payload?.paths;
+        void handleOpenedFiles(paths);
+    });
+
+    // 获取启动时传入的文件（可能在监听器设置之前就已经触发）
+    try {
+        const initialPaths = await invoke('get_opened_files');
+        if (initialPaths && initialPaths.length > 0) {
+            void handleOpenedFiles(initialPaths);
+        }
+    } catch (error) {
+        console.warn('[main] 获取初始打开文件失败:', error);
+    }
 }
 
 /**

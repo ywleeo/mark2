@@ -1687,6 +1687,40 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Opened { urls } = event {
+                // 处理从系统传入的文件打开请求
+                let paths: Vec<String> = urls
+                    .iter()
+                    .filter_map(|url| {
+                        if url.scheme() == "file" {
+                            url.to_file_path().ok().and_then(|p| p.to_str().map(|s| s.to_string()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                if paths.is_empty() {
+                    return;
+                }
+
+                // 尝试发送事件到前端
+                if let Some(window) = app.get_webview_window("main") {
+                    let payload = OpenedFilesPayload { paths: paths.clone() };
+                    if window.emit("files-opened", payload).is_ok() {
+                        return;
+                    }
+                }
+
+                // 如果前端还没准备好，存储到状态中
+                if let Some(state) = app.try_state::<OpenedFilesState>() {
+                    if let Ok(mut guard) = state.paths.lock() {
+                        guard.extend(paths);
+                    }
+                }
+            }
+        });
 }
