@@ -195,7 +195,14 @@ export class WorkflowEditor {
     updateToolbarStateFromData() {
         if (!this.workflowData?.layers) return;
 
-        // 检查是否有中断或错误的层
+        // 优先使用 workflowData._state（包含 duration）
+        if (this.workflowData._state) {
+            this.workflowState = this.workflowData._state;
+            this.toolbar.updateWorkflowState(this.workflowData._state);
+            return;
+        }
+
+        // 兜底：根据 layers 状态推断 workflow 状态
         let hasInterrupted = false;
         let allDone = true;
 
@@ -211,7 +218,6 @@ export class WorkflowEditor {
             }
         }
 
-        // 更新 toolbar 状态
         if (hasInterrupted) {
             this.toolbar.updateWorkflowState({ status: 'cancelled' });
         } else if (allDone && this.workflowData.layers.length > 0) {
@@ -534,6 +540,15 @@ export class WorkflowEditor {
     updateWorkflowState(state) {
         this.workflowState = state;
         this.toolbar.updateWorkflowState(state);
+
+        // 保存到 workflowData._state（与 card/layer 一致）
+        if (this.workflowData) {
+            this.workflowData._state = state;
+            // 执行完成时保存状态
+            if (['done', 'error', 'cancelled'].includes(state.status)) {
+                this.markDirty();
+            }
+        }
     }
 
     // ========== 执行操作 ==========

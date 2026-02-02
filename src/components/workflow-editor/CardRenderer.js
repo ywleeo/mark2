@@ -93,7 +93,7 @@ export class CardRenderer {
             return;
         }
 
-        const fullText = el.dataset.thinkingText || 'thinking...';
+        const fullText = el.dataset.thinkingText || '💭 thinking...';
         let index = 0;
         let pauseTicks = 0;
         const pauseFrames = 5;
@@ -114,7 +114,7 @@ export class CardRenderer {
         };
 
         tick();
-        this.thinkingTimer = setInterval(tick, 140);
+        this.thinkingTimer = setInterval(tick, 60);
     }
 
     bindEvents() {
@@ -232,7 +232,7 @@ export class CardRenderer {
             if (card._state?.thinking) {
                 return `
                     <div class="workflow-card-placeholder">
-                        <span class="workflow-thinking-animate" data-thinking-text="thinking...">\u00a0</span>
+                        <span class="workflow-thinking-animate" data-thinking-text="💭 thinking...">\u00a0</span>
                     </div>
                 `;
             }
