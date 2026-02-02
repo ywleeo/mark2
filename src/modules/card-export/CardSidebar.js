@@ -4,6 +4,7 @@ import { captureScreenshot } from '../../api/native.js';
 import { buildDefaultCardImagePath } from '../../utils/exportUtils.js';
 import { CardSidebarResizeHandle } from './ResizeHandle.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { CARD_TEMPLATES } from './cardTemplates.js';
 
 const PREVIEW_MAX_HEIGHT = 520;
 const PREVIEW_FIXED_WIDTH = 340; // 固定预览宽度，不随 sidebar 变化
@@ -22,19 +23,6 @@ const CARD_PRESETS = [
     { id: 'xiaohongshu', label: '小红书竖图', hint: '3:4', width: 960, height: 1280 },
     { id: 'wechat', label: '公众号竖图', hint: '2:3', width: 900, height: 1350 },
     { id: 'square', label: '方形配图', hint: '1:1', width: 900, height: 900 },
-];
-
-// 背景预设 - 样式定义在 card-sidebar.css 中
-// theme: 'dark' 表示深色背景用浅色文字，'light' 表示浅色背景用深色文字
-const BACKGROUND_PRESETS = [
-    { id: 'purple-blue', color: '#8b5cf6', theme: 'dark' },
-    { id: 'frame', color: '#de7e7e', theme: 'light' },
-    { id: 'green-teal', color: '#10b981', theme: 'dark' },
-    { id: 'blue-cyan', color: '#3b82f6', theme: 'dark' },
-    { id: 'rose-red', color: '#f43f5e', theme: 'dark' },
-    { id: 'grid', color: '#8fa3b8', theme: 'light' },
-    { id: 'slate-gray', color: '#64748b', theme: 'dark' },
-    { id: 'neutral', color: '#e2e8f0', theme: 'light' },
 ];
 
 export class CardSidebar {
@@ -59,6 +47,7 @@ export class CardSidebar {
         this.fontWeightDecreaseButton = null;
         this.fontWeightIncreaseButton = null;
         this.alignToggleButton = null;
+        this.autoFitToggleButton = null;
         this.cardBadgeElement = null;
         this.exportButton = null;
         this.statusElement = null;
@@ -72,8 +61,9 @@ export class CardSidebar {
         this.baseLineHeightRatio = null;
         this.fontWeight = 400;
         this.fontWeightModified = false;
-        this.verticalAlign = 'top';
-        this.selectedBackgroundId = BACKGROUND_PRESETS[0].id;
+        this.verticalAlign = 'center';
+        this.autoFitEnabled = true;
+        this.selectedBackgroundId = CARD_TEMPLATES[0].id;
         this.backgroundSwatchElements = [];
         this.cardBackgroundElement = null;
         this.isExporting = false;
@@ -247,7 +237,7 @@ export class CardSidebar {
         swatchContainer.className = 'card-sidebar__bg-swatches';
 
         this.backgroundSwatchElements = [];
-        BACKGROUND_PRESETS.forEach((preset) => {
+        CARD_TEMPLATES.forEach((preset) => {
             const swatch = document.createElement('button');
             swatch.type = 'button';
             swatch.className = 'card-sidebar__bg-swatch';
@@ -283,19 +273,29 @@ export class CardSidebar {
     }
 
     applyBackground() {
-        if (!this.cardBackgroundElement) {
+        if (!this.cardBackgroundElement || !this.cardElement) {
             return;
         }
-        const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
+        const template = CARD_TEMPLATES.find(p => p.id === this.selectedBackgroundId) || CARD_TEMPLATES[0];
         // 移除所有背景预设类
-        BACKGROUND_PRESETS.forEach(p => {
+        CARD_TEMPLATES.forEach(p => {
             this.cardBackgroundElement.classList.remove(`card-preview-card__background--${p.id}`);
         });
         // 添加当前选中的背景类
-        this.cardBackgroundElement.classList.add(`card-preview-card__background--${preset.id}`);
+        this.cardBackgroundElement.classList.add(`card-preview-card__background--${template.id}`);
         // 设置卡片主题（控制文字颜色，不随应用主题变化）
-        if (this.cardElement) {
-            this.cardElement.dataset.cardTheme = preset.theme;
+        this.cardElement.dataset.cardTheme = template.theme;
+        // 移除旧的装饰元素
+        this.cardElement.querySelectorAll('.card-deco').forEach(el => el.remove());
+        // 添加新的装饰元素
+        if (template.buildDecorations) {
+            const decorations = template.buildDecorations();
+            decorations.forEach(deco => {
+                const el = document.createElement('div');
+                el.className = deco.class;
+                el.textContent = deco.content;
+                this.cardElement.appendChild(el);
+            });
         }
     }
 
@@ -367,6 +367,15 @@ export class CardSidebar {
             `,
         });
 
+        this.autoFitToggleButton = this.createTextControlButton({
+            title: '自动排版',
+            onClick: () => this.toggleAutoFit(),
+            svg: `
+                <path d="M3 6h12M3 12h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                <path d="M7 3v3M11 3v3M7 12v3M11 12v3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            `,
+        });
+
         controls.appendChild(this.fontDecreaseButton);
         controls.appendChild(this.fontIncreaseButton);
         controls.appendChild(this.lineHeightDecreaseButton);
@@ -374,6 +383,7 @@ export class CardSidebar {
         controls.appendChild(this.fontWeightDecreaseButton);
         controls.appendChild(this.fontWeightIncreaseButton);
         controls.appendChild(this.alignToggleButton);
+        controls.appendChild(this.autoFitToggleButton);
 
         section.appendChild(controls);
         return section;
@@ -610,8 +620,8 @@ export class CardSidebar {
         this.applyFontScale();
         this.applyFontWeight();
         this.applyVerticalAlign();
-        // 内容更新后自动调整字号和行距
-        if (normalized) {
+        // 内容更新后自动调整字号和行距（仅在自动排版模式下）
+        if (normalized && this.autoFitEnabled) {
             this.autoFitContent();
         }
     }
@@ -631,9 +641,11 @@ export class CardSidebar {
         // 移除自动调整标记
         this.cardElement.classList.remove('card-preview-card--auto-fit');
 
-        // 等待 DOM 更新后检测溢出
+        // 等待 DOM 更新后检测溢出（双重 rAF 确保布局重计算完成）
         requestAnimationFrame(() => {
-            this._adjustToFit();
+            requestAnimationFrame(() => {
+                this._adjustToFit();
+            });
         });
     }
 
@@ -642,8 +654,15 @@ export class CardSidebar {
      */
     _adjustToFit() {
         const isOverflowing = () => {
-            // 检测内容是否超出可视区域
-            return this.cardTextElement.scrollHeight > this.cardTextElement.clientHeight + 2;
+            // 检测内容是否超出卡片可用区域
+            // 居中模式下 body 高度是 auto，需要用卡片高度减去 padding 来计算可用高度
+            const cardHeight = this.cardElement.clientHeight;
+            const bodyStyle = window.getComputedStyle(this.cardBodyElement);
+            const paddingTop = parseFloat(bodyStyle.paddingTop) || 0;
+            const paddingBottom = parseFloat(bodyStyle.paddingBottom) || 0;
+            const availableHeight = cardHeight - paddingTop - paddingBottom;
+            const contentHeight = this.cardTextElement.scrollHeight;
+            return contentHeight > availableHeight + 2;
         };
 
         // 如果没有溢出，不需要调整
@@ -1043,10 +1062,10 @@ export class CardSidebar {
     }
 
     adjustFontScale(delta) {
-        this.setFontScale(this.fontScale + delta);
+        this.setFontScale(this.fontScale + delta, true);
     }
 
-    setFontScale(value) {
+    setFontScale(value, isManual = false) {
         const next = Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Number(value) || 1));
         const changed = Math.abs(next - this.fontScale) > 0.001;
         this.fontScale = next;
@@ -1054,6 +1073,10 @@ export class CardSidebar {
             this.applyFontScale();
         } else {
             this.applyLineHeightScale();
+        }
+        // 手动调整时关闭自动排版
+        if (isManual && this.autoFitEnabled) {
+            this.autoFitEnabled = false;
         }
         this.syncTextControlState();
     }
@@ -1080,15 +1103,19 @@ export class CardSidebar {
     }
 
     adjustLineHeightScale(delta) {
-        this.setLineHeightScale(this.lineHeightScale + delta);
+        this.setLineHeightScale(this.lineHeightScale + delta, true);
     }
 
-    setLineHeightScale(value) {
+    setLineHeightScale(value, isManual = false) {
         const next = Math.min(LINE_HEIGHT_SCALE_MAX, Math.max(LINE_HEIGHT_SCALE_MIN, Number(value) || 1));
         const changed = Math.abs(next - this.lineHeightScale) > 0.001;
         this.lineHeightScale = next;
         if (changed) {
             this.applyLineHeightScale();
+        }
+        // 手动调整时关闭自动排版
+        if (isManual && this.autoFitEnabled) {
+            this.autoFitEnabled = false;
         }
         this.syncTextControlState();
     }
@@ -1129,6 +1156,12 @@ export class CardSidebar {
             this.alignToggleButton.setAttribute('title', isCenter ? '切换为顶部对齐' : '切换为垂直居中');
             this.alignToggleButton.setAttribute('aria-label', isCenter ? '切换为顶部对齐' : '切换为垂直居中');
         }
+        if (this.autoFitToggleButton) {
+            this.autoFitToggleButton.classList.toggle('is-active', this.autoFitEnabled);
+            this.autoFitToggleButton.setAttribute('aria-pressed', String(this.autoFitEnabled));
+            this.autoFitToggleButton.setAttribute('title', this.autoFitEnabled ? '自动排版（点击关闭）' : '手动排版（点击开启自动）');
+            this.autoFitToggleButton.setAttribute('aria-label', this.autoFitToggleButton.getAttribute('title'));
+        }
     }
 
     adjustFontWeight(delta) {
@@ -1160,6 +1193,15 @@ export class CardSidebar {
 
     toggleVerticalAlign() {
         this.setVerticalAlign(this.verticalAlign === 'center' ? 'top' : 'center');
+    }
+
+    toggleAutoFit() {
+        this.autoFitEnabled = !this.autoFitEnabled;
+        this.syncTextControlState();
+        // 开启自动排版时立即执行一次
+        if (this.autoFitEnabled && this.currentContent) {
+            this.autoFitContent();
+        }
     }
 
     setVerticalAlign(mode) {

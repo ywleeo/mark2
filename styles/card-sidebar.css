@@ -453,41 +453,152 @@ body.card-sidebar-visible .card-sidebar {
     opacity: 0.3;
 }
 
-/* 背景预设 - 方便自定义修改 */
-.card-preview-card__background--purple-blue {
-    background: linear-gradient(125deg, #a78bfa, #6366f1, #38bdf8);
-}
+/* ====== 卡片模板背景 ====== */
 
-.card-preview-card__background--frame {
-    background: #fff9f7;
-    box-shadow: inset 0 0 0 10px #de7e7e;
+/* 引号风格 - 米色背景 + 红色引号 */
+.card-preview-card__background--quote-red {
+    background: #faf8f5;
     opacity: 1;
 }
 
-.card-preview-card__background--green-teal {
-    background: linear-gradient(125deg, #34d399, #14b8a6, #06b6d4);
-}
-
-.card-preview-card__background--blue-cyan {
-    background: linear-gradient(125deg, #60a5fa, #38bdf8, #22d3ee);
-}
-
-.card-preview-card__background--rose-red {
-    background: linear-gradient(125deg, #fb7185, #f43f5e, #e11d48);
-}
-
-.card-preview-card__background--grid {
-    background: #f5f7fa;
-    border: 10px solid #8fa3b8;
+/* 简约米色 */
+.card-preview-card__background--minimal-cream {
+    background: #f5f0e8;
     opacity: 1;
 }
 
-.card-preview-card__background--slate-gray {
-    background: linear-gradient(125deg, #94a3b8, #64748b, #475569);
+/* 像素风格 - 深色网格 */
+.card-preview-card__background--pixel-dark {
+    background: #1a1f2e;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 1;
 }
 
-.card-preview-card__background--neutral {
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+/* 虚线纸张 */
+.card-preview-card__background--lined-paper {
+    background: #ffffff;
+    background-image: repeating-linear-gradient(
+        transparent,
+        transparent 28px,
+        rgba(200, 200, 200, 0.3) 28px,
+        rgba(200, 200, 200, 0.3) 29px
+    );
+    opacity: 1;
+}
+
+/* 粉色引号 */
+.card-preview-card__background--quote-pink {
+    background: #fce4ec;
+    opacity: 1;
+}
+
+/* 蓝色斜纹 */
+.card-preview-card__background--blue-stripe {
+    background: #e8f4fc;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        rgba(255, 255, 255, 0.5) 10px,
+        rgba(255, 255, 255, 0.5) 20px
+    );
+    opacity: 1;
+}
+
+/* 网格笔记 */
+.card-preview-card__background--grid-note {
+    background: #f8fff8;
+    background-image:
+        linear-gradient(rgba(200, 230, 200, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200, 230, 200, 0.4) 1px, transparent 1px);
+    background-size: 16px 16px;
+    opacity: 1;
+}
+
+/* 光影风格 */
+.card-preview-card__background--shadow-light {
+    background: linear-gradient(135deg, #f8f8f8 0%, #e8e8e8 50%, #f0f0f0 100%);
+    opacity: 1;
+}
+
+/* ====== 装饰元素样式 ====== */
+.card-deco {
+    position: absolute;
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* 引号装饰 - 左上 */
+.card-deco--quote-open {
+    top: 15px;
+    left: 20px;
+    font-size: 32px;
+    color: #c45c5c;
+    line-height: 1;
+    font-weight: bold;
+}
+
+/* 引号装饰 - 右下 */
+.card-deco--quote-close {
+    bottom: 35px;
+    right: 20px;
+    font-size: 32px;
+    color: #c45c5c;
+    line-height: 1;
+    font-weight: bold;
+}
+
+/* 粉色引号 */
+.card-deco--quote-open.card-deco--pink {
+    color: #f48fb1;
+}
+
+/* 日期装饰 - 左上角 */
+.card-deco--date {
+    top: 18px;
+    left: 25px;
+    font-size: 11px;
+    color: #888;
+    font-family: system-ui, sans-serif;
+}
+
+/* 小日期 */
+.card-deco--date-small {
+    top: 12px;
+    left: 15px;
+    font-size: 10px;
+    color: #9ca3af;
+    font-family: monospace;
+}
+
+/* 角落日期 */
+.card-deco--corner-date {
+    top: 15px;
+    right: 20px;
+    font-size: 12px;
+    color: #666;
+    font-family: system-ui, sans-serif;
+}
+
+/* 像素风格装饰 */
+.card-deco--pixel-corner {
+    top: 18px;
+    left: 20px;
+    font-size: 14px;
+    color: #4ade80;
+    font-family: monospace;
+    letter-spacing: 2px;
+}
+
+.card-deco--pixel-face {
+    bottom: 35px;
+    right: 25px;
+    font-size: 26px;
+    color: #4ade80;
+    font-family: monospace;
 }
 
 .card-preview-card__body {

@@ -182,8 +182,8 @@
 
 :root[data-theme-appearance='dark'] .tiptap-editor strong,
 :root[data-theme-appearance='dark'] .tiptap-editor b {
-    background-color: rgba(38, 170, 135, 0.18);
-    color: #d7d7d7;
+    background-color: rgba(214, 214, 214, 0.09);
+    color: #a4edff;
     padding: 0 2px;
     border-radius: 2px;
 }
