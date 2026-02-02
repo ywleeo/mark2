@@ -541,8 +541,44 @@ export class MarkdownEditor {
             deleteTable: () => this.editor.chain().focus().deleteTable().run(),
         };
         commands[action]?.();
-        // 执行操作后延迟更新工具栏位置
-        setTimeout(() => this.updateTableToolbarPosition(), 10);
+        // 填充空单元格并更新工具栏位置
+        setTimeout(() => {
+            this.fillEmptyTableCells();
+            this.updateTableToolbarPosition();
+        }, 10);
+    }
+
+    fillEmptyTableCells() {
+        if (!this.editor) return;
+        const { state } = this.editor;
+        const { doc, schema } = state;
+
+        const cellTypes = new Set(['tableCell', 'tableHeader']);
+        const emptyParagraphPositions = [];
+
+        // 找出表格单元格中内容为空的段落
+        doc.descendants((node, pos) => {
+            if (cellTypes.has(node.type.name)) {
+                // 检查单元格内的每个子节点
+                node.forEach((child, offset) => {
+                    if (child.type.name === 'paragraph' && child.content.size === 0) {
+                        // 空段落的位置：单元格位置 + 1（进入单元格）+ offset（子节点偏移）+ 1（进入段落）
+                        emptyParagraphPositions.push(pos + 1 + offset + 1);
+                    }
+                });
+            }
+        });
+
+        if (emptyParagraphPositions.length === 0) return;
+
+        // 从后往前插入文本，避免位置偏移
+        let tr = state.tr;
+        for (let i = emptyParagraphPositions.length - 1; i >= 0; i--) {
+            const textNode = schema.text('内容');
+            tr = tr.insert(emptyParagraphPositions[i], textNode);
+        }
+        tr.setMeta('addToHistory', false);
+        this.editor.view.dispatch(tr);
     }
 
     updateTableToolbarPosition() {
