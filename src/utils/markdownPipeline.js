@@ -362,12 +362,14 @@ export function createMarkdownSerializer(schema) {
         },
         bulletList(state, node) {
             const bullet = node.attrs?.bullet || '-';
+            node.attrs = { ...node.attrs, tight: true };
             state.renderList(node, '  ', () => `${bullet} `);
         },
         orderedList(state, node) {
             const start = node.attrs?.order || 1;
             const maxW = String(start + node.childCount - 1).length;
             const space = state.repeat(' ', maxW + 2);
+            node.attrs = { ...node.attrs, tight: true };
             state.renderList(node, space, i => {
                 const nStr = String(start + i);
                 return state.repeat(' ', maxW - nStr.length) + `${nStr}. `;
@@ -377,6 +379,7 @@ export function createMarkdownSerializer(schema) {
             state.renderContent(node);
         },
         taskList(state, node) {
+            node.attrs = { ...node.attrs, tight: true };
             state.renderList(node, '  ', () => '- ');
         },
         taskItem(state, node) {

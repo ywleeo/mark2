@@ -6,6 +6,57 @@
 	<string>zh-Hans</string>
 	<key>CFBundleDisplayName</key>
 	<string>Mark2</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>md</string>
+				<string>markdown</string>
+				<string>mdown</string>
+				<string>mkd</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Markdown Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>net.daringfireball.markdown</string>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>mflow</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Mark2 Workflow</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>txt</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>Text Document</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>mark2-tauri</string>
 	<key>CFBundleIconFile</key>
@@ -24,9 +75,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.2</string>
+	<string>1.5.3</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.2</string>
+	<string>1.5.3</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -48,57 +99,6 @@
 	</dict>
 	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>Markdown Document</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Alternate</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>net.daringfireball.markdown</string>
-				<string>public.plain-text</string>
-			</array>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>md</string>
-				<string>markdown</string>
-				<string>mdown</string>
-				<string>mkd</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>Mark2 Workflow</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>mflow</string>
-			</array>
-		</dict>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>Text Document</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Alternate</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>public.plain-text</string>
-			</array>
-			<key>CFBundleTypeExtensions</key>
-			<array>
-				<string>txt</string>
-			</array>
-		</dict>
-	</array>
 	<key>NSPreferredLocalizations</key>
 	<array>
 		<string>zh-Hans</string>
