@@ -440,7 +440,7 @@ export function createMarkdownSerializer(schema) {
         hardBreak(state, node, parent, index) {
             for (let i = index + 1; i < parent.childCount; i += 1) {
                 if (parent.child(i).type !== node.type) {
-                    state.write('\\\n');
+                    state.write('\n');
                     return;
                 }
             }
