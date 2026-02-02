@@ -47,14 +47,14 @@
 .tiptap-editor h1 {
     font-size: 2em;
     font-weight: 700;
-    margin: 0.5em 0;
+    margin: 1.5em 0 0.5em 0;
     line-height: 1.2;
 }
 
 .tiptap-editor h2 {
     font-size: 1.5em;
     font-weight: 700;
-    margin: 0.5em 0;
+    margin: 1em 0 0.5em 0;
     line-height: 1.3;
     border-bottom-width: 1px;
     border-bottom-style: solid;
@@ -336,7 +336,7 @@
     border: none;
     border-top-width: 2px;
     border-top-style: solid;
-    margin: 2em 0;
+    margin: 1em 0;
 }
 
 /* 粗体斜体 */
