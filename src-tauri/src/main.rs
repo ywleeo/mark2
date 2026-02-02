@@ -127,6 +127,16 @@ struct RecentMenuState {
     clear_item: Mutex<Option<MenuItem<Wry>>>,
 }
 
+#[derive(Clone, Serialize)]
+struct OpenedFilesPayload {
+    paths: Vec<String>,
+}
+
+#[derive(Default)]
+struct OpenedFilesState {
+    paths: Mutex<Vec<String>>,
+}
+
 impl RecentMenuState {
     fn new(submenu: Submenu<Wry>) -> Self {
         Self {
@@ -1453,6 +1463,17 @@ fn update_recent_menu(
     Ok(())
 }
 
+#[tauri::command]
+fn get_opened_files(state: tauri::State<'_, OpenedFilesState>) -> Result<Vec<String>, String> {
+    let mut guard = state
+        .paths
+        .lock()
+        .map_err(|err| format!("opened files lock poisoned: {err}"))?;
+    // 取出并清空，避免重复处理
+    let paths = std::mem::take(&mut *guard);
+    Ok(paths)
+}
+
 fn main() {
     // 限制 Tokio 运行时的工作线程数为 4，降低线程占用
     std::env::set_var("TOKIO_WORKER_THREADS", "4");
@@ -1505,8 +1526,10 @@ fn main() {
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,
-            pty::pty_kill
+            pty::pty_kill,
+            get_opened_files
         ])
+        .manage(OpenedFilesState::default())
         .setup(|app| {
             let handle = app.handle();
             register_plain_paste_shortcut(&handle);

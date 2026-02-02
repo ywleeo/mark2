@@ -101,9 +101,11 @@ export function setupFileTree({
             if (!normalized) {
                 return;
             }
+            // 检查文件是否在打开文件列表中，决定是 file 还是 shared tab
+            const isInOpenList = fileTree?.isInOpenList?.(normalized);
             return handleTabClose({
-                id: normalized,
-                type: 'file',
+                id: isInOpenList ? normalized : 'shared-preview',
+                type: isInOpenList ? 'file' : 'shared',
                 path: normalized,
             });
         },

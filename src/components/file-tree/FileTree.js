@@ -128,6 +128,7 @@ export class FileTree {
             onDelete: (path /*, meta */) => this.confirmAndDelete(path),
             onCreateFile: (path /*, meta */) => this.createFileInFolder(path),
             onCreateFolder: (path /*, meta */) => this.createFolderInFolder(path),
+            onCreateWorkflow: (path /*, meta */) => this.createWorkflowInFolder(path),
             onRun: (path /*, meta */) => this.onRunFile?.(path),
         });
     }
@@ -330,10 +331,14 @@ export class FileTree {
             await fileService.remove(normalized);
 
             this.stopWatchingFile(normalized);
+            const isCurrentFile = this.normalizePath(this.currentFile) === normalized;
             if (this.isInOpenList(normalized)) {
                 this.closeFile(normalized, { suppressActivate: true });
+            } else if (isCurrentFile && typeof this.onCloseFileRequest === 'function') {
+                // 文件在 shared tab 中显示，需要通知外部关闭 tab
+                this.onCloseFileRequest(normalized);
             }
-            if (this.normalizePath(this.currentFile) === normalized) {
+            if (isCurrentFile) {
                 this.clearSelection();
                 if (this.onFileSelect) {
                     this.onFileSelect(null);
@@ -465,6 +470,85 @@ export class FileTree {
         }
     }
 
+    async createWorkflowInFolder(folderPath) {
+        const normalized = this.normalizePath(folderPath);
+        if (!normalized) return;
+        try {
+            const pathModule = await import('@tauri-apps/api/path');
+            const fileService = this.ensureFileService();
+
+            const baseName = 'workflow';
+            const ext = '.mflow';
+            let candidatePath = null;
+            let attempts = 0;
+
+            while (attempts < 1000) {
+                const suffix = attempts === 0 ? '' : `-${attempts}`;
+                const fileName = `${baseName}${suffix}${ext}`;
+                const joined = await pathModule.join(normalized, fileName);
+                const normalizedCandidate = this.normalizePath(joined);
+                if (!normalizedCandidate) {
+                    attempts += 1;
+                    continue;
+                }
+
+                const exists = await fileService.exists(normalizedCandidate);
+                if (!exists) {
+                    candidatePath = normalizedCandidate;
+                    break;
+                }
+                attempts += 1;
+            }
+
+            if (!candidatePath) {
+                throw new Error('无法找到可用的文件名');
+            }
+
+            const now = new Date().toISOString();
+            const generateId = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+            const emptyWorkflow = {
+                version: '1.0',
+                meta: {
+                    title: '新建工作流',
+                    created: now,
+                    updated: now,
+                },
+                layers: [
+                    {
+                        id: generateId('layer'),
+                        cards: [
+                            {
+                                id: generateId('card'),
+                                title: '任务目标',
+                                type: 'input',
+                                inputs: [],
+                                config: { content: '' },
+                                output: { mode: 'content' },
+                                status: 'pending',
+                            },
+                        ],
+                    },
+                ],
+            };
+
+            this.markLocalWrite(candidatePath);
+            this.markLocalWrite(normalized);
+            await fileService.writeText(candidatePath, JSON.stringify(emptyWorkflow, null, 2));
+
+            await this.refreshFolder(normalized);
+
+            setTimeout(() => {
+                this.selectFile(candidatePath, { autoFocus: false });
+                this.startRenaming(candidatePath);
+            }, 100);
+        } catch (error) {
+            console.error('创建工作流失败:', error);
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(`创建工作流失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
+            } catch {}
+        }
+    }
 
     toggleSection(contentId) {
         this.events.handleSectionToggle(contentId);

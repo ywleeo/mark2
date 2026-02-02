@@ -374,6 +374,9 @@ export function createNavigationController({
                 fileSession.clearEntry(targetPath);
             }
 
+            // 清除 shared tab
+            tabManager?.clearSharedTab?.();
+
             if (!tab.fallbackPath) {
                 fileTree?.selectFile(null);
             }

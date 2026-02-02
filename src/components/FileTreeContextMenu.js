@@ -10,6 +10,7 @@ export class FileTreeContextMenu {
             onDelete,
             onCreateFile,
             onCreateFolder,
+            onCreateWorkflow,
             onRun,
             getTargetPath,
         } = options;
@@ -21,6 +22,7 @@ export class FileTreeContextMenu {
         this.onDelete = onDelete;
         this.onCreateFile = onCreateFile;
         this.onCreateFolder = onCreateFolder;
+        this.onCreateWorkflow = onCreateWorkflow;
         this.onRun = onRun;
         this.getTargetPath = getTargetPath;
 
@@ -45,6 +47,7 @@ export class FileTreeContextMenu {
             <button type="button" class="file-tree-context-menu__item runnable-only" data-action="run">Run</button>
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-file">Create File</button>
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-folder">Create Folder</button>
+            <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-workflow">Create Workflow</button>
             <button type="button" class="file-tree-context-menu__item" data-action="rename">Rename</button>
             <button type="button" class="file-tree-context-menu__item" data-action="move">Move To...</button>
             <button type="button" class="file-tree-context-menu__item" data-action="copy-path">Copy Path</button>
@@ -216,6 +219,9 @@ export class FileTreeContextMenu {
                 break;
             case 'create-folder':
                 await this.onCreateFolder?.(targetPath, meta);
+                break;
+            case 'create-workflow':
+                await this.onCreateWorkflow?.(targetPath, meta);
                 break;
             case 'rename':
                 // 延迟到下一轮事件循环再触发重命名，避免与当前点击/焦点变更产生竞争，导致编辑框瞬间消失
