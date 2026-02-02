@@ -24,16 +24,17 @@ const CARD_PRESETS = [
     { id: 'square', label: '方形配图', hint: '1:1', width: 900, height: 900 },
 ];
 
-// 背景预设 - 样式定义在 card-sidebar.css 中，这里只保留 id 和色块颜色
+// 背景预设 - 样式定义在 card-sidebar.css 中
+// theme: 'dark' 表示深色背景用浅色文字，'light' 表示浅色背景用深色文字
 const BACKGROUND_PRESETS = [
-    { id: 'purple-blue', color: '#8b5cf6' },
-    { id: 'frame', color: '#de7e7e' },
-    { id: 'green-teal', color: '#10b981' },
-    { id: 'blue-cyan', color: '#3b82f6' },
-    { id: 'rose-red', color: '#f43f5e' },
-    { id: 'grid', color: '#8fa3b8' },
-    { id: 'slate-gray', color: '#64748b' },
-    { id: 'neutral', color: '#e2e8f0' },
+    { id: 'purple-blue', color: '#8b5cf6', theme: 'dark' },
+    { id: 'frame', color: '#de7e7e', theme: 'light' },
+    { id: 'green-teal', color: '#10b981', theme: 'dark' },
+    { id: 'blue-cyan', color: '#3b82f6', theme: 'dark' },
+    { id: 'rose-red', color: '#f43f5e', theme: 'dark' },
+    { id: 'grid', color: '#8fa3b8', theme: 'light' },
+    { id: 'slate-gray', color: '#64748b', theme: 'dark' },
+    { id: 'neutral', color: '#e2e8f0', theme: 'light' },
 ];
 
 export class CardSidebar {
@@ -285,13 +286,17 @@ export class CardSidebar {
         if (!this.cardBackgroundElement) {
             return;
         }
-        const presetId = this.selectedBackgroundId || BACKGROUND_PRESETS[0].id;
+        const preset = BACKGROUND_PRESETS.find(p => p.id === this.selectedBackgroundId) || BACKGROUND_PRESETS[0];
         // 移除所有背景预设类
         BACKGROUND_PRESETS.forEach(p => {
             this.cardBackgroundElement.classList.remove(`card-preview-card__background--${p.id}`);
         });
         // 添加当前选中的背景类
-        this.cardBackgroundElement.classList.add(`card-preview-card__background--${presetId}`);
+        this.cardBackgroundElement.classList.add(`card-preview-card__background--${preset.id}`);
+        // 设置卡片主题（控制文字颜色，不随应用主题变化）
+        if (this.cardElement) {
+            this.cardElement.dataset.cardTheme = preset.theme;
+        }
     }
 
     buildTextControlsSection() {
@@ -431,7 +436,7 @@ export class CardSidebar {
         this.cardBodyElement = body;
 
         this.cardTextElement = document.createElement('div');
-        this.cardTextElement.className = 'card-preview-card__content';
+        this.cardTextElement.className = 'card-preview-card__content tiptap-editor';
 
         const footer = document.createElement('div');
         footer.className = 'card-preview-card__footer';
@@ -759,7 +764,7 @@ export class CardSidebar {
             this.cardTextElement.style.fontFamily = styles.fontFamily;
             this.applyFontWeight();
             this.cardTextElement.style.letterSpacing = styles.letterSpacing;
-            this.cardTextElement.style.color = styles.color;
+            // 不同步 color，由 CSS 的 data-card-theme 控制
             const parsedSize = parseFloat(styles.fontSize);
             if (Number.isFinite(parsedSize)) {
                 this.baseFontSize = parsedSize;
