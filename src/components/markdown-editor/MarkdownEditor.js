@@ -915,8 +915,7 @@ export class MarkdownEditor {
             }
             : null;
 
-        const processedBold = this.preprocessBold(normalizedMarkdown);
-        const processedLinks = this.preprocessLinkDestinations(processedBold);
+        const processedLinks = this.preprocessLinkDestinations(normalizedMarkdown);
         const processed = this.preprocessListIndentation(processedLinks);
         const parsedDoc = this.markdownParser?.parse(processed) ?? null;
         if (sessionId && sessionId !== this.currentSessionId) {
@@ -1455,8 +1454,7 @@ export class MarkdownEditor {
             return;
         }
         const content = typeof markdown === 'string' ? markdown : '';
-        const processedBold = this.preprocessBold(content);
-        const processedLinks = this.preprocessLinkDestinations(processedBold);
+        const processedLinks = this.preprocessLinkDestinations(content);
         const processed = this.preprocessListIndentation(processedLinks);
         const parsed = this.markdownParser?.parse(processed) ?? null;
 
@@ -1492,8 +1490,7 @@ export class MarkdownEditor {
         const content = typeof markdown === 'string' ? markdown : '';
         // 在AI生成内容前后添加分割线
         const contentWithSeparator = '\n\n### 🤖 生成内容\n\n' + content + '\n\n---\n\n';
-        const processedBold = this.preprocessBold(contentWithSeparator);
-        const processedLinks = this.preprocessLinkDestinations(processedBold);
+        const processedLinks = this.preprocessLinkDestinations(contentWithSeparator);
         const processed = this.preprocessListIndentation(processedLinks);
         const parsed = this.markdownParser?.parse(processed) ?? null;
 
@@ -2074,8 +2071,7 @@ export class MarkdownEditor {
             .deleteSelection();
 
         if (content.length > 0) {
-            const processedBold = this.preprocessBold(content);
-            const processedLinks = this.preprocessLinkDestinations(processedBold);
+            const processedLinks = this.preprocessLinkDestinations(content);
             const processed = this.preprocessListIndentation(processedLinks);
             const parsed = this.markdownParser?.parse(processed);
             if (parsed) {

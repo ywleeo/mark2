@@ -160,8 +160,8 @@ export function createMarkdownParser(schema) {
         hardbreak: { node: 'hardBreak' },
         softbreak: { node: 'hardBreak' },
 
-        em: hasMark('em') ? { mark: 'em' } : { ignore: true },
-        strong: hasMark('strong') ? { mark: 'strong' } : { ignore: true },
+        em: hasMark('italic') ? { mark: 'italic' } : { ignore: true },
+        strong: hasMark('bold') ? { mark: 'bold' } : { ignore: true },
         s: hasMark('strike') ? { mark: 'strike' } : { ignore: true },
         link: hasMark('link')
             ? {
@@ -508,8 +508,8 @@ export function createMarkdownSerializer(schema) {
     };
 
     const marks = {
-        em: { open: '*', close: '*', mixable: true, expelEnclosingWhitespace: true },
-        strong: { open: '**', close: '**', mixable: true, expelEnclosingWhitespace: true },
+        italic: { open: '*', close: '*', mixable: true, expelEnclosingWhitespace: true },
+        bold: { open: '**', close: '**', mixable: true, expelEnclosingWhitespace: true },
         strike: { open: '~~', close: '~~', mixable: true },
         code: {
             open: (_state, _mark, parent, index) => backticksFor(parent.child(index), -1),

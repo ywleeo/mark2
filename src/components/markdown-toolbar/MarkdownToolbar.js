@@ -170,7 +170,7 @@ export class MarkdownToolbar {
             case 'strikethrough':
                 return this.runTipTapCommand(chain => chain.toggleStrike());
             case 'code':
-                return this.handleTipTapCodeAsBlock();
+                return this.runTipTapCommand(chain => chain.toggleCode());
             case 'heading1':
                 return this.runTipTapCommand(chain => chain.toggleHeading({ level: 1 }), { blockedNodes: ['mermaidBlock'] });
             case 'heading2':
