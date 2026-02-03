@@ -21,9 +21,8 @@
 }
 
 .view-pane.markdown-pane.is-active {
-    overflow-y: scroll !important;
+    overflow-y: auto !important;
     overflow-x: hidden !important;
-    scrollbar-gutter: stable !important;
 }
 
 /* Markdown 编辑器滚动条 - thin 样式 */
