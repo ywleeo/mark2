@@ -1349,6 +1349,48 @@ fn reveal_in_file_manager(path: String) -> Result<(), String> {
     reveal_in_file_manager_impl(&path)
 }
 
+/// 在系统终端中执行命令
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn open_in_terminal(command: String, cwd: Option<String>) -> Result<(), String> {
+    use std::process::Command;
+
+    // 构建 AppleScript：在 Terminal.app 中执行命令
+    let cd_part = if let Some(dir) = cwd {
+        format!("cd '{}' && ", dir.replace("'", "'\\''"))
+    } else {
+        String::new()
+    };
+
+    let escaped_command = command.replace("\\", "\\\\").replace("\"", "\\\"");
+    let script = format!(
+        r#"tell application "Terminal"
+    activate
+    do script "{}{}"
+end tell"#,
+        cd_part,
+        escaped_command
+    );
+
+    let status = Command::new("osascript")
+        .arg("-e")
+        .arg(&script)
+        .status()
+        .map_err(|e| e.to_string())?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("osascript 命令返回非零状态: {:?}", status.code()))
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn open_in_terminal(_command: String, _cwd: Option<String>) -> Result<(), String> {
+    Err("仅支持 macOS".to_string())
+}
+
 #[tauri::command]
 fn set_export_menu_enabled(
     state: tauri::State<ExportMenuState>,
@@ -1520,6 +1562,7 @@ fn main() {
             update_workspace_context,
             update_document_snapshot,
             reveal_in_file_manager,
+            open_in_terminal,
             set_export_menu_enabled,
             set_ai_sidebar_menu_enabled,
             update_recent_menu,
@@ -1569,11 +1612,6 @@ fn main() {
 
             let toggle_ai_sidebar_item =
                 MenuItemBuilder::with_id("toggle-ai-sidebar", "AI Assistant")
-                    .build(app)?;
-
-            let toggle_terminal_sidebar_item =
-                MenuItemBuilder::with_id("toggle-terminal-sidebar", "Terminal")
-                    .accelerator("CmdOrCtrl+J")
                     .build(app)?;
 
             let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
@@ -1626,7 +1664,6 @@ fn main() {
                 .item(&toggle_status_bar_item)
                 .item(&toggle_markdown_toolbar_item)
                 .item(&toggle_ai_sidebar_item)
-                .item(&toggle_terminal_sidebar_item)
                 .build()?;
 
             app.manage(ExportMenuState::new(

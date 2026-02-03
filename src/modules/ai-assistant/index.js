@@ -428,11 +428,6 @@ export async function initAIAssistant({ eventBus, getEditor }) {
         eventBus.on('tab:switch', () => {
             selectionToolbar?.hide();
         });
-
-        // 监听 Terminal Sidebar 显示事件，隐藏 AI Sidebar（互斥）
-        eventBus.on('terminal-sidebar:show', () => {
-            sidebar.hide();
-        });
     }
 
     // 尝试立即绑定已存在的编辑器

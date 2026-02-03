@@ -65,7 +65,6 @@ import { createRecentFilesActions } from './modules/recentFilesActions.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
 import { initAIAssistant } from './modules/ai-assistant/index.js';
-import { initTerminalSidebar } from './modules/terminal-sidebar/index.js';
 import { initCardExportSidebar } from './modules/card-export/index.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { untitledFileManager } from './modules/untitledFileManager.js';
@@ -102,7 +101,6 @@ const rendererRegistry = new RendererRegistry();
 // ========== 构造函数（动态加载） ==========
 let SettingsDialogCtor = null;
 let aiAssistant = null;
-let terminalSidebar = null;
 let cardExportSidebar = null;
 let windowFocusHandler = null;
 
@@ -787,7 +785,7 @@ function handleSidebarStateChange(sidebarState) {
 }
 
 /**
- * 在终端中运行脚本文件
+ * 在系统终端中运行脚本文件
  * @param {string} filePath - 要运行的文件路径
  */
 async function handleRunFile(filePath) {
@@ -804,32 +802,23 @@ async function handleRunFile(filePath) {
         return;
     }
 
-    // 查找文件所属的根文件夹
+    // 查找文件所属的根文件夹作为工作目录
     const fileTree = appState.getFileTree();
-    let rootFolder = null;
+    let cwd = null;
     if (fileTree?.rootPaths) {
         for (const rootPath of fileTree.rootPaths) {
             if (filePath.startsWith(rootPath + '/') || filePath === rootPath) {
-                rootFolder = rootPath;
+                cwd = rootPath;
                 break;
             }
         }
     }
 
-    // 显示终端 sidebar
-    terminalSidebar?.showSidebar?.();
-
-    // 等待终端初始化
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    // 写入命令并执行
-    if (terminalSidebar?.ptyService) {
-        if (rootFolder) {
-            // 先 cd 到根文件夹，再执行脚本
-            terminalSidebar.ptyService.write(`cd "${rootFolder}" && ${runCommand}\n`);
-        } else {
-            terminalSidebar.ptyService.write(runCommand + '\n');
-        }
+    // 在系统终端中执行命令
+    try {
+        await invoke('open_in_terminal', { command: runCommand, cwd });
+    } catch (error) {
+        console.error('[Run] 打开终端失败:', error);
     }
 }
 
@@ -996,27 +985,6 @@ async function initializeApplication() {
     });
     console.log('[App] AI 助手已初始化');
 
-    // 初始化 Terminal Sidebar
-    terminalSidebar = await initTerminalSidebar({
-        eventBus,
-        getAISidebar: () => aiAssistant,
-        getWorkspacePath: () => {
-            // 获取当前文件所属的工作区根目录
-            const currentFile = appState.getCurrentFile();
-            const roots = appServices?.workspace?.getWorkspaceRoots?.() || [];
-            if (currentFile && roots.length > 0) {
-                // 找到当前文件属于哪个根目录
-                const matchedRoot = roots.find(root => currentFile.startsWith(root + '/') || currentFile === root);
-                if (matchedRoot) {
-                    return matchedRoot;
-                }
-            }
-            // 降级：返回第一个根目录或当前目录
-            return roots[0] || appServices?.workspace?.getCurrentDirectory?.();
-        },
-    });
-    console.log('[App] Terminal Sidebar 已初始化');
-
     cardExportSidebar = await initCardExportSidebar();
     console.log('[App] 卡片导出侧边栏已初始化');
     handleCardSidebarOnFileChange(appState.getCurrentFile());
@@ -1030,15 +998,6 @@ async function initializeApplication() {
                 appState.setAISidebarWasOpenInMarkdown(state.visible);
             }
             // 触发 Monaco 编辑器重新布局
-            window.requestAnimationFrame(() => {
-                editorRegistry.getCodeEditor()?.requestLayout?.();
-            });
-        });
-    }
-
-    // 订阅 Terminal sidebar 可见性变化，触发编辑器重新布局
-    if (terminalSidebar?.layoutService) {
-        terminalSidebar.layoutService.subscribe(() => {
             window.requestAnimationFrame(() => {
                 editorRegistry.getCodeEditor()?.requestLayout?.();
             });
@@ -1182,9 +1141,6 @@ async function initializeApplication() {
         onToggleAISidebar: () => {
             aiAssistant?.toggleSidebar?.();
             // 状态更新由 layoutService.subscribe 自动处理
-        },
-        onToggleTerminalSidebar: () => {
-            terminalSidebar?.toggleSidebar?.();
         },
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
@@ -1407,9 +1363,6 @@ async function handleSettingsSubmit(nextSettings) {
     applyEditorSettings(normalizedSettings);
     editorRegistry.getCodeEditor()?.applyPreferences?.(normalizedSettings);
     saveEditorSettings(normalizedSettings);
-
-    // 更新终端字体设置
-    terminalSidebar?.sidebar?.updateFontSettings?.();
 }
 
 function handleUndoCommand() {
