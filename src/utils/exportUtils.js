@@ -164,16 +164,17 @@ export async function captureViewContent(ensureToPng) {
 
     const branding = document.createElement('div');
     branding.textContent = 'MARK2';
-    branding.style.margin = '15px auto 0';
-    branding.style.padding = '4px 18px';
-    branding.style.fontSize = '12px';
+    branding.style.alignSelf = 'flex-end';
+    branding.style.margin = '10px 30px 0 0';
+    branding.style.padding = '2px 8px';
+    branding.style.fontSize = '9px';
     branding.style.fontWeight = '600';
+    branding.style.fontStyle = 'italic';
     branding.style.fontFamily =
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-    branding.style.letterSpacing = '0.08em';
-    branding.style.textTransform = 'uppercase';
+    branding.style.letterSpacing = '0.03em';
     branding.style.color = '#ffffff';
-    branding.style.background = '#e3474eff';
+    branding.style.background = '#de3d3deb';
 
     captureContainer.appendChild(separator);
     captureContainer.appendChild(branding);

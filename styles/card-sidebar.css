@@ -667,14 +667,14 @@ body.card-sidebar-visible .card-sidebar {
 
 .card-preview-card__footer {
     position: absolute;
-    right: 15px;
-    bottom: 14px;
-    font-size: 6px;
+    right: 10px;
+    bottom: 8px;
+    font-size: 5px;
     font-style: italic;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     color: rgba(255, 255, 255);
     background-color: #de3d3deb;
-    padding: 2px 8px;
+    padding: 1px 5px;
 }
 
 /* 卡片主题样式 - 由背景决定，不随应用主题变化 */
