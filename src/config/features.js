@@ -9,7 +9,7 @@
  */
 
 // MAS 构建标记 - 发布 MAS 版本时由脚本自动设为 true
-export const MAS_BUILD = true;
+export const MAS_BUILD = false;
 
 // 功能开关
 export const features = {

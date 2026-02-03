@@ -20,11 +20,13 @@ export function createWorkflowRenderer() {
                 pdfViewer,
                 unsupportedViewer,
                 activateWorkflowView,
+                activateUnsupportedView,
                 forceReload,
             } = ctx;
 
             // MAS 版本禁用 workflow 功能
             if (!isFeatureEnabled('workflow')) {
+                activateUnsupportedView?.();
                 editorRegistry?.getMarkdownEditor?.()?.clear?.();
                 editorRegistry?.getCodeEditor?.()?.hide?.();
                 imageViewer?.hide?.();

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- DMG 版本：不启用沙盒，保留完整功能 -->
+
+	<!-- 允许网络客户端连接 -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+
+	<!-- Hardened Runtime: 允许动态代码执行（用于 AI 功能等） -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+
+	<!-- Hardened Runtime: 允许使用不安全的可执行内存 -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<true/>
+
+	<!-- Hardened Runtime: 允许 DYLD 环境变量 -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>

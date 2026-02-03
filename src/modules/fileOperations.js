@@ -607,6 +607,7 @@ export function createFileOperations({
                 activatePdfView,
                 activateHtmlView,
                 activateWorkflowView,
+                activateUnsupportedView,
                 forceReload,
             });
             if (shouldAbort('renderer-load')) {
