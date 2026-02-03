@@ -29,11 +29,20 @@ impl Default for PtyState {
     }
 }
 
+/// 检测是否在沙盒环境中运行
+/// MAS 版本会设置 APP_SANDBOX_CONTAINER_ID 环境变量
+fn is_sandboxed() -> bool {
+    std::env::var("APP_SANDBOX_CONTAINER_ID").is_ok()
+}
+
 /// 获取用户的默认 shell
 /// macOS 使用 dscl 查询用户的 UserShell，不依赖可能被修改的 SHELL 环境变量
+/// 注意：沙盒应用只能访问系统自带的 shell，不能访问 Homebrew 等第三方安装的 shell
 fn get_user_shell() -> String {
     #[cfg(target_os = "macos")]
     {
+        let sandboxed = is_sandboxed();
+
         if let Ok(username) = std::env::var("USER") {
             if let Ok(output) = std::process::Command::new("dscl")
                 .args([".", "-read", &format!("/Users/{}", username), "UserShell"])
@@ -43,14 +52,19 @@ fn get_user_shell() -> String {
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     // 输出格式: "UserShell: /bin/zsh"
                     if let Some(shell) = stdout.trim().strip_prefix("UserShell:") {
-                        return shell.trim().to_string();
+                        let shell_path = shell.trim();
+                        // 沙盒应用只能访问 /bin 下的系统 shell
+                        // 非沙盒应用可以使用用户的完整 shell（包括 Homebrew 安装的）
+                        if !sandboxed || shell_path.starts_with("/bin/") {
+                            return shell_path.to_string();
+                        }
                     }
                 }
             }
         }
     }
-    // fallback: 使用 SHELL 环境变量或默认 /bin/zsh
-    std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+    // fallback: 使用系统默认的 /bin/zsh（macOS Catalina+ 默认 shell）
+    "/bin/zsh".to_string()
 }
 
 /// 生成唯一的 PTY ID

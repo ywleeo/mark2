@@ -1,3 +1,5 @@
+import { isFeatureEnabled, getMASLimitationMessage } from '../../config/features.js';
+
 /**
  * 工作流工具栏
  */
@@ -46,6 +48,10 @@ export class WorkflowToolbar {
         });
 
         this.container.querySelector('[data-action="execute-all"]')?.addEventListener('click', () => {
+            if (!isFeatureEnabled('workflowExecution')) {
+                alert(getMASLimitationMessage('workflowExecution'));
+                return;
+            }
             this.callbacks.onExecuteAll?.();
         });
 
@@ -58,6 +64,10 @@ export class WorkflowToolbar {
         });
 
         this.container.querySelector('[data-action="resume"]')?.addEventListener('click', () => {
+            if (!isFeatureEnabled('workflowExecution')) {
+                alert(getMASLimitationMessage('workflowExecution'));
+                return;
+            }
             this.callbacks.onResume?.();
         });
     }

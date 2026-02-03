@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { isFeatureEnabled } from '../config/features.js';
 
 export class FileTreeContextMenu {
     constructor(options = {}) {
@@ -47,7 +48,7 @@ export class FileTreeContextMenu {
             <button type="button" class="file-tree-context-menu__item runnable-only" data-action="run">Run</button>
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-file">Create File</button>
             <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-folder">Create Folder</button>
-            <button type="button" class="file-tree-context-menu__item folder-only" data-action="create-workflow">Create Workflow</button>
+            <button type="button" class="file-tree-context-menu__item folder-only workflow-only" data-action="create-workflow">Create Workflow</button>
             <button type="button" class="file-tree-context-menu__item" data-action="rename">Rename</button>
             <button type="button" class="file-tree-context-menu__item" data-action="move">Move To...</button>
             <button type="button" class="file-tree-context-menu__item" data-action="copy-path">Copy Path</button>
@@ -168,11 +169,21 @@ export class FileTreeContextMenu {
             item.style.display = isFolder ? 'block' : 'none';
         });
 
-        // 根据文件类型显示/隐藏 Run 菜单项
+        // 根据文件类型显示/隐藏 Run 菜单项（MAS 版本禁用）
         const runnableOnlyItems = this.element.querySelectorAll('.runnable-only');
-        const isRunnable = !isFolder && this.isRunnableFile(this.targetPath);
+        const isRunnable = !isFolder && this.isRunnableFile(this.targetPath) && isFeatureEnabled('runScript');
         runnableOnlyItems.forEach(item => {
             item.style.display = isRunnable ? 'block' : 'none';
+        });
+
+        // 根据 workflow 功能是否启用显示/隐藏 Create Workflow 菜单项（MAS 版本禁用）
+        const workflowOnlyItems = this.element.querySelectorAll('.workflow-only');
+        const workflowEnabled = isFeatureEnabled('workflow');
+        workflowOnlyItems.forEach(item => {
+            // folder-only 已经处理了文件夹条件，这里只需要额外检查 workflow 功能
+            if (!workflowEnabled) {
+                item.style.display = 'none';
+            }
         });
 
         this.element.classList.remove('hidden');

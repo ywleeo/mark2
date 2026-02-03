@@ -1353,35 +1353,46 @@ fn reveal_in_file_manager(path: String) -> Result<(), String> {
 #[cfg(target_os = "macos")]
 #[tauri::command]
 fn open_in_terminal(command: String, cwd: Option<String>) -> Result<(), String> {
+    use std::io::Write;
     use std::process::Command;
 
-    // 构建 AppleScript：在 Terminal.app 中执行命令
-    let cd_part = if let Some(dir) = cwd {
-        format!("cd '{}' && ", dir.replace("'", "'\\''"))
+    // 创建临时脚本文件
+    let script_content = if let Some(dir) = &cwd {
+        format!(
+            "#!/bin/bash\ncd '{}' && {}\n",
+            dir.replace("'", "'\\''"),
+            command
+        )
     } else {
-        String::new()
+        format!("#!/bin/bash\n{}\n", command)
     };
 
-    let escaped_command = command.replace("\\", "\\\\").replace("\"", "\\\"");
-    let script = format!(
-        r#"tell application "Terminal"
-    activate
-    do script "{}{}"
-end tell"#,
-        cd_part,
-        escaped_command
-    );
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join(format!("mark2_run_{}.sh", std::process::id()));
 
-    let status = Command::new("osascript")
-        .arg("-e")
-        .arg(&script)
+    let mut file = std::fs::File::create(&script_path).map_err(|e| e.to_string())?;
+    file.write_all(script_content.as_bytes())
+        .map_err(|e| e.to_string())?;
+
+    // 设置可执行权限
+    Command::new("chmod")
+        .arg("+x")
+        .arg(&script_path)
+        .status()
+        .map_err(|e| e.to_string())?;
+
+    // 直接用 open 打开脚本，Terminal.app 会自动执行
+    let status = Command::new("open")
+        .arg("-a")
+        .arg("Terminal")
+        .arg(&script_path)
         .status()
         .map_err(|e| e.to_string())?;
 
     if status.success() {
         Ok(())
     } else {
-        Err(format!("osascript 命令返回非零状态: {:?}", status.code()))
+        Err(format!("open 命令返回非零状态: {:?}", status.code()))
     }
 }
 
