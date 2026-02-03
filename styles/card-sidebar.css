@@ -697,3 +697,22 @@ body.card-sidebar-visible .card-sidebar {
 .card-preview-card[data-card-theme='light'] .card-preview-card__content * {
     color: rgba(15, 23, 42, 0.92) !important;
 }
+
+/* 卡片主题 - 表格样式覆盖 */
+.card-preview-card[data-card-theme='dark'] .card-preview-card__content table td,
+.card-preview-card[data-card-theme='dark'] .card-preview-card__content table th {
+    border-color: #404a59 !important;
+}
+
+.card-preview-card[data-card-theme='dark'] .card-preview-card__content table th {
+    background-color: #222a3887 !important;
+}
+
+.card-preview-card[data-card-theme='light'] .card-preview-card__content table td,
+.card-preview-card[data-card-theme='light'] .card-preview-card__content table th {
+    border-color: #d0d7de !important;
+}
+
+.card-preview-card[data-card-theme='light'] .card-preview-card__content table th {
+    background-color: #f6f8fa7f !important;
+}
