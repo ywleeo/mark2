@@ -158,6 +158,13 @@ export const BUTTON_CONFIG = {
             <path d="M19,3H5C3.9,3,3,3.9,3,5V19C3,20.1,3.9,21,5,21H19C20.1,21,21,20.1,21,19V5C21,3.9,20.1,3,19,3M19,19H5V5H19V19M7,9H17V7H7V9M7,13H17V11H7V13M7,17H17V15H7V17Z" />
         </svg>`,
         title: '显示/隐藏目录'
+    },
+    centerContent: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" style="fill: none !important;" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="2"></rect>
+            <rect x="8" y="8" width="8" height="8" rx="1"></rect>
+        </svg>`,
+        title: '居中排版'
     }
 };
 

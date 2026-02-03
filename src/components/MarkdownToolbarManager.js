@@ -77,6 +77,7 @@ export class MarkdownToolbarManager {
                 'emoji',
                 'cardExport',
                 'separator',
+                'centerContent',
                 'toc',
                 'copyMarkdown',
                 'toggleViewMode'

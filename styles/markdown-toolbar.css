@@ -397,3 +397,25 @@
 :root[data-theme-appearance='dark'] .table-bubble-toolbar__sep {
     background: rgba(255, 255, 255, 0.15);
 }
+
+/* 居中排版模式 */
+.view-pane.markdown-pane.content-centered .markdown-content {
+    justify-content: center;
+    align-items: center;
+}
+
+.view-pane.markdown-pane.content-centered .markdown-content .tiptap-editor {
+    max-width: 800px;
+    width: 100%;
+}
+
+/* 按钮激活状态 */
+.toolbar-button--active {
+    background: var(--button-active-bg, rgba(59, 130, 246, 0.2));
+    color: var(--button-hover-color, #0f172a);
+}
+
+.markdown-toolbar--dark .toolbar-button--active {
+    background: var(--button-active-bg, rgba(255, 255, 255, 0.16));
+    color: var(--button-hover-color, #fff);
+}

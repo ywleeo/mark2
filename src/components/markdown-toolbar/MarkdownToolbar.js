@@ -99,6 +99,9 @@ export class MarkdownToolbar {
 
         // 绑定键盘快捷键
         this.bindShortcuts();
+
+        // 恢复居中模式状态
+        this.restoreCenterContentState();
     }
 
     /**
@@ -396,6 +399,12 @@ export class MarkdownToolbar {
         // 处理 TOC 按钮
         if (action === 'toc') {
             this.handleToc();
+            return;
+        }
+
+        // 处理居中排版按钮
+        if (action === 'centerContent') {
+            this.toggleCenterContent();
             return;
         }
 
@@ -1441,5 +1450,54 @@ export class MarkdownToolbar {
         }
 
         return true;
+    }
+
+    /**
+     * 切换内容居中模式
+     */
+    toggleCenterContent() {
+        const markdownPane = document.querySelector('.view-pane.markdown-pane');
+        if (!markdownPane) {
+            return false;
+        }
+
+        const isCentered = markdownPane.classList.toggle('content-centered');
+
+        // 更新按钮状态
+        const button = this.container?.querySelector('[data-action="centerContent"]');
+        if (button) {
+            button.classList.toggle('toolbar-button--active', isCentered);
+        }
+
+        // 保存状态到 localStorage
+        try {
+            localStorage.setItem('markdown-content-centered', isCentered.toString());
+        } catch (e) {
+            // ignore
+        }
+
+        return true;
+    }
+
+    /**
+     * 恢复居中模式状态
+     */
+    restoreCenterContentState() {
+        try {
+            const isCentered = localStorage.getItem('markdown-content-centered') === 'true';
+            if (isCentered) {
+                const markdownPane = document.querySelector('.view-pane.markdown-pane');
+                if (markdownPane) {
+                    markdownPane.classList.add('content-centered');
+                }
+
+                const button = this.container?.querySelector('[data-action="centerContent"]');
+                if (button) {
+                    button.classList.add('toolbar-button--active');
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
     }
 }

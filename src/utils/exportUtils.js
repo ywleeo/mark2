@@ -95,6 +95,124 @@ function resolveCaptureElement(viewElement) {
     return activePane;
 }
 
+function applyCenteredExportStyles({
+    viewElement,
+    captureContainer,
+    wrapper,
+    clone,
+    scrollWidth,
+}) {
+    const viewportWidth = viewElement.clientWidth || 1000;
+    const viewportHeight = viewElement.clientHeight || 800;
+    const containerWidth = Math.max(scrollWidth, viewportWidth);
+
+    captureContainer.style.width = `${containerWidth}px`;
+    captureContainer.style.minHeight = `${viewportHeight}px`;
+    captureContainer.style.alignItems = 'center';
+    captureContainer.style.justifyContent = 'center';
+    wrapper.style.width = `${containerWidth}px`;
+
+    clone.style.display = 'flex';
+    clone.style.flexDirection = 'column';
+    clone.style.alignItems = 'center';
+    clone.style.maxWidth = '800px';
+    clone.style.width = '100%';
+    clone.style.minHeight = 'auto';
+    clone.style.height = 'auto';
+    clone.style.flex = '0 0 auto';
+
+    const tiptapEditor = clone.querySelector('.tiptap-editor');
+    if (tiptapEditor) {
+        tiptapEditor.style.maxWidth = '800px';
+        tiptapEditor.style.width = '100%';
+        tiptapEditor.style.flex = '0 0 auto';
+        tiptapEditor.style.minHeight = 'auto';
+        tiptapEditor.style.height = 'auto';
+    }
+
+    const markdownContent = clone.querySelector('.markdown-content');
+    if (markdownContent) {
+        markdownContent.style.flex = '0 0 auto';
+        markdownContent.style.minHeight = 'auto';
+        markdownContent.style.height = 'auto';
+    }
+}
+
+function buildContentWrapper({ clone, isCentered, viewElement }) {
+    const contentWrapper = document.createElement('div');
+    contentWrapper.style.display = 'flex';
+    contentWrapper.style.flexDirection = 'column';
+    contentWrapper.style.width = '100%';
+    contentWrapper.style.boxSizing = 'border-box';
+
+    if (isCentered) {
+        contentWrapper.style.flex = '1';
+        contentWrapper.style.alignItems = 'center';
+        contentWrapper.style.justifyContent = 'center';
+        contentWrapper.style.minHeight = `${viewElement.clientHeight || 800}px`;
+    }
+
+    contentWrapper.appendChild(clone);
+    return contentWrapper;
+}
+
+function buildExportFooter({ isCentered }) {
+    const separator = document.createElement('div');
+    separator.style.width = '100%';
+    separator.style.height = '0';
+    separator.style.marginTop = '10px';
+    separator.style.borderTop = '1px dashed rgba(125, 125, 125, 0.2)';
+    separator.style.alignSelf = 'stretch';
+
+    const branding = document.createElement('div');
+    branding.textContent = 'MARK2';
+    branding.style.alignSelf = 'flex-end';
+    branding.style.margin = '10px 30px 0 0';
+    branding.style.padding = '2px 8px';
+    branding.style.fontSize = '9px';
+    branding.style.fontWeight = '600';
+    branding.style.fontStyle = 'italic';
+    branding.style.fontFamily =
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+    branding.style.letterSpacing = '0.03em';
+    branding.style.color = '#ffffff';
+    branding.style.background = '#de3d3deb';
+
+    if (isCentered) {
+        separator.style.marginTop = 'auto';
+        branding.style.marginTop = '10px';
+    }
+
+    return { separator, branding };
+}
+
+function measureExportSize({ scrollWidth, scrollHeight, captureContainer, isCentered }) {
+    const targetWidth = Math.ceil(
+        Math.max(
+            scrollWidth,
+            captureContainer.scrollWidth,
+            captureContainer.offsetWidth,
+            captureContainer.clientWidth
+        )
+    );
+    const targetHeight = Math.ceil(
+        isCentered
+            ? Math.max(
+                captureContainer.scrollHeight,
+                captureContainer.offsetHeight,
+                captureContainer.clientHeight
+            )
+            : Math.max(
+                scrollHeight,
+                captureContainer.scrollHeight,
+                captureContainer.offsetHeight,
+                captureContainer.clientHeight
+            )
+    );
+
+    return { targetWidth, targetHeight };
+}
+
 export async function captureViewContent(ensureToPng) {
     const viewElement = document.getElementById('viewContent');
     if (!viewElement) {
@@ -149,33 +267,29 @@ export async function captureViewContent(ensureToPng) {
     const captureContainer = document.createElement('div');
     captureContainer.style.display = 'flex';
     captureContainer.style.flexDirection = 'column';
-    captureContainer.style.alignItems = 'stretch';
     captureContainer.style.width = `${scrollWidth}px`;
     captureContainer.style.boxSizing = 'border-box';
     captureContainer.style.paddingBottom = '15px';
-    captureContainer.appendChild(clone);
 
-    const separator = document.createElement('div');
-    separator.style.width = '100%';
-    separator.style.height = '0';
-    separator.style.marginTop = '10px';
-    separator.style.borderTop = '1px dashed rgba(125, 125, 125, 0.2)';
-    separator.style.alignSelf = 'stretch';
+    // 检测是否开启了居中模式
+    const centeredPane = document.querySelector('.view-pane.markdown-pane.content-centered');
+    const isCentered = centeredPane !== null;
+    if (isCentered) {
+        applyCenteredExportStyles({
+            viewElement,
+            captureContainer,
+            wrapper,
+            clone,
+            scrollWidth,
+        });
+    } else {
+        captureContainer.style.alignItems = 'stretch';
+    }
 
-    const branding = document.createElement('div');
-    branding.textContent = 'MARK2';
-    branding.style.alignSelf = 'flex-end';
-    branding.style.margin = '10px 30px 0 0';
-    branding.style.padding = '2px 8px';
-    branding.style.fontSize = '9px';
-    branding.style.fontWeight = '600';
-    branding.style.fontStyle = 'italic';
-    branding.style.fontFamily =
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-    branding.style.letterSpacing = '0.03em';
-    branding.style.color = '#ffffff';
-    branding.style.background = '#de3d3deb';
+    const contentWrapper = buildContentWrapper({ clone, isCentered, viewElement });
+    captureContainer.appendChild(contentWrapper);
 
+    const { separator, branding } = buildExportFooter({ isCentered });
     captureContainer.appendChild(separator);
     captureContainer.appendChild(branding);
 
@@ -186,22 +300,13 @@ export async function captureViewContent(ensureToPng) {
     await new Promise(resolve => requestAnimationFrame(resolve));
 
     try {
-        const targetWidth = Math.ceil(
-            Math.max(
-                scrollWidth,
-                captureContainer.scrollWidth,
-                captureContainer.offsetWidth,
-                captureContainer.clientWidth
-            )
-        );
-        const targetHeight = Math.ceil(
-            Math.max(
-                scrollHeight,
-                captureContainer.scrollHeight,
-                captureContainer.offsetHeight,
-                captureContainer.clientHeight
-            )
-        );
+        const { targetWidth, targetHeight } = measureExportSize({
+            scrollWidth,
+            scrollHeight,
+            captureContainer,
+            isCentered,
+        });
+
 
         wrapper.style.width = `${targetWidth}px`;
         captureContainer.style.width = `${targetWidth}px`;
