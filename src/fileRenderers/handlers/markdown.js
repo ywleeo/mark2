@@ -23,9 +23,11 @@ export function createMarkdownRenderer() {
                 return false;
             }
 
-            activateMarkdownView?.();
-            await editor.loadFile(session, filePath, fileData.content, { autoFocus: shouldAutoFocus });
-            restoreMarkdownScrollPosition?.(filePath);
+            activateMarkdownView?.({ skipScrollSync: true });
+            await editor.loadFile(session, filePath, fileData.content, {
+                autoFocus: shouldAutoFocus,
+                onReady: () => restoreMarkdownScrollPosition?.(filePath),
+            });
 
             if (fileData.hasChanges) {
                 editor.contentChanged = true;

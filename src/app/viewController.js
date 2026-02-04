@@ -6,7 +6,8 @@ export const ZOOM_STEP = 0.1;
 const ZOOM_SUPPORTED_VIEWS = new Set(['markdown', 'code', 'image', 'pdf', 'spreadsheet', 'html']);
 
 export function createViewController(options = {}) {
-    const markdownScrollPositions = new Map();
+    // 按文件路径存储滚动状态: { markdown: number, code: number }
+    const scrollPositions = new Map();
 
     const getStatusBar = () => options.getStatusBarController?.() ?? null;
     const getCurrentFile = () => options.getCurrentFile?.() ?? null;
@@ -155,40 +156,64 @@ export function createViewController(options = {}) {
         return options.getMarkdownPane?.() ?? getViewContainer();
     }
 
-    function rememberMarkdownScrollPosition(filePath = getCurrentFile(), viewMode = getActiveViewMode()) {
-        if (!filePath) {
-            return;
+    /**
+     * 保存滚动位置（支持 markdown 和 code）
+     */
+    function rememberScrollPosition(filePath = getCurrentFile(), viewMode = getActiveViewMode()) {
+        if (!filePath) return;
+
+        const state = scrollPositions.get(filePath) || {};
+
+        if (viewMode === 'markdown') {
+            const container = getMarkdownScrollContainer();
+            if (container) {
+                state.markdown = container.scrollTop || 0;
+            }
+        } else if (viewMode === 'code') {
+            const codeEditor = options.getCodeEditor?.();
+            const monacoEditor = codeEditor?.editor;
+            if (monacoEditor) {
+                state.code = monacoEditor.getScrollTop() || 0;
+            }
         }
-        if (viewMode !== 'markdown') {
-            return;
+
+        scrollPositions.set(filePath, state);
+    }
+
+    /**
+     * 恢复滚动位置（支持 markdown 和 code）
+     */
+    function restoreScrollPosition(filePath, viewMode = getActiveViewMode()) {
+        if (!filePath) return;
+
+        const state = scrollPositions.get(filePath);
+        if (!state) return;
+
+        if (viewMode === 'markdown') {
+            const target = state.markdown ?? 0;
+            const container = getMarkdownScrollContainer();
+            if (container) {
+                container.scrollTop = target;
+            }
+        } else if (viewMode === 'code') {
+            const target = state.code ?? 0;
+            const codeEditor = options.getCodeEditor?.();
+            const monacoEditor = codeEditor?.editor;
+            if (monacoEditor) {
+                requestAnimationFrame(() => {
+                    monacoEditor.setScrollTop(target);
+                });
+            }
         }
-        const container = getMarkdownScrollContainer();
-        if (!container) {
-            return;
-        }
-        const scrollTop = container.scrollTop || 0;
-        markdownScrollPositions.set(filePath, scrollTop);
+    }
+
+    // 兼容旧 API
+    function rememberMarkdownScrollPosition(filePath, viewMode) {
+        rememberScrollPosition(filePath, viewMode);
     }
 
     function restoreMarkdownScrollPosition(filePath) {
-        if (!filePath) {
-            return;
-        }
-        const container = getMarkdownScrollContainer();
-        if (!container) {
-            return;
-        }
-        const target = markdownScrollPositions.get(filePath) ?? 0;
-        container.scrollTop = target;
-        if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-            window.requestAnimationFrame(() => {
-                const refreshedContainer = getMarkdownScrollContainer();
-                if (!refreshedContainer) {
-                    return;
-                }
-                refreshedContainer.scrollTop = target;
-            });
-        }
+        restoreScrollPosition(filePath, 'markdown');
     }
 
     function clampZoomValue(value) {
@@ -309,15 +334,16 @@ export function createViewController(options = {}) {
         requestAnimationFrame(check);
     }
 
-    function setActiveViewMode(nextMode) {
+    function setActiveViewMode(nextMode, viewOptions = {}) {
+        const { skipScrollSync = false } = viewOptions;
         const config = VIEW_MODE_BEHAVIORS[nextMode];
         if (!config) {
             return;
         }
         const currentMode = getActiveViewMode();
 
-        // markdown → code: 记录光标位置和滚动百分比
-        if (currentMode === 'markdown' && nextMode === 'code') {
+        // markdown → code: 记录光标位置和滚动百分比（仅同文件视图切换时）
+        if (!skipScrollSync && currentMode === 'markdown' && nextMode === 'code') {
             const editor = options.getEditor?.();
             pendingSyncPosition = editor?.getCurrentSourcePosition?.() ?? null;
             // 使用 markdownPane 作为滚动容器（和 rememberMarkdownScrollPosition 一致）
@@ -325,8 +351,8 @@ export function createViewController(options = {}) {
             pendingSyncScrollRatio = getScrollRatio(scrollContainer);
         }
 
-        // code → markdown: 记录光标位置和滚动百分比
-        if (currentMode === 'code' && nextMode === 'markdown') {
+        // code → markdown: 记录光标位置和滚动百分比（仅同文件视图切换时）
+        if (!skipScrollSync && currentMode === 'code' && nextMode === 'markdown') {
             const codeEditor = options.getCodeEditor?.();
             pendingSyncPosition = codeEditor?.getCurrentPosition?.() ?? null;
             const monacoEditor = codeEditor?.editor;
@@ -424,11 +450,13 @@ export function createViewController(options = {}) {
     }
 
     return {
+        rememberScrollPosition,
+        restoreScrollPosition,
         rememberMarkdownScrollPosition,
         restoreMarkdownScrollPosition,
         setActiveViewMode,
-        activateMarkdownView: () => setActiveViewMode('markdown'),
-        activateCodeView: () => setActiveViewMode('code'),
+        activateMarkdownView: (viewOptions) => setActiveViewMode('markdown', viewOptions),
+        activateCodeView: (viewOptions) => setActiveViewMode('code', viewOptions),
         activateImageView: () => setActiveViewMode('image'),
         activateMediaView: () => setActiveViewMode('media'),
         activateSpreadsheetView: () => setActiveViewMode('spreadsheet'),

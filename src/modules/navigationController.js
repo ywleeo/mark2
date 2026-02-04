@@ -17,6 +17,7 @@ export function createNavigationController({
     untitledFileManager,
     saveUntitledFile,
     eventBus,
+    rememberScrollPosition,
 }) {
     if (typeof getFileTree !== 'function') {
         throw new Error('navigationController 需要提供 getFileTree');
@@ -85,6 +86,8 @@ export function createNavigationController({
                 ? normalizedPrevious !== normalizedNext
                 : true;
             if (isSwitchingToDifferentFile) {
+                // 切换 tab 前保存当前滚动位置
+                rememberScrollPosition?.(previousFile, getActiveViewMode?.());
                 // 切换 tab 时不停止 workflow 执行，让其在后台继续运行
                 const saved = await autoSaveActiveFileIfNeeded(previousFile);
                 if (!saved) {

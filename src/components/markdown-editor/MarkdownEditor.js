@@ -1354,6 +1354,7 @@ export class MarkdownEditor {
         const {
             autoFocus = true,
             tabId = null,
+            onReady = null,
         } = options;
         let session = null;
         let filePath = sessionOrPath;
@@ -1422,6 +1423,10 @@ export class MarkdownEditor {
             if (this.loadingSessionId === sessionId) {
                 this.loadingSessionId = null;
                 this.isLoadingFile = false;
+            }
+            // 内容加载完成后调用回调
+            if (typeof onReady === 'function') {
+                requestAnimationFrame(() => onReady());
             }
         }
     }
@@ -2198,21 +2203,7 @@ export class MarkdownEditor {
             this.editor.view.updateState(editorState);
             this.originalMarkdown = savedMarkdown;
             this.contentChanged = false;
-
-            // 恢复滚动位置
-            const scrollContainer = this.getScrollContainer();
-            if (scrollContainer) {
-                const applyScroll = () => {
-                    scrollContainer.scrollTop = scrollTop;
-                };
-                if (typeof requestAnimationFrame === 'function') {
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(applyScroll);
-                    });
-                } else {
-                    applyScroll();
-                }
-            }
+            // 滚动位置恢复已由 viewController.restoreScrollPosition 统一处理
             return true; // 成功恢复，调用方可跳过 setContent
         }
 

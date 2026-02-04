@@ -13,6 +13,7 @@ export function createCodeRenderer() {
                 editorRegistry,
                 detectLanguageForPath,
                 activateCodeView,
+                restoreScrollPosition,
                 setHasUnsavedChanges,
                 updateWindowTitle,
                 shouldAutoFocus,
@@ -25,13 +26,14 @@ export function createCodeRenderer() {
                 return false;
             }
 
-            activateCodeView?.();
+            activateCodeView?.({ skipScrollSync: true });
             markdownEditor?.clear?.();
             const language = detectLanguageForPath?.(filePath) || null;
             await codeEditor.show(filePath, fileData.content, language, session, {
                 autoFocus: shouldAutoFocus,
                 tabId,
             });
+            restoreScrollPosition?.(filePath, 'code');
 
             if (fileData.hasChanges) {
                 codeEditor.isDirty = true;

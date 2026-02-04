@@ -242,6 +242,8 @@ const viewController = createViewController({
 });
 
 const {
+    rememberScrollPosition,
+    restoreScrollPosition,
     rememberMarkdownScrollPosition,
     restoreMarkdownScrollPosition,
     setActiveViewMode,
@@ -600,6 +602,7 @@ const {
     saveCurrentEditorContentToCache,
     rememberMarkdownScrollPosition,
     restoreMarkdownScrollPosition,
+    restoreScrollPosition,
     activateMarkdownView,
     activateCodeView,
     activateImageView,
@@ -862,6 +865,7 @@ const {
     untitledFileManager,
     saveUntitledFile,
     eventBus,
+    rememberScrollPosition,
 });
 
 const {
