@@ -10,6 +10,7 @@ export class FileRenamer {
             onPathRenamed,
             refreshFolder,
             documentSessions,
+            onRenamingEnd,
         } = options;
 
         this.container = container;
@@ -21,6 +22,7 @@ export class FileRenamer {
         this.onPathRenamed = onPathRenamed;
         this.refreshFolder = refreshFolder;
         this.documentSessions = documentSessions;
+        this.onRenamingEnd = onRenamingEnd;
 
         this.renamingPath = null;
         this._renameCleanup = null;
@@ -28,6 +30,10 @@ export class FileRenamer {
 
     isRenaming() {
         return !!this.renamingPath;
+    }
+
+    getRenamingPath() {
+        return this.renamingPath;
     }
 
     start(path) {
@@ -133,6 +139,7 @@ export class FileRenamer {
         if (!this.renamingPath) {
             return;
         }
+        const endedPath = this.renamingPath;
         if (this._renameCleanup) this._renameCleanup();
         if (input && item) {
             const span = document.createElement('span');
@@ -145,6 +152,9 @@ export class FileRenamer {
             } catch {}
         }
         this.renamingPath = null;
+        if (typeof this.onRenamingEnd === 'function') {
+            this.onRenamingEnd(endedPath);
+        }
     }
 
     async submitRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {

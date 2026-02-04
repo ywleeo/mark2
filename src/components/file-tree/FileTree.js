@@ -41,6 +41,7 @@ export class FileTree {
         // 文件夹重命名状态
         this.folderRenamingPath = null;
         this._folderRenameCleanup = null;
+        this.pendingRefreshPaths = new Set();
 
         // 初始化状态管理模块
         this.state = new FileTreeState(this, {
@@ -87,6 +88,7 @@ export class FileTree {
             onPathRenamed: this.onPathRenamed,
             refreshFolder: (folderPath) => this.refreshFolder(folderPath),
             documentSessions: this.documentSessions,
+            onRenamingEnd: () => this.flushPendingRefresh(),
         });
 
         this.openFilesView = new OpenFilesView({
@@ -1132,6 +1134,12 @@ export class FileTree {
             return;
         }
 
+        this.ensureRenamingState();
+        if (this.shouldDeferRefresh(normalizedPath)) {
+            this.pendingRefreshPaths.add(normalizedPath);
+            return;
+        }
+
         if (this.rootPaths.has(normalizedPath)) {
             await this.loadFolder(normalizedPath);
             return;
@@ -1428,6 +1436,7 @@ export class FileTree {
         }
 
         this.folderRenamingPath = null;
+        this.flushPendingRefresh();
     }
 
     async _submitFolderRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {
@@ -1514,6 +1523,49 @@ export class FileTree {
 
     isRenaming() {
         return (this.renamer?.isRenaming() ?? false) || Boolean(this.folderRenamingPath);
+    }
+
+    ensureRenamingState() {
+        if (!this.isRenaming()) {
+            return;
+        }
+        const hasInput = Boolean(this.container?.querySelector('.tree-file-rename-input'));
+        if (hasInput) {
+            return;
+        }
+        this.renamer?.cancel();
+        this.cancelFolderRenaming();
+    }
+
+    shouldDeferRefresh(folderPath) {
+        const normalized = this.normalizePath(folderPath);
+        if (!normalized) return false;
+
+        const fileRenamingPath = this.renamer?.getRenamingPath?.();
+        const folderRenamingPath = this.folderRenamingPath;
+        const activePath = fileRenamingPath || folderRenamingPath;
+        if (!activePath) return false;
+
+        if (activePath === normalized) {
+            return true;
+        }
+        if (activePath.startsWith(`${normalized}/`)) {
+            return true;
+        }
+        return false;
+    }
+
+    flushPendingRefresh() {
+        if (this.pendingRefreshPaths.size === 0) {
+            return;
+        }
+        const pending = Array.from(this.pendingRefreshPaths);
+        this.pendingRefreshPaths.clear();
+        setTimeout(() => {
+            pending.forEach((path) => {
+                this.refreshFolder(path);
+            });
+        }, 0);
     }
 
     dispose() {
