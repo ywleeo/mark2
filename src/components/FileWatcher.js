@@ -1,6 +1,7 @@
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
-const FOLDER_POLL_INTERVAL_MS = 1500;
+const FOLDER_POLL_MIN_INTERVAL_MS = 1500;
+const FOLDER_POLL_MAX_INTERVAL_MS = 5000;
 const FOLDER_POLL_RESUME_THRESHOLD_MS = 10000;
 
 export class FileWatcher {
@@ -41,6 +42,14 @@ export class FileWatcher {
             signature: null,
             inFlight: false,
             lastTickAt: 0,
+            nextDelay: FOLDER_POLL_MIN_INTERVAL_MS,
+        };
+
+        const scheduleNext = () => {
+            if (watcherState.timer) {
+                clearTimeout(watcherState.timer);
+            }
+            watcherState.timer = setTimeout(poll, watcherState.nextDelay);
         };
 
         const poll = async () => {
@@ -53,21 +62,32 @@ export class FileWatcher {
                 const signature = await this.buildFolderSignature(normalizedPath);
                 if (watcherState.signature === null) {
                     watcherState.signature = signature;
+                    watcherState.nextDelay = FOLDER_POLL_MIN_INTERVAL_MS;
                     return;
                 }
                 if (signature !== watcherState.signature || (lastTick && now - lastTick > FOLDER_POLL_RESUME_THRESHOLD_MS)) {
                     watcherState.signature = signature;
                     this.onFolderChange?.(normalizedPath, { type: 'poll', paths: [normalizedPath] });
+                    watcherState.nextDelay = FOLDER_POLL_MIN_INTERVAL_MS;
+                } else {
+                    watcherState.nextDelay = Math.min(
+                        FOLDER_POLL_MAX_INTERVAL_MS,
+                        Math.round(watcherState.nextDelay * 1.5)
+                    );
                 }
             } catch (error) {
                 console.warn('目录轮询失败:', { path: normalizedPath, error });
+                watcherState.nextDelay = FOLDER_POLL_MIN_INTERVAL_MS;
             } finally {
                 watcherState.inFlight = false;
+                if (document.hidden) {
+                    watcherState.nextDelay = Math.max(watcherState.nextDelay, FOLDER_POLL_MAX_INTERVAL_MS);
+                }
+                scheduleNext();
             }
         };
 
         await poll();
-        watcherState.timer = setInterval(poll, FOLDER_POLL_INTERVAL_MS);
         this.folderWatchers.set(normalizedPath, watcherState);
     }
 
@@ -78,7 +98,7 @@ export class FileWatcher {
             const state = this.folderWatchers.get(normalizedPath);
             if (state?.timer) {
                 try {
-                    clearInterval(state.timer);
+                    clearTimeout(state.timer);
                 } catch (error) {
                     console.error('停止目录监听失败:', error);
                 }
@@ -92,7 +112,7 @@ export class FileWatcher {
                 return;
             }
             try {
-                clearInterval(state.timer);
+                clearTimeout(state.timer);
             } catch (error) {
                 console.error('停止目录监听失败:', { watchedPath, error });
             }

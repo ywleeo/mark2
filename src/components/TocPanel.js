@@ -20,6 +20,8 @@ export class TocPanel {
         this.ignoreScrollUpdate = false;
         this.currentWarning = null;
         this.warningTimeout = null;
+        this.isDirty = true;
+        this.editorUpdateHandler = null;
     }
 
     /**
@@ -27,7 +29,17 @@ export class TocPanel {
      * @param {Object} editor - Tiptap 编辑器实例
      */
     setEditor(editor) {
+        if (this.editor && this.editorUpdateHandler && typeof this.editor.off === 'function') {
+            this.editor.off('update', this.editorUpdateHandler);
+        }
         this.editor = editor;
+        if (this.editor && typeof this.editor.on === 'function') {
+            this.editorUpdateHandler = () => {
+                this.markDirty();
+            };
+            this.editor.on('update', this.editorUpdateHandler);
+        }
+        this.markDirty();
     }
 
     /**
@@ -171,7 +183,7 @@ export class TocPanel {
      * 渲染目录列表
      */
     render() {
-        if (!this.container) return;
+        if (!this.container || !this.isVisible) return;
 
         this.headings = this.extractHeadings();
 
@@ -181,6 +193,7 @@ export class TocPanel {
         if (this.headings.length === 0) {
             content.innerHTML = '';
             empty.style.display = 'flex';
+            this.isDirty = false;
             return;
         }
 
@@ -219,6 +232,7 @@ export class TocPanel {
 
         content.innerHTML = '';
         content.appendChild(list);
+        this.isDirty = false;
     }
 
     /**
@@ -391,7 +405,8 @@ export class TocPanel {
 
         this.isVisible = true;
         this.container.style.display = 'flex';
-        this.render();
+        this.markDirty();
+        this.scheduleRender();
 
         // 触发重排以启动过渡动画
         this.container.offsetHeight;
@@ -494,7 +509,8 @@ export class TocPanel {
 
         // 每2秒检查一次内容变化并更新目录
         this.updateInterval = setInterval(() => {
-            if (this.isVisible) {
+            if (!this.isVisible) return;
+            if (this.isDirty) {
                 this.render();
             }
         }, 2000);
@@ -508,6 +524,25 @@ export class TocPanel {
             clearInterval(this.updateInterval);
             this.updateInterval = null;
         }
+    }
+
+    markDirty() {
+        this.isDirty = true;
+        if (this.isVisible) {
+            this.scheduleRender();
+        }
+    }
+
+    scheduleRender() {
+        if (this.updateDebounceTimer) {
+            return;
+        }
+        this.updateDebounceTimer = setTimeout(() => {
+            this.updateDebounceTimer = null;
+            if (this.isVisible && this.isDirty) {
+                this.render();
+            }
+        }, 200);
     }
 
     /**
@@ -543,6 +578,10 @@ export class TocPanel {
         if (this.updateDebounceTimer) {
             clearTimeout(this.updateDebounceTimer);
         }
+        if (this.editor && this.editorUpdateHandler && typeof this.editor.off === 'function') {
+            this.editor.off('update', this.editorUpdateHandler);
+        }
+        this.editorUpdateHandler = null;
 
         // 移除 DOM
         if (this.container && this.container.parentNode) {
