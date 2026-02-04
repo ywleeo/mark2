@@ -1,46 +1,59 @@
 /* Notion 风格主题 */
 
 /* ===== Light Mode ===== */
-:root[data-theme-appearance='light'] .tiptap-editor,
-:root[data-theme-appearance='light'] .markdown-content {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance='light'],
+[data-theme-appearance='light'] .markdown-content {
     color: #37352f;
     background-color: #ffffff;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor h1,
-:root[data-theme-appearance='light'] .tiptap-editor h2,
-:root[data-theme-appearance='light'] .tiptap-editor h3,
-:root[data-theme-appearance='light'] .tiptap-editor h4,
-:root[data-theme-appearance='light'] .tiptap-editor h5,
-:root[data-theme-appearance='light'] .tiptap-editor h6 {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h1,
+.tiptap-editor[data-theme-appearance='light'] h1,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h2,
+.tiptap-editor[data-theme-appearance='light'] h2,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h3,
+.tiptap-editor[data-theme-appearance='light'] h3,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h4,
+.tiptap-editor[data-theme-appearance='light'] h4,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h5,
+.tiptap-editor[data-theme-appearance='light'] h5,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h6,
+.tiptap-editor[data-theme-appearance='light'] h6{
     color: #37352f;
     font-weight: 600;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor h1 {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h1,
+.tiptap-editor[data-theme-appearance='light'] h1{
     font-weight: 700;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor h2 {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h2,
+.tiptap-editor[data-theme-appearance='light'] h2{
     border-bottom-color: #e9e9e7;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor p {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) p,
+.tiptap-editor[data-theme-appearance='light'] p{
     color: #37352f;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor pre {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) pre,
+.tiptap-editor[data-theme-appearance='light'] pre{
     background: #f7f6f3;
     border: 1px solid #e9e9e7;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor code {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) code,
+.tiptap-editor[data-theme-appearance='light'] code{
     background: #f7f6f3;
     color: #eb5757;
     padding: 3px 6px;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor blockquote {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) blockquote,
+.tiptap-editor[data-theme-appearance='light'] blockquote{
     border-left-color: #d3d1cb;
     border-left-width: 3px;
     color: #787774;
@@ -48,36 +61,44 @@
     padding: 4px 16px;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor a {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) a,
+.tiptap-editor[data-theme-appearance='light'] a{
     color: #0b6e99;
     border-bottom: 1px solid transparent;
     transition: border-color 0.2s;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor a:hover {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) a:hover,
+.tiptap-editor[data-theme-appearance='light'] a:hover{
     border-bottom-color: #0b6e99;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor hr {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) hr,
+.tiptap-editor[data-theme-appearance='light'] hr{
     border-top-color: #e9e9e7;
     border-top-width: 1px;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor table td,
-:root[data-theme-appearance='light'] .tiptap-editor table th {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table td,
+.tiptap-editor[data-theme-appearance='light'] table td,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
+.tiptap-editor[data-theme-appearance='light'] table th{
     border-color: #e9e9e7;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor table th {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
+.tiptap-editor[data-theme-appearance='light'] table th{
     background-color: #f7f6f3;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor p.is-editor-empty:first-child::before {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) p.is-editor-empty:first-child::before,
+.tiptap-editor[data-theme-appearance='light'] p.is-editor-empty:first-child::before{
     color: #787774;
 }
 
 /* Checkbox - Light */
-:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"] {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"],
+.tiptap-editor[data-theme-appearance='light'] input[type="checkbox"]{
     background: transparent;
     border-color: #d3d1cb;
     border-width: 1.4px;
@@ -86,15 +107,18 @@
     height: 1.25em;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:hover {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"]:hover,
+.tiptap-editor[data-theme-appearance='light'] input[type="checkbox"]:hover{
     border-color: #0b6e99;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"]:checked,
+.tiptap-editor[data-theme-appearance='light'] input[type="checkbox"]:checked{
     border-color: #0b6e997d;
 }
 
-:root[data-theme-appearance='light'] .tiptap-editor input[type="checkbox"]:checked::after {
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"]:checked::after,
+.tiptap-editor[data-theme-appearance='light'] input[type="checkbox"]:checked::after{
     border-right-color: #37352f;
     border-bottom-color: #37352f;
     width: 1.3em;
@@ -103,97 +127,110 @@
 }
 
 /* 代码高亮 - Light */
-:root[data-theme-appearance='light'] .hljs {
+[data-theme-appearance='light'] .hljs {
     background: #f7f6f3;
     color: #37352f;
 }
 
-:root[data-theme-appearance='light'] .hljs-comment,
-:root[data-theme-appearance='light'] .hljs-quote {
+[data-theme-appearance='light'] .hljs-comment,
+[data-theme-appearance='light'] .hljs-quote {
     color: #9b9a97;
     font-style: italic;
 }
 
-:root[data-theme-appearance='light'] .hljs-keyword,
-:root[data-theme-appearance='light'] .hljs-selector-tag,
-:root[data-theme-appearance='light'] .hljs-subst {
+[data-theme-appearance='light'] .hljs-keyword,
+[data-theme-appearance='light'] .hljs-selector-tag,
+[data-theme-appearance='light'] .hljs-subst {
     color: #cf222e;
 }
 
-:root[data-theme-appearance='light'] .hljs-literal,
-:root[data-theme-appearance='light'] .hljs-number,
-:root[data-theme-appearance='light'] .hljs-addition,
-:root[data-theme-appearance='light'] .hljs-attribute,
-:root[data-theme-appearance='light'] .hljs-built_in,
-:root[data-theme-appearance='light'] .hljs-symbol,
-:root[data-theme-appearance='light'] .hljs-meta,
-:root[data-theme-appearance='light'] .hljs-meta .hljs-keyword {
+[data-theme-appearance='light'] .hljs-literal,
+[data-theme-appearance='light'] .hljs-number,
+[data-theme-appearance='light'] .hljs-addition,
+[data-theme-appearance='light'] .hljs-attribute,
+[data-theme-appearance='light'] .hljs-built_in,
+[data-theme-appearance='light'] .hljs-symbol,
+[data-theme-appearance='light'] .hljs-meta,
+[data-theme-appearance='light'] .hljs-meta .hljs-keyword {
     color: #0969da;
 }
 
-:root[data-theme-appearance='light'] .hljs-string,
-:root[data-theme-appearance='light'] .hljs-doctag,
-:root[data-theme-appearance='light'] .hljs-regexp,
-:root[data-theme-appearance='light'] .hljs-template-variable,
-:root[data-theme-appearance='light'] .hljs-variable,
-:root[data-theme-appearance='light'] .hljs-attribute .hljs-string,
-:root[data-theme-appearance='light'] .hljs-meta .hljs-string {
+[data-theme-appearance='light'] .hljs-string,
+[data-theme-appearance='light'] .hljs-doctag,
+[data-theme-appearance='light'] .hljs-regexp,
+[data-theme-appearance='light'] .hljs-template-variable,
+[data-theme-appearance='light'] .hljs-variable,
+[data-theme-appearance='light'] .hljs-attribute .hljs-string,
+[data-theme-appearance='light'] .hljs-meta .hljs-string {
     color: #0a3069;
 }
 
-:root[data-theme-appearance='light'] .hljs-title,
-:root[data-theme-appearance='light'] .hljs-name,
-:root[data-theme-appearance='light'] .hljs-section,
-:root[data-theme-appearance='light'] .hljs-selector-id,
-:root[data-theme-appearance='light'] .hljs-selector-class {
+[data-theme-appearance='light'] .hljs-title,
+[data-theme-appearance='light'] .hljs-name,
+[data-theme-appearance='light'] .hljs-section,
+[data-theme-appearance='light'] .hljs-selector-id,
+[data-theme-appearance='light'] .hljs-selector-class {
     color: #8250df;
 }
 
-:root[data-theme-appearance='light'] .hljs-deletion {
+[data-theme-appearance='light'] .hljs-deletion {
     color: #a40e26;
 }
 
 /* ===== Dark Mode ===== */
-:root[data-theme-appearance='dark'] .tiptap-editor,
-:root[data-theme-appearance='dark'] .markdown-content {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance='dark'],
+[data-theme-appearance='dark'] .markdown-content {
     color: #f8f7f1;
     background-color: #262930;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor h1,
-:root[data-theme-appearance='dark'] .tiptap-editor h2,
-:root[data-theme-appearance='dark'] .tiptap-editor h3,
-:root[data-theme-appearance='dark'] .tiptap-editor h4,
-:root[data-theme-appearance='dark'] .tiptap-editor h5,
-:root[data-theme-appearance='dark'] .tiptap-editor h6 {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h1,
+.tiptap-editor[data-theme-appearance='dark'] h1,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h2,
+.tiptap-editor[data-theme-appearance='dark'] h2,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h3,
+.tiptap-editor[data-theme-appearance='dark'] h3,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h4,
+.tiptap-editor[data-theme-appearance='dark'] h4,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h5,
+.tiptap-editor[data-theme-appearance='dark'] h5,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h6,
+.tiptap-editor[data-theme-appearance='dark'] h6{
     color: #f8f7f1;
     font-weight: 600;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor h1 {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h1,
+.tiptap-editor[data-theme-appearance='dark'] h1{
     font-weight: 700;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor h2 {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h2,
+.tiptap-editor[data-theme-appearance='dark'] h2{
     border-bottom-color: #4a4b50;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor p {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) p,
+.tiptap-editor[data-theme-appearance='dark'] p{
     color: #f8f7f1;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor pre {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) pre,
+.tiptap-editor[data-theme-appearance='dark'] pre{
     background: #313238;
     border: 1px solid #434447;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor code {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) code,
+.tiptap-editor[data-theme-appearance='dark'] code{
     background: #313238;
     color: #ffc3ac;
     padding: 3px 6px;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor blockquote {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) blockquote,
+.tiptap-editor[data-theme-appearance='dark'] blockquote{
     border-left-color: #5a5b5f;
     border-left-width: 3px;
     color: #e0ded6;
@@ -201,36 +238,44 @@
     padding: 4px 16px;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor a {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) a,
+.tiptap-editor[data-theme-appearance='dark'] a{
     color: #80caff;
     border-bottom: 1px solid transparent;
     transition: border-color 0.2s;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor a:hover {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) a:hover,
+.tiptap-editor[data-theme-appearance='dark'] a:hover{
     border-bottom-color: #80caff;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor hr {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) hr,
+.tiptap-editor[data-theme-appearance='dark'] hr{
     border-top-color: #434447;
     border-top-width: 1px;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor table td,
-:root[data-theme-appearance='dark'] .tiptap-editor table th {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table td,
+.tiptap-editor[data-theme-appearance='dark'] table td,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
+.tiptap-editor[data-theme-appearance='dark'] table th{
     border-color: #4b4c50;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor table th {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
+.tiptap-editor[data-theme-appearance='dark'] table th{
     background-color: #323338;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor p.is-editor-empty:first-child::before {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) p.is-editor-empty:first-child::before,
+.tiptap-editor[data-theme-appearance='dark'] p.is-editor-empty:first-child::before{
     color: #d7d5cb;
 }
 
 /* Checkbox - Dark */
-:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"] {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"],
+.tiptap-editor[data-theme-appearance='dark'] input[type="checkbox"]{
     background: transparent;
     border-color: #5a5b5f;
     border-width: 1.4px;
@@ -239,67 +284,70 @@
     height: 1.25em;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:hover {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"]:hover,
+.tiptap-editor[data-theme-appearance='dark'] input[type="checkbox"]:hover{
     border-color: #80caff;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"]:checked,
+.tiptap-editor[data-theme-appearance='dark'] input[type="checkbox"]:checked{
     border-color: #7f9dff86;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor input[type="checkbox"]:checked::after {
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) input[type="checkbox"]:checked::after,
+.tiptap-editor[data-theme-appearance='dark'] input[type="checkbox"]:checked::after{
     border-right-color: #ffffff;
     border-bottom-color: #ffffff;
     transform: translate(-52%, -72%) scaleX(-1) rotate(45deg);
 }
 
 /* 代码高亮 - Dark */
-:root[data-theme-appearance='dark'] .hljs {
+[data-theme-appearance='dark'] .hljs {
     background: #323338;
     color: #f8f7f1;
 }
 
-:root[data-theme-appearance='dark'] .hljs-comment,
-:root[data-theme-appearance='dark'] .hljs-quote {
+[data-theme-appearance='dark'] .hljs-comment,
+[data-theme-appearance='dark'] .hljs-quote {
     color: #c3c0b6;
     font-style: italic;
 }
 
-:root[data-theme-appearance='dark'] .hljs-keyword,
-:root[data-theme-appearance='dark'] .hljs-selector-tag,
-:root[data-theme-appearance='dark'] .hljs-subst {
+[data-theme-appearance='dark'] .hljs-keyword,
+[data-theme-appearance='dark'] .hljs-selector-tag,
+[data-theme-appearance='dark'] .hljs-subst {
     color: #ff9a90;
 }
 
-:root[data-theme-appearance='dark'] .hljs-literal,
-:root[data-theme-appearance='dark'] .hljs-number,
-:root[data-theme-appearance='dark'] .hljs-addition,
-:root[data-theme-appearance='dark'] .hljs-attribute,
-:root[data-theme-appearance='dark'] .hljs-built_in,
-:root[data-theme-appearance='dark'] .hljs-symbol,
-:root[data-theme-appearance='dark'] .hljs-meta,
-:root[data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
+[data-theme-appearance='dark'] .hljs-literal,
+[data-theme-appearance='dark'] .hljs-number,
+[data-theme-appearance='dark'] .hljs-addition,
+[data-theme-appearance='dark'] .hljs-attribute,
+[data-theme-appearance='dark'] .hljs-built_in,
+[data-theme-appearance='dark'] .hljs-symbol,
+[data-theme-appearance='dark'] .hljs-meta,
+[data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
     color: #95d4ff;
 }
 
-:root[data-theme-appearance='dark'] .hljs-string,
-:root[data-theme-appearance='dark'] .hljs-doctag,
-:root[data-theme-appearance='dark'] .hljs-regexp,
-:root[data-theme-appearance='dark'] .hljs-template-variable,
-:root[data-theme-appearance='dark'] .hljs-variable,
-:root[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
-:root[data-theme-appearance='dark'] .hljs-meta .hljs-string {
+[data-theme-appearance='dark'] .hljs-string,
+[data-theme-appearance='dark'] .hljs-doctag,
+[data-theme-appearance='dark'] .hljs-regexp,
+[data-theme-appearance='dark'] .hljs-template-variable,
+[data-theme-appearance='dark'] .hljs-variable,
+[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
+[data-theme-appearance='dark'] .hljs-meta .hljs-string {
     color: #bfe4d6;
 }
 
-:root[data-theme-appearance='dark'] .hljs-title,
-:root[data-theme-appearance='dark'] .hljs-name,
-:root[data-theme-appearance='dark'] .hljs-section,
-:root[data-theme-appearance='dark'] .hljs-selector-id,
-:root[data-theme-appearance='dark'] .hljs-selector-class {
+[data-theme-appearance='dark'] .hljs-title,
+[data-theme-appearance='dark'] .hljs-name,
+[data-theme-appearance='dark'] .hljs-section,
+[data-theme-appearance='dark'] .hljs-selector-id,
+[data-theme-appearance='dark'] .hljs-selector-class {
     color: #e3cbff;
 }
 
-:root[data-theme-appearance='dark'] .hljs-deletion {
+[data-theme-appearance='dark'] .hljs-deletion {
     color: #ffcfbf;
 }

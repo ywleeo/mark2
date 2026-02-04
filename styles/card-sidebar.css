@@ -594,9 +594,9 @@ body.card-sidebar-visible .card-sidebar {
 }
 
 .card-deco--pixel-face {
-    bottom: 25px;
+    bottom: 23px;
     right: 25px;
-    font-size: 26px;
+    font-size: 20px;
     color: #4ade80;
     font-family: monospace;
 }
@@ -636,7 +636,6 @@ body.card-sidebar-visible .card-sidebar {
 .card-preview-card__content {
     font-size: inherit;
     line-height: inherit;
-    color: inherit !important;
     white-space: pre-wrap;
     word-break: break-word;
     flex: 1;
@@ -779,14 +778,15 @@ body.card-sidebar-visible .card-sidebar {
     padding: 1px 5px;
 }
 
-/* 卡片主题样式 - 只设置背景和阴影，颜色由 JS 内联控制 */
-.card-preview-card[data-card-theme='dark'] {
-    background: linear-gradient(135deg, #2a374b, #1b2538);
-    box-shadow: 0 30px 50px rgba(0, 0, 0, 0.45);
-}
+/* ====== 卡片主题样式 ====== */
 
 .card-preview-card[data-card-theme='light'] {
     background: linear-gradient(135deg, #f8fafc, #e2e8f0);
     box-shadow: 0 30px 50px rgba(15, 23, 42, 0.15);
+}
+
+.card-preview-card[data-card-theme='dark'] {
+    background: linear-gradient(135deg, #2a374b, #1b2538);
+    box-shadow: 0 30px 50px rgba(0, 0, 0, 0.45);
 }
 

@@ -263,8 +263,6 @@ export class CardSidebar {
         this.selectedBackgroundId = bgId;
         this.updateBackgroundUI();
         this.applyBackground();
-        // 切换背景后重新应用主题样式
-        this.applyCardThemeStyles();
     }
 
     updateBackgroundUI() {
@@ -285,8 +283,12 @@ export class CardSidebar {
         });
         // 添加当前选中的背景类
         this.cardBackgroundElement.classList.add(`card-preview-card__background--${template.id}`);
-        // 设置卡片主题（控制文字颜色，不随应用主题变化）
+        // 设置卡片主题（控制背景和阴影）
         this.cardElement.dataset.cardTheme = template.theme;
+        // 设置内容区的 appearance，让 tiptap-editor 样式规则生效
+        if (this.cardTextElement) {
+            this.cardTextElement.dataset.themeAppearance = template.theme;
+        }
         // 移除旧的装饰元素
         this.cardElement.querySelectorAll('.card-deco').forEach(el => el.remove());
         // 添加新的装饰元素
@@ -567,32 +569,6 @@ export class CardSidebar {
         }
     }
 
-    // 卡片主题样式配置
-    static CARD_THEME_STYLES = {
-        dark: {
-            text: 'rgba(248, 250, 252, 0.92)',
-            code: { color: 'rgba(248, 250, 252, 0.92)', backgroundColor: '#1e293b' },
-            mark: { color: 'rgba(248, 250, 252, 0.95)', backgroundColor: 'rgba(250, 204, 21, 0.35)' },
-            a: { color: '#60a5fa' },
-            blockquote: { color: 'rgba(203, 213, 225, 0.9)', borderLeftColor: '#475569' },
-            pre: { backgroundColor: '#1e293b' },
-            strong: { color: 'rgba(248, 250, 252, 0.95)' },
-            td: { borderColor: '#404a59' },
-            th: { borderColor: '#404a59', backgroundColor: 'rgba(34, 42, 56, 0.53)' },
-        },
-        light: {
-            text: 'rgba(15, 23, 42, 0.92)',
-            code: { color: 'rgba(15, 23, 42, 0.92)', backgroundColor: '#f1f5f9' },
-            mark: { color: 'rgba(15, 23, 42, 0.95)', backgroundColor: 'rgba(250, 204, 21, 0.45)' },
-            a: { color: '#2563eb' },
-            blockquote: { color: 'rgba(71, 85, 105, 0.95)', borderLeftColor: '#cbd5e1' },
-            pre: { backgroundColor: '#f1f5f9' },
-            strong: { color: 'rgba(15, 23, 42, 0.95)' },
-            td: { borderColor: '#d0d7de' },
-            th: { borderColor: '#d0d7de', backgroundColor: 'rgba(246, 248, 250, 0.5)' },
-        },
-    };
-
     sanitizeSelectionHtml(container) {
         if (!container) {
             return;
@@ -616,7 +592,7 @@ export class CardSidebar {
                     classList.contains('markdown-content') ||
                     classList.contains('tiptap-editor');
 
-                // 移除所有颜色相关的内联样式，稍后由 applyCardThemeStyles 重新设置
+                // 移除颜色相关的内联样式，由 CSS 的 data-theme-appearance 规则控制
                 node.style.removeProperty('color');
                 node.style.removeProperty('background-color');
 
@@ -636,56 +612,6 @@ export class CardSidebar {
             orphanLis.forEach(li => ul.appendChild(li));
             container.appendChild(ul);
         }
-    }
-
-    /**
-     * 根据当前卡片背景主题，内联对应的样式到卡片内容元素
-     * 使用 setProperty 的 important 参数确保样式不被主题 CSS 覆盖
-     */
-    applyCardThemeStyles() {
-        if (!this.cardTextElement) {
-            return;
-        }
-
-        const template = CARD_TEMPLATES.find(t => t.id === this.selectedBackgroundId) || CARD_TEMPLATES[0];
-        const theme = template.theme || 'light';
-        const styles = CardSidebar.CARD_THEME_STYLES[theme];
-
-        if (!styles) {
-            return;
-        }
-
-        // 设置内容根元素的文字颜色
-        this.cardTextElement.style.color = styles.text;
-
-        // 遍历所有子元素，根据标签类型设置样式
-        this.cardTextElement.querySelectorAll('*').forEach(node => {
-            const tag = node.tagName?.toLowerCase?.() || '';
-            node.style.color = styles.text;
-
-            // 特殊元素样式
-            if (tag === 'code' && styles.code) {
-                node.style.color = styles.code.color;
-                node.style.backgroundColor = styles.code.backgroundColor;
-            } else if (tag === 'mark' && styles.mark) {
-                node.style.color = styles.mark.color;
-                node.style.backgroundColor = styles.mark.backgroundColor;
-            } else if (tag === 'a' && styles.a) {
-                node.style.color = styles.a.color;
-            } else if (tag === 'blockquote' && styles.blockquote) {
-                node.style.color = styles.blockquote.color;
-                node.style.borderLeftColor = styles.blockquote.borderLeftColor;
-            } else if (tag === 'pre' && styles.pre) {
-                node.style.backgroundColor = styles.pre.backgroundColor;
-            } else if (tag === 'strong' && styles.strong) {
-                node.style.color = styles.strong.color;
-            } else if (tag === 'td' && styles.td) {
-                node.style.borderColor = styles.td.borderColor;
-            } else if (tag === 'th' && styles.th) {
-                node.style.borderColor = styles.th.borderColor;
-                node.style.backgroundColor = styles.th.backgroundColor;
-            }
-        });
     }
 
     updateContentPreview({ text = '', html = '', forceUpdate = false } = {}) {
@@ -716,10 +642,6 @@ export class CardSidebar {
         this.applyFontScale();
         this.applyFontWeight();
         this.applyVerticalAlign();
-        // 根据卡片背景主题内联样式（放在最后，确保不被其他方法覆盖）
-        if (normalized) {
-            this.applyCardThemeStyles();
-        }
         // 内容更新后自动调整字号和行距（仅在自动排版模式下）
         if (normalized && this.autoFitEnabled) {
             this.autoFitContent();
