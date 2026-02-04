@@ -78,6 +78,39 @@ function shouldSkipInlineHtml(content) {
     return content.includes('task-list-item-checkbox');
 }
 
+// 支持的行内 HTML 标签（与 HtmlSupport.js 中的 HtmlInline 保持一致）
+const SUPPORTED_INLINE_TAGS = new Set([
+    'span', 'kbd', 'small', 'mark', 'abbr', 'cite', 'time', 'var', 'samp', 'dfn', 'ins', 'del'
+]);
+
+// 解析 HTML 开始标签，返回 { tag, attrs } 或 null
+function parseHtmlOpenTag(html) {
+    const match = html.match(/^<([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*)?\/?>/);
+    if (!match) return null;
+    const tag = match[1].toLowerCase();
+    if (!SUPPORTED_INLINE_TAGS.has(tag)) return null;
+
+    const attrsString = match[2] || '';
+    const attrs = {};
+
+    // 解析属性：style="..." class="..." id="..."
+    const attrRegex = /(style|class|id)\s*=\s*["']([^"']*)["']/gi;
+    let attrMatch;
+    while ((attrMatch = attrRegex.exec(attrsString)) !== null) {
+        attrs[attrMatch[1].toLowerCase()] = attrMatch[2];
+    }
+
+    return { tag, attrs };
+}
+
+// 解析 HTML 结束标签，返回标签名或 null
+function parseHtmlCloseTag(html) {
+    const match = html.match(/^<\/([a-zA-Z][a-zA-Z0-9]*)>/);
+    if (!match) return null;
+    const tag = match[1].toLowerCase();
+    return SUPPORTED_INLINE_TAGS.has(tag) ? tag : null;
+}
+
 function parseHtmlFragment(schema, html, isBlock) {
     if (typeof document === 'undefined') {
         return null;
@@ -261,17 +294,75 @@ export function createMarkdownParser(schema) {
         parser.tokenHandlers.list_item_close = state => state.closeNode();
     }
 
+    // 用于追踪打开的 HTML 标签 mark
+    const htmlMarkStack = [];
+    const htmlInlineMark = schema.marks.htmlInline;
+    const htmlSpanMark = schema.marks.htmlSpan;
+
     if (parser.tokenHandlers.html_inline) {
         parser.tokenHandlers.html_inline = (state, tok) => {
             if (shouldSkipInlineHtml(tok.content)) {
                 return;
             }
-            const inlineText = extractInlineText(tok.content || '');
+
+            const content = tok.content || '';
+
+            // 检测结束标签
+            const closeTag = parseHtmlCloseTag(content);
+            if (closeTag) {
+                // 找到匹配的开始标签并关闭 mark
+                for (let i = htmlMarkStack.length - 1; i >= 0; i--) {
+                    if (htmlMarkStack[i].tag === closeTag) {
+                        const markInfo = htmlMarkStack.splice(i, 1)[0];
+                        state.closeMark(markInfo.mark);
+                        break;
+                    }
+                }
+                return;
+            }
+
+            // 检测开始标签
+            const openTag = parseHtmlOpenTag(content);
+            if (openTag) {
+                const { tag, attrs } = openTag;
+                // 优先使用 htmlSpan（如果是 span 标签），否则用 htmlInline
+                let markType = null;
+                let markAttrs = {};
+
+                if (tag === 'span' && htmlSpanMark) {
+                    markType = htmlSpanMark;
+                    markAttrs = {
+                        style: attrs.style || null,
+                        class: attrs.class || null,
+                        id: attrs.id || null,
+                    };
+                } else if (htmlInlineMark) {
+                    markType = htmlInlineMark;
+                    markAttrs = {
+                        tag,
+                        style: attrs.style || null,
+                        class: attrs.class || null,
+                        id: attrs.id || null,
+                    };
+                }
+
+                if (markType) {
+                    const mark = markType.create(markAttrs);
+                    htmlMarkStack.push({ tag, mark });
+                    state.openMark(mark);
+                }
+                return;
+            }
+
+            // 其他 HTML（如注释、自闭合标签等），尝试提取文本
+            const inlineText = extractInlineText(content);
             if (inlineText) {
                 state.addText(inlineText);
                 return;
             }
-            const slice = parseHtmlFragment(schema, tok.content || '', false);
+
+            // 回退：尝试解析为 HTML fragment
+            const slice = parseHtmlFragment(schema, content, false);
             if (!slice) {
                 return;
             }
