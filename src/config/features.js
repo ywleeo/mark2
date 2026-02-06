@@ -21,6 +21,9 @@ export const features = {
 
     // Workflow 执行 - MAS 版本禁用（无法访问用户开发环境）
     workflowExecution: !MAS_BUILD,
+
+    // 内置终端 - MAS 版本禁用（沙盒无法执行 PTY）
+    terminal: !MAS_BUILD,
 };
 
 // 获取功能是否可用
@@ -34,6 +37,7 @@ export function getMASLimitationMessage(featureName) {
         runScript: 'App Store 版本无法执行脚本。如需此功能，请使用官网下载的完整版本。',
         workflow: 'App Store 版本不支持 Workflow 功能。如需此功能，请使用官网下载的完整版本。',
         workflowExecution: 'App Store 版本无法执行 Workflow。如需此功能，请使用官网下载的完整版本。',
+        terminal: 'App Store 版本不支持内置终端。如需此功能，请使用官网下载的完整版本。',
     };
     return messages[featureName] || 'App Store 版本不支持此功能。';
 }

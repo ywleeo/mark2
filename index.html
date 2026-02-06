@@ -26,6 +26,7 @@
     <link rel="stylesheet" href="/styles/markdown-toolbar.css">
     <link rel="stylesheet" href="/styles/toc-panel.css">
     <link rel="stylesheet" href="/styles/about.css">
+    <link rel="stylesheet" href="/styles/terminal-panel.css">
 </head>
 <body>
     <!-- 自定义标题栏 -->
@@ -83,6 +84,23 @@
             <div id="statusBarPageInfo" class="status-item status-item-page"></div>
             <div id="statusBarWordCount" class="status-item status-item-word-count"></div>
             <div id="statusBarLastModified" class="status-item status-item-last-modified"></div>
+        </div>
+
+        <!-- 终端面板 -->
+        <div id="terminalPanel" class="terminal-panel">
+            <div class="terminal-resizer"></div>
+            <div class="terminal-header">
+                <span class="terminal-header-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    Terminal
+                </span>
+                <div class="terminal-header-actions">
+                    <button type="button" class="terminal-action-btn terminal-close-btn" aria-label="关闭终端">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="terminal-content"></div>
         </div>
     </div>
 

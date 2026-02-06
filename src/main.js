@@ -46,6 +46,7 @@ import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
 import { createRecentFilesService } from './services/recentFilesService.js';
 import { registerMenuListeners } from './modules/menuListeners.js';
+import { isFeatureEnabled, getMASLimitationMessage } from './config/features.js';
 import { MarkdownToolbarManager } from './components/MarkdownToolbarManager.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createFileWatcherController } from './modules/fileWatchers.js';
@@ -66,6 +67,7 @@ import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
 import { initAIAssistant } from './modules/ai-assistant/index.js';
 import { initCardExportSidebar } from './modules/card-export/index.js';
+import { createTerminalPanel } from './modules/terminalPanel.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { untitledFileManager } from './modules/untitledFileManager.js';
 import { ensureToPng } from './app/coreModules.js';
@@ -102,6 +104,7 @@ const rendererRegistry = new RendererRegistry();
 let SettingsDialogCtor = null;
 let aiAssistant = null;
 let cardExportSidebar = null;
+let terminalPanel = null;
 let windowFocusHandler = null;
 
 function ensureFileService() {
@@ -993,6 +996,15 @@ async function initializeApplication() {
     console.log('[App] 卡片导出侧边栏已初始化');
     handleCardSidebarOnFileChange(appState.getCurrentFile());
 
+    // 初始化终端面板
+    terminalPanel = createTerminalPanel({
+        getWorkspaceCwd: () => {
+            const fileTree = appState.getFileTree();
+            return fileTree?.rootPaths?.[0] || null;
+        },
+    });
+    terminalPanel.initialize();
+
     // 订阅 AI sidebar 可见性变化，自动更新状态
     if (aiAssistant?.layoutService) {
         aiAssistant.layoutService.subscribe((state) => {
@@ -1145,6 +1157,13 @@ async function initializeApplication() {
         onToggleAISidebar: () => {
             aiAssistant?.toggleSidebar?.();
             // 状态更新由 layoutService.subscribe 自动处理
+        },
+        onToggleTerminal: () => {
+            if (!isFeatureEnabled('terminal')) {
+                alert(getMASLimitationMessage('terminal'));
+                return;
+            }
+            terminalPanel?.toggle();
         },
         onDeleteActiveFile: handleDeleteActiveFile,
         onMoveActiveFile: handleMoveActiveFile,
@@ -1677,6 +1696,11 @@ function cleanupResources() {
     // 清理 AI 助手
     if (aiAssistant?.destroy) {
         aiAssistant.destroy();
+    }
+
+    // 清理终端面板
+    if (terminalPanel?.destroy) {
+        terminalPanel.destroy();
     }
 
     // 清理文件会话

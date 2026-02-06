@@ -1,0 +1,158 @@
+/* 终端面板样式 */
+
+:root {
+    --terminal-height: 240px;
+    --terminal-min-height: 100px;
+    --terminal-max-height: 600px;
+    --terminal-bg: #000000;
+    --terminal-border: rgba(255, 255, 255, 0.1);
+    --terminal-header-bg: #252526;
+    --terminal-header-text: rgba(255, 255, 255, 0.8);
+    --terminal-resizer-hover: rgba(76, 201, 255, 0.5);
+}
+
+:root[data-theme-appearance='light'] {
+    --terminal-bg: #ffffff;
+    --terminal-border: rgba(0, 0, 0, 0.15);
+    --terminal-header-bg: #f3f3f3;
+    --terminal-header-text: rgba(0, 0, 0, 0.8);
+}
+
+/* 终端面板容器 */
+.terminal-panel {
+    display: none;
+    flex-direction: column;
+    height: var(--terminal-height);
+    min-height: var(--terminal-min-height);
+    max-height: var(--terminal-max-height);
+    border-top: 1px solid var(--terminal-border);
+    background: var(--terminal-bg);
+    position: relative;
+}
+
+.terminal-panel.is-visible {
+    display: flex;
+}
+
+/* 终端面板调整大小的拖拽条 */
+.terminal-resizer {
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    cursor: ns-resize;
+    z-index: 10;
+    background: transparent;
+    transition: background 0.15s ease;
+}
+
+.terminal-resizer:hover,
+body.terminal-resizing .terminal-resizer {
+    background: var(--terminal-resizer-hover);
+}
+
+body.terminal-resizing {
+    cursor: ns-resize;
+    user-select: none;
+}
+
+/* 终端头部 */
+.terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 28px;
+    padding: 0 12px;
+    background: var(--terminal-header-bg);
+    border-bottom: 1px solid var(--terminal-border);
+    flex-shrink: 0;
+}
+
+.terminal-header-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--terminal-header-text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.terminal-header-title svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+.terminal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.terminal-action-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 4px;
+    margin: 0;
+    cursor: pointer;
+    color: var(--terminal-header-text);
+    opacity: 0.6;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.terminal-action-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-action-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* 终端内容区域 */
+.terminal-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+/* xterm.js 容器 */
+.terminal-content .xterm {
+    height: 100%;
+    padding: 8px;
+}
+
+.terminal-content .xterm .xterm-scrollable-element {
+    background: transparent !important;
+}
+
+.terminal-content .xterm-viewport {
+    overflow-y: auto !important;
+    background-color: var(--terminal-bg) !important;
+}
+
+/* xterm.js 滚动条样式 */
+.terminal-content .xterm-viewport::-webkit-scrollbar {
+    width: 8px;
+}
+
+.terminal-content .xterm-viewport::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.terminal-content .xterm-viewport::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.terminal-content .xterm-viewport::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}

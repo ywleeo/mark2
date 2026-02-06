@@ -1625,6 +1625,11 @@ fn main() {
                 MenuItemBuilder::with_id("toggle-ai-sidebar", "AI Assistant")
                     .build(app)?;
 
+            let toggle_terminal_item =
+                MenuItemBuilder::with_id("toggle-terminal", "Terminal")
+                    .accelerator("CmdOrCtrl+J")
+                    .build(app)?;
+
             let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
 
             // 应用菜单（macOS 默认菜单）
@@ -1675,6 +1680,8 @@ fn main() {
                 .item(&toggle_status_bar_item)
                 .item(&toggle_markdown_toolbar_item)
                 .item(&toggle_ai_sidebar_item)
+                .separator()
+                .item(&toggle_terminal_item)
                 .build()?;
 
             app.manage(ExportMenuState::new(
