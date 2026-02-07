@@ -259,9 +259,12 @@ export class WorkflowEditor {
         });
         this.layerRenderer.render(this.workflowData.layers);
 
-        // 根据文件中的状态更新 toolbar（显示"继续执行"按钮）
-        // 但如果正在执行，toolbar 状态由 executionEngine 控制
-        if (!this.executionEngine?.isExecuting()) {
+        // 恢复 toolbar 的执行状态
+        if (this.executionEngine?.isExecuting() && this.workflowState) {
+            // 执行中（如切 tab 回来），用内存中的状态恢复
+            this.toolbar.updateWorkflowState(this.workflowState);
+        } else {
+            // 非执行中，从文件数据恢复（显示"继续执行"按钮等）
             this.updateToolbarStateFromData();
         }
     }
