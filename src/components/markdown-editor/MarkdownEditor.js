@@ -697,8 +697,11 @@ export class MarkdownEditor {
             const href = link.getAttribute('href');
             if (!href) return;
 
-            // 判断是外链还是相对路径
-            if (this.isExternalLink(href)) {
+            // 判断链接类型
+            if (href.startsWith('#')) {
+                // 文档内锚点跳转
+                this.scrollToAnchor(href);
+            } else if (this.isExternalLink(href)) {
                 // 外链在浏览器中打开
                 await this.openExternalLink(href);
             } else {
@@ -712,6 +715,33 @@ export class MarkdownEditor {
             shouldHandle: (e) => e.target.closest('a.markdown-link') !== null,
             preventDefault: true
         });
+    }
+
+    // 文档内锚点跳转
+    scrollToAnchor(hash) {
+        // 将锚点转为可匹配的文本：去掉 # 前缀，把连字符替换为空格
+        const anchor = decodeURIComponent(hash.replace(/^#+/, '')).toLowerCase().replace(/-/g, ' ').trim();
+        if (!anchor) return;
+
+        // 在编辑器 DOM 中查找匹配的标题
+        const editorEl = this.editor?.view?.dom;
+        if (!editorEl) return;
+
+        const headings = editorEl.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const heading of headings) {
+            const text = heading.textContent.toLowerCase().trim();
+            if (text === anchor) {
+                // 滚动到标题位置，预留 toolbar 高度的偏移
+                const scrollContainer = this.viewElement;
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const headingRect = heading.getBoundingClientRect();
+                const offset = headingRect.top - containerRect.top + scrollContainer.scrollTop - 60;
+                scrollContainer.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
+                return;
+            }
+        }
+
+        console.warn('[MarkdownEditor] 未找到锚点对应的标题:', hash);
     }
 
     // 判断是否为外链
