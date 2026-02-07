@@ -44,7 +44,6 @@ export function createFileOperations({
     getMediaViewer,
     getSpreadsheetViewer,
     getPdfViewer,
-    getHtmlViewer,
     getUnsupportedViewer,
     getWorkflowEditor,
     getMarkdownCodeMode,
@@ -71,7 +70,6 @@ export function createFileOperations({
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
-    activateHtmlView,
     activateWorkflowView,
     activateUnsupportedView,
     recentFilesService,
@@ -87,7 +85,6 @@ export function createFileOperations({
     if (typeof getMediaViewer !== 'function') throw new Error('fileOperations 需要 getMediaViewer');
     if (typeof getSpreadsheetViewer !== 'function') throw new Error('fileOperations 需要 getSpreadsheetViewer');
     if (typeof getPdfViewer !== 'function') throw new Error('fileOperations 需要 getPdfViewer');
-    if (typeof getHtmlViewer !== 'function') throw new Error('fileOperations 需要 getHtmlViewer');
     if (typeof getUnsupportedViewer !== 'function') throw new Error('fileOperations 需要 getUnsupportedViewer');
     if (typeof getWorkflowEditor !== 'function') throw new Error('fileOperations 需要 getWorkflowEditor');
     if (typeof getMarkdownCodeMode !== 'function') throw new Error('fileOperations 需要 getMarkdownCodeMode');
@@ -118,7 +115,6 @@ export function createFileOperations({
     if (typeof activateMediaView !== 'function') throw new Error('fileOperations 需要 activateMediaView');
     if (typeof activateSpreadsheetView !== 'function') throw new Error('fileOperations 需要 activateSpreadsheetView');
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
-    if (typeof activateHtmlView !== 'function') throw new Error('fileOperations 需要 activateHtmlView');
     if (typeof activateWorkflowView !== 'function') throw new Error('fileOperations 需要 activateWorkflowView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
@@ -215,7 +211,6 @@ export function createFileOperations({
 
         const editor = getEditor();
         const codeEditor = getCodeEditor();
-        const htmlViewer = getHtmlViewer();
         const workflowEditor = getWorkflowEditor();
         const activeViewMode = getActiveViewMode();
 
@@ -227,34 +222,6 @@ export function createFileOperations({
                 await updateWindowTitle();
             }
             return result;
-        }
-
-        if (activeViewMode === 'html' && htmlViewer) {
-            const localWriteKey = getSessionPathKey(currentFile);
-            try {
-                let content = htmlViewer.getHtml?.() || '';
-                if (!content && fileService?.readText) {
-                    content = await fileService.readText(currentFile);
-                }
-                if (localWriteKey && documentSessions.markLocalWrite) {
-                    documentSessions.markLocalWrite(localWriteKey);
-                }
-                await fileService.writeText(currentFile, content);
-                if (codeEditor && codeEditor.currentFile === currentFile) {
-                    codeEditor.markSaved();
-                }
-                setHasUnsavedChanges(false);
-                fileSession.clearEntry(currentFile);
-                await updateWindowTitle();
-                return true;
-            } catch (error) {
-                if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
-                    documentSessions.clearLocalWriteSuppression(localWriteKey);
-                }
-                console.error('保存失败:', error);
-                alert('保存失败: ' + error);
-                return false;
-            }
         }
 
         if (activeViewMode === 'code' && codeEditor) {
@@ -314,14 +281,11 @@ export function createFileOperations({
     async function saveUntitledFileFromEditor(untitledPath) {
         const editor = getEditor();
         const codeEditor = getCodeEditor();
-        const htmlViewer = getHtmlViewer();
         const activeViewMode = getActiveViewMode();
 
         let content = '';
         if (activeViewMode === 'markdown' && editor) {
             content = editor.getMarkdown?.() || '';
-        } else if (activeViewMode === 'html' && htmlViewer) {
-            content = htmlViewer.getHtml?.() || '';
         } else if (activeViewMode === 'code' && codeEditor) {
             content = codeEditor.getValue?.() || '';
         }
@@ -421,7 +385,6 @@ export function createFileOperations({
             const mediaViewer = getMediaViewer();
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
-            const htmlViewer = getHtmlViewer();
             const unsupportedViewer = getUnsupportedViewer();
             const fileTree = getFileTree();
             const normalizedTargetPath = typeof filePath === 'string'
@@ -601,13 +564,11 @@ export function createFileOperations({
                 mediaViewer,
                 spreadsheetViewer,
                 pdfViewer,
-                htmlViewer,
                 unsupportedViewer,
                 workflowEditor: getWorkflowEditor(),
                 fileService,
                 activateSpreadsheetView,
                 activatePdfView,
-                activateHtmlView,
                 activateWorkflowView,
                 activateUnsupportedView,
                 forceReload,

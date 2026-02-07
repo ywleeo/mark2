@@ -18,7 +18,6 @@ export async function loadAndRegisterModules(editorRegistry) {
     editorRegistry.registerConstructor('code', coreModules.CodeEditor);
     editorRegistry.registerConstructor('image', coreModules.ImageViewer);
     editorRegistry.registerConstructor('media', coreModules.MediaViewer);
-    editorRegistry.registerConstructor('html', coreModules.HtmlViewer);
     editorRegistry.registerConstructor('spreadsheet', coreModules.SpreadsheetViewer);
     editorRegistry.registerConstructor('pdf', coreModules.PdfViewer);
     editorRegistry.registerConstructor('unsupported', coreModules.UnsupportedViewer);
@@ -28,7 +27,6 @@ export async function loadAndRegisterModules(editorRegistry) {
         CodeEditor: coreModules.CodeEditor,
         ImageViewer: coreModules.ImageViewer,
         MediaViewer: coreModules.MediaViewer,
-        HtmlViewer: coreModules.HtmlViewer,
         SpreadsheetViewer: coreModules.SpreadsheetViewer,
         PdfViewer: coreModules.PdfViewer,
         UnsupportedViewer: coreModules.UnsupportedViewer,

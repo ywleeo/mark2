@@ -69,7 +69,6 @@ export function createFileSession({
         editor,
         codeEditor,
         workflowEditor,
-        htmlViewer,
     }) {
         if (!currentFile) return;
 
@@ -85,17 +84,6 @@ export function createFileSession({
             content = editor.getMarkdown();
             originalContent = editor.originalMarkdown;
             hasChanges = editor.hasUnsavedChanges();
-        } else if (viewMode === 'html') {
-            const canUseCodeEditor = codeEditor && codeEditor.currentFile === currentFile;
-            if (canUseCodeEditor) {
-                content = typeof codeEditor.getValueForSave === 'function'
-                    ? codeEditor.getValueForSave()
-                    : codeEditor.getValue();
-                hasChanges = codeEditor.hasUnsavedChanges?.() || false;
-            } else if (htmlViewer) {
-                content = htmlViewer.getHtml?.() || '';
-                hasChanges = content !== '';
-            }
         } else if (viewMode === 'code' && codeEditor) {
             content = typeof codeEditor.getValueForSave === 'function'
                 ? codeEditor.getValueForSave()

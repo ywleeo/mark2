@@ -42,7 +42,6 @@ export class AppState {
         this.fileDropController = null;
         this.markdownCodeMode = null;
         this.svgCodeMode = null;
-        this.htmlCodeMode = null;
         this.documentIO = null;
         this.rendererRegistry = null;
 
@@ -54,7 +53,6 @@ export class AppState {
             media: null,
             spreadsheet: null,
             pdf: null,
-            html: null,
             unsupported: null,
             viewContainer: null,
         };
@@ -197,14 +195,6 @@ export class AppState {
 
     setMarkdownToolbarManager(instance) {
         this.markdownToolbarManager = instance;
-    }
-
-    getHtmlCodeMode() {
-        return this.htmlCodeMode;
-    }
-
-    setHtmlCodeMode(instance) {
-        this.htmlCodeMode = instance;
     }
 
     // ========== 渲染器注册表管理 ==========

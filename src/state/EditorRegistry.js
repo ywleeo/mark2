@@ -142,14 +142,6 @@ export class EditorRegistry {
     }
 
     /**
-     * 获取 HTML 查看器
-     * @returns {Object|null}
-     */
-    getHtmlViewer() {
-        return this.get('html');
-    }
-
-    /**
      * 获取不支持文件查看器
      * @returns {Object|null}
      */

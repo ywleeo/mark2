@@ -44,7 +44,6 @@ export function createEditorCallbacks({
             const editor = editorRegistry.getMarkdownEditor();
             const codeEditor = editorRegistry.getCodeEditor();
             const workflowEditor = editorRegistry.getWorkflowEditor();
-            const htmlViewer = editorRegistry.getHtmlViewer();
             const activeViewMode = appState.getActiveViewMode();
 
             fileSession.saveCurrentEditorContentToCache({
@@ -53,7 +52,6 @@ export function createEditorCallbacks({
                 editor,
                 codeEditor,
                 workflowEditor,
-                htmlViewer,
             });
 
             const modifiedTime = await fileSession.refreshModifiedTime?.(targetPath);
@@ -87,7 +85,6 @@ export function setupEditors({
         CodeEditor,
         ImageViewer,
         MediaViewer,
-        HtmlViewer,
         SpreadsheetViewer,
         PdfViewer,
         UnsupportedViewer,
@@ -117,11 +114,6 @@ export function setupEditors({
     const mediaViewer = new MediaViewer(appState.getPaneElement('media'));
     editorRegistry.register('media', mediaViewer);
     mediaViewer.hide();
-
-    // 初始化 HTML 查看器
-    const htmlViewer = new HtmlViewer(appState.getPaneElement('html'));
-    editorRegistry.register('html', htmlViewer);
-    htmlViewer.hide();
 
     // 初始化电子表格查看器
     const spreadsheetViewer = new SpreadsheetViewer(appState.getPaneElement('spreadsheet'));

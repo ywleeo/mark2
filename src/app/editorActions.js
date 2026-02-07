@@ -4,7 +4,6 @@ export function createEditorActions({
     getEditor,
     getCodeEditor,
     getMarkdownCodeMode,
-    getHtmlCodeMode,
     getSvgCodeMode,
     getCsvTableMode,
     getWorkflowCodeMode,
@@ -15,7 +14,6 @@ export function createEditorActions({
     updateWindowTitle,
     fileSession,
     getImageViewer,
-    getHtmlViewer,
     getSpreadsheetViewer,
     getWorkflowEditor,
     getFileService,
@@ -131,24 +129,6 @@ export function createEditorActions({
         const activeViewMode = getActiveViewMode?.();
         const currentFile = getCurrentFile?.();
         const codeEditor = getCodeEditor?.();
-        const htmlCodeMode = getHtmlCodeMode?.();
-        if (htmlCodeMode && (activeViewMode === 'html' || activeViewMode === 'code')) {
-            const result = await htmlCodeMode.toggle({
-                currentFile,
-                activeViewMode,
-                htmlViewer: getHtmlViewer?.(),
-                codeEditor,
-                fileService: getFileService?.(),
-            });
-            if (result?.changed) {
-                setActiveViewMode?.(result.nextViewMode);
-                setHasUnsavedChanges?.(result.hasUnsavedChanges);
-                saveCurrentEditorContentToCache?.();
-                persistWorkspaceState?.();
-                void updateWindowTitle?.();
-                return;
-            }
-        }
 
         const markdownCodeMode = getMarkdownCodeMode?.();
         if (!markdownCodeMode) {
