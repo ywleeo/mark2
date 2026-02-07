@@ -791,40 +791,27 @@ function handleSidebarStateChange(sidebarState) {
 }
 
 /**
- * 在系统终端中运行脚本文件
+ * 在内置终端中运行脚本文件
  * @param {string} filePath - 要运行的文件路径
  */
 async function handleRunFile(filePath) {
     if (!filePath) return;
 
     const lowerPath = filePath.toLowerCase();
-    let runCommand = '';
+    let command = '';
 
     if (lowerPath.endsWith('.sh')) {
-        runCommand = `sh "${filePath}"`;
+        command = `sh "${filePath}"`;
     } else if (lowerPath.endsWith('.py')) {
-        runCommand = `python3 "${filePath}"`;
+        command = `python3 "${filePath}"`;
     } else {
         return;
     }
 
-    // 查找文件所属的根文件夹作为工作目录
-    const fileTree = appState.getFileTree();
-    let cwd = null;
-    if (fileTree?.rootPaths) {
-        for (const rootPath of fileTree.rootPaths) {
-            if (filePath.startsWith(rootPath + '/') || filePath === rootPath) {
-                cwd = rootPath;
-                break;
-            }
-        }
-    }
-
-    // 在系统终端中执行命令
     try {
-        await invoke('open_in_terminal', { command: runCommand, cwd });
+        await terminalPanel.runCommand(command);
     } catch (error) {
-        console.error('[Run] 打开终端失败:', error);
+        console.error('[Run] 执行命令失败:', error);
     }
 }
 

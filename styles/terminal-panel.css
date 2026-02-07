@@ -67,6 +67,7 @@ body.terminal-resizing {
     background: var(--terminal-header-bg);
     border-bottom: 1px solid var(--terminal-border);
     flex-shrink: 0;
+    position: relative;
 }
 
 .terminal-header-title {
@@ -155,4 +156,86 @@ body.terminal-resizing {
 
 .terminal-content .xterm-viewport::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+/* 设置 Popover */
+.terminal-settings-popover {
+    position: absolute;
+    top: 100%;
+    right: 8px;
+    z-index: 20;
+    width: 200px;
+    padding: 10px;
+    background: var(--terminal-header-bg);
+    border: 1px solid var(--terminal-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.terminal-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.terminal-settings-label {
+    font-size: 12px;
+    color: var(--terminal-header-text);
+    flex-shrink: 0;
+}
+
+.terminal-settings-select {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 0 4px;
+    font-size: 12px;
+    color: var(--terminal-header-text);
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-border);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+.terminal-settings-select:focus {
+    border-color: rgba(76, 201, 255, 0.5);
+}
+
+.terminal-settings-font-size {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.terminal-settings-size-btn {
+    appearance: none;
+    border: 1px solid var(--terminal-border);
+    background: var(--terminal-bg);
+    color: var(--terminal-header-text);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+}
+
+.terminal-settings-size-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-settings-size-value {
+    font-size: 12px;
+    color: var(--terminal-header-text);
+    min-width: 20px;
+    text-align: center;
 }

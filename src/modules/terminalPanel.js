@@ -11,9 +11,38 @@ import { isFeatureEnabled } from '../config/features.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 
 const STORAGE_KEY = 'mark2_terminal_height';
+const SETTINGS_KEY = 'mark2_terminal_settings';
 const DEFAULT_HEIGHT = 240;
 const MIN_HEIGHT = 100;
 const MAX_HEIGHT = 600;
+
+const TERMINAL_FONTS = [
+    { label: 'Menlo', value: 'Menlo' },
+    { label: 'Monaco', value: 'Monaco' },
+    { label: 'SF Mono', value: 'SF Mono' },
+    { label: 'Courier New', value: '"Courier New"' },
+    { label: 'Andale Mono', value: '"Andale Mono"' },
+    { label: 'JetBrains Mono', value: '"JetBrains Mono"' },
+    { label: 'Fira Code', value: '"Fira Code"' },
+    { label: 'Source Code Pro', value: '"Source Code Pro"' },
+];
+
+const DEFAULT_SETTINGS = { fontFamily: 'Menlo', fontSize: 13 };
+
+function loadTerminalSettings() {
+    try {
+        const stored = localStorage.getItem(SETTINGS_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            return { ...DEFAULT_SETTINGS, ...parsed };
+        }
+    } catch { /* ignore */ }
+    return { ...DEFAULT_SETTINGS };
+}
+
+function saveTerminalSettings(settings) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
 
 const DARK_THEME = {
     background: '#1e1e1e',
@@ -87,6 +116,8 @@ export function createTerminalPanel(options = {}) {
     let resizeObserver = null;
     let themeObserver = null;
     let isResizing = false;
+    let settingsPopover = null;
+    let currentSettings = loadTerminalSettings();
 
     /**
      * 初始化终端面板
@@ -121,8 +152,90 @@ export function createTerminalPanel(options = {}) {
             addClickHandler(closeBtn, () => hide());
         }
 
+        // 设置按钮
+        const settingsBtn = panelElement.querySelector('.terminal-settings-btn');
+        if (settingsBtn) {
+            addClickHandler(settingsBtn, () => toggleSettingsPopover(settingsBtn));
+        }
+
         // 设置调整大小拖拽
         setupResizer();
+    }
+
+    /**
+     * 应用终端设置到 xterm
+     */
+    function applyTerminalSettings() {
+        if (!terminal) return;
+        terminal.options.fontFamily = `${currentSettings.fontFamily}, monospace`;
+        terminal.options.fontSize = currentSettings.fontSize;
+        fitTerminal();
+    }
+
+    /**
+     * 切换设置 popover
+     */
+    function toggleSettingsPopover(anchorBtn) {
+        if (settingsPopover) {
+            settingsPopover.remove();
+            settingsPopover = null;
+            return;
+        }
+
+        settingsPopover = document.createElement('div');
+        settingsPopover.className = 'terminal-settings-popover';
+        settingsPopover.innerHTML = `
+            <div class="terminal-settings-row">
+                <label class="terminal-settings-label">字体</label>
+                <select class="terminal-settings-select" data-field="fontFamily">
+                    ${TERMINAL_FONTS.map(f =>
+                        `<option value="${f.value}" ${f.value === currentSettings.fontFamily ? 'selected' : ''}>${f.label}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="terminal-settings-row">
+                <label class="terminal-settings-label">字号</label>
+                <div class="terminal-settings-font-size">
+                    <button type="button" class="terminal-settings-size-btn" data-delta="-1">−</button>
+                    <span class="terminal-settings-size-value">${currentSettings.fontSize}</span>
+                    <button type="button" class="terminal-settings-size-btn" data-delta="1">＋</button>
+                </div>
+            </div>
+        `;
+
+        // 字体选择
+        const select = settingsPopover.querySelector('[data-field="fontFamily"]');
+        select.addEventListener('change', () => {
+            currentSettings.fontFamily = select.value;
+            saveTerminalSettings(currentSettings);
+            applyTerminalSettings();
+        });
+
+        // 字号增减
+        settingsPopover.querySelectorAll('[data-delta]').forEach(btn => {
+            addClickHandler(btn, () => {
+                const delta = parseInt(btn.dataset.delta, 10);
+                const newSize = Math.max(10, Math.min(24, currentSettings.fontSize + delta));
+                if (newSize === currentSettings.fontSize) return;
+                currentSettings.fontSize = newSize;
+                settingsPopover.querySelector('.terminal-settings-size-value').textContent = newSize;
+                saveTerminalSettings(currentSettings);
+                applyTerminalSettings();
+            });
+        });
+
+        // 定位到按钮下方
+        panelElement.querySelector('.terminal-header').appendChild(settingsPopover);
+
+        // 点击外部关闭
+        const onClickOutside = (e) => {
+            if (!settingsPopover?.contains(e.target) && !anchorBtn.contains(e.target)) {
+                settingsPopover?.remove();
+                settingsPopover = null;
+                document.removeEventListener('pointerdown', onClickOutside, true);
+            }
+        };
+        setTimeout(() => document.addEventListener('pointerdown', onClickOutside, true), 0);
     }
 
     /**
@@ -176,8 +289,8 @@ export function createTerminalPanel(options = {}) {
         if (terminal) return;
 
         terminal = new Terminal({
-            fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-            fontSize: 13,
+            fontFamily: `${currentSettings.fontFamily}, monospace`,
+            fontSize: currentSettings.fontSize,
             lineHeight: 1.2,
             cursorBlink: true,
             cursorStyle: 'block',
@@ -378,12 +491,48 @@ export function createTerminalPanel(options = {}) {
         isVisible = false;
     }
 
+    /**
+     * 在终端中执行命令（自动打开终端）
+     */
+    async function runCommand(command) {
+        if (!isFeatureEnabled('terminal')) return;
+
+        if (!panelElement) initialize();
+        if (!panelElement) return;
+
+        // 确保面板可见
+        if (!isVisible) {
+            isVisible = true;
+            panelElement.classList.add('is-visible');
+        }
+
+        // 等一帧让面板渲染，再创建终端
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
+        if (!terminal) {
+            createTerminal();
+        }
+        fitTerminal();
+
+        if (!ptyService?.isSpawned()) {
+            await spawnPty();
+        }
+
+        // 发送命令
+        if (ptyService?.isSpawned()) {
+            ptyService.write(command + '\n');
+        }
+
+        terminal?.focus();
+    }
+
     return {
         initialize,
         show,
         hide,
         toggle,
         getIsVisible,
+        runCommand,
         destroy,
     };
 }
