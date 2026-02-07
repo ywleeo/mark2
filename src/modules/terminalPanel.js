@@ -1,6 +1,6 @@
 /**
  * 终端面板模块
- * 提供底部可交互终端功能
+ * 支持多 pane 分栏终端
  */
 
 import { Terminal } from '@xterm/xterm';
@@ -100,6 +100,8 @@ function getTerminalTheme() {
     return isDarkMode() ? DARK_THEME : LIGHT_THEME;
 }
 
+let paneCounter = 0;
+
 /**
  * 创建终端面板控制器
  */
@@ -107,10 +109,8 @@ export function createTerminalPanel(options = {}) {
     const { getWorkspaceCwd } = options;
 
     let panelElement = null;
-    let contentElement = null;
-    let terminal = null;
-    let fitAddon = null;
-    let ptyService = null;
+    let panesContainer = null;
+    let tabsContainer = null;
     let isVisible = false;
     let currentHeight = DEFAULT_HEIGHT;
     let resizeObserver = null;
@@ -119,62 +119,258 @@ export function createTerminalPanel(options = {}) {
     let settingsPopover = null;
     let currentSettings = loadTerminalSettings();
 
-    /**
-     * 初始化终端面板
-     */
+    /** @type {Array<{id: string, terminal: Terminal, fitAddon: FitAddon, ptyService: any, tabEl: HTMLElement, containerEl: HTMLElement}>} */
+    const panes = [];
+    let activePaneId = null;
+
+    // ── 初始化 ──
+
     function initialize() {
-        if (!isFeatureEnabled('terminal')) {
-            return;
-        }
+        if (!isFeatureEnabled('terminal')) return;
 
         panelElement = document.getElementById('terminalPanel');
-        if (!panelElement) {
-            console.warn('[TerminalPanel] 找不到终端面板元素');
-            return;
-        }
+        if (!panelElement) return;
 
-        contentElement = panelElement.querySelector('.terminal-content');
-        if (!contentElement) {
-            console.warn('[TerminalPanel] 找不到终端内容元素');
-            return;
-        }
+        panesContainer = panelElement.querySelector('.terminal-panes');
+        tabsContainer = panelElement.querySelector('.terminal-tabs');
+        if (!panesContainer || !tabsContainer) return;
 
-        // 恢复高度
         const savedHeight = localStorage.getItem(STORAGE_KEY);
         if (savedHeight) {
             currentHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, parseInt(savedHeight, 10)));
             panelElement.style.height = `${currentHeight}px`;
         }
 
-        // 设置关闭按钮
+        // 关闭按钮
         const closeBtn = panelElement.querySelector('.terminal-close-btn');
-        if (closeBtn) {
-            addClickHandler(closeBtn, () => hide());
-        }
+        if (closeBtn) addClickHandler(closeBtn, () => hide());
+
+        // 分栏按钮
+        const splitBtn = panelElement.querySelector('.terminal-split-btn');
+        if (splitBtn) addClickHandler(splitBtn, () => addPane());
 
         // 设置按钮
         const settingsBtn = panelElement.querySelector('.terminal-settings-btn');
-        if (settingsBtn) {
-            addClickHandler(settingsBtn, () => toggleSettingsPopover(settingsBtn));
+        if (settingsBtn) addClickHandler(settingsBtn, () => toggleSettingsPopover(settingsBtn));
+
+        setupResizer();
+
+        // 监听主题切换
+        themeObserver = new MutationObserver(() => {
+            for (const pane of panes) {
+                pane.terminal.options.theme = getTerminalTheme();
+            }
+        });
+        themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-theme-appearance'],
+        });
+
+        // 监听容器大小变化
+        resizeObserver = new ResizeObserver(() => fitAllPanes());
+        resizeObserver.observe(panesContainer);
+    }
+
+    // ── Pane 管理 ──
+
+    function addPane() {
+        const id = `pane_${++paneCounter}`;
+        const displayNum = panes.length + 1;
+
+        // 创建 pane 容器
+        const containerEl = document.createElement('div');
+        containerEl.className = 'terminal-pane';
+        containerEl.dataset.paneId = id;
+        panesContainer.appendChild(containerEl);
+
+        // 创建 tab
+        const tabEl = document.createElement('div');
+        tabEl.className = 'terminal-tab';
+        tabEl.dataset.paneId = id;
+        tabEl.innerHTML = `
+            <svg class="terminal-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <span class="terminal-tab-label">Terminal ${displayNum}</span>
+            <button type="button" class="terminal-tab-close" aria-label="关闭分栏">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        `;
+        tabsContainer.appendChild(tabEl);
+
+        // tab 点击聚焦
+        addClickHandler(tabEl, (e) => {
+            if (e.target.closest('.terminal-tab-close')) return;
+            setActivePane(id);
+        });
+
+        // tab 关闭按钮
+        const tabCloseBtn = tabEl.querySelector('.terminal-tab-close');
+        addClickHandler(tabCloseBtn, () => removePane(id));
+
+        // 点击 pane 区域聚焦
+        containerEl.addEventListener('mousedown', () => setActivePane(id));
+
+        // 创建 xterm
+        const terminal = new Terminal({
+            fontFamily: `${currentSettings.fontFamily}, monospace`,
+            fontSize: currentSettings.fontSize,
+            lineHeight: 1.2,
+            cursorBlink: true,
+            cursorStyle: 'block',
+            theme: getTerminalTheme(),
+            allowProposedApi: true,
+        });
+
+        const fitAddon = new FitAddon();
+        terminal.loadAddon(fitAddon);
+        terminal.open(containerEl);
+
+        // Cmd+K 清屏, Cmd+D 分栏
+        terminal.attachCustomKeyEventHandler((e) => {
+            if (e.type === 'keydown' && e.metaKey) {
+                if (e.key === 'k') {
+                    e.preventDefault();
+                    terminal.clear();
+                    return false;
+                }
+                if (e.key === 'd') {
+                    e.preventDefault();
+                    addPane();
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        const pane = { id, terminal, fitAddon, ptyService: null, tabEl, containerEl };
+        panes.push(pane);
+
+        setActivePane(id);
+        updateTabCloseVisibility();
+
+        // 延迟 fit 后启动 pty
+        requestAnimationFrame(async () => {
+            fitPane(pane);
+            await spawnPtyForPane(pane);
+            terminal.focus();
+        });
+
+        return pane;
+    }
+
+    function removePane(id) {
+        const idx = panes.findIndex(p => p.id === id);
+        if (idx === -1) return;
+
+        // 如果只剩一个 pane，关闭整个面板
+        if (panes.length === 1) {
+            hide();
+            return;
         }
 
-        // 设置调整大小拖拽
-        setupResizer();
+        const pane = panes[idx];
+
+        // 清理资源
+        if (pane.ptyService) {
+            pane.ptyService.kill();
+        }
+        pane.terminal.dispose();
+        pane.tabEl.remove();
+        pane.containerEl.remove();
+        panes.splice(idx, 1);
+
+        // 如果关掉的是当前活跃 pane，切到相邻的
+        if (activePaneId === id) {
+            const newIdx = Math.min(idx, panes.length - 1);
+            setActivePane(panes[newIdx].id);
+        }
+
+        updateTabCloseVisibility();
+        fitAllPanes();
     }
 
-    /**
-     * 应用终端设置到 xterm
-     */
+    function setActivePane(id) {
+        activePaneId = id;
+        for (const pane of panes) {
+            const isActive = pane.id === id;
+            pane.tabEl.classList.toggle('is-active', isActive);
+            pane.containerEl.classList.toggle('is-active', isActive);
+        }
+        // 聚焦活跃 pane 的终端
+        const active = panes.find(p => p.id === id);
+        if (active) active.terminal.focus();
+    }
+
+    function updateTabCloseVisibility() {
+        const single = panes.length <= 1;
+        for (const pane of panes) {
+            const closeBtn = pane.tabEl.querySelector('.terminal-tab-close');
+            if (closeBtn) closeBtn.style.display = single ? 'none' : '';
+        }
+    }
+
+    function getActivePane() {
+        return panes.find(p => p.id === activePaneId) || panes[0] || null;
+    }
+
+    // ── PTY ──
+
+    async function spawnPtyForPane(pane) {
+        if (pane.ptyService?.isSpawned()) return;
+
+        const ptyService = createPtyService();
+        pane.ptyService = ptyService;
+
+        ptyService.onData((data) => pane.terminal.write(data));
+        ptyService.onExit(() => {
+            pane.terminal.writeln('\r\n[进程已退出]');
+        });
+
+        pane.terminal.onData((data) => ptyService.write(data));
+
+        let cwd = null;
+        if (typeof getWorkspaceCwd === 'function') {
+            cwd = getWorkspaceCwd();
+        }
+
+        try {
+            await ptyService.spawn({
+                cols: pane.terminal.cols,
+                rows: pane.terminal.rows,
+                cwd,
+            });
+        } catch (error) {
+            console.error('[TerminalPanel] 启动 PTY 失败:', error);
+            pane.terminal.writeln(`\r\n[启动终端失败: ${error.message || error}]`);
+        }
+    }
+
+    // ── Fit ──
+
+    function fitPane(pane) {
+        if (!pane.terminal || !pane.fitAddon || !isVisible) return;
+        try {
+            pane.fitAddon.fit();
+            if (pane.ptyService?.isSpawned()) {
+                pane.ptyService.resize(pane.terminal.cols, pane.terminal.rows);
+            }
+        } catch { /* ignore */ }
+    }
+
+    function fitAllPanes() {
+        if (!isVisible) return;
+        for (const pane of panes) fitPane(pane);
+    }
+
+    // ── 设置 ──
+
     function applyTerminalSettings() {
-        if (!terminal) return;
-        terminal.options.fontFamily = `${currentSettings.fontFamily}, monospace`;
-        terminal.options.fontSize = currentSettings.fontSize;
-        fitTerminal();
+        for (const pane of panes) {
+            pane.terminal.options.fontFamily = `${currentSettings.fontFamily}, monospace`;
+            pane.terminal.options.fontSize = currentSettings.fontSize;
+        }
+        fitAllPanes();
     }
 
-    /**
-     * 切换设置 popover
-     */
     function toggleSettingsPopover(anchorBtn) {
         if (settingsPopover) {
             settingsPopover.remove();
@@ -203,7 +399,6 @@ export function createTerminalPanel(options = {}) {
             </div>
         `;
 
-        // 字体选择
         const select = settingsPopover.querySelector('[data-field="fontFamily"]');
         select.addEventListener('change', () => {
             currentSettings.fontFamily = select.value;
@@ -211,7 +406,6 @@ export function createTerminalPanel(options = {}) {
             applyTerminalSettings();
         });
 
-        // 字号增减
         settingsPopover.querySelectorAll('[data-delta]').forEach(btn => {
             addClickHandler(btn, () => {
                 const delta = parseInt(btn.dataset.delta, 10);
@@ -224,10 +418,8 @@ export function createTerminalPanel(options = {}) {
             });
         });
 
-        // 定位到按钮下方
         panelElement.querySelector('.terminal-header').appendChild(settingsPopover);
 
-        // 点击外部关闭
         const onClickOutside = (e) => {
             if (!settingsPopover?.contains(e.target) && !anchorBtn.contains(e.target)) {
                 settingsPopover?.remove();
@@ -238,9 +430,8 @@ export function createTerminalPanel(options = {}) {
         setTimeout(() => document.addEventListener('pointerdown', onClickOutside, true), 0);
     }
 
-    /**
-     * 设置拖拽调整大小
-     */
+    // ── 调整大小 ──
+
     function setupResizer() {
         const resizer = panelElement.querySelector('.terminal-resizer');
         if (!resizer) return;
@@ -264,8 +455,7 @@ export function createTerminalPanel(options = {}) {
             const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, startHeight + delta));
             currentHeight = newHeight;
             panelElement.style.height = `${newHeight}px`;
-            // 实时调整 xterm 大小
-            fitTerminal();
+            fitAllPanes();
         };
 
         const onMouseUp = () => {
@@ -273,257 +463,100 @@ export function createTerminalPanel(options = {}) {
             document.body.classList.remove('terminal-resizing');
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
-            // 保存高度
             localStorage.setItem(STORAGE_KEY, String(currentHeight));
-            // 最终调整 xterm 大小
-            fitTerminal();
+            fitAllPanes();
         };
 
         resizer.addEventListener('mousedown', onMouseDown);
     }
 
-    /**
-     * 创建 xterm 终端实例
-     */
-    function createTerminal() {
-        if (terminal) return;
+    // ── 显示/隐藏 ──
 
-        terminal = new Terminal({
-            fontFamily: `${currentSettings.fontFamily}, monospace`,
-            fontSize: currentSettings.fontSize,
-            lineHeight: 1.2,
-            cursorBlink: true,
-            cursorStyle: 'block',
-            theme: getTerminalTheme(),
-            allowProposedApi: true,
-        });
-
-        fitAddon = new FitAddon();
-        terminal.loadAddon(fitAddon);
-
-        terminal.open(contentElement);
-
-        // Cmd+K 清屏
-        terminal.attachCustomKeyEventHandler((e) => {
-            if (e.type === 'keydown' && e.metaKey && e.key === 'k') {
-                e.preventDefault();
-                terminal.clear();
-                return false;
-            }
-            return true;
-        });
-
-        // 监听主题切换
-        themeObserver = new MutationObserver(() => {
-            if (terminal) {
-                terminal.options.theme = getTerminalTheme();
-            }
-        });
-        themeObserver.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['data-theme-appearance'],
-        });
-
-        // 设置 ResizeObserver 监听容器大小变化
-        resizeObserver = new ResizeObserver(() => {
-            fitTerminal();
-        });
-        resizeObserver.observe(contentElement);
-
-        // 延迟 fit 以确保容器已渲染
-        requestAnimationFrame(() => {
-            fitTerminal();
-        });
-    }
-
-    /**
-     * 调整终端大小以适应容器
-     */
-    function fitTerminal() {
-        if (!terminal || !fitAddon || !isVisible) return;
-        try {
-            fitAddon.fit();
-            // 同步 PTY 大小
-            if (ptyService?.isSpawned()) {
-                ptyService.resize(terminal.cols, terminal.rows);
-            }
-        } catch (e) {
-            // 忽略 fit 错误
-        }
-    }
-
-    /**
-     * 启动 PTY 进程
-     */
-    async function spawnPty() {
-        if (!terminal) return;
-        if (ptyService?.isSpawned()) return;
-
-        ptyService = createPtyService();
-
-        // 设置数据回调
-        ptyService.onData((data) => {
-            terminal.write(data);
-        });
-
-        // 设置退出回调
-        ptyService.onExit(() => {
-            terminal.writeln('\r\n[进程已退出]');
-            // 可选：自动重启
-        });
-
-        // 监听终端输入
-        terminal.onData((data) => {
-            ptyService.write(data);
-        });
-
-        // 获取工作目录
-        let cwd = null;
-        if (typeof getWorkspaceCwd === 'function') {
-            cwd = getWorkspaceCwd();
-        }
-
-        try {
-            await ptyService.spawn({
-                cols: terminal.cols,
-                rows: terminal.rows,
-                cwd,
-            });
-        } catch (error) {
-            console.error('[TerminalPanel] 启动 PTY 失败:', error);
-            terminal.writeln(`\r\n[启动终端失败: ${error.message || error}]`);
-        }
-    }
-
-    /**
-     * 显示终端面板
-     */
     async function show() {
-        if (!isFeatureEnabled('terminal')) {
-            console.warn('[TerminalPanel] 终端功能在 MAS 版本中不可用');
-            return;
-        }
-
-        if (!panelElement) {
-            initialize();
-        }
-
+        if (!isFeatureEnabled('terminal')) return;
+        if (!panelElement) initialize();
         if (!panelElement) return;
 
         isVisible = true;
         panelElement.classList.add('is-visible');
 
-        // 延迟创建终端（确保面板可见后再渲染）
-        requestAnimationFrame(async () => {
-            if (!terminal) {
-                createTerminal();
+        requestAnimationFrame(() => {
+            // 首次打开时创建第一个 pane
+            if (panes.length === 0) {
+                addPane();
+            } else {
+                fitAllPanes();
+                const active = getActivePane();
+                if (active) active.terminal.focus();
             }
-            fitTerminal();
-
-            // 如果还没有启动 PTY，启动它
-            if (!ptyService?.isSpawned()) {
-                await spawnPty();
-            }
-
-            // 聚焦终端
-            terminal?.focus();
         });
     }
 
-    /**
-     * 隐藏终端面板
-     */
     function hide() {
         if (!panelElement) return;
         isVisible = false;
         panelElement.classList.remove('is-visible');
     }
 
-    /**
-     * 切换终端面板显示状态
-     */
     async function toggle() {
-        if (isVisible) {
-            hide();
-        } else {
-            await show();
-        }
+        if (isVisible) hide();
+        else await show();
     }
 
-    /**
-     * 检查是否可见
-     */
     function getIsVisible() {
         return isVisible;
     }
 
-    /**
-     * 销毁终端面板
-     */
+    // ── 销毁 ──
+
     function destroy() {
-        // 停止 PTY
-        if (ptyService) {
-            ptyService.kill();
-            ptyService = null;
+        for (const pane of panes) {
+            if (pane.ptyService) pane.ptyService.kill();
+            pane.terminal.dispose();
+            pane.tabEl.remove();
+            pane.containerEl.remove();
         }
+        panes.length = 0;
+        activePaneId = null;
 
-        // 停止主题监听
-        if (themeObserver) {
-            themeObserver.disconnect();
-            themeObserver = null;
-        }
-
-        // 停止 ResizeObserver
-        if (resizeObserver) {
-            resizeObserver.disconnect();
-            resizeObserver = null;
-        }
-
-        // 销毁终端
-        if (terminal) {
-            terminal.dispose();
-            terminal = null;
-            fitAddon = null;
-        }
+        if (themeObserver) { themeObserver.disconnect(); themeObserver = null; }
+        if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
 
         panelElement = null;
-        contentElement = null;
+        panesContainer = null;
+        tabsContainer = null;
         isVisible = false;
     }
 
-    /**
-     * 在终端中执行命令（自动打开终端）
-     */
+    // ── 执行命令 ──
+
     async function runCommand(command) {
         if (!isFeatureEnabled('terminal')) return;
-
         if (!panelElement) initialize();
         if (!panelElement) return;
 
-        // 确保面板可见
         if (!isVisible) {
             isVisible = true;
             panelElement.classList.add('is-visible');
         }
 
-        // 等一帧让面板渲染，再创建终端
         await new Promise(resolve => requestAnimationFrame(resolve));
 
-        if (!terminal) {
-            createTerminal();
-        }
-        fitTerminal();
-
-        if (!ptyService?.isSpawned()) {
-            await spawnPty();
-        }
-
-        // 发送命令
-        if (ptyService?.isSpawned()) {
-            ptyService.write(command + '\n');
+        // 在活跃 pane 执行，没有就创建
+        let pane = getActivePane();
+        if (!pane) {
+            pane = addPane();
+            // 等 pty 启动
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        terminal?.focus();
+        fitAllPanes();
+
+        if (pane.ptyService?.isSpawned()) {
+            pane.ptyService.write(command + '\n');
+        }
+
+        pane.terminal.focus();
     }
 
     return {

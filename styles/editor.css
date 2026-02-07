@@ -76,14 +76,14 @@
 
 /* 段落 */
 .tiptap-editor p {
-    margin: 1em 0;
+    margin-bottom: 1em;
 }
 
 /* 代码块 */
 .tiptap-editor pre {
     border-radius: 6px;
     padding: 16px;
-    margin: 1em 0;
+    margin: 0;
     overflow-x: auto;
     position: relative;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
@@ -106,7 +106,7 @@
 }
 
 .tiptap-editor .mermaid {
-    margin: 1.2em 0;
+    margin: 0;
     padding: 16px 24px;
     overflow: visible;
     position: relative;
@@ -212,6 +212,10 @@
 
 .tiptap-editor li {
     margin: 0.5em 0;
+}
+
+.tiptap-editor li > p {
+    margin: 0;
 }
 
 .tiptap-editor ul[data-type="taskList"],
