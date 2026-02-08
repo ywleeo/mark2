@@ -422,3 +422,14 @@
     height: 0;
     pointer-events: none;
 }
+
+/* AI 编辑高亮 */
+.ai-edit-highlight {
+    background: rgba(74, 144, 226, 0.2);
+    border-radius: 2px;
+    transition: background 0.5s ease-out;
+}
+
+.ai-edit-highlight-fade {
+    background: transparent;
+}

@@ -30,6 +30,7 @@ import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../../extensions/MermaidBlock.js';
 import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
 import { SourcePos } from '../../extensions/SourcePos.js';
+import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugin.js';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import { ImageModal } from '../ImageModal.js';
@@ -154,6 +155,7 @@ export class MarkdownEditor {
                 HtmlSpan,
                 HtmlDiv,
                 HtmlInline,
+                AiEditHighlight,
                 Extension.create({
                     name: 'customEnterBehavior',
                     addKeyboardShortcuts() {

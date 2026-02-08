@@ -120,6 +120,7 @@ class AiService {
             buffer: '',
             status: 'pending',
             thinkBuffer: '',
+            toolCalls: [],   // 累积 streaming tool_calls
         };
         this.activeTasks.set(taskId, task);
 
@@ -146,6 +147,7 @@ class AiService {
                     messages: requestOptions.messages,
                     temperature: requestOptions.temperature,
                     stream: true,
+                    ...(requestOptions.tools?.length ? { tools: requestOptions.tools } : {}),
                 }),
                 signal: controller.signal,
             });
@@ -181,7 +183,7 @@ class AiService {
                         if (data === '[DONE]') continue;
 
                         try {
-                            const { answerDelta, reasoningDelta } = parseStreamData(data);
+                            const { answerDelta, reasoningDelta, toolCallDeltas } = parseStreamData(data);
 
                             if (reasoningDelta) {
                                 task.thinkBuffer += reasoningDelta;
@@ -202,6 +204,24 @@ class AiService {
                                     buffer: task.buffer,
                                 });
                             }
+
+                            // 累积 tool_calls
+                            if (toolCallDeltas) {
+                                for (const delta of toolCallDeltas) {
+                                    const idx = delta.index;
+                                    if (!task.toolCalls[idx]) {
+                                        task.toolCalls[idx] = {
+                                            id: delta.id || '',
+                                            type: delta.type || 'function',
+                                            function: { name: '', arguments: '' },
+                                        };
+                                    }
+                                    const tc = task.toolCalls[idx];
+                                    if (delta.id) tc.id = delta.id;
+                                    if (delta.function.name) tc.function.name += delta.function.name;
+                                    if (delta.function.arguments) tc.function.arguments += delta.function.arguments;
+                                }
+                            }
                         } catch (e) {
                             console.warn('[aiService] 解析流式数据失败:', e);
                         }
@@ -210,15 +230,17 @@ class AiService {
             }
 
             // 完成
+            const completedToolCalls = task.toolCalls.length > 0 ? task.toolCalls : null;
             this.notify({
                 type: 'task-stream-end',
                 id: taskId,
                 buffer: task.buffer,
                 thinkBuffer: task.thinkBuffer,
+                toolCalls: completedToolCalls,
             });
 
             this.activeTasks.delete(taskId);
-            return { id: taskId, content: task.buffer, thinking: task.thinkBuffer };
+            return { id: taskId, content: task.buffer, thinking: task.thinkBuffer, toolCalls: completedToolCalls };
 
         } catch (error) {
             const isAborted = task.abortController?.signal?.aborted || error?.name === 'AbortError';

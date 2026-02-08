@@ -3,6 +3,7 @@ import markdownItTaskLists from 'markdown-it-task-lists';
 import markdownItMultimdTable from 'markdown-it-multimd-table';
 import { MarkdownParser, MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
+import { markdownItCjkEmphasis } from './markdownItCjkEmphasis.js';
 
 function listIsTight(tokens, i) {
     while (++i < tokens.length) {
@@ -49,6 +50,8 @@ function createMarkdownTokenizer() {
         label: true,
         labelAfter: true,
     });
+
+    md.use(markdownItCjkEmphasis);
 
     return md;
 }

@@ -10,6 +10,8 @@ import { createContextService } from './services/contextService.js';
 import { createLayoutService } from './services/layoutService.js';
 import { aiService } from './aiService.js';
 import { buildAiRequest } from './prompts/promptComposer.js';
+import { documentTools } from './tools/toolDefinitions.js';
+import { executeToolCalls } from './tools/documentEditor.js';
 
 /**
  * 初始化 AI 助手
@@ -85,6 +87,11 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                 ...history,
             ];
 
+            // 判断是否有可用的 markdown 编辑器（决定是否启用 tools）
+            const editor = markdownEditorInstance || getEditor();
+            const hasEditor = !!editor?.editor;
+            const tools = hasEditor ? documentTools : undefined;
+
             // 订阅流式事件
             const streamUnsubscribe = aiService.subscribe((event) => {
                 if (!event || event.id !== currentTaskId) {
@@ -107,21 +114,51 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                         });
                         break;
 
-                    case 'task-stream-end':
-                        // 更新 UI
-                        sidebar.updateStreamMessage(assistantMessageIndex, {
-                            content: event.buffer || '',
-                            thinking: event.thinkBuffer || '',
-                        });
-                        // 保存到存储
-                        messageService.updateMessage(assistantMessageIndex, {
-                            content: event.buffer || '',
-                            thinking: event.thinkBuffer || '',
-                        });
+                    case 'task-stream-end': {
+                        const hasToolCalls = event.toolCalls && event.toolCalls.length > 0;
+
+                        if (hasToolCalls) {
+                            // AI 返回了文档编辑操作 → 执行（传入 MarkdownEditor 实例）
+                            if (editor) {
+                                const { summary } = executeToolCalls(event.toolCalls, editor);
+                                const displayContent = event.buffer
+                                    ? `${event.buffer}\n\n📝 ${summary}`
+                                    : `📝 ${summary}`;
+                                sidebar.updateStreamMessage(assistantMessageIndex, {
+                                    content: displayContent,
+                                    thinking: event.thinkBuffer || '',
+                                });
+                                messageService.updateMessage(assistantMessageIndex, {
+                                    content: displayContent,
+                                    thinking: event.thinkBuffer || '',
+                                });
+                            } else {
+                                sidebar.updateStreamMessage(assistantMessageIndex, {
+                                    content: '编辑器不可用，无法执行操作',
+                                    thinking: event.thinkBuffer || '',
+                                });
+                                messageService.updateMessage(assistantMessageIndex, {
+                                    content: '编辑器不可用，无法执行操作',
+                                    thinking: event.thinkBuffer || '',
+                                });
+                            }
+                        } else {
+                            // 普通对话回复
+                            sidebar.updateStreamMessage(assistantMessageIndex, {
+                                content: event.buffer || '',
+                                thinking: event.thinkBuffer || '',
+                            });
+                            messageService.updateMessage(assistantMessageIndex, {
+                                content: event.buffer || '',
+                                thinking: event.thinkBuffer || '',
+                            });
+                        }
+
                         sidebar.onAIComplete();
                         streamUnsubscribe();
                         currentTaskId = null;
                         break;
+                    }
 
                     case 'task-failed':
                         sidebar.onAIError({ message: event.error || 'AI 处理失败' });
@@ -146,6 +183,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                 messages: apiMessages,
                 temperature: 0.7,
                 taskId: currentTaskId,
+                tools,
             });
         } catch (error) {
             // 取消操作不记录错误
@@ -161,14 +199,25 @@ export async function initAIAssistant({ eventBus, getEditor }) {
      * 构建系统提示词
      */
     function buildSystemPrompt(context) {
-        let prompt = '你是一个专业的写作助手。';
+        let prompt = `你是一个专业的写作助手，可以帮用户编辑文档。
+
+你有两种工作模式：
+1. **对话模式**：当用户只是提问或闲聊时，直接用文字回复。
+2. **编辑模式**：当用户要求修改文档内容时，使用提供的工具（edit_document、replace_all）来编辑文档。
+
+使用工具时的注意事项：
+- old_text 和 anchor 必须精确匹配文档的 markdown 原文（包括 #、-、> 等标记符号、空格、换行）。
+- 润色或重写某段内容 → 用 edit_document 把原文替换为新内容。
+- 在某个位置插入新内容 → 用 insert_text，指定锚点文本和插入位置（before/after）。换行会自动处理，content 只需写纯内容即可。
+- 全局查找替换 → 用 replace_all。
+- 可以在一次回复中多次调用工具来完成复杂编辑。`;
 
         if (context.hasSelection) {
             prompt += `\n\n用户当前选中的文本：\n${context.selectedText}`;
         }
 
         if (context.documentContent) {
-            prompt += `\n\n文档上下文（前500字）：\n${context.documentContent.substring(0, 500)}`;
+            prompt += `\n\n当前文档全文：\n${context.documentContent}`;
         }
 
         return prompt;
