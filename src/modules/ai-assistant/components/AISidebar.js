@@ -6,6 +6,7 @@
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { ResizeHandle } from './ResizeHandle.js';
 import { SidebarHeader } from './SidebarHeader.js';
+import { ContextBar } from './ContextBar.js';
 import { ConversationList } from './ConversationList.js';
 import { ChatInput } from './ChatInput.js';
 
@@ -29,6 +30,7 @@ export class AISidebar {
         // 子组件
         this.resizeHandle = null;
         this.header = null;
+        this.contextBar = null;
         this.conversationList = null;
         this.chatInput = null;
 
@@ -51,6 +53,8 @@ export class AISidebar {
             onClose: () => this.layoutService.hide(),
         });
 
+        this.contextBar = new ContextBar();
+
         this.conversationList = new ConversationList({
             onInsert: (content) => this.handleInsert(content),
             onReplace: (content) => this.handleReplace(content),
@@ -65,6 +69,7 @@ export class AISidebar {
         // 组装 DOM
         this.element.appendChild(this.resizeHandle.render());
         this.element.appendChild(this.header.render());
+        this.element.appendChild(this.contextBar.render());
         this.element.appendChild(this.conversationList.render());
         this.element.appendChild(this.chatInput.render());
 
@@ -156,6 +161,7 @@ export class AISidebar {
         });
         if (confirmed) {
             this.messageService.clearAll();
+            this.contextBar?.clearReferences();
         }
     }
 
@@ -210,7 +216,12 @@ export class AISidebar {
      */
     show() {
         this.layoutService.show();
+        this.contextBar?.updateCurrentFile();
         this.chatInput.focus();
+    }
+
+    getContextBar() {
+        return this.contextBar;
     }
 
     /**
@@ -242,6 +253,7 @@ export class AISidebar {
         // 销毁子组件
         this.resizeHandle?.destroy();
         this.header?.destroy();
+        this.contextBar?.destroy();
         this.conversationList?.destroy();
         this.chatInput?.destroy();
 

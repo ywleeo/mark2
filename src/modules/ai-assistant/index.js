@@ -59,6 +59,9 @@ export async function initAIAssistant({ eventBus, getEditor }) {
         // 获取当前上下文
         const context = contextService.getContext();
 
+        // 获取参考文件内容
+        const references = await sidebar.getContextBar()?.getReferences() || [];
+
         // 构建对话历史
         const messages = messageService.getAll();
         const history = messages.map(msg => ({
@@ -78,7 +81,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
         try {
             currentTaskId = aiService.generateTaskId();
 
-            const systemPrompt = buildSystemPrompt(context);
+            const systemPrompt = buildSystemPrompt(context, references);
             const apiMessages = [
                 {
                     role: 'system',
@@ -198,26 +201,43 @@ export async function initAIAssistant({ eventBus, getEditor }) {
     /**
      * 构建系统提示词
      */
-    function buildSystemPrompt(context) {
+    function buildSystemPrompt(context, references = []) {
+        const currentFilePath = window.currentFile;
+        const currentFileName = currentFilePath
+            ? currentFilePath.substring(currentFilePath.lastIndexOf('/') + 1)
+            : '未知文档';
+
         let prompt = `你是一个专业的写作助手，可以帮用户编辑文档。
 
 你有两种工作模式：
-1. **对话模式**：当用户只是提问或闲聊时，直接用文字回复。
-2. **编辑模式**：当用户要求修改文档内容时，使用提供的工具（edit_document、replace_all）来编辑文档。
+1. **对话模式**：当用户提问、分析、总结、提取信息、翻译等不需要改动文档的请求时，直接用文字回复。例如"提取所有URL"、"总结这篇文章"、"解释这段代码"都属于对话模式，不要使用工具。
+2. **编辑模式**：仅当用户明确要求修改、替换、删除、插入、润色文档内容时，才使用工具编辑文档。
 
-使用工具时的注意事项：
+判断原则：如果用户的请求不需要改变文档本身的内容，就用对话模式直接回复。
+
+编辑模式下使用工具的注意事项：
 - old_text 和 anchor 必须精确匹配文档的 markdown 原文（包括 #、-、> 等标记符号、空格、换行）。
 - 润色或重写某段内容 → 用 edit_document 把原文替换为新内容。
 - 在某个位置插入新内容 → 用 insert_text，指定锚点文本和插入位置（before/after）。换行会自动处理，content 只需写纯内容即可。
 - 全局查找替换 → 用 replace_all。
-- 可以在一次回复中多次调用工具来完成复杂编辑。`;
+- 可以在一次回复中多次调用工具来完成复杂编辑。
+- 工具只能修改当前正在编辑的文档，不能修改参考文档。`;
 
         if (context.hasSelection) {
             prompt += `\n\n用户当前选中的文本：\n${context.selectedText}`;
         }
 
         if (context.documentContent) {
-            prompt += `\n\n当前文档全文：\n${context.documentContent}`;
+            prompt += `\n\n当前正在编辑的文档（可以使用工具修改此文档）：`;
+            prompt += `\n文件名：${currentFileName}`;
+            prompt += `\n---\n${context.documentContent}\n---`;
+        }
+
+        if (references.length > 0) {
+            prompt += `\n\n参考文档（仅供参考，不可直接编辑）：`;
+            for (const ref of references) {
+                prompt += `\n=== ${ref.name} ===\n${ref.content}\n`;
+            }
         }
 
         return prompt;
@@ -473,9 +493,10 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             }
         });
 
-        // 监听 tab 切换事件，隐藏选择工具栏
+        // 监听 tab 切换事件，隐藏选择工具栏，刷新上下文
         eventBus.on('tab:switch', () => {
             selectionToolbar?.hide();
+            sidebar.getContextBar()?.updateCurrentFile();
         });
     }
 

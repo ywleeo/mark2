@@ -68,6 +68,7 @@ export class CodeEditor {
         this.handleResize = () => this.requestLayout();
         this.tapGuardState = null;
         this.tapGuardCleanup = null;
+        this.pasteHandler = null;
         this.aiStreamSessions = new Map();
         this.searchTerm = '';
         this.searchMatches = null;
@@ -184,6 +185,35 @@ export class CodeEditor {
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
         this.setupTapSelectionGuard();
+        this.setupPasteHandler();
+    }
+
+    /**
+     * 粘贴时自动将字面 \n \t 转换为实际换行/制表符。
+     * 检测逻辑：字面 \n 数量 ≥ 3 且远多于实际换行，说明文本是序列化格式。
+     */
+    setupPasteHandler() {
+        this.pasteHandler = (e) => {
+            const text = e.clipboardData?.getData('text/plain');
+            if (!text || text.length < 50) return;
+
+            const literalCount = (text.match(/\\n/g) || []).length;
+            if (literalCount < 3) return;
+
+            const actualCount = (text.match(/\n/g) || []).length;
+            if (literalCount <= actualCount * 3) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const converted = text
+                .replace(/\\n/g, '\n')
+                .replace(/\\t/g, '\t');
+
+            this.editor.trigger('paste', 'type', { text: converted });
+        };
+
+        this.editorHost.addEventListener('paste', this.pasteHandler, true);
     }
 
     requestLayout() {
@@ -811,6 +841,10 @@ export class CodeEditor {
         }
         if (this.monaco) {
             this.monaco = null;
+        }
+        if (this.pasteHandler) {
+            this.editorHost?.removeEventListener('paste', this.pasteHandler, true);
+            this.pasteHandler = null;
         }
         window.removeEventListener('resize', this.handleResize);
         this.currentTabId = null;

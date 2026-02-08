@@ -428,3 +428,162 @@ body.ai-sidebar-visible .ai-sidebar {
 .ai-conversation-list::-webkit-scrollbar-thumb:hover {
     background: var(--ai-sidebar-text-secondary);
 }
+
+/* ========== Context Bar ========== */
+.ai-context-bar {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--ai-sidebar-border);
+    flex-shrink: 0;
+}
+
+.ai-context-current-file {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+}
+
+.ai-context-file-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.ai-context-file-name {
+    font-size: 12px;
+    color: var(--ai-sidebar-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-context-file-name.is-empty {
+    color: var(--ai-sidebar-text-secondary);
+    font-style: italic;
+}
+
+.ai-context-add-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--ai-sidebar-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ai-sidebar-text-secondary);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.ai-context-add-btn:hover:not(:disabled) {
+    background: var(--ai-sidebar-hover-bg);
+    color: var(--ai-sidebar-text);
+    border-color: var(--ai-sidebar-primary);
+}
+
+.ai-context-add-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* 参考文件 chips */
+.ai-context-references {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.ai-context-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    background: var(--ai-sidebar-bg-secondary);
+    border: 1px solid var(--ai-sidebar-border);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--ai-sidebar-text);
+    max-width: 100%;
+}
+
+.ai-context-chip-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ai-context-chip-remove {
+    padding: 0;
+    width: 14px;
+    height: 14px;
+    border: none;
+    background: transparent;
+    color: var(--ai-sidebar-text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+}
+
+.ai-context-chip-remove:hover {
+    background: var(--ai-sidebar-hover-bg);
+    color: var(--ai-sidebar-text);
+}
+
+/* 文件选择下拉 */
+.ai-context-dropdown {
+    margin-top: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: var(--ai-sidebar-bg);
+    border: 1px solid var(--ai-sidebar-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    scrollbar-width: thin;
+}
+
+.ai-context-dropdown-empty {
+    padding: 12px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--ai-sidebar-text-secondary);
+}
+
+.ai-context-dropdown-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--ai-sidebar-text);
+    cursor: pointer;
+    transition: background 0.1s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ai-context-dropdown-item:hover {
+    background: var(--ai-sidebar-hover-bg);
+}
+
+.ai-context-dropdown::-webkit-scrollbar {
+    width: 2px !important;
+}
+
+.ai-context-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-context-dropdown::-webkit-scrollbar-thumb {
+    background: var(--ai-sidebar-border);
+    border-radius: 1px;
+}
