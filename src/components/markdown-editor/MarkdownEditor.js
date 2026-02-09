@@ -1432,6 +1432,9 @@ export class MarkdownEditor {
                 if (autoFocus) {
                     this.editor.commands.focus();
                 }
+                // 恢复的 EditorState 中的 blob URLs 可能已被其他 tab 切换时撤销，
+                // 必须重新解析图片节点以创建新的有效 blob URLs
+                await this.resolveImageNodes(sessionId);
                 this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
                 this.scheduleMermaidRender();
                 // 如果 search bar 已关闭，清除搜索高亮
