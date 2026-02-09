@@ -38,15 +38,20 @@ export class ContextBar {
     constructor() {
         this.element = null;
         this.referenceFiles = []; // [{ path, name }]
+        this.currentFileIncluded = true; // 是否将当前文件纳入上下文
 
         // DOM refs
         this.fileNameEl = null;
         this.addBtn = null;
+        this.dismissBtn = null;
         this.referencesEl = null;
         this.dropdownEl = null;
+        this.currentFileEl = null;
 
         // cleanup
         this.addBtnCleanup = null;
+        this.dismissBtnCleanup = null;
+        this.fileNameClickCleanup = null;
         this.chipCleanups = [];
         this.dropdownCleanups = [];
         this.outsideClickHandler = null;
@@ -59,18 +64,27 @@ export class ContextBar {
             <div class="ai-context-current-file">
                 <span class="ai-context-file-icon">📄</span>
                 <span class="ai-context-file-name is-empty">未打开文件</span>
+                <button class="ai-context-dismiss-btn" title="从上下文中移除" style="display:none">✕</button>
                 <button class="ai-context-add-btn" title="添加参考文件" disabled>+</button>
             </div>
             <div class="ai-context-references" style="display:none"></div>
             <div class="ai-context-dropdown" style="display:none"></div>
         `;
 
+        this.currentFileEl = this.element.querySelector('.ai-context-current-file');
         this.fileNameEl = this.element.querySelector('.ai-context-file-name');
+        this.dismissBtn = this.element.querySelector('.ai-context-dismiss-btn');
         this.addBtn = this.element.querySelector('.ai-context-add-btn');
         this.referencesEl = this.element.querySelector('.ai-context-references');
         this.dropdownEl = this.element.querySelector('.ai-context-dropdown');
 
         this.addBtnCleanup = addClickHandler(this.addBtn, () => this.toggleFilePicker());
+        this.dismissBtnCleanup = addClickHandler(this.dismissBtn, () => this.toggleCurrentFile(false));
+        this.fileNameClickCleanup = addClickHandler(this.fileNameEl, () => {
+            if (!this.currentFileIncluded && window.currentFile) {
+                this.toggleCurrentFile(true);
+            }
+        });
 
         this.updateCurrentFile();
         return this.element;
@@ -82,11 +96,47 @@ export class ContextBar {
             this.fileNameEl.textContent = getFileName(filePath);
             this.fileNameEl.classList.remove('is-empty');
             this.addBtn.disabled = false;
+            // 切换文件时重置为包含状态
+            this.currentFileIncluded = true;
+            this.updateCurrentFileUI();
         } else {
             this.fileNameEl.textContent = '未打开文件';
             this.fileNameEl.classList.add('is-empty');
             this.addBtn.disabled = true;
+            this.dismissBtn.style.display = 'none';
+            this.currentFileEl.classList.remove('is-dismissed');
         }
+    }
+
+    /**
+     * 切换当前文件的包含状态
+     */
+    toggleCurrentFile(included) {
+        this.currentFileIncluded = included;
+        this.updateCurrentFileUI();
+    }
+
+    updateCurrentFileUI() {
+        if (this.currentFileIncluded) {
+            this.currentFileEl.classList.remove('is-dismissed');
+            this.fileNameEl.classList.remove('is-dismissed');
+            this.dismissBtn.style.display = '';
+            this.fileNameEl.style.cursor = '';
+            this.fileNameEl.title = '';
+        } else {
+            this.currentFileEl.classList.add('is-dismissed');
+            this.fileNameEl.classList.add('is-dismissed');
+            this.dismissBtn.style.display = 'none';
+            this.fileNameEl.style.cursor = 'pointer';
+            this.fileNameEl.title = '点击重新添加到上下文';
+        }
+    }
+
+    /**
+     * 当前文件是否被纳入上下文
+     */
+    isCurrentFileIncluded() {
+        return this.currentFileIncluded && !!window.currentFile;
     }
 
     // ---- 下拉菜单 ----
@@ -138,8 +188,15 @@ export class ContextBar {
                 item.textContent = getFileName(filePath);
                 item.dataset.path = filePath;
                 const cleanup = addClickHandler(item, () => {
-                    this.addReference(filePath);
-                    this.hideFilePicker();
+                    if (item.classList.contains('is-selected')) {
+                        // 取消选择
+                        this.removeReference(filePath);
+                        item.classList.remove('is-selected');
+                    } else {
+                        // 选择
+                        this.addReference(filePath);
+                        item.classList.add('is-selected');
+                    }
                 });
                 this.dropdownCleanups.push(cleanup);
                 this.dropdownEl.appendChild(item);
@@ -265,6 +322,14 @@ export class ContextBar {
         if (this.addBtnCleanup) {
             this.addBtnCleanup();
             this.addBtnCleanup = null;
+        }
+        if (this.dismissBtnCleanup) {
+            this.dismissBtnCleanup();
+            this.dismissBtnCleanup = null;
+        }
+        if (this.fileNameClickCleanup) {
+            this.fileNameClickCleanup();
+            this.fileNameClickCleanup = null;
         }
         this.element = null;
     }

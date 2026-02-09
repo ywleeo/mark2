@@ -46,8 +46,8 @@ export async function initAIAssistant({ eventBus, getEditor }) {
     /**
      * 处理发送消息（chat 输入）
      */
-    async function handleSendMessage({ message }) {
-        console.log('[AI Assistant] 发送消息:', message);
+    async function handleSendMessage({ message, outputMode = 'chat' }) {
+        console.log('[AI Assistant] 发送消息:', message, '输出模式:', outputMode);
 
         // 检查配置
         const config = aiService.getConfig();
@@ -56,11 +56,15 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             return;
         }
 
-        // 获取当前上下文
-        const context = contextService.getContext();
+        // 获取当前上下文（根据 ContextBar 状态决定是否包含文档内容）
+        const contextBar = sidebar.getContextBar();
+        const includeCurrentFile = contextBar?.isCurrentFileIncluded() ?? true;
+        const context = includeCurrentFile
+            ? contextService.getContext()
+            : { selectedText: '', documentContent: '', hasSelection: false };
 
         // 获取参考文件内容
-        const references = await sidebar.getContextBar()?.getReferences() || [];
+        const references = await contextBar?.getReferences() || [];
 
         // 构建对话历史
         const messages = messageService.getAll();
@@ -77,6 +81,10 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             thinking: '',
         });
 
+        // 文档输出模式判断
+        const editor = markdownEditorInstance || getEditor();
+        const isDocMode = outputMode === 'document' && editor?.editor;
+
         // 调用 AI（流式模式）
         try {
             currentTaskId = aiService.generateTaskId();
@@ -91,8 +99,8 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             ];
 
             // 判断是否有可用的 markdown 编辑器（决定是否启用 tools）
-            const editor = markdownEditorInstance || getEditor();
-            const hasEditor = !!editor?.editor;
+            // 未包含当前文件时或文档输出模式时不启用编辑工具
+            const hasEditor = !!editor?.editor && includeCurrentFile && !isDocMode;
             const tools = hasEditor ? documentTools : undefined;
 
             // 订阅流式事件
@@ -106,6 +114,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                         break;
 
                     case 'task-stream-chunk':
+                        // 无论哪种模式，流式内容都展示在 chat 中
                         sidebar.updateStreamMessage(assistantMessageIndex, {
                             content: event.buffer || '',
                         });
@@ -118,43 +127,69 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                         break;
 
                     case 'task-stream-end': {
-                        const hasToolCalls = event.toolCalls && event.toolCalls.length > 0;
-
-                        if (hasToolCalls) {
-                            // AI 返回了文档编辑操作 → 执行（传入 MarkdownEditor 实例）
-                            if (editor) {
-                                const { summary } = executeToolCalls(event.toolCalls, editor);
-                                const displayContent = event.buffer
-                                    ? `${event.buffer}\n\n📝 ${summary}`
-                                    : `📝 ${summary}`;
-                                sidebar.updateStreamMessage(assistantMessageIndex, {
-                                    content: displayContent,
-                                    thinking: event.thinkBuffer || '',
-                                });
-                                messageService.updateMessage(assistantMessageIndex, {
-                                    content: displayContent,
-                                    thinking: event.thinkBuffer || '',
-                                });
-                            } else {
-                                sidebar.updateStreamMessage(assistantMessageIndex, {
-                                    content: '编辑器不可用，无法执行操作',
-                                    thinking: event.thinkBuffer || '',
-                                });
-                                messageService.updateMessage(assistantMessageIndex, {
-                                    content: '编辑器不可用，无法执行操作',
-                                    thinking: event.thinkBuffer || '',
+                        if (isDocMode) {
+                            // 文档模式：将完整内容追加到编辑器 markdown 末尾
+                            const aiContent = (event.buffer || '').trim();
+                            if (aiContent && editor?.getMarkdown) {
+                                const currentMd = editor.getMarkdown();
+                                const newMd = currentMd.trimEnd() + '\n\n' + aiContent + '\n';
+                                editor.setContent(newMd, false).then(() => {
+                                    // 滚动到底部
+                                    const scrollEl = editor.getScrollContainer?.() || editor.editor?.view?.dom?.parentElement;
+                                    if (scrollEl) {
+                                        scrollEl.scrollTop = scrollEl.scrollHeight;
+                                    }
+                                    // 标记内容已修改，触发自动保存
+                                    editor.contentChanged = true;
                                 });
                             }
-                        } else {
-                            // 普通对话回复
+
+                            const statusMsg = '📄 内容已写入文档';
                             sidebar.updateStreamMessage(assistantMessageIndex, {
-                                content: event.buffer || '',
+                                content: statusMsg,
                                 thinking: event.thinkBuffer || '',
                             });
                             messageService.updateMessage(assistantMessageIndex, {
-                                content: event.buffer || '',
+                                content: statusMsg,
                                 thinking: event.thinkBuffer || '',
                             });
+                        } else {
+                            const hasToolCalls = event.toolCalls && event.toolCalls.length > 0;
+
+                            if (hasToolCalls) {
+                                if (editor) {
+                                    const { summary } = executeToolCalls(event.toolCalls, editor);
+                                    const displayContent = event.buffer
+                                        ? `${event.buffer}\n\n📝 ${summary}`
+                                        : `📝 ${summary}`;
+                                    sidebar.updateStreamMessage(assistantMessageIndex, {
+                                        content: displayContent,
+                                        thinking: event.thinkBuffer || '',
+                                    });
+                                    messageService.updateMessage(assistantMessageIndex, {
+                                        content: displayContent,
+                                        thinking: event.thinkBuffer || '',
+                                    });
+                                } else {
+                                    sidebar.updateStreamMessage(assistantMessageIndex, {
+                                        content: '编辑器不可用，无法执行操作',
+                                        thinking: event.thinkBuffer || '',
+                                    });
+                                    messageService.updateMessage(assistantMessageIndex, {
+                                        content: '编辑器不可用，无法执行操作',
+                                        thinking: event.thinkBuffer || '',
+                                    });
+                                }
+                            } else {
+                                sidebar.updateStreamMessage(assistantMessageIndex, {
+                                    content: event.buffer || '',
+                                    thinking: event.thinkBuffer || '',
+                                });
+                                messageService.updateMessage(assistantMessageIndex, {
+                                    content: event.buffer || '',
+                                    thinking: event.thinkBuffer || '',
+                                });
+                            }
                         }
 
                         sidebar.onAIComplete();
@@ -216,7 +251,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
 判断原则：如果用户的请求不需要改变文档本身的内容，就用对话模式直接回复。
 
 编辑模式下使用工具的注意事项：
-- old_text 和 anchor 必须精确匹配文档的 markdown 原文（包括 #、-、> 等标记符号、空格、换行）。
+- old_text 和 anchor 必须精确匹配文档的 markdown 原文（包括 #、-、> 等标记符号、空格、换行）。注意：<document> 和 </document> 是分隔标记，不是文档内容，不要在 old_text 或 anchor 中使用它们。
 - 润色或重写某段内容 → 用 edit_document 把原文替换为新内容。
 - 在某个位置插入新内容 → 用 insert_text，指定锚点文本和插入位置（before/after）。换行会自动处理，content 只需写纯内容即可。
 - 全局查找替换 → 用 replace_all。
@@ -230,7 +265,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
         if (context.documentContent) {
             prompt += `\n\n当前正在编辑的文档（可以使用工具修改此文档）：`;
             prompt += `\n文件名：${currentFileName}`;
-            prompt += `\n---\n${context.documentContent}\n---`;
+            prompt += `\n<document>\n${context.documentContent}\n</document>`;
         }
 
         if (references.length > 0) {

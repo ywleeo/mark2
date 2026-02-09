@@ -367,9 +367,45 @@ body.ai-sidebar-visible .ai-sidebar {
 
 .ai-sidebar-input-actions {
     display: flex;
-    gap: 8px;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
     margin-top: 8px;
+}
+
+.ai-sidebar-input-actions-right {
+    display: flex;
+    gap: 8px;
+}
+
+/* 输出目标切换按钮 */
+.ai-sidebar-output-toggle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 8px;
+    border: 1px solid var(--ai-sidebar-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ai-sidebar-text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+}
+
+.ai-sidebar-output-toggle .ai-output-icon {
+    font-size: 12px;
+}
+
+.ai-sidebar-output-toggle:hover {
+    background: var(--ai-sidebar-hover-bg);
+    color: var(--ai-sidebar-text);
+    border-color: var(--ai-sidebar-primary);
+}
+
+.ai-sidebar-output-toggle.is-document {
+    border-color: var(--ai-sidebar-primary);
+    color: var(--ai-sidebar-text);
 }
 
 .ai-sidebar-send-btn,
@@ -461,6 +497,51 @@ body.ai-sidebar-visible .ai-sidebar {
 .ai-context-file-name.is-empty {
     color: var(--ai-sidebar-text-secondary);
     font-style: italic;
+}
+
+/* 当前文件移除按钮 */
+.ai-context-dismiss-btn {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ai-sidebar-text-secondary);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+}
+
+.ai-context-current-file:hover .ai-context-dismiss-btn {
+    opacity: 1;
+}
+
+.ai-context-dismiss-btn:hover {
+    background: var(--ai-sidebar-hover-bg);
+    color: var(--ai-sidebar-text);
+}
+
+/* 当前文件被取消选择的状态 */
+.ai-context-current-file.is-dismissed .ai-context-file-icon {
+    opacity: 0.4;
+}
+
+.ai-context-file-name.is-dismissed {
+    color: var(--ai-sidebar-text-secondary);
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.ai-context-file-name.is-dismissed:hover {
+    opacity: 0.9;
+    text-decoration: none;
 }
 
 .ai-context-add-btn {
@@ -573,6 +654,14 @@ body.ai-sidebar-visible .ai-sidebar {
 
 .ai-context-dropdown-item:hover {
     background: var(--ai-sidebar-hover-bg);
+}
+
+.ai-context-dropdown-item.is-selected {
+    color: var(--ai-sidebar-primary, #4a9eff);
+}
+
+.ai-context-dropdown-item.is-selected::before {
+    content: '✓ ';
 }
 
 .ai-context-dropdown::-webkit-scrollbar {

@@ -62,7 +62,7 @@ export class AISidebar {
         });
 
         this.chatInput = new ChatInput({
-            onSend: (text) => this.handleSend(text),
+            onSend: (text, outputMode) => this.handleSend(text, outputMode),
             onCancel: () => this.handleCancel(),
         });
 
@@ -103,7 +103,7 @@ export class AISidebar {
         this.element.style.width = `${width}px`;
     }
 
-    handleSend(text) {
+    handleSend(text, outputMode = 'chat') {
         if (!text.trim()) {
             return;
         }
@@ -120,7 +120,7 @@ export class AISidebar {
 
         // 调用外部发送处理
         if (this.onSendMessage) {
-            this.onSendMessage({ message: text });
+            this.onSendMessage({ message: text, outputMode });
         }
     }
 
@@ -161,7 +161,6 @@ export class AISidebar {
         });
         if (confirmed) {
             this.messageService.clearAll();
-            this.contextBar?.clearReferences();
         }
     }
 

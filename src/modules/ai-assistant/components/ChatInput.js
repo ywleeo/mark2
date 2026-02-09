@@ -10,11 +10,14 @@ export class ChatInput {
         this.textarea = null;
         this.sendBtn = null;
         this.cancelBtn = null;
+        this.outputToggle = null;
         this.onSend = onSend;
         this.onCancel = onCancel;
         this.isProcessing = false;
+        this.outputMode = 'chat'; // 'chat' | 'document'
         this.sendBtnCleanup = null;
         this.cancelBtnCleanup = null;
+        this.outputToggleCleanup = null;
     }
 
     render() {
@@ -27,19 +30,27 @@ export class ChatInput {
                 rows="3"
             ></textarea>
             <div class="ai-sidebar-input-actions">
-                <button class="ai-sidebar-cancel-btn" style="display: none;">取消</button>
-                <button class="ai-sidebar-send-btn">发送</button>
+                <button class="ai-sidebar-output-toggle" title="切换输出目标">
+                    <span class="ai-output-icon">💬</span>
+                    <span class="ai-output-label">Chat</span>
+                </button>
+                <div class="ai-sidebar-input-actions-right">
+                    <button class="ai-sidebar-cancel-btn" style="display: none;">取消</button>
+                    <button class="ai-sidebar-send-btn">发送</button>
+                </div>
             </div>
         `;
 
         this.textarea = this.element.querySelector('.ai-sidebar-input-field');
         this.sendBtn = this.element.querySelector('.ai-sidebar-send-btn');
         this.cancelBtn = this.element.querySelector('.ai-sidebar-cancel-btn');
+        this.outputToggle = this.element.querySelector('.ai-sidebar-output-toggle');
 
         // 绑定事件
         this.textarea.addEventListener('keydown', this.handleKeyDown.bind(this));
         this.sendBtnCleanup = addClickHandler(this.sendBtn, this.handleSend.bind(this));
         this.cancelBtnCleanup = addClickHandler(this.cancelBtn, this.handleCancel.bind(this));
+        this.outputToggleCleanup = addClickHandler(this.outputToggle, this.toggleOutputMode.bind(this));
 
         // 自动调整高度
         this.textarea.addEventListener('input', this.autoResize.bind(this));
@@ -62,10 +73,28 @@ export class ChatInput {
         }
 
         if (this.onSend) {
-            this.onSend(text);
+            this.onSend(text, this.outputMode);
         }
 
         this.clear();
+    }
+
+    toggleOutputMode() {
+        if (this.outputMode === 'chat') {
+            this.outputMode = 'document';
+            this.outputToggle.querySelector('.ai-output-icon').textContent = '📄';
+            this.outputToggle.querySelector('.ai-output-label').textContent = 'Doc';
+            this.outputToggle.classList.add('is-document');
+        } else {
+            this.outputMode = 'chat';
+            this.outputToggle.querySelector('.ai-output-icon').textContent = '💬';
+            this.outputToggle.querySelector('.ai-output-label').textContent = 'Chat';
+            this.outputToggle.classList.remove('is-document');
+        }
+    }
+
+    getOutputMode() {
+        return this.outputMode;
     }
 
     handleCancel() {
@@ -111,9 +140,14 @@ export class ChatInput {
             this.cancelBtnCleanup();
             this.cancelBtnCleanup = null;
         }
+        if (this.outputToggleCleanup) {
+            this.outputToggleCleanup();
+            this.outputToggleCleanup = null;
+        }
         this.element = null;
         this.textarea = null;
         this.sendBtn = null;
         this.cancelBtn = null;
+        this.outputToggle = null;
     }
 }
