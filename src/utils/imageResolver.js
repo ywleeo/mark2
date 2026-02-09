@@ -291,6 +291,23 @@ export function releaseImageObjectUrls() {
     imageObjectUrlRegistry.clear();
 }
 
+export function drainImageObjectUrls() {
+    const urls = [...imageObjectUrlRegistry];
+    imageObjectUrlRegistry.clear();
+    return urls;
+}
+
+export function revokeUrls(urls) {
+    if (!urls?.length || typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') {
+        return;
+    }
+    for (const url of urls) {
+        try {
+            URL.revokeObjectURL(url);
+        } catch (_) { /* ignore */ }
+    }
+}
+
 export function registerImageObjectUrl(url) {
     if (typeof url === 'string' && url.length > 0) {
         imageObjectUrlRegistry.add(url);

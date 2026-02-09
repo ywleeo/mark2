@@ -15,11 +15,13 @@ import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
 import { MarkdownImage } from '../../utils/markdownPlugins.js';
 import {
     createImageObjectUrl,
+    drainImageObjectUrls,
     isExternalImageSrc,
     readBinaryFromFs,
     registerImageObjectUrl,
     releaseImageObjectUrls,
-    resolveImagePath
+    resolveImagePath,
+    revokeUrls
 } from '../../utils/imageResolver.js';
 import { createMarkdownParser, createMarkdownSerializer } from '../../utils/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
@@ -974,7 +976,7 @@ export class MarkdownEditor {
         this.originalMarkdown = normalizedMarkdown;
         this.contentChanged = false;
         this.clearAutoSaveTimer();
-        releaseImageObjectUrls();
+        const staleUrls = drainImageObjectUrls();
 
         const previousSelection = (!shouldFocusStart && this.editor?.state?.selection)
             ? {
@@ -1003,6 +1005,7 @@ export class MarkdownEditor {
                 this.editor.commands.setContent('');
             }
             await this.resolveImageNodes(sessionId);
+            revokeUrls(staleUrls);
 
             if (shouldFocusStart) {
                 this.editor.commands.focus('start');
