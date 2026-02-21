@@ -89,7 +89,7 @@ export async function initAIAssistant({ eventBus, getEditor }) {
         try {
             currentTaskId = aiService.generateTaskId();
 
-            const systemPrompt = buildSystemPrompt(context, references);
+            const systemPrompt = buildSystemPrompt(context, references, isDocMode);
             const apiMessages = [
                 {
                     role: 'system',
@@ -103,6 +103,34 @@ export async function initAIAssistant({ eventBus, getEditor }) {
             const hasEditor = !!editor?.editor && includeCurrentFile && !isDocMode;
             const tools = hasEditor ? documentTools : undefined;
 
+            // Doc 模式流式写入状态
+            let docModeOriginalMd = null;
+            let docStreamSessionId = null;
+
+            if (isDocMode && editor?.beginAiStreamSession) {
+                docModeOriginalMd = editor.getMarkdown();
+            }
+
+            // 清理 doc 流式会话的辅助函数
+            function cleanupDocStream(abort = false) {
+                if (docStreamSessionId && editor) {
+                    if (abort && editor.abortAiStreamSession) {
+                        editor.abortAiStreamSession(docStreamSessionId);
+                    } else {
+                        // 仅从 map 中移除，不删除已插入的文本（后续 setContent 会替换）
+                        editor.aiStreamSessions?.delete(docStreamSessionId);
+                    }
+                    docStreamSessionId = null;
+                }
+            }
+
+            function scrollDocToBottom() {
+                const scrollEl = editor?.getScrollContainer?.() || editor?.editor?.view?.dom?.parentElement;
+                if (scrollEl) {
+                    scrollEl.scrollTop = scrollEl.scrollHeight;
+                }
+            }
+
             // 订阅流式事件
             const streamUnsubscribe = aiService.subscribe((event) => {
                 if (!event || event.id !== currentTaskId) {
@@ -114,10 +142,24 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                         break;
 
                     case 'task-stream-chunk':
-                        // 无论哪种模式，流式内容都展示在 chat 中
+                        // Chat 中显示流式内容
                         sidebar.updateStreamMessage(assistantMessageIndex, {
                             content: event.buffer || '',
                         });
+
+                        // Doc 模式：实时流式写入文档
+                        if (isDocMode && editor?.beginAiStreamSession && event.delta) {
+                            if (!docStreamSessionId) {
+                                // 首个 chunk：光标移到末尾，开始流式会话
+                                editor.editor.commands.focus('end');
+                                docStreamSessionId = `doc-stream-${Date.now()}`;
+                                editor.beginAiStreamSession(docStreamSessionId);
+                                // 插入换行分隔符
+                                editor.appendAiStreamContent(docStreamSessionId, '\n\n');
+                            }
+                            editor.appendAiStreamContent(docStreamSessionId, event.delta);
+                            scrollDocToBottom();
+                        }
                         break;
 
                     case 'task-stream-think':
@@ -128,31 +170,42 @@ export async function initAIAssistant({ eventBus, getEditor }) {
 
                     case 'task-stream-end': {
                         if (isDocMode) {
-                            // 文档模式：将完整内容追加到编辑器 markdown 末尾
                             const aiContent = (event.buffer || '').trim();
-                            if (aiContent && editor?.getMarkdown) {
-                                const currentMd = editor.getMarkdown();
-                                const newMd = currentMd.trimEnd() + '\n\n' + aiContent + '\n';
+
+                            // 清理流式会话（不删文本，setContent 会替换全部）
+                            cleanupDocStream(false);
+
+                            if (aiContent && docModeOriginalMd !== null) {
+                                // 用 setContent 重新渲染完整 markdown（将流式纯文本替换为渲染后的 markdown）
+                                const newMd = docModeOriginalMd.trimEnd() + '\n\n' + aiContent + '\n';
                                 editor.setContent(newMd, false).then(() => {
-                                    // 滚动到底部
-                                    const scrollEl = editor.getScrollContainer?.() || editor.editor?.view?.dom?.parentElement;
-                                    if (scrollEl) {
-                                        scrollEl.scrollTop = scrollEl.scrollHeight;
-                                    }
-                                    // 标记内容已修改，触发自动保存
+                                    scrollDocToBottom();
                                     editor.contentChanged = true;
+                                    editor.scheduleAutoSave?.();
+                                }).catch((err) => {
+                                    console.error('[AI Assistant] setContent 失败:', err);
+                                });
+
+                                const statusMsg = '📄 内容已写入文档';
+                                sidebar.updateStreamMessage(assistantMessageIndex, {
+                                    content: statusMsg,
+                                    thinking: event.thinkBuffer || '',
+                                });
+                                messageService.updateMessage(assistantMessageIndex, {
+                                    content: statusMsg,
+                                    thinking: event.thinkBuffer || '',
+                                });
+                            } else {
+                                // buffer 为空，保留 chat 中的内容
+                                sidebar.updateStreamMessage(assistantMessageIndex, {
+                                    content: event.buffer || '(无输出内容)',
+                                    thinking: event.thinkBuffer || '',
+                                });
+                                messageService.updateMessage(assistantMessageIndex, {
+                                    content: event.buffer || '(无输出内容)',
+                                    thinking: event.thinkBuffer || '',
                                 });
                             }
-
-                            const statusMsg = '📄 内容已写入文档';
-                            sidebar.updateStreamMessage(assistantMessageIndex, {
-                                content: statusMsg,
-                                thinking: event.thinkBuffer || '',
-                            });
-                            messageService.updateMessage(assistantMessageIndex, {
-                                content: statusMsg,
-                                thinking: event.thinkBuffer || '',
-                            });
                         } else {
                             const hasToolCalls = event.toolCalls && event.toolCalls.length > 0;
 
@@ -199,12 +252,14 @@ export async function initAIAssistant({ eventBus, getEditor }) {
                     }
 
                     case 'task-failed':
+                        cleanupDocStream(true);
                         sidebar.onAIError({ message: event.error || 'AI 处理失败' });
                         streamUnsubscribe();
                         currentTaskId = null;
                         break;
 
                     case 'task-cancelled':
+                        cleanupDocStream(true);
                         sidebar.onAIComplete();
                         messageService.addMessage({
                             role: 'system',
@@ -236,13 +291,24 @@ export async function initAIAssistant({ eventBus, getEditor }) {
     /**
      * 构建系统提示词
      */
-    function buildSystemPrompt(context, references = []) {
+    function buildSystemPrompt(context, references = [], isDocMode = false) {
         const currentFilePath = window.currentFile;
         const currentFileName = currentFilePath
             ? currentFilePath.substring(currentFilePath.lastIndexOf('/') + 1)
             : '未知文档';
 
-        let prompt = `你是一个专业的写作助手，可以帮用户编辑文档。
+        let prompt;
+
+        if (isDocMode) {
+            // 文档输出模式：AI 直接输出内容，系统自动追加到文档末尾
+            prompt = `你是一个专业的写作助手。用户的请求结果将被直接追加到文档末尾。
+
+重要规则：
+- 直接输出内容本身，不要输出任何解释、说明、元描述（如"以下是..."、"我已经..."等）。
+- 不要使用代码块包裹内容，直接输出 markdown 格式的文本。
+- 你的输出会被原样追加到文档末尾，所以只输出用户需要的内容。`;
+        } else {
+            prompt = `你是一个专业的写作助手，可以帮用户编辑文档。
 
 你有两种工作模式：
 1. **对话模式**：当用户提问、分析、总结、提取信息、翻译等不需要改动文档的请求时，直接用文字回复。例如"提取所有URL"、"总结这篇文章"、"解释这段代码"都属于对话模式，不要使用工具。
@@ -257,13 +323,18 @@ export async function initAIAssistant({ eventBus, getEditor }) {
 - 全局查找替换 → 用 replace_all。
 - 可以在一次回复中多次调用工具来完成复杂编辑。
 - 工具只能修改当前正在编辑的文档，不能修改参考文档。`;
+        }
 
         if (context.hasSelection) {
             prompt += `\n\n用户当前选中的文本：\n${context.selectedText}`;
         }
 
         if (context.documentContent) {
-            prompt += `\n\n当前正在编辑的文档（可以使用工具修改此文档）：`;
+            if (isDocMode) {
+                prompt += `\n\n当前文档内容（你的输出将追加到此文档末尾）：`;
+            } else {
+                prompt += `\n\n当前正在编辑的文档（可以使用工具修改此文档）：`;
+            }
             prompt += `\n文件名：${currentFileName}`;
             prompt += `\n<document>\n${context.documentContent}\n</document>`;
         }

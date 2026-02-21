@@ -194,7 +194,6 @@ export class AISidebar {
     onAIComplete() {
         this.chatInput.setProcessing(false);
         this.conversationList.setProcessing(false);
-        this.chatInput.focus();
     }
 
     /**
