@@ -5,6 +5,7 @@ import 'monaco-editor/esm/vs/language/html/monaco.contribution';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
 import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
 import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment.js';
+import 'monaco-editor/esm/vs/editor/contrib/folding/browser/folding.js';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
