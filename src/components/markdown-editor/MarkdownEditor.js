@@ -1,5 +1,5 @@
 import { Editor, Extension } from '@tiptap/core';
-import { EditorState } from '@tiptap/pm/state';
+import { EditorState, TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
@@ -158,6 +158,49 @@ export class MarkdownEditor {
                 HtmlDiv,
                 HtmlInline,
                 AiEditHighlight,
+                Extension.create({
+                    name: 'boldAutoSpace',
+                    addKeyboardShortcuts() {
+                        return {
+                            'Mod-b': () => {
+                                const { state } = this.editor;
+                                const { from, to, empty } = state.selection;
+
+                                // 没有选中文本或正在取消加粗 → 直接 toggle
+                                if (empty || this.editor.isActive('bold')) {
+                                    return this.editor.commands.toggleBold();
+                                }
+
+                                const doc = state.doc;
+                                const $from = state.selection.$from;
+                                const isAtBlockStart = $from.parentOffset === 0;
+                                const charBefore = from > 0 ? doc.textBetween(from - 1, from) : '';
+                                const charAfter = to < doc.content.size ? doc.textBetween(to, Math.min(to + 1, doc.content.size)) : '';
+
+                                const needSpaceBefore = !isAtBlockStart && charBefore !== '' && charBefore !== ' ' && charBefore !== '\n';
+                                const needSpaceAfter = charAfter !== '' && charAfter !== ' ' && charAfter !== '\n';
+
+                                if (!needSpaceBefore && !needSpaceAfter) {
+                                    return this.editor.commands.toggleBold();
+                                }
+
+                                // 插入空格，再选中原文并加粗
+                                const { tr } = state;
+                                let offset = 0;
+                                if (needSpaceAfter) {
+                                    tr.insertText(' ', to);
+                                }
+                                if (needSpaceBefore) {
+                                    tr.insertText(' ', from);
+                                    offset = 1;
+                                }
+                                tr.setSelection(TextSelection.create(tr.doc, from + offset, to + offset));
+                                this.editor.view.dispatch(tr);
+                                return this.editor.commands.toggleBold();
+                            },
+                        };
+                    },
+                }),
                 Extension.create({
                     name: 'customEnterBehavior',
                     addKeyboardShortcuts() {
