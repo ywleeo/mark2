@@ -348,7 +348,7 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
     if (options.pageFormat === 'a4') {
         // A4 格式：使用系统原生分页，不做前端分页计算
         const a4Footer = `<div class="mark2-a4-footer"><span class="mark2-a4-footer__label">MARK2</span></div>`;
-        htmlContent = `<div class="mark2-export-wrapper mark2-export-wrapper--a4">${clone.outerHTML}${a4Footer}</div>`;
+        htmlContent = `<div class="mark2-export-wrapper mark2-export-wrapper--a4">${clone.outerHTML}</div>${a4Footer}`;
         pageWidth = Math.round((96 / 25.4) * 210); // A4 宽度 210mm
     } else {
         const branding = buildBrandingMarkup();
@@ -392,7 +392,7 @@ async function collectAllStyles(options = {}) {
 body {
     margin: 0;
     padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     line-height: 1.6;
     background: #ffffff;
 }
@@ -419,6 +419,12 @@ body {
 .code-copy-button {
     display: none !important;
 }
+:root {
+    --editor-font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+.tiptap-editor, .ProseMirror, .tiptap-editor *, .ProseMirror * {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
 .mark2-export-branding {
     text-align: right;
     padding: 15mm 0 0 0;
@@ -432,7 +438,7 @@ body {
     font-style: italic;
     letter-spacing: 0.3px;
     padding: 2px 10px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 @page {
     margin: 20mm 6mm 20mm 6mm;
@@ -506,8 +512,9 @@ body {
     widows: 2;
 }
 .mark2-a4-footer {
-    text-align: right;
-    padding: 15mm 0 0 0;
+    position: fixed;
+    bottom: 0;
+    right: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
@@ -525,7 +532,7 @@ body {
     font-style: italic;
     letter-spacing: 0.3px;
     padding: 2px 10px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 }
