@@ -120,6 +120,12 @@ export class TabManager {
         }
 
         const previous = new Map(this.fileTabs.map(tab => [tab.path, tab]));
+
+        // 保留不在 openFilePaths 中的 untitled tabs（虚拟文件不受 fileTree 管理）
+        const untitledTabs = this.fileTabs.filter(tab =>
+            tab.path && tab.path.startsWith('untitled://') && !openFilePaths.includes(tab.path)
+        );
+
         this.fileTabs = openFilePaths.map(path => {
             const fileName = path.split('/').pop() || path;
             const existing = previous.get(path);
@@ -133,6 +139,11 @@ export class TabManager {
                 label: fileName,
             };
         }).reverse();
+
+        // 将 untitled tabs 追加回来，保持原有顺序
+        if (untitledTabs.length > 0) {
+            this.fileTabs.push(...untitledTabs);
+        }
 
         if (activePath && openFilePaths.includes(activePath)) {
             this.setActiveTab(activePath, { silent: true });

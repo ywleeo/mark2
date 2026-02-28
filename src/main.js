@@ -642,6 +642,9 @@ function persistWorkspaceState(overrides = {}, options = {}) {
  * 创建新的 untitled 文件并打开
  */
 async function handleCreateUntitled() {
+    // 先缓存当前编辑器内容（可能是另一个 untitled 文件）
+    saveCurrentEditorContentToCache();
+
     const untitledPath = untitledFileManager.createUntitledFile();
     const displayName = untitledFileManager.getDisplayName(untitledPath);
 
@@ -737,12 +740,12 @@ async function convertUntitledToRealFile(untitledPath, realPath) {
     // 从 untitledFileManager 中移除
     untitledFileManager.removeUntitledFile(untitledPath);
 
-    // 更新 tab 信息
+    // 移除旧的 untitled tab
     if (tabManager && Array.isArray(tabManager.fileTabs)) {
         const tabIndex = tabManager.fileTabs.findIndex(tab => tab.path === untitledPath);
         if (tabIndex !== -1) {
-            // 移除旧的 untitled tab
             tabManager.fileTabs.splice(tabIndex, 1);
+            tabManager.render();
         }
     }
 
