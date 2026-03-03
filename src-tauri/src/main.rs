@@ -951,10 +951,10 @@ fn render_pdf_with_headless(full_html: String) -> Result<Vec<u8>, String> {
         scale: Some(1.0),
         paper_width: None,
         paper_height: None,
-        margin_top: None,
-        margin_bottom: None,
-        margin_left: None,
-        margin_right: None,
+        margin_top: Some(0.5),
+        margin_bottom: Some(0.5),
+        margin_left: Some(0.3),
+        margin_right: Some(0.3),
         page_ranges: None,
         ignore_invalid_page_ranges: None,
         header_template: Some(header_template),
@@ -1042,6 +1042,7 @@ fn render_pdf_with_webkit(
             })?;
 
             let metrics = collect_document_metrics(&webview, &run_loop)?;
+            eprintln!("[PDF Debug] initial metrics: width={}, height={}", metrics.width, metrics.height);
 
             // A4 模式固定使用 A4 宽度，连续模式使用实际内容宽度
             let capture_width = match mode {
@@ -1052,6 +1053,7 @@ fn render_pdf_with_webkit(
                     .max(1.0),
             };
             let capture_height = metrics.height.max(1.0).min(200_000.0);
+            eprintln!("[PDF Debug] capture_width={}, capture_height={}, page_width={:?}", capture_width, capture_height, page_width);
 
             webview.setFrame(CGRect::new(
                 CGPoint::new(0.0, 0.0),
@@ -1060,6 +1062,10 @@ fn render_pdf_with_webkit(
             webview.setNeedsDisplay(true);
             webview.layoutSubtreeIfNeeded();
             webview.displayIfNeeded();
+
+            // resize 后重新测量，看实际内容高度
+            let metrics_after = collect_document_metrics(&webview, &run_loop)?;
+            eprintln!("[PDF Debug] after resize metrics: width={}, height={}", metrics_after.width, metrics_after.height);
 
             let pdf_bytes = match mode {
                 PdfRenderMode::Continuous => {
@@ -1092,12 +1098,18 @@ fn collect_document_metrics(
     run_loop: &NSRunLoop,
 ) -> Result<DocumentMetrics, String> {
     let script = r#"(() => {
-        const root = document.scrollingElement || document.documentElement || document.body;
         const collect = () => {
-            const width = Math.ceil((root?.scrollWidth || document.body?.scrollWidth || 0));
-            const height = Math.ceil(
-                (root?.scrollHeight || document.body?.scrollHeight || 0)
-            );
+            // 优先测量导出 wrapper 的实际内容高度，避免 body/html 的 height:100vh 干扰
+            const wrapper = document.querySelector('.mark2-export-wrapper, .mark2-export-wrapper--a4');
+            const root = document.scrollingElement || document.documentElement || document.body;
+            const width = Math.ceil(root?.scrollWidth || document.body?.scrollWidth || 0);
+            let height;
+            if (wrapper) {
+                const rect = wrapper.getBoundingClientRect();
+                height = Math.ceil(rect.top + rect.height);
+            } else {
+                height = Math.ceil(root?.scrollHeight || document.body?.scrollHeight || 0);
+            }
             return JSON.stringify({ width, height });
         };
         if (document.fonts && document.fonts.status !== 'loaded') {

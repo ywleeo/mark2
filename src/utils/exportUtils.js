@@ -342,6 +342,11 @@ async function collectAllStyles(options = {}) {
     }
 
     styles.push(`
+html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+}
 body {
     margin: 0;
     padding: 0;
@@ -349,12 +354,16 @@ body {
     line-height: 1.6;
     background: #ffffff;
 }
+.view-pane {
+    height: auto !important;
+    position: static !important;
+}
 .mark2-export-wrapper {
     max-width: 900px;
     margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
-    padding: 12px 12px 12px;
+    padding: 36px;
 }
 .mark2-export-wrapper .tiptap-editor,
 .mark2-export-wrapper .ProseMirror,
@@ -371,6 +380,20 @@ body {
 }
 .code-copy-button {
     display: none !important;
+}
+/* 覆盖编辑器布局样式，避免 flex 和 min-height 导致导出高度膨胀 */
+.markdown-content {
+    display: block !important;
+    min-height: auto !important;
+    flex: none !important;
+}
+.tiptap-editor {
+    min-height: auto !important;
+    flex: none !important;
+}
+[data-markdown-editor-host] {
+    display: block !important;
+    position: static !important;
 }
 :root {
     --editor-font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
