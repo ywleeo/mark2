@@ -68,7 +68,6 @@ import { initCardExportSidebar } from './modules/card-export/index.js';
 import { createTerminalPanel } from './modules/terminalPanel.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { untitledFileManager } from './modules/untitledFileManager.js';
-import { ensureToPng } from './app/coreModules.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
 import { createEditorActions } from './app/editorActions.js';
 import { createLayoutControls } from './app/layoutControls.js';
@@ -1118,7 +1117,7 @@ async function initializeApplication() {
         onNewFile: handleCreateNewFile,
         onOpen: openFileOrFolder,
         onSettings: openSettingsDialog,
-        onExportImage: () => exportCurrentViewToImage({ ensureToPng, statusBarController: appState.getStatusBarController() }),
+        onExportImage: () => exportCurrentViewToImage({ statusBarController: appState.getStatusBarController() }),
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),
         onExportPdfA4: () => exportCurrentViewToPdfA4({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),
         onToggleSidebar: toggleSidebarVisibility,

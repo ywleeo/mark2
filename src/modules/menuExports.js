@@ -12,7 +12,7 @@ import { captureScreenshot, exportToPdf } from '../api/native.js';
 
 const PDF_PAGINATION_DEBUG = 'verbose';
 
-export async function exportCurrentViewToImage({ ensureToPng, statusBarController }) {
+export async function exportCurrentViewToImage({ statusBarController }) {
     let progressShown = false;
     try {
         const defaultPath = await buildDefaultScreenshotPath();
@@ -34,7 +34,7 @@ export async function exportCurrentViewToImage({ ensureToPng, statusBarControlle
         statusBarController?.showProgress?.('正在导出 PNG…');
         progressShown = true;
 
-        const dataUrl = await captureViewContent(ensureToPng);
+        const dataUrl = await captureViewContent();
         await captureScreenshot(targetPath, dataUrl);
 
         statusBarController?.showProgress?.('PNG 已保存：' + targetPath, { state: 'success' });

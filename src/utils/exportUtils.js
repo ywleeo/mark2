@@ -103,53 +103,46 @@ function applyCenteredExportStyles({
     scrollWidth,
 }) {
     const viewportWidth = viewElement.clientWidth || 1000;
-    const viewportHeight = viewElement.clientHeight || 800;
     const containerWidth = Math.max(scrollWidth, viewportWidth);
 
     captureContainer.style.width = `${containerWidth}px`;
-    captureContainer.style.minHeight = `${viewportHeight}px`;
-    captureContainer.style.alignItems = 'center';
-    captureContainer.style.justifyContent = 'center';
     wrapper.style.width = `${containerWidth}px`;
 
-    clone.style.display = 'flex';
-    clone.style.flexDirection = 'column';
-    clone.style.alignItems = 'center';
+    // 居中模式：用 block + margin auto 代替 flex 居中，
+    // 避免 html-to-image 在 foreignObject 中渲染 flex 时产生异常空白
+    clone.style.display = 'block';
     clone.style.maxWidth = '800px';
     clone.style.width = '100%';
     clone.style.minHeight = 'auto';
     clone.style.height = 'auto';
-    clone.style.flex = '0 0 auto';
+    clone.style.marginLeft = 'auto';
+    clone.style.marginRight = 'auto';
 
     const tiptapEditor = clone.querySelector('.tiptap-editor');
     if (tiptapEditor) {
         tiptapEditor.style.maxWidth = '800px';
         tiptapEditor.style.width = '100%';
-        tiptapEditor.style.flex = '0 0 auto';
         tiptapEditor.style.minHeight = 'auto';
         tiptapEditor.style.height = 'auto';
     }
 
     const markdownContent = clone.querySelector('.markdown-content');
     if (markdownContent) {
-        markdownContent.style.flex = '0 0 auto';
         markdownContent.style.minHeight = 'auto';
         markdownContent.style.height = 'auto';
     }
 }
 
-function buildContentWrapper({ clone, isCentered, viewElement }) {
+function buildContentWrapper({ clone, isCentered }) {
     const contentWrapper = document.createElement('div');
-    contentWrapper.style.display = 'flex';
-    contentWrapper.style.flexDirection = 'column';
+    contentWrapper.style.display = 'block';
     contentWrapper.style.width = '100%';
     contentWrapper.style.boxSizing = 'border-box';
 
     if (isCentered) {
-        contentWrapper.style.flex = '1';
-        contentWrapper.style.alignItems = 'center';
-        contentWrapper.style.justifyContent = 'center';
-        contentWrapper.style.minHeight = `${viewElement.clientHeight || 800}px`;
+        // 居中模式：用 margin auto 水平居中，不使用 flex
+        clone.style.marginLeft = 'auto';
+        clone.style.marginRight = 'auto';
     }
 
     contentWrapper.appendChild(clone);
@@ -162,58 +155,37 @@ function buildExportFooter({ isCentered }) {
     separator.style.height = '0';
     separator.style.marginTop = '10px';
     separator.style.borderTop = '1px dashed rgba(125, 125, 125, 0.2)';
-    separator.style.alignSelf = 'stretch';
 
-    const branding = document.createElement('div');
-    branding.textContent = 'MARK2';
-    branding.style.alignSelf = 'flex-end';
-    branding.style.margin = '10px 30px 0 0';
-    branding.style.padding = '2px 8px';
-    branding.style.fontSize = '9px';
-    branding.style.fontWeight = '600';
-    branding.style.fontStyle = 'italic';
-    branding.style.fontFamily =
+    // branding 容器：block 布局下用 text-align: right 让内容靠右
+    const brandingWrapper = document.createElement('div');
+    brandingWrapper.style.textAlign = 'right';
+    brandingWrapper.style.margin = '10px 30px 0 0';
+
+    // branding 标签：inline-block 使背景色仅覆盖文字区域
+    const brandingLabel = document.createElement('span');
+    brandingLabel.textContent = 'MARK2';
+    brandingLabel.style.display = 'inline-block';
+    brandingLabel.style.padding = '2px 8px';
+    brandingLabel.style.fontSize = '9px';
+    brandingLabel.style.fontWeight = '600';
+    brandingLabel.style.fontStyle = 'italic';
+    brandingLabel.style.fontFamily =
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
-    branding.style.letterSpacing = '0.03em';
-    branding.style.color = '#ffffff';
-    branding.style.background = '#de3d3deb';
+    brandingLabel.style.letterSpacing = '0.03em';
+    brandingLabel.style.color = '#ffffff';
+    brandingLabel.style.background = '#de3d3deb';
+    brandingWrapper.appendChild(brandingLabel);
 
     if (isCentered) {
         separator.style.marginTop = 'auto';
-        branding.style.marginTop = '10px';
+        brandingWrapper.style.marginTop = '10px';
     }
 
-    return { separator, branding };
+    return { separator, branding: brandingWrapper };
 }
 
-function measureExportSize({ scrollWidth, scrollHeight, captureContainer, isCentered }) {
-    const targetWidth = Math.ceil(
-        Math.max(
-            scrollWidth,
-            captureContainer.scrollWidth,
-            captureContainer.offsetWidth,
-            captureContainer.clientWidth
-        )
-    );
-    const targetHeight = Math.ceil(
-        isCentered
-            ? Math.max(
-                captureContainer.scrollHeight,
-                captureContainer.offsetHeight,
-                captureContainer.clientHeight
-            )
-            : Math.max(
-                scrollHeight,
-                captureContainer.scrollHeight,
-                captureContainer.offsetHeight,
-                captureContainer.clientHeight
-            )
-    );
 
-    return { targetWidth, targetHeight };
-}
-
-export async function captureViewContent(ensureToPng) {
+export async function captureViewContent() {
     const viewElement = document.getElementById('viewContent');
     if (!viewElement) {
         throw new Error('无法找到 viewContent 元素');
@@ -242,7 +214,6 @@ export async function captureViewContent(ensureToPng) {
             captureElement.clientWidth
         )
     );
-    const scrollHeight = Math.ceil(captureElement.scrollHeight);
 
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
@@ -260,18 +231,17 @@ export async function captureViewContent(ensureToPng) {
     clone.style.paddingBottom = '0px';
     clone.style.marginBottom = '0px';
     clone.style.width = `${scrollWidth}px`;
-    clone.style.minHeight = `${scrollHeight}px`;
     clone.style.boxSizing = 'border-box';
 
-    // Build a container so we can attach a branded footer to every capture
+    // 隐藏不需要导出的 UI 元素
+    clone.querySelectorAll('.code-copy-button').forEach(btn => { btn.style.display = 'none'; });
+
     const captureContainer = document.createElement('div');
-    captureContainer.style.display = 'flex';
-    captureContainer.style.flexDirection = 'column';
+    captureContainer.style.display = 'block';
     captureContainer.style.width = `${scrollWidth}px`;
     captureContainer.style.boxSizing = 'border-box';
     captureContainer.style.paddingBottom = '15px';
 
-    // 检测是否开启了居中模式
     const centeredPane = document.querySelector('.view-pane.markdown-pane.content-centered');
     const isCentered = centeredPane !== null;
     if (isCentered) {
@@ -282,8 +252,6 @@ export async function captureViewContent(ensureToPng) {
             clone,
             scrollWidth,
         });
-    } else {
-        captureContainer.style.alignItems = 'stretch';
     }
 
     const contentWrapper = buildContentWrapper({ clone, isCentered, viewElement });
@@ -300,30 +268,15 @@ export async function captureViewContent(ensureToPng) {
     await new Promise(resolve => requestAnimationFrame(resolve));
 
     try {
-        const { targetWidth, targetHeight } = measureExportSize({
-            scrollWidth,
-            scrollHeight,
-            captureContainer,
-            isCentered,
-        });
-
-
-        wrapper.style.width = `${targetWidth}px`;
-        captureContainer.style.width = `${targetWidth}px`;
-        clone.style.width = `${targetWidth}px`;
-
         await document.fonts?.ready;
-        const renderToPng = await ensureToPng();
-        const dataUrl = await renderToPng(captureContainer, {
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(captureContainer, {
             backgroundColor,
-            pixelRatio: scale,
-            cacheBust: true,
-            width: targetWidth,
-            height: targetHeight,
-            canvasWidth: Math.ceil(targetWidth * scale),
-            canvasHeight: Math.ceil(targetHeight * scale),
+            scale,
+            useCORS: true,
+            logging: false,
         });
-        return dataUrl;
+        return canvas.toDataURL('image/png');
     } finally {
         if (wrapper.parentNode) {
             wrapper.parentNode.removeChild(wrapper);
