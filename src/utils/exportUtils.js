@@ -363,7 +363,7 @@ body {
     margin: 0 auto;
     width: 100%;
     box-sizing: border-box;
-    padding: 36px;
+    padding: 106px 66px;
 }
 .mark2-export-wrapper .tiptap-editor,
 .mark2-export-wrapper .ProseMirror,
