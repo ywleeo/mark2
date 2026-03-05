@@ -154,10 +154,6 @@ export class SettingsDialog {
                                     <option value="900">Black 900</option>
                                 </select>
                             </label>
-                            <label class="settings-field">
-                                <span class="settings-label">Markdown 缩进</span>
-                                <input type="number" name="markdownTabSize" min="1" max="8" step="1" />
-                            </label>
                         </div>
                     </section>
 
@@ -234,8 +230,6 @@ export class SettingsDialog {
         this.codeFontSizeInput = this.form.querySelector('input[name="codeFontSize"]');
         this.codeLineHeightInput = this.form.querySelector('input[name="codeLineHeight"]');
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
-        this.markdownTabSizeInput = this.form.querySelector('input[name="markdownTabSize"]');
-
         // AI 助手设置字段
         this.aiApiKeyInput = this.form.querySelector('input[name="aiApiKey"]');
         this.aiBaseUrlInput = this.form.querySelector('input[name="aiBaseUrl"]');
@@ -337,8 +331,6 @@ export class SettingsDialog {
         this.codeFontSizeInput.value = Number(editorPrefs.codeFontSize) || 14;
         this.codeLineHeightInput.value = Number(editorPrefs.codeLineHeight) || 1.5;
         this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
-        this.markdownTabSizeInput.value = Number(editorPrefs.markdownTabSize) || 2;
-
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
         this.aiApiKeyInput.value = aiConfig.apiKey || '';
@@ -408,11 +400,8 @@ export class SettingsDialog {
         const codeLineHeight = Number(this.codeLineHeightInput.value);
         const codeFontFamily = (this.codeFontFamilySelect.value || '').trim();
         const codeFontWeight = Number(this.codeFontWeightSelect.value);
-        const markdownTabSize = Number(this.markdownTabSizeInput.value);
-
         const normalizedCodeSize = Number.isFinite(codeFontSize) ? this.clamp(codeFontSize, 10, 48) : 14;
         const normalizedCodeLineHeight = Number.isFinite(codeLineHeight) ? this.clamp(codeLineHeight, 1.0, 3.0) : 1.5;
-        const normalizedMarkdownTabSize = Number.isFinite(markdownTabSize) ? this.clamp(markdownTabSize, 1, 8) : 2;
 
         const sanitized = {
             theme: theme,
@@ -426,7 +415,6 @@ export class SettingsDialog {
             codeLineHeight: Number(normalizedCodeLineHeight.toFixed(2)),
             codeFontFamily: codeFontFamily || '',
             codeFontWeight: Number.isFinite(codeFontWeight) ? codeFontWeight : 400,
-            markdownTabSize: normalizedMarkdownTabSize,
             terminalFontSize: Number(this.initialSettings?.terminalFontSize) || 13,
             terminalFontFamily: (this.initialSettings?.terminalFontFamily || '').trim(),
         };

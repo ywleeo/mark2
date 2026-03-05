@@ -14,7 +14,6 @@ export const defaultEditorSettings = {
     codeLineHeight: 1.5,
     codeFontFamily: '',
     codeFontWeight: 400,
-    markdownTabSize: 2,
     terminalFontSize: 13,
     terminalFontFamily: '',
 };
@@ -119,13 +118,6 @@ export function normalizeEditorSettings(candidate) {
             const weight = Number(candidate.codeFontWeight);
             if (Number.isFinite(weight)) {
                 prefs.codeFontWeight = normalizeFontWeight(weight);
-            }
-        }
-
-        if (candidate.markdownTabSize !== undefined) {
-            const size = Number(candidate.markdownTabSize);
-            if (Number.isFinite(size)) {
-                prefs.markdownTabSize = clamp(size, 1, 8);
             }
         }
 
