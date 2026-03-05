@@ -149,9 +149,8 @@ export function createViewController(options = {}) {
             }
         } else if (viewMode === 'code') {
             const codeEditor = options.getCodeEditor?.();
-            const monacoEditor = codeEditor?.editor;
-            if (monacoEditor) {
-                state.code = monacoEditor.getScrollTop() || 0;
+            if (codeEditor) {
+                state.code = codeEditor.getScrollTop() || 0;
             }
         }
 
@@ -176,10 +175,9 @@ export function createViewController(options = {}) {
         } else if (viewMode === 'code') {
             const target = state.code ?? 0;
             const codeEditor = options.getCodeEditor?.();
-            const monacoEditor = codeEditor?.editor;
-            if (monacoEditor) {
+            if (codeEditor) {
                 requestAnimationFrame(() => {
-                    monacoEditor.setScrollTop(target);
+                    codeEditor.setScrollTop(target);
                 });
             }
         }
@@ -333,11 +331,10 @@ export function createViewController(options = {}) {
         if (!skipScrollSync && currentMode === 'code' && nextMode === 'markdown') {
             const codeEditor = options.getCodeEditor?.();
             pendingSyncPosition = codeEditor?.getCurrentPosition?.() ?? null;
-            const monacoEditor = codeEditor?.editor;
-            if (monacoEditor) {
-                const scrollTop = monacoEditor.getScrollTop();
-                const scrollHeight = monacoEditor.getScrollHeight();
-                const clientHeight = monacoEditor.getLayoutInfo?.()?.height ?? 0;
+            if (codeEditor) {
+                const scrollTop = codeEditor.getScrollTop();
+                const scrollHeight = codeEditor.getScrollHeight();
+                const clientHeight = codeEditor.getClientHeight();
                 const maxScroll = scrollHeight - clientHeight;
                 pendingSyncScrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
             }
@@ -383,13 +380,12 @@ export function createViewController(options = {}) {
                         codeEditor?.setPositionOnly?.(pendingSyncPosition.lineNumber, pendingSyncPosition.column);
                     }
                     // 按百分比滚动
-                    if (pendingSyncScrollRatio !== null && codeEditor?.editor) {
-                        const monacoEditor = codeEditor.editor;
-                        const scrollHeight = monacoEditor.getScrollHeight();
-                        const clientHeight = monacoEditor.getLayoutInfo?.()?.height ?? 0;
+                    if (pendingSyncScrollRatio !== null && codeEditor) {
+                        const scrollHeight = codeEditor.getScrollHeight();
+                        const clientHeight = codeEditor.getClientHeight();
                         const maxScroll = scrollHeight - clientHeight;
                         if (maxScroll > 0) {
-                            monacoEditor.setScrollTop(pendingSyncScrollRatio * maxScroll);
+                            codeEditor.setScrollTop(pendingSyncScrollRatio * maxScroll);
                         }
                     }
                     pendingSyncPosition = null;

@@ -1,33 +1,35 @@
-import 'monaco-editor/min/vs/editor/editor.main.css';
-import 'monaco-editor/esm/vs/language/json/monaco.contribution';
-import 'monaco-editor/esm/vs/language/css/monaco.contribution';
-import 'monaco-editor/esm/vs/language/html/monaco.contribution';
-import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
-import 'monaco-editor/esm/vs/basic-languages/monaco.contribution';
-import 'monaco-editor/esm/vs/editor/contrib/comment/browser/comment.js';
-import 'monaco-editor/esm/vs/editor/contrib/folding/browser/folding.js';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
+import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
+import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo } from '@codemirror/commands';
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
+import { searchKeymap } from '@codemirror/search';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
     ensureMarkdownTrailingEmptyLine,
     shouldEnforceMarkdownTrailingEmptyLine,
 } from '../../utils/markdownFormatting.js';
-import { ensureMonaco, buildModelUri } from './MonacoEnvironment.js';
-import {
-    ensurePythonLanguage,
-    ensureCsvLanguage,
-    ensureBashAlias,
-    ensureMarkdownSqlThemes,
-    ensureYamlLanguage,
-    ensureCodeThemes,
-} from './LanguageSupport.js';
-import { getThemeVariant } from '../../config/code-themes.js';
+import { resolveLanguageSupport } from './LanguageSupport.js';
+import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
     DEFAULT_LINE_HEIGHT_RATIO,
     MIN_ZOOM_SCALE,
     MAX_ZOOM_SCALE,
 } from './constants.js';
+
+// Search decoration infrastructure
+const setSearchDecorations = StateEffect.define();
+const searchDecorationField = StateField.define({
+    create() { return Decoration.none; },
+    update(decos, tr) {
+        for (const e of tr.effects) {
+            if (e.is(setSearchDecorations)) return e.value;
+        }
+        return decos.map(tr.changes);
+    },
+    provide: f => EditorView.decorations.from(f),
+});
 
 export class CodeEditor {
     constructor(containerElement, callbacks = {}, options = {}) {
@@ -39,14 +41,11 @@ export class CodeEditor {
         this.editorHost.className = 'code-editor__instance';
         this.container.appendChild(this.editorHost);
 
-        this.monaco = null;
-        this.editor = null;
-        this.currentModel = null;
-        this.modelDisposer = null;
+        this.editor = null; // EditorView instance
         this.isVisible = false;
         this.currentFile = null;
         this.currentLanguage = null;
-        this.baseVersion = 0;
+        this.baseContent = '';
         this.isDirty = false;
         this.suppressChange = false;
         this.pendingLayoutFrame = null;
@@ -67,8 +66,6 @@ export class CodeEditor {
         this.autoSavePlannedSessionId = null;
 
         this.handleResize = () => this.requestLayout();
-        this.tapGuardState = null;
-        this.tapGuardCleanup = null;
         this.pasteHandler = null;
         this.aiStreamSessions = new Map();
         this.searchTerm = '';
@@ -83,116 +80,112 @@ export class CodeEditor {
             Math.round(this.baseFontSize * this.baseLineHeightRatio),
             this.baseFontSize
         );
+
+        // CodeMirror Compartments for dynamic reconfiguration
+        this._langCompartment = new Compartment();
+        this._themeCompartment = new Compartment();
+        this._highlightCompartment = new Compartment();
+        this._fontCompartment = new Compartment();
+        this._tabSizeCompartment = new Compartment();
+        this._readOnlyCompartment = new Compartment();
     }
 
     isSessionActive(sessionId) {
-        if (!sessionId) {
-            return true;
-        }
-        if (!this.documentSessions || typeof this.documentSessions.isSessionActive !== 'function') {
-            return true;
-        }
+        if (!sessionId) return true;
+        if (!this.documentSessions || typeof this.documentSessions.isSessionActive !== 'function') return true;
         return this.documentSessions.isSessionActive(sessionId);
     }
 
     prepareForDocument(session, filePath, tabId = null) {
-        const previousSessionId = this.currentSessionId;
-        const sessionId = session?.id ?? this.currentSessionId ?? null;
-        const previousFile = this.currentFile;
-        const isFileSwitching = previousFile !== filePath;
         const previousTabId = this.currentTabId;
         if (previousTabId) {
             this.saveViewStateForTab(previousTabId);
         }
+        const sessionId = session?.id ?? this.currentSessionId ?? null;
+        const previousFile = this.currentFile;
+        const isFileSwitching = previousFile !== filePath;
         const nextTabId = typeof tabId === 'string' && tabId.length > 0 ? tabId : null;
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
         this.currentFile = filePath;
         this.currentTabId = nextTabId;
         this.isDirty = false;
-        if (!this.editor) {
-            return;
-        }
-        this.suppressChange = true;
-        try {
-            // 只在切换文件时清空内容
-            // 重载当前文件时不清空，直接更新内容即可，避免失焦
-            if (isFileSwitching) {
-                if (this.currentModel) {
-                    this.currentModel.setValue('');
-                } else if (typeof this.editor.setValue === 'function') {
-                    this.editor.setValue('');
-                }
-            }
-        } finally {
+        if (!this.editor) return;
+        if (isFileSwitching) {
+            this.suppressChange = true;
+            this.editor.dispatch({
+                changes: { from: 0, to: this.editor.state.doc.length, insert: '' }
+            });
             this.suppressChange = false;
         }
     }
 
-    async ensureEditor(defaultLanguage = 'plaintext') {
-        if (this.editor) {
-            return;
-        }
+    async ensureEditor() {
+        if (this.editor) return;
 
-        const monacoModule = await ensureMonaco();
-        const monaco = monacoModule;
-        ensurePythonLanguage(monaco);
-        ensureCsvLanguage(monaco);
-        ensureBashAlias(monaco);
-        ensureYamlLanguage(monaco);
-        ensureMarkdownSqlThemes(monaco);
-        ensureCodeThemes(monaco);
-        this.monaco = monaco;
-        this.editor = monaco.editor.create(this.editorHost, {
-            value: '',
-            language: defaultLanguage,
-            theme: 'vs',
-            minimap: { enabled: false },
-            automaticLayout: false,
-            scrollBeyondLastLine: false,
-            dragAndDrop: false,
-            smoothScrolling: true,
-            fontSize: 14,
-            cursorWidth: 6,
-            cursorBlinking: 'smooth',
-            lineNumbers: 'on',
-            renderWhitespace: 'selection',
-            tabSize: 4,
-            insertSpaces: true,
-            detectIndentation: false,
-            wordWrap: 'on',
-            padding: { top: 5, bottom: 5},
-            scrollbar: {
-                verticalScrollbarSize: 8,
-                horizontalScrollbarSize: 8,
-                useShadows: false,
-            },
+        const fontTheme = this._buildFontTheme();
+        const isDark = document?.documentElement?.dataset?.themeAppearance === 'dark';
+        const themeExt = buildTheme('auto', isDark);
+        const hlStyle = buildHighlightStyle('auto', isDark);
+
+        const updateListener = EditorView.updateListener.of((update) => {
+            if (update.docChanged && !this.suppressChange) {
+                const currentContent = update.state.doc.toString();
+                this.isDirty = currentContent !== this.baseContent;
+                this.callbacks.onContentChange?.();
+                this.notifyContentMutation();
+                this.scheduleAutoSave();
+            }
         });
+
+        const state = EditorState.create({
+            doc: '',
+            extensions: [
+                lineNumbers(),
+                highlightActiveLine(),
+                highlightActiveLineGutter(),
+                highlightSpecialChars(),
+                drawSelection(),
+                rectangularSelection(),
+                indentOnInput(),
+                bracketMatching(),
+                foldGutter(),
+                history(),
+                keymap.of([
+                    ...defaultKeymap,
+                    ...historyKeymap,
+                    ...foldKeymap,
+                    ...searchKeymap,
+                    indentWithTab,
+                ]),
+                this._langCompartment.of([]),
+                this._themeCompartment.of(themeExt),
+                this._highlightCompartment.of(hlStyle),
+                this._fontCompartment.of(fontTheme),
+                this._tabSizeCompartment.of(EditorState.tabSize.of(4)),
+                this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
+                searchDecorationField,
+                updateListener,
+                EditorView.lineWrapping,
+            ],
+        });
+
+        this.editor = new EditorView({
+            state,
+            parent: this.editorHost,
+        });
+
         if (this.editorHost) {
             this.editorHost.style.touchAction = 'none';
             this.editorHost.style.webkitUserDrag = 'none';
         }
         this.applyPreferencesToEditor();
 
-        // 添加 Cmd+/ 快捷键用于切换注释
-        // Monaco Editor 内置的注释功能会自动处理
-        this.editor.addCommand(
-            monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash,
-            () => {
-                this.editor.trigger('keyboard', 'editor.action.commentLine', null);
-            }
-        );
-
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
-        this.setupTapSelectionGuard();
         this.setupPasteHandler();
     }
 
-    /**
-     * 粘贴时自动将字面 \n \t 转换为实际换行/制表符。
-     * 检测逻辑：字面 \n 数量 ≥ 3 且远多于实际换行，说明文本是序列化格式。
-     */
     setupPasteHandler() {
         this.pasteHandler = (e) => {
             const text = e.clipboardData?.getData('text/plain');
@@ -211,34 +204,31 @@ export class CodeEditor {
                 .replace(/\\n/g, '\n')
                 .replace(/\\t/g, '\t');
 
-            this.editor.trigger('paste', 'type', { text: converted });
+            if (this.editor) {
+                const { from, to } = this.editor.state.selection.main;
+                this.editor.dispatch({
+                    changes: { from, to, insert: converted },
+                });
+            }
         };
-
         this.editorHost.addEventListener('paste', this.pasteHandler, true);
     }
 
     requestLayout() {
-        if (!this.editor) {
-            return;
-        }
+        if (!this.editor) return;
         if (this.pendingLayoutFrame !== null) {
             cancelAnimationFrame(this.pendingLayoutFrame);
         }
         this.pendingLayoutFrame = window.requestAnimationFrame(() => {
             this.pendingLayoutFrame = null;
-            this.editor.layout();
+            this.editor?.requestMeasure();
         });
     }
 
     async show(filePath, content, language = null, session = null, options = {}) {
-        const {
-            autoFocus = true,
-            tabId = null,
-        } = options;
+        const { autoFocus = true, tabId = null } = options;
         const sessionId = session?.id ?? this.currentSessionId ?? null;
-        if (session && !this.isSessionActive(sessionId)) {
-            return;
-        }
+        if (session && !this.isSessionActive(sessionId)) return;
 
         if (tabId && tabId !== this.currentTabId) {
             this.currentTabId = tabId;
@@ -247,20 +237,15 @@ export class CodeEditor {
         this.loadingSessionId = sessionId;
         await this.ensureEditor();
 
-        if (!this.monaco || !this.editor) {
-            if (this.loadingSessionId === sessionId) {
-                this.loadingSessionId = null;
-            }
+        if (!this.editor) {
+            if (this.loadingSessionId === sessionId) this.loadingSessionId = null;
             return;
         }
         if (sessionId && !this.isSessionActive(sessionId)) {
-            if (this.loadingSessionId === sessionId) {
-                this.loadingSessionId = null;
-            }
+            if (this.loadingSessionId === sessionId) this.loadingSessionId = null;
             return;
         }
 
-        const monaco = this.monaco;
         const targetLanguage = this.resolveLanguage(language);
         const baseContent = typeof content === 'string' ? content : '';
         const shouldNormalizeMarkdown = shouldEnforceMarkdownTrailingEmptyLine(filePath, targetLanguage);
@@ -268,54 +253,42 @@ export class CodeEditor {
             ? ensureMarkdownTrailingEmptyLine(baseContent)
             : baseContent;
 
-        const uri = buildModelUri(monaco, filePath);
-        let model = monaco.editor.getModel(uri);
-        if (!model) {
-            model = monaco.editor.createModel(normalizedContent, targetLanguage, uri);
-        } else {
-            this.suppressChange = true;
-            model.setValue(normalizedContent);
-            this.suppressChange = false;
-            monaco.editor.setModelLanguage(model, targetLanguage);
-        }
+        // Set content
+        this.suppressChange = true;
+        this.editor.dispatch({
+            changes: { from: 0, to: this.editor.state.doc.length, insert: normalizedContent }
+        });
+        this.suppressChange = false;
 
-        const tabSize = targetLanguage === 'markdown' ? 2 : 4;
-        model.updateOptions({
-            tabSize: tabSize,
-            indentSize: tabSize,
-            insertSpaces: true,
-            detectIndentation: false,
+        this.baseContent = normalizedContent;
+        this.currentFile = filePath;
+        this.currentLanguage = targetLanguage;
+        this.isDirty = false;
+
+        // Update language
+        const langSupport = resolveLanguageSupport(targetLanguage);
+        this.editor.dispatch({
+            effects: this._langCompartment.reconfigure(langSupport ? [langSupport] : [])
         });
 
-        // 切换文件时清除旧的搜索高亮（需在 dispose 旧 model 前）
-        if (this.currentModel && this.currentModel !== model) {
-            this.clearSearchDecorations();
-            this.currentModel.dispose();
-        }
+        // Update tab size
+        const tabSize = targetLanguage === 'markdown' ? 2 : 4;
+        this.editor.dispatch({
+            effects: this._tabSizeCompartment.reconfigure(EditorState.tabSize.of(tabSize))
+        });
+
+        // Update theme
+        this._applyThemeForLanguage(targetLanguage);
 
         if (sessionId && !this.isSessionActive(sessionId)) {
-            if (this.loadingSessionId === sessionId) {
-                this.loadingSessionId = null;
-            }
+            if (this.loadingSessionId === sessionId) this.loadingSessionId = null;
             return;
         }
 
-        this.attachModel(model, targetLanguage);
-
-        this.currentFile = filePath;
-        this.currentLanguage = targetLanguage;
-
-        this.editor.updateOptions({
-            tabSize: targetLanguage === 'markdown' ? 2 : 4,
-            insertSpaces: true,
-            detectIndentation: false,
-        });
         this.restoreViewStateForTab(this.currentTabId);
         this.showContainer();
         this.requestLayout();
 
-        // autoFocus 控制是否立即聚焦编辑器
-        // 从文件树点击时传入 false，保持焦点在文件树节点上
         if (autoFocus === true) {
             this.editor.focus();
         }
@@ -325,6 +298,30 @@ export class CodeEditor {
         }
     }
 
+    _applyThemeForLanguage(language) {
+        if (!this.editor) return;
+        const isDark = document?.documentElement?.dataset?.themeAppearance === 'dark';
+        const userTheme = this.preferences?.theme || 'auto';
+
+        let themeName = userTheme;
+        if (userTheme === 'auto') {
+            if (language === 'markdown' || language === 'sql' || language === 'mysql' || language === 'pgsql') {
+                themeName = 'markdown-sql';
+            } else if (language === 'csv' && !isDark) {
+                themeName = 'csv';
+            }
+        }
+
+        const themeExt = buildTheme(themeName, isDark);
+        const hlStyle = buildHighlightStyle(themeName, isDark);
+        this.editor.dispatch({
+            effects: [
+                this._themeCompartment.reconfigure(themeExt),
+                this._highlightCompartment.reconfigure(hlStyle),
+            ]
+        });
+    }
+
     applyPreferences(prefs = null) {
         if (!prefs || typeof prefs !== 'object') {
             this.preferences = null;
@@ -332,14 +329,7 @@ export class CodeEditor {
             return;
         }
 
-        const {
-            codeTheme,
-            codeFontSize,
-            codeLineHeight,
-            codeFontFamily,
-            codeFontWeight,
-        } = prefs;
-
+        const { codeTheme, codeFontSize, codeLineHeight, codeFontFamily, codeFontWeight } = prefs;
         const parsedFontSize = Number(codeFontSize);
         const parsedLineHeight = Number(codeLineHeight);
         const parsedFontWeight = Number(codeFontWeight);
@@ -356,166 +346,70 @@ export class CodeEditor {
     }
 
     applyPreferencesToEditor() {
-        if (!this.editor) {
-            return;
-        }
+        if (!this.editor) return;
 
         const prefs = this.preferences || {};
-        const fallbackFontSize = DEFAULT_CODE_FONT_SIZE;
-        const fallbackLineHeightRatio = DEFAULT_LINE_HEIGHT_RATIO;
-
-        const fontSize = Number.isFinite(prefs.fontSize) ? prefs.fontSize : fallbackFontSize;
-        const lineHeightRatio = Number.isFinite(prefs.lineHeight)
-            ? prefs.lineHeight
-            : fallbackLineHeightRatio;
+        const fontSize = Number.isFinite(prefs.fontSize) ? prefs.fontSize : DEFAULT_CODE_FONT_SIZE;
+        const lineHeightRatio = Number.isFinite(prefs.lineHeight) ? prefs.lineHeight : DEFAULT_LINE_HEIGHT_RATIO;
         const computedLineHeight = Math.max(Math.round(fontSize * lineHeightRatio), fontSize);
 
-        const nextOptions = {
-            fontWeight: (prefs.fontWeight || 400).toString(),
-        };
-
-        if (prefs.fontFamily) {
-            nextOptions.fontFamily = prefs.fontFamily;
-        }
-
-        this.editor.updateOptions(nextOptions);
         this.baseFontSize = fontSize;
         this.baseLineHeightRatio = lineHeightRatio;
         this.baseLineHeight = computedLineHeight;
         this.applyZoomOptions();
 
-        if (this.monaco?.editor) {
-            const language = this.currentLanguage || 'plaintext';
-            const monacoTheme = this.resolveThemeForLanguage(language);
-            this.monaco.editor.setTheme(monacoTheme);
-        }
+        // Apply theme
+        this._applyThemeForLanguage(this.currentLanguage || 'plaintext');
     }
 
-    attachModel(model, language) {
-        if (!this.monaco || !this.editor) {
-            return;
-        }
-
-        if (this.modelDisposer) {
-            this.modelDisposer.dispose();
-            this.modelDisposer = null;
-        }
-
-        const resolvedLanguage = this.resolveLanguage(language);
-        this.editor.setModel(model);
-        this.monaco.editor.setModelLanguage(model, resolvedLanguage);
-
-        const nextTheme = this.resolveThemeForLanguage(resolvedLanguage);
-        this.monaco.editor.setTheme(nextTheme);
-
-        const tabSize = resolvedLanguage === 'markdown' ? 2 : 4;
-        model.updateOptions({
-            tabSize: tabSize,
-            indentSize: tabSize,
-            insertSpaces: true,
-            detectIndentation: false,
-        });
-
-        this.currentModel = model;
-        this.currentLanguage = resolvedLanguage;
-        this.baseVersion = model.getAlternativeVersionId();
-        this.isDirty = false;
-        this.suppressChange = false;
-
-        this.modelDisposer = model.onDidChangeContent(() => {
-            if (this.suppressChange) {
-                return;
-            }
-            const currentVersion = model.getAlternativeVersionId();
-            this.isDirty = currentVersion !== this.baseVersion;
-            this.callbacks.onContentChange?.();
-            this.notifyContentMutation();
-            this.scheduleAutoSave();
-        });
-    }
-
-    resolveThemeForLanguage(language) {
-        const appearance = document?.documentElement?.dataset?.themeAppearance;
-        const isDarkMode = appearance === 'dark';
-
-        // 获取用户选择的主题
-        const userTheme = this.preferences?.theme || 'auto';
-
-        // auto 模式：对特殊语言使用专用主题
-        if (userTheme === 'auto') {
-            if (language === 'markdown') {
-                return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
-            }
-            if (language === 'sql' || language === 'mysql' || language === 'pgsql') {
-                return isDarkMode ? 'markdown-sql-dark' : 'markdown-sql-light';
-            }
-            if (language === 'csv' && !isDarkMode) {
-                return 'csv-theme';
-            }
-            // 默认使用 VS Code 主题
-            return isDarkMode ? 'vs-dark' : 'vs';
-        }
-
-        // 用户选择了具体主题：根据当前颜色模式获取对应的 light/dark 版本
-        return getThemeVariant(userTheme, isDarkMode);
-    }
-
-    onDidChangeContent(handler) {
-        if (typeof handler !== 'function') {
-            return () => {};
-        }
-        this.contentChangeListeners.add(handler);
-        return () => {
-            this.contentChangeListeners.delete(handler);
-        };
-    }
-
-    notifyContentMutation() {
-        this.contentChangeListeners.forEach(handler => {
-            try {
-                handler();
-            } catch (error) {
-                console.error('[CodeEditor] 内容变更通知失败', error);
-            }
-        });
-    }
-
-    clampZoomScale(value) {
-        if (!Number.isFinite(value)) {
-            return 1;
-        }
-        return Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, value));
-    }
-
-    applyZoomOptions() {
-        if (!this.editor) {
-            return;
-        }
+    _buildFontTheme() {
         const baseFontSize = this.baseFontSize || DEFAULT_CODE_FONT_SIZE;
         const baseLineHeight = this.baseLineHeight
             || Math.max(Math.round(baseFontSize * this.baseLineHeightRatio), baseFontSize);
-        const zoomedFontSize = Math.max(
-            8,
-            Math.round(baseFontSize * this.zoomScale * 100) / 100
-        );
+        const zoomedFontSize = Math.max(8, Math.round(baseFontSize * this.zoomScale * 100) / 100);
         const zoomedLineHeight = Math.max(
             Math.round(baseLineHeight * this.zoomScale),
             Math.ceil(zoomedFontSize)
         );
-        this.editor.updateOptions({
-            fontSize: zoomedFontSize,
-            lineHeight: zoomedLineHeight,
+        const prefs = this.preferences || {};
+        const fontFamily = prefs.fontFamily || "'Menlo', 'Monaco', 'Courier New', monospace";
+        const fontWeight = (prefs.fontWeight || 400).toString();
+
+        return EditorView.theme({
+            '&': {
+                fontSize: `${zoomedFontSize}px`,
+            },
+            '.cm-content': {
+                fontFamily,
+                fontWeight,
+                lineHeight: `${zoomedLineHeight}px`,
+            },
+            '.cm-gutters': {
+                fontFamily,
+                fontSize: `${zoomedFontSize}px`,
+            },
+        });
+    }
+
+    applyZoomOptions() {
+        if (!this.editor) return;
+        const fontTheme = this._buildFontTheme();
+        this.editor.dispatch({
+            effects: this._fontCompartment.reconfigure(fontTheme)
         });
         this.requestLayout();
     }
 
     setZoomScale(scale) {
         const clamped = this.clampZoomScale(scale);
-        if (Math.abs(clamped - this.zoomScale) < 0.01) {
-            return;
-        }
+        if (Math.abs(clamped - this.zoomScale) < 0.01) return;
         this.zoomScale = clamped;
         this.applyZoomOptions();
+    }
+
+    clampZoomScale(value) {
+        if (!Number.isFinite(value)) return 1;
+        return Math.min(MAX_ZOOM_SCALE, Math.max(MIN_ZOOM_SCALE, value));
     }
 
     hide() {
@@ -531,16 +425,12 @@ export class CodeEditor {
         this.loadingSessionId = null;
         this.isDirty = false;
         this.clearSearch();
-        if (this.modelDisposer) {
-            this.modelDisposer.dispose();
-            this.modelDisposer = null;
-        }
         if (this.editor) {
-            this.editor.setModel(null);
-        }
-        if (this.currentModel) {
-            this.currentModel.dispose();
-            this.currentModel = null;
+            this.suppressChange = true;
+            this.editor.dispatch({
+                changes: { from: 0, to: this.editor.state.doc.length, insert: '' }
+            });
+            this.suppressChange = false;
         }
         this.hide();
         this.callbacks.onContentChange?.();
@@ -554,19 +444,17 @@ export class CodeEditor {
     }
 
     getValue() {
-        return this.editor ? this.editor.getValue() : '';
+        return this.editor ? this.editor.state.doc.toString() : '';
     }
 
     getValueForSave() {
         const raw = this.getValue();
 
-        // JSON 文件保存时自动格式化
         if (this.currentFile?.toLowerCase().endsWith('.json')) {
             try {
                 const parsed = JSON.parse(raw);
                 return JSON.stringify(parsed, null, 2);
             } catch (e) {
-                // JSON 解析失败，返回原始内容
                 return raw;
             }
         }
@@ -581,125 +469,88 @@ export class CodeEditor {
         return !!this.isDirty;
     }
 
-    /**
-     * 获取当前光标所在行号
-     * @returns {number|null} 行号（从 1 开始），如果编辑器未就绪则返回 null
-     */
     getCurrentLineNumber() {
-        if (!this.editor) {
-            return null;
-        }
-        const position = this.editor.getPosition();
-        return position?.lineNumber ?? null;
+        if (!this.editor) return null;
+        const pos = this.editor.state.selection.main.head;
+        return this.editor.state.doc.lineAt(pos).number;
     }
 
-    /**
-     * 获取当前光标位置（行号和列号）
-     * @returns {{ lineNumber: number, column: number }|null}
-     */
     getCurrentPosition() {
-        if (!this.editor) {
-            return null;
-        }
-        const position = this.editor.getPosition();
-        if (!position) {
-            return null;
-        }
-        return { lineNumber: position.lineNumber, column: position.column };
+        if (!this.editor) return null;
+        const pos = this.editor.state.selection.main.head;
+        const line = this.editor.state.doc.lineAt(pos);
+        return { lineNumber: line.number, column: pos - line.from + 1 };
     }
 
-    /**
-     * 跳转到指定行并将光标设置到该行
-     * @param {number} lineNumber - 行号（从 1 开始）
-     */
     revealLine(lineNumber) {
-        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
-            return;
-        }
-        this.editor.setPosition({ lineNumber, column: 1 });
-        this.editor.revealLineInCenter(lineNumber);
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return;
+        this.editor.dispatch({
+            selection: { anchor: line.from },
+            effects: EditorView.scrollIntoView(line.from, { y: 'center' }),
+        });
     }
 
-    /**
-     * 跳转到指定位置（行号和列号）
-     * @param {number} lineNumber - 行号（从 1 开始）
-     * @param {number} column - 列号（从 1 开始）
-     */
     revealPosition(lineNumber, column = 1) {
-        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
-            return;
-        }
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return;
         const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
-        this.editor.setPosition({ lineNumber, column: safeColumn });
-        this.editor.revealLineInCenter(lineNumber);
+        const pos = Math.min(line.from + safeColumn - 1, line.to);
+        this.editor.dispatch({
+            selection: { anchor: pos },
+            effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+        });
     }
 
-    /**
-     * 设置光标位置（不滚动）
-     * @param {number} lineNumber - 行号（从 1 开始）
-     * @param {number} column - 列号（从 1 开始）
-     */
     setPositionOnly(lineNumber, column = 1) {
-        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
-            return;
-        }
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return;
         const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
-        this.editor.setPosition({ lineNumber, column: safeColumn });
+        const pos = Math.min(line.from + safeColumn - 1, line.to);
+        this.editor.dispatch({ selection: { anchor: pos } });
     }
 
-    /**
-     * 获取当前可见区域中心的行号
-     * @returns {number|null}
-     */
+    _safeGetLine(lineNumber) {
+        if (!this.editor) return null;
+        const doc = this.editor.state.doc;
+        if (lineNumber < 1 || lineNumber > doc.lines) return null;
+        return doc.line(lineNumber);
+    }
+
     getVisibleCenterLine() {
-        if (!this.editor) {
-            return null;
-        }
-        const visibleRanges = this.editor.getVisibleRanges();
-        if (!visibleRanges || visibleRanges.length === 0) {
-            return null;
-        }
-        const firstRange = visibleRanges[0];
-        const lastRange = visibleRanges[visibleRanges.length - 1];
-        const startLine = firstRange.startLineNumber;
-        const endLine = lastRange.endLineNumber;
+        if (!this.editor) return null;
+        const { from, to } = this.editor.viewport;
+        const startLine = this.editor.state.doc.lineAt(from).number;
+        const endLine = this.editor.state.doc.lineAt(to).number;
         return Math.floor((startLine + endLine) / 2);
     }
 
-    /**
-     * 滚动到指定行（将该行置于视口中心），但不改变光标位置
-     * @param {number} lineNumber - 行号（从 1 开始）
-     */
     scrollToLineInCenter(lineNumber) {
-        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) {
-            return;
-        }
-        this.editor.revealLineInCenter(lineNumber);
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return;
+        this.editor.dispatch({
+            effects: EditorView.scrollIntoView(line.from, { y: 'center' }),
+        });
     }
 
     markSaved() {
-        if (!this.currentModel) {
-            return;
-        }
-        this.baseVersion = this.currentModel.getAlternativeVersionId();
+        this.baseContent = this.getValue();
         this.isDirty = false;
         this.callbacks.onContentChange?.();
     }
 
     scheduleAutoSave() {
-        if (this.autoSaveTimer) {
-            clearTimeout(this.autoSaveTimer);
-        }
-        if (!this.isDirty || !this.currentFile) {
-            return;
-        }
+        if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
+        if (!this.isDirty || !this.currentFile) return;
         const sessionId = this.currentSessionId;
         this.autoSavePlannedSessionId = sessionId;
         this.autoSaveTimer = setTimeout(() => {
             this.autoSaveTimer = null;
-            if (this.autoSavePlannedSessionId !== sessionId) {
-                return;
-            }
+            if (this.autoSavePlannedSessionId !== sessionId) return;
             this.autoSavePlannedSessionId = null;
             this.performAutoSave(sessionId);
         }, this.autoSaveDelayMs);
@@ -714,12 +565,8 @@ export class CodeEditor {
     }
 
     async performAutoSave(sessionId = null) {
-        if (!this.isDirty || !this.currentFile) {
-            return;
-        }
-        if (sessionId && !this.isSessionActive(sessionId)) {
-            return;
-        }
+        if (!this.isDirty || !this.currentFile) return;
+        if (sessionId && !this.isSessionActive(sessionId)) return;
         if (this.isSaving) {
             this.scheduleAutoSave();
             return;
@@ -731,8 +578,7 @@ export class CodeEditor {
         const contentChanged = content !== raw;
         const localWriteKey = normalizeFsPath(filePath) || filePath;
 
-        // 保存前记录焦点是否在编辑器上，只有焦点在编辑器时保存后才恢复焦点
-        const hadFocusBeforeSave = this.editor?.hasTextFocus?.() ?? false;
+        const hadFocusBeforeSave = this.editor?.hasFocus ?? false;
 
         this.isSaving = true;
         const savePromise = (async () => {
@@ -743,18 +589,17 @@ export class CodeEditor {
                 }
                 await services.file.writeText(filePath, content);
                 if (!sessionId || sessionId === this.currentSessionId) {
-                    // 如果内容被格式化了，同步更新编辑器内容
                     if (contentChanged && this.editor) {
-                        const position = this.editor.getPosition();
+                        const pos = this.editor.state.selection.main.head;
                         this.suppressChange = true;
-                        this.editor.setValue(content);
+                        this.editor.dispatch({
+                            changes: { from: 0, to: this.editor.state.doc.length, insert: content }
+                        });
                         this.suppressChange = false;
-                        if (position) {
-                            this.editor.setPosition(position);
-                        }
+                        const safePos = Math.min(pos, this.editor.state.doc.length);
+                        this.editor.dispatch({ selection: { anchor: safePos } });
                     }
                     this.markSaved();
-                    // 只有保存前焦点在编辑器时才恢复焦点，避免抢走用户在其他地方（如 terminal）的焦点
                     if (hadFocusBeforeSave && this.isVisible && this.editor) {
                         this.editor.focus();
                     }
@@ -790,31 +635,13 @@ export class CodeEditor {
     }
 
     focus() {
-        if (!this.editor) {
-            return;
-        }
+        if (!this.editor) return;
         this.editor.focus();
     }
 
     resolveLanguage(language) {
-        const candidate = typeof language === 'string' && language.length > 0
-            ? language
-            : 'plaintext';
-
-        if (!this.monaco) {
-            return candidate;
-        }
-
-        try {
-            const encoded = this.monaco.languages.getEncodedLanguageId(candidate);
-            if (encoded) {
-                return candidate;
-            }
-        } catch (error) {
-            console.warn('无法识别语言，使用纯文本显示', { language: candidate, error });
-        }
-
-        return 'plaintext';
+        const candidate = typeof language === 'string' && language.length > 0 ? language : 'plaintext';
+        return candidate;
     }
 
     dispose() {
@@ -823,25 +650,9 @@ export class CodeEditor {
             cancelAnimationFrame(this.pendingLayoutFrame);
             this.pendingLayoutFrame = null;
         }
-        if (this.tapGuardCleanup) {
-            this.tapGuardCleanup();
-            this.tapGuardCleanup = null;
-            this.tapGuardState = null;
-        }
-        if (this.modelDisposer) {
-            this.modelDisposer.dispose();
-            this.modelDisposer = null;
-        }
         if (this.editor) {
-            this.editor.dispose();
+            this.editor.destroy();
             this.editor = null;
-        }
-        if (this.currentModel) {
-            this.currentModel.dispose();
-            this.currentModel = null;
-        }
-        if (this.monaco) {
-            this.monaco = null;
         }
         if (this.pasteHandler) {
             this.editorHost?.removeEventListener('paste', this.pasteHandler, true);
@@ -853,31 +664,28 @@ export class CodeEditor {
     }
 
     saveViewStateForTab(tabId) {
-        if (!tabId || !this.editor) {
-            return;
-        }
+        if (!tabId || !this.editor) return;
         try {
-            const viewState = this.editor.saveViewState();
-            if (viewState) {
-                this.tabViewStates.set(tabId, viewState);
-            }
+            const scrollTop = this.editor.scrollDOM.scrollTop;
+            const selection = this.editor.state.selection;
+            this.tabViewStates.set(tabId, { scrollTop, selection });
         } catch (error) {
             console.warn('[CodeEditor] 保存视图状态失败', error);
         }
     }
 
     restoreViewStateForTab(tabId) {
-        if (!tabId || !this.editor) {
-            return false;
-        }
-        // 恢复视图状态前清除搜索高亮
+        if (!tabId || !this.editor) return false;
         this.clearSearchDecorations();
         const viewState = this.tabViewStates.get(tabId);
-        if (!viewState) {
-            return false;
-        }
+        if (!viewState) return false;
         try {
-            this.editor.restoreViewState(viewState);
+            if (viewState.selection) {
+                this.editor.dispatch({ selection: viewState.selection });
+            }
+            if (typeof viewState.scrollTop === 'number') {
+                this.editor.scrollDOM.scrollTop = viewState.scrollTop;
+            }
             return true;
         } catch (error) {
             console.warn('[CodeEditor] 恢复视图状态失败', error);
@@ -886,391 +694,77 @@ export class CodeEditor {
     }
 
     forgetViewStateForTab(tabId) {
-        if (!tabId) {
-            return;
-        }
+        if (!tabId) return;
         this.tabViewStates.delete(tabId);
     }
 
     renameViewStateTab(oldTabId, newTabId) {
-        if (!oldTabId || !newTabId || oldTabId === newTabId) {
-            return;
-        }
-        if (!this.tabViewStates.has(oldTabId)) {
-            return;
-        }
+        if (!oldTabId || !newTabId || oldTabId === newTabId) return;
+        if (!this.tabViewStates.has(oldTabId)) return;
         const state = this.tabViewStates.get(oldTabId);
         this.tabViewStates.delete(oldTabId);
-        if (state) {
-            this.tabViewStates.set(newTabId, state);
-        }
-    }
-
-    setupTapSelectionGuard() {
-        if (!this.editorHost) {
-            return;
-        }
-        if (this.tapGuardCleanup) {
-            this.tapGuardCleanup();
-            this.tapGuardCleanup = null;
-        }
-        this.tapGuardState = null;
-
-        const pointerEventTarget = typeof window !== 'undefined' ? window : this.editorHost;
-
-        const normalizedPointerType = (event) => {
-            const pointerType = typeof event.pointerType === 'string'
-                ? event.pointerType.toLowerCase()
-                : '';
-            if (!pointerType) {
-                return 'mouse';
-            }
-            return pointerType;
-        };
-
-        const shouldGuardPointer = (event) => {
-            const pointerType = normalizedPointerType(event);
-            if (pointerType === 'touch' || pointerType === 'pen') {
-                return true;
-            }
-            if (pointerType === 'mouse') {
-                if (typeof event.buttons === 'number' && event.buttons === 0) {
-                    return true;
-                }
-                if (typeof event.pressure === 'number') {
-                    return event.pressure === 0;
-                }
-            }
-            return false;
-        };
-
-        const capturePointerIfPossible = (pointerId) => {
-            if (!this.editorHost || typeof this.editorHost.setPointerCapture !== 'function') {
-                return false;
-            }
-            try {
-                this.editorHost.setPointerCapture(pointerId);
-                return true;
-            } catch (error) {
-                console.debug('[CodeEditor] 捕获指针失败:', error);
-                return false;
-            }
-        };
-
-        const releasePointerIfNeeded = (pointerId) => {
-            if (!this.editorHost || typeof this.editorHost.releasePointerCapture !== 'function') {
-                return;
-            }
-            try {
-                this.editorHost.releasePointerCapture(pointerId);
-            } catch (error) {
-                console.debug('[CodeEditor] 释放指针捕获失败:', error);
-            }
-        };
-
-        const stopEventForTap = (event) => {
-            if (!event) {
-                return;
-            }
-            if (typeof event.stopImmediatePropagation === 'function') {
-                event.stopImmediatePropagation();
-            } else if (typeof event.stopPropagation === 'function') {
-                event.stopPropagation();
-            }
-            if (event.cancelable) {
-                event.preventDefault();
-            }
-        };
-
-        const collapseToPosition = (position) => {
-            if (!position || !this.editor || !this.monaco) {
-                return;
-            }
-            const { lineNumber, column } = position;
-            const collapsed = new this.monaco.Selection(lineNumber, column, lineNumber, column);
-            this.editor.setPosition(position);
-            this.editor.setSelection(collapsed);
-        };
-
-        const pointerDown = (event) => {
-            if (event.button !== 0 || event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) {
-                this.tapGuardState = null;
-                return;
-            }
-            if (!shouldGuardPointer(event)) {
-                this.tapGuardState = null;
-                return;
-            }
-
-            let initialPosition = null;
-            if (this.editor) {
-                const target = this.editor.getTargetAtClientPoint(event.clientX, event.clientY);
-                initialPosition = target?.position || this.editor.getPosition() || null;
-            }
-
-            const pointerType = normalizedPointerType(event);
-            const blockTapDrag = pointerType === 'touch'
-                || pointerType === 'pen'
-                || (pointerType === 'mouse' && (typeof event.buttons !== 'number' || event.buttons === 0));
-            this.tapGuardState = {
-                pointerId: event.pointerId,
-                hasPointerCapture: false,
-                guardActive: blockTapDrag,
-                blockTapDrag,
-                startClientX: event.clientX,
-                startClientY: event.clientY,
-                lastPosition: initialPosition,
-                pointerType,
-            };
-            if (blockTapDrag) {
-                stopEventForTap(event);
-                this.tapGuardState.hasPointerCapture = capturePointerIfPossible(event.pointerId);
-                if (initialPosition) {
-                    collapseToPosition(initialPosition);
-                }
-            }
-        };
-
-        const pointerMove = (event) => {
-            const state = this.tapGuardState;
-            if (!state || event.pointerId !== state.pointerId) {
-                return;
-            }
-            if (state.blockTapDrag) {
-                if (!state.hasPointerCapture) {
-                    state.hasPointerCapture = capturePointerIfPossible(event.pointerId);
-                }
-                stopEventForTap(event);
-                if (state.lastPosition) {
-                    collapseToPosition(state.lastPosition);
-                }
-                return;
-            }
-            if (typeof event.buttons === 'number' && event.buttons !== 0) {
-                if (state.hasPointerCapture) {
-                    releasePointerIfNeeded(event.pointerId);
-                }
-                this.tapGuardState = null;
-                return;
-            }
-
-            const dx = Math.abs(event.clientX - (state.startClientX ?? event.clientX));
-            const dy = Math.abs(event.clientY - (state.startClientY ?? event.clientY));
-            const movementExceedsThreshold = dx > 1 || dy > 1;
-
-            if (!state.guardActive) {
-                if (!movementExceedsThreshold) {
-                    return;
-                }
-                if (!shouldGuardPointer(event)) {
-                    this.tapGuardState = null;
-                    return;
-                }
-                state.guardActive = true;
-                if (!state.hasPointerCapture) {
-                    state.hasPointerCapture = capturePointerIfPossible(event.pointerId);
-                }
-                stopEventForTap(event);
-                if (state.lastPosition) {
-                    collapseToPosition(state.lastPosition);
-                }
-                return;
-            }
-
-            stopEventForTap(event);
-        };
-
-        const pointerUp = (event) => {
-            const state = this.tapGuardState;
-            if (!state || event.pointerId !== state.pointerId) {
-                return;
-            }
-            if (state.guardActive) {
-                stopEventForTap(event);
-                if (state.hasPointerCapture) {
-                    releasePointerIfNeeded(event.pointerId);
-                }
-                if (state.lastPosition) {
-                    collapseToPosition(state.lastPosition);
-                }
-            }
-            this.tapGuardState = null;
-        };
-
-        const pointerCancel = (event) => {
-            const state = this.tapGuardState;
-            if (!state) {
-                return;
-            }
-            if (state.hasPointerCapture) {
-                const pointerId = typeof event?.pointerId === 'number'
-                    ? event.pointerId
-                    : state.pointerId;
-                if (typeof pointerId === 'number') {
-                    releasePointerIfNeeded(pointerId);
-                }
-            }
-            if (state.blockTapDrag || state.guardActive) {
-                stopEventForTap(event);
-                if (state.lastPosition) {
-                    collapseToPosition(state.lastPosition);
-                }
-            }
-            this.tapGuardState = null;
-        };
-
-        const pointerLeave = (event) => {
-            const state = this.tapGuardState;
-            if (!state) {
-                return;
-            }
-            if (typeof event.pointerId === 'number' && event.pointerId !== state.pointerId) {
-                return;
-            }
-            if (state.hasPointerCapture) {
-                releasePointerIfNeeded(state.pointerId);
-            }
-            if (state.blockTapDrag || state.guardActive) {
-                stopEventForTap(event);
-                if (state.lastPosition) {
-                    collapseToPosition(state.lastPosition);
-                }
-            }
-            this.tapGuardState = null;
-        };
-
-        this.editorHost.addEventListener('pointerdown', pointerDown, true);
-        pointerEventTarget.addEventListener('pointermove', pointerMove, true);
-        pointerEventTarget.addEventListener('pointerup', pointerUp, true);
-        pointerEventTarget.addEventListener('pointercancel', pointerCancel, true);
-        pointerEventTarget.addEventListener('pointerleave', pointerLeave, true);
-
-        this.tapGuardCleanup = () => {
-            this.editorHost.removeEventListener('pointerdown', pointerDown, true);
-            pointerEventTarget.removeEventListener('pointermove', pointerMove, true);
-            pointerEventTarget.removeEventListener('pointerup', pointerUp, true);
-            pointerEventTarget.removeEventListener('pointercancel', pointerCancel, true);
-            pointerEventTarget.removeEventListener('pointerleave', pointerLeave, true);
-            this.tapGuardState = null;
-        };
+        if (state) this.tabViewStates.set(newTabId, state);
     }
 
     getSelectionText() {
-        if (!this.editor) {
-            return '';
-        }
-        const model = this.editor.getModel();
-        const selection = this.editor.getSelection();
-        if (!model || !selection || selection.isEmpty()) {
-            return '';
-        }
-        return model.getValueInRange(selection);
+        if (!this.editor) return '';
+        const { from, to } = this.editor.state.selection.main;
+        if (from === to) return '';
+        return this.editor.state.sliceDoc(from, to);
     }
 
     replaceSelectionWithText(text) {
-        if (!this.editor || !this.monaco) {
-            return;
-        }
-        const model = this.editor.getModel();
-        const selection = this.editor.getSelection();
-        if (!model || !selection) {
-            return;
-        }
-
+        if (!this.editor) return;
+        const { from, to } = this.editor.state.selection.main;
         const nextText = typeof text === 'string' ? text : '';
         this.editor.focus();
-        this.editor.pushUndoStop();
-        this.editor.executeEdits('ai-assistant', [
-            {
-                range: selection,
-                text: nextText,
-                forceMoveMarkers: true,
-            },
-        ]);
-        this.editor.pushUndoStop();
+        this.editor.dispatch({
+            changes: { from, to, insert: nextText },
+        });
     }
 
     insertTextAtCursor(text) {
-        if (!this.editor || !this.monaco) {
-            return;
-        }
-        const position = this.editor.getPosition();
-        if (!position) {
-            return;
-        }
-
+        if (!this.editor) return;
+        const pos = this.editor.state.selection.main.head;
         const nextText = typeof text === 'string' ? text : '';
-        const range = new this.monaco.Range(
-            position.lineNumber,
-            position.column,
-            position.lineNumber,
-            position.column
-        );
-
         this.editor.focus();
-        this.editor.pushUndoStop();
-        this.editor.executeEdits('ai-assistant', [
-            {
-                range,
-                text: nextText,
-                forceMoveMarkers: true,
-            },
-        ]);
-        this.editor.pushUndoStop();
+        this.editor.dispatch({
+            changes: { from: pos, to: pos, insert: nextText },
+        });
     }
 
     undo() {
-        if (!this.editor || typeof this.editor.trigger !== 'function') {
-            return false;
-        }
-        this.editor.trigger('keyboard', 'undo', null);
+        if (!this.editor) return false;
+        undo(this.editor);
         return true;
     }
 
     redo() {
-        if (!this.editor || typeof this.editor.trigger !== 'function') {
-            return false;
-        }
-        this.editor.trigger('keyboard', 'redo', null);
+        if (!this.editor) return false;
+        redo(this.editor);
         return true;
     }
 
+    // --- AI Stream ---
+
     beginAiStreamSession(sessionId) {
-        if (!this.editor || !this.monaco || !sessionId) {
-            return null;
-        }
-        const model = this.editor.getModel();
-        if (!model) {
-            return null;
-        }
-
-        let selection = this.editor.getSelection();
-        const hasSelection = selection && !selection.isEmpty();
-        let anchorPosition = hasSelection
-            ? selection.getStartPosition()
-            : this.editor.getPosition();
-
-        if (!anchorPosition) {
-            anchorPosition = model.getPositionAt(0);
-        }
+        if (!this.editor || !sessionId) return null;
+        const doc = this.editor.state.doc;
+        const { from, to } = this.editor.state.selection.main;
+        const hasSelection = from !== to;
+        let anchorOffset = hasSelection ? from : this.editor.state.selection.main.head;
 
         if (hasSelection) {
-            this.editor.pushUndoStop();
-            this.editor.executeEdits('ai-assistant', [
-                {
-                    range: selection,
-                    text: '',
-                    forceMoveMarkers: true,
-                },
-            ]);
-            this.editor.pushUndoStop();
+            this.editor.dispatch({
+                changes: { from, to, insert: '' },
+            });
+            anchorOffset = from;
         }
 
-        const startOffset = model.getOffsetAt(anchorPosition);
         const session = {
             id: sessionId,
-            startOffset,
-            currentOffset: startOffset,
+            startOffset: anchorOffset,
+            currentOffset: anchorOffset,
             buffer: '',
         };
         this.aiStreamSessions.set(sessionId, session);
@@ -1278,113 +772,47 @@ export class CodeEditor {
     }
 
     appendAiStreamContent(sessionId, delta) {
-        if (!this.editor || !this.monaco || !sessionId) {
-            return;
-        }
+        if (!this.editor || !sessionId) return;
         const session = this.aiStreamSessions.get(sessionId);
-        if (!session) {
-            return;
-        }
+        if (!session) return;
         const chunk = typeof delta === 'string' ? delta : '';
-        if (!chunk) {
-            return;
-        }
+        if (!chunk) return;
 
-        const model = this.editor.getModel();
-        if (!model) {
-            return;
-        }
-
-        const insertPosition = model.getPositionAt(session.currentOffset);
-        const range = new this.monaco.Range(
-            insertPosition.lineNumber,
-            insertPosition.column,
-            insertPosition.lineNumber,
-            insertPosition.column
-        );
-
+        const pos = session.currentOffset;
         this.editor.focus();
-        this.editor.executeEdits('ai-assistant', [
-            {
-                range,
-                text: chunk,
-                forceMoveMarkers: true,
-            },
-        ]);
+        this.editor.dispatch({
+            changes: { from: pos, to: pos, insert: chunk },
+        });
 
         session.currentOffset += chunk.length;
         session.buffer += chunk;
     }
 
     finalizeAiStreamSession(sessionId, content) {
-        if (!this.editor || !this.monaco || !sessionId) {
-            return;
-        }
+        if (!this.editor || !sessionId) return;
         const session = this.aiStreamSessions.get(sessionId);
-        if (!session) {
-            return;
-        }
-
-        const model = this.editor.getModel();
-        if (!model) {
-            return;
-        }
+        if (!session) return;
 
         const finalText = typeof content === 'string' ? content : session.buffer;
-        const startPosition = model.getPositionAt(session.startOffset);
-        const endPosition = model.getPositionAt(session.currentOffset);
-        const range = new this.monaco.Range(
-            startPosition.lineNumber,
-            startPosition.column,
-            endPosition.lineNumber,
-            endPosition.column
-        );
-
         if (finalText !== session.buffer) {
             this.editor.focus();
-            this.editor.executeEdits('ai-assistant', [
-                {
-                    range,
-                    text: finalText,
-                    forceMoveMarkers: true,
-                },
-            ]);
+            this.editor.dispatch({
+                changes: { from: session.startOffset, to: session.currentOffset, insert: finalText },
+            });
         }
 
         this.aiStreamSessions.delete(sessionId);
     }
 
     abortAiStreamSession(sessionId) {
-        if (!this.editor || !this.monaco || !sessionId) {
-            return;
-        }
+        if (!this.editor || !sessionId) return;
         const session = this.aiStreamSessions.get(sessionId);
-        if (!session) {
-            return;
-        }
-
-        const model = this.editor.getModel();
-        if (!model) {
-            return;
-        }
-
-        const startPosition = model.getPositionAt(session.startOffset);
-        const endPosition = model.getPositionAt(session.currentOffset);
-        const range = new this.monaco.Range(
-            startPosition.lineNumber,
-            startPosition.column,
-            endPosition.lineNumber,
-            endPosition.column
-        );
+        if (!session) return;
 
         this.editor.focus();
-        this.editor.executeEdits('ai-assistant', [
-            {
-                range,
-                text: '',
-                forceMoveMarkers: true,
-            },
-        ]);
+        this.editor.dispatch({
+            changes: { from: session.startOffset, to: session.currentOffset, insert: '' },
+        });
 
         this.aiStreamSessions.delete(sessionId);
     }
@@ -1393,29 +821,41 @@ export class CodeEditor {
         return this.aiStreamSessions.has(sessionId);
     }
 
-    // 搜索相关方法
+    // --- Search ---
+
     findMatches(searchTerm) {
-        if (!this.editor || !this.currentModel || !searchTerm) {
-            return [];
+        if (!this.editor || !searchTerm) return [];
+        const doc = this.editor.state.doc;
+        const text = doc.toString();
+        const lowerSearch = searchTerm.toLowerCase();
+        const lowerText = text.toLowerCase();
+        const matches = [];
+        let startIndex = 0;
+
+        while (startIndex < lowerText.length) {
+            const idx = lowerText.indexOf(lowerSearch, startIndex);
+            if (idx === -1) break;
+            const from = idx;
+            const to = idx + searchTerm.length;
+            const startLine = doc.lineAt(from);
+            const endLine = doc.lineAt(to);
+            matches.push({
+                range: {
+                    startLineNumber: startLine.number,
+                    startColumn: from - startLine.from + 1,
+                    endLineNumber: endLine.number,
+                    endColumn: to - endLine.from + 1,
+                },
+                _from: from,
+                _to: to,
+            });
+            startIndex = idx + 1;
         }
-
-        const matches = this.currentModel.findMatches(
-            searchTerm,
-            false, // searchOnlyEditableRange
-            false, // isRegex
-            false, // matchCase
-            null,  // wordSeparators
-            true   // captureMatches
-        );
-
-        return matches || [];
+        return matches;
     }
 
     setSearchTerm(searchTerm) {
-        if (!this.editor) {
-            return { total: 0, current: -1 };
-        }
-
+        if (!this.editor) return { total: 0, current: -1 };
         if (!searchTerm) {
             this.clearSearch();
             return { total: 0, current: -1 };
@@ -1457,16 +897,18 @@ export class CodeEditor {
 
         let nextIndex = -1;
         if (previousMatch) {
-            nextIndex = matches.findIndex(match => this.isSameRange(match.range, previousMatch.range));
+            nextIndex = matches.findIndex(m =>
+                m.range.startLineNumber === previousMatch.range.startLineNumber
+                && m.range.startColumn === previousMatch.range.startColumn
+                && m.range.endLineNumber === previousMatch.range.endLineNumber
+                && m.range.endColumn === previousMatch.range.endColumn
+            );
         }
 
         if (nextIndex === -1 && this.currentMatchIndex >= 0) {
             nextIndex = Math.min(this.currentMatchIndex, matches.length - 1);
         }
-
-        if (nextIndex === -1) {
-            nextIndex = 0;
-        }
+        if (nextIndex === -1) nextIndex = 0;
 
         this.currentMatchIndex = nextIndex;
         this.highlightMatches(matches, this.currentMatchIndex);
@@ -1474,76 +916,47 @@ export class CodeEditor {
         return { total: matches.length, current: this.currentMatchIndex };
     }
 
-    isSameRange(rangeA, rangeB) {
-        if (!rangeA || !rangeB) {
-            return false;
-        }
-        return rangeA.startLineNumber === rangeB.startLineNumber
-            && rangeA.endLineNumber === rangeB.endLineNumber
-            && rangeA.startColumn === rangeB.startColumn
-            && rangeA.endColumn === rangeB.endColumn;
-    }
-
     highlightMatches(matches, currentIndex) {
-        if (!this.editor || !this.monaco) {
-            return;
-        }
-
+        if (!this.editor) return;
         if (!matches || matches.length === 0) {
             this.clearSearchDecorations();
             return;
         }
 
-        const decorations = matches.map((match, index) => ({
-            range: match.range,
-            options: {
-                className: index === currentIndex ? 'search-result-current' : 'search-result',
-                isWholeLine: false,
-            }
-        }));
+        const decorations = matches.map((match, index) => {
+            const cls = index === currentIndex ? 'search-result-current' : 'search-result';
+            return Decoration.mark({ class: cls }).range(match._from, match._to);
+        });
 
-        this.searchDecorations = this.editor.deltaDecorations(
-            this.searchDecorations || [],
-            decorations
-        );
+        this.editor.dispatch({
+            effects: setSearchDecorations.of(Decoration.set(decorations, true))
+        });
     }
 
     scrollToMatch(index) {
-        if (!this.editor || !this.searchMatches || index < 0 || index >= this.searchMatches.length) {
-            return;
-        }
-
+        if (!this.editor || !this.searchMatches || index < 0 || index >= this.searchMatches.length) return;
         const match = this.searchMatches[index];
-        this.editor.revealRangeInCenter(match.range);
-        this.editor.setPosition({
-            lineNumber: match.range.startLineNumber,
-            column: match.range.startColumn
+        this.editor.dispatch({
+            selection: { anchor: match._from },
+            effects: EditorView.scrollIntoView(match._from, { y: 'center' }),
         });
     }
 
     nextSearchResult() {
-        if (!this.searchMatches || this.searchMatches.length === 0) {
-            return null;
-        }
-
+        if (!this.searchMatches || this.searchMatches.length === 0) return null;
         this.currentMatchIndex = (this.currentMatchIndex + 1) % this.searchMatches.length;
         this.highlightMatches(this.searchMatches, this.currentMatchIndex);
         this.scrollToMatch(this.currentMatchIndex);
-
         return { total: this.searchMatches.length, current: this.currentMatchIndex };
     }
 
     prevSearchResult() {
-        if (!this.searchMatches || this.searchMatches.length === 0) {
-            return null;
-        }
-
+        if (!this.searchMatches || this.searchMatches.length === 0) return null;
         this.currentMatchIndex = this.currentMatchIndex <= 0
             ? this.searchMatches.length - 1
             : this.currentMatchIndex - 1;
         this.highlightMatches(this.searchMatches, this.currentMatchIndex);
         this.scrollToMatch(this.currentMatchIndex);
-
         return { total: this.searchMatches.length, current: this.currentMatchIndex };
     }
 
@@ -1552,68 +965,94 @@ export class CodeEditor {
             return { applied: false, total: 0 };
         }
 
-        const selections = this.searchMatches.map(match => {
-            const { startLineNumber, startColumn, endLineNumber, endColumn } = match.range;
-            return {
-                selectionStartLineNumber: startLineNumber,
-                selectionStartColumn: startColumn,
-                positionLineNumber: endLineNumber,
-                positionColumn: endColumn,
-            };
-        });
+        const selections = this.searchMatches.map(m =>
+            EditorSelection.range(m._from, m._to)
+        );
 
-        this.editor.setSelections(selections);
+        this.editor.dispatch({
+            selection: EditorSelection.create(selections, 0),
+        });
         this.editor.focus();
-        const firstRange = this.searchMatches[0]?.range;
-        if (firstRange) {
-            this.editor.revealRangeInCenter(firstRange);
+        if (this.searchMatches[0]) {
+            this.editor.dispatch({
+                effects: EditorView.scrollIntoView(this.searchMatches[0]._from, { y: 'center' }),
+            });
         }
 
         return { applied: true, total: this.searchMatches.length };
     }
 
     replaceAllSearchMatches(replacementText) {
-        if (!this.editor || !this.monaco || !this.searchMatches || this.searchMatches.length === 0) {
+        if (!this.editor || !this.searchMatches || this.searchMatches.length === 0) {
             return { replaced: 0 };
         }
 
         const replacement = typeof replacementText === 'string' ? replacementText : '';
-        const edits = this.searchMatches.map(match => ({
-            range: match.range,
-            text: replacement,
-        }));
+        // Build changes in reverse order to preserve offsets
+        const changes = [...this.searchMatches]
+            .sort((a, b) => b._from - a._from)
+            .map(match => ({
+                from: match._from,
+                to: match._to,
+                insert: replacement,
+            }));
 
         this.editor.focus();
-        this.editor.pushUndoStop();
-        this.editor.executeEdits('search-replace', edits);
-        this.editor.pushUndoStop();
+        this.editor.dispatch({ changes });
 
         const replacedCount = this.searchMatches.length;
         this.clearSearch();
-
         return { replaced: replacedCount };
     }
 
     clearSearchDecorations() {
-        if (!this.editor) {
-            return;
-        }
-        if (this.searchDecorations) {
-            this.editor.deltaDecorations(this.searchDecorations, []);
-            this.searchDecorations = null;
+        if (this.editor) {
+            this.editor.dispatch({
+                effects: setSearchDecorations.of(Decoration.none)
+            });
         }
     }
 
     clearSearch() {
-        if (!this.editor) {
-            this.searchTerm = '';
-            this.searchMatches = null;
-            this.currentMatchIndex = -1;
-            return;
-        }
         this.clearSearchDecorations();
         this.searchTerm = '';
         this.searchMatches = null;
         this.currentMatchIndex = -1;
+    }
+
+    // --- Scroll API (for viewController.js compatibility) ---
+
+    getScrollTop() {
+        return this.editor?.scrollDOM?.scrollTop ?? 0;
+    }
+
+    setScrollTop(value) {
+        if (this.editor?.scrollDOM) {
+            this.editor.scrollDOM.scrollTop = value;
+        }
+    }
+
+    getScrollHeight() {
+        return this.editor?.scrollDOM?.scrollHeight ?? 0;
+    }
+
+    getClientHeight() {
+        return this.editor?.scrollDOM?.clientHeight ?? 0;
+    }
+
+    onDidChangeContent(handler) {
+        if (typeof handler !== 'function') return () => {};
+        this.contentChangeListeners.add(handler);
+        return () => { this.contentChangeListeners.delete(handler); };
+    }
+
+    notifyContentMutation() {
+        this.contentChangeListeners.forEach(handler => {
+            try {
+                handler();
+            } catch (error) {
+                console.error('[CodeEditor] 内容变更通知失败', error);
+            }
+        });
     }
 }

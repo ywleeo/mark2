@@ -960,7 +960,7 @@ async function initializeApplication() {
     // 发布编辑器就绪事件
     eventBus.emit('editor:ready', {
         markdownEditor: editor,
-        monacoEditor: codeEditor,
+        codeEditor: codeEditor,
     });
 
     // 初始化 AI 助手

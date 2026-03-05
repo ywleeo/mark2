@@ -1,158 +1,82 @@
 /**
- * Monaco 编辑器语言支持
- * 负责配置 Python 和 CSV 等自定义语言
+ * CodeMirror 6 语言支持
+ * 根据语言标识符返回对应的 CodeMirror 语言扩展
  */
-import { conf as pythonLanguageConfiguration, language as pythonLanguage } from '../../config/monaco-python.js';
-import { conf as csvLanguageConfiguration, language as csvLanguage, themeRules as csvThemeRules } from '../../config/monaco-csv.js';
-import { conf as yamlLanguageConfiguration, language as yamlLanguage } from '../../config/monaco-yaml.js';
-import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution';
-import { conf as shellConf, language as shellLanguage } from 'monaco-editor/esm/vs/basic-languages/shell/shell.js';
-import { markdownSqlDarkTheme, markdownSqlLightTheme } from '../../config/markdown-sql-themes.js';
-import {
-    monokaiDarkTheme,
-    monokaiLightTheme,
-    draculaDarkTheme,
-    draculaLightTheme,
-    oneDarkProDarkTheme,
-    oneDarkProLightTheme,
-    solarizedDarkTheme,
-    solarizedLightTheme,
-    githubDarkTheme,
-    githubLightTheme,
-    nightOwlDarkTheme,
-    nightOwlLightTheme,
-} from '../../config/code-themes.js';
 
-let pythonLanguageReady = false;
-let csvLanguageReady = false;
-let bashAliasReady = false;
-let markdownThemeReady = false;
-let yamlLanguageReady = false;
-let codeThemesReady = false;
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { css } from '@codemirror/lang-css';
+import { html } from '@codemirror/lang-html';
+import { python } from '@codemirror/lang-python';
+import { java } from '@codemirror/lang-java';
+import { cpp } from '@codemirror/lang-cpp';
+import { rust } from '@codemirror/lang-rust';
+import { xml } from '@codemirror/lang-xml';
+import { sql } from '@codemirror/lang-sql';
+import { yaml } from '@codemirror/lang-yaml';
+import { php } from '@codemirror/lang-php';
+import { markdown } from '@codemirror/lang-markdown';
+
+const LANGUAGE_MAP = {
+    javascript: () => javascript(),
+    js: () => javascript(),
+    jsx: () => javascript({ jsx: true }),
+    typescript: () => javascript({ typescript: true }),
+    ts: () => javascript({ typescript: true }),
+    tsx: () => javascript({ jsx: true, typescript: true }),
+    json: () => json(),
+    jsonc: () => json(),
+    css: () => css(),
+    scss: () => css(),
+    less: () => css(),
+    html: () => html(),
+    xml: () => xml(),
+    svg: () => xml(),
+    python: () => python(),
+    py: () => python(),
+    java: () => java(),
+    c: () => cpp(),
+    cpp: () => cpp(),
+    'c++': () => cpp(),
+    'objective-c': () => cpp(),
+    csharp: () => cpp(),
+    rust: () => rust(),
+    rs: () => rust(),
+    sql: () => sql(),
+    mysql: () => sql(),
+    pgsql: () => sql(),
+    yaml: () => yaml(),
+    yml: () => yaml(),
+    php: () => php(),
+    markdown: () => markdown(),
+    md: () => markdown(),
+    // shell / bash - use StreamLanguage with legacy mode
+    shell: null,
+    sh: null,
+    bash: null,
+    zsh: null,
+    // plaintext / csv - no syntax highlighting
+    plaintext: null,
+    csv: null,
+    text: null,
+};
 
 /**
- * 确保 bash 作为 shell 语言的别名已注册
- * Monaco 的 shell 语言默认只有 "sh" 别名,没有 "bash"
- * @param {Object} monaco - Monaco 实例
+ * 根据语言标识符返回 CodeMirror 语言扩展
+ * @param {string} language - 语言标识符
+ * @returns {import('@codemirror/language').LanguageSupport|null}
  */
-export function ensureBashAlias(monaco) {
-    if (bashAliasReady) {
-        return;
+export function resolveLanguageSupport(language) {
+    if (!language) return null;
+    const key = language.toLowerCase();
+    const factory = LANGUAGE_MAP[key];
+    if (typeof factory === 'function') {
+        try {
+            return factory();
+        } catch (error) {
+            console.warn('[LanguageSupport] 加载语言失败:', language, error);
+            return null;
+        }
     }
-
-    // 注册 bash 作为独立语言,使用 shell 的配置和语法定义
-    monaco.languages.register({ id: 'bash', aliases: ['Bash', 'bash'] });
-    monaco.languages.setLanguageConfiguration('bash', shellConf);
-    monaco.languages.setMonarchTokensProvider('bash', shellLanguage);
-
-    bashAliasReady = true;
-    // console.log('[LanguageSupport] bash 语言已注册（使用 shell 语法定义）');
-}
-
-/**
- * 确保 Python 语言支持已加载
- * @param {Object} monaco - Monaco 实例
- */
-export function ensurePythonLanguage(monaco) {
-    if (pythonLanguageReady || !pythonLanguage?.tokenizer) {
-        return;
-    }
-
-    monaco.languages.setMonarchTokensProvider('python', pythonLanguage);
-    if (pythonLanguageConfiguration) {
-        monaco.languages.setLanguageConfiguration('python', pythonLanguageConfiguration);
-    }
-    pythonLanguageReady = true;
-}
-
-/**
- * 确保 CSV 语言支持已加载
- * @param {Object} monaco - Monaco 实例
- */
-export function ensureCsvLanguage(monaco) {
-    if (csvLanguageReady || !csvLanguage?.tokenizer) {
-        return;
-    }
-
-    monaco.languages.register({ id: 'csv' });
-    monaco.languages.setMonarchTokensProvider('csv', csvLanguage);
-    if (csvLanguageConfiguration) {
-        monaco.languages.setLanguageConfiguration('csv', csvLanguageConfiguration);
-    }
-
-    // 定义 CSV 专用主题
-    monaco.editor.defineTheme('csv-theme', {
-        base: 'vs',
-        inherit: true,
-        rules: csvThemeRules || [],
-        colors: {},
-    });
-
-    csvLanguageReady = true;
-}
-
-/**
- * 确保 YAML 语言支持已加载（优化版，修复 markdown 语法高亮问题）
- * @param {Object} monaco - Monaco 实例
- */
-export function ensureYamlLanguage(monaco) {
-    if (yamlLanguageReady || !yamlLanguage?.tokenizer) {
-        return;
-    }
-
-    // 使用优化后的 YAML 配置覆盖默认配置
-    monaco.languages.setMonarchTokensProvider('yaml', yamlLanguage);
-    if (yamlLanguageConfiguration) {
-        monaco.languages.setLanguageConfiguration('yaml', yamlLanguageConfiguration);
-    }
-    yamlLanguageReady = true;
-}
-
-/**
- * 注册 Markdown 代码块增强主题（只覆盖 Markdown 中文件内的 SQL code fence）
- * @param {Object} monaco - Monaco 实例
- */
-export function ensureMarkdownSqlThemes(monaco) {
-    if (markdownThemeReady) {
-        return;
-    }
-    monaco.editor.defineTheme('markdown-sql-dark', markdownSqlDarkTheme);
-    monaco.editor.defineTheme('markdown-sql-light', markdownSqlLightTheme);
-    markdownThemeReady = true;
-}
-
-/**
- * 注册所有代码编辑器主题
- * @param {Object} monaco - Monaco 实例
- */
-export function ensureCodeThemes(monaco) {
-    if (codeThemesReady) {
-        return;
-    }
-
-    // Monokai
-    monaco.editor.defineTheme('monokai-dark', monokaiDarkTheme);
-    monaco.editor.defineTheme('monokai-light', monokaiLightTheme);
-
-    // Dracula
-    monaco.editor.defineTheme('dracula-dark', draculaDarkTheme);
-    monaco.editor.defineTheme('dracula-light', draculaLightTheme);
-
-    // One Dark Pro
-    monaco.editor.defineTheme('one-dark-pro-dark', oneDarkProDarkTheme);
-    monaco.editor.defineTheme('one-dark-pro-light', oneDarkProLightTheme);
-
-    // GitHub
-    monaco.editor.defineTheme('github-dark', githubDarkTheme);
-    monaco.editor.defineTheme('github-light', githubLightTheme);
-
-    // Night Owl
-    monaco.editor.defineTheme('night-owl-dark', nightOwlDarkTheme);
-    monaco.editor.defineTheme('night-owl-light', nightOwlLightTheme);
-
-    // Solarized
-    monaco.editor.defineTheme('solarized-dark', solarizedDarkTheme);
-    monaco.editor.defineTheme('solarized-light', solarizedLightTheme);
-
-    codeThemesReady = true;
+    return null;
 }

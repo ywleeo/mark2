@@ -237,12 +237,14 @@ export function createFileOperations({
                 await fileService.writeText(currentFile, content);
                 // 如果内容被格式化了，同步更新编辑器内容
                 if (content !== raw && codeEditor.editor) {
-                    const position = codeEditor.editor.getPosition();
+                    const position = codeEditor.getCurrentPosition();
                     codeEditor.suppressChange = true;
-                    codeEditor.editor.setValue(content);
+                    codeEditor.editor.dispatch({
+                        changes: { from: 0, to: codeEditor.editor.state.doc.length, insert: content }
+                    });
                     codeEditor.suppressChange = false;
                     if (position) {
-                        codeEditor.editor.setPosition(position);
+                        codeEditor.setPositionOnly(position.lineNumber, position.column);
                     }
                 }
                 const markdownCodeMode = getMarkdownCodeMode();

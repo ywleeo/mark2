@@ -75,7 +75,7 @@ function resolveCaptureElement(viewElement) {
     // Map each view pane to the DOM nodes that preserve its intended padding/margins
     const selectorsByPane = {
         markdown: ['.markdown-content', '[data-markdown-editor-host]', '.tiptap-editor'],
-        code: ['.code-editor-pane', '.code-editor__instance', '.monaco-editor'],
+        code: ['.code-editor-pane', '.code-editor__instance', '.cm-editor'],
         image: ['.image-viewer-content', '.image-viewer'],
         media: ['.media-viewer__content', '.media-viewer'],
         spreadsheet: ['.spreadsheet-viewer__body', '.spreadsheet-viewer'],
@@ -367,7 +367,7 @@ body {
 }
 .mark2-export-wrapper .tiptap-editor,
 .mark2-export-wrapper .ProseMirror,
-.mark2-export-wrapper .monaco-editor {
+.mark2-export-wrapper .cm-editor {
     max-width: 100% !important;
     width: 100% !important;
     box-sizing: border-box;
@@ -576,8 +576,8 @@ function resolveExportContentRoot(viewElement, activeViewMode) {
     }
     if (activeViewMode === 'code') {
         return (
-            viewElement.querySelector('.monaco-editor .view-lines') ||
-            viewElement.querySelector('.monaco-editor') ||
+            viewElement.querySelector('.cm-editor .cm-content') ||
+            viewElement.querySelector('.cm-editor') ||
             viewElement
         );
     }

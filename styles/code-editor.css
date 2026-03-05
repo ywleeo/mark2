@@ -4,9 +4,6 @@
     width: 100%;
     box-sizing: border-box;
     background: var(--content-bg, #ffffff);
-    --scrollbar-size: 8px;
-    --scrollbar-thumb-color: rgba(82, 91, 102, 0.45);
-    --scrollbar-thumb-hover-color: rgba(148, 163, 184, 0.7);
 }
 
 .code-editor-pane.is-active {
@@ -22,53 +19,44 @@
     -webkit-user-drag: none;
 }
 
-.code-editor-pane .monaco-editor,
-.code-editor-pane .monaco-editor-background {
-    background: var(--content-bg, #ffffff);
+/* CodeMirror editor fills the container */
+.code-editor__instance .cm-editor {
+    height: 100%;
+    outline: none;
 }
 
-/* 锁定行号区域背景色，不受主题影响 */
-.code-editor-pane .monaco-editor .margin-view-overlays {
-    background: var(--content-bg, #ffffff) !important;
+.code-editor__instance .cm-scroller {
+    overflow: auto;
+    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
 }
 
-.code-editor-pane .monaco-scrollable-element > .scrollbar {
-    width: var(--scrollbar-size, 6px) !important;
-    height: var(--scrollbar-size, 6px) !important;
+/* Scrollbar - 使用全局变量，和 markdown 编辑器一致 */
+.code-editor__instance .cm-scroller {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
 }
 
-.code-editor-pane .monaco-scrollable-element > .scrollbar > .slider {
-    background: var(--scrollbar-thumb-color, rgba(148, 163, 184, 0.35)) !important;
-    border-radius: 2px !important;
-    opacity: 0.7 !important;
-    visibility: visible !important;
-    transition: opacity 0.2s ease, background 0.2s ease;
+.code-editor__instance .cm-scroller::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+    -webkit-appearance: none;
 }
 
-.code-editor-pane .monaco-scrollable-element > .scrollbar > .slider:hover {
-    background: var(--scrollbar-thumb-hover-color, rgba(148, 163, 184, 0.55)) !important;
-    opacity: 1 !important;
+.code-editor__instance .cm-scroller::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-color, #f1f3f4);
 }
 
-.code-editor-pane .monaco-scrollable-element > .scrollbar > .slider:active {
-    background: var(--scrollbar-thumb-hover-color, rgba(148, 163, 184, 0.7)) !important;
-    opacity: 1 !important;
+.code-editor__instance .cm-scroller::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, #ffffff);
+    border-radius: 2px;
+    transition: background 0.2s ease;
 }
 
-.code-editor-pane .monaco-editor .decorationsOverviewRuler,
-.code-editor-pane .monaco-editor .minimap,
-.code-editor-pane .monaco-editor .minimap-shadow-visible {
-    background: transparent !important;
+.code-editor__instance .cm-scroller::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-color, #d0d2d6);
 }
 
-/* 应用 Code 模式字体设置 */
-.code-editor-pane .monaco-editor,
-.code-editor-pane .monaco-editor .view-lines,
-.code-editor-pane .monaco-editor .view-line {
-    font-size: var(--code-font-size, 14px) !important;
-    line-height: var(--code-line-height, 1.5) !important;
-    font-weight: var(--code-font-weight, 400) !important;
-    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace) !important;
-    touch-action: none;
-    -webkit-user-drag: none;
+/* Padding */
+.code-editor__instance .cm-content {
+    padding: 5px 0;
 }
