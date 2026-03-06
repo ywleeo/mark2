@@ -1,7 +1,7 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
 import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
 import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo } from '@codemirror/commands';
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
 import { searchKeymap } from '@codemirror/search';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
@@ -87,6 +87,7 @@ export class CodeEditor {
         this._highlightCompartment = new Compartment();
         this._fontCompartment = new Compartment();
         this._tabSizeCompartment = new Compartment();
+        this._indentUnitCompartment = new Compartment();
         this._readOnlyCompartment = new Compartment();
     }
 
@@ -163,6 +164,7 @@ export class CodeEditor {
                 this._highlightCompartment.of(hlStyle),
                 this._fontCompartment.of(fontTheme),
                 this._tabSizeCompartment.of(EditorState.tabSize.of(4)),
+                this._indentUnitCompartment.of(indentUnit.of('    ')),
                 this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
                 searchDecorationField,
                 updateListener,
@@ -271,10 +273,14 @@ export class CodeEditor {
             effects: this._langCompartment.reconfigure(langSupport ? [langSupport] : [])
         });
 
-        // Update tab size
+        // Update tab size and indent unit
         const tabSize = targetLanguage === 'markdown' ? 2 : 4;
+        const indent = ' '.repeat(tabSize);
         this.editor.dispatch({
-            effects: this._tabSizeCompartment.reconfigure(EditorState.tabSize.of(tabSize))
+            effects: [
+                this._tabSizeCompartment.reconfigure(EditorState.tabSize.of(tabSize)),
+                this._indentUnitCompartment.reconfigure(indentUnit.of(indent)),
+            ]
         });
 
         // Update theme
