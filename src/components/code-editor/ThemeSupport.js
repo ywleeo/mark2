@@ -237,6 +237,14 @@ export function buildTheme(themeName, isDark) {
         ?? THEMES['vs'];
     const colors = isDark ? themeColors.dark : themeColors.light;
 
+    // Convert hex to rgba so activeLine doesn't obscure selection layer beneath it
+    const hexToRgba = (hex, alpha) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
+
     return EditorView.theme({
         '&': {
             backgroundColor: colors.background,
@@ -253,7 +261,7 @@ export function buildTheme(themeName, isDark) {
             backgroundColor: colors.selection,
         },
         '.cm-activeLine': {
-            backgroundColor: colors.lineHighlight,
+            backgroundColor: hexToRgba(colors.lineHighlight, 0.7),
         },
         '.cm-gutters': {
             backgroundColor: colors.background,
@@ -262,7 +270,7 @@ export function buildTheme(themeName, isDark) {
         },
         '.cm-activeLineGutter': {
             color: colors.gutterActiveForeground,
-            backgroundColor: colors.lineHighlight,
+            backgroundColor: hexToRgba(colors.lineHighlight, 0.7),
         },
         '.cm-foldPlaceholder': {
             backgroundColor: 'transparent',

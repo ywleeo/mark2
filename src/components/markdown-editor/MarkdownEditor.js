@@ -30,6 +30,7 @@ import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { MermaidBlock } from '../../extensions/MermaidBlock.js';
+import { MathBlock, MathInline } from '../../extensions/MathBlock.js';
 import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
 import { SourcePos } from '../../extensions/SourcePos.js';
 import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugin.js';
@@ -137,6 +138,8 @@ export class MarkdownEditor {
                     nested: true,
                 }),
                 MermaidBlock,
+                MathBlock,
+                MathInline,
                 SourcePos,
                 CodeBlockLowlight.configure({
                     lowlight: this.lowlight,

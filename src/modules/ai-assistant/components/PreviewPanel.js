@@ -2,6 +2,8 @@ import { aiService } from '../aiService.js';
 import { buildAiRequest } from '../prompts/promptComposer.js';
 import { ACTION_LABELS } from '../prompts/taskPrompts.js';
 import MarkdownIt from 'markdown-it';
+import texmath from 'markdown-it-texmath';
+import katex from 'katex';
 import { addClickHandler } from '../../../../src/utils/PointerHelper.js';
 
 /**
@@ -23,6 +25,11 @@ export class PreviewPanel {
             html: false,
             linkify: true,
             breaks: true,
+        });
+        this.md.use(texmath, {
+            engine: katex,
+            delimiters: 'dollars',
+            katexOptions: { throwOnError: false },
         });
         this.streamUnsubscribe = null;
         this.currentTaskId = null;

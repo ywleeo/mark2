@@ -8,6 +8,7 @@ console.warn = function(...args) {
     originalWarn.apply(console, args);
 };
 
+import 'katex/dist/katex.min.css';
 import { confirm } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';

@@ -5,6 +5,7 @@ import imageViewerCss from '../../styles/image-viewer.css?raw';
 import mediaViewerCss from '../../styles/media-viewer.css?raw';
 import codeEditorCss from '../../styles/code-editor.css?raw';
 import markdownToolbarCss from '../../styles/markdown-toolbar.css?raw';
+import katexCss from 'katex/dist/katex.min.css?raw';
 
 // 预加载所有主题，用于导出时按需获取
 const themeModules = import.meta.glob('../../styles/themes/*.css', {
@@ -30,6 +31,7 @@ const bundledCssText = [
     mediaViewerCss,
     codeEditorCss,
     markdownToolbarCss,
+    katexCss,
     // 不再合并所有主题，主题通过 getThemeStyles 按需获取
 ]
     .filter(Boolean)

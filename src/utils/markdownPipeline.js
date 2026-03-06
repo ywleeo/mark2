@@ -1,6 +1,8 @@
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import markdownItMultimdTable from 'markdown-it-multimd-table';
+import texmath from 'markdown-it-texmath';
+import katex from 'katex';
 import { MarkdownParser, MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownItCjkEmphasis } from './markdownItCjkEmphasis.js';
@@ -52,6 +54,12 @@ function createMarkdownTokenizer() {
     });
 
     md.use(markdownItCjkEmphasis);
+
+    md.use(texmath, {
+        engine: katex,
+        delimiters: 'dollars',
+        katexOptions: { throwOnError: false },
+    });
 
     return md;
 }
@@ -219,6 +227,11 @@ export function createMarkdownParser(schema) {
 
         html_inline: { ignore: true, noCloseToken: true },
         html_block: { ignore: true, noCloseToken: true },
+
+        math_inline: { node: 'mathInline', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
+        math_inline_double: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
+        math_block: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
+        math_block_eqno: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
     };
 
     const parser = new MarkdownParser(schema, tokenizer, tokens);
@@ -522,6 +535,17 @@ export function createMarkdownSerializer(schema) {
             state.write('\n```');
             state.closeBlock(node);
         },
+        mathBlock(state, node) {
+            const latex = node.attrs?.latex || '';
+            state.write('$$\n');
+            state.text(latex, false);
+            state.write('\n$$');
+            state.closeBlock(node);
+        },
+        mathInline(state, node) {
+            const latex = node.attrs?.latex || '';
+            state.write(`$${latex}$`);
+        },
         image(state, node) {
             const alt = state.esc(node.attrs?.alt || '');
             const title = node.attrs?.title;
@@ -600,7 +624,26 @@ export function createMarkdownSerializer(schema) {
             state.closeBlock(node);
         },
         text(state, node) {
-            state.text(node.text, !state.inAutolink);
+            if (state.inAutolink) {
+                state.text(node.text, false);
+            } else {
+                // Minimal escaping: only escape characters that would change
+                // markdown structure. Skip [] to avoid ugly \[\] in output.
+                let text = node.text;
+                text = text.replace(/[\\`*~_]/g, (m, i) => {
+                    // Don't escape _ between word characters (e.g. some_var)
+                    if (m === '_' && i > 0 && i + 1 < text.length && /\w/.test(text[i - 1]) && /\w/.test(text[i + 1])) {
+                        return m;
+                    }
+                    return '\\' + m;
+                });
+                if (state.atBlockStart) {
+                    text = text.replace(/^(\+[ ]|[\-*>])/, '\\$&');
+                    text = text.replace(/^(\s*)(#{1,6})(\s|$)/, '$1\\$2$3');
+                    text = text.replace(/^(\s*\d+)\.\s/, '$1\\. ');
+                }
+                state.text(text, false);
+            }
         },
     };
 

@@ -2,6 +2,8 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import markdownItMultimdTable from 'markdown-it-multimd-table';
+import texmath from 'markdown-it-texmath';
+import katex from 'katex';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { addTaskListRules } from './taskListTurndown.js';
@@ -161,6 +163,12 @@ export function createConfiguredMarkdownIt() {
 
     md.renderer.rules.fence = trimCodeRenderer(md.renderer.rules.fence);
     md.renderer.rules.code_block = trimCodeRenderer(md.renderer.rules.code_block);
+
+    md.use(texmath, {
+        engine: katex,
+        delimiters: 'dollars',
+        katexOptions: { throwOnError: false },
+    });
 
     return md;
 }

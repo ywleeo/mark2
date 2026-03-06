@@ -141,6 +141,23 @@
     white-space: pre-wrap;
 }
 
+/* 数学公式 */
+.tiptap-editor .math-block {
+    margin: 16px 0;
+    padding: 12px 0;
+    text-align: center;
+    overflow-x: auto;
+}
+
+.tiptap-editor .math-inline {
+    display: inline;
+}
+
+.tiptap-editor .math-error {
+    color: #cc0000;
+    font-family: monospace;
+}
+
 /* 代码块复制按钮 */
 .code-copy-button {
     position: absolute;
