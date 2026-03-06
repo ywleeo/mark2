@@ -1,4 +1,4 @@
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
 import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
 import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
@@ -146,7 +146,6 @@ export class CodeEditor {
                 highlightActiveLine(),
                 highlightActiveLineGutter(),
                 highlightSpecialChars(),
-                drawSelection(),
                 rectangularSelection(),
                 indentOnInput(),
                 bracketMatching(),

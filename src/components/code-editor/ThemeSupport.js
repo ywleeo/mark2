@@ -257,7 +257,7 @@ export function buildTheme(themeName, isDark) {
             borderLeftColor: colors.cursor,
             borderLeftWidth: '2px',
         },
-        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
+        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
             backgroundColor: colors.selection,
         },
         '.cm-activeLine': {
@@ -266,11 +266,11 @@ export function buildTheme(themeName, isDark) {
         '.cm-gutters': {
             backgroundColor: colors.background,
             color: colors.gutterForeground,
-            borderRight: 'none',
+            borderRight: `1px solid ${hexToRgba(colors.gutterForeground, 0.2)}`,
         },
         '.cm-activeLineGutter': {
             color: colors.gutterActiveForeground,
-            backgroundColor: hexToRgba(colors.lineHighlight, 0.7),
+            backgroundColor: hexToRgba(colors.lineHighlight, 0.5),
         },
         '.cm-foldPlaceholder': {
             backgroundColor: 'transparent',
