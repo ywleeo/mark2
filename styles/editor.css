@@ -142,6 +142,10 @@
 }
 
 /* 数学公式 */
+.tiptap-editor .katex {
+    font-family: KaTeX_Main, 'Times New Roman', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
 .tiptap-editor .math-block {
     margin: 16px 0;
     padding: 12px 0;

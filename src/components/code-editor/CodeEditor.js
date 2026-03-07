@@ -1,8 +1,7 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
 import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
 import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo } from '@codemirror/commands';
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
-import { searchKeymap } from '@codemirror/search';
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
@@ -129,7 +128,7 @@ export class CodeEditor {
         const themeExt = buildTheme('auto', isDark);
         const hlStyle = buildHighlightStyle('auto', isDark);
 
-        const updateListener = EditorView.updateListener.of((update) => {
+        this._updateListener = EditorView.updateListener.of((update) => {
             if (update.docChanged && !this.suppressChange) {
                 const currentContent = update.state.doc.toString();
                 this.isDirty = currentContent !== this.baseContent;
@@ -155,7 +154,6 @@ export class CodeEditor {
                     ...defaultKeymap,
                     ...historyKeymap,
                     ...foldKeymap,
-                    ...searchKeymap,
                     indentWithTab,
                 ]),
                 this._langCompartment.of([]),
@@ -166,7 +164,7 @@ export class CodeEditor {
                 this._indentUnitCompartment.of(indentUnit.of('    ')),
                 this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
                 searchDecorationField,
-                updateListener,
+                this._updateListener,
                 EditorView.lineWrapping,
             ],
         });
@@ -254,36 +252,62 @@ export class CodeEditor {
             ? ensureMarkdownTrailingEmptyLine(baseContent)
             : baseContent;
 
-        // Set content
-        this.suppressChange = true;
-        this.editor.dispatch({
-            changes: { from: 0, to: this.editor.state.doc.length, insert: normalizedContent }
-        });
-        this.suppressChange = false;
-
+        // Create fresh state with content + language + theme all at once
         this.baseContent = normalizedContent;
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
         this.isDirty = false;
 
-        // Update language
         const langSupport = resolveLanguageSupport(targetLanguage);
-        this.editor.dispatch({
-            effects: this._langCompartment.reconfigure(langSupport ? [langSupport] : [])
-        });
-
-        // Update tab size and indent unit
         const tabSize = targetLanguage === 'markdown' ? 2 : 4;
         const indent = ' '.repeat(tabSize);
-        this.editor.dispatch({
-            effects: [
-                this._tabSizeCompartment.reconfigure(EditorState.tabSize.of(tabSize)),
-                this._indentUnitCompartment.reconfigure(indentUnit.of(indent)),
-            ]
-        });
+        const isDark = document?.documentElement?.dataset?.themeAppearance === 'dark';
+        const userTheme = this.preferences?.theme || 'auto';
+        let themeName = userTheme;
+        if (userTheme === 'auto') {
+            if (targetLanguage === 'markdown' || targetLanguage === 'sql' || targetLanguage === 'mysql' || targetLanguage === 'pgsql') {
+                themeName = 'markdown-sql';
+            } else if (targetLanguage === 'csv' && !isDark) {
+                themeName = 'csv';
+            }
+        }
+        const themeExt = buildTheme(themeName, isDark);
+        const hlStyle = buildHighlightStyle(themeName, isDark);
+        const fontTheme = this._buildFontTheme();
 
-        // Update theme
-        this._applyThemeForLanguage(targetLanguage);
+        this.editor.setState(EditorState.create({
+            doc: normalizedContent,
+            extensions: [
+                lineNumbers(),
+                highlightActiveLine(),
+                highlightActiveLineGutter(),
+                highlightSpecialChars(),
+                rectangularSelection(),
+                indentOnInput(),
+                bracketMatching(),
+                foldGutter(),
+                history(),
+                keymap.of([
+                    ...defaultKeymap,
+                    ...historyKeymap,
+                    ...foldKeymap,
+                    indentWithTab,
+                ]),
+                this._langCompartment.of(langSupport ? [langSupport] : []),
+                this._themeCompartment.of(themeExt),
+                this._highlightCompartment.of(hlStyle),
+                this._fontCompartment.of(fontTheme),
+                this._tabSizeCompartment.of(EditorState.tabSize.of(tabSize)),
+                this._indentUnitCompartment.of(indentUnit.of(indent)),
+                this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
+                searchDecorationField,
+                this._updateListener,
+                EditorView.lineWrapping,
+            ],
+        }));
+
+        // Force synchronous parsing so highlighting appears immediately
+        ensureSyntaxTree(this.editor.state, this.editor.state.doc.length, 500);
 
         if (sessionId && !this.isSessionActive(sessionId)) {
             if (this.loadingSessionId === sessionId) this.loadingSessionId = null;
