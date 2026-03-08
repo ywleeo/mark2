@@ -51,6 +51,10 @@ export const MathBlock = Node.create({
             dom.contentEditable = 'false';
             try {
                 katex.render(node.attrs.latex || '', dom, { displayMode: true, throwOnError: false });
+                // Insert <wbr> after punctuation (.mpunct) to allow line breaks
+                dom.querySelectorAll('.katex-html .mpunct').forEach(el => {
+                    el.after(document.createElement('wbr'));
+                });
             } catch {
                 dom.textContent = node.attrs.latex || '';
             }

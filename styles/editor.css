@@ -150,7 +150,20 @@
     margin: 16px 0;
     padding: 12px 0;
     text-align: center;
-    overflow-x: auto;
+}
+
+.tiptap-editor .math-block .katex-display {
+    margin: 0;
+    overflow: visible;
+}
+
+.tiptap-editor .math-block .katex {
+    white-space: normal !important;
+}
+
+.tiptap-editor .math-block .katex .base {
+    display: inline;
+    white-space: normal !important;
 }
 
 .tiptap-editor .math-inline {
