@@ -22,6 +22,10 @@ export const MathBlock = Node.create({
     parseHTML() {
         return [
             {
+                tag: 'div[data-math-latex]',
+                getAttrs: el => ({ latex: el.getAttribute('data-math-latex') || '' }),
+            },
+            {
                 tag: 'section',
                 getAttrs: el => {
                     const eqn = el.querySelector('eqn');
@@ -49,6 +53,8 @@ export const MathBlock = Node.create({
             dom.className = 'math-block';
             dom.setAttribute('data-math-latex', node.attrs.latex || '');
             dom.contentEditable = 'false';
+            dom.draggable = false;
+            dom.addEventListener('dragstart', e => e.preventDefault());
             try {
                 katex.render(node.attrs.latex || '', dom, { displayMode: true, throwOnError: false });
                 // Insert <wbr> after punctuation (.mpunct) to allow line breaks
