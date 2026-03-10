@@ -30,6 +30,9 @@ export class ClipboardEnhancer {
             // 找到所有选中范围内的原始元素（用于获取计算样式）
             const originalElements = this.getSelectedElements(range);
 
+            // 移除 KaTeX 的 MathML 源码元素（隐藏但会被复制）
+            container.querySelectorAll('.katex-mathml').forEach(el => el.remove());
+
             // 为克隆的元素添加内联样式
             const clonedElements = container.querySelectorAll('*');
 
@@ -50,8 +53,14 @@ export class ClipboardEnhancer {
                 }
             });
 
-            // 设置剪贴板内容
+            // 先提取 HTML（保留 KaTeX 渲染效果）
             const html = container.innerHTML;
+
+            // 清理数学公式中 KaTeX span 之间的多余换行
+            container.querySelectorAll('.math-block, .math-inline').forEach(el => {
+                const raw = el.textContent || '';
+                el.textContent = raw.replace(/\n/g, '');
+            });
             const text = container.textContent || '';
 
             event.clipboardData.setData('text/html', html);
