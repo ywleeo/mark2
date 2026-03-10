@@ -41,7 +41,7 @@ import {
     listFonts,
 } from './api/filesystem.js';
 import { registerDocumentIO, getDocumentApi } from './api/document.js';
-import { setExportMenuEnabled, setAISidebarMenuEnabled } from './api/native.js';
+import { setExportMenuEnabled } from './api/native.js';
 import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
 import { createRecentFilesService } from './services/recentFilesService.js';
@@ -64,7 +64,7 @@ import { createFileMenuActions } from './modules/fileMenuActions.js';
 import { createRecentFilesActions } from './modules/recentFilesActions.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
-import { initAIAssistant } from './modules/ai-assistant/index.js';
+
 import { initCardExportSidebar } from './modules/card-export/index.js';
 import { createTerminalPanel } from './modules/terminalPanel.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
@@ -99,7 +99,7 @@ const rendererRegistry = new RendererRegistry();
 
 // ========== 构造函数（动态加载） ==========
 let SettingsDialogCtor = null;
-let aiAssistant = null;
+
 let cardExportSidebar = null;
 let terminalPanel = null;
 let windowFocusHandler = null;
@@ -176,22 +176,6 @@ async function updateExportMenuState() {
     }
 }
 
-async function updateAISidebarMenuState() {
-    const currentFile = appState.getCurrentFile();
-    const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
-
-    if (appState.getAISidebarMenuEnabledState() === hasMarkdownFile) {
-        return;
-    }
-
-    appState.setAISidebarMenuEnabledState(hasMarkdownFile);
-
-    try {
-        await setAISidebarMenuEnabled(hasMarkdownFile);
-    } catch (error) {
-        console.warn('更新 AI 助手菜单状态失败:', error);
-    }
-}
 
 const viewController = createViewController({
     getCurrentFile: () => appState.getCurrentFile(),
@@ -449,25 +433,6 @@ function handleToolbarOnFileChange(nextPath) {
     syncToolbarWithCurrentContext();
 }
 
-function handleAISidebarOnFileChange(nextPath) {
-    // 更新菜单状态
-    void updateAISidebarMenuState();
-
-    if (!aiAssistant) {
-        return;
-    }
-
-    // 如果不是 markdown 文件，隐藏 AI sidebar
-    if (!nextPath || !isMarkdownFilePath(nextPath)) {
-        aiAssistant.hideSidebar?.();
-        return;
-    }
-
-    // markdown 文件时，如果之前在 MD 文件中打开过，则自动恢复打开状态
-    if (appState.getAISidebarWasOpenInMarkdown()) {
-        aiAssistant.showSidebar?.();
-    }
-}
 
 function handleCardSidebarOnFileChange(nextPath) {
     if (!cardExportSidebar) {
@@ -576,7 +541,7 @@ const {
             scheduleDocumentSnapshotSync();
             void updateExportMenuState();
             handleToolbarOnFileChange(value);
-            handleAISidebarOnFileChange(value);
+
             handleCardSidebarOnFileChange(value);
         },
     getActiveViewMode: () => appState.getActiveViewMode(),
@@ -619,7 +584,7 @@ function clearActiveFileView() {
     appState.setCurrentFile(null);
     appState.setHasUnsavedChanges(false);
     handleToolbarOnFileChange(null);
-    handleAISidebarOnFileChange(null);
+
     handleCardSidebarOnFileChange(null);
     documentSessions.closeActiveSession();
 
@@ -964,12 +929,6 @@ async function initializeApplication() {
         codeEditor: codeEditor,
     });
 
-    // 初始化 AI 助手
-    aiAssistant = await initAIAssistant({
-        eventBus,
-        getEditor: () => editorRegistry.getMarkdownEditor(),
-    });
-    console.log('[App] AI 助手已初始化');
 
     cardExportSidebar = await initCardExportSidebar();
     console.log('[App] 卡片导出侧边栏已初始化');
@@ -984,20 +943,6 @@ async function initializeApplication() {
     });
     terminalPanel.initialize();
 
-    // 订阅 AI sidebar 可见性变化，自动更新状态
-    if (aiAssistant?.layoutService) {
-        aiAssistant.layoutService.subscribe((state) => {
-            const currentFile = appState.getCurrentFile();
-            // 只在 MD 文件激活时记录状态
-            if (currentFile && isMarkdownFilePath(currentFile)) {
-                appState.setAISidebarWasOpenInMarkdown(state.visible);
-            }
-            // 触发 Monaco 编辑器重新布局
-            window.requestAnimationFrame(() => {
-                editorRegistry.getCodeEditor()?.requestLayout?.();
-            });
-        });
-    }
 
     const markdownCodeMode = createMarkdownCodeMode({
         detectLanguageForPath,
@@ -1125,10 +1070,7 @@ async function initializeApplication() {
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
-        onToggleAISidebar: () => {
-            aiAssistant?.toggleSidebar?.();
-            // 状态更新由 layoutService.subscribe 自动处理
-        },
+
         onToggleTerminal: () => {
             if (!isFeatureEnabled('terminal')) {
                 alert(getMASLimitationMessage('terminal'));
@@ -1159,7 +1101,7 @@ async function initializeApplication() {
     // 发布应用初始化完成事件
     eventBus.emit('app:initialized');
     void updateExportMenuState();
-    void updateAISidebarMenuState();
+
 
     // 更新最近文件菜单
     void updateRecentMenu();
@@ -1660,10 +1602,6 @@ function cleanupResources() {
         appState.setFileWatcherController(null);
     }
 
-    // 清理 AI 助手
-    if (aiAssistant?.destroy) {
-        aiAssistant.destroy();
-    }
 
     // 清理终端面板
     if (terminalPanel?.destroy) {

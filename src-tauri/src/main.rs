@@ -107,17 +107,6 @@ impl ExportMenuState {
     }
 }
 
-struct AISidebarMenuState {
-    item: Mutex<MenuItem<Wry>>,
-}
-
-impl AISidebarMenuState {
-    fn new(item: MenuItem<Wry>) -> Self {
-        Self {
-            item: Mutex::new(item),
-        }
-    }
-}
 
 struct RecentMenuState {
     submenu: Mutex<Submenu<Wry>>,
@@ -1438,19 +1427,7 @@ fn set_export_menu_enabled(
     Ok(())
 }
 
-#[tauri::command]
-fn set_ai_sidebar_menu_enabled(
-    state: tauri::State<AISidebarMenuState>,
-    enabled: bool,
-) -> Result<(), String> {
-    let item = state
-        .item
-        .lock()
-        .map_err(|_| "failed to lock ai sidebar menu state")?;
-    item.set_enabled(enabled)
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
+
 
 #[derive(Serialize, Deserialize)]
 struct RecentItem {
@@ -1587,7 +1564,7 @@ fn main() {
             reveal_in_file_manager,
             open_in_terminal,
             set_export_menu_enabled,
-            set_ai_sidebar_menu_enabled,
+
             update_recent_menu,
             pty::pty_spawn,
             pty::pty_write,
@@ -1633,9 +1610,6 @@ fn main() {
                     .accelerator("CmdOrCtrl+Shift+T")
                     .build(app)?;
 
-            let toggle_ai_sidebar_item =
-                MenuItemBuilder::with_id("toggle-ai-sidebar", "AI Assistant")
-                    .build(app)?;
 
             let toggle_terminal_item =
                 MenuItemBuilder::with_id("toggle-terminal", "Terminal")
@@ -1691,7 +1665,7 @@ fn main() {
                 .item(&toggle_sidebar_item)
                 .item(&toggle_status_bar_item)
                 .item(&toggle_markdown_toolbar_item)
-                .item(&toggle_ai_sidebar_item)
+
                 .separator()
                 .item(&toggle_terminal_item)
                 .build()?;
@@ -1702,7 +1676,6 @@ fn main() {
                 export_pdf_a4_item.clone(),
             ));
 
-            app.manage(AISidebarMenuState::new(toggle_ai_sidebar_item.clone()));
 
             let recent_menu_state = RecentMenuState::new(open_recent_submenu.clone());
             recent_menu_state.set_app_handle(app.handle().clone());

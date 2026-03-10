@@ -26,9 +26,6 @@ export class AppState {
         // ========== 导出菜单状态 ==========
         this.exportMenuEnabledState = null;
 
-        // ========== AI 助手状态 ==========
-        this.aiSidebarWasOpenInMarkdown = false; // 在 MD 文件中是否打开过 AI sidebar
-        this.aiSidebarMenuEnabledState = null;
 
         // ========== UI 组件实例 ==========
         this.fileTree = null;
@@ -145,23 +142,6 @@ export class AppState {
         this.exportMenuEnabledState = enabled;
     }
 
-    // ========== AI 助手状态管理 ==========
-
-    getAISidebarWasOpenInMarkdown() {
-        return this.aiSidebarWasOpenInMarkdown;
-    }
-
-    setAISidebarWasOpenInMarkdown(value) {
-        this.aiSidebarWasOpenInMarkdown = Boolean(value);
-    }
-
-    getAISidebarMenuEnabledState() {
-        return this.aiSidebarMenuEnabledState;
-    }
-
-    setAISidebarMenuEnabledState(enabled) {
-        this.aiSidebarMenuEnabledState = enabled;
-    }
 
     // ========== UI 组件实例管理 ==========
 
