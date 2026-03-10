@@ -196,17 +196,10 @@ export class SearchBoxManager {
 
         if (type === 'code') {
             const replaceText = this.replaceInput?.value ?? '';
-            if (replaceText && typeof editor.replaceAllSearchMatches === 'function') {
+            if (typeof editor.replaceAllSearchMatches === 'function') {
                 const result = editor.replaceAllSearchMatches(replaceText);
                 if (result?.replaced > 0) {
-                    this.showInfoMessage(`已替换 ${result.replaced} 处`);
-                } else {
-                    this.showInfoMessage('无结果');
-                }
-            } else if (typeof editor.selectAllSearchMatches === 'function') {
-                const result = editor.selectAllSearchMatches();
-                if (result?.applied && result.total > 0) {
-                    this.showInfoMessage(`多光标 × ${result.total}`);
+                    this.showInfoMessage(replaceText ? `已替换 ${result.replaced} 处` : `已删除 ${result.replaced} 处`);
                 } else {
                     this.showInfoMessage('无结果');
                 }
@@ -214,9 +207,10 @@ export class SearchBoxManager {
             return;
         }
 
-        const replacedCount = this.replaceMarkdownMatches(this.replaceInput?.value ?? '');
+        const replaceText = this.replaceInput?.value ?? '';
+        const replacedCount = this.replaceMarkdownMatches(replaceText);
         if (replacedCount > 0) {
-            this.showInfoMessage(`已替换 ${replacedCount} 处`);
+            this.showInfoMessage(replaceText ? `已替换 ${replacedCount} 处` : `已删除 ${replacedCount} 处`);
         } else {
             this.showInfoMessage('无结果');
         }

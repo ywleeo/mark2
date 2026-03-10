@@ -994,21 +994,29 @@ export class CodeEditor {
             return { applied: false, total: 0 };
         }
 
+        const total = this.searchMatches.length;
         const selections = this.searchMatches.map(m =>
             EditorSelection.range(m._from, m._to)
         );
 
-        this.editor.dispatch({
-            selection: EditorSelection.create(selections, 0),
-        });
-        this.editor.focus();
+        // Single dispatch: set multi-cursor + clear decorations + scroll
+        const effects = [setSearchDecorations.of(Decoration.none)];
         if (this.searchMatches[0]) {
-            this.editor.dispatch({
-                effects: EditorView.scrollIntoView(this.searchMatches[0]._from, { y: 'center' }),
-            });
+            effects.push(EditorView.scrollIntoView(this.searchMatches[0]._from, { y: 'center' }));
         }
 
-        return { applied: true, total: this.searchMatches.length };
+        this.editor.dispatch({
+            selection: EditorSelection.create(selections, 0),
+            effects,
+        });
+
+        // Clear search state so refreshSearchMatches won't re-dispatch during typing
+        this.searchTerm = '';
+        this.searchMatches = null;
+        this.currentMatchIndex = -1;
+
+        this.editor.focus();
+        return { applied: true, total };
     }
 
     replaceAllSearchMatches(replacementText) {

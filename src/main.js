@@ -836,7 +836,6 @@ const {
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
         handleToolbarOnFileChange(value);
-        handleAISidebarOnFileChange(value);
     },
     getHasUnsavedChanges: () => appState.getHasUnsavedChanges(),
     setHasUnsavedChanges: (value) => {
