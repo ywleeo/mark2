@@ -5,7 +5,7 @@
     right: 20px;
     top: 120px;
     width: 280px;
-    max-height: calc(100vh - 120px);
+    max-height: calc(100vh - 155px);
     display: flex;
     flex-direction: column;
     z-index: 1000;
