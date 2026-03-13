@@ -269,14 +269,12 @@ export async function captureViewContent() {
 
     try {
         await document.fonts?.ready;
-        const html2canvas = (await import('html2canvas')).default;
-        const canvas = await html2canvas(captureContainer, {
+        const { toPng } = await import('html-to-image');
+        return await toPng(captureContainer, {
             backgroundColor,
-            scale,
-            useCORS: true,
-            logging: false,
+            pixelRatio: scale,
+            cacheBust: true,
         });
-        return canvas.toDataURL('image/png');
     } finally {
         if (wrapper.parentNode) {
             wrapper.parentNode.removeChild(wrapper);
@@ -609,6 +607,7 @@ function sanitizeExportNode(node) {
     }
     return node;
 }
+
 
 
 function buildBrandingMarkup() {
