@@ -17,6 +17,40 @@ import {
     MAX_ZOOM_SCALE,
 } from './constants.js';
 
+/**
+ * 规范化表格中 <br> + 空行的模式，防止 markdown 表格断裂。
+ * 例如: | cell <br>\n\n<br>more |  →  | cell <br>more |
+ */
+function normalizeTableBreaks(text) {
+    const lines = text.split('\n');
+    const result = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        let line = lines[i];
+
+        if (/^\s*\|/.test(line) && /<br\s*\/?\s*>\s*$/.test(line)) {
+            i++;
+            while (i < lines.length) {
+                if (lines[i].trim() === '') { i++; continue; }
+                if (/^\s*<br\s*\/?\s*>/.test(lines[i])) {
+                    line += lines[i].replace(/^\s*<br\s*\/?\s*>\s*/, '');
+                    i++;
+                    if (!/<br\s*\/?\s*>\s*$/.test(line)) break;
+                } else {
+                    break;
+                }
+            }
+            result.push(line);
+        } else {
+            result.push(line);
+            i++;
+        }
+    }
+
+    return result.join('\n');
+}
+
 // Search decoration infrastructure
 const setSearchDecorations = StateEffect.define();
 const searchDecorationField = StateField.define({
@@ -188,25 +222,43 @@ export class CodeEditor {
     setupPasteHandler() {
         this.pasteHandler = (e) => {
             const text = e.clipboardData?.getData('text/plain');
-            if (!text || text.length < 50) return;
+            if (!text) return;
 
-            const literalCount = (text.match(/\\n/g) || []).length;
-            if (literalCount < 3) return;
+            let processed = text;
+            let needsIntercept = false;
 
-            const actualCount = (text.match(/\n/g) || []).length;
-            if (literalCount <= actualCount * 3) return;
+            // 修复表格中 <br> + 空行导致表格断裂的问题
+            if (processed.includes('<br') && processed.includes('|')) {
+                const normalized = normalizeTableBreaks(processed);
+                if (normalized !== processed) {
+                    processed = normalized;
+                    needsIntercept = true;
+                }
+            }
+
+            // 处理转义的换行/制表符（已有逻辑）
+            if (text.length >= 50) {
+                const literalCount = (text.match(/\\n/g) || []).length;
+                if (literalCount >= 3) {
+                    const actualCount = (text.match(/\n/g) || []).length;
+                    if (literalCount > actualCount * 3) {
+                        processed = processed
+                            .replace(/\\n/g, '\n')
+                            .replace(/\\t/g, '\t');
+                        needsIntercept = true;
+                    }
+                }
+            }
+
+            if (!needsIntercept) return;
 
             e.preventDefault();
             e.stopPropagation();
 
-            const converted = text
-                .replace(/\\n/g, '\n')
-                .replace(/\\t/g, '\t');
-
             if (this.editor) {
                 const { from, to } = this.editor.state.selection.main;
                 this.editor.dispatch({
-                    changes: { from, to, insert: converted },
+                    changes: { from, to, insert: processed },
                 });
             }
         };

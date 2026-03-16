@@ -1031,7 +1031,8 @@ export class MarkdownEditor {
             }
             : null;
 
-        const processedLinks = this.preprocessLinkDestinations(normalizedMarkdown);
+        const processedTable = this.preprocessTableBreaks(normalizedMarkdown);
+        const processedLinks = this.preprocessLinkDestinations(processedTable);
         const processed = this.preprocessListIndentation(processedLinks);
         const parsedDoc = this.markdownParser?.parse(processed) ?? null;
         if (sessionId && sessionId !== this.currentSessionId) {
@@ -1269,6 +1270,35 @@ export class MarkdownEditor {
             }
             return match;
         });
+    }
+
+    // 预处理表格中 <br> + 空行导致的断裂问题
+    preprocessTableBreaks(markdown) {
+        if (!markdown || !markdown.includes('<br')) return markdown;
+        const lines = markdown.split('\n');
+        const result = [];
+        let i = 0;
+        while (i < lines.length) {
+            let line = lines[i];
+            if (/^\s*\|/.test(line) && /<br\s*\/?\s*>\s*$/.test(line)) {
+                i++;
+                while (i < lines.length) {
+                    if (lines[i].trim() === '') { i++; continue; }
+                    if (/^\s*<br\s*\/?\s*>/.test(lines[i])) {
+                        line += lines[i].replace(/^\s*<br\s*\/?\s*>\s*/, '');
+                        i++;
+                        if (!/<br\s*\/?\s*>\s*$/.test(line)) break;
+                    } else {
+                        break;
+                    }
+                }
+                result.push(line);
+            } else {
+                result.push(line);
+                i++;
+            }
+        }
+        return result.join('\n');
     }
 
     // 获取 Markdown 格式的内容
@@ -1579,7 +1609,8 @@ export class MarkdownEditor {
             return;
         }
         const content = typeof markdown === 'string' ? markdown : '';
-        const processedLinks = this.preprocessLinkDestinations(content);
+        const processedTable = this.preprocessTableBreaks(content);
+        const processedLinks = this.preprocessLinkDestinations(processedTable);
         const processed = this.preprocessListIndentation(processedLinks);
         const parsed = this.markdownParser?.parse(processed) ?? null;
 
@@ -1615,7 +1646,8 @@ export class MarkdownEditor {
         const content = typeof markdown === 'string' ? markdown : '';
         // 在AI生成内容前后添加分割线
         const contentWithSeparator = '\n\n### 🤖 生成内容\n\n' + content + '\n\n---\n\n';
-        const processedLinks = this.preprocessLinkDestinations(contentWithSeparator);
+        const processedTable = this.preprocessTableBreaks(contentWithSeparator);
+        const processedLinks = this.preprocessLinkDestinations(processedTable);
         const processed = this.preprocessListIndentation(processedLinks);
         const parsed = this.markdownParser?.parse(processed) ?? null;
 
@@ -2196,7 +2228,8 @@ export class MarkdownEditor {
             .deleteSelection();
 
         if (content.length > 0) {
-            const processedLinks = this.preprocessLinkDestinations(content);
+            const processedTable = this.preprocessTableBreaks(content);
+            const processedLinks = this.preprocessLinkDestinations(processedTable);
             const processed = this.preprocessListIndentation(processedLinks);
             const parsed = this.markdownParser?.parse(processed);
             if (parsed) {
