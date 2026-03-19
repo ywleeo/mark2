@@ -373,7 +373,7 @@
 /* 水平线 */
 .tiptap-editor hr {
     border: none;
-    border-top-width: 2px;
+    border-top-width: 1px;
     border-top-style: solid;
     margin: 1em 0;
 }
@@ -410,9 +410,9 @@
 
 .tiptap-editor table td,
 .tiptap-editor table th {
-    min-width: 1em;
+    min-width: 100px;
     border-width: 1px;
-    border-style: solid;
+    border-bottom-style: solid;
     padding: 8px 12px;
     vertical-align: top;
     box-sizing: border-box;

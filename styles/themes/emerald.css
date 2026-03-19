@@ -41,19 +41,19 @@
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) hr,
 .tiptap-editor[data-theme-appearance='light'] hr{
-    border-top-color: #e5e7eb;
+    border-top-color: #9e9fa0;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table td,
 .tiptap-editor[data-theme-appearance='light'] table td,
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='light'] table th{
-    border-color: #e5e7eb;
+    border-color: #9e9fa0;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='light'] table th{
-    background-color: #f8fafc;
+    background-color: #f0f1f1;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) p.is-editor-empty:first-child::before,

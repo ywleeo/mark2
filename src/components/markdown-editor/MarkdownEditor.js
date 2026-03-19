@@ -656,13 +656,19 @@ export class MarkdownEditor {
         this.tableBubbleToolbar.style.visibility = 'hidden';
         this.tableBubbleToolbar.classList.add('is-visible');
 
-        // 获取表格和工具栏的位置
-        const tableRect = tableNode.getBoundingClientRect();
+        // 获取当前选中单元格的位置（优先），否则回退到表格位置
+        const cellDOM = this.editor.view.domAtPos($from.pos).node;
+        const cellElement = cellDOM?.nodeType === 1
+            ? cellDOM.closest('td, th')
+            : cellDOM?.parentElement?.closest('td, th');
+        const anchorRect = cellElement
+            ? cellElement.getBoundingClientRect()
+            : tableNode.getBoundingClientRect();
         const toolbarRect = this.tableBubbleToolbar.getBoundingClientRect();
 
-        // 定位在表格上方居中
-        let left = tableRect.left + (tableRect.width - toolbarRect.width) / 2;
-        let top = tableRect.top - toolbarRect.height - 8;
+        // 定位在选中单元格上方居中
+        let left = anchorRect.left + (anchorRect.width - toolbarRect.width) / 2;
+        let top = anchorRect.top - toolbarRect.height - 8;
 
         // 确保不超出视口
         left = Math.max(8, Math.min(left, window.innerWidth - toolbarRect.width - 8));
