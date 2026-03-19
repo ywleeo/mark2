@@ -564,7 +564,10 @@ export class MarkdownEditor {
         });
 
         // 监听选区变化
-        this.editor.on('selectionUpdate', () => this.updateTableToolbarPosition());
+        this.editor.on('selectionUpdate', () => {
+            this.fillEmptyTableCellAtCursor();
+            this.updateTableToolbarPosition();
+        });
         // 点击工具栏时不应隐藏，所以 blur 时需要检查
         this.editor.on('blur', () => {
             // 延迟检查，避免点击工具栏时立即隐藏
@@ -598,6 +601,9 @@ export class MarkdownEditor {
         }, 10);
     }
 
+    /**
+     * 用零宽空格填充空表格单元格，避免 IME 在空段落中输入异常
+     */
     fillEmptyTableCells() {
         if (!this.editor) return;
         const { state } = this.editor;
@@ -606,13 +612,10 @@ export class MarkdownEditor {
         const cellTypes = new Set(['tableCell', 'tableHeader']);
         const emptyParagraphPositions = [];
 
-        // 找出表格单元格中内容为空的段落
         doc.descendants((node, pos) => {
             if (cellTypes.has(node.type.name)) {
-                // 检查单元格内的每个子节点
                 node.forEach((child, offset) => {
                     if (child.type.name === 'paragraph' && child.content.size === 0) {
-                        // 空段落的位置：单元格位置 + 1（进入单元格）+ offset（子节点偏移）+ 1（进入段落）
                         emptyParagraphPositions.push(pos + 1 + offset + 1);
                     }
                 });
@@ -621,14 +624,41 @@ export class MarkdownEditor {
 
         if (emptyParagraphPositions.length === 0) return;
 
-        // 从后往前插入文本，避免位置偏移
         let tr = state.tr;
         for (let i = emptyParagraphPositions.length - 1; i >= 0; i--) {
-            const textNode = schema.text('内容');
+            const textNode = schema.text('\u200B');
             tr = tr.insert(emptyParagraphPositions[i], textNode);
         }
         tr.setMeta('addToHistory', false);
         this.editor.view.dispatch(tr);
+    }
+
+    /**
+     * 当光标移入空的表格单元格时，填充零宽空格以避免 IME 异常
+     */
+    fillEmptyTableCellAtCursor() {
+        if (!this.editor) return;
+        const { state } = this.editor;
+        const { $from } = state.selection;
+        const cellTypes = new Set(['tableCell', 'tableHeader']);
+
+        // 找到光标所在的单元格
+        for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            if (cellTypes.has(node.type.name)) {
+                // 检查单元格内是否有空段落
+                const cellPos = $from.before(d);
+                node.forEach((child, offset) => {
+                    if (child.type.name === 'paragraph' && child.content.size === 0) {
+                        const insertPos = cellPos + 1 + offset + 1;
+                        const tr = state.tr.insert(insertPos, state.schema.text('\u200B'));
+                        tr.setMeta('addToHistory', false);
+                        this.editor.view.dispatch(tr);
+                    }
+                });
+                break;
+            }
+        }
     }
 
     updateTableToolbarPosition() {
@@ -1313,7 +1343,9 @@ export class MarkdownEditor {
             return this.originalMarkdown;
         }
         const markdown = this.markdownSerializer?.serialize(this.editor.state.doc) ?? '';
-        return ensureMarkdownTrailingEmptyLine(markdown);
+        // 去掉用于 IME 兼容的零宽空格
+        const cleaned = markdown.replace(/\u200B/g, '');
+        return ensureMarkdownTrailingEmptyLine(cleaned);
     }
 
     clearAutoSaveTimer() {

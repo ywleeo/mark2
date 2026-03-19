@@ -411,12 +411,18 @@
 .tiptap-editor table td,
 .tiptap-editor table th {
     min-width: 100px;
+    min-height: 1.5em;
     border-width: 1px;
     border-bottom-style: solid;
     padding: 8px 12px;
     vertical-align: top;
     box-sizing: border-box;
     position: relative;
+}
+
+.tiptap-editor table td p,
+.tiptap-editor table th p {
+    min-height: 1em;
 }
 
 .tiptap-editor table th {

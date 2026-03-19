@@ -327,9 +327,9 @@ export class MarkdownToolbar {
                 ]
             });
             const sampleContent = [
-                ['列1', '列2', '列3'],
-                ['内容1', '内容2', '内容3'],
-                ['内容4', '内容5', '内容6']
+                ['', '', ''],
+                ['', '', ''],
+                ['', '', '']
             ];
             const tableNode = {
                 type: 'table',
@@ -369,10 +369,10 @@ export class MarkdownToolbar {
         }
 
         // 退回到插入 Markdown 文本（例如旧编辑器或 table 扩展不可用时）
-        const markdownTable = `| 列1 | 列2 | 列3 |
+        const markdownTable = `|  |  |  |
 | --- | --- | --- |
-| 内容1 | 内容2 | 内容3 |
-| 内容4 | 内容5 | 内容6 |
+|  |  |  |
+|  |  |  |
 
 `;
 
@@ -573,7 +573,7 @@ export class MarkdownToolbar {
      * 插入表格
      */
     insertTable() {
-        const table = '\n| 列1 | 列2 | 列3 |\n|-----|-----|-----|\n| 数据1 | 数据2 | 数据3 |\n';
+        const table = '\n|  |  |  |\n|-----|-----|-----|\n|  |  |  |\n';
         this.insertTextAtCursor(table);
     }
 
