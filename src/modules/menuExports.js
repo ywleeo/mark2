@@ -3,14 +3,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { join, tempDir } from '@tauri-apps/api/path';
 import {
-    buildDefaultPdfPath,
     buildDefaultScreenshotPath,
     captureViewContent,
     collectContentForPdf,
 } from '../utils/exportUtils.js';
-import { captureScreenshot, exportToPdf } from '../api/native.js';
-
-const PDF_PAGINATION_DEBUG = 'verbose';
+import { captureScreenshot } from '../api/native.js';
 
 export async function exportCurrentViewToImage({ statusBarController }) {
     let progressShown = false;
@@ -58,87 +55,7 @@ export async function exportCurrentViewToImage({ statusBarController }) {
     }
 }
 
-async function exportPdfWithMode({
-    activeViewMode,
-    statusBarController,
-    mode,
-    pageFormat,
-    dialogTitle,
-    progressLabel,
-    successLabel,
-}) {
-    let progressShown = false;
-    try {
-        const defaultPath = await buildDefaultPdfPath();
-        const targetPath = await save({
-            title: dialogTitle,
-            filters: [
-                {
-                    name: 'PDF 文件',
-                    extensions: ['pdf'],
-                },
-            ],
-            defaultPath,
-        });
-
-        if (!targetPath) {
-            return;
-        }
-
-        statusBarController?.showProgress?.(progressLabel);
-        progressShown = true;
-
-        const { htmlContent, cssContent, pageWidth, htmlAttributes } = await collectContentForPdf(
-            activeViewMode,
-            {
-                pageFormat,
-                contentBottomPadding: 15, // 内容区底部到 footer 的距离（mm），可调整
-                debugPagination: PDF_PAGINATION_DEBUG,
-            }
-        );
-        await exportToPdf({
-            destination: targetPath,
-            htmlContent,
-            cssContent,
-            htmlAttributes,
-            pageWidth,
-            mode,
-        });
-
-        statusBarController?.showProgress?.(successLabel + targetPath, { state: 'success' });
-        statusBarController?.hideProgress?.({ delay: 2200 });
-        progressShown = false;
-    } catch (error) {
-        console.error('导出 PDF 失败', error);
-        if (progressShown) {
-            statusBarController?.hideProgress?.();
-            progressShown = false;
-        }
-        const reason = error?.message || String(error);
-        await message('导出 PDF 失败: ' + reason, {
-            title: '导出失败',
-            kind: 'error',
-        });
-    } finally {
-        if (progressShown) {
-            statusBarController?.hideProgress?.();
-        }
-    }
-}
-
-export function exportCurrentViewToPdf({ activeViewMode, statusBarController }) {
-    return exportPdfWithMode({
-        activeViewMode,
-        statusBarController,
-        mode: undefined,
-        pageFormat: undefined,
-        dialogTitle: '导出 PDF',
-        progressLabel: '正在导出 PDF…',
-        successLabel: 'PDF 已保存：',
-    });
-}
-
-export async function exportCurrentViewToPdfA4({ activeViewMode, statusBarController }) {
+export async function exportCurrentViewToPdf({ activeViewMode, statusBarController }) {
     try {
         statusBarController?.showProgress?.('正在准备打印…');
 

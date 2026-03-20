@@ -35,7 +35,6 @@ import { setupSidebarResizer } from './utils/sidebarResizer.js';
 import {
     exportCurrentViewToImage,
     exportCurrentViewToPdf,
-    exportCurrentViewToPdfA4,
 } from './modules/menuExports.js';
 import {
     listFonts,
@@ -1064,7 +1063,6 @@ async function initializeApplication() {
         onSettings: openSettingsDialog,
         onExportImage: () => exportCurrentViewToImage({ statusBarController: appState.getStatusBarController() }),
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),
-        onExportPdfA4: () => exportCurrentViewToPdfA4({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,

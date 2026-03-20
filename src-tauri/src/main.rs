@@ -10,7 +10,6 @@ use base64::Engine;
 use calamine::{open_workbook_auto, Data, Reader};
 use font_kit::source::SystemSource;
 use percent_encoding::percent_decode_str;
-use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -26,38 +25,21 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 #[cfg(target_os = "macos")]
-use block2::StackBlock;
+use objc2::rc::autoreleasepool;
 #[cfg(target_os = "macos")]
-use lopdf::{Document, Object};
-#[cfg(target_os = "macos")]
-use objc2::rc::{autoreleasepool, Retained};
-#[cfg(target_os = "macos")]
-use objc2::runtime::AnyObject;
-#[cfg(target_os = "macos")]
-use objc2::{MainThreadMarker, MainThreadOnly};
+use objc2::MainThreadMarker;
 #[cfg(target_os = "macos")]
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel, NSPasteboard};
 #[cfg(target_os = "macos")]
-use objc2_core_foundation::{CGFloat, CGPoint, CGRect, CGSize};
+use objc2_foundation::{NSString, NSURL};
 #[cfg(target_os = "macos")]
-use objc2_foundation::{NSData, NSDate, NSError, NSRunLoop, NSString, NSURL};
-#[cfg(target_os = "macos")]
-use objc2_web_kit::{WKPDFConfiguration, WKWebView, WKWebViewConfiguration};
 
-#[cfg(not(target_os = "macos"))]
-use headless_chrome::{Browser, LaunchOptions};
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "macos")]
-use std::cell::RefCell;
-#[cfg(target_os = "macos")]
-use std::rc::Rc;
-#[cfg(target_os = "macos")]
-use std::time::{Duration, Instant};
 
 #[cfg(target_os = "macos")]
 use crate::macos_security::{
-    create_bookmark_for_path, create_security_scoped_bookmark, error_to_string, move_path_to_trash,
-    nsdata_to_vec, nsstring_to_string, start_access_from_bookmark, url_path,
+    create_bookmark_for_path, create_security_scoped_bookmark, move_path_to_trash,
+    start_access_from_bookmark, url_path,
 };
 
 #[derive(Serialize)]
@@ -83,8 +65,7 @@ struct PlainPastePayload {
 
 struct ExportMenuHandles {
     image: MenuItem<Wry>,
-    pdf_continuous: MenuItem<Wry>,
-    pdf_paginated: MenuItem<Wry>,
+    pdf: MenuItem<Wry>,
 }
 
 struct ExportMenuState {
@@ -94,14 +75,12 @@ struct ExportMenuState {
 impl ExportMenuState {
     fn new(
         image: MenuItem<Wry>,
-        pdf_continuous: MenuItem<Wry>,
-        pdf_paginated: MenuItem<Wry>,
+        pdf: MenuItem<Wry>,
     ) -> Self {
         Self {
             handles: Mutex::new(ExportMenuHandles {
                 image,
-                pdf_continuous,
-                pdf_paginated,
+                pdf,
             }),
         }
     }
@@ -814,506 +793,11 @@ async fn capture_screenshot(destination: String, image_data: String) -> Result<(
     Ok(())
 }
 
-#[tauri::command]
-async fn export_to_pdf(
-    app: tauri::AppHandle,
-    destination: String,
-    html_content: String,
-    css_content: String,
-    html_attributes: Option<HashMap<String, String>>,
-    page_width: Option<f64>,
-    export_mode: Option<String>,
-) -> Result<(), String> {
-    if let Some(parent) = Path::new(&destination).parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).map_err(|err| err.to_string())?;
-        }
-    }
 
-    let full_html = compose_full_html(&html_content, &css_content, html_attributes);
 
-    #[cfg(not(target_os = "macos"))]
-    let _ = page_width;
 
-    #[cfg(target_os = "macos")]
-    #[cfg(target_os = "macos")]
-    let pdf_bytes = {
-        let mode = PdfRenderMode::from_option(export_mode.as_deref());
-        render_pdf_with_webkit(&app, full_html, page_width, mode)?
-    };
 
-    #[cfg(not(target_os = "macos"))]
-    let pdf_bytes = {
-        let _ = export_mode;
-        render_pdf_with_headless(full_html)?
-    };
 
-    fs::write(&destination, pdf_bytes).map_err(|err| err.to_string())
-}
-
-fn compose_full_html(
-    html_content: &str,
-    css_content: &str,
-    html_attributes: Option<HashMap<String, String>>,
-) -> String {
-    let html_attributes = build_html_attribute_string(html_attributes);
-    format!(
-        r#"<!DOCTYPE html>
-<html{}>
-<head>
-    <meta charset="UTF-8">
-    <style>{}</style>
-</head>
-<body>
-    {}
-</body>
-</html>"#,
-        html_attributes, css_content, html_content
-    )
-}
-
-fn build_html_attribute_string(attributes: Option<HashMap<String, String>>) -> String {
-    let mut items = Vec::new();
-    if let Some(attributes) = attributes {
-        for (key, value) in attributes {
-            let key = key.trim();
-            let value = value.trim();
-            if key.is_empty() || value.is_empty() {
-                continue;
-            }
-            let escaped = escape_html_attribute(value);
-            items.push(format!(r#"{}="{}""#, key, escaped));
-        }
-    }
-
-    if items.is_empty() {
-        String::new()
-    } else {
-        format!(" {}", items.join(" "))
-    }
-}
-
-fn escape_html_attribute(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('"', "&quot;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-}
-
-#[cfg(not(target_os = "macos"))]
-fn render_pdf_with_headless(full_html: String) -> Result<Vec<u8>, String> {
-    let browser = Browser::new(LaunchOptions {
-        headless: true,
-        ..Default::default()
-    })
-    .map_err(|e| format!("启动浏览器失败: {}", e))?;
-
-    let tab = browser
-        .new_tab()
-        .map_err(|e| format!("创建标签页失败: {}", e))?;
-
-    tab.navigate_to(&format!(
-        "data:text/html,{}",
-        urlencoding::encode(&full_html)
-    ))
-    .map_err(|e| format!("加载 HTML 失败: {}", e))?;
-
-    tab.wait_until_navigated()
-        .map_err(|e| format!("等待页面加载失败: {}", e))?;
-
-    let header_template =
-        "<div style=\"width:100%;font-size:0;margin:0;padding:0;\">&nbsp;</div>".to_string();
-    let footer_template = r#"
-        <div style="width:100%;padding:6px 0 0 0;display:flex;justify-content:center;align-items:center;gap:12px;font-size:11px;color:#999;">
-            <span style="flex:1;height:1px;background:#e5e5e5;"></span>
-            <span style="display:inline-block;background:#ff3b30;color:#ffffff;font-weight:700;font-size:12px;letter-spacing:0.4px;padding:2px 14px;border-radius:4px;">Mark2</span>
-            <span style="flex:1;height:1px;background:#e5e5e5;"></span>
-        </div>
-    "#
-    .to_string();
-
-    let pdf_options = headless_chrome::types::PrintToPdfOptions {
-        landscape: Some(false),
-        display_header_footer: Some(true),
-        print_background: Some(true),
-        scale: Some(1.0),
-        paper_width: None,
-        paper_height: None,
-        margin_top: Some(0.5),
-        margin_bottom: Some(0.5),
-        margin_left: Some(0.3),
-        margin_right: Some(0.3),
-        page_ranges: None,
-        ignore_invalid_page_ranges: None,
-        header_template: Some(header_template),
-        footer_template: Some(footer_template),
-        prefer_css_page_size: Some(true),
-        transfer_mode: None,
-        generate_document_outline: None,
-        generate_tagged_pdf: None,
-    };
-
-    tab.print_to_pdf(Some(pdf_options))
-        .map_err(|e| format!("生成 PDF 失败: {}", e))
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-struct DocumentMetrics {
-    width: f64,
-    height: f64,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Clone, Copy)]
-enum PdfRenderMode {
-    Continuous,
-    PaginatedA4,
-}
-
-#[cfg(target_os = "macos")]
-impl PdfRenderMode {
-    fn from_option(mode: Option<&str>) -> Self {
-        match mode {
-            Some(value) if value.eq_ignore_ascii_case("a4") => Self::PaginatedA4,
-            _ => Self::Continuous,
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn render_pdf_with_webkit(
-    app: &tauri::AppHandle,
-    full_html: String,
-    page_width: Option<f64>,
-    mode: PdfRenderMode,
-) -> Result<Vec<u8>, String> {
-    use std::sync::mpsc;
-
-    // A4 标准宽度（72 DPI）
-    const A4_WIDTH: f64 = 595.28;
-
-    let (tx, rx) = mpsc::channel();
-
-    let html = full_html;
-    app.run_on_main_thread(move || {
-        let result = autoreleasepool(|_| {
-            let mtm = MainThreadMarker::new()
-                .ok_or_else(|| "export_to_pdf 需要在主线程上执行".to_string())?;
-
-            let config = unsafe { WKWebViewConfiguration::init(WKWebViewConfiguration::alloc(mtm)) };
-
-            // A4 模式使用标准 A4 宽度，连续模式使用传入的宽度
-            let initial_width = match mode {
-                PdfRenderMode::PaginatedA4 => A4_WIDTH,
-                PdfRenderMode::Continuous => page_width.unwrap_or(900.0).max(320.0),
-            };
-
-            let frame = CGRect::new(
-                CGPoint::new(0.0, 0.0),
-                CGSize::new(initial_width as CGFloat, 2000.0 as CGFloat),
-            );
-            let webview = unsafe {
-                WKWebView::initWithFrame_configuration(WKWebView::alloc(mtm), frame, &config)
-            };
-
-            let html_ns = NSString::from_str(&html);
-            unsafe {
-                webview
-                    .loadHTMLString_baseURL(&html_ns, None)
-                    .ok_or_else(|| "无法加载 HTML 内容".to_string())?;
-            }
-
-            let run_loop = NSRunLoop::currentRunLoop();
-            wait_for_condition(&run_loop, Duration::from_secs(10), || unsafe {
-                !webview.isLoading()
-            })?;
-
-            let metrics = collect_document_metrics(&webview, &run_loop)?;
-            eprintln!("[PDF Debug] initial metrics: width={}, height={}", metrics.width, metrics.height);
-
-            // A4 模式固定使用 A4 宽度，连续模式使用实际内容宽度
-            let capture_width = match mode {
-                PdfRenderMode::PaginatedA4 => A4_WIDTH,
-                PdfRenderMode::Continuous => metrics
-                    .width
-                    .max(page_width.unwrap_or(metrics.width))
-                    .max(1.0),
-            };
-            let capture_height = metrics.height.max(1.0).min(200_000.0);
-            eprintln!("[PDF Debug] capture_width={}, capture_height={}, page_width={:?}", capture_width, capture_height, page_width);
-
-            webview.setFrame(CGRect::new(
-                CGPoint::new(0.0, 0.0),
-                CGSize::new(capture_width as CGFloat, capture_height as CGFloat),
-            ));
-            webview.setNeedsDisplay(true);
-            webview.layoutSubtreeIfNeeded();
-            webview.displayIfNeeded();
-
-            // resize 后重新测量，看实际内容高度
-            let metrics_after = collect_document_metrics(&webview, &run_loop)?;
-            eprintln!("[PDF Debug] after resize metrics: width={}, height={}", metrics_after.width, metrics_after.height);
-
-            let pdf_bytes = match mode {
-                PdfRenderMode::Continuous => {
-                    capture_pdf_slice(&webview, &run_loop, CGRect::new(
-                        CGPoint::new(0.0, 0.0),
-                        CGSize::new(capture_width as CGFloat, capture_height as CGFloat),
-                    ), mtm)?
-                }
-                PdfRenderMode::PaginatedA4 => create_paginated_pdf_document(
-                    &webview,
-                    &run_loop,
-                    capture_width,
-                    capture_height,
-                    mtm,
-                )?,
-            };
-            Ok(pdf_bytes)
-        });
-
-        let _ = tx.send(result);
-    })
-    .map_err(|e| e.to_string())?;
-
-    rx.recv().map_err(|e| e.to_string())?
-}
-
-#[cfg(target_os = "macos")]
-fn collect_document_metrics(
-    webview: &WKWebView,
-    run_loop: &NSRunLoop,
-) -> Result<DocumentMetrics, String> {
-    let script = r#"(() => {
-        const collect = () => {
-            // 优先测量导出 wrapper 的实际内容高度，避免 body/html 的 height:100vh 干扰
-            const wrapper = document.querySelector('.mark2-export-wrapper, .mark2-export-wrapper--a4');
-            const root = document.scrollingElement || document.documentElement || document.body;
-            const width = Math.ceil(root?.scrollWidth || document.body?.scrollWidth || 0);
-            let height;
-            if (wrapper) {
-                const rect = wrapper.getBoundingClientRect();
-                height = Math.ceil(rect.top + rect.height);
-            } else {
-                height = Math.ceil(root?.scrollHeight || document.body?.scrollHeight || 0);
-            }
-            return JSON.stringify({ width, height });
-        };
-        if (document.fonts && document.fonts.status !== 'loaded') {
-            return document.fonts.ready.then(collect).catch(collect);
-        }
-        return collect();
-    })()"#;
-
-    let serialized = wait_for_js_string(webview, run_loop, script, Duration::from_secs(10))?;
-    serde_json::from_str(&serialized).map_err(|err| format!("解析页面尺寸失败: {err}"))
-}
-
-#[cfg(target_os = "macos")]
-fn wait_for_js_string(
-    webview: &WKWebView,
-    run_loop: &NSRunLoop,
-    script: &str,
-    timeout: Duration,
-) -> Result<String, String> {
-    let result = Rc::new(RefCell::new(None));
-    let sender = Rc::clone(&result);
-
-    let script_ns = NSString::from_str(script);
-    let block = StackBlock::new(move |value: *mut AnyObject, error: *mut NSError| {
-        let outcome = if !error.is_null() {
-            let retained = unsafe { Retained::retain(error).unwrap() };
-            Err(error_to_string(retained))
-        } else if value.is_null() {
-            Err("evaluateJavaScript 返回空值".to_string())
-        } else {
-            let ns_string = unsafe { &*(value as *mut NSString) };
-            Ok(nsstring_to_string(ns_string))
-        };
-        *sender.borrow_mut() = Some(outcome);
-    })
-    .copy();
-
-    unsafe {
-        webview.evaluateJavaScript_completionHandler(&script_ns, Some(&block));
-    }
-
-    wait_for_async_result(run_loop, &result, timeout)
-}
-
-#[cfg(target_os = "macos")]
-fn capture_pdf_slice(
-    webview: &WKWebView,
-    run_loop: &NSRunLoop,
-    rect: CGRect,
-    mtm: MainThreadMarker,
-) -> Result<Vec<u8>, String> {
-    let pdf_config = unsafe { WKPDFConfiguration::init(WKPDFConfiguration::alloc(mtm)) };
-    unsafe {
-        pdf_config.setRect(rect);
-        pdf_config.setAllowTransparentBackground(false);
-    }
-
-    let result = Rc::new(RefCell::new(None));
-    let sender = Rc::clone(&result);
-
-    let block = StackBlock::new(move |data_ptr: *mut NSData, error_ptr: *mut NSError| {
-        let outcome = if !error_ptr.is_null() {
-            let retained = unsafe { Retained::retain(error_ptr).unwrap() };
-            Err(error_to_string(retained))
-        } else if let Some(data) = unsafe { data_ptr.as_ref() } {
-            Ok(nsdata_to_vec(data))
-        } else {
-            Err("WKWebView 未返回 PDF 数据".to_string())
-        };
-        *sender.borrow_mut() = Some(outcome);
-    })
-    .copy();
-
-    unsafe {
-        webview.createPDFWithConfiguration_completionHandler(Some(&pdf_config), &block);
-    }
-
-    wait_for_async_result(run_loop, &result, Duration::from_secs(20))
-}
-
-#[cfg(target_os = "macos")]
-fn create_paginated_pdf_document(
-    webview: &WKWebView,
-    run_loop: &NSRunLoop,
-    _width: f64,
-    height: f64,
-    mtm: MainThreadMarker,
-) -> Result<Vec<u8>, String> {
-    // A4 尺寸（72 DPI，标准 PDF points）
-    // 页面边距：上下左右各 15mm ≈ 42.5 points
-    const A4_WIDTH: f64 = 595.28;
-    const A4_HEIGHT: f64 = 841.89;
-    const MARGIN: f64 = 42.5;
-    let content_height = A4_HEIGHT - MARGIN * 2.0; // 可用内容高度
-
-    // 按 A4 页面高度切割
-    let mut offset = 0.0;
-    let mut slices = Vec::new();
-    while offset < height - 0.5 {
-        let remaining = height - offset;
-        let slice_height = content_height.min(remaining);
-        let rect = CGRect::new(
-            CGPoint::new(0.0, offset as CGFloat),
-            CGSize::new(A4_WIDTH as CGFloat, slice_height as CGFloat),
-        );
-        let data = capture_pdf_slice(webview, run_loop, rect, mtm)?;
-        slices.push(data);
-        offset += slice_height;
-    }
-
-    merge_pdf_pages(&slices)
-}
-
-#[cfg(target_os = "macos")]
-fn merge_pdf_pages(pages: &[Vec<u8>]) -> Result<Vec<u8>, String> {
-    use lopdf::{Dictionary, ObjectId};
-
-    if pages.is_empty() {
-        return Err("没有可合并的 PDF 页面".to_string());
-    }
-
-    let mut document = Document::with_version("1.5");
-    let mut max_id = 1;
-    let mut page_refs: Vec<ObjectId> = Vec::new();
-
-    for data in pages {
-        let mut single =
-            Document::load_mem(data).map_err(|e| format!("解析单页 PDF 失败: {e}"))?;
-        single.renumber_objects_with(max_id);
-        max_id = single.max_id + 1;
-
-        for (_, object_id) in single.get_pages() {
-            page_refs.push(object_id);
-        }
-
-        document.objects.extend(single.objects);
-    }
-
-    // 确保新创建的对象 ID 不会覆盖已有对象
-    document.max_id = max_id.saturating_sub(1);
-
-    let pages_id = document.new_object_id();
-    let kids = page_refs
-        .iter()
-        .map(|id| Object::Reference(*id))
-        .collect::<Vec<_>>();
-    document.objects.insert(
-        pages_id,
-        Dictionary::from_iter([
-            ("Type", Object::Name(b"Pages".to_vec())),
-            ("Kids", Object::Array(kids)),
-            ("Count", Object::Integer(page_refs.len() as i64)),
-        ])
-        .into(),
-    );
-
-    for page_id in &page_refs {
-        if let Some(Object::Dictionary(dict)) = document.objects.get_mut(page_id) {
-            dict.set("Parent", Object::Reference(pages_id));
-        }
-    }
-
-    let catalog_id = document.new_object_id();
-    document.objects.insert(
-        catalog_id,
-        Dictionary::from_iter([
-            ("Type", Object::Name(b"Catalog".to_vec())),
-            ("Pages", Object::Reference(pages_id)),
-        ])
-        .into(),
-    );
-    document.trailer.set("Root", Object::Reference(catalog_id));
-
-    let mut buffer = Vec::new();
-    document
-        .save_to(&mut buffer)
-        .map_err(|e| format!("合并 PDF 失败: {e}"))?;
-    Ok(buffer)
-}
-
-#[cfg(target_os = "macos")]
-fn wait_for_async_result<T>(
-    run_loop: &NSRunLoop,
-    cell: &Rc<RefCell<Option<Result<T, String>>>>,
-    timeout: Duration,
-) -> Result<T, String> {
-    wait_for_condition(run_loop, timeout, || cell.borrow().is_some())?;
-    cell.borrow_mut()
-        .take()
-        .unwrap_or_else(|| Err("操作被中断".to_string()))
-}
-
-#[cfg(target_os = "macos")]
-fn wait_for_condition<F>(
-    run_loop: &NSRunLoop,
-    timeout: Duration,
-    mut ready: F,
-) -> Result<(), String>
-where
-    F: FnMut() -> bool,
-{
-    if ready() {
-        return Ok(());
-    }
-
-    let start = Instant::now();
-    while !ready() {
-        if start.elapsed() > timeout {
-            return Err("等待 WebKit 响应超时".to_string());
-        }
-        let tick = NSDate::dateWithTimeIntervalSinceNow(0.01);
-        run_loop.runUntilDate(&tick);
-    }
-    Ok(())
-}
 
 #[cfg(target_os = "macos")]
 fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
@@ -1417,11 +901,7 @@ fn set_export_menu_enabled(
         .set_enabled(enabled)
         .map_err(|e| e.to_string())?;
     handles
-        .pdf_continuous
-        .set_enabled(enabled)
-        .map_err(|e| e.to_string())?;
-    handles
-        .pdf_paginated
+        .pdf
         .set_enabled(enabled)
         .map_err(|e| e.to_string())?;
     Ok(())
@@ -1556,7 +1036,6 @@ fn main() {
             restore_security_scoped_access,
             list_fonts,
             capture_screenshot,
-            export_to_pdf,
             get_file_metadata,
             ipc_health_check,
             update_workspace_context,
@@ -1593,10 +1072,6 @@ fn main() {
             let export_pdf_item = MenuItemBuilder::with_id("export-pdf", "Export as PDF...")
                 .accelerator("CmdOrCtrl+Shift+P")
                 .build(app)?;
-            let export_pdf_a4_item =
-                MenuItemBuilder::with_id("export-pdf-a4", "Export as PDF (A4 Pages)")
-                    .accelerator("CmdOrCtrl+Shift+Option+P")
-                    .build(app)?;
 
             let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
                 .accelerator("CmdOrCtrl+\\")
@@ -1631,7 +1106,6 @@ fn main() {
             let export_submenu = SubmenuBuilder::new(app, "Export")
                 .item(&export_image_item)
                 .item(&export_pdf_item)
-                .item(&export_pdf_a4_item)
                 .build()?;
 
             let new_file_item = MenuItemBuilder::with_id("file-new", "New...")
@@ -1673,7 +1147,6 @@ fn main() {
             app.manage(ExportMenuState::new(
                 export_image_item.clone(),
                 export_pdf_item.clone(),
-                export_pdf_a4_item.clone(),
             ));
 
 

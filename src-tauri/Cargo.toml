@@ -21,8 +21,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 font-kit = { version = "0.12", default-features = false, features = ["source"] }
 base64 = "0.21"
-headless_chrome = "1.0"
-urlencoding = "2.1"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 parking_lot = "0.12"
 futures-util = "0.3"
@@ -30,13 +28,9 @@ calamine = "0.24"
 tokio-rustls = "0.25"
 trash = "3"
 percent-encoding = "2.3"
-lopdf = "0.32"
 portable-pty = "0.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6", features = ["std"] }
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL", "NSData", "NSError", "NSFileManager", "NSDate", "NSRunLoop", "NSGeometry"] }
 objc2-app-kit = { version = "0.3", features = ["NSOpenPanel", "NSSavePanel", "NSPanel", "NSWindow", "NSResponder"] }
-objc2-core-foundation = { version = "0.3", features = ["CFCGTypes"] }
-objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKPDFConfiguration", "WKNavigation"] }
-block2 = "0.6"
