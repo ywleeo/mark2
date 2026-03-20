@@ -2,7 +2,7 @@ import { parseStreamData } from './services/streamParser.js';
 
 /**
  * AI 服务 - 直接调用 OpenAI API
- * 完全前端实现，支持流式响应
+ * 支持多 provider 配置，流式响应
  */
 
 class AiService {
@@ -12,9 +12,8 @@ class AiService {
         this.config = this.loadConfig();
     }
 
-    /**
-     * 从 localStorage 加载配置
-     */
+    // ── 配置管理 ──────────────────────────────────────────
+
     loadConfig() {
         const stored = localStorage.getItem('ai-config');
         let raw = {};
@@ -28,57 +27,161 @@ class AiService {
         return this.normalizeConfig(raw);
     }
 
-    /**
-     * 保存配置到 localStorage
-     */
     saveConfig(config) {
-        const merged = { ...this.config, ...config };
-        this.config = this.normalizeConfig(merged);
+        this.config = this.normalizeConfig(config);
         localStorage.setItem('ai-config', JSON.stringify(this.config));
         this.notify({ type: 'config', data: this.config });
         return this.config;
     }
 
-    /**
-     * 获取当前配置
-     */
     getConfig() {
         return this.config;
     }
 
-    /**
-     * 规范化配置
-     */
     normalizeConfig(config) {
+        const providers = Array.isArray(config.providers) ? config.providers.map(p => ({
+            id: p.id || this.generateId(),
+            name: (p.name || '').trim() || 'Unnamed',
+            apiKey: p.apiKey || '',
+            baseUrl: (p.baseUrl || '').trim() || 'https://api.openai.com/v1',
+            models: Array.isArray(p.models) ? p.models.filter(Boolean) : [],
+        })) : [];
+
+        let activeProviderId = config.activeProviderId || '';
+        let activeModel = config.activeModel || '';
+
+        // 确保 activeProviderId 指向存在的 provider
+        if (providers.length > 0 && !providers.find(p => p.id === activeProviderId)) {
+            activeProviderId = providers[0].id;
+        }
+
+        // 确保 activeModel 属于当前 provider
+        const activeProvider = providers.find(p => p.id === activeProviderId);
+        if (activeProvider && activeProvider.models.length > 0 && !activeProvider.models.includes(activeModel)) {
+            activeModel = activeProvider.models[0];
+        }
+
         return {
-            apiKey: config.apiKey || '',
-            baseUrl: config.baseUrl || 'https://api.openai.com/v1',
-            model: config.model || 'gpt-4o',
+            providers,
+            activeProviderId,
+            activeModel,
             preferences: {
-                outputStyle: config.preferences?.outputStyle || 'balanced',
                 creativity: config.preferences?.creativity || 'medium',
-            }
+            },
         };
     }
 
-    /**
-     * 清除 API Key
-     */
-    resetApiKey() {
-        return this.saveConfig({ apiKey: '' });
+    generateId() {
+        return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     }
 
-    /**
-     * 订阅事件
-     */
+    // ── 便捷方法：获取当前激活的 provider 和 model ──────────
+
+    getActiveProvider() {
+        return this.config.providers.find(p => p.id === this.config.activeProviderId) || null;
+    }
+
+    getActiveModel() {
+        return this.config.activeModel || '';
+    }
+
+    getActiveApiKey() {
+        return this.getActiveProvider()?.apiKey || '';
+    }
+
+    getActiveBaseUrl() {
+        return this.getActiveProvider()?.baseUrl || 'https://api.openai.com/v1';
+    }
+
+    // ── 测试连通性 ───────────────────────────────────────
+
+    async testConnection(provider) {
+        if (!provider?.apiKey) {
+            throw new Error('请填写 API Key');
+        }
+        const baseUrl = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        try {
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${provider.apiKey}`,
+                },
+                body: JSON.stringify({
+                    model: provider.models?.[0] || 'gpt-4o',
+                    messages: [{ role: 'user', content: 'hi' }],
+                    max_tokens: 1,
+                    stream: false,
+                }),
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`${response.status}: ${errorText.slice(0, 200)}`);
+            }
+
+            return { success: true };
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('连接超时（15s）');
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    // ── 获取模型列表 ─────────────────────────────────────
+
+    async fetchModels(provider) {
+        if (!provider?.apiKey) {
+            throw new Error('请填写 API Key');
+        }
+        const baseUrl = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        try {
+            const response = await fetch(`${baseUrl}/models`, {
+                headers: {
+                    'Authorization': `Bearer ${provider.apiKey}`,
+                },
+                signal: controller.signal,
+            });
+
+            if (!response.ok) {
+                throw new Error(`获取模型列表失败: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const models = (result.data || [])
+                .map(m => m.id)
+                .filter(Boolean)
+                .sort();
+            return models;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('获取模型列表超时（15s）');
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    // ── 事件系统 ─────────────────────────────────────────
+
     subscribe(listener) {
         this.listeners.add(listener);
         return () => this.listeners.delete(listener);
     }
 
-    /**
-     * 发送事件
-     */
     notify(event) {
         this.listeners.forEach(listener => {
             try {
@@ -89,19 +192,12 @@ class AiService {
         });
     }
 
-    /**
-     * 生成任务 ID
-     */
     generateTaskId() {
         return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     }
 
-    /**
-     * 执行 AI 对话（流式响应）
-     * @param {Object} options
-     * @param {Array} options.messages - OpenAI 格式的消息数组 [{role, content}, ...]
-     * @param {number} [options.temperature] - 温度参数
-     */
+    // ── AI 调用 ──────────────────────────────────────────
+
     async runTask(options = {}) {
         const { taskId: providedTaskId, ...requestOptions } = options;
         const taskId = providedTaskId || this.generateTaskId();
@@ -110,21 +206,20 @@ class AiService {
             throw new Error('消息列表为空');
         }
 
-        if (!this.config.apiKey) {
+        const apiKey = this.getActiveApiKey();
+        if (!apiKey) {
             throw new Error('请先配置 API Key');
         }
 
-        // 初始化任务
         const task = {
             options: requestOptions,
             buffer: '',
             status: 'pending',
             thinkBuffer: '',
-            toolCalls: [],   // 累积 streaming tool_calls
+            toolCalls: [],
         };
         this.activeTasks.set(taskId, task);
 
-        // 发送任务开始事件
         this.notify({
             type: 'task-started',
             id: taskId,
@@ -135,15 +230,15 @@ class AiService {
             const controller = new AbortController();
             task.abortController = controller;
 
-            // 调用 OpenAI API
-            const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
+            const baseUrl = this.getActiveBaseUrl();
+            const response = await fetch(`${baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.config.apiKey}`,
+                    'Authorization': `Bearer ${apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: requestOptions.model || this.config.model,
+                    model: requestOptions.model || this.getActiveModel(),
                     messages: requestOptions.messages,
                     temperature: requestOptions.temperature,
                     stream: true,
@@ -157,7 +252,6 @@ class AiService {
                 throw new Error(`API 请求失败: ${response.status} ${errorText}`);
             }
 
-            // 处理流式响应
             task.status = 'streaming';
             this.notify({
                 type: 'task-stream-start',
@@ -205,7 +299,6 @@ class AiService {
                                 });
                             }
 
-                            // 累积 tool_calls
                             if (toolCallDeltas) {
                                 for (const delta of toolCallDeltas) {
                                     const idx = delta.index;
@@ -229,7 +322,6 @@ class AiService {
                 }
             }
 
-            // 完成
             const completedToolCalls = task.toolCalls.length > 0 ? task.toolCalls : null;
             this.notify({
                 type: 'task-stream-end',
@@ -264,9 +356,6 @@ class AiService {
         }
     }
 
-    /**
-     * 取消任务
-     */
     async cancelTask(taskId) {
         const task = this.activeTasks.get(taskId);
         if (task) {
@@ -284,26 +373,25 @@ class AiService {
         return false;
     }
 
-    /**
-     * 调用 AI（非流式）
-     */
     async chat(options) {
         if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
             throw new Error('消息列表为空');
         }
 
-        if (!this.config.apiKey) {
+        const apiKey = this.getActiveApiKey();
+        if (!apiKey) {
             throw new Error('请先配置 API Key');
         }
 
-        const response = await fetch(`${this.config.baseUrl}/chat/completions`, {
+        const baseUrl = this.getActiveBaseUrl();
+        const response = await fetch(`${baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.config.apiKey}`,
+                'Authorization': `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: options.model || this.config.model,
+                model: options.model || this.getActiveModel(),
                 messages: options.messages,
                 temperature: options.temperature,
                 stream: false,

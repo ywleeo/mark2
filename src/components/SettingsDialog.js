@@ -159,36 +159,25 @@ export class SettingsDialog {
 
                     <!-- AI 助手设置 -->
                     <section class="settings-body hidden" data-tab-content="ai">
-                        <p class="settings-subtitle">配置 AI 服务和输出偏好</p>
+                        <p class="settings-subtitle">管理 AI 服务商和模型</p>
 
-                        <label class="settings-field">
-                            <span class="settings-label">API Key</span>
-                            <input
-                                type="password"
-                                name="aiApiKey"
-                                placeholder="sk-..."
-                            >
-                        </label>
+                        <div class="ai-providers-layout">
+                            <!-- 左侧 Provider 列表 -->
+                            <div class="ai-providers-list">
+                                <div class="ai-providers-list__header">
+                                    <span class="settings-label">服务商</span>
+                                    <button type="button" class="ai-provider-btn ai-provider-btn--add" data-action="add-provider" title="添加服务商">＋</button>
+                                </div>
+                                <div class="ai-providers-list__items" data-ref="providerList"></div>
+                            </div>
 
-                        <label class="settings-field">
-                            <span class="settings-label">Base URL</span>
-                            <input
-                                type="text"
-                                name="aiBaseUrl"
-                                placeholder="https://api.openai.com/v1"
-                            >
-                            <span class="settings-hint">支持 OpenAI 兼容接口</span>
-                        </label>
-
-                        <label class="settings-field">
-                            <span class="settings-label">Model</span>
-                            <input
-                                type="text"
-                                name="aiModel"
-                                placeholder="deepseek-reasoner"
-                            >
-                            <span class="settings-hint">如：deepseek-chat, qwen-plus</span>
-                        </label>
+                            <!-- 右侧编辑区 -->
+                            <div class="ai-provider-editor" data-ref="providerEditor">
+                                <div class="ai-provider-editor__empty">
+                                    <span>点击左侧添加服务商</span>
+                                </div>
+                            </div>
+                        </div>
 
                         <label class="settings-field">
                             <span class="settings-label">创造性</span>
@@ -231,10 +220,18 @@ export class SettingsDialog {
         this.codeLineHeightInput = this.form.querySelector('input[name="codeLineHeight"]');
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
         // AI 助手设置字段
-        this.aiApiKeyInput = this.form.querySelector('input[name="aiApiKey"]');
-        this.aiBaseUrlInput = this.form.querySelector('input[name="aiBaseUrl"]');
-        this.aiModelInput = this.form.querySelector('input[name="aiModel"]');
         this.aiCreativitySelect = this.form.querySelector('select[name="aiCreativity"]');
+        this.providerListEl = this.root.querySelector('[data-ref="providerList"]');
+        this.providerEditorEl = this.root.querySelector('[data-ref="providerEditor"]');
+        this.aiProviders = []; // 运行时 provider 数据
+        this.selectedProviderId = null;
+
+        // 添加 provider 按钮
+        const addProviderBtn = this.root.querySelector('[data-action="add-provider"]');
+        if (addProviderBtn) {
+            const cleanup = addClickHandler(addProviderBtn, () => this.addProvider());
+            this.cleanupFunctions.push(cleanup);
+        }
 
         // 按钮
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
@@ -293,6 +290,12 @@ export class SettingsDialog {
                 content.classList.add('hidden');
             }
         });
+
+        // AI tab 需要更宽的对话框
+        const dialog = this.root.querySelector('.settings-dialog');
+        if (dialog) {
+            dialog.classList.toggle('settings-dialog--wide', tabName === 'ai');
+        }
     }
 
     initCodeFontOptions() {
@@ -333,10 +336,15 @@ export class SettingsDialog {
         this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
-        this.aiApiKeyInput.value = aiConfig.apiKey || '';
-        this.aiBaseUrlInput.value = aiConfig.baseUrl || 'https://api.openai.com/v1';
-        this.aiModelInput.value = aiConfig.model || 'gpt-4o';
+        this.aiProviders = (aiConfig.providers || []).map(p => ({ ...p }));
         this.aiCreativitySelect.value = aiConfig.preferences?.creativity || 'medium';
+        this.renderProviderList();
+        // 默认选中第一个 provider
+        if (this.aiProviders.length > 0) {
+            this.selectProvider(this.aiProviders[0].id);
+        } else {
+            this.renderProviderEditor(null);
+        }
 
         // 重置到第一个 tab
         this.switchTab('editor');
@@ -355,14 +363,7 @@ export class SettingsDialog {
             return service.getConfig();
         } catch (error) {
             console.warn('[SettingsDialog] 无法获取 AI 配置:', error);
-            return {
-                apiKey: '',
-                baseUrl: 'https://api.openai.com/v1',
-                model: 'gpt-4o',
-                preferences: {
-                    creativity: 'medium',
-                }
-            };
+            return { providers: [], activeProviderId: '', activeModel: '', preferences: { creativity: 'medium' } };
         }
     }
 
@@ -419,11 +420,12 @@ export class SettingsDialog {
             terminalFontFamily: (this.initialSettings?.terminalFontFamily || '').trim(),
         };
 
-        // AI 助手设置 - 通过 aiService 保存
+        // AI 助手设置 - 同步当前编辑器中的值到 provider 数据
+        this.syncCurrentProviderFromEditor();
         const aiConfig = {
-            apiKey: (this.aiApiKeyInput.value || '').trim(),
-            baseUrl: (this.aiBaseUrlInput.value || '').trim() || 'https://api.openai.com/v1',
-            model: (this.aiModelInput.value || '').trim() || 'gpt-4o',
+            providers: this.aiProviders,
+            activeProviderId: this.aiProviders[0]?.id || '',
+            activeModel: this.aiProviders[0]?.models?.[0] || '',
             preferences: {
                 creativity: this.aiCreativitySelect.value || 'medium',
             }
@@ -571,6 +573,273 @@ export class SettingsDialog {
             return min;
         }
         return Math.min(Math.max(value, min), max);
+    }
+
+    // ── Provider 管理 ────────────────────────────────────
+
+    addProvider() {
+        const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        const provider = {
+            id,
+            name: '',
+            apiKey: '',
+            baseUrl: 'https://api.openai.com/v1',
+            models: [],
+        };
+        this.aiProviders.push(provider);
+        this.renderProviderList();
+        this.selectProvider(id);
+        // 聚焦到名称输入框
+        setTimeout(() => {
+            const nameInput = this.providerEditorEl.querySelector('input[data-field="name"]');
+            nameInput?.focus();
+        }, 50);
+    }
+
+    deleteProvider(id) {
+        this.aiProviders = this.aiProviders.filter(p => p.id !== id);
+        this.renderProviderList();
+        if (this.selectedProviderId === id) {
+            const first = this.aiProviders[0];
+            this.selectProvider(first?.id || null);
+        }
+    }
+
+    selectProvider(id) {
+        // 先保存当前正在编辑的 provider
+        if (this.selectedProviderId && this.selectedProviderId !== id) {
+            this.syncCurrentProviderFromEditor();
+        }
+        this.selectedProviderId = id;
+        this.renderProviderList();
+        const provider = this.aiProviders.find(p => p.id === id) || null;
+        this.renderProviderEditor(provider);
+    }
+
+    syncCurrentProviderFromEditor() {
+        if (!this.selectedProviderId) return;
+        const provider = this.aiProviders.find(p => p.id === this.selectedProviderId);
+        if (!provider) return;
+
+        const nameInput = this.providerEditorEl.querySelector('input[data-field="name"]');
+        const apiKeyInput = this.providerEditorEl.querySelector('input[data-field="apiKey"]');
+        const baseUrlInput = this.providerEditorEl.querySelector('input[data-field="baseUrl"]');
+
+        if (nameInput) provider.name = nameInput.value.trim();
+        if (apiKeyInput) provider.apiKey = apiKeyInput.value.trim();
+        if (baseUrlInput) provider.baseUrl = baseUrlInput.value.trim() || 'https://api.openai.com/v1';
+    }
+
+    renderProviderList() {
+        if (!this.providerListEl) return;
+        this.providerListEl.innerHTML = '';
+
+        this.aiProviders.forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'ai-provider-item' + (p.id === this.selectedProviderId ? ' is-selected' : '');
+            item.dataset.id = p.id;
+
+            const label = document.createElement('span');
+            label.className = 'ai-provider-item__name';
+            label.textContent = p.name || '未命名';
+            item.appendChild(label);
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'ai-provider-item__delete';
+            delBtn.textContent = '×';
+            delBtn.title = '删除';
+            item.appendChild(delBtn);
+
+            const selectCleanup = addClickHandler(item, (e) => {
+                if (e.target === delBtn || delBtn.contains(e.target)) return;
+                this.selectProvider(p.id);
+            });
+            const deleteCleanup = addClickHandler(delBtn, () => this.deleteProvider(p.id));
+            this.cleanupFunctions.push(selectCleanup, deleteCleanup);
+
+            this.providerListEl.appendChild(item);
+        });
+    }
+
+    renderProviderEditor(provider) {
+        if (!this.providerEditorEl) return;
+
+        if (!provider) {
+            this.providerEditorEl.innerHTML = '<div class="ai-provider-editor__empty"><span>点击左侧 ＋ 添加服务商</span></div>';
+            return;
+        }
+
+        this.providerEditorEl.innerHTML = `
+            <label class="settings-field">
+                <span class="settings-label">名称</span>
+                <input type="text" data-field="name" value="${this.escAttr(provider.name)}" placeholder="如：DeepSeek、OpenAI">
+            </label>
+            <label class="settings-field">
+                <span class="settings-label">API Key</span>
+                <input type="password" data-field="apiKey" value="${this.escAttr(provider.apiKey)}" placeholder="sk-...">
+            </label>
+            <label class="settings-field">
+                <span class="settings-label">Base URL</span>
+                <input type="text" data-field="baseUrl" value="${this.escAttr(provider.baseUrl)}" placeholder="https://api.openai.com/v1">
+            </label>
+            <div class="settings-field">
+                <div class="ai-models-header">
+                    <span class="settings-label">模型</span>
+                    <div class="ai-models-actions">
+                        <button type="button" class="ai-provider-btn" data-action="fetch-models">获取列表</button>
+                        <button type="button" class="ai-provider-btn" data-action="add-model">添加</button>
+                    </div>
+                </div>
+                <div class="ai-models-list" data-ref="modelsList"></div>
+                <span class="ai-models-status" data-ref="modelsStatus"></span>
+            </div>
+            <div class="ai-provider-test">
+                <button type="button" class="ai-provider-btn ai-provider-btn--test" data-action="test-connection">测试连通</button>
+                <span class="ai-provider-test__result" data-ref="testResult"></span>
+            </div>
+        `;
+
+        // 渲染模型列表
+        this.renderModelsList(provider);
+
+        // 绑定事件
+        const fetchBtn = this.providerEditorEl.querySelector('[data-action="fetch-models"]');
+        const addModelBtn = this.providerEditorEl.querySelector('[data-action="add-model"]');
+        const testBtn = this.providerEditorEl.querySelector('[data-action="test-connection"]');
+
+        if (fetchBtn) {
+            const cleanup = addClickHandler(fetchBtn, () => this.handleFetchModels(provider));
+            this.cleanupFunctions.push(cleanup);
+        }
+        if (addModelBtn) {
+            const cleanup = addClickHandler(addModelBtn, () => this.handleAddModel(provider));
+            this.cleanupFunctions.push(cleanup);
+        }
+        if (testBtn) {
+            const cleanup = addClickHandler(testBtn, () => this.handleTestConnection(provider));
+            this.cleanupFunctions.push(cleanup);
+        }
+
+        // 名称输入变化时同步到左侧列表
+        const nameInput = this.providerEditorEl.querySelector('input[data-field="name"]');
+        if (nameInput) {
+            nameInput.addEventListener('input', () => {
+                provider.name = nameInput.value.trim();
+                const listItem = this.providerListEl?.querySelector(`[data-id="${provider.id}"] .ai-provider-item__name`);
+                if (listItem) listItem.textContent = provider.name || '未命名';
+            });
+        }
+    }
+
+    renderModelsList(provider) {
+        const container = this.providerEditorEl.querySelector('[data-ref="modelsList"]');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (provider.models.length === 0) {
+            container.innerHTML = '<span class="ai-models-empty">暂无模型，点击「添加」或「获取列表」</span>';
+            return;
+        }
+
+        provider.models.forEach((model, index) => {
+            const tag = document.createElement('span');
+            tag.className = 'ai-model-tag';
+
+            const label = document.createElement('span');
+            label.textContent = model;
+            tag.appendChild(label);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ai-model-tag__remove';
+            removeBtn.textContent = '×';
+            tag.appendChild(removeBtn);
+
+            const cleanup = addClickHandler(removeBtn, () => {
+                provider.models.splice(index, 1);
+                this.renderModelsList(provider);
+            });
+            this.cleanupFunctions.push(cleanup);
+
+            container.appendChild(tag);
+        });
+    }
+
+    handleAddModel(provider) {
+        const model = prompt('输入模型名称：');
+        if (!model?.trim()) return;
+        const name = model.trim();
+        if (!provider.models.includes(name)) {
+            provider.models.push(name);
+        }
+        this.renderModelsList(provider);
+    }
+
+    async handleFetchModels(provider) {
+        this.syncCurrentProviderFromEditor();
+        const statusEl = this.providerEditorEl.querySelector('[data-ref="modelsStatus"]');
+
+        try {
+            if (statusEl) {
+                statusEl.textContent = '正在获取…';
+                statusEl.className = 'ai-models-status';
+            }
+            const service = await getAiService();
+            const models = await service.fetchModels(provider);
+            if (models.length === 0) {
+                if (statusEl) {
+                    statusEl.textContent = 'API 未返回模型列表';
+                    statusEl.className = 'ai-models-status is-warning';
+                }
+                return;
+            }
+            // 合并到现有列表（去重）
+            const existing = new Set(provider.models);
+            models.forEach(m => existing.add(m));
+            provider.models = [...existing];
+            this.renderModelsList(provider);
+            if (statusEl) {
+                statusEl.textContent = `已获取 ${models.length} 个模型`;
+                statusEl.className = 'ai-models-status is-success';
+            }
+        } catch (error) {
+            if (statusEl) {
+                statusEl.textContent = error.message || '获取失败';
+                statusEl.className = 'ai-models-status is-error';
+            }
+        }
+    }
+
+    async handleTestConnection(provider) {
+        this.syncCurrentProviderFromEditor();
+        const resultEl = this.providerEditorEl.querySelector('[data-ref="testResult"]');
+        const testBtn = this.providerEditorEl.querySelector('[data-action="test-connection"]');
+
+        try {
+            if (testBtn) testBtn.disabled = true;
+            if (resultEl) {
+                resultEl.textContent = '测试中…';
+                resultEl.className = 'ai-provider-test__result';
+            }
+            const service = await getAiService();
+            await service.testConnection(provider);
+            if (resultEl) {
+                resultEl.textContent = '连接成功 ✓';
+                resultEl.className = 'ai-provider-test__result is-success';
+            }
+        } catch (error) {
+            if (resultEl) {
+                resultEl.textContent = error.message || '连接失败';
+                resultEl.className = 'ai-provider-test__result is-error';
+            }
+        } finally {
+            if (testBtn) testBtn.disabled = false;
+        }
+    }
+
+    escAttr(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     dispose() {

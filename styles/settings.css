@@ -88,6 +88,7 @@
 
 .settings-dialog {
     width: 450px;
+    transition: width 0.2s ease;
     max-width: 100%;
     backdrop-filter: blur(12px);
     background: var(--settings-surface);
@@ -420,6 +421,235 @@
 .settings-checkbox input[type="checkbox"] {
     width: 16px;
     height: 16px;
+}
+
+/* ── AI Provider 管理 ─────────────────────────────── */
+
+.ai-providers-layout {
+    display: flex;
+    gap: 16px;
+    min-height: 280px;
+}
+
+.ai-providers-list {
+    width: 160px;
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-providers-list__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ai-providers-list__items {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    border: 1px solid var(--settings-field-border);
+    border-radius: 8px;
+    padding: 4px;
+    background: var(--settings-field-bg);
+}
+
+.ai-provider-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--settings-field-text);
+    transition: background 0.15s ease;
+}
+
+.ai-provider-item:hover {
+    background: var(--settings-secondary-hover);
+}
+
+.ai-provider-item.is-selected {
+    background: var(--settings-primary-ghost-bg);
+    color: var(--settings-primary);
+    font-weight: 500;
+}
+
+.ai-provider-item__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.ai-provider-item__delete {
+    display: none;
+    border: none;
+    background: none;
+    color: var(--settings-muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+
+.ai-provider-item:hover .ai-provider-item__delete {
+    display: block;
+}
+
+.ai-provider-item__delete:hover {
+    color: var(--settings-danger);
+}
+
+/* 右侧编辑区 */
+.ai-provider-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.ai-provider-editor__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--settings-muted);
+    font-size: 13px;
+}
+
+/* 通用小按钮 */
+.ai-provider-btn {
+    border: 1px solid var(--settings-primary-ghost-border);
+    background: var(--settings-primary-ghost-bg);
+    color: var(--settings-primary);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    font-family: inherit;
+}
+
+.ai-provider-btn:hover {
+    border-color: var(--settings-primary-ghost-hover-border);
+    background: var(--settings-primary-ghost-hover-bg);
+}
+
+.ai-provider-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ai-provider-btn--add {
+    padding: 2px 8px;
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* 模型区域 */
+.ai-models-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ai-models-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.ai-models-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 32px;
+    padding: 8px;
+    border: 1px solid var(--settings-field-border);
+    border-radius: 8px;
+    background: var(--settings-field-bg);
+}
+
+.ai-models-empty {
+    color: var(--settings-muted);
+    font-size: 12px;
+}
+
+.ai-model-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--settings-primary-ghost-bg);
+    color: var(--settings-primary);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.ai-model-tag__remove {
+    border: none;
+    background: none;
+    color: var(--settings-muted);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+}
+
+.ai-model-tag__remove:hover {
+    color: var(--settings-danger);
+}
+
+.ai-models-status {
+    font-size: 12px;
+    color: var(--settings-muted);
+    min-height: 16px;
+}
+
+.ai-models-status.is-success {
+    color: #16a34a;
+}
+
+.ai-models-status.is-error,
+.ai-models-status.is-warning {
+    color: #dc2626;
+}
+
+/* 测试按钮区 */
+.ai-provider-test {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-provider-btn--test {
+    padding: 6px 14px;
+}
+
+.ai-provider-test__result {
+    font-size: 12px;
+    color: var(--settings-muted);
+}
+
+.ai-provider-test__result.is-success {
+    color: #16a34a;
+}
+
+.ai-provider-test__result.is-error {
+    color: #dc2626;
+}
+
+.settings-dialog--wide {
+    width: 620px;
 }
 
 @media (max-width: 520px) {
