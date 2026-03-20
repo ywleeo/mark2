@@ -82,15 +82,14 @@ export function createEditorActions({
             }
 
             if (position === 'end') {
-                const instance = codeInstance.editor;
-                const monaco = codeInstance.monaco;
-                const model = instance?.getModel?.();
-                if (!instance || !monaco || !model) {
+                const view = codeInstance.editor;
+                if (!view?.state) {
                     return false;
                 }
-                const lineNumber = model.getLineCount();
-                const column = model.getLineMaxColumn(lineNumber);
-                instance.setPosition({ lineNumber, column });
+                const endPos = view.state.doc.length;
+                view.dispatch({
+                    selection: { anchor: endPos },
+                });
                 if (typeof codeInstance.insertTextAtCursor !== 'function') {
                     return false;
                 }

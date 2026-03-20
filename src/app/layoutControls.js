@@ -35,7 +35,7 @@ export function createLayoutControls({ getStatusBarController, getCodeEditor }) 
 
         isSidebarHidden = hidden;
 
-        // 触发 Monaco 编辑器重新布局
+        // 触发代码编辑器重新布局
         getCodeEditor?.()?.requestLayout?.();
     }
 

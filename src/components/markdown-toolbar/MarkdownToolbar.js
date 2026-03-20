@@ -874,7 +874,7 @@ export class MarkdownToolbar {
                     this.editor.commands.setTextSelection({ from, to });
                 }
             }
-            // Textarea 或 Monaco 编辑器代理
+            // Textarea 或 CodeMirror 编辑器代理
             else if (typeof this.editor.setSelectionRange === 'function') {
                 const { selection } = this.getSelectedText();
                 const text = this.editor.value.substring(selection.from, selection.to);
@@ -911,7 +911,7 @@ export class MarkdownToolbar {
                     this.editor.commands.setTextSelection({ from, to });
                 }
             }
-            // Textarea 或 Monaco 编辑器代理
+            // Textarea 或 CodeMirror 编辑器代理
             else if (typeof this.editor.setSelectionRange === 'function') {
                 const { selection } = this.getSelectedText();
                 const text = this.editor.value.substring(selection.from, selection.to);

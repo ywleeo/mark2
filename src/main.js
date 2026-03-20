@@ -336,9 +336,9 @@ function toggleMarkdownToolbar() {
             const codeEditor = editorRegistry.getCodeEditor();
 
             if (activeViewMode === 'code') {
-                // code 模式下使用 Monaco 编辑器
+                // code 模式下使用 CodeMirror 编辑器
                 if (codeEditor) {
-                    newManager.initialize(codeEditor, 'monaco');
+                    newManager.initialize(codeEditor, 'codemirror');
                 }
             } else {
                 // markdown 模式下使用 TipTap 编辑器
@@ -460,7 +460,7 @@ function syncToolbarWithCurrentContext(options = {}) {
         return;
     }
 
-    const editorType = isCodeView ? 'monaco' : 'tiptap';
+    const editorType = isCodeView ? 'codemirror' : 'tiptap';
     const codeEditor = editorRegistry.getCodeEditor();
     const targetEditor = isCodeView ? codeEditor : getToolbarEditorInstance();
 

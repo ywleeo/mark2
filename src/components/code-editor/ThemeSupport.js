@@ -1,6 +1,6 @@
 /**
  * CodeMirror 6 主题支持
- * 将原有的 Monaco 主题配置转换为 CodeMirror 主题
+ * 基于主题配置生成 CodeMirror 主题
  */
 
 import { EditorView } from '@codemirror/view';

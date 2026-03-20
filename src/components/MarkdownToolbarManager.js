@@ -13,7 +13,7 @@ export class MarkdownToolbarManager {
         this.skipNextVisibilityPersistence = false;
         this.editorInstance = null;
         this.rawEditorInstance = null;
-        this.editorType = null; // 'tiptap' 或 'monaco'
+        this.editorType = null; // 'tiptap' 或 'codemirror'
         this.isInitialized = false;
         this.onToggleViewMode = options.onToggleViewMode || null;
         this.onCardExport = options.onCardExport || null;
@@ -25,7 +25,7 @@ export class MarkdownToolbarManager {
     /**
      * 初始化工具栏
      * @param {Object} editorInstance - 编辑器实例
-     * @param {string} editorType - 编辑器类型 ('tiptap' 或 'monaco')
+     * @param {string} editorType - 编辑器类型 ('tiptap' 或 'codemirror')
      */
     async initialize(editorInstance, editorType = 'tiptap') {
         // console.log('MarkdownToolbarManager: initialize called', { editorInstance, editorType });
@@ -130,7 +130,7 @@ export class MarkdownToolbarManager {
                     return manager.editorInstance?.commands;
                 }
             };
-        } else if (manager.editorType === 'monaco') {
+        } else if (manager.editorType === 'codemirror') {
             // CodeMirror 编辑器 - 模拟 textarea 接口
             const getEditorView = () => {
                 // 从 CodeEditor 包装类中获取 EditorView
@@ -226,7 +226,7 @@ export class MarkdownToolbarManager {
                     return nestedEditor;
                 }
             }
-        } else if (editorType === 'monaco') {
+        } else if (editorType === 'codemirror') {
             // CodeEditor 包装类 - 返回内部 EditorView
             if (editorInstance.editor && editorInstance.editor.state) {
                 return editorInstance.editor;
@@ -281,7 +281,7 @@ export class MarkdownToolbarManager {
             if (tiptapEditor) {
                 return tiptapEditor;
             }
-        } else if (this.editorType === 'monaco') {
+        } else if (this.editorType === 'codemirror') {
             // 查找 Code Editor 容器
             const codeEditorPane = document.querySelector('.code-editor-pane');
             if (codeEditorPane) {
@@ -595,8 +595,8 @@ export class MarkdownToolbarManager {
                 } else {
                     return;
                 }
-            } else if (this.editorType === 'monaco') {
-                // Monaco 编辑器 - 直接获取文本内容
+            } else if (this.editorType === 'codemirror') {
+                // CodeMirror 编辑器 - 直接获取文本内容
                 if (this.rawEditorInstance && typeof this.rawEditorInstance.getValue === 'function') {
                     markdown = this.rawEditorInstance.getValue();
                 } else if (this.editorInstance && typeof this.editorInstance.getValue === 'function') {
