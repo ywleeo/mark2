@@ -18,14 +18,87 @@ export class CodeCopyManager {
         this.copyButtonHideTimer = null;
         this.copyButtonViewportFrame = null;
         this.copyButtonClickCleanup = null;
+        this._observer = null;
 
         // 绑定方法
         this.boundHandleViewportChange = () => this.handleCopyButtonViewportChange();
         this.handleCopyButtonMouseEnter = () => this.cancelCopyButtonHide();
         this.handleCopyButtonMouseLeave = () => this.scheduleCopyButtonHide();
+
+        // 启动 MutationObserver 增量监听 pre 元素变化
+        this._startObserver();
     }
 
-    // 调度代码块复制监听器更新
+    // 启动 MutationObserver，增量处理 pre 元素的新增/移除
+    _startObserver() {
+        if (!this.element || typeof MutationObserver === 'undefined') {
+            return;
+        }
+        this._observer = new MutationObserver((mutations) => {
+            let hasChanges = false;
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType !== 1) continue;
+                    if (node.nodeName === 'PRE') {
+                        this._attachPre(node);
+                        hasChanges = true;
+                    } else if (node.querySelectorAll) {
+                        for (const pre of node.querySelectorAll('pre')) {
+                            this._attachPre(pre);
+                            hasChanges = true;
+                        }
+                    }
+                }
+                for (const node of mutation.removedNodes) {
+                    if (node.nodeType !== 1) continue;
+                    if (node.nodeName === 'PRE') {
+                        this._detachPre(node);
+                        hasChanges = true;
+                    } else if (node.querySelectorAll) {
+                        for (const pre of node.querySelectorAll('pre')) {
+                            this._detachPre(pre);
+                            hasChanges = true;
+                        }
+                    }
+                }
+            }
+            if (hasChanges && this.codeBlockCopyListeners.size === 0) {
+                this.hideCodeCopyButton({ immediate: true });
+            }
+        });
+        this._observer.observe(this.element, { childList: true, subtree: true });
+    }
+
+    // 为单个 pre 元素附加 hover 监听器
+    _attachPre(pre) {
+        if (this.codeBlockCopyListeners.has(pre)) {
+            return;
+        }
+        this.ensureCodeCopyButton();
+        const handlers = {
+            mouseenter: () => this.handleCodeBlockMouseEnter(pre),
+            mouseleave: () => this.handleCodeBlockMouseLeave(pre),
+        };
+        pre.addEventListener('mouseenter', handlers.mouseenter);
+        pre.addEventListener('mouseleave', handlers.mouseleave);
+        this.codeBlockCopyListeners.set(pre, handlers);
+    }
+
+    // 移除单个 pre 元素的 hover 监听器
+    _detachPre(pre) {
+        const handlers = this.codeBlockCopyListeners.get(pre);
+        if (!handlers) {
+            return;
+        }
+        pre.removeEventListener('mouseenter', handlers.mouseenter);
+        pre.removeEventListener('mouseleave', handlers.mouseleave);
+        this.codeBlockCopyListeners.delete(pre);
+        if (this.activeCopyTarget === pre) {
+            this.hideCodeCopyButton({ immediate: true });
+        }
+    }
+
+    // 调度代码块复制监听器更新（用于初始化和强制刷新）
     scheduleCodeBlockCopyUpdate() {
         if (this.copyButtonFrame !== null) {
             return;
@@ -51,7 +124,7 @@ export class CodeCopyManager {
         this.copyButtonFrame = null;
     }
 
-    // 确保所有代码块都有复制监听器
+    // 全量同步（初始化 / 文件切换时调用）
     ensureCodeBlockCopyListeners() {
         if (!this.element || typeof document === 'undefined') {
             return;
@@ -59,36 +132,20 @@ export class CodeCopyManager {
 
         this.ensureCodeCopyButton();
 
-        const codeBlocks = Array.from(this.element.querySelectorAll('pre'));
+        const codeBlocks = this.element.querySelectorAll('pre');
         if (codeBlocks.length === 0) {
             this.hideCodeCopyButton({ immediate: true });
         }
 
         const seen = new Set();
-        codeBlocks.forEach(pre => {
+        for (const pre of codeBlocks) {
             seen.add(pre);
-            if (this.codeBlockCopyListeners.has(pre)) {
-                return;
-            }
+            this._attachPre(pre);
+        }
 
-            const handlers = {
-                mouseenter: () => this.handleCodeBlockMouseEnter(pre),
-                mouseleave: () => this.handleCodeBlockMouseLeave(pre),
-            };
-
-            pre.addEventListener('mouseenter', handlers.mouseenter);
-            pre.addEventListener('mouseleave', handlers.mouseleave);
-            this.codeBlockCopyListeners.set(pre, handlers);
-        });
-
-        for (const [pre, handlers] of this.codeBlockCopyListeners.entries()) {
+        for (const [pre] of this.codeBlockCopyListeners) {
             if (!pre.isConnected || !seen.has(pre)) {
-                pre.removeEventListener('mouseenter', handlers.mouseenter);
-                pre.removeEventListener('mouseleave', handlers.mouseleave);
-                this.codeBlockCopyListeners.delete(pre);
-                if (this.activeCopyTarget === pre) {
-                    this.hideCodeCopyButton({ immediate: true });
-                }
+                this._detachPre(pre);
             }
         }
     }
@@ -253,6 +310,10 @@ export class CodeCopyManager {
 
     // 清理所有基础设施
     teardownCodeBlockCopyInfrastructure() {
+        if (this._observer) {
+            this._observer.disconnect();
+            this._observer = null;
+        }
         this.cancelCopyButtonHide();
         if (this.copyButtonViewportFrame !== null && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
             window.cancelAnimationFrame(this.copyButtonViewportFrame);

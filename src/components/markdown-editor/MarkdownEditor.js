@@ -90,6 +90,7 @@ export class MarkdownEditor {
         this.isLoadingFile = false;
         this.currentTabId = null;
         this.tabViewStates = new Map();
+        this._trailingParagraphFrame = null;
 
         // 初始化 Markdown 解析/序列化
         this.markdownParser = null;
@@ -267,7 +268,7 @@ export class MarkdownEditor {
                 this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
             },
             onUpdate: ({ editor }) => {
-                this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+                // codeCopy 由 MutationObserver 自动处理，无需每次 onUpdate 全量刷新
                 if (this.suppressUpdateEvent) {
                     return;
                 }
@@ -275,7 +276,7 @@ export class MarkdownEditor {
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
                 this.scheduleAutoSave();
-                this.ensureTrailingParagraph();
+                this.scheduleEnsureTrailingParagraph();
             },
         });
 
@@ -1067,9 +1068,7 @@ export class MarkdownEditor {
             }
             : null;
 
-        const processedTable = this.preprocessTableBreaks(normalizedMarkdown);
-        const processedLinks = this.preprocessLinkDestinations(processedTable);
-        const processed = this.preprocessListIndentation(processedLinks);
+        const processed = this.preprocessMarkdown(normalizedMarkdown);
         const parsedDoc = this.markdownParser?.parse(processed) ?? null;
         if (sessionId && sessionId !== this.currentSessionId) {
             return false;
@@ -1263,21 +1262,48 @@ export class MarkdownEditor {
         );
     }
 
-    // 预处理包含空格的图片/链接地址，将其自动包裹在尖括号中，便于 MarkdownIt 正常解析
-    preprocessLinkDestinations(markdown) {
+    // 统一预处理 markdown 文本（合并多个预处理步骤，减少字符串扫描次数）
+    preprocessMarkdown(markdown) {
         if (!markdown) {
             return '';
         }
-        const pattern = /(!?\[[^\]]*\]\()([^)\n]+)(\))/g;
-        return markdown.replace(pattern, (match, prefix, target, suffix) => {
+
+        // 第一步：表格 <br> 断裂修复（按行处理，仅在包含 <br 时触发）
+        let text = markdown;
+        if (text.includes('<br')) {
+            const lines = text.split('\n');
+            const result = [];
+            let i = 0;
+            while (i < lines.length) {
+                let line = lines[i];
+                if (/^\s*\|/.test(line) && /<br\s*\/?\s*>\s*$/.test(line)) {
+                    i++;
+                    while (i < lines.length) {
+                        if (lines[i].trim() === '') { i++; continue; }
+                        if (/^\s*<br\s*\/?\s*>/.test(lines[i])) {
+                            line += lines[i].replace(/^\s*<br\s*\/?\s*>\s*/, '');
+                            i++;
+                            if (!/<br\s*\/?\s*>\s*$/.test(line)) break;
+                        } else {
+                            break;
+                        }
+                    }
+                    result.push(line);
+                } else {
+                    result.push(line);
+                    i++;
+                }
+            }
+            text = result.join('\n');
+        }
+
+        // 第二步：链接地址空格包裹 + 列表缩进修正（合并为一次扫描）
+        // 链接：包含空格的图片/链接地址自动包裹尖括号
+        text = text.replace(/(!?\[[^\]]*\]\()([^)\n]+)(\))/g, (match, prefix, target, suffix) => {
             const trimmed = target.trim();
-            if (!trimmed || trimmed.startsWith('<')) {
+            if (!trimmed || trimmed.startsWith('<') || !/\s/.test(trimmed)) {
                 return match;
             }
-            if (!/\s/.test(trimmed)) {
-                return match;
-            }
-            // 如果包含潜在的标题（"title" 或 'title'），跳过避免误处理
             if (trimmed.includes('"') || trimmed.includes("'")) {
                 return match;
             }
@@ -1286,55 +1312,19 @@ export class MarkdownEditor {
             const escaped = trimmed.replace(/>/g, '\\>');
             return `${prefix}${leading}<${escaped}>${trailing}${suffix}`;
         });
-    }
 
-    // 预处理列表缩进
-    preprocessListIndentation(markdown) {
-        if (!markdown) {
-            return '';
-        }
-        return markdown.replace(/\n  ([-*+]) /g, (match, marker, offset, string) => {
-            // 查找上一行的开始位置
+        // 列表：2 空格缩进修正为 4 空格
+        text = text.replace(/\n  ([-*+]) /g, (match, marker, offset, string) => {
             const lastNewLine = string.lastIndexOf('\n', offset - 1);
             const previousLineStart = lastNewLine === -1 ? 0 : lastNewLine + 1;
             const previousLine = string.slice(previousLineStart, offset);
-
-            // 检查上一行是否看起来像列表项
-            // 正则：可选空白，然后 (数字+点 或 标记符)，然后空格
             if (/^\s*(?:[*+-]|\d+\.)\s+/.test(previousLine)) {
                 return `\n    ${marker} `;
             }
             return match;
         });
-    }
 
-    // 预处理表格中 <br> + 空行导致的断裂问题
-    preprocessTableBreaks(markdown) {
-        if (!markdown || !markdown.includes('<br')) return markdown;
-        const lines = markdown.split('\n');
-        const result = [];
-        let i = 0;
-        while (i < lines.length) {
-            let line = lines[i];
-            if (/^\s*\|/.test(line) && /<br\s*\/?\s*>\s*$/.test(line)) {
-                i++;
-                while (i < lines.length) {
-                    if (lines[i].trim() === '') { i++; continue; }
-                    if (/^\s*<br\s*\/?\s*>/.test(lines[i])) {
-                        line += lines[i].replace(/^\s*<br\s*\/?\s*>\s*/, '');
-                        i++;
-                        if (!/<br\s*\/?\s*>\s*$/.test(line)) break;
-                    } else {
-                        break;
-                    }
-                }
-                result.push(line);
-            } else {
-                result.push(line);
-                i++;
-            }
-        }
-        return result.join('\n');
+        return text;
     }
 
     // 获取 Markdown 格式的内容
@@ -1583,6 +1573,17 @@ export class MarkdownEditor {
         }
     }
 
+    // 延迟调度 ensureTrailingParagraph，合并连续键入触发的多次调用
+    scheduleEnsureTrailingParagraph() {
+        if (this._trailingParagraphFrame !== null) {
+            return;
+        }
+        this._trailingParagraphFrame = requestAnimationFrame(() => {
+            this._trailingParagraphFrame = null;
+            this.ensureTrailingParagraph();
+        });
+    }
+
     ensureTrailingParagraph(options = {}) {
         if (!this.editor?.state?.doc) {
             return false;
@@ -1647,9 +1648,7 @@ export class MarkdownEditor {
             return;
         }
         const content = typeof markdown === 'string' ? markdown : '';
-        const processedTable = this.preprocessTableBreaks(content);
-        const processedLinks = this.preprocessLinkDestinations(processedTable);
-        const processed = this.preprocessListIndentation(processedLinks);
+        const processed = this.preprocessMarkdown(content);
         const parsed = this.markdownParser?.parse(processed) ?? null;
 
         const { state } = this.editor;
@@ -1684,9 +1683,7 @@ export class MarkdownEditor {
         const content = typeof markdown === 'string' ? markdown : '';
         // 在AI生成内容前后添加分割线
         const contentWithSeparator = '\n\n### 🤖 生成内容\n\n' + content + '\n\n---\n\n';
-        const processedTable = this.preprocessTableBreaks(contentWithSeparator);
-        const processedLinks = this.preprocessLinkDestinations(processedTable);
-        const processed = this.preprocessListIndentation(processedLinks);
+        const processed = this.preprocessMarkdown(contentWithSeparator);
         const parsed = this.markdownParser?.parse(processed) ?? null;
 
         const { state } = this.editor;
@@ -1882,13 +1879,13 @@ export class MarkdownEditor {
             return;
         }
 
-        // 遍历文档找到包含目标行的节点
+        // 遍历文档找到包含目标行的最精确节点，找到后提前退出
         let bestMatch = null;
 
         state.doc.descendants((node, pos) => {
             const sourcepos = node.attrs?.sourcepos;
             if (typeof sourcepos !== 'string') {
-                return true;
+                return true; // 继续深入子节点
             }
 
             const [start, end] = sourcepos.split(':').map(Number);
@@ -1896,11 +1893,12 @@ export class MarkdownEditor {
                 return true;
             }
 
-            if (lineNumber >= start && lineNumber <= end) {
-                if (!bestMatch || (end - start) < (bestMatch.end - bestMatch.start)) {
-                    bestMatch = { start, end, pos, node };
-                }
+            if (lineNumber < start || lineNumber > end) {
+                return false; // 目标行不在此节点范围内，跳过整棵子树
             }
+
+            // 目标行在此节点范围内，记录并继续深入寻找更精确的子节点
+            bestMatch = { start, end, pos, node };
             return true;
         });
 
@@ -2266,9 +2264,7 @@ export class MarkdownEditor {
             .deleteSelection();
 
         if (content.length > 0) {
-            const processedTable = this.preprocessTableBreaks(content);
-            const processedLinks = this.preprocessLinkDestinations(processedTable);
-            const processed = this.preprocessListIndentation(processedLinks);
+            const processed = this.preprocessMarkdown(content);
             const parsed = this.markdownParser?.parse(processed);
             if (parsed) {
                 chain = chain.insertContent(parsed.content);
@@ -2388,6 +2384,10 @@ export class MarkdownEditor {
 
     // 销毁编辑器
     destroy() {
+        if (this._trailingParagraphFrame !== null) {
+            cancelAnimationFrame(this._trailingParagraphFrame);
+            this._trailingParagraphFrame = null;
+        }
         this.codeCopyManager?.destroy();
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
