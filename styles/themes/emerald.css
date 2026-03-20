@@ -170,7 +170,7 @@
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) code,
 .tiptap-editor[data-theme-appearance='dark'] code{
-    color: #a0ffe8;
+    color: #ffffff;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) blockquote,
@@ -253,7 +253,7 @@
 
 [data-theme-appearance='dark'] .hljs-comment,
 [data-theme-appearance='dark'] .hljs-quote {
-    color: #c4e3d6;
+    color: #868686;
     font-style: italic;
 }
 
@@ -271,7 +271,7 @@
 [data-theme-appearance='dark'] .hljs-symbol,
 [data-theme-appearance='dark'] .hljs-meta,
 [data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
-    color: #99d4ff;
+    color: #7cc9ff;
 }
 
 [data-theme-appearance='dark'] .hljs-string,
@@ -281,7 +281,7 @@
 [data-theme-appearance='dark'] .hljs-variable,
 [data-theme-appearance='dark'] .hljs-attribute .hljs-string,
 [data-theme-appearance='dark'] .hljs-meta .hljs-string {
-    color: #f4f2c3;
+    color: #5aff62;
 }
 
 [data-theme-appearance='dark'] .hljs-title,
