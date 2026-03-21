@@ -1154,9 +1154,15 @@ fn main() {
             recent_menu_state.set_app_handle(app.handle().clone());
             app.manage(recent_menu_state);
 
-            // Edit 菜单，启用复制/粘贴等系统原生快捷键
-            let undo_item = PredefinedMenuItem::undo(app, None)?;
-            let redo_item = PredefinedMenuItem::redo(app, None)?;
+            // Edit 菜单
+            let undo_item =
+                MenuItemBuilder::with_id("undo", "Undo")
+                    .accelerator("CmdOrCtrl+Z")
+                    .build(app)?;
+            let redo_item =
+                MenuItemBuilder::with_id("redo", "Redo")
+                    .accelerator("CmdOrCtrl+Shift+Z")
+                    .build(app)?;
             let cut_item = PredefinedMenuItem::cut(app, None)?;
             let copy_item = PredefinedMenuItem::copy(app, None)?;
             let paste_item = PredefinedMenuItem::paste(app, None)?;

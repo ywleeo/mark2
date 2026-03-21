@@ -127,6 +127,9 @@ export class MarkdownEditor {
                     hardBreak: {
                         keepMarks: true,
                     },
+                    history: {
+                        depth: 100,
+                    },
                 }),
                 Link.configure({
                     openOnClick: false,
@@ -1051,7 +1054,7 @@ export class MarkdownEditor {
         });
     }
 
-    async setContent(markdown, shouldFocusStart = true) {
+    async setContent(markdown, shouldFocusStart = true, { resetHistory = false } = {}) {
         const sessionId = this.currentSessionId;
         const normalizedMarkdown = ensureMarkdownTrailingEmptyLine(
             typeof markdown === 'string' ? markdown : ''
@@ -1070,6 +1073,7 @@ export class MarkdownEditor {
 
         const processed = this.preprocessMarkdown(normalizedMarkdown);
         const parsedDoc = this.markdownParser?.parse(processed) ?? null;
+
         if (sessionId && sessionId !== this.currentSessionId) {
             return false;
         }
@@ -1082,7 +1086,16 @@ export class MarkdownEditor {
         try {
             this.editor.setEditable(true);
             if (parsedDoc) {
-                this.editor.commands.setContent(parsedDoc);
+                if (resetHistory) {
+                    // 首次打开文件：正常 setContent，之后会 resetUndoHistory
+                    this.editor.commands.setContent(parsedDoc);
+                } else {
+                    // tab 切换 / CodeMirror↔TipTap：替换文档但不污染 undo 历史
+                    const { state, view } = this.editor;
+                    const tr = state.tr.replaceWith(0, state.doc.content.size, parsedDoc.content);
+                    tr.setMeta('addToHistory', false);
+                    view.dispatch(tr);
+                }
             } else {
                 this.editor.commands.setContent('');
             }
@@ -1112,7 +1125,9 @@ export class MarkdownEditor {
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.callbacks.onContentChange?.();
         this.scheduleMermaidRender();
-        this.resetUndoHistory();
+        if (resetHistory) {
+            this.resetUndoHistory();
+        }
 
         return true;
     }
@@ -1187,6 +1202,7 @@ export class MarkdownEditor {
         }
 
         if (changed) {
+            tr.setMeta('addToHistory', false);
             this.editor.view.dispatch(tr);
         }
     }
@@ -1552,7 +1568,8 @@ export class MarkdownEditor {
             }
 
             // 没有保存的状态或内容变了，正常加载
-            const applied = await this.setContent(content, autoFocus);
+            // 只有切换到全新文件时才清 undo 历史，tab 切换 / CodeMirror↔TipTap 切换保留历史
+            const applied = await this.setContent(content, autoFocus, { resetHistory: isNewFile });
             if (!applied) {
                 return;
             }
