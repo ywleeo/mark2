@@ -745,10 +745,16 @@ export class SettingsDialog {
         provider.models.forEach((model, index) => {
             const tag = document.createElement('span');
             tag.className = 'ai-model-tag';
+            tag.dataset.model = model;
 
             const label = document.createElement('span');
+            label.className = 'ai-model-tag__name';
             label.textContent = model;
             tag.appendChild(label);
+
+            const status = document.createElement('span');
+            status.className = 'ai-model-tag__status';
+            tag.appendChild(status);
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
@@ -815,27 +821,59 @@ export class SettingsDialog {
         this.syncCurrentProviderFromEditor();
         const resultEl = this.providerEditorEl.querySelector('[data-ref="testResult"]');
         const testBtn = this.providerEditorEl.querySelector('[data-action="test-connection"]');
+        const modelsContainer = this.providerEditorEl.querySelector('[data-ref="modelsList"]');
 
-        try {
-            if (testBtn) testBtn.disabled = true;
+        const models = provider.models?.length > 0 ? provider.models : [];
+        if (models.length === 0) {
             if (resultEl) {
-                resultEl.textContent = '测试中…';
-                resultEl.className = 'ai-provider-test__result';
-            }
-            const service = await getAiService();
-            await service.testConnection(provider);
-            if (resultEl) {
-                resultEl.textContent = '连接成功 ✓';
-                resultEl.className = 'ai-provider-test__result is-success';
-            }
-        } catch (error) {
-            if (resultEl) {
-                resultEl.textContent = error.message || '连接失败';
+                resultEl.textContent = '请先添加模型';
                 resultEl.className = 'ai-provider-test__result is-error';
             }
-        } finally {
-            if (testBtn) testBtn.disabled = false;
+            return;
         }
+
+        // 重置所有模型状态
+        if (modelsContainer) {
+            for (const tag of modelsContainer.querySelectorAll('.ai-model-tag')) {
+                tag.classList.remove('is-success', 'is-error', 'is-testing');
+                const status = tag.querySelector('.ai-model-tag__status');
+                if (status) status.textContent = '';
+            }
+        }
+
+        if (testBtn) testBtn.disabled = true;
+        if (resultEl) {
+            resultEl.textContent = '';
+            resultEl.className = 'ai-provider-test__result';
+        }
+
+        const service = await getAiService();
+        let successCount = 0;
+
+        for (const model of models) {
+            const tag = modelsContainer?.querySelector(`.ai-model-tag[data-model="${CSS.escape(model)}"]`);
+            const status = tag?.querySelector('.ai-model-tag__status');
+            if (tag) tag.classList.add('is-testing');
+            if (status) status.textContent = '测试中…';
+
+            const result = await service.testModel(provider, model);
+
+            if (tag) tag.classList.remove('is-testing');
+            if (result.success) {
+                successCount++;
+                if (tag) tag.classList.add('is-success');
+                if (status) status.textContent = `${result.duration}ms`;
+            } else {
+                if (tag) tag.classList.add('is-error');
+                if (status) status.textContent = result.error;
+            }
+        }
+
+        if (resultEl) {
+            resultEl.textContent = `${successCount}/${models.length} 个模型可用`;
+            resultEl.className = `ai-provider-test__result ${successCount === models.length ? 'is-success' : 'is-error'}`;
+        }
+        if (testBtn) testBtn.disabled = false;
     }
 
     escAttr(str) {

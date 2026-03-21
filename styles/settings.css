@@ -609,6 +609,38 @@
     color: var(--settings-danger);
 }
 
+.ai-model-tag__status {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--settings-muted);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ai-model-tag.is-testing {
+    opacity: 0.7;
+}
+
+.ai-model-tag.is-success {
+    background: var(--settings-success-bg, rgba(52, 199, 89, 0.12));
+    color: var(--settings-success, #34c759);
+}
+
+.ai-model-tag.is-success .ai-model-tag__status {
+    color: var(--settings-success, #34c759);
+}
+
+.ai-model-tag.is-error {
+    background: var(--settings-danger-bg, rgba(255, 59, 48, 0.12));
+    color: var(--settings-danger, #ff3b30);
+}
+
+.ai-model-tag.is-error .ai-model-tag__status {
+    color: var(--settings-danger, #ff3b30);
+}
+
 .ai-models-status {
     font-size: 12px;
     color: var(--settings-muted);

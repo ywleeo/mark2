@@ -95,14 +95,17 @@ class AiService {
 
     // ── 测试连通性 ───────────────────────────────────────
 
-    async testConnection(provider) {
+    /**
+     * 测试单个模型的连通性，返回 { success, model, duration, error }
+     */
+    async testModel(provider, model) {
         if (!provider?.apiKey) {
-            throw new Error('请填写 API Key');
+            return { success: false, model, duration: 0, error: '请填写 API Key' };
         }
         const baseUrl = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
-
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const start = performance.now();
 
         try {
             const response = await fetch(`${baseUrl}/chat/completions`, {
@@ -112,7 +115,7 @@ class AiService {
                     'Authorization': `Bearer ${provider.apiKey}`,
                 },
                 body: JSON.stringify({
-                    model: provider.models?.[0] || 'gpt-4o',
+                    model,
                     messages: [{ role: 'user', content: 'hi' }],
                     max_tokens: 1,
                     stream: false,
@@ -120,20 +123,34 @@ class AiService {
                 signal: controller.signal,
             });
 
+            const duration = Math.round(performance.now() - start);
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`${response.status}: ${errorText.slice(0, 200)}`);
+                return { success: false, model, duration, error: `${response.status}: ${errorText.slice(0, 120)}` };
             }
-
-            return { success: true };
+            return { success: true, model, duration, error: null };
         } catch (error) {
-            if (error.name === 'AbortError') {
-                throw new Error('连接超时（15s）');
-            }
-            throw error;
+            const duration = Math.round(performance.now() - start);
+            const msg = error.name === 'AbortError' ? '超时（15s）' : (error.message || '连接失败');
+            return { success: false, model, duration, error: msg };
         } finally {
             clearTimeout(timeoutId);
         }
+    }
+
+    /**
+     * 测试 provider 下所有模型（兼容旧调用）
+     */
+    async testConnection(provider) {
+        const models = provider?.models;
+        if (!models || models.length === 0) {
+            const result = await this.testModel(provider, 'gpt-4o');
+            if (!result.success) throw new Error(result.error);
+            return result;
+        }
+        const result = await this.testModel(provider, models[0]);
+        if (!result.success) throw new Error(result.error);
+        return result;
     }
 
     // ── 获取模型列表 ─────────────────────────────────────
