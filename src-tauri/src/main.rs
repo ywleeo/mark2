@@ -199,12 +199,30 @@ fn main() {
             let handle = app.handle();
             register_plain_paste_shortcut(&handle);
             menu::build_app_menu(app)?;
+
+            // Windows: 读取命令行参数中的文件路径（双击文件打开时传入）
+            #[cfg(target_os = "windows")]
+            {
+                let args: Vec<String> = std::env::args().skip(1).collect();
+                let file_paths: Vec<String> = args
+                    .into_iter()
+                    .filter(|arg| !arg.starts_with('-'))
+                    .filter(|arg| std::path::Path::new(arg).exists())
+                    .collect();
+                if !file_paths.is_empty() {
+                    if let Some(state) = app.try_state::<OpenedFilesState>() {
+                        if let Ok(mut guard) = state.paths.lock() {
+                            guard.extend(file_paths);
+                        }
+                    }
+                }
+            }
+
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, _event| {
-            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = _event {
                 let paths: Vec<String> = urls
                     .iter()

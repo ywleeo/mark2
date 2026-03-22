@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { basename } from '../utils/pathUtils.js';
 
 const TAB_DRAG_ACTIVATION_THRESHOLD = 4;
 
@@ -69,7 +70,7 @@ export class TabManager {
             this.clearSharedTab();
             return;
         }
-        const fileName = path.split('/').pop() || path;
+        const fileName = basename(path) || path;
         this.sharedTab = {
             id: this.sharedTabId,
             type: 'shared',
@@ -127,7 +128,7 @@ export class TabManager {
         );
 
         this.fileTabs = openFilePaths.map(path => {
-            const fileName = path.split('/').pop() || path;
+            const fileName = basename(path) || path;
             const existing = previous.get(path);
             if (existing) {
                 return { ...existing, label: fileName };
@@ -817,7 +818,7 @@ export class TabManager {
 
         let hasChanges = false;
         if (this.sharedTab && this.sharedTab.path === oldPath) {
-            const label = newLabel ?? (newPath.split('/').pop() || newPath);
+            const label = newLabel ?? (basename(newPath) || newPath);
             this.sharedTab = {
                 ...this.sharedTab,
                 path: newPath,
@@ -830,7 +831,7 @@ export class TabManager {
             if (tab.path !== oldPath) {
                 return tab;
             }
-            const label = newLabel ?? (newPath.split('/').pop() || newPath);
+            const label = newLabel ?? (basename(newPath) || newPath);
             hasChanges = true;
             return {
                 ...tab,

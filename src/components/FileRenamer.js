@@ -1,3 +1,5 @@
+import { basename } from '../utils/pathUtils.js';
+
 export class FileRenamer {
     constructor(options = {}) {
         const {
@@ -61,7 +63,7 @@ export class FileRenamer {
             return;
         }
 
-        const fileName = nameSpan.textContent || normalized.split('/').pop();
+        const fileName = nameSpan.textContent || basename(normalized);
         if (useOpenFileItem && !item.hasAttribute('tabindex')) {
             item.tabIndex = -1;
         }
@@ -144,7 +146,7 @@ export class FileRenamer {
         if (input && item) {
             const span = document.createElement('span');
             span.className = nameClass;
-            const fallbackName = originalName || (this.renamingPath.split('/').pop());
+            const fallbackName = originalName || (basename(this.renamingPath));
             span.textContent = fallbackName;
             input.replaceWith(span);
             try {

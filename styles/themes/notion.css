@@ -3,6 +3,7 @@
 /* ===== Light Mode ===== */
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]),
 .tiptap-editor[data-theme-appearance='light'],
+[data-theme-appearance='light'] .markdown-pane,
 [data-theme-appearance='light'] .markdown-content {
     color: #37352f;
     background-color: #ffffff;
@@ -180,6 +181,7 @@
 /* ===== Dark Mode ===== */
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]),
 .tiptap-editor[data-theme-appearance='dark'],
+[data-theme-appearance='dark'] .markdown-pane,
 [data-theme-appearance='dark'] .markdown-content {
     color: #f8f7f1;
     background-color: #262930;

@@ -1,3 +1,5 @@
+import { basename } from '../utils/pathUtils.js';
+
 export class UnsupportedViewer {
     constructor(containerElement) {
         this.container = containerElement;
@@ -26,7 +28,7 @@ export class UnsupportedViewer {
 
     show(filePath, error = null) {
         this.currentFile = filePath;
-        const fileName = filePath?.split('/').pop() || filePath || '';
+        const fileName = basename(filePath) || filePath || '';
         if (this.filenameElement) {
             this.filenameElement.textContent = fileName;
         }

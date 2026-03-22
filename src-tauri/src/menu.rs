@@ -139,9 +139,19 @@ pub fn update_recent_menu(
 }
 
 pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(target_os = "macos")]
     let open_item = MenuItemBuilder::with_id("open", "Open...")
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
+
+    #[cfg(not(target_os = "macos"))]
+    let open_file_item = MenuItemBuilder::with_id("open-file", "Open File...")
+        .accelerator("CmdOrCtrl+O")
+        .build(app)?;
+
+    #[cfg(not(target_os = "macos"))]
+    let open_folder_item =
+        MenuItemBuilder::with_id("open-folder", "Open Folder...").build(app)?;
 
     let settings_item = MenuItemBuilder::with_id("settings", "Settings...")
         .accelerator("CmdOrCtrl+,")
@@ -198,10 +208,20 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 
     let open_recent_submenu = SubmenuBuilder::new(app, "Open Recent").build()?;
 
-    let file_menu = SubmenuBuilder::new(app, "File")
+    #[cfg(target_os = "macos")]
+    let file_menu_builder = SubmenuBuilder::new(app, "File")
         .item(&new_file_item)
         .item(&open_item)
-        .item(&open_recent_submenu)
+        .item(&open_recent_submenu);
+
+    #[cfg(not(target_os = "macos"))]
+    let file_menu_builder = SubmenuBuilder::new(app, "File")
+        .item(&new_file_item)
+        .item(&open_file_item)
+        .item(&open_folder_item)
+        .item(&open_recent_submenu);
+
+    let file_menu = file_menu_builder
         .separator()
         .item(&export_submenu)
         .separator()

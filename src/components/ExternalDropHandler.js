@@ -1,3 +1,5 @@
+import { dirname } from '../utils/pathUtils.js';
+
 export class ExternalDropHandler {
     constructor(options = {}) {
         const {
@@ -53,7 +55,7 @@ export class ExternalDropHandler {
                 // 读取失败可能是文件，忽略异常
             }
 
-            const parent = path.split('/').slice(0, -1).join('/');
+            const parent = dirname(path);
             if (parent) {
                 await this.refreshFolder?.(parent);
             }

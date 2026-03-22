@@ -1,3 +1,16 @@
+export function basename(path) {
+    if (!path) return path;
+    return path.split(/[/\\]/).pop() || path;
+}
+
+export function dirname(path) {
+    if (!path) return path;
+    const parts = path.split(/[/\\]/);
+    if (parts.length <= 1) return '';
+    parts.pop();
+    return parts.join(path.includes('\\') ? '\\' : '/');
+}
+
 export function normalizeFsPath(path) {
     if (!path) return path;
     if (typeof path === 'string' && path.startsWith('file://')) {

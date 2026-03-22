@@ -1,3 +1,5 @@
+import { basename } from '../utils/pathUtils.js';
+
 export function createNavigationController({
     getFileTree,
     getTabManager,
@@ -138,7 +140,7 @@ export function createNavigationController({
             const workflowEditor = getWorkflowEditor();
 
             if (newFileWillUseSharedTab && isCurrentFileInSharedTab && isCurrentWorkflowFile && workflowEditor?.isExecuting?.()) {
-                const fileName = previousFile.split('/').pop() || previousFile;
+                const fileName = basename(previousFile) || previousFile;
                 const shouldSwitch = await confirm?.(
                     `"${fileName}" 工作流正在执行，确定要切换吗？`,
                     {
@@ -204,7 +206,7 @@ export function createNavigationController({
         if (!confirm) {
             return false;
         }
-        const fileName = (filePath ? filePath.split('/').pop() : '') || filePath || '当前文件';
+        const fileName = (filePath ? basename(filePath) : '') || filePath || '当前文件';
         try {
             return await confirm(
                 `保存 "${fileName}" 失败，是否放弃更改并关闭？`,
@@ -244,7 +246,7 @@ export function createNavigationController({
             if (isWorkflowFile) {
                 workflowEditor?.clearAutoSaveTimer?.();
                 if (workflowEditor?.isExecuting?.()) {
-                    const fileName = targetPath.split('/').pop() || targetPath;
+                    const fileName = basename(targetPath) || targetPath;
                     const shouldClose = await confirm?.(
                         `"${fileName}" 工作流正在执行，确定要关闭吗？`,
                         {
@@ -340,7 +342,7 @@ export function createNavigationController({
                 // 检查 workflow 是否正在执行
                 const isWorkflowFile = targetPath.toLowerCase().endsWith('.mflow');
                 if (isWorkflowFile && workflowEditor?.isExecuting?.()) {
-                    const fileName = targetPath.split('/').pop() || targetPath;
+                    const fileName = basename(targetPath) || targetPath;
                     const shouldClose = await confirm?.(
                         `"${fileName}" 工作流正在执行，确定要关闭吗？`,
                         {

@@ -17,6 +17,8 @@ export async function registerMenuListeners(handlers) {
     await register('menu-undo', handlers.onUndo);
     await register('menu-redo', handlers.onRedo);
     await register('menu-open', handlers.onOpen);
+    await register('menu-open-file', handlers.onOpenFile);
+    await register('menu-open-folder', handlers.onOpenFolder);
     await register('menu-settings', handlers.onSettings);
     await register('menu-export-image', handlers.onExportImage);
     await register('menu-export-pdf', handlers.onExportPdf);

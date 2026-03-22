@@ -1,5 +1,6 @@
 import { getAppServices } from '../services/appServices.js';
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
+import { basename } from '../utils/pathUtils.js';
 
 export class FileTreeManager {
     constructor() {
@@ -50,7 +51,7 @@ export class FileTreeManager {
             const item = document.createElement('div');
             item.className = 'file-tree-item';
 
-            const fileName = entry.split('/').pop();
+            const fileName = basename(entry);
             item.textContent = fileName;
 
             if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {

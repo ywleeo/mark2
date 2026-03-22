@@ -1,4 +1,5 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
+import { basename } from '../utils/pathUtils.js';
 
 export function createFileMenuActions(options = {}) {
     const {
@@ -127,7 +128,7 @@ export function createFileMenuActions(options = {}) {
             const exists = await fileService.exists(normalizedPath);
 
             if (exists) {
-                const fileName = normalizedPath.split('/').pop() || normalizedPath;
+                const fileName = basename(normalizedPath) || normalizedPath;
                 const shouldOverride = await confirm(
                     `文件 "${fileName}" 已存在，覆盖后将丢失原内容，是否继续？`,
                     {
@@ -162,7 +163,7 @@ export function createFileMenuActions(options = {}) {
             return;
         }
 
-        const fileName = currentFile.split('/').pop() || currentFile;
+        const fileName = basename(currentFile) || currentFile;
         const shouldDelete = await confirm(`确认删除文件 "${fileName}" 吗？`, {
             title: '删除文件',
             kind: 'warning',
@@ -378,7 +379,7 @@ export function createFileMenuActions(options = {}) {
 
         const tabLabel = typeof options.tabLabel === 'string'
             ? options.tabLabel
-            : (normalizedNew.split('/').pop() || normalizedNew);
+            : (basename(normalizedNew) || normalizedNew);
 
         fileSession.renameEntry(normalizedOld, normalizedNew);
 

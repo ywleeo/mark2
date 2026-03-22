@@ -1,4 +1,5 @@
 import { getViewModeForPath } from '../../utils/fileTypeUtils.js';
+import { basename } from '../../utils/pathUtils.js';
 import { getAppServices } from '../../services/appServices.js';
 import { FileRenamer } from '../FileRenamer.js';
 import { FileMover } from '../FileMover.js';
@@ -639,7 +640,7 @@ export class FileTree {
 
         try {
             const entries = await this.readDirectory(normalizedPath);
-            const folderName = normalizedPath.split('/').pop() || normalizedPath;
+            const folderName = basename(normalizedPath) || normalizedPath;
 
             const contentDiv = this.container.querySelector('#foldersContent');
             if (!contentDiv) return;
@@ -779,7 +780,7 @@ export class FileTree {
         const fragment = document.createDocumentFragment();
 
         for (const entry of entries) {
-            const name = entry.path.split('/').pop();
+            const name = basename(entry.path);
 
             if (entry.isDir) {
                 const folderItem = this.createFolderItem(name, entry.path, [], false, path);
@@ -1345,7 +1346,7 @@ export class FileTree {
         const nameSpan = header.querySelector('.tree-item-name');
         if (!nameSpan) return;
 
-        const folderName = nameSpan.textContent || normalized.split('/').pop();
+        const folderName = nameSpan.textContent || basename(normalized);
         const input = document.createElement('input');
         input.type = 'text';
         // 复用文件重命名输入框样式，保持一致
@@ -1427,7 +1428,7 @@ export class FileTree {
         if (input && header) {
             const span = document.createElement('span');
             span.className = nameClass;
-            const fallbackName = originalName || (this.folderRenamingPath.split('/').pop());
+            const fallbackName = originalName || basename(this.folderRenamingPath);
             span.textContent = fallbackName;
             input.replaceWith(span);
             try {

@@ -8,6 +8,9 @@ export function createFileDropController({ openPathsFromSelection }) {
 
     let isFileDropHoverActive = false;
     let cleanupHandler = null;
+    let lastDropKey = '';
+    let lastDropTime = 0;
+    const DROP_DEDUP_MS = 1000;
 
     function setFileDropHoverState(isActive) {
         // 如果是内部拖拽（通过全局变量判断），始终不显示 hover 效果
@@ -78,6 +81,13 @@ export function createFileDropController({ openPathsFromSelection }) {
                         pendingPaths = [];
                         setFileDropHoverState(false);
                         if (Array.isArray(targetPaths) && targetPaths.length > 0) {
+                            const dropKey = targetPaths.slice().sort().join('\n');
+                            const now = Date.now();
+                            if (dropKey === lastDropKey && now - lastDropTime < DROP_DEDUP_MS) {
+                                return;
+                            }
+                            lastDropKey = dropKey;
+                            lastDropTime = now;
                             await ensureSecurityScopes(targetPaths);
                             try {
                                 await openPathsFromSelection(targetPaths);

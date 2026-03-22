@@ -1,6 +1,7 @@
 import { getAppServices } from '../services/appServices.js';
 import { ImageModal } from './ImageModal.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { basename } from '../utils/pathUtils.js';
 
 export class ImageViewer {
     constructor(containerElement) {
@@ -72,7 +73,7 @@ export class ImageViewer {
 
             // 空文件直接提示，不抛出异常
             if (!base64Data) {
-                const fileName = filePath.split('/').pop() || filePath;
+                const fileName = basename(filePath) || filePath;
                 this.filenameElement.textContent = fileName;
                 this.clearImageContent();
                 this.showMessage('文件为空，无法预览');
@@ -95,9 +96,9 @@ export class ImageViewer {
 
             // 设置 data URL
             this.imgElement.src = `data:${mimeType};base64,${base64Data}`;
-            this.imgElement.alt = filePath.split('/').pop() || filePath;
+            this.imgElement.alt = basename(filePath) || filePath;
 
-            const fileName = filePath.split('/').pop() || filePath;
+            const fileName = basename(filePath) || filePath;
             this.filenameElement.textContent = fileName;
 
             // 等待图片加载
@@ -151,7 +152,7 @@ export class ImageViewer {
         if (!this.imgElement || !this.imgElement.src) {
             return;
         }
-        const alt = this.imgElement.alt || this.currentFile?.split('/').pop() || '图片';
+        const alt = this.imgElement.alt || basename(this.currentFile) || '图片';
         this.imageModal?.show(this.imgElement.src, alt);
     }
 

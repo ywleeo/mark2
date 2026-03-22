@@ -193,6 +193,26 @@ export function createFileOperations({
         }
     }
 
+    async function openFileOnly() {
+        try {
+            const selected = await fileService.pick({ allowDirectories: false, allowFiles: true });
+            await openPathsFromSelection(selected);
+        } catch (error) {
+            console.error('打开文件失败:', error);
+            alert('打开文件失败: ' + error);
+        }
+    }
+
+    async function openFolderOnly() {
+        try {
+            const selected = await fileService.pick({ directory: true, allowDirectories: true, allowFiles: false });
+            await openPathsFromSelection(selected);
+        } catch (error) {
+            console.error('打开文件夹失败:', error);
+            alert('打开文件夹失败: ' + error);
+        }
+    }
+
     async function saveCurrentFile() {
         const currentFile = getCurrentFile();
         if (!currentFile) {
@@ -646,6 +666,8 @@ export function createFileOperations({
     return {
         openPathsFromSelection,
         openFileOrFolder,
+        openFileOnly,
+        openFolderOnly,
         saveCurrentFile,
         saveFile,
         loadFile,

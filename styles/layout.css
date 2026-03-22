@@ -115,6 +115,10 @@
     --file-icon-color: rgba(233, 237, 245, 0.92);
 }
 
+html {
+    background: var(--sidebar-bg, #f5f6f8);
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -130,6 +134,11 @@ body {
     scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
     background: var(--sidebar-bg, #f5f6f8);
     color: var(--body-text-color, #1f242d);
+}
+
+button:focus-visible,
+[role="button"]:focus-visible {
+    outline: none;
 }
 
 /* 自定义标题栏 */

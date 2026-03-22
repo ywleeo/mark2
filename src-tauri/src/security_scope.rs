@@ -169,12 +169,17 @@ pub fn pick_path(
     {
         let opts = options.unwrap_or_default();
         let wants_directories = opts.directory.unwrap_or(false);
+        let allow_directories = opts.allow_directories.unwrap_or(true);
+        let allow_files = opts.allow_files.unwrap_or(!wants_directories);
+        let use_folder_picker = wants_directories || (allow_directories && !allow_files);
 
-        let mut dialog = if wants_directories {
-            rfd::FileDialog::new().set_title(opts.title.as_deref().unwrap_or("Select Folder"))
+        let default_title = if use_folder_picker {
+            "Select Folder"
         } else {
-            rfd::FileDialog::new().set_title(opts.title.as_deref().unwrap_or("Select File"))
+            "Select File"
         };
+        let mut dialog =
+            rfd::FileDialog::new().set_title(opts.title.as_deref().unwrap_or(default_title));
 
         if let Some(ref default_path) = opts.default_path {
             let p = std::path::Path::new(default_path);
@@ -185,7 +190,7 @@ pub fn pick_path(
             }
         }
 
-        let paths = if wants_directories {
+        let paths = if use_folder_picker {
             if opts.multiple.unwrap_or(false) {
                 dialog.pick_folders().unwrap_or_default()
             } else {

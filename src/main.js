@@ -520,6 +520,8 @@ const workspaceController = createWorkspaceController({
 const {
     openPathsFromSelection,
     openFileOrFolder,
+    openFileOnly,
+    openFolderOnly,
     saveCurrentFile,
     saveFile,
     loadFile,
@@ -1065,6 +1067,8 @@ async function initializeApplication() {
         onRedo: handleRedoCommand,
         onNewFile: handleCreateNewFile,
         onOpen: openFileOrFolder,
+        onOpenFile: openFileOnly,
+        onOpenFolder: openFolderOnly,
         onSettings: openSettingsDialog,
         onExportImage: () => exportCurrentViewToImage({ statusBarController: appState.getStatusBarController() }),
         onExportPdf: () => exportCurrentViewToPdf({ activeViewMode: appState.getActiveViewMode(), statusBarController: appState.getStatusBarController() }),

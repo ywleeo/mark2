@@ -47,6 +47,14 @@
       },
       "entitlements": "macos/Mark2.entitlements"
     },
-    "category": "Productivity"
+    "category": "Productivity",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "mimeType": "text/markdown",
+        "description": "Markdown Document",
+        "role": "Editor"
+      }
+    ]
   }
 }

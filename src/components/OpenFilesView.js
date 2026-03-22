@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { basename } from '../utils/pathUtils.js';
 
 export class OpenFilesView {
     constructor(options = {}) {
@@ -52,7 +53,7 @@ export class OpenFilesView {
                 });
             }
 
-            const fileName = normalized.split('/').pop();
+            const fileName = basename(normalized);
             const item = document.createElement('div');
             item.className = 'open-file-item';
             item.dataset.path = normalized;

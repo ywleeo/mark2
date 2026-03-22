@@ -1,5 +1,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { isAudioFilePath, isVideoFilePath } from '../utils/fileTypeUtils.js';
+import { basename } from '../utils/pathUtils.js';
 
 export class MediaViewer {
     constructor(containerElement) {
@@ -121,7 +122,7 @@ export class MediaViewer {
         this.currentFile = filePath;
         this.hideError();
         this.resetHint();
-        this.filenameElement.textContent = filePath.split('/').pop() || filePath;
+        this.filenameElement.textContent = basename(filePath) || filePath;
 
         const element = this.createMediaElement(isVideo ? 'video' : 'audio');
         const tryLoad = (src, { isFallback } = {}) => new Promise((resolve, reject) => {
