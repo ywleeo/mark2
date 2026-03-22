@@ -193,12 +193,12 @@
 .tiptap-editor[data-theme-appearance='dark'] table td,
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='dark'] table th{
-    border-color: #2a3c33;
+    border-color: #959595;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='dark'] table th{
-    background-color: #1c2d22;
+    background-color: #212b36;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) p.is-editor-empty:first-child::before,

@@ -82,6 +82,7 @@ import { createEditorCallbacks, setupEditors } from './app/editorSetup.js';
 import { setupStatusBar, setupFileTree, setupTabManager } from './app/componentSetup.js';
 import { setupToolbarEvents } from './app/eventSetup.js';
 import { restoreStoredSecurityScopes } from './services/securityScopeService.js';
+import { startIdleGC, registerIdleCleanup, createTabStateTrimmer } from './utils/idleGC.js';
 import { RendererRegistry } from './fileRenderers/registry.js';
 import { createMarkdownRenderer } from './fileRenderers/handlers/markdown.js';
 import { createCodeRenderer } from './fileRenderers/handlers/code.js';
@@ -927,6 +928,10 @@ async function initializeApplication() {
         codeEditor: codeEditor,
     });
 
+    // 启动空闲内存清理：定期裁剪非活跃 tab 的 EditorState（含 undo 历史）
+    const tabStateTrimmer = createTabStateTrimmer(() => editorRegistry.getMarkdownEditor());
+    registerIdleCleanup(() => tabStateTrimmer.trim());
+    startIdleGC();
 
     cardExportSidebar = await initCardExportSidebar();
     console.log('[App] 卡片导出侧边栏已初始化');

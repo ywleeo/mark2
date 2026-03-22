@@ -2347,6 +2347,7 @@ export class MarkdownEditor {
             editorState: this.editor.state,  // 保存完整状态（含撤销历史）
             markdown: this.originalMarkdown, // 记录当时的内容，用于判断是否可恢复
             scrollTop,
+            lastActive: Date.now(),
         });
     }
 
