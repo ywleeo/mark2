@@ -2501,7 +2501,7 @@ dependencies = [
 
 [[package]]
 name = "mark2-tauri"
-version = "1.5.45"
+version = "1.5.5"
 dependencies = [
  "axum",
  "axum-server",
