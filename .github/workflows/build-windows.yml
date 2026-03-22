@@ -9,6 +9,9 @@ on:
         description: 'Existing release tag to attach artifacts (e.g. v1.5.5)'
         required: false
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
