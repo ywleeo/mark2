@@ -32,7 +32,6 @@ use objc2::MainThreadMarker;
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel, NSPasteboard};
 #[cfg(target_os = "macos")]
 use objc2_foundation::{NSString, NSURL};
-#[cfg(target_os = "macos")]
 
 use serde::{Deserialize, Serialize};
 
@@ -650,7 +649,47 @@ fn pick_path(
 
     #[cfg(not(target_os = "macos"))]
     {
-        Err("unsupported".to_string())
+        let opts = options.unwrap_or_default();
+        let wants_directories = opts.directory.unwrap_or(false);
+
+        let mut dialog = if wants_directories {
+            rfd::FileDialog::new().set_title(opts.title.as_deref().unwrap_or("Select Folder"))
+        } else {
+            rfd::FileDialog::new().set_title(opts.title.as_deref().unwrap_or("Select File"))
+        };
+
+        if let Some(ref default_path) = opts.default_path {
+            let p = std::path::Path::new(default_path);
+            if p.is_dir() {
+                dialog = dialog.set_directory(p);
+            } else if let Some(parent) = p.parent() {
+                dialog = dialog.set_directory(parent);
+            }
+        }
+
+        let paths = if wants_directories {
+            if opts.multiple.unwrap_or(false) {
+                dialog.pick_folders().unwrap_or_default()
+            } else {
+                dialog.pick_folder().map(|p| vec![p]).unwrap_or_default()
+            }
+        } else if opts.multiple.unwrap_or(false) {
+            dialog.pick_files().unwrap_or_default()
+        } else {
+            dialog.pick_file().map(|p| vec![p]).unwrap_or_default()
+        };
+
+        Ok(paths
+            .into_iter()
+            .filter_map(|p| {
+                let is_dir = p.is_dir();
+                p.to_str().map(|s| PickedPathEntry {
+                    path: s.to_string(),
+                    bookmark: None,
+                    is_directory: Some(is_dir),
+                })
+            })
+            .collect())
     }
 }
 
@@ -1208,8 +1247,9 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
-            if let tauri::RunEvent::Opened { urls } = event {
+        .run(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
                 // 处理从系统传入的文件打开请求
                 let paths: Vec<String> = urls
                     .iter()
@@ -1227,7 +1267,7 @@ fn main() {
                 }
 
                 // 尝试发送事件到前端
-                if let Some(window) = app.get_webview_window("main") {
+                if let Some(window) = _app.get_webview_window("main") {
                     let payload = OpenedFilesPayload { paths: paths.clone() };
                     if window.emit("files-opened", payload).is_ok() {
                         return;
@@ -1235,7 +1275,7 @@ fn main() {
                 }
 
                 // 如果前端还没准备好，存储到状态中
-                if let Some(state) = app.try_state::<OpenedFilesState>() {
+                if let Some(state) = _app.try_state::<OpenedFilesState>() {
                     if let Ok(mut guard) = state.paths.lock() {
                         guard.extend(paths);
                     }
