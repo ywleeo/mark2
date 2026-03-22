@@ -226,31 +226,24 @@ export class SpreadsheetViewer {
             this.viewportElement.removeEventListener('scroll', this.handleViewportScroll);
         }
         this.tableWrapperElement.innerHTML = `
-            <div class="spreadsheet-grid">
-                <div class="spreadsheet-grid__header-wrapper">
-                    <div class="spreadsheet-grid__header"></div>
-                </div>
-                <div class="spreadsheet-grid__viewport" role="grid">
-                    <div class="spreadsheet-grid__spacer"></div>
-                    <div class="spreadsheet-grid__visible"></div>
-                </div>
+            <div class="spreadsheet-grid__header-wrapper">
+                <div class="spreadsheet-grid__header"></div>
             </div>
+            <div class="spreadsheet-grid__spacer"></div>
+            <div class="spreadsheet-grid__visible"></div>
         `;
-        this.gridElement = this.tableWrapperElement.querySelector('.spreadsheet-grid');
         this.headerWrapperElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__header-wrapper');
         this.headerElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__header');
         if (this.headerElement) {
             this.headerElement.style.transform = 'translateX(0)';
         }
-        this.viewportElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__viewport');
+        this.viewportElement = this.tableWrapperElement;
         this.spacerElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__spacer');
         this.visibleRowsElement = this.tableWrapperElement.querySelector('.spreadsheet-grid__visible');
         this.visibleRowsElement.innerHTML = '';
         this.visibleRowsElement.style.transform = 'translateY(0)';
-        if (this.viewportElement) {
-            this.viewportElement.addEventListener('scroll', this.handleViewportScroll, { passive: true });
-        }
-        if (typeof window !== 'undefined' && 'ResizeObserver' in window && this.viewportElement) {
+        this.viewportElement.addEventListener('scroll', this.handleViewportScroll, { passive: true });
+        if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
             this.viewportResizeObserver = new window.ResizeObserver(() => {
                 this.renderVisibleRows(true);
             });
@@ -330,8 +323,12 @@ export class SpreadsheetViewer {
         if (!this.spacerElement || !this.virtualState) {
             return;
         }
-        const totalHeight = this.virtualState.rows.length * this.getRowHeight();
+        const { rows, columnWidths } = this.virtualState;
+        const headerHeight = this.headerWrapperElement ? this.headerWrapperElement.offsetHeight : 0;
+        const totalHeight = headerHeight + rows.length * this.getRowHeight();
+        const totalWidth = ROW_INDEX_COLUMN_WIDTH + columnWidths.reduce((sum, w) => sum + w, 0);
         this.spacerElement.style.height = `${totalHeight}px`;
+        this.spacerElement.style.width = `${totalWidth * this.zoomScale}px`;
     }
 
     resetViewportScroll() {
@@ -367,7 +364,9 @@ export class SpreadsheetViewer {
             return;
         }
         const rowHeight = this.getRowHeight();
-        const scrollTop = this.viewportElement.scrollTop || 0;
+        const headerHeight = this.headerWrapperElement ? this.headerWrapperElement.offsetHeight : 0;
+        const rawScrollTop = this.viewportElement.scrollTop || 0;
+        const scrollTop = Math.max(0, rawScrollTop - headerHeight);
         const viewportHeight = this.viewportElement.clientHeight || 0;
         const start = Math.max(0, Math.floor(scrollTop / rowHeight) - ROW_BUFFER);
         const end = Math.min(rows.length, start + Math.ceil(viewportHeight / rowHeight) + (ROW_BUFFER * 2));
@@ -382,7 +381,7 @@ export class SpreadsheetViewer {
         }
         this.visibleRowsElement.innerHTML = '';
         this.visibleRowsElement.appendChild(fragment);
-        this.visibleRowsElement.style.transform = `translateY(${start * rowHeight}px)`;
+        this.visibleRowsElement.style.transform = `translateY(${headerHeight + start * rowHeight}px)`;
         this.virtualState.renderedRange = { start, end };
     }
 

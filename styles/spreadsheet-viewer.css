@@ -87,17 +87,24 @@
 .spreadsheet-viewer__table-wrapper {
     position: absolute;
     inset: 0;
+    overflow: auto;
     background: linear-gradient(180deg, rgba(148, 163, 184, 0.05), rgba(148, 163, 184, 0.15));
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2)) transparent;
 }
 
-.spreadsheet-grid {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    background: #fff;
-    overflow: hidden;
+.spreadsheet-viewer__table-wrapper::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.spreadsheet-viewer__table-wrapper::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2));
+    border-radius: 4px;
+}
+
+.spreadsheet-viewer__table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
 }
 
 .spreadsheet-grid__header-wrapper {
@@ -115,18 +122,9 @@
     will-change: transform;
 }
 
-.spreadsheet-grid__viewport {
-    position: relative;
-    flex: 1;
-    overflow: auto;
-    min-height: 0;
-    background: linear-gradient(180deg, rgba(148, 163, 184, 0.03), rgba(148, 163, 184, 0.12));
-}
-
 .spreadsheet-grid__spacer {
-    width: 1px;
-    height: 100%;
     visibility: hidden;
+    pointer-events: none;
 }
 
 .spreadsheet-grid__visible {
@@ -146,8 +144,8 @@
     border-bottom: 1px solid rgba(226, 232, 240, 0.5);
 }
 
-.spreadsheet-grid__row:hover .spreadsheet-grid__cell:not(.spreadsheet-grid__cell--header) {
-    background: rgba(59, 130, 246, 0.05);
+.spreadsheet-grid__row:hover .spreadsheet-grid__cell:not(.spreadsheet-grid__cell--header):not(.spreadsheet-grid__cell--index) {
+    background: #f0f4ff;
 }
 
 .spreadsheet-grid__cell {
@@ -206,4 +204,76 @@
 
 .spreadsheet-viewer__empty-state.is-hidden {
     display: none;
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer {
+    color: rgba(228, 233, 246, 0.9);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__toolbar {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background: rgba(30, 30, 30, 0.9);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__tabs-placeholder {
+    color: rgba(228, 233, 246, 0.5);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__tab {
+    border-color: rgba(139, 142, 241, 0.3);
+    background: rgba(139, 142, 241, 0.1);
+    color: rgba(180, 178, 255, 0.9);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__tab.is-active {
+    background: rgba(139, 142, 241, 0.2);
+    border-color: rgba(139, 142, 241, 0.5);
+    color: rgba(200, 198, 255, 0.95);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__table-wrapper {
+    background: linear-gradient(180deg, rgba(20, 20, 20, 0.5), rgba(15, 15, 15, 0.8));
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__header-wrapper {
+    background: rgba(30, 30, 30, 0.95);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__row:not(.spreadsheet-grid__row--header) {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__row:hover .spreadsheet-grid__cell:not(.spreadsheet-grid__cell--header):not(.spreadsheet-grid__cell--index) {
+    background: #1e2230;
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell {
+    color: rgba(228, 233, 246, 0.9);
+    background: #1a1a1a;
+    border-right-color: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell--header {
+    color: rgba(180, 178, 255, 0.9);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell--index {
+    background: rgba(25, 25, 25, 0.95);
+    color: rgba(228, 233, 246, 0.6);
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell--header.spreadsheet-grid__cell--index {
+    background: rgba(99, 102, 241, 0.15);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell--header + .spreadsheet-grid__cell--header {
+    border-left-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__empty-state {
+    color: rgba(228, 233, 246, 0.5);
 }
