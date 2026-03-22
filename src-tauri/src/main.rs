@@ -535,7 +535,7 @@ fn update_document_snapshot(
 
 #[tauri::command]
 fn pick_path(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     options: Option<FileDialogOptions>,
 ) -> Result<Vec<PickedPathEntry>, String> {
     #[cfg(target_os = "macos")]
@@ -561,7 +561,7 @@ fn pick_path(
         let message = opts.message.clone();
         let prompt = opts.prompt.clone();
         let (tx, rx) = mpsc::channel();
-        app.run_on_main_thread(move || {
+        _app.run_on_main_thread(move || {
             let picker_result = autoreleasepool(|_| {
                 let mtm = MainThreadMarker::new().expect("pick_path must run on main thread");
                 let panel = NSOpenPanel::openPanel(mtm);
@@ -748,7 +748,12 @@ fn capture_security_scope(path: String) -> Result<PickedPathEntry, String> {
 
     #[cfg(not(target_os = "macos"))]
     {
-        Err("unsupported".to_string())
+        let is_dir = Path::new(&path).is_dir();
+        Ok(PickedPathEntry {
+            path,
+            bookmark: None,
+            is_directory: Some(is_dir),
+        })
     }
 }
 
@@ -855,7 +860,24 @@ fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
+    use std::process::Command;
+
+    let status = Command::new("explorer")
+        .arg(format!("/select,{}", path))
+        .status()
+        .map_err(|e| e.to_string())?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        // explorer 返回 1 也算成功（正常行为）
+        Ok(())
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn reveal_in_file_manager_impl(_path: &str) -> Result<(), String> {
     Err("unsupported".to_string())
 }

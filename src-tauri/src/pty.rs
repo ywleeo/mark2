@@ -63,8 +63,16 @@ fn get_user_shell() -> String {
             }
         }
     }
-    // fallback: 使用系统默认的 /bin/zsh（macOS Catalina+ 默认 shell）
-    "/bin/zsh".to_string()
+    // fallback
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // macOS Catalina+ 默认 shell
+        "/bin/zsh".to_string()
+    }
 }
 
 /// 生成唯一的 PTY ID
