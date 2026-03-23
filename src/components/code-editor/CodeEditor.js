@@ -16,6 +16,7 @@ import {
     MIN_ZOOM_SCALE,
     MAX_ZOOM_SCALE,
 } from './constants.js';
+import { formatCode, isFormattable } from './CodeFormatter.js';
 
 /**
  * 规范化表格中 <br> + 空行的模式，防止 markdown 表格断裂。
@@ -113,6 +114,9 @@ export class CodeEditor {
             Math.round(this.baseFontSize * this.baseLineHeightRatio),
             this.baseFontSize
         );
+
+        // 保存时自动格式化
+        this.formatOnSave = options.formatOnSave ?? true;
 
         // CodeMirror Compartments for dynamic reconfiguration
         this._langCompartment = new Compartment();
@@ -528,6 +532,10 @@ export class CodeEditor {
         return this.editor ? this.editor.state.doc.toString() : '';
     }
 
+    /**
+     * 同步版本：保存前预处理（JSON 格式化、Markdown 尾部空行）
+     * 外部调用方（DocumentIO、fileOperations 等）依赖此方法
+     */
     getValueForSave() {
         const raw = this.getValue();
 
@@ -653,15 +661,45 @@ export class CodeEditor {
             return;
         }
 
+        // 立即锁定，防止 await 期间重入
+        this.isSaving = true;
+
         const filePath = this.currentFile;
         const raw = this.getValue();
-        const content = this.getValueForSave();
-        const contentChanged = content !== raw;
-        const localWriteKey = normalizeFsPath(filePath) || filePath;
+        // 同步预处理（JSON 格式化、Markdown 尾部空行）
+        let content = this.getValueForSave();
 
+        // 异步格式化（Worker 中执行，不阻塞主线程）
+        if (this.formatOnSave && isFormattable(this.currentLanguage)) {
+            try {
+                const formatted = await formatCode(raw, this.currentLanguage);
+                if (formatted && formatted !== raw) {
+                    // Markdown 文件还需要确保尾部空行
+                    if (shouldEnforceMarkdownTrailingEmptyLine(this.currentFile, this.currentLanguage)) {
+                        content = ensureMarkdownTrailingEmptyLine(formatted);
+                    } else {
+                        content = formatted;
+                    }
+                }
+            } catch (error) {
+                console.warn('[CodeEditor] 格式化异常，使用预处理内容:', error);
+            }
+        }
+
+        const localWriteKey = normalizeFsPath(filePath) || filePath;
         const hadFocusBeforeSave = this.editor?.hasFocus ?? false;
 
-        this.isSaving = true;
+        // 检查 await 期间文件/会话是否已切换
+        if (filePath !== this.currentFile) {
+            this.isSaving = false;
+            return;
+        }
+
+        // 检查 await 期间用户是否继续编辑了内容
+        const currentRaw = this.getValue();
+        const userEditedDuringFormat = currentRaw !== raw;
+        const contentChanged = content !== currentRaw;
+
         const savePromise = (async () => {
             try {
                 const services = getAppServices();
@@ -670,7 +708,11 @@ export class CodeEditor {
                 }
                 await services.file.writeText(filePath, content);
                 if (!sessionId || sessionId === this.currentSessionId) {
-                    if (contentChanged && this.editor) {
+                    if (userEditedDuringFormat) {
+                        // 用户在格式化期间继续编辑了，不刷新编辑器，重新触发保存
+                        this.isDirty = true;
+                        this.scheduleAutoSave();
+                    } else if (contentChanged && this.editor) {
                         const pos = this.editor.state.selection.main.head;
                         this.suppressChange = true;
                         this.editor.dispatch({

@@ -4,4 +4,5 @@
 export { CodeEditor } from './CodeEditor.js';
 export { resolveLanguageSupport } from './LanguageSupport.js';
 export { buildTheme, buildHighlightStyle, availableThemes, getThemeVariant } from './ThemeSupport.js';
+export { formatCode, isFormattable } from './CodeFormatter.js';
 export * from './constants.js';
