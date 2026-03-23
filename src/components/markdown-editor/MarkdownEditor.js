@@ -154,6 +154,7 @@ export class MarkdownEditor {
                 DisableInlineCodeShortcut,
                 Table.configure({
                     resizable: false,
+                    renderWrapper: true,
                     allowTableNodeSelection: true,
                 }),
                 TableRow,

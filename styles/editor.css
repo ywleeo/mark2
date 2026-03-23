@@ -397,12 +397,29 @@
 
 
 /* 表格样式 */
+.tiptap-editor .tableWrapper {
+    overflow-x: auto;
+    margin: 1em 0;
+    scrollbar-width: thin;
+}
+
+.tiptap-editor .tableWrapper::-webkit-scrollbar {
+    height: 6px;
+}
+
+.tiptap-editor .tableWrapper::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.tiptap-editor .tableWrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
 .tiptap-editor table {
     border-collapse: collapse;
     table-layout: auto;
     width: fit-content;
-    max-width: 100%;
-    margin: 1em 0;
 }
 
 .tiptap-editor table td,
