@@ -1,3 +1,5 @@
+import { normalizeFsPath, getPathIdentityKey } from './pathUtils.js';
+
 export const WORKSPACE_STATE_STORAGE_KEY = 'mark2:workspaceState';
 
 function isNonEmptyString(value) {
@@ -15,6 +17,152 @@ function createDefaultSidebarState() {
     };
 }
 
+function canonicalizeWorkspacePath(value) {
+    if (!isNonEmptyString(value)) {
+        return null;
+    }
+
+    const canonical = normalizeFsPath(value.trim());
+    return isNonEmptyString(canonical) ? canonical : null;
+}
+
+function getCanonicalDedupedPaths(values) {
+    if (!Array.isArray(values) || values.length === 0) {
+        return [];
+    }
+
+    const deduped = new Map();
+    values.forEach((value) => {
+        const canonical = canonicalizeWorkspacePath(value);
+        if (!canonical) {
+            return;
+        }
+
+        const identity = getPathIdentityKey(canonical) ?? canonical;
+        if (!deduped.has(identity)) {
+            deduped.set(identity, canonical);
+        }
+    });
+
+    return Array.from(deduped.values());
+}
+
+function extractPathFromFolderKey(folderKey) {
+    if (!folderKey) {
+        return '';
+    }
+
+    const segments = String(folderKey).split('::');
+    return segments[segments.length - 1] || '';
+}
+
+function canonicalizeFolderKey(folderKey) {
+    if (!isNonEmptyString(folderKey)) {
+        return null;
+    }
+
+    const segments = folderKey.trim().split('::');
+    if (segments.length < 2) {
+        return null;
+    }
+
+    const folderPath = canonicalizeWorkspacePath(segments[segments.length - 1]);
+    if (!folderPath) {
+        return null;
+    }
+
+    const parentSegment = segments.slice(0, -1).join('::');
+    if (parentSegment === 'root') {
+        return `root::${folderPath}`;
+    }
+
+    const parentPath = canonicalizeWorkspacePath(parentSegment);
+    if (!parentPath) {
+        return null;
+    }
+
+    return `${parentPath}::${folderPath}`;
+}
+
+function getCanonicalDedupedFolderKeys(values) {
+    if (!Array.isArray(values) || values.length === 0) {
+        return [];
+    }
+
+    const deduped = new Map();
+    values.forEach((value) => {
+        const canonical = canonicalizeFolderKey(value);
+        if (!canonical) {
+            return;
+        }
+
+        const folderIdentity = getPathIdentityKey(extractPathFromFolderKey(canonical)) ?? canonical;
+        const identity = canonical.startsWith('root::')
+            ? `root::${folderIdentity}`
+            : `${getPathIdentityKey(canonical.split('::')[0]) ?? canonical.split('::')[0]}::${folderIdentity}`;
+
+        if (!deduped.has(identity)) {
+            deduped.set(identity, canonical);
+        }
+    });
+
+    return Array.from(deduped.values());
+}
+
+function folderKeyBelongsToRoot(folderKey, rootPath) {
+    const rootCanonical = canonicalizeWorkspacePath(rootPath);
+    if (!rootCanonical) {
+        return false;
+    }
+
+    const folderCanonical = canonicalizeWorkspacePath(extractPathFromFolderKey(folderKey));
+    if (!folderCanonical) {
+        return false;
+    }
+
+    const rootIdentity = getPathIdentityKey(rootCanonical);
+    const folderIdentity = getPathIdentityKey(folderCanonical);
+    if (!rootIdentity || !folderIdentity) {
+        return false;
+    }
+
+    if (rootIdentity === folderIdentity) {
+        return true;
+    }
+
+    const separator = rootIdentity.includes('\\') ? '\\' : '/';
+    const rootPrefix = rootIdentity.endsWith(separator) ? rootIdentity : `${rootIdentity}${separator}`;
+    return folderIdentity.startsWith(rootPrefix);
+}
+
+function filterExpandedFoldersByRoots(expandedFolders, rootPaths) {
+    if (!Array.isArray(expandedFolders) || expandedFolders.length === 0) {
+        return [];
+    }
+
+    if (!Array.isArray(rootPaths) || rootPaths.length === 0) {
+        return [];
+    }
+
+    return expandedFolders.filter((folderKey) => {
+        return rootPaths.some(rootPath => folderKeyBelongsToRoot(folderKey, rootPath));
+    });
+}
+
+function resolveCanonicalCurrentFile(currentFile, openFiles) {
+    const canonicalCurrentFile = canonicalizeWorkspacePath(currentFile);
+    if (!canonicalCurrentFile) {
+        return null;
+    }
+
+    const currentIdentity = getPathIdentityKey(canonicalCurrentFile) ?? canonicalCurrentFile;
+    const matchedOpenFile = openFiles.find((path) => {
+        return (getPathIdentityKey(path) ?? path) === currentIdentity;
+    });
+
+    return matchedOpenFile ?? canonicalCurrentFile;
+}
+
 export function createDefaultWorkspaceState() {
     return {
         currentFile: null,
@@ -30,30 +178,14 @@ export function normalizeWorkspaceState(candidate) {
         return normalized;
     }
 
-    if (isNonEmptyString(candidate.currentFile)) {
-        normalized.currentFile = candidate.currentFile.trim();
-    }
-
     if (candidate.sidebar && typeof candidate.sidebar === 'object') {
         const { sidebar } = candidate;
         if (Array.isArray(sidebar.rootPaths)) {
-            normalized.sidebar.rootPaths = Array.from(
-                new Set(
-                    sidebar.rootPaths
-                        .filter(isNonEmptyString)
-                        .map(path => path.trim())
-                )
-            );
+            normalized.sidebar.rootPaths = getCanonicalDedupedPaths(sidebar.rootPaths);
         }
 
         if (Array.isArray(sidebar.expandedFolders)) {
-            normalized.sidebar.expandedFolders = Array.from(
-                new Set(
-                    sidebar.expandedFolders
-                        .filter(isNonEmptyString)
-                        .map(key => key.trim())
-                )
-            );
+            normalized.sidebar.expandedFolders = getCanonicalDedupedFolderKeys(sidebar.expandedFolders);
         }
 
         if (sidebar.sectionStates && typeof sidebar.sectionStates === 'object') {
@@ -68,14 +200,14 @@ export function normalizeWorkspaceState(candidate) {
     }
 
     if (Array.isArray(candidate.openFiles)) {
-        normalized.openFiles = Array.from(
-            new Set(
-                candidate.openFiles
-                    .filter(isNonEmptyString)
-                    .map(path => path.trim())
-            )
-        );
+        normalized.openFiles = getCanonicalDedupedPaths(candidate.openFiles);
     }
+
+    normalized.currentFile = resolveCanonicalCurrentFile(candidate.currentFile, normalized.openFiles);
+    normalized.sidebar.expandedFolders = filterExpandedFoldersByRoots(
+        normalized.sidebar.expandedFolders,
+        normalized.sidebar.rootPaths
+    );
 
     return normalized;
 }

@@ -1,19 +1,13 @@
-import { dirname } from '../utils/pathUtils.js';
-
 export class ExternalDropHandler {
     constructor(options = {}) {
         const {
             container,
-            readDirectory,
-            addRootFolder,
-            refreshFolder,
+            openPathsFromSelection,
             ensureSecurityScope,
         } = options;
 
         this.container = container;
-        this.readDirectory = readDirectory;
-        this.addRootFolder = addRootFolder;
-        this.refreshFolder = refreshFolder;
+        this.openPathsFromSelection = openPathsFromSelection;
         this.ensureSecurityScope = ensureSecurityScope;
     }
 
@@ -32,7 +26,13 @@ export class ExternalDropHandler {
         const files = Array.from(event.dataTransfer.files || []);
         if (!files.length) return;
 
-        // 如果是目录，尝试加入根文件夹；如果是文件，尝试刷新所在目录
+        if (typeof this.openPathsFromSelection !== 'function') {
+            console.warn('[ExternalDropHandler] 缺少 openPathsFromSelection，无法处理外部拖拽');
+            return;
+        }
+
+        const rawPaths = [];
+
         for (const file of files) {
             const path = file?.path || file?.webkitRelativePath;
             if (!path) continue;
@@ -45,20 +45,25 @@ export class ExternalDropHandler {
                 }
             }
 
-            try {
-                const entries = await this.readDirectory?.(path);
-                if (Array.isArray(entries)) {
-                    await this.addRootFolder?.(path, { entries });
-                    continue;
-                }
-            } catch (err) {
-                // 读取失败可能是文件，忽略异常
-            }
+            rawPaths.push(path);
+        }
 
-            const parent = dirname(path);
-            if (parent) {
-                await this.refreshFolder?.(parent);
-            }
+        console.debug('[drop-debug][dom-file-tree] drop', {
+            fileCount: files.length,
+            rawPaths: [...rawPaths],
+            hasDataTransferItems: Array.isArray(event.dataTransfer.items)
+                ? event.dataTransfer.items.length > 0
+                : typeof event.dataTransfer.items?.length === 'number',
+        });
+
+        if (!rawPaths.length) {
+            return;
+        }
+
+        try {
+            await this.openPathsFromSelection(rawPaths, { source: 'external-drop' });
+        } catch (error) {
+            console.error('[ExternalDropHandler] 处理外部拖拽路径失败', error);
         }
     }
 }

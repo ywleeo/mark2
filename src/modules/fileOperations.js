@@ -1,4 +1,17 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
+import { getPathIdentityKey } from '../utils/pathUtils.js';
+
+let sharedExternalDropOpener = null;
+let lastExternalDropKey = null;
+let lastExternalDropTime = 0;
+
+const EXTERNAL_DROP_DEDUPE_TTL_MS = 750;
+
+export function getExternalDropOpener() {
+    return typeof sharedExternalDropOpener === 'function'
+        ? sharedExternalDropOpener
+        : null;
+}
 
 function isMissingFileError(error) {
     if (!error) {
@@ -123,8 +136,18 @@ export function createFileOperations({
         return normalized || path;
     };
 
+    const getIdentityKeyForPath = (path) => {
+        if (!path) {
+            return null;
+        }
+        const normalized = normalizeFsPath(path);
+        const basePath = normalized || path;
+        const identityKey = getPathIdentityKey(basePath);
+        return identityKey || basePath;
+    };
 
-    async function openPathsFromSelection(rawPaths) {
+    async function openPathsFromSelection(rawPaths, options = {}) {
+        const { source } = options || {};
         const selectionEntries = Array.isArray(rawPaths)
             ? rawPaths.filter(Boolean)
             : rawPaths
@@ -144,7 +167,64 @@ export function createFileOperations({
             .filter(Boolean);
 
         if (selections.length === 0) {
+            console.debug('[drop-debug][openPathsFromSelection] empty-selections', {
+                source,
+                rawCount: selectionEntries.length,
+            });
             return;
+        }
+
+        if (source === 'external-drop') {
+            const identityKeys = selections
+                .map((path) => getPathIdentityKey(path))
+                .filter(Boolean);
+
+            if (identityKeys.length === 0) {
+                console.debug('[drop-debug][openPathsFromSelection] missing-identity-keys', {
+                    source,
+                    selections: [...selections],
+                });
+                return;
+            }
+
+            const dedupeKey = identityKeys.slice().sort().join('|');
+            const now = Date.now();
+            const delta = now - lastExternalDropTime;
+            const isDuplicate = lastExternalDropKey === dedupeKey
+                && delta < EXTERNAL_DROP_DEDUPE_TTL_MS;
+
+            console.debug('[drop-debug][openPathsFromSelection] external-drop-dedupe-check', {
+                source,
+                selections: [...selections],
+                identityKeys: [...identityKeys],
+                dedupeKey,
+                lastExternalDropKey,
+                lastExternalDropTime,
+                now,
+                delta,
+                ttl: EXTERNAL_DROP_DEDUPE_TTL_MS,
+                isDuplicate,
+            });
+
+            if (isDuplicate) {
+                console.debug('[drop-debug][openPathsFromSelection] external-drop-dedupe-hit', {
+                    dedupeKey,
+                    delta,
+                });
+                return;
+            }
+
+            lastExternalDropKey = dedupeKey;
+            lastExternalDropTime = now;
+            console.debug('[drop-debug][openPathsFromSelection] external-drop-dedupe-recorded', {
+                dedupeKey,
+                lastExternalDropTime,
+            });
+        } else {
+            console.debug('[drop-debug][openPathsFromSelection] non-external-source', {
+                source,
+                selections: [...selections],
+            });
         }
 
         const fileTree = getFileTree();
@@ -182,6 +262,8 @@ export function createFileOperations({
             }
         }
     }
+
+    sharedExternalDropOpener = openPathsFromSelection;
 
     async function openFileOrFolder() {
         try {
@@ -326,7 +408,10 @@ export function createFileOperations({
     async function saveFile(filePath) {
         const currentFile = getCurrentFile();
 
-        if (filePath === currentFile) {
+        const requestedKey = getIdentityKeyForPath(filePath);
+        const currentKey = getIdentityKeyForPath(currentFile);
+
+        if (requestedKey && currentKey && requestedKey === currentKey) {
             return await saveCurrentFile();
         }
 

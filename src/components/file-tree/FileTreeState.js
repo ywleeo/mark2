@@ -1,3 +1,5 @@
+import { getPathIdentityKey } from '../../utils/pathUtils.js';
+
 /**
  * FileTree 的状态管理模块
  * 负责管理文件树的各种状态：根文件夹、展开状态、当前文件、打开文件等
@@ -23,6 +25,40 @@ export class FileTreeState {
         };
     }
 
+    getPathIdentity(path) {
+        const normalizedPath = this.fileTree.normalizePath(path);
+        return getPathIdentityKey(normalizedPath);
+    }
+
+    findRootPathEntry(path) {
+        const targetIdentity = this.getPathIdentity(path);
+        if (!targetIdentity) {
+            return null;
+        }
+
+        for (const rootPath of this.rootPaths) {
+            if (this.getPathIdentity(rootPath) === targetIdentity) {
+                return rootPath;
+            }
+        }
+
+        return null;
+    }
+
+    findOpenFileIndex(path) {
+        const targetIdentity = this.getPathIdentity(path);
+        if (!targetIdentity) {
+            return -1;
+        }
+
+        return this.openFiles.findIndex((item) => this.getPathIdentity(item) === targetIdentity);
+    }
+
+    findOpenFileEntry(path) {
+        const index = this.findOpenFileIndex(path);
+        return index > -1 ? this.openFiles[index] : null;
+    }
+
     // ========== Root Paths 管理 ==========
 
     /**
@@ -32,7 +68,7 @@ export class FileTreeState {
         const normalizedPath = this.fileTree.normalizePath(path);
         if (!normalizedPath) return false;
 
-        if (!this.rootPaths.has(normalizedPath)) {
+        if (!this.findRootPathEntry(normalizedPath)) {
             this.rootPaths.add(normalizedPath);
             return true; // 表示状态已变更
         }
@@ -46,13 +82,20 @@ export class FileTreeState {
         const normalizedPath = this.fileTree.normalizePath(path);
         if (!normalizedPath) return false;
 
-        const deleted = this.rootPaths.delete(normalizedPath);
+        const existingRootPath = this.findRootPathEntry(normalizedPath);
+        if (!existingRootPath) {
+            return false;
+        }
+
+        const deleted = this.rootPaths.delete(existingRootPath);
         if (deleted) {
             // 同时移除所有相关的展开状态
             const keysToRemove = [];
             this.expandedFolders.forEach((key) => {
-                if (key.includes(normalizedPath)) {
-                    keysToRemove.push(key);
+                if (this.fileTree && typeof this.fileTree.folderKeyBelongsToRoot === 'function') {
+                    if (this.fileTree.folderKeyBelongsToRoot(key, existingRootPath)) {
+                        keysToRemove.push(key);
+                    }
                 }
             });
             keysToRemove.forEach((key) => this.expandedFolders.delete(key));
@@ -64,8 +107,7 @@ export class FileTreeState {
      * 检查是否为根文件夹
      */
     isRootPath(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        return this.rootPaths.has(normalizedPath);
+        return Boolean(this.findRootPathEntry(path));
     }
 
     /**
@@ -80,18 +122,19 @@ export class FileTreeState {
      */
     pinRootPath(path) {
         const normalizedPath = this.fileTree.normalizePath(path);
-        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
+        const existingRootPath = this.findRootPathEntry(normalizedPath);
+        if (!normalizedPath || !existingRootPath) {
             return false;
         }
 
         const ordered = Array.from(this.rootPaths);
-        const index = ordered.indexOf(normalizedPath);
+        const index = ordered.indexOf(existingRootPath);
         if (index <= 0) {
             return false; // 已经在最前面
         }
 
         ordered.splice(index, 1);
-        ordered.unshift(normalizedPath);
+        ordered.unshift(existingRootPath);
         this.rootPaths = new Set(ordered);
         return true; // 表示顺序已变更
     }
@@ -171,9 +214,9 @@ export class FileTreeState {
      * 检查指定文件是否为当前文件
      */
     isCurrentFile(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        const normalizedCurrent = this.fileTree.normalizePath(this.currentFile);
-        return normalizedCurrent === normalizedPath;
+        const currentIdentity = this.getPathIdentity(this.currentFile);
+        const targetIdentity = this.getPathIdentity(path);
+        return Boolean(currentIdentity) && currentIdentity === targetIdentity;
     }
 
     // ========== Open Files 管理 ==========
@@ -198,8 +241,7 @@ export class FileTreeState {
      * 从打开列表中移除文件
      */
     removeOpenFile(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        const index = this.openFiles.findIndex(item => item === normalizedPath);
+        const index = this.findOpenFileIndex(path);
 
         if (index > -1) {
             this.openFiles.splice(index, 1);
@@ -215,18 +257,20 @@ export class FileTreeState {
     replaceOpenFilePath(oldPath, newPath) {
         const normalizedOld = this.fileTree.normalizePath(oldPath);
         const normalizedNew = this.fileTree.normalizePath(newPath);
+        const oldIdentity = this.getPathIdentity(normalizedOld);
+        const newIdentity = this.getPathIdentity(normalizedNew);
 
         if (!normalizedOld || !normalizedNew) {
             return false;
         }
-        if (normalizedOld === normalizedNew) {
+        if (!oldIdentity || !newIdentity || oldIdentity === newIdentity) {
             return false;
         }
 
-        const index = this.openFiles.findIndex(item => item === normalizedOld);
+        const index = this.findOpenFileIndex(normalizedOld);
         if (index === -1) {
             // 如果不在打开列表中，但是当前文件，也需要更新
-            if (this.fileTree.normalizePath(this.currentFile) === normalizedOld) {
+            if (this.isCurrentFile(normalizedOld)) {
                 this.currentFile = normalizedNew;
                 return true;
             }
@@ -235,14 +279,14 @@ export class FileTreeState {
 
         // 移除旧路径，在同位置插入新路径，避免重复
         const filtered = this.openFiles.filter(
-            (path, idx) => path !== normalizedOld && (path !== normalizedNew || idx === index)
+            (path, idx) => this.getPathIdentity(path) !== oldIdentity && (this.getPathIdentity(path) !== newIdentity || idx === index)
         );
         const insertPosition = Math.min(index, filtered.length);
         filtered.splice(insertPosition, 0, normalizedNew);
         this.openFiles = filtered;
 
         // 更新当前文件
-        if (this.fileTree.normalizePath(this.currentFile) === normalizedOld) {
+        if (this.isCurrentFile(normalizedOld)) {
             this.currentFile = normalizedNew;
         }
 
@@ -254,18 +298,15 @@ export class FileTreeState {
      * 检查文件是否在打开列表中
      */
     isInOpenList(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        return this.openFiles.some(item => item === normalizedPath);
+        return this.findOpenFileIndex(path) > -1;
     }
 
     /**
      * 检查文件是否已打开（在打开列表或为当前文件）
      */
     isFileOpen(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        const normalizedCurrent = this.fileTree.normalizePath(this.currentFile);
         const isInOpenList = this.isInOpenList(path);
-        const isCurrent = normalizedCurrent === normalizedPath;
+        const isCurrent = this.isCurrentFile(path);
         return isInOpenList || isCurrent;
     }
 
@@ -280,8 +321,7 @@ export class FileTreeState {
      * 获取关闭文件后的候选文件
      */
     getFallbackFileAfterClose(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        const index = this.openFiles.findIndex(item => item === normalizedPath);
+        const index = this.findOpenFileIndex(path);
 
         if (index === -1) {
             return null;
