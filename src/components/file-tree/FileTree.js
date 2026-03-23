@@ -1,5 +1,6 @@
 import { getViewModeForPath } from '../../utils/fileTypeUtils.js';
-import { basename } from '../../utils/pathUtils.js';
+import { basename, normalizeFsPath, getPathIdentityKey } from '../../utils/pathUtils.js';
+import { getExternalDropOpener } from '../../modules/fileOperations.js';
 import { getAppServices } from '../../services/appServices.js';
 import { FileRenamer } from '../FileRenamer.js';
 import { FileMover } from '../FileMover.js';
@@ -11,6 +12,12 @@ import { FileTreeRenderer } from './FileTreeRenderer.js';
 import { FileTreeState } from './FileTreeState.js';
 import { FileTreeEvents } from './FileTreeEvents.js';
 import { rememberSecurityScopes, captureSecurityScopeForPath } from '../../services/securityScopeService.js';
+
+function extractPathFromFolderKey(folderKey) {
+    if (!folderKey) return '';
+    const segments = String(folderKey).split('::');
+    return segments[segments.length - 1] || '';
+}
 
 export class FileTree {
     constructor(containerElement, onFileSelect, callbacks = {}) {
@@ -116,9 +123,14 @@ export class FileTree {
 
         this.externalDropHandler = new ExternalDropHandler({
             container: this.container,
-            readDirectory: (path) => this.readDirectory(path),
-            addRootFolder: (path, { entries } = {}) => this.addRootFolder(path, entries || null),
-            refreshFolder: (path) => this.refreshFolder(path),
+            openPathsFromSelection: (paths, options = {}) => {
+                const opener = getExternalDropOpener();
+                if (!opener) {
+                    console.warn('[FileTree] openPathsFromSelection 未注入，无法处理外部拖拽');
+                    return;
+                }
+                return opener(paths, options);
+            },
             ensureSecurityScope: (path) => this.ensureSecurityScope(path),
         });
 
@@ -148,17 +160,66 @@ export class FileTree {
         }
     }
 
-    normalizePath(path) {
-        if (!path) return path;
-        if (typeof path === 'string' && path.startsWith('file://')) {
-            try {
-                const url = new URL(path);
-                return decodeURI(url.pathname);
-            } catch (error) {
-                console.warn('无法解析路径 URL:', path, error);
-            }
+     normalizePath(path) {
+         return normalizeFsPath(path);
+     }
+
+    folderKeyBelongsToRoot(folderKey, rootPath) {
+        const rootCanonical = this.normalizePath(rootPath);
+        if (!rootCanonical) {
+            return false;
         }
-        return path;
+
+        const folderPath = extractPathFromFolderKey(folderKey);
+        const folderCanonical = this.normalizePath(folderPath);
+        if (!folderCanonical) {
+            return false;
+        }
+
+        const rootIdentity = getPathIdentityKey(rootCanonical);
+        const folderIdentity = getPathIdentityKey(folderCanonical);
+        if (!rootIdentity || !folderIdentity) {
+            return false;
+        }
+
+        if (rootIdentity === folderIdentity) {
+            return true;
+        }
+
+        const ensureTrailingSeparator = (value) => {
+            if (!value || value.endsWith('/') || value.endsWith('\\')) {
+                return value;
+            }
+            const separator = value.includes('\\') ? '\\' : '/';
+            return `${value}${separator}`;
+        };
+
+        const rootPrefix = ensureTrailingSeparator(rootIdentity);
+        return rootPrefix && folderIdentity.startsWith(rootPrefix);
+    }
+
+    isPathWithinRoot(path, rootPath) {
+        const normalizedPath = this.normalizePath(path);
+        const normalizedRoot = this.normalizePath(rootPath);
+        if (!normalizedPath || !normalizedRoot) {
+            return false;
+        }
+
+        const pathIdentity = getPathIdentityKey(normalizedPath);
+        const rootIdentity = getPathIdentityKey(normalizedRoot);
+        if (!pathIdentity || !rootIdentity) {
+            return false;
+        }
+
+        if (pathIdentity === rootIdentity) {
+            return true;
+        }
+
+        const separator = normalizedRoot.includes('\\') ? '\\' : '/';
+        const rootPrefix = normalizedRoot.endsWith(separator)
+            ? rootIdentity
+            : `${rootIdentity}${separator}`;
+        return pathIdentity.startsWith(rootPrefix);
     }
 
     markLocalWrite(path, options = {}) {
@@ -629,28 +690,48 @@ export class FileTree {
         const normalizedPath = this.normalizePath(folderPath);
         if (!normalizedPath) return;
 
-        const isNewRoot = !this.rootPaths.has(normalizedPath);
+        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
+        const rootPath = existingRootPath || normalizedPath;
+        const isNewRoot = !existingRootPath;
+        console.debug('[drop-debug][file-tree] loadFolder-enter', {
+            folderPath,
+            normalizedPath,
+            existingRootPath,
+            rootPath,
+            isNewRoot,
+        });
         let stateChanged = false;
         if (isNewRoot) {
-            this.rootPaths.add(normalizedPath);
+            this.state.addRootPath(rootPath);
             stateChanged = true;
         }
 
         const scrollSnapshot = this.captureScrollPositions();
 
         try {
-            const entries = await this.readDirectory(normalizedPath);
-            const folderName = basename(normalizedPath) || normalizedPath;
+            const entries = await this.readDirectory(rootPath);
+            const folderName = basename(rootPath) || rootPath;
 
             const contentDiv = this.container.querySelector('#foldersContent');
             if (!contentDiv) return;
 
-            let rootItem = contentDiv.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
-            const folderKey = this.buildFolderKey(normalizedPath, null, true);
+            let rootItem = this.findRootFolderElementByPath(rootPath);
+            const folderKey = this.buildFolderKey(rootPath, null, true);
 
-            if (!rootItem) {
-                rootItem = this.createFolderItem(folderName, normalizedPath, entries, true, null);
+            console.debug('[drop-debug][file-tree] loadFolder-root-node-check', {
+                rootPath,
+                hasRootItem: Boolean(rootItem),
+                folderKey,
+            });
+
+             if (!rootItem) {
+                rootItem = this.createFolderItem(folderName, rootPath, entries, true, null);
                 contentDiv.appendChild(rootItem);
+                console.debug('[drop-debug][file-tree] loadFolder-root-node-created', {
+                    rootPath,
+                    folderKey,
+                    entryCount: Array.isArray(entries) ? entries.length : null,
+                });
             } else {
                 const nameSpan = rootItem.querySelector('.tree-item-name');
                 if (nameSpan) {
@@ -668,7 +749,15 @@ export class FileTree {
                 return;
             }
 
-            const shouldExpand = isNewRoot || this.expandedFolders.has(folderKey);
+             const shouldExpand = isNewRoot || this.expandedFolders.has(folderKey);
+
+             console.debug('[drop-debug][file-tree] loadFolder-expand-state', {
+                 rootPath,
+                 folderKey,
+                 isNewRoot,
+                 shouldExpand,
+                 expandedFoldersSize: this.expandedFolders.size,
+             });
 
             if (shouldExpand) {
                 if (!this.expandedFolders.has(folderKey)) {
@@ -684,9 +773,9 @@ export class FileTree {
                 children.style.display = 'none';
             }
 
-            await this.loadFolderChildren(normalizedPath, children, entries);
+            await this.loadFolderChildren(rootPath, children, entries);
 
-            await this.watchFolder(normalizedPath);
+            await this.watchFolder(rootPath);
         } catch (error) {
             console.error('读取文件夹失败:', error);
         } finally {
@@ -896,19 +985,21 @@ export class FileTree {
     replaceOpenFilePath(oldPath, newPath) {
         const normalizedOld = this.normalizePath(oldPath);
         const normalizedNew = this.normalizePath(newPath);
+        const oldIdentity = getPathIdentityKey(normalizedOld);
+        const newIdentity = getPathIdentityKey(normalizedNew);
 
         if (!normalizedOld || !normalizedNew) {
             return;
         }
-        if (normalizedOld === normalizedNew) {
+        if (!oldIdentity || !newIdentity || oldIdentity === newIdentity) {
             return;
         }
 
-        const index = this.openFiles.findIndex(item => item === normalizedOld);
+        const index = this.state.findOpenFileIndex(normalizedOld);
         this.stopWatchingFile(normalizedOld);
 
         if (index === -1) {
-            if (this.normalizePath(this.currentFile) === normalizedOld) {
+            if (this.state.isCurrentFile(normalizedOld)) {
                 this.currentFile = normalizedNew;
             }
             this.watchFile(normalizedNew).catch(error => {
@@ -918,13 +1009,13 @@ export class FileTree {
         }
 
         const filtered = this.openFiles.filter(
-            (path, idx) => path !== normalizedOld && (path !== normalizedNew || idx === index)
+            (path, idx) => getPathIdentityKey(path) !== oldIdentity && (getPathIdentityKey(path) !== newIdentity || idx === index)
         );
         const insertPosition = Math.min(index, filtered.length);
         filtered.splice(insertPosition, 0, normalizedNew);
         this.openFiles = filtered;
 
-        if (this.normalizePath(this.currentFile) === normalizedOld) {
+        if (this.state.isCurrentFile(normalizedOld)) {
             this.currentFile = normalizedNew;
         }
 
@@ -945,9 +1036,10 @@ export class FileTree {
 
     closeFile(path, options = {}) {
         const normalizedTarget = this.normalizePath(path);
-        const index = this.openFiles.findIndex(item => item === normalizedTarget);
+        const targetIdentity = getPathIdentityKey(normalizedTarget);
+        const index = this.state.findOpenFileIndex(normalizedTarget);
         if (index > -1) {
-            const wasActive = this.normalizePath(this.currentFile) === normalizedTarget;
+            const wasActive = Boolean(targetIdentity) && this.state.isCurrentFile(normalizedTarget);
             // 使用 state 模块的方法来移除文件，会自动触发 onOpenFilesChange 回调
             this.state.removeOpenFile(normalizedTarget);
             this.renderOpenFiles();
@@ -970,33 +1062,30 @@ export class FileTree {
 
     closeFolder(path) {
         const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
+        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
+        if (!normalizedPath || !existingRootPath) {
             return;
         }
 
-        this.rootPaths.delete(normalizedPath);
+        this.state.removeRootPath(existingRootPath);
 
         const keysToRemove = [];
         this.expandedFolders.forEach((key) => {
-            if (key.includes(normalizedPath)) {
+            if (this.folderKeyBelongsToRoot(key, existingRootPath)) {
                 keysToRemove.push(key);
             }
         });
         keysToRemove.forEach((key) => this.expandedFolders.delete(key));
 
-        this.stopWatchingFolder(normalizedPath);
+        this.stopWatchingFolder(existingRootPath);
 
-        const folderElement = this.container.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+        const folderElement = this.findRootFolderElementByPath(existingRootPath);
         if (folderElement?.parentElement) {
             folderElement.parentElement.removeChild(folderElement);
         }
 
         const currentNormalized = this.normalizePath(this.currentFile);
-        const isUnderFolder = currentNormalized
-            ? currentNormalized === normalizedPath
-                || currentNormalized.startsWith(`${normalizedPath}/`)
-                || currentNormalized.startsWith(`${normalizedPath}\\`)
-            : false;
+        const isUnderFolder = this.isPathWithinRoot(currentNormalized, existingRootPath);
 
         if (isUnderFolder && !this.isInOpenList(currentNormalized)) {
             this.clearSelection();
@@ -1010,22 +1099,23 @@ export class FileTree {
 
     pinRootFolder(path) {
         const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath || !this.rootPaths.has(normalizedPath)) {
+        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
+        if (!normalizedPath || !existingRootPath) {
             return;
         }
 
         const ordered = Array.from(this.rootPaths);
-        const index = ordered.indexOf(normalizedPath);
+        const index = ordered.indexOf(existingRootPath);
         if (index <= 0) {
             return;
         }
 
         ordered.splice(index, 1);
-        ordered.unshift(normalizedPath);
+        ordered.unshift(existingRootPath);
         this.rootPaths = new Set(ordered);
 
         const contentDiv = this.container.querySelector('#foldersContent');
-        const folderElement = contentDiv?.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+        const folderElement = this.findRootFolderElementByPath(existingRootPath);
         if (contentDiv && folderElement) {
             contentDiv.removeChild(folderElement);
             contentDiv.insertBefore(folderElement, contentDiv.firstChild);
@@ -1141,7 +1231,7 @@ export class FileTree {
             return;
         }
 
-        if (this.rootPaths.has(normalizedPath)) {
+        if (this.state.isRootPath(normalizedPath)) {
             await this.loadFolder(normalizedPath);
             return;
         }
@@ -1174,8 +1264,7 @@ export class FileTree {
         const paths = new Set();
         keys.forEach((key) => {
             if (!key) return;
-            const segments = String(key).split('::');
-            const path = segments[segments.length - 1];
+            const path = extractPathFromFolderKey(key);
             const normalized = this.normalizePath(path);
             if (normalized) {
                 paths.add(normalized);
@@ -1184,9 +1273,38 @@ export class FileTree {
         return Array.from(paths);
     }
 
+    findRootFolderElementByPath(path) {
+        const contentDiv = this.container?.querySelector('#foldersContent');
+        if (!contentDiv) {
+            return null;
+        }
+
+        const targetPath = this.normalizePath(path);
+        if (!targetPath) {
+            return null;
+        }
+
+        const folders = contentDiv.querySelectorAll('.tree-folder');
+        for (const folder of folders) {
+            if (folder?.dataset?.isRoot !== 'true') {
+                continue;
+            }
+            const folderPath = folder?.dataset?.path;
+            if (!folderPath) {
+                continue;
+            }
+            const normalizedFolderPath = this.normalizePath(folderPath);
+            if (normalizedFolderPath === targetPath) {
+                return folder;
+            }
+        }
+
+        return null;
+    }
+
     hasRoot(path) {
         const normalizedPath = this.normalizePath(path);
-        return normalizedPath ? this.rootPaths.has(normalizedPath) : false;
+        return normalizedPath ? this.state.isRootPath(normalizedPath) : false;
     }
 
     getOpenFilePaths() {
@@ -1199,21 +1317,30 @@ export class FileTree {
 
         paths.forEach((path) => {
             const normalizedPath = this.normalizePath(path);
-            if (!normalizedPath || seen.has(normalizedPath)) {
+            const identityKey = getPathIdentityKey(normalizedPath);
+            if (!normalizedPath || !identityKey || seen.has(identityKey)) {
                 return;
             }
-            seen.add(normalizedPath);
+            seen.add(identityKey);
             normalized.push(normalizedPath);
         });
 
         // 停止监听不再存在的文件
         this.openFiles.forEach((path) => {
-            if (!seen.has(path)) {
-                this.stopWatchingFile(path);
+            const existingPath = this.normalizePath(path);
+            const existingIdentity = getPathIdentityKey(existingPath);
+            if (existingPath && existingIdentity && !seen.has(existingIdentity)) {
+                this.stopWatchingFile(existingPath);
             }
         });
 
         this.openFiles = normalized;
+        const normalizedCurrent = this.normalizePath(this.currentFile);
+        if (normalizedCurrent) {
+            const currentIdentity = getPathIdentityKey(normalizedCurrent);
+            const restoredCurrent = normalized.find((path) => getPathIdentityKey(path) === currentIdentity) || null;
+            this.currentFile = restoredCurrent || normalizedCurrent;
+        }
         this.renderOpenFiles();
         this.onOpenFilesChange?.([...this.openFiles]);
     }
@@ -1224,17 +1351,18 @@ export class FileTree {
         }
 
         const seen = new Set();
-        const existing = new Set(this.openFiles);
+        const existing = new Set(this.openFiles.map((path) => getPathIdentityKey(path)).filter(Boolean));
         const normalized = [];
 
         paths.forEach((path) => {
             const normalizedPath = this.normalizePath(path);
-            if (!normalizedPath || seen.has(normalizedPath) || !existing.has(normalizedPath)) {
+            const identityKey = getPathIdentityKey(normalizedPath);
+            if (!normalizedPath || !identityKey || seen.has(identityKey) || !existing.has(identityKey)) {
                 return;
             }
-            seen.add(normalizedPath);
+            seen.add(identityKey);
             normalized.push(normalizedPath);
-            existing.delete(normalizedPath);
+            existing.delete(identityKey);
         });
 
         if (normalized.length === 0) {
@@ -1243,7 +1371,8 @@ export class FileTree {
 
         if (existing.size > 0) {
             this.openFiles.forEach((path) => {
-                if (!seen.has(path)) {
+                const identityKey = getPathIdentityKey(path);
+                if (!identityKey || !seen.has(identityKey)) {
                     normalized.push(path);
                 }
             });
