@@ -1,4 +1,31 @@
-import { basename } from '../utils/pathUtils.js';
+import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
+
+function normalizeComparablePath(fileTree, value) {
+    if (!value) {
+        return value;
+    }
+    if (typeof fileTree?.normalizePath === 'function') {
+        return fileTree.normalizePath(value);
+    }
+    return normalizeFsPath(value);
+}
+
+function getCanonicalOpenFilePaths(fileTree, openFilePaths = []) {
+    const canonicalPaths = [];
+    const seen = new Set();
+
+    openFilePaths.forEach((path) => {
+        const normalizedPath = normalizeComparablePath(fileTree, path);
+        const identityKey = getPathIdentityKey(normalizedPath);
+        if (!normalizedPath || !identityKey || seen.has(identityKey)) {
+            return;
+        }
+        seen.add(identityKey);
+        canonicalPaths.push(normalizedPath);
+    });
+
+    return canonicalPaths;
+}
 
 export function createNavigationController({
     getFileTree,
@@ -71,21 +98,15 @@ export function createNavigationController({
         const fileTree = getFileTree();
         const tabManager = getTabManager();
         const previousFile = getCurrentFile();
-        const normalizePath = (value) => {
-            if (!value) {
-                return value;
-            }
-            if (typeof fileTree?.normalizePath === 'function') {
-                return fileTree.normalizePath(value);
-            }
-            return value;
-        };
+        const normalizePath = (value) => normalizeComparablePath(fileTree, value);
         const normalizedPrevious = normalizePath(previousFile);
         const normalizedNext = normalizePath(filePath);
+        const previousIdentity = getPathIdentityKey(normalizedPrevious);
+        const nextIdentity = getPathIdentityKey(normalizedNext);
 
         if (previousFile) {
-            const isSwitchingToDifferentFile = normalizedNext
-                ? normalizedPrevious !== normalizedNext
+            const isSwitchingToDifferentFile = nextIdentity
+                ? previousIdentity !== nextIdentity
                 : true;
             if (isSwitchingToDifferentFile) {
                 // 切换 tab 前保存当前滚动位置
@@ -188,8 +209,10 @@ export function createNavigationController({
     function handleOpenFilesChange(openFilePaths) {
         const tabManager = getTabManager();
         const fileTree = getFileTree();
-        tabManager?.syncFileTabs(openFilePaths, fileTree?.currentFile || null);
-        persistWorkspaceState({ openFiles: openFilePaths });
+        const canonicalOpenFilePaths = getCanonicalOpenFilePaths(fileTree, Array.isArray(openFilePaths) ? openFilePaths : []);
+        const canonicalCurrentFile = normalizeComparablePath(fileTree, fileTree?.currentFile || null) || null;
+        tabManager?.syncFileTabs(canonicalOpenFilePaths, canonicalCurrentFile);
+        persistWorkspaceState({ openFiles: canonicalOpenFilePaths });
     }
 
     function handleTabSelect(tab) {
@@ -276,13 +299,11 @@ export function createNavigationController({
                 }
             }
 
-            const normalizedTarget = typeof fileTree?.normalizePath === 'function'
-                ? fileTree.normalizePath(tab.path)
-                : tab.path;
-            const currentNormalized = typeof fileTree?.normalizePath === 'function'
-                ? fileTree.normalizePath(fileTree?.currentFile)
-                : fileTree?.currentFile;
-            const wasActive = normalizedTarget && normalizedTarget === currentNormalized;
+            const normalizedTarget = normalizeComparablePath(fileTree, tab.path);
+            const currentNormalized = normalizeComparablePath(fileTree, fileTree?.currentFile);
+            const targetIdentity = getPathIdentityKey(normalizedTarget);
+            const currentIdentity = getPathIdentityKey(currentNormalized);
+            const wasActive = Boolean(targetIdentity) && targetIdentity === currentIdentity;
 
             if (wasActive) {
                 tabManager?.setActiveTab(null, { silent: true });
@@ -291,21 +312,16 @@ export function createNavigationController({
 
             let fallbackPath = null;
             if (wasActive) {
-                const openPaths = Array.isArray(fileTree?.getOpenFilePaths?.())
-                    ? [...fileTree.getOpenFilePaths()]
-                    : [];
-                const normalizedPairs = openPaths.map(path => ({
-                    raw: path,
-                    normalized: typeof fileTree?.normalizePath === 'function'
-                        ? fileTree.normalizePath(path)
-                        : path,
-                }));
-                const targetIndex = normalizedPairs.findIndex(item => item.normalized === normalizedTarget);
+                const canonicalOpenPaths = getCanonicalOpenFilePaths(
+                    fileTree,
+                    Array.isArray(fileTree?.getOpenFilePaths?.()) ? fileTree.getOpenFilePaths() : []
+                );
+                const targetIndex = canonicalOpenPaths.findIndex(path => path === normalizedTarget);
                 if (targetIndex !== -1) {
-                    const remaining = normalizedPairs.filter(item => item.normalized !== normalizedTarget);
+                    const remaining = canonicalOpenPaths.filter(path => path !== normalizedTarget);
                     if (remaining.length > 0) {
                         const fallbackIndex = Math.min(targetIndex, remaining.length - 1);
-                        fallbackPath = remaining[fallbackIndex]?.raw || null;
+                        fallbackPath = remaining[fallbackIndex] || null;
                     }
                 }
             }
@@ -392,8 +408,13 @@ export function createNavigationController({
     }
 
     async function checkFileHasUnsavedChanges(filePath) {
+        const fileTree = getFileTree();
         const currentFile = getCurrentFile();
-        if (filePath === currentFile) {
+        const normalizedTarget = normalizeComparablePath(fileTree, filePath);
+        const normalizedCurrent = normalizeComparablePath(fileTree, currentFile);
+        const targetIdentity = getPathIdentityKey(normalizedTarget);
+        const currentIdentity = getPathIdentityKey(normalizedCurrent);
+        if (targetIdentity && targetIdentity === currentIdentity) {
             const activeViewMode = getActiveViewMode();
             const editor = getEditor();
             const codeEditor = getCodeEditor();

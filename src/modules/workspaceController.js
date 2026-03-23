@@ -1,3 +1,5 @@
+import { normalizeFsPath, getPathIdentityKey } from '../utils/pathUtils.js';
+
 export function createWorkspaceController({
     getCurrentFile,
     getFileTree,
@@ -37,6 +39,154 @@ export function createWorkspaceController({
 
     function getDefaultSidebarState() {
         return createDefaultWorkspaceState().sidebar;
+    }
+
+    function canonicalizeWorkspacePath(value) {
+        if (!isNonEmptyString(value)) {
+            return null;
+        }
+
+        const canonical = normalizeFsPath(value.trim());
+        return isNonEmptyString(canonical) ? canonical : null;
+    }
+
+    function getCanonicalDedupedPaths(values) {
+        if (!Array.isArray(values) || values.length === 0) {
+            return [];
+        }
+
+        const deduped = new Map();
+        values.forEach((value) => {
+            const canonical = canonicalizeWorkspacePath(value);
+            if (!canonical) {
+                return;
+            }
+
+            const identity = getPathIdentityKey(canonical) ?? canonical;
+            if (!deduped.has(identity)) {
+                deduped.set(identity, canonical);
+            }
+        });
+
+        return Array.from(deduped.values());
+    }
+
+    function extractPathFromFolderKey(folderKey) {
+        if (!folderKey) {
+            return '';
+        }
+
+        const segments = String(folderKey).split('::');
+        return segments[segments.length - 1] || '';
+    }
+
+    function canonicalizeFolderKey(folderKey) {
+        if (!isNonEmptyString(folderKey)) {
+            return null;
+        }
+
+        const segments = folderKey.trim().split('::');
+        if (segments.length < 2) {
+            return null;
+        }
+
+        const folderPath = canonicalizeWorkspacePath(segments[segments.length - 1]);
+        if (!folderPath) {
+            return null;
+        }
+
+        const parentSegment = segments.slice(0, -1).join('::');
+        if (parentSegment === 'root') {
+            return `root::${folderPath}`;
+        }
+
+        const parentPath = canonicalizeWorkspacePath(parentSegment);
+        if (!parentPath) {
+            return null;
+        }
+
+        return `${parentPath}::${folderPath}`;
+    }
+
+    function getCanonicalDedupedFolderKeys(values) {
+        if (!Array.isArray(values) || values.length === 0) {
+            return [];
+        }
+
+        const deduped = new Map();
+        values.forEach((value) => {
+            const canonical = canonicalizeFolderKey(value);
+            if (!canonical) {
+                return;
+            }
+
+            const [parentSegment] = canonical.split('::');
+            const folderIdentity = getPathIdentityKey(extractPathFromFolderKey(canonical)) ?? canonical;
+            const parentIdentity = canonical.startsWith('root::')
+                ? 'root'
+                : (getPathIdentityKey(parentSegment) ?? parentSegment);
+            const identity = `${parentIdentity}::${folderIdentity}`;
+
+            if (!deduped.has(identity)) {
+                deduped.set(identity, canonical);
+            }
+        });
+
+        return Array.from(deduped.values());
+    }
+
+    function folderKeyBelongsToRoot(folderKey, rootPath) {
+        const rootCanonical = canonicalizeWorkspacePath(rootPath);
+        if (!rootCanonical) {
+            return false;
+        }
+
+        const folderCanonical = canonicalizeWorkspacePath(extractPathFromFolderKey(folderKey));
+        if (!folderCanonical) {
+            return false;
+        }
+
+        const rootIdentity = getPathIdentityKey(rootCanonical);
+        const folderIdentity = getPathIdentityKey(folderCanonical);
+        if (!rootIdentity || !folderIdentity) {
+            return false;
+        }
+
+        if (rootIdentity === folderIdentity) {
+            return true;
+        }
+
+        const separator = rootIdentity.includes('\\') ? '\\' : '/';
+        const rootPrefix = rootIdentity.endsWith(separator) ? rootIdentity : `${rootIdentity}${separator}`;
+        return folderIdentity.startsWith(rootPrefix);
+    }
+
+    function filterExpandedFoldersByRoots(expandedFolders, rootPaths) {
+        if (!Array.isArray(expandedFolders) || expandedFolders.length === 0) {
+            return [];
+        }
+
+        if (!Array.isArray(rootPaths) || rootPaths.length === 0) {
+            return [];
+        }
+
+        return expandedFolders.filter((folderKey) => {
+            return rootPaths.some(rootPath => folderKeyBelongsToRoot(folderKey, rootPath));
+        });
+    }
+
+    function resolveCanonicalCurrentFile(currentFile, openFiles) {
+        const canonicalCurrentFile = canonicalizeWorkspacePath(currentFile);
+        if (!canonicalCurrentFile) {
+            return null;
+        }
+
+        const currentIdentity = getPathIdentityKey(canonicalCurrentFile) ?? canonicalCurrentFile;
+        const matchedOpenFile = openFiles.find((path) => {
+            return (getPathIdentityKey(path) ?? path) === currentIdentity;
+        });
+
+        return matchedOpenFile ?? canonicalCurrentFile;
     }
 
     function persistWorkspaceState(overrides = {}, options = {}) {
@@ -102,23 +252,11 @@ export function createWorkspaceController({
 
         if (rawSidebar && typeof rawSidebar === 'object') {
             if (Array.isArray(rawSidebar.rootPaths)) {
-                sanitized.rootPaths = Array.from(
-                    new Set(
-                        rawSidebar.rootPaths
-                            .filter(isNonEmptyString)
-                            .map(path => path.trim())
-                    )
-                );
+                sanitized.rootPaths = getCanonicalDedupedPaths(rawSidebar.rootPaths);
             }
 
             if (Array.isArray(rawSidebar.expandedFolders)) {
-                sanitized.expandedFolders = Array.from(
-                    new Set(
-                        rawSidebar.expandedFolders
-                            .filter(isNonEmptyString)
-                            .map(key => key.trim())
-                    )
-                );
+                sanitized.expandedFolders = getCanonicalDedupedFolderKeys(rawSidebar.expandedFolders);
             }
 
             if (rawSidebar.sectionStates && typeof rawSidebar.sectionStates === 'object') {
@@ -144,13 +282,7 @@ export function createWorkspaceController({
         }
 
         sanitized.rootPaths = validRoots;
-        if (sanitized.expandedFolders.length > 0 && validRoots.length > 0) {
-            sanitized.expandedFolders = sanitized.expandedFolders.filter((key) => {
-                return validRoots.some(root => key.includes(root));
-            });
-        } else if (validRoots.length === 0) {
-            sanitized.expandedFolders = [];
-        }
+        sanitized.expandedFolders = filterExpandedFoldersByRoots(sanitized.expandedFolders, validRoots);
 
         return sanitized;
     }
@@ -160,13 +292,7 @@ export function createWorkspaceController({
             return [];
         }
 
-        const uniquePaths = Array.from(
-            new Set(
-                rawOpenFiles
-                    .filter(isNonEmptyString)
-                    .map(path => path.trim())
-            )
-        );
+        const uniquePaths = getCanonicalDedupedPaths(rawOpenFiles);
 
         const validFiles = [];
         for (const path of uniquePaths) {
@@ -196,6 +322,7 @@ export function createWorkspaceController({
 
         const sanitizedSidebar = await sanitizeSidebarState(stored.sidebar);
         const sanitizedOpenFiles = await sanitizeOpenFiles(stored.openFiles);
+        const storedCurrentFile = resolveCanonicalCurrentFile(stored.currentFile, sanitizedOpenFiles);
 
         isRestoring = true;
         try {
@@ -210,12 +337,12 @@ export function createWorkspaceController({
         }
 
         let targetFileToRestore = null;
-        if (stored.currentFile && isNonEmptyString(stored.currentFile)) {
+        if (storedCurrentFile) {
             try {
-                await fileService.metadata(stored.currentFile);
-                const directory = await fileService.isDirectory(stored.currentFile);
+                await fileService.metadata(storedCurrentFile);
+                const directory = await fileService.isDirectory(storedCurrentFile);
                 if (!directory) {
-                    targetFileToRestore = stored.currentFile;
+                    targetFileToRestore = storedCurrentFile;
                 }
             } catch (error) {
                 console.warn('恢复上次打开的文件失败', error);
@@ -235,9 +362,10 @@ export function createWorkspaceController({
         const sidebarSnapshot = fileTree?.getPersistedState?.() ?? sanitizedSidebar;
         const openFilesSnapshot = fileTree?.getOpenFilePaths?.() ?? sanitizedOpenFiles;
         persistWorkspaceState({
+            currentFile: targetFileToRestore,
             sidebar: sidebarSnapshot,
             openFiles: openFilesSnapshot,
-        });
+        }, { force: true });
     }
 
     return {
