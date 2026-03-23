@@ -1,3 +1,5 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
+
 export const SETTINGS_STORAGE_KEY = 'mark2:editorSettings';
 
 const VALID_APPEARANCES = new Set(['light', 'dark', 'system']);
@@ -174,6 +176,10 @@ export function applyEditorSettings(settings) {
     root.dataset.themeAppearance = resolvedAppearance;
     root.dataset.themeAppearancePreference = appearancePreference;
     root.style.setProperty('color-scheme', resolvedAppearance);
+
+    // 同步原生窗口主题（影响 Windows 原生菜单栏颜色）
+    const nativeTheme = appearancePreference === 'system' ? null : resolvedAppearance;
+    getCurrentWindow().setTheme(nativeTheme).catch(() => {});
 
     loadTheme(prefs.theme);
 

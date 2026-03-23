@@ -15,6 +15,7 @@
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
     "core:window:allow-is-maximized",
+    "core:window:allow-set-theme",
     "dialog:default",
     "fs:default",
     {
