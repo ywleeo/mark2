@@ -8,9 +8,10 @@ export function createFileDropController({ openPathsFromSelection }) {
 
     let isFileDropHoverActive = false;
     let cleanupHandler = null;
-    let lastDropKey = '';
-    let lastDropTime = 0;
-    const DROP_DEDUP_MS = 1000;
+    // Windows WebView2 在窗口获得焦点时会重放 drag-drop 事件序列，
+    // 用 userDragActive 标志区分真正的用户拖拽和焦点切换引起的假事件。
+    // 只有用户真正拖入文件（enter）后才允许处理 drop。
+    let userDragActive = false;
 
     function setFileDropHoverState(isActive) {
         // 如果是内部拖拽（通过全局变量判断），始终不显示 hover 效果
@@ -60,7 +61,8 @@ export function createFileDropController({ openPathsFromSelection }) {
                     const { payload } = event;
                     if (!payload) return;
 
-                    if (payload.type === 'enter' || payload.type === 'over') {
+                    if (payload.type === 'enter') {
+                        userDragActive = true;
                         if (Array.isArray(payload.paths) && payload.paths.length > 0) {
                             pendingPaths = payload.paths;
                         }
@@ -68,26 +70,37 @@ export function createFileDropController({ openPathsFromSelection }) {
                         return;
                     }
 
+                    if (payload.type === 'over') {
+                        if (Array.isArray(payload.paths) && payload.paths.length > 0) {
+                            pendingPaths = payload.paths;
+                        }
+                        if (userDragActive) {
+                            setFileDropHoverState(true);
+                        }
+                        return;
+                    }
+
                     if (payload.type === 'leave') {
+                        userDragActive = false;
                         pendingPaths = [];
                         setFileDropHoverState(false);
                         return;
                     }
 
                     if (payload.type === 'drop') {
+                        if (!userDragActive) {
+                            // Windows 焦点切换触发的假 drop，忽略
+                            pendingPaths = [];
+                            setFileDropHoverState(false);
+                            return;
+                        }
+                        userDragActive = false;
                         const targetPaths = Array.isArray(payload.paths) && payload.paths.length > 0
                             ? payload.paths
                             : pendingPaths;
                         pendingPaths = [];
                         setFileDropHoverState(false);
                         if (Array.isArray(targetPaths) && targetPaths.length > 0) {
-                            const dropKey = targetPaths.slice().sort().join('\n');
-                            const now = Date.now();
-                            if (dropKey === lastDropKey && now - lastDropTime < DROP_DEDUP_MS) {
-                                return;
-                            }
-                            lastDropKey = dropKey;
-                            lastDropTime = now;
                             await ensureSecurityScopes(targetPaths);
                             try {
                                 await openPathsFromSelection(targetPaths);
