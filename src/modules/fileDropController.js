@@ -62,12 +62,6 @@ export function createFileDropController({ openPathsFromSelection }) {
                     if (!payload) return;
 
                     if (payload.type === 'enter') {
-                        console.debug('[drop-debug][tauri-window] drag-enter', {
-                            type: payload.type,
-                            paths: Array.isArray(payload.paths) ? [...payload.paths] : [],
-                            pendingPaths: [...pendingPaths],
-                            userDragActive,
-                        });
                         userDragActive = true;
                         if (Array.isArray(payload.paths) && payload.paths.length > 0) {
                             pendingPaths = payload.paths;
@@ -77,12 +71,6 @@ export function createFileDropController({ openPathsFromSelection }) {
                     }
 
                     if (payload.type === 'over') {
-                        console.debug('[drop-debug][tauri-window] drag-over', {
-                            type: payload.type,
-                            paths: Array.isArray(payload.paths) ? [...payload.paths] : [],
-                            pendingPaths: [...pendingPaths],
-                            userDragActive,
-                        });
                         if (Array.isArray(payload.paths) && payload.paths.length > 0) {
                             pendingPaths = payload.paths;
                         }
@@ -93,12 +81,6 @@ export function createFileDropController({ openPathsFromSelection }) {
                     }
 
                     if (payload.type === 'leave') {
-                        console.debug('[drop-debug][tauri-window] drag-leave', {
-                            type: payload.type,
-                            paths: Array.isArray(payload.paths) ? [...payload.paths] : [],
-                            pendingPaths: [...pendingPaths],
-                            userDragActive,
-                        });
                         userDragActive = false;
                         pendingPaths = [];
                         setFileDropHoverState(false);
@@ -108,12 +90,6 @@ export function createFileDropController({ openPathsFromSelection }) {
                     if (payload.type === 'drop') {
                         if (!userDragActive) {
                             // Windows 焦点切换触发的假 drop，忽略
-                            console.debug('[drop-debug][tauri-window] drop-ignored-no-user-drag', {
-                                type: payload.type,
-                                paths: Array.isArray(payload.paths) ? [...payload.paths] : [],
-                                pendingPaths: [...pendingPaths],
-                                userDragActive,
-                            });
                             pendingPaths = [];
                             setFileDropHoverState(false);
                             return;
@@ -122,13 +98,6 @@ export function createFileDropController({ openPathsFromSelection }) {
                         const targetPaths = Array.isArray(payload.paths) && payload.paths.length > 0
                             ? payload.paths
                             : pendingPaths;
-                        console.debug('[drop-debug][tauri-window] drop', {
-                            type: payload.type,
-                            payloadPaths: Array.isArray(payload.paths) ? [...payload.paths] : [],
-                            targetPaths: Array.isArray(targetPaths) ? [...targetPaths] : [],
-                            pendingPaths: [...pendingPaths],
-                            userDragActive,
-                        });
                         pendingPaths = [];
                         setFileDropHoverState(false);
                         if (Array.isArray(targetPaths) && targetPaths.length > 0) {
@@ -153,9 +122,6 @@ export function createFileDropController({ openPathsFromSelection }) {
              const [unlistenDrop, unlistenHover, unlistenCancel] = await Promise.all([
                  windowRef.listen('tauri://file-drop', async (event) => {
                      const payloadPaths = Array.isArray(event.payload) ? event.payload : [];
-                     console.debug('[drop-debug][tauri-legacy] file-drop', {
-                         paths: [...payloadPaths],
-                     });
                      setFileDropHoverState(false);
                      await ensureSecurityScopes(payloadPaths);
                      try {
@@ -164,16 +130,10 @@ export function createFileDropController({ openPathsFromSelection }) {
                          console.error('处理拖拽文件时出错:', error);
                      }
                  }),
-                 windowRef.listen('tauri://file-drop-hover', (event) => {
-                     console.debug('[drop-debug][tauri-legacy] file-drop-hover', {
-                         payload: event?.payload,
-                     });
+                 windowRef.listen('tauri://file-drop-hover', () => {
                      setFileDropHoverState(true);
                  }),
-                 windowRef.listen('tauri://file-drop-cancel', (event) => {
-                     console.debug('[drop-debug][tauri-legacy] file-drop-cancel', {
-                         payload: event?.payload,
-                     });
+                 windowRef.listen('tauri://file-drop-cancel', () => {
                      setFileDropHoverState(false);
                  }),
              ]);

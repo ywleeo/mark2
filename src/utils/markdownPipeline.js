@@ -240,6 +240,7 @@ export function createMarkdownParser(schema) {
 
     const codeBlockType = schema.nodes.codeBlock;
     const mermaidType = schema.nodes.mermaidBlock;
+    const csvBlockType = schema.nodes.csvBlock;
     const hardBreakType = schema.nodes.hardBreak;
     const bulletListType = schema.nodes.bulletList;
     const taskListType = schema.nodes.taskList;
@@ -259,6 +260,10 @@ export function createMarkdownParser(schema) {
             const content = withoutTrailingNewline(tok.content || '');
             if (info.startsWith('mermaid') && mermaidType) {
                 state.addNode(mermaidType, { code: content, sourcepos: getSourcepos(tok) });
+                return;
+            }
+            if (info === 'csv' && csvBlockType) {
+                state.addNode(csvBlockType, { csv: content });
                 return;
             }
             state.openNode(codeBlockType, { language: info || null, sourcepos: getSourcepos(tok) });
@@ -532,6 +537,13 @@ export function createMarkdownSerializer(schema) {
             const code = node.attrs?.code || '';
             state.write('```mermaid\n');
             state.text(code, false);
+            state.write('\n```');
+            state.closeBlock(node);
+        },
+        csvBlock(state, node) {
+            const csv = node.attrs?.csv || '';
+            state.write('```csv\n');
+            state.text(csv, false);
             state.write('\n```');
             state.closeBlock(node);
         },

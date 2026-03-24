@@ -1,5 +1,4 @@
-import { getViewModeForPath } from '../../utils/fileTypeUtils.js';
-import { basename, normalizeFsPath, getPathIdentityKey } from '../../utils/pathUtils.js';
+import { normalizeFsPath, getPathIdentityKey } from '../../utils/pathUtils.js';
 import { getExternalDropOpener } from '../../modules/fileOperations.js';
 import { getAppServices } from '../../services/appServices.js';
 import { FileRenamer } from '../FileRenamer.js';
@@ -11,7 +10,12 @@ import { FileTreeContextMenu } from '../FileTreeContextMenu.js';
 import { FileTreeRenderer } from './FileTreeRenderer.js';
 import { FileTreeState } from './FileTreeState.js';
 import { FileTreeEvents } from './FileTreeEvents.js';
-import { rememberSecurityScopes, captureSecurityScopeForPath } from '../../services/securityScopeService.js';
+import { captureSecurityScopeForPath } from '../../services/securityScopeService.js';
+import { FolderRenamer } from './FolderRenamer.js';
+import { FileCreator } from './FileCreator.js';
+import { FolderLoader } from './FolderLoader.js';
+import { OpenFileManager } from './OpenFileManager.js';
+import { FileActions } from './FileActions.js';
 
 function extractPathFromFolderKey(folderKey) {
     if (!folderKey) return '';
@@ -33,7 +37,6 @@ export class FileTree {
         } = callbacks;
 
         this.onRunFile = onRunFile;
-
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
         this.services = null;
@@ -43,25 +46,38 @@ export class FileTree {
         this.onOpenFilesChange = onOpenFilesChange;
         this.onCloseFileRequest = onCloseFileRequest;
         this.onPathRenamed = onPathRenamed;
-        this.cleanupFunctions = []; // 存储清理函数
+        this.cleanupFunctions = [];
         this.documentSessions = documentSessions;
-
-        // 文件夹重命名状态
-        this.folderRenamingPath = null;
-        this._folderRenameCleanup = null;
         this.pendingRefreshPaths = new Set();
 
-        // 初始化状态管理模块
-        this.state = new FileTreeState(this, {
-            onStateChange,
-            onOpenFilesChange,
+        this.state = new FileTreeState(this, { onStateChange, onOpenFilesChange });
+        this.renderer = new FileTreeRenderer(this);
+        this.events = new FileTreeEvents(this);
+
+        this.folderRenamer = new FolderRenamer({
+            container: this.container,
+            normalizePath: this.normalizePath.bind(this),
+            getFileService: () => this.fileService,
+            refreshFolder: (path) => this.refreshFolder(path),
+            handleMoveSuccess: (src, dst, meta) => this.handleMoveSuccess(src, dst, meta),
+            watchFolder: (path) => this.watchFolder(path),
+            stopWatchingFolder: (path) => this.stopWatchingFolder(path),
+            isRootPath: (path) => this.state.isRootPath(path),
+            replaceRootPath: (oldPath, newPath) => {
+                this.state.removeRootPath(oldPath);
+                this.state.addRootPath(newPath);
+            },
+            onRenamingEnd: () => this.flushPendingRefresh(),
         });
 
-        // 初始化渲染模块
-        this.renderer = new FileTreeRenderer(this);
-
-        // 初始化事件处理模块
-        this.events = new FileTreeEvents(this);
+        this.creator = new FileCreator({
+            normalizePath: this.normalizePath.bind(this),
+            getFileService: () => this.fileService,
+            markLocalWrite: (path, opts) => this.markLocalWrite(path, opts),
+            refreshFolder: (path) => this.refreshFolder(path),
+            selectFile: (path, opts) => this.selectFile(path, opts),
+            startRenaming: (path, meta) => this.startRenaming(path, meta),
+        });
 
         this.init();
         this.ensureFileService();
@@ -134,25 +150,64 @@ export class FileTree {
             ensureSecurityScope: (path) => this.ensureSecurityScope(path),
         });
 
+        this.loader = new FolderLoader({
+            container: this.container,
+            normalizePath: this.normalizePath.bind(this),
+            getFileService: () => this.ensureFileService(),
+            state: this.state,
+            renderer: this.renderer,
+            buildFolderKey: this.buildFolderKey.bind(this),
+            watchFolder: (path) => this.watchFolder(path),
+            emitStateChange: () => this.emitStateChange(),
+            shouldDefer: (path) => this.shouldDeferRefresh(path),
+            onRefreshDeferred: (path) => this.pendingRefreshPaths.add(path),
+            onBeforeRefresh: () => this.ensureRenamingState(),
+        });
+
+        this.openFileManager = new OpenFileManager({
+            normalizePath: this.normalizePath.bind(this),
+            state: this.state,
+            getOpenFilesView: () => this.openFilesView,
+            watchFile: (path, opts) => this.watchFile(path, opts),
+            stopWatchingFile: (path) => this.stopWatchingFile(path),
+            selectFile: (path, opts) => this.selectFile(path, opts),
+            clearSelection: () => this.clearSelection(),
+            onFileSelect: this.onFileSelect,
+            onOpenFilesChange: this.onOpenFilesChange,
+            onPathRenamed: this.onPathRenamed,
+        });
+
+        this.fileActions = new FileActions({
+            normalizePath: this.normalizePath.bind(this),
+            getFileService: () => this.ensureFileService(),
+            refreshFolder: (path) => this.refreshFolder(path),
+            handleMoveSuccess: (src, dst, meta) => this.handleMoveSuccess(src, dst, meta),
+            stopWatchingFile: (path) => this.stopWatchingFile(path),
+            closeFile: (path, opts) => this.closeFile(path, opts),
+            clearSelection: () => this.clearSelection(),
+            isInOpenList: (path) => this.isInOpenList(path),
+            getCurrentFile: () => this.state.getCurrentFile(),
+            onFileSelect: this.onFileSelect,
+            onCloseFileRequest: this.onCloseFileRequest,
+        });
+
         this.contextMenu = new FileTreeContextMenu({
             container: this.container,
             getTargetPath: (item) => this.normalizePath(item?.dataset?.path),
             onRename: (path, meta) => this.startRenaming(path, meta),
-            onMove: (path, meta) => this.promptMoveTo(path, meta),
-            onReveal: (path /*, meta */) => this.revealInFinder(path),
-            onDelete: (path /*, meta */) => this.confirmAndDelete(path),
-            onCreateFile: (path /*, meta */) => this.createFileInFolder(path),
-            onCreateFolder: (path /*, meta */) => this.createFolderInFolder(path),
-            onCreateWorkflow: (path /*, meta */) => this.createWorkflowInFolder(path),
-            onRun: (path /*, meta */) => this.onRunFile?.(path),
+            onMove: (path, meta) => this.fileActions.promptMoveTo(path, meta),
+            onReveal: (path) => this.fileActions.revealInFinder(path),
+            onDelete: (path) => this.fileActions.confirmAndDelete(path),
+            onCreateFile: (path) => this.creator.createFile(path),
+            onCreateFolder: (path) => this.creator.createFolder(path),
+            onCreateWorkflow: (path) => this.creator.createWorkflow(path),
+            onRun: (path) => this.onRunFile?.(path),
         });
     }
 
     async ensureSecurityScope(path, options = {}) {
         const normalized = this.normalizePath(path);
-        if (!normalized) {
-            return;
-        }
+        if (!normalized) return;
         try {
             await captureSecurityScopeForPath(normalized, options);
         } catch (error) {
@@ -160,36 +215,25 @@ export class FileTree {
         }
     }
 
-     normalizePath(path) {
-         return normalizeFsPath(path);
-     }
+    normalizePath(path) {
+        return normalizeFsPath(path);
+    }
 
     folderKeyBelongsToRoot(folderKey, rootPath) {
         const rootCanonical = this.normalizePath(rootPath);
-        if (!rootCanonical) {
-            return false;
-        }
+        if (!rootCanonical) return false;
 
         const folderPath = extractPathFromFolderKey(folderKey);
         const folderCanonical = this.normalizePath(folderPath);
-        if (!folderCanonical) {
-            return false;
-        }
+        if (!folderCanonical) return false;
 
         const rootIdentity = getPathIdentityKey(rootCanonical);
         const folderIdentity = getPathIdentityKey(folderCanonical);
-        if (!rootIdentity || !folderIdentity) {
-            return false;
-        }
-
-        if (rootIdentity === folderIdentity) {
-            return true;
-        }
+        if (!rootIdentity || !folderIdentity) return false;
+        if (rootIdentity === folderIdentity) return true;
 
         const ensureTrailingSeparator = (value) => {
-            if (!value || value.endsWith('/') || value.endsWith('\\')) {
-                return value;
-            }
+            if (!value || value.endsWith('/') || value.endsWith('\\')) return value;
             const separator = value.includes('\\') ? '\\' : '/';
             return `${value}${separator}`;
         };
@@ -201,19 +245,12 @@ export class FileTree {
     isPathWithinRoot(path, rootPath) {
         const normalizedPath = this.normalizePath(path);
         const normalizedRoot = this.normalizePath(rootPath);
-        if (!normalizedPath || !normalizedRoot) {
-            return false;
-        }
+        if (!normalizedPath || !normalizedRoot) return false;
 
         const pathIdentity = getPathIdentityKey(normalizedPath);
         const rootIdentity = getPathIdentityKey(normalizedRoot);
-        if (!pathIdentity || !rootIdentity) {
-            return false;
-        }
-
-        if (pathIdentity === rootIdentity) {
-            return true;
-        }
+        if (!pathIdentity || !rootIdentity) return false;
+        if (pathIdentity === rootIdentity) return true;
 
         const separator = normalizedRoot.includes('\\') ? '\\' : '/';
         const rootPrefix = normalizedRoot.endsWith(separator)
@@ -223,13 +260,9 @@ export class FileTree {
     }
 
     markLocalWrite(path, options = {}) {
-        if (!this.documentSessions || typeof this.documentSessions.markLocalWrite !== 'function') {
-            return;
-        }
+        if (!this.documentSessions || typeof this.documentSessions.markLocalWrite !== 'function') return;
         const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) {
-            return;
-        }
+        if (!normalizedPath) return;
         const suppressWatcherMs = Number.isFinite(options.durationMs)
             ? Math.max(0, options.durationMs)
             : 1200;
@@ -237,59 +270,29 @@ export class FileTree {
     }
 
     buildFolderKey(path, parentPath = null, isRoot = false) {
-        if (isRoot) {
-            return `root::${path}`;
-        }
+        if (isRoot) return `root::${path}`;
         const parentSegment = parentPath ?? '';
         return `${parentSegment}::${path}`;
     }
 
-    isInOpenList(path) {
-        return this.state.isInOpenList(path);
-    }
+    isInOpenList(path) { return this.state.isInOpenList(path); }
+    isFileOpen(path) { return this.state.isFileOpen(path); }
 
-    isFileOpen(path) {
-        return this.state.isFileOpen(path);
-    }
+    // ========== 状态访问器 ==========
 
-    // ========== 兼容性属性访问器 ==========
-    // 为了向后兼容，提供访问器让外部代码可以访问状态
+    get rootPaths() { return this.state.rootPaths; }
+    set rootPaths(value) { this.state.rootPaths = value; }
 
-    get rootPaths() {
-        return this.state.rootPaths;
-    }
+    get expandedFolders() { return this.state.expandedFolders; }
+    set expandedFolders(value) { this.state.expandedFolders = value; }
 
-    set rootPaths(value) {
-        this.state.rootPaths = value;
-    }
+    get currentFile() { return this.state.currentFile; }
+    set currentFile(value) { this.state.currentFile = value; }
 
-    get expandedFolders() {
-        return this.state.expandedFolders;
-    }
+    get openFiles() { return this.state.openFiles; }
+    set openFiles(value) { this.state.openFiles = value; }
 
-    set expandedFolders(value) {
-        this.state.expandedFolders = value;
-    }
-
-    get currentFile() {
-        return this.state.currentFile;
-    }
-
-    set currentFile(value) {
-        this.state.currentFile = value;
-    }
-
-    get openFiles() {
-        return this.state.openFiles;
-    }
-
-    set openFiles(value) {
-        this.state.openFiles = value;
-    }
-
-    get sectionStates() {
-        return this.state.sectionStates;
-    }
+    get sectionStates() { return this.state.sectionStates; }
 
     init() {
         this.renderer.initContainer();
@@ -297,831 +300,90 @@ export class FileTree {
         this.events.applySectionStates();
     }
 
-
-    async promptMoveTo(sourcePath, meta = {}) {
-        const normalizedSource = this.normalizePath(sourcePath);
-        if (!normalizedSource) {
-            return;
-        }
-
-        const isDirectory = meta?.isDirectory === true || meta?.targetType === 'folder';
-        try {
-            const pathModule = await import('@tauri-apps/api/path');
-            const fileService = this.ensureFileService();
-            const selections = await fileService.pick({
-                directory: true,
-                multiple: false,
-                allowFiles: false,
-            });
-            const selectionEntries = Array.isArray(selections) ? selections.filter(Boolean) : [];
-            if (selectionEntries.length === 0) {
-                return;
-            }
-            try {
-                await rememberSecurityScopes(selectionEntries, { persist: false });
-            } catch (error) {
-                console.warn('[fileTree] 申请目标文件夹权限失败', error);
-            }
-            const targetDirectory = selectionEntries[0]?.path;
-            const normalizedTargetDir = this.normalizePath(targetDirectory);
-            if (!normalizedTargetDir) {
-                return;
-            }
-
-            const fileName = await pathModule.basename(normalizedSource);
-            const destinationPath = await pathModule.join(normalizedTargetDir, fileName);
-            const normalizedDestination = this.normalizePath(destinationPath);
-            if (normalizedDestination && normalizedDestination === normalizedSource) {
-                return;
-            }
-            await fileService.move(normalizedSource, normalizedDestination);
-
-            const sourceParent = await pathModule.dirname(normalizedSource);
-            const destinationParent = await pathModule.dirname(normalizedDestination);
-            const refreshTasks = [];
-            if (sourceParent) {
-                refreshTasks.push(this.refreshFolder(sourceParent));
-            }
-            if (destinationParent && destinationParent !== sourceParent) {
-                refreshTasks.push(this.refreshFolder(destinationParent));
-            }
-            await Promise.all(refreshTasks);
-
-            await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory });
-        } catch (error) {
-            console.error('移动文件失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`无法移动文件:\n${error.message || error}`, { title: '移动失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
-    async revealInFinder(path) {
-        const normalized = this.normalizePath(path);
-        if (!normalized) return;
-        try {
-            const fileService = this.ensureFileService();
-            await fileService.reveal(normalized);
-        } catch (error) {
-            console.error('打开 Finder 失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`无法在 Finder 中打开:\n${error.message || error}`, { title: '操作失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
-    async confirmAndDelete(path) {
-        const normalized = this.normalizePath(path);
-        if (!normalized) return;
-        try {
-            const [{ confirm, message }, pathModule] = await Promise.all([
-                import('@tauri-apps/plugin-dialog'),
-                import('@tauri-apps/api/path'),
-            ]);
-            const fileName = await pathModule.basename(normalized);
-            const shouldDelete = await confirm(`确认删除文件 "${fileName}" 吗？`, {
-                title: '删除文件',
-                kind: 'warning',
-                okLabel: '删除',
-                cancelLabel: '取消',
-            });
-            if (!shouldDelete) {
-                return;
-            }
-
-            const fileService = this.ensureFileService();
-            await fileService.remove(normalized);
-
-            this.stopWatchingFile(normalized);
-            const isCurrentFile = this.normalizePath(this.currentFile) === normalized;
-            if (this.isInOpenList(normalized)) {
-                this.closeFile(normalized, { suppressActivate: true });
-            } else if (isCurrentFile && typeof this.onCloseFileRequest === 'function') {
-                // 文件在 shared tab 中显示，需要通知外部关闭 tab
-                this.onCloseFileRequest(normalized);
-            }
-            if (isCurrentFile) {
-                this.clearSelection();
-                if (this.onFileSelect) {
-                    this.onFileSelect(null);
-                }
-            }
-
-            const parentDir = await pathModule.dirname(normalized);
-            const normalizedParent = this.normalizePath(parentDir);
-            if (normalizedParent) {
-                await this.refreshFolder(normalizedParent);
-            }
-        } catch (error) {
-            console.error('删除文件失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`删除文件失败:\n${error.message || error}`, { title: '删除失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
-    async createFileInFolder(folderPath) {
-        const normalized = this.normalizePath(folderPath);
-        if (!normalized) return;
-        try {
-            const pathModule = await import('@tauri-apps/api/path');
-            const fileService = this.ensureFileService();
-
-            // 为避免聚焦到已存在的同名文件，这里自动寻找可用的名称：
-            // untitled.md, untitled-1.md, untitled-2.md, ...
-            const baseName = 'untitled';
-            const ext = '.md';
-            let candidatePath = null;
-            let attempts = 0;
-
-            // 理论上不太可能无限循环，这里加一个安全上限
-            while (attempts < 1000) {
-                const suffix = attempts === 0 ? '' : `-${attempts}`;
-                const fileName = `${baseName}${suffix}${ext}`;
-                const joined = await pathModule.join(normalized, fileName);
-                const normalizedCandidate = this.normalizePath(joined);
-                if (!normalizedCandidate) {
-                    attempts += 1;
-                    continue;
-                }
-
-                const exists = await fileService.exists(normalizedCandidate);
-                if (!exists) {
-                    candidatePath = normalizedCandidate;
-                    break;
-                }
-                attempts += 1;
-            }
-
-            if (!candidatePath) {
-                throw new Error('无法找到可用的文件名');
-            }
-
-            this.markLocalWrite(candidatePath);
-            this.markLocalWrite(normalized);
-            await fileService.writeText(candidatePath, '');
-
-            await this.refreshFolder(normalized);
-
-            // 刷新后选中新文件并自动触发重命名
-            setTimeout(() => {
-                this.selectFile(candidatePath, { autoFocus: false });
-                this.startRenaming(candidatePath);
-            }, 100);
-        } catch (error) {
-            console.error('创建文件失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`创建文件失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
-    async createFolderInFolder(folderPath) {
-        const normalized = this.normalizePath(folderPath);
-        if (!normalized) return;
-        try {
-            const pathModule = await import('@tauri-apps/api/path');
-            const fileService = this.ensureFileService();
-
-            // 为避免聚焦到已存在的同名文件夹，这里自动寻找可用的名称：
-            // newfolder, newfolder-1, newfolder-2, ...
-            const baseName = 'newfolder';
-            let candidatePath = null;
-            let attempts = 0;
-
-            while (attempts < 1000) {
-                const suffix = attempts === 0 ? '' : `-${attempts}`;
-                const folderName = `${baseName}${suffix}`;
-                const joined = await pathModule.join(normalized, folderName);
-                const normalizedCandidate = this.normalizePath(joined);
-                if (!normalizedCandidate) {
-                    attempts += 1;
-                    continue;
-                }
-
-                const exists = await fileService.exists(normalizedCandidate);
-                if (!exists) {
-                    candidatePath = normalizedCandidate;
-                    break;
-                }
-                attempts += 1;
-            }
-
-            if (!candidatePath) {
-                throw new Error('无法找到可用的文件夹名称');
-            }
-
-            this.markLocalWrite(candidatePath);
-            this.markLocalWrite(normalized);
-            await fileService.createDirectory(candidatePath);
-
-            await this.refreshFolder(normalized);
-
-            // 刷新后自动触发重命名
-            setTimeout(() => {
-                this.startRenaming(candidatePath, { targetType: 'folder' });
-            }, 100);
-        } catch (error) {
-            console.error('创建文件夹失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`创建文件夹失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
-    async createWorkflowInFolder(folderPath) {
-        const normalized = this.normalizePath(folderPath);
-        if (!normalized) return;
-        try {
-            const pathModule = await import('@tauri-apps/api/path');
-            const fileService = this.ensureFileService();
-
-            const baseName = 'workflow';
-            const ext = '.mflow';
-            let candidatePath = null;
-            let attempts = 0;
-
-            while (attempts < 1000) {
-                const suffix = attempts === 0 ? '' : `-${attempts}`;
-                const fileName = `${baseName}${suffix}${ext}`;
-                const joined = await pathModule.join(normalized, fileName);
-                const normalizedCandidate = this.normalizePath(joined);
-                if (!normalizedCandidate) {
-                    attempts += 1;
-                    continue;
-                }
-
-                const exists = await fileService.exists(normalizedCandidate);
-                if (!exists) {
-                    candidatePath = normalizedCandidate;
-                    break;
-                }
-                attempts += 1;
-            }
-
-            if (!candidatePath) {
-                throw new Error('无法找到可用的文件名');
-            }
-
-            const now = new Date().toISOString();
-            const generateId = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-            const emptyWorkflow = {
-                version: '1.0',
-                meta: {
-                    title: '新建工作流',
-                    created: now,
-                    updated: now,
-                },
-                layers: [
-                    {
-                        id: generateId('layer'),
-                        cards: [
-                            {
-                                id: generateId('card'),
-                                title: '任务目标',
-                                type: 'input',
-                                inputs: [],
-                                config: { content: '' },
-                                output: { mode: 'content' },
-                                status: 'pending',
-                            },
-                        ],
-                    },
-                ],
-            };
-
-            this.markLocalWrite(candidatePath);
-            this.markLocalWrite(normalized);
-            await fileService.writeText(candidatePath, JSON.stringify(emptyWorkflow, null, 2));
-
-            await this.refreshFolder(normalized);
-
-            setTimeout(() => {
-                this.selectFile(candidatePath, { autoFocus: false });
-                this.startRenaming(candidatePath);
-            }, 100);
-        } catch (error) {
-            console.error('创建工作流失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`创建工作流失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
-            } catch {}
-        }
-    }
-
-    toggleSection(contentId) {
-        this.events.handleSectionToggle(contentId);
-    }
-
-    updateSectionCollapsedState(contentId, collapsed) {
-        this.state.setSectionCollapsed(contentId, collapsed);
-    }
-
-    emitStateChange() {
-        this.state.emitStateChange();
-    }
-
-    getPersistedState() {
-        return this.state.getPersistedState();
-    }
-
-    captureScrollPositions() {
-        const elements = [
-            this.container,
-            this.container.querySelector('#foldersContent'),
-            this.container.querySelector('#openFilesContent'),
-        ].filter(Boolean);
-
-        return elements.map((element) => ({
-            element,
-            top: element.scrollTop,
-            left: element.scrollLeft,
-        }));
-    }
-
-    restoreScrollPositions(snapshot = []) {
-        if (!Array.isArray(snapshot) || snapshot.length === 0) {
-            return;
-        }
-        window.requestAnimationFrame(() => {
-            snapshot.forEach(({ element, top, left }) => {
-                if (!element) {
-                    return;
-                }
-                element.scrollTop = top;
-                element.scrollLeft = left;
-            });
-        });
-    }
-
-    async requestOpenFolder() {
-        try {
-            const fileService = this.ensureFileService();
-            const selections = await fileService.pick({
-                directory: true,
-                multiple: true,
-                allowFiles: false,
-            });
-            const entries = Array.isArray(selections) ? selections.filter(Boolean) : [];
-            if (entries.length === 0) {
-                return;
-            }
-            try {
-                await rememberSecurityScopes(entries);
-            } catch (error) {
-                console.warn('[fileTree] 记录文件夹权限失败', error);
-            }
-            for (const entry of entries) {
-                if (entry?.path) {
-                    await this.loadFolder(entry.path);
-                }
-            }
-        } catch (error) {
-            console.error('打开文件夹失败:', error);
-        }
-    }
-
-    async loadFolder(folderPath) {
-        const normalizedPath = this.normalizePath(folderPath);
-        if (!normalizedPath) return;
-
-        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
-        const rootPath = existingRootPath || normalizedPath;
-        const isNewRoot = !existingRootPath;
-        console.debug('[drop-debug][file-tree] loadFolder-enter', {
-            folderPath,
-            normalizedPath,
-            existingRootPath,
-            rootPath,
-            isNewRoot,
-        });
-        let stateChanged = false;
-        if (isNewRoot) {
-            this.state.addRootPath(rootPath);
-            stateChanged = true;
-        }
-
-        const scrollSnapshot = this.captureScrollPositions();
-
-        try {
-            const entries = await this.readDirectory(rootPath);
-            const folderName = basename(rootPath) || rootPath;
-
-            const contentDiv = this.container.querySelector('#foldersContent');
-            if (!contentDiv) return;
-
-            let rootItem = this.findRootFolderElementByPath(rootPath);
-            const folderKey = this.buildFolderKey(rootPath, null, true);
-
-            console.debug('[drop-debug][file-tree] loadFolder-root-node-check', {
-                rootPath,
-                hasRootItem: Boolean(rootItem),
-                folderKey,
-            });
-
-             if (!rootItem) {
-                rootItem = this.createFolderItem(folderName, rootPath, entries, true, null);
-                contentDiv.appendChild(rootItem);
-                console.debug('[drop-debug][file-tree] loadFolder-root-node-created', {
-                    rootPath,
-                    folderKey,
-                    entryCount: Array.isArray(entries) ? entries.length : null,
-                });
-            } else {
-                const nameSpan = rootItem.querySelector('.tree-item-name');
-                if (nameSpan) {
-                    nameSpan.textContent = folderName;
-                }
-            }
-            rootItem.dataset.parentPath = '';
-            rootItem.dataset.nodeKey = folderKey;
-            rootItem.dataset.isRoot = 'true';
-
-            const header = rootItem.querySelector('.tree-folder-header');
-            const children = rootItem.querySelector('.tree-folder-children');
-
-            if (!children) {
-                return;
-            }
-
-             const shouldExpand = isNewRoot || this.expandedFolders.has(folderKey);
-
-             console.debug('[drop-debug][file-tree] loadFolder-expand-state', {
-                 rootPath,
-                 folderKey,
-                 isNewRoot,
-                 shouldExpand,
-                 expandedFoldersSize: this.expandedFolders.size,
-             });
-
-            if (shouldExpand) {
-                if (!this.expandedFolders.has(folderKey)) {
-                    this.expandedFolders.add(folderKey);
-                    stateChanged = true;
-                }
-                header?.classList.add('expanded');
-                children.classList.add('expanded');
-                children.style.display = 'block';
-            } else {
-                header?.classList.remove('expanded');
-                children.classList.remove('expanded');
-                children.style.display = 'none';
-            }
-
-            await this.loadFolderChildren(rootPath, children, entries);
-
-            await this.watchFolder(rootPath);
-        } catch (error) {
-            console.error('读取文件夹失败:', error);
-        } finally {
-            this.restoreScrollPositions(scrollSnapshot);
-            // 刷新后重新应用当前文件的选中状态
-            this.reapplyCurrentFileSelection();
-            if (stateChanged) {
-                this.emitStateChange();
-            }
-        }
-    }
-
-    reapplyCurrentFileSelection() {
-        this.renderer.reapplyCurrentFileSelection();
-    }
-
-    shouldIgnoreFile(name) {
-        // 只忽略特定的系统文件
-        const ignoredFiles = new Set([
-            '.DS_Store',
-            'Thumbs.db',
-            'desktop.ini',
-            '.localized'
-        ]);
-
-        return ignoredFiles.has(name);
-    }
-
-    async readDirectory(path) {
-        const fileService = this.ensureFileService();
-        const { directories = [], files = [] } = await fileService.list(path);
-
-        const folders = directories
-            .filter(entry => !this.shouldIgnoreFile(entry.name))
-            .map(entry => ({ path: entry.path, isDir: true }));
-        const regularFiles = files
-            .filter(entry => !this.shouldIgnoreFile(entry.name))
-            .map(entry => ({ path: entry.path, isDir: false }));
-
-        folders.sort((a, b) => a.path.localeCompare(b.path));
-        regularFiles.sort((a, b) => a.path.localeCompare(b.path));
-
-        return [...folders, ...regularFiles];
-    }
-
-    createFolderItem(name, path, entries, isRoot = false, parentPath = null) {
-        return this.renderer.createFolderItem(name, path, entries, isRoot, parentPath);
-    }
-
-    createFileItem(name, path) {
-        return this.renderer.createFileItem(name, path);
-    }
-
-    async toggleFolder(path, folderElement = null) {
-        const folderItem = folderElement ?? this.container.querySelector(`[data-path="${path}"]`);
-        if (!folderItem) return;
-
-        const header = folderItem.querySelector('.tree-folder-header');
-        const children = folderItem.querySelector('.tree-folder-children');
-        const parentPath = folderItem.dataset.parentPath || null;
-        const isRoot = folderItem.dataset.isRoot === 'true';
-        const folderKey = folderItem.dataset.nodeKey || this.buildFolderKey(path, parentPath, isRoot);
-
-        if (this.expandedFolders.has(folderKey)) {
-            // 收起
-            this.expandedFolders.delete(folderKey);
-            children.classList.remove('expanded');
-            header.classList.remove('expanded');
-            children.style.display = 'none';
-        } else {
-            // 展开
-            this.expandedFolders.add(folderKey);
-            children.classList.add('expanded');
-            header.classList.add('expanded');
-            children.style.display = 'block';
-
-            // 如果还没加载子项，加载它们
-            if (children.children.length === 0) {
-                await this.loadFolderChildren(path, children);
-            }
-        }
-
-        this.emitStateChange();
-    }
-
-    async loadFolderChildren(path, childrenContainer, prefetchedEntries = null) {
-        const entries = Array.isArray(prefetchedEntries)
-            ? prefetchedEntries
-            : await this.readDirectory(path);
-
-        const fragment = document.createDocumentFragment();
-
-        for (const entry of entries) {
-            const name = basename(entry.path);
-
-            if (entry.isDir) {
-                const folderItem = this.createFolderItem(name, entry.path, [], false, path);
-                fragment.appendChild(folderItem);
-
-                const childKey = folderItem.dataset.nodeKey;
-
-                if (childKey && this.expandedFolders.has(childKey)) {
-                    const header = folderItem.querySelector('.tree-folder-header');
-                    const children = folderItem.querySelector('.tree-folder-children');
-                    header?.classList.add('expanded');
-                    if (children) {
-                        children.classList.add('expanded');
-                        children.style.display = 'block';
-                        await this.loadFolderChildren(entry.path, children);
-                    }
-                }
-            } else {
-                const fileItem = this.createFileItem(name, entry.path);
-                fragment.appendChild(fileItem);
-            }
-        }
-
-        childrenContainer.replaceChildren(fragment);
-    }
+    toggleSection(contentId) { this.events.handleSectionToggle(contentId); }
+    updateSectionCollapsedState(contentId, collapsed) { this.state.setSectionCollapsed(contentId, collapsed); }
+    emitStateChange() { this.state.emitStateChange(); }
+    getPersistedState() { return this.state.getPersistedState(); }
+
+    // ========== 文件夹加载（委托 FolderLoader）==========
+
+    async requestOpenFolder() { return this.loader.requestOpenFolder(); }
+    async loadFolder(path) { return this.loader.loadFolder(path); }
+    async toggleFolder(path, el) { return this.loader.toggleFolder(path, el); }
+    async loadFolderChildren(path, container, prefetched) { return this.loader.loadFolderChildren(path, container, prefetched); }
+    async refreshFolder(path) { return this.loader.refreshFolder(path); }
+    async refreshCurrentFolder(targetPath) { return this.loader.refreshCurrentFolder(targetPath); }
+    findRootFolderElementByPath(path) { return this.loader.findRootFolderElement(path); }
+
+    // ========== 开放文件管理（委托 OpenFileManager）==========
+
+    addToOpenFiles(path) { return this.openFileManager.add(path); }
+    replaceOpenFilePath(oldPath, newPath) { return this.openFileManager.replacePath(oldPath, newPath); }
+    renderOpenFiles(options) { return this.openFileManager.render(options); }
+    closeFile(path, options) { return this.openFileManager.close(path, options); }
+    handleMoveSuccess(src, dst, meta) { return this.openFileManager.handleMoveSuccess(src, dst, meta); }
+    restoreOpenFiles(paths) { return this.openFileManager.restore(paths); }
+    reorderOpenFiles(paths) { return this.openFileManager.reorder(paths); }
+    getOpenFilePaths() { return this.openFileManager.getOpenFilePaths(); }
+
+    // ========== 文件操作（委托 FileActions）==========
+
+    async promptMoveTo(path, meta) { return this.fileActions.promptMoveTo(path, meta); }
+    async revealInFinder(path) { return this.fileActions.revealInFinder(path); }
+    async confirmAndDelete(path) { return this.fileActions.confirmAndDelete(path); }
+
+    // ========== 创建操作（向后兼容存根）==========
+
+    async createFileInFolder(folderPath) { return this.creator.createFile(folderPath); }
+    async createFolderInFolder(folderPath) { return this.creator.createFolder(folderPath); }
+    async createWorkflowInFolder(folderPath) { return this.creator.createWorkflow(folderPath); }
+
+    // ========== 文件选择 ==========
 
     selectFile(path, options = {}) {
-        const {
-            autoFocus = true,
-            preserveFocus = false,
-        } = options;
+        const { autoFocus = true, preserveFocus = false } = options;
         const normalized = this.normalizePath(path);
         if (!normalized) {
             this.clearSelection();
             this.currentFile = null;
-            if (this.onFileSelect) {
-                this.onFileSelect(null, { autoFocus });
-            }
+            if (this.onFileSelect) this.onFileSelect(null, { autoFocus });
             return;
         }
 
-        // 移除之前的选中状态
         this.container.querySelectorAll('.tree-file.selected, .open-file-item.selected').forEach(el => {
             el.classList.remove('selected');
         });
 
         const shouldManageFocus = !autoFocus && !preserveFocus;
 
-        // 添加选中状态到文件树
         const fileItem = this.container.querySelector(`.tree-file[data-path="${normalized}"]`)
             || this.container.querySelector(`.tree-file[data-path="${path}"]`);
-        if (fileItem) {
-            fileItem.classList.add('selected');
-        }
+        if (fileItem) fileItem.classList.add('selected');
 
-        // 添加选中状态到打开文件列表
         const openFileItem = this.container.querySelector(`.open-file-item[data-path="${normalized}"]`)
             || this.container.querySelector(`.open-file-item[data-path="${path}"]`);
-        if (openFileItem) {
-            openFileItem.classList.add('selected');
-        }
+        if (openFileItem) openFileItem.classList.add('selected');
 
         this.currentFile = normalized;
 
         if (shouldManageFocus) {
             const activeElement = typeof document !== 'undefined' ? document.activeElement : null;
-            const focusCandidates = [fileItem, openFileItem].filter(Boolean);
-            const focusTarget = focusCandidates.find((element) => {
+            const focusTarget = [fileItem, openFileItem].filter(Boolean).find((element) => {
                 if (!element) return false;
-                if (element.contains(activeElement)) {
-                    return false;
-                }
-                if (element.querySelector('.tree-file-rename-input')) {
-                    return false;
-                }
+                if (element.contains(activeElement)) return false;
+                if (element.querySelector('.tree-file-rename-input')) return false;
                 return true;
             });
             if (focusTarget) {
-                try {
-                    focusTarget.focus({ preventScroll: true });
-                } catch {}
+                try { focusTarget.focus({ preventScroll: true }); } catch {}
             }
         }
 
-        // 回调
-        if (this.onFileSelect) {
-            this.onFileSelect(normalized, { autoFocus });
-        }
+        if (this.onFileSelect) this.onFileSelect(normalized, { autoFocus });
 
         this.ensureFileWatcherHealth(normalized).catch(error => {
             console.warn('文件监听健康检查失败:', { path: normalized, error });
         });
-    }
-
-    addToOpenFiles(path) {
-        const normalized = this.normalizePath(path);
-        if (!normalized) return;
-
-        if (this.isInOpenList(normalized)) return;
-
-        // 使用 state 模块的方法来添加文件，会自动触发 onOpenFilesChange 回调
-        this.state.addOpenFile(normalized);
-        this.renderOpenFiles();
-        const viewMode = getViewModeForPath(normalized);
-        const shouldWatch = viewMode === 'markdown' || viewMode === 'code';
-        if (shouldWatch) {
-            this.watchFile(normalized).catch(error => {
-                console.error('监听文件失败:', error);
-            });
-        }
-    }
-
-    replaceOpenFilePath(oldPath, newPath) {
-        const normalizedOld = this.normalizePath(oldPath);
-        const normalizedNew = this.normalizePath(newPath);
-        const oldIdentity = getPathIdentityKey(normalizedOld);
-        const newIdentity = getPathIdentityKey(normalizedNew);
-
-        if (!normalizedOld || !normalizedNew) {
-            return;
-        }
-        if (!oldIdentity || !newIdentity || oldIdentity === newIdentity) {
-            return;
-        }
-
-        const index = this.state.findOpenFileIndex(normalizedOld);
-        this.stopWatchingFile(normalizedOld);
-
-        if (index === -1) {
-            if (this.state.isCurrentFile(normalizedOld)) {
-                this.currentFile = normalizedNew;
-            }
-            this.watchFile(normalizedNew).catch(error => {
-                console.error('监听文件失败:', error);
-            });
-            return;
-        }
-
-        const filtered = this.openFiles.filter(
-            (path, idx) => getPathIdentityKey(path) !== oldIdentity && (getPathIdentityKey(path) !== newIdentity || idx === index)
-        );
-        const insertPosition = Math.min(index, filtered.length);
-        filtered.splice(insertPosition, 0, normalizedNew);
-        this.openFiles = filtered;
-
-        if (this.state.isCurrentFile(normalizedOld)) {
-            this.currentFile = normalizedNew;
-        }
-
-        this.renderOpenFiles();
-        this.watchFile(normalizedNew).catch(error => {
-            console.error('监听文件失败:', error);
-        });
-        this.onOpenFilesChange?.([...this.openFiles]);
-    }
-
-    renderOpenFiles(options = {}) {
-        const { skipWatch = false } = options;
-        this.openFilesView?.render(this.openFiles, {
-            currentFile: this.currentFile,
-            skipWatch,
-        });
-    }
-
-    closeFile(path, options = {}) {
-        const normalizedTarget = this.normalizePath(path);
-        const targetIdentity = getPathIdentityKey(normalizedTarget);
-        const index = this.state.findOpenFileIndex(normalizedTarget);
-        if (index > -1) {
-            const wasActive = Boolean(targetIdentity) && this.state.isCurrentFile(normalizedTarget);
-            // 使用 state 模块的方法来移除文件，会自动触发 onOpenFilesChange 回调
-            this.state.removeOpenFile(normalizedTarget);
-            this.renderOpenFiles();
-            this.stopWatchingFile(normalizedTarget);
-
-            if (wasActive) {
-                const fallbackIndex = Math.min(index, this.openFiles.length - 1);
-                const fallback = fallbackIndex >= 0 ? this.openFiles[fallbackIndex] : null;
-                if (fallback && !options.suppressActivate) {
-                    this.selectFile(fallback);
-                } else if (!fallback) {
-                    this.clearSelection();
-                    if (this.onFileSelect) {
-                        this.onFileSelect(null);
-                    }
-                }
-            }
-        }
-    }
-
-    closeFolder(path) {
-        const normalizedPath = this.normalizePath(path);
-        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
-        if (!normalizedPath || !existingRootPath) {
-            return;
-        }
-
-        this.state.removeRootPath(existingRootPath);
-
-        const keysToRemove = [];
-        this.expandedFolders.forEach((key) => {
-            if (this.folderKeyBelongsToRoot(key, existingRootPath)) {
-                keysToRemove.push(key);
-            }
-        });
-        keysToRemove.forEach((key) => this.expandedFolders.delete(key));
-
-        this.stopWatchingFolder(existingRootPath);
-
-        const folderElement = this.findRootFolderElementByPath(existingRootPath);
-        if (folderElement?.parentElement) {
-            folderElement.parentElement.removeChild(folderElement);
-        }
-
-        const currentNormalized = this.normalizePath(this.currentFile);
-        const isUnderFolder = this.isPathWithinRoot(currentNormalized, existingRootPath);
-
-        if (isUnderFolder && !this.isInOpenList(currentNormalized)) {
-            this.clearSelection();
-            if (this.onFileSelect) {
-                this.onFileSelect(null);
-            }
-        }
-
-        this.emitStateChange();
-    }
-
-    pinRootFolder(path) {
-        const normalizedPath = this.normalizePath(path);
-        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
-        if (!normalizedPath || !existingRootPath) {
-            return;
-        }
-
-        const ordered = Array.from(this.rootPaths);
-        const index = ordered.indexOf(existingRootPath);
-        if (index <= 0) {
-            return;
-        }
-
-        ordered.splice(index, 1);
-        ordered.unshift(existingRootPath);
-        this.rootPaths = new Set(ordered);
-
-        const contentDiv = this.container.querySelector('#foldersContent');
-        const folderElement = this.findRootFolderElementByPath(existingRootPath);
-        if (contentDiv && folderElement) {
-            contentDiv.removeChild(folderElement);
-            contentDiv.insertBefore(folderElement, contentDiv.firstChild);
-        }
-
-        this.emitStateChange();
     }
 
     clearSelection() {
@@ -1131,289 +393,100 @@ export class FileTree {
         this.currentFile = null;
     }
 
-    async handleMoveSuccess(sourcePath, destinationPath, meta = {}) {
-        const normalizedSource = this.normalizePath(sourcePath);
-        const normalizedDestination = this.normalizePath(destinationPath);
-        if (!normalizedSource || !normalizedDestination) {
-            return;
-        }
+    // ========== 文件夹关闭/置顶 ==========
 
-        const isDirectory = meta?.isDirectory === true;
-        if (!isDirectory) {
-            try {
-                this.replaceOpenFilePath(normalizedSource, normalizedDestination);
-                this.onPathRenamed?.(normalizedSource, normalizedDestination, { suppressAutoFocus: true });
-            } catch (error) {
-                console.warn('处理文件移动回调失败:', error);
-            }
-            return;
-        }
-
-        const sourcePrefix = normalizedSource.endsWith('/') ? normalizedSource : `${normalizedSource}/`;
-        const destinationPrefix = normalizedDestination.endsWith('/')
-            ? normalizedDestination
-            : `${normalizedDestination}/`;
-
-        const affectedPaths = new Set(this.openFiles || []);
-        if (this.currentFile) {
-            affectedPaths.add(this.currentFile);
-        }
-
-        affectedPaths.forEach((path) => {
-            if (!path) return;
-            const normalized = this.normalizePath(path);
-            if (!normalized || !normalized.startsWith(sourcePrefix)) {
-                return;
-            }
-            const relative = normalized.slice(sourcePrefix.length);
-            const nextPath = `${destinationPrefix}${relative}`;
-            try {
-                this.replaceOpenFilePath(normalized, nextPath);
-                this.onPathRenamed?.(normalized, nextPath, { suppressAutoFocus: true });
-            } catch (error) {
-                console.warn('处理文件夹移动回调失败:', error);
-            }
-        });
-    }
-
-    async watchFolder(path) {
-        return this.watcher?.watchFolder(path);
-    }
-
-    stopWatchingFolder(path = null) {
-        this.watcher?.stopWatchingFolder(path);
-    }
-
-    async watchFile(path, options = {}) {
-        return this.watcher?.watchFile(path, options);
-    }
-
-    stopWatchingFile(path) {
-        this.watcher?.stopWatchingFile(path);
-    }
-
-    async ensureFileWatcherHealth(path, options = {}) {
-        return this.watcher?.ensureFileWatcherHealth(path, options);
-    }
-
-    async restartFileWatcher(path, options = {}) {
-        return this.watcher?.restartFileWatcher(path, options);
-    }
-
-    consumeExternalModification(path) {
-        return this.watcher?.consumeExternalModification(path);
-    }
-
-    clearExternalModification(path) {
-        this.watcher?.clearExternalModification(path);
-    }
-
-    async refreshCurrentFolder(targetPath = null) {
-        if (targetPath) {
-            await this.refreshFolder(targetPath);
-            return;
-        }
-
-        const rootPaths = Array.from(this.rootPaths);
-        const tasks = rootPaths.map((rootPath) => this.refreshFolder(rootPath));
-        await Promise.allSettled(tasks);
-    }
-
-    async refreshFolder(path) {
+    closeFolder(path) {
         const normalizedPath = this.normalizePath(path);
-        if (!normalizedPath) {
-            return;
-        }
+        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
+        if (!normalizedPath || !existingRootPath) return;
 
-        this.ensureRenamingState();
-        if (this.shouldDeferRefresh(normalizedPath)) {
-            this.pendingRefreshPaths.add(normalizedPath);
-            return;
-        }
+        this.state.removeRootPath(existingRootPath);
 
-        if (this.state.isRootPath(normalizedPath)) {
-            await this.loadFolder(normalizedPath);
-            return;
-        }
-
-        const folderElement = this.container.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
-        if (!folderElement) {
-            return;
-        }
-        const children = folderElement.querySelector('.tree-folder-children');
-        if (!children) {
-            return;
-        }
-
-        try {
-            const entries = await this.readDirectory(normalizedPath);
-            await this.loadFolderChildren(normalizedPath, children, entries);
-        } catch (error) {
-            console.error('刷新文件夹失败:', { path: normalizedPath, error });
-        } finally {
-            this.reapplyCurrentFileSelection();
-        }
-    }
-
-    getRootPaths() {
-        return Array.from(this.rootPaths);
-    }
-
-    getExpandedFolderPaths() {
-        const keys = this.state.getExpandedFolders();
-        const paths = new Set();
-        keys.forEach((key) => {
-            if (!key) return;
-            const path = extractPathFromFolderKey(key);
-            const normalized = this.normalizePath(path);
-            if (normalized) {
-                paths.add(normalized);
-            }
+        const keysToRemove = [];
+        this.expandedFolders.forEach((key) => {
+            if (this.folderKeyBelongsToRoot(key, existingRootPath)) keysToRemove.push(key);
         });
-        return Array.from(paths);
+        keysToRemove.forEach((key) => this.expandedFolders.delete(key));
+
+        this.stopWatchingFolder(existingRootPath);
+
+        const folderElement = this.loader.findRootFolderElement(existingRootPath);
+        if (folderElement?.parentElement) folderElement.parentElement.removeChild(folderElement);
+
+        const currentNormalized = this.normalizePath(this.currentFile);
+        if (this.isPathWithinRoot(currentNormalized, existingRootPath) && !this.isInOpenList(currentNormalized)) {
+            this.clearSelection();
+            if (this.onFileSelect) this.onFileSelect(null);
+        }
+
+        this.emitStateChange();
     }
 
-    findRootFolderElementByPath(path) {
-        const contentDiv = this.container?.querySelector('#foldersContent');
-        if (!contentDiv) {
-            return null;
+    pinRootFolder(path) {
+        const normalizedPath = this.normalizePath(path);
+        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
+        if (!normalizedPath || !existingRootPath) return;
+
+        const ordered = Array.from(this.rootPaths);
+        const index = ordered.indexOf(existingRootPath);
+        if (index <= 0) return;
+
+        ordered.splice(index, 1);
+        ordered.unshift(existingRootPath);
+        this.rootPaths = new Set(ordered);
+
+        const contentDiv = this.container.querySelector('#foldersContent');
+        const folderElement = this.loader.findRootFolderElement(existingRootPath);
+        if (contentDiv && folderElement) {
+            contentDiv.removeChild(folderElement);
+            contentDiv.insertBefore(folderElement, contentDiv.firstChild);
         }
 
-        const targetPath = this.normalizePath(path);
-        if (!targetPath) {
-            return null;
-        }
-
-        const folders = contentDiv.querySelectorAll('.tree-folder');
-        for (const folder of folders) {
-            if (folder?.dataset?.isRoot !== 'true') {
-                continue;
-            }
-            const folderPath = folder?.dataset?.path;
-            if (!folderPath) {
-                continue;
-            }
-            const normalizedFolderPath = this.normalizePath(folderPath);
-            if (normalizedFolderPath === targetPath) {
-                return folder;
-            }
-        }
-
-        return null;
+        this.emitStateChange();
     }
 
+    // ========== 文件监听（委托 FileWatcher）==========
+
+    async watchFolder(path) { return this.watcher?.watchFolder(path); }
+    stopWatchingFolder(path = null) { this.watcher?.stopWatchingFolder(path); }
+    async watchFile(path, options = {}) { return this.watcher?.watchFile(path, options); }
+    stopWatchingFile(path) { this.watcher?.stopWatchingFile(path); }
+    async ensureFileWatcherHealth(path, options = {}) { return this.watcher?.ensureFileWatcherHealth(path, options); }
+    async restartFileWatcher(path, options = {}) { return this.watcher?.restartFileWatcher(path, options); }
+    consumeExternalModification(path) { return this.watcher?.consumeExternalModification(path); }
+    clearExternalModification(path) { this.watcher?.clearExternalModification(path); }
+
+    // ========== 状态查询 ==========
+
+    getRootPaths() { return Array.from(this.rootPaths); }
     hasRoot(path) {
         const normalizedPath = this.normalizePath(path);
         return normalizedPath ? this.state.isRootPath(normalizedPath) : false;
     }
 
-    getOpenFilePaths() {
-        return [...this.openFiles];
-    }
-
-    restoreOpenFiles(paths = []) {
-        const normalized = [];
-        const seen = new Set();
-
-        paths.forEach((path) => {
-            const normalizedPath = this.normalizePath(path);
-            const identityKey = getPathIdentityKey(normalizedPath);
-            if (!normalizedPath || !identityKey || seen.has(identityKey)) {
-                return;
-            }
-            seen.add(identityKey);
-            normalized.push(normalizedPath);
+    getExpandedFolderPaths() {
+        const paths = new Set();
+        this.state.getExpandedFolders().forEach((key) => {
+            if (!key) return;
+            const normalized = this.normalizePath(extractPathFromFolderKey(key));
+            if (normalized) paths.add(normalized);
         });
-
-        // 停止监听不再存在的文件
-        this.openFiles.forEach((path) => {
-            const existingPath = this.normalizePath(path);
-            const existingIdentity = getPathIdentityKey(existingPath);
-            if (existingPath && existingIdentity && !seen.has(existingIdentity)) {
-                this.stopWatchingFile(existingPath);
-            }
-        });
-
-        this.openFiles = normalized;
-        const normalizedCurrent = this.normalizePath(this.currentFile);
-        if (normalizedCurrent) {
-            const currentIdentity = getPathIdentityKey(normalizedCurrent);
-            const restoredCurrent = normalized.find((path) => getPathIdentityKey(path) === currentIdentity) || null;
-            this.currentFile = restoredCurrent || normalizedCurrent;
-        }
-        this.renderOpenFiles();
-        this.onOpenFilesChange?.([...this.openFiles]);
-    }
-
-    reorderOpenFiles(paths = []) {
-        if (!Array.isArray(paths) || paths.length === 0) {
-            return;
-        }
-
-        const seen = new Set();
-        const existing = new Set(this.openFiles.map((path) => getPathIdentityKey(path)).filter(Boolean));
-        const normalized = [];
-
-        paths.forEach((path) => {
-            const normalizedPath = this.normalizePath(path);
-            const identityKey = getPathIdentityKey(normalizedPath);
-            if (!normalizedPath || !identityKey || seen.has(identityKey) || !existing.has(identityKey)) {
-                return;
-            }
-            seen.add(identityKey);
-            normalized.push(normalizedPath);
-            existing.delete(identityKey);
-        });
-
-        if (normalized.length === 0) {
-            return;
-        }
-
-        if (existing.size > 0) {
-            this.openFiles.forEach((path) => {
-                const identityKey = getPathIdentityKey(path);
-                if (!identityKey || !seen.has(identityKey)) {
-                    normalized.push(path);
-                }
-            });
-        }
-
-        const isSameOrder = normalized.length === this.openFiles.length
-            && normalized.every((path, index) => this.openFiles[index] === path);
-        if (isSameOrder) {
-            return;
-        }
-
-        this.openFiles = normalized;
-        this.renderOpenFiles({ skipWatch: true });
-        this.onOpenFilesChange?.([...this.openFiles]);
+        return Array.from(paths);
     }
 
     async restoreState(state = {}) {
         const rootPaths = Array.isArray(state.rootPaths)
-            ? state.rootPaths
-                .map(path => this.normalizePath(path))
-                .filter(path => typeof path === 'string' && path.length > 0)
+            ? state.rootPaths.map(path => this.normalizePath(path)).filter(Boolean)
             : [];
-
         const expandedFolders = Array.isArray(state.expandedFolders)
-            ? state.expandedFolders
-                .filter(key => typeof key === 'string' && key.length > 0)
+            ? state.expandedFolders.filter(key => typeof key === 'string' && key.length > 0)
             : [];
 
-        // 使用 state 模块的 restoreState 方法
-        this.state.restoreState({
-            rootPaths,
-            expandedFolders,
-            sectionStates: state.sectionStates,
-        });
-
+        this.state.restoreState({ rootPaths, expandedFolders, sectionStates: state.sectionStates });
         this.events.applySectionStates();
 
         const contentDiv = this.container.querySelector('#foldersContent');
-        if (contentDiv) {
-            contentDiv.innerHTML = '';
-        }
+        if (contentDiv) contentDiv.innerHTML = '';
 
         for (const path of rootPaths) {
             try {
@@ -1424,10 +497,10 @@ export class FileTree {
         }
     }
 
+    // ========== 文件服务 ==========
+
     ensureFileService() {
-        if (this.fileService) {
-            return this.fileService;
-        }
+        if (this.fileService) return this.fileService;
         try {
             this.services = getAppServices();
         } catch (error) {
@@ -1438,288 +511,70 @@ export class FileTree {
                 throw error;
             }
         }
-        if (!this.services?.file) {
-            throw new Error('文件服务未初始化');
-        }
+        if (!this.services?.file) throw new Error('文件服务未初始化');
         this.fileService = this.services.file;
         return this.fileService;
     }
 
-    // ===== 内联重命名 =====
-    startRenaming(path, meta = {}) {
-        if (this.mover?.shouldBlockInteraction?.()) {
-            return;
-        }
+    // ========== 重命名 ==========
 
+    startRenaming(path, meta = {}) {
+        if (this.mover?.shouldBlockInteraction?.()) return;
         const targetType = meta?.targetType || 'file';
         if (targetType === 'folder') {
-            this.startFolderRenaming(path);
+            this.folderRenamer.start(path);
         } else {
             this.renamer?.start(path);
         }
     }
 
-    // 文件夹重命名（在文件树节点上 inline 编辑）
-    startFolderRenaming(path) {
-        const normalized = this.normalizePath(path);
-        if (!normalized) return;
-
-        if (this.folderRenamingPath && this.folderRenamingPath !== normalized) {
-            this.cancelFolderRenaming();
-        }
-
-        const folderItem = this.container?.querySelector(`.tree-folder[data-path="${normalized}"]`);
-        if (!folderItem) return;
-        const header = folderItem.querySelector('.tree-folder-header');
-        if (!header) return;
-        const nameSpan = header.querySelector('.tree-item-name');
-        if (!nameSpan) return;
-
-        const folderName = nameSpan.textContent || basename(normalized);
-        const input = document.createElement('input');
-        input.type = 'text';
-        // 复用文件重命名输入框样式，保持一致
-        input.className = 'tree-file-rename-input';
-        input.value = folderName;
-        nameSpan.replaceWith(input);
-        this.folderRenamingPath = normalized;
-
-        let submitting = false;
-        const submit = async () => {
-            if (submitting) return;
-            submitting = true;
-            const nextLabel = (input.value || '').trim();
-            const ok = await this._submitFolderRenaming(
-                normalized,
-                folderName,
-                nextLabel,
-                { input, header, nameClass: 'tree-item-name' },
-            );
-            if (!ok) {
-                submitting = false;
-                try {
-                    input.focus();
-                    input.select();
-                } catch {}
-            }
-        };
-        const cancel = () => this.cancelFolderRenaming({
-            input,
-            header,
-            originalName: folderName,
-            nameClass: 'tree-item-name',
-        });
-
-        const onKeyDown = (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                void submit();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancel();
-            }
-        };
-        const onBlur = () => {
-            if (!submitting) {
-                void submit();
-            }
-        };
-        input.addEventListener('keydown', onKeyDown);
-        input.addEventListener('blur', onBlur);
-        this._folderRenameCleanup = () => {
-            input.removeEventListener('keydown', onKeyDown);
-            input.removeEventListener('blur', onBlur);
-            this._folderRenameCleanup = null;
-        };
-
-        setTimeout(() => {
-            try {
-                input.focus();
-                // 文件夹名整体选中
-                input.setSelectionRange(0, folderName.length);
-            } catch {}
-        }, 0);
-    }
-
-    cancelFolderRenaming(ctx = {}) {
-        const {
-            input,
-            header,
-            originalName,
-            nameClass = 'tree-item-name',
-        } = ctx;
-        if (!this.folderRenamingPath) return;
-
-        if (this._folderRenameCleanup) {
-            this._folderRenameCleanup();
-        }
-
-        if (input && header) {
-            const span = document.createElement('span');
-            span.className = nameClass;
-            const fallbackName = originalName || basename(this.folderRenamingPath);
-            span.textContent = fallbackName;
-            input.replaceWith(span);
-            try {
-                header.focus();
-            } catch {}
-        }
-
-        this.folderRenamingPath = null;
-        this.flushPendingRefresh();
-    }
-
-    async _submitFolderRenaming(oldPath, currentLabel, nextLabel, ctx = {}) {
-        if (!nextLabel) {
-            // 名称为空时保持编辑态
-            return false;
-        }
-        if (nextLabel === currentLabel) {
-            this.cancelFolderRenaming(ctx);
-            return true;
-        }
-        try {
-            await this._performFolderRename(oldPath, nextLabel);
-            this.cancelFolderRenaming({
-                ...ctx,
-                originalName: nextLabel,
-            });
-            return true;
-        } catch (error) {
-            console.error('重命名文件夹失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`重命名失败:\n${error.message || error}`, { title: '重命名失败', kind: 'error' });
-            } catch {}
-            return false;
-        }
-    }
-
-    async _performFolderRename(sourcePath, nextLabel) {
-        const normalizedSource = this.normalizePath(sourcePath);
-        if (!normalizedSource) return;
-
-        const fileService = this.ensureFileService();
-        const separator = '/';
-        const lastSlashIndex = normalizedSource.lastIndexOf(separator);
-        const parentDir = lastSlashIndex >= 0 ? normalizedSource.substring(0, lastSlashIndex) : '';
-        const destinationPath = parentDir
-            ? `${parentDir}${separator}${nextLabel}`
-            : nextLabel;
-        const normalizedDestination = this.normalizePath(destinationPath);
-        if (!normalizedDestination || normalizedDestination === normalizedSource) {
-            return;
-        }
-
-        await fileService.move(normalizedSource, normalizedDestination);
-
-        // 如果是根目录，更新 rootPaths 并重建目录监听
-        if (this.rootPaths.has(normalizedSource)) {
-            this.rootPaths.delete(normalizedSource);
-            this.rootPaths.add(normalizedDestination);
-            try {
-                this.stopWatchingFolder(normalizedSource);
-            } catch {}
-            try {
-                await this.watchFolder(normalizedDestination);
-            } catch {}
-        }
-
-        // 刷新父目录视图（仅当父目录是根路径时生效，由 FileWatcher 控制）
-        if (parentDir) {
-            setTimeout(() => {
-                this.refreshFolder(parentDir);
-            }, 300);
-        }
-
-        // 同步 openFiles / TabManager 等（目录移动逻辑与 FileMover 保持一致）
-        await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory: true });
-
-        // 重命名成功后尝试聚焦新的文件夹节点
-        setTimeout(() => {
-            const folderHeader = this.container?.querySelector(`.tree-folder[data-path="${normalizedDestination}"] .tree-folder-header`);
-            if (folderHeader) {
-                try {
-                    folderHeader.focus();
-                } catch {}
-            }
-        }, 100);
-    }
-
     cancelRenaming(ctx = {}) {
         this.renamer?.cancel(ctx);
-        this.cancelFolderRenaming();
+        this.folderRenamer.cancel();
     }
 
     isRenaming() {
-        return (this.renamer?.isRenaming() ?? false) || Boolean(this.folderRenamingPath);
+        return (this.renamer?.isRenaming() ?? false) || this.folderRenamer.isRenaming();
     }
 
     ensureRenamingState() {
-        if (!this.isRenaming()) {
-            return;
-        }
+        if (!this.isRenaming()) return;
         const hasInput = Boolean(this.container?.querySelector('.tree-file-rename-input'));
-        if (hasInput) {
-            return;
-        }
+        if (hasInput) return;
         this.renamer?.cancel();
-        this.cancelFolderRenaming();
+        this.folderRenamer.cancel();
     }
 
     shouldDeferRefresh(folderPath) {
         const normalized = this.normalizePath(folderPath);
         if (!normalized) return false;
-
-        const fileRenamingPath = this.renamer?.getRenamingPath?.();
-        const folderRenamingPath = this.folderRenamingPath;
-        const activePath = fileRenamingPath || folderRenamingPath;
+        const activePath = this.renamer?.getRenamingPath?.() || this.folderRenamer.getRenamingPath();
         if (!activePath) return false;
-
-        if (activePath === normalized) {
-            return true;
-        }
-        if (activePath.startsWith(`${normalized}/`)) {
-            return true;
-        }
-        return false;
+        return activePath === normalized || activePath.startsWith(`${normalized}/`);
     }
 
     flushPendingRefresh() {
-        if (this.pendingRefreshPaths.size === 0) {
-            return;
-        }
+        if (this.pendingRefreshPaths.size === 0) return;
         const pending = Array.from(this.pendingRefreshPaths);
         this.pendingRefreshPaths.clear();
         setTimeout(() => {
-            pending.forEach((path) => {
-                this.refreshFolder(path);
-            });
+            pending.forEach((path) => this.refreshFolder(path));
         }, 0);
     }
+
+    // ========== 销毁 ==========
 
     dispose() {
         this.mover?.dispose();
         this.watcher?.dispose();
         this.openFilesView?.dispose();
         this.contextMenu?.dispose();
-        // 取消可能正在重命名的状态
         this.cancelRenaming();
-        // 清理所有事件监听器
         this.cleanupFunctions.forEach(cleanup => {
-            if (typeof cleanup === 'function') {
-                cleanup();
-            }
+            if (typeof cleanup === 'function') cleanup();
         });
         this.cleanupFunctions = [];
-
-        // 解绑容器级 DnD 事件
-        if (this._onTreeDragOver) this.container.removeEventListener('dragover', this._onTreeDragOver);
-        if (this._onTreeDragEnter) this.container.removeEventListener('dragenter', this._onTreeDragEnter);
-        if (this._onTreeDragLeave) this.container.removeEventListener('dragleave', this._onTreeDragLeave);
-        if (this._onTreeDrop) this.container.removeEventListener('drop', this._onTreeDrop);
-        if (this._onMouseMoveDuringDrag) window.removeEventListener('mousemove', this._onMouseMoveDuringDrag);
-
+        this.events.cleanup();
         this.stopWatchingFolder();
         this.openFiles = [];
         this.expandedFolders.clear();

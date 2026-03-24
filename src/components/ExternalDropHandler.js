@@ -48,14 +48,6 @@ export class ExternalDropHandler {
             rawPaths.push(path);
         }
 
-        console.debug('[drop-debug][dom-file-tree] drop', {
-            fileCount: files.length,
-            rawPaths: [...rawPaths],
-            hasDataTransferItems: Array.isArray(event.dataTransfer.items)
-                ? event.dataTransfer.items.length > 0
-                : typeof event.dataTransfer.items?.length === 'number',
-        });
-
         if (!rawPaths.length) {
             return;
         }

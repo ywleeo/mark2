@@ -478,6 +478,145 @@
     pointer-events: none;
 }
 
+/* CSV 表格节点 */
+.csv-table-node {
+    margin: 8px 0;
+    border-radius: 6px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+}
+
+.csv-table-node.ProseMirror-selectednode {
+    outline: 2px solid #3b82f6;
+    outline-offset: -1px;
+}
+
+.csv-table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    background: rgba(15, 23, 42, 0.04);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    user-select: none;
+}
+
+.csv-tb-label {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 0 6px 0 2px;
+    margin-right: 4px;
+    border-right: 1px solid rgba(15, 23, 42, 0.12);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.csv-tb-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border: none;
+    background: transparent;
+    color: #475569;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    transition: background 0.12s, color 0.12s;
+}
+
+.csv-tb-btn:hover {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+
+.csv-tb-btn.csv-tb-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.csv-table-scroll {
+    overflow-x: auto;
+}
+
+.csv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    table-layout: auto;
+}
+
+.csv-table th,
+.csv-table td {
+    padding: 6px 12px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    text-align: left;
+    vertical-align: middle;
+    min-width: 80px;
+    max-width: 320px;
+    outline: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.csv-table th {
+    background: rgba(15, 23, 42, 0.04);
+    font-weight: 600;
+    color: #334155;
+}
+
+.csv-table td:focus,
+.csv-table th:focus {
+    background: rgba(59, 130, 246, 0.06);
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.4);
+}
+
+/* Dark mode */
+:root[data-theme-appearance='dark'] .csv-table-node {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme-appearance='dark'] .csv-table-toolbar {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme-appearance='dark'] .csv-tb-label {
+    color: #64748b;
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme-appearance='dark'] .csv-tb-btn {
+    color: #94a3b8;
+}
+
+:root[data-theme-appearance='dark'] .csv-tb-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+}
+
+:root[data-theme-appearance='dark'] .csv-tb-btn.csv-tb-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+:root[data-theme-appearance='dark'] .csv-table th,
+:root[data-theme-appearance='dark'] .csv-table td {
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+}
+
+:root[data-theme-appearance='dark'] .csv-table th {
+    background: rgba(255, 255, 255, 0.04);
+    color: #94a3b8;
+}
+
+:root[data-theme-appearance='dark'] .csv-table td:focus,
+:root[data-theme-appearance='dark'] .csv-table th:focus {
+    background: rgba(59, 130, 246, 0.1);
+    box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
 /* AI 编辑高亮 */
 .ai-edit-highlight {
     background: rgba(74, 144, 226, 0.2);
