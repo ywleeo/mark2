@@ -33,6 +33,21 @@ export function setupTitlebarControls() {
 }
 
 /**
+ * 切换 dark/light 主题
+ * @param {Object} appState - 应用状态对象
+ */
+export function toggleAppTheme(appState) {
+    const root = document.documentElement;
+    const currentAppearance = root.dataset.themeAppearance;
+    const newAppearance = currentAppearance === 'dark' ? 'light' : 'dark';
+    const currentSettings = appState.getEditorSettings();
+    const updatedSettings = { ...currentSettings, appearance: newAppearance };
+    appState.setEditorSettings(updatedSettings);
+    applyEditorSettings(updatedSettings);
+    saveEditorSettings(updatedSettings);
+}
+
+/**
  * 设置主题切换按钮
  * @param {Object} appState - 应用状态对象
  */
@@ -41,15 +56,7 @@ export function setupThemeToggle(appState) {
     if (!toggleBtn) return;
 
     addClickHandler(toggleBtn, () => {
-        const root = document.documentElement;
-        const currentAppearance = root.dataset.themeAppearance;
-        const newAppearance = currentAppearance === 'dark' ? 'light' : 'dark';
-
-        const currentSettings = appState.getEditorSettings();
-        const updatedSettings = { ...currentSettings, appearance: newAppearance };
-        appState.setEditorSettings(updatedSettings);
-        applyEditorSettings(updatedSettings);
-        saveEditorSettings(updatedSettings);
+        toggleAppTheme(appState);
     }, {
         preventDefault: true,
     });

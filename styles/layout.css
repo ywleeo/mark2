@@ -651,3 +651,12 @@ body.is-internal-drag .content-wrapper::after {
 #foldersContent{
     padding-bottom: 20px;
 }
+
+/* ========== Windows 平台：隐藏自定义 titlebar，使用原生装饰栏 ========== */
+:root.platform-windows {
+    --titlebar-height: 0px;
+}
+
+:root.platform-windows #titlebar {
+    display: none;
+}

@@ -27,6 +27,7 @@ export async function registerMenuListeners(handlers) {
     await register('menu-toggle-markdown-code-view', handlers.onToggleMarkdownCodeView);
     await register('menu-toggle-markdown-toolbar', handlers.onToggleMarkdownToolbar);
 
+    await register('menu-toggle-theme', handlers.onToggleTheme);
     await register('menu-toggle-terminal', handlers.onToggleTerminal);
     await register('menu-file-new', handlers.onNewFile);
     await register('menu-file-delete', handlers.onDeleteActiveFile);

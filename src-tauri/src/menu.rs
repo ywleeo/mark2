@@ -181,6 +181,9 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .accelerator("CmdOrCtrl+J")
         .build(app)?;
 
+    let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", "Toggle Dark/Light Mode")
+        .build(app)?;
+
     let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
 
     let app_menu = SubmenuBuilder::new(app, "Mark2")
@@ -234,6 +237,7 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .item(&toggle_sidebar_item)
         .item(&toggle_status_bar_item)
         .item(&toggle_markdown_toolbar_item)
+        .item(&toggle_theme_item)
         .separator()
         .item(&toggle_terminal_item)
         .build()?;
