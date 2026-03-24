@@ -128,7 +128,7 @@ export class FolderLoader {
         const isNewRoot = !existingRootPath;
         let stateChanged = false;
         if (isNewRoot) {
-            this.state.addRootPath(rootPath);
+            this.state.addRootPath(rootPath, { toTop: true });
             stateChanged = true;
         }
 
@@ -146,7 +146,7 @@ export class FolderLoader {
 
             if (!rootItem) {
                 rootItem = this.renderer.createFolderItem(folderName, rootPath, entries, true, null);
-                contentDiv.appendChild(rootItem);
+                contentDiv.prepend(rootItem);
             } else {
                 const nameSpan = rootItem.querySelector('.tree-item-name');
                 if (nameSpan) nameSpan.textContent = folderName;

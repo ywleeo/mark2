@@ -33,6 +33,8 @@ export class FileTree {
             onCloseFileRequest,
             onPathRenamed,
             onRunFile,
+            onOpenFileRequest,
+            onOpenFolderRequest,
             documentSessions = null,
         } = callbacks;
 
@@ -46,6 +48,8 @@ export class FileTree {
         this.onOpenFilesChange = onOpenFilesChange;
         this.onCloseFileRequest = onCloseFileRequest;
         this.onPathRenamed = onPathRenamed;
+        this.onOpenFileRequest = onOpenFileRequest;
+        this.onOpenFolderRequest = onOpenFolderRequest;
         this.cleanupFunctions = [];
         this.documentSessions = documentSessions;
         this.pendingRefreshPaths = new Set();

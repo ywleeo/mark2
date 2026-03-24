@@ -64,12 +64,16 @@ export class FileTreeState {
     /**
      * 添加根文件夹
      */
-    addRootPath(path) {
+    addRootPath(path, options = {}) {
         const normalizedPath = this.fileTree.normalizePath(path);
         if (!normalizedPath) return false;
 
         if (!this.findRootPathEntry(normalizedPath)) {
-            this.rootPaths.add(normalizedPath);
+            if (options.toTop) {
+                this.rootPaths = new Set([normalizedPath, ...this.rootPaths]);
+            } else {
+                this.rootPaths.add(normalizedPath);
+            }
             return true; // 表示状态已变更
         }
         return false;

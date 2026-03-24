@@ -32,6 +32,12 @@ const CODE_SUFFIX_LANGUAGE_MAP = [
     ['.d.mts', 'typescript'],
     ['.d.cts', 'typescript'],
     ['.dockerfile', 'dockerfile'],
+    ['.env.local', 'env'],
+    ['.env.development', 'env'],
+    ['.env.production', 'env'],
+    ['.env.test', 'env'],
+    ['.env.staging', 'env'],
+    ['.env.example', 'env'],
 ];
 
 const CODE_EXTENSION_LANGUAGE_MAP = new Map([
@@ -51,7 +57,7 @@ const CODE_EXTENSION_LANGUAGE_MAP = new Map([
     ['toml', 'ini'],
     ['ini', 'ini'],
     ['conf', 'ini'],
-    ['env', 'ini'],
+    ['env', 'env'],
     ['properties', 'ini'],
     ['css', 'css'],
     ['scss', 'scss'],

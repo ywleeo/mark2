@@ -234,8 +234,17 @@ fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
 fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
     use std::process::Command;
 
-    let _status = Command::new("explorer")
-        .arg(format!("/select,{}", path))
+    let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    let windows_path = path.replace('/', "\\");
+
+    let mut command = Command::new("explorer.exe");
+    if metadata.is_dir() {
+        command.arg(&windows_path);
+    } else {
+        command.arg(format!(r#"/select,"{}""#, windows_path));
+    }
+
+    let _status = command
         .status()
         .map_err(|e| e.to_string())?;
 

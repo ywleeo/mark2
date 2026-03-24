@@ -1,3 +1,5 @@
+import { addClickHandler } from '../../utils/PointerHelper.js';
+
 /**
  * FileTree 的事件处理模块
  * 负责处理文件树的各种用户交互事件
@@ -12,6 +14,7 @@ export class FileTreeEvents {
         this._onTreeDrop = null;
         this._onTreeDragEnter = null;
         this._onMouseMoveDuringDrag = null;
+        this._sectionCleanupFunctions = [];
     }
 
     /**
@@ -28,14 +31,40 @@ export class FileTreeEvents {
     setupSectionToggles() {
         const openFilesHeader = this.fileTree.container.querySelector('#openFilesHeader');
         const foldersHeader = this.fileTree.container.querySelector('#foldersHeader');
+        const openFilesAction = this.fileTree.container.querySelector('#openFilesAction');
+        const foldersAction = this.fileTree.container.querySelector('#foldersAction');
 
-        openFilesHeader?.addEventListener('click', () => {
-            this.handleSectionToggle('openFilesContent');
-        });
+        if (openFilesHeader) {
+            const cleanup = addClickHandler(openFilesHeader, (event) => {
+                if (event.target.closest('.section-action-btn')) return;
+                this.handleSectionToggle('openFilesContent');
+            });
+            this._sectionCleanupFunctions.push(cleanup);
+        }
 
-        foldersHeader?.addEventListener('click', () => {
-            this.handleSectionToggle('foldersContent');
-        });
+        if (foldersHeader) {
+            const cleanup = addClickHandler(foldersHeader, (event) => {
+                if (event.target.closest('.section-action-btn')) return;
+                this.handleSectionToggle('foldersContent');
+            });
+            this._sectionCleanupFunctions.push(cleanup);
+        }
+
+        if (openFilesAction) {
+            const cleanup = addClickHandler(openFilesAction, async (event) => {
+                event.stopPropagation();
+                await this.fileTree.onOpenFileRequest?.();
+            });
+            this._sectionCleanupFunctions.push(cleanup);
+        }
+
+        if (foldersAction) {
+            const cleanup = addClickHandler(foldersAction, async (event) => {
+                event.stopPropagation();
+                await this.fileTree.onOpenFolderRequest?.();
+            });
+            this._sectionCleanupFunctions.push(cleanup);
+        }
     }
 
     /**
@@ -147,6 +176,15 @@ export class FileTreeEvents {
      * 清理所有事件监听器
      */
     cleanup() {
+        this._sectionCleanupFunctions.forEach((cleanup) => {
+            try {
+                cleanup?.();
+            } catch (error) {
+                console.warn('[FileTree] 清理 section 点击事件失败', error);
+            }
+        });
+        this._sectionCleanupFunctions = [];
+
         // 清理拖放事件
         if (this._onTreeDragOver) {
             this.fileTree.container.removeEventListener('dragover', this._onTreeDragOver);

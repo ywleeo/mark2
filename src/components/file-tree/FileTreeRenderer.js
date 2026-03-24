@@ -227,10 +227,26 @@ export class FileTreeRenderer {
             <!-- 打开的文件区域 -->
             <div class="sidebar-section open-files-section">
                 <div class="section-header" id="openFilesHeader">
-                    <svg class="section-arrow" width="8" height="8" viewBox="0 0 8 8">
-                        <path d="M1 2 L4 5 L7 2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                    </svg>
-                    <span class="section-title">打开的文件</span>
+                    <span class="section-title">OPEN FILES</span>
+                    <div class="section-header-actions">
+                        <span class="section-collapse-indicator" aria-hidden="true">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.5 4.5 6 8l3.5-3.5"/>
+                            </svg>
+                        </span>
+                        <button
+                            class="section-action-btn"
+                            id="openFilesAction"
+                            type="button"
+                            title="打开文件"
+                            aria-label="打开文件"
+                        >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <path d="M14 2v6h6"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="section-content" id="openFilesContent"></div>
             </div>
@@ -238,10 +254,26 @@ export class FileTreeRenderer {
             <!-- 文件夹区域 -->
             <div class="sidebar-section folders-section">
                 <div class="section-header" id="foldersHeader">
-                    <svg class="section-arrow" width="8" height="8" viewBox="0 0 8 8">
-                        <path d="M1 2 L4 5 L7 2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                    </svg>
-                    <span class="section-title">文件夹</span>
+                    <span class="section-title">FOLDERS</span>
+                    <div class="section-header-actions">
+                        <span class="section-collapse-indicator" aria-hidden="true">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.5 4.5 6 8l3.5-3.5"/>
+                            </svg>
+                        </span>
+                        <button
+                            class="section-action-btn"
+                            id="foldersAction"
+                            type="button"
+                            title="打开文件夹"
+                            aria-label="打开文件夹"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3z"/>
+                                <path d="M3 9h18l-1.4 9.1A2 2 0 0 1 17.62 20H6.38a2 2 0 0 1-1.98-1.9z"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="section-content" id="foldersContent"></div>
             </div>

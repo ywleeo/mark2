@@ -337,6 +337,8 @@ export function createAppBootstrap({
             normalizeFsPath,
             documentSessions,
             onRunFile: handleRunFile,
+            onOpenFile: openFileOnly,
+            onOpenFolder: openFolderOnly,
         });
 
         setupTabManager({

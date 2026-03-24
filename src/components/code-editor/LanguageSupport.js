@@ -16,6 +16,9 @@ import { sql } from '@codemirror/lang-sql';
 import { yaml } from '@codemirror/lang-yaml';
 import { php } from '@codemirror/lang-php';
 import { markdown } from '@codemirror/lang-markdown';
+import { StreamLanguage } from '@codemirror/language';
+import { shell as shellMode } from '@codemirror/legacy-modes/mode/shell';
+import { properties as propertiesMode } from '@codemirror/legacy-modes/mode/properties';
 
 const LANGUAGE_MAP = {
     javascript: () => javascript(),
@@ -47,14 +50,17 @@ const LANGUAGE_MAP = {
     pgsql: () => sql(),
     yaml: () => yaml(),
     yml: () => yaml(),
+    ini: () => StreamLanguage.define(propertiesMode),
+    env: () => StreamLanguage.define(propertiesMode),
     php: () => php(),
     markdown: () => markdown(),
     md: () => markdown(),
-    // shell / bash - use StreamLanguage with legacy mode
-    shell: null,
-    sh: null,
-    bash: null,
-    zsh: null,
+    // shell / bash / zsh - use StreamLanguage with legacy mode
+    shell: () => StreamLanguage.define(shellMode),
+    sh: () => StreamLanguage.define(shellMode),
+    bash: () => StreamLanguage.define(shellMode),
+    zsh: () => StreamLanguage.define(shellMode),
+    fish: () => StreamLanguage.define(shellMode),
     // plaintext / csv - no syntax highlighting
     plaintext: null,
     csv: null,

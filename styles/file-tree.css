@@ -31,6 +31,8 @@
 .section-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 12px 12px 8px 12px;
     margin-top: 8px;
     cursor: pointer;
@@ -42,24 +44,6 @@
     background: var(--hover-bg-color, rgba(0, 0, 0, 0.03));
 }
 
-.section-arrow {
-    margin-right: 6px;
-    width: 12px;
-    height: 12px;
-    transition: transform 0.15s ease;
-    color: var(--text-color, #444);
-    opacity: 0.6;
-}
-
-.section-arrow path {
-    stroke-width: 1;
-}
-
-/* Section 收起时的箭头旋转 */
-.section-header.collapsed .section-arrow {
-    transform: rotate(-90deg);
-}
-
 .section-title {
     font-size: 11px;
     font-weight: 600;
@@ -67,6 +51,59 @@
     letter-spacing: 0.7px;
     color: var(--text-color, #444);
     opacity: 0.8;
+    flex: 1;
+}
+
+.section-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.section-collapse-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary, #666);
+    opacity: 0.7;
+    transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+}
+
+.section-header:hover .section-collapse-indicator {
+    opacity: 0.95;
+    color: var(--text-color, #333);
+}
+
+.section-header.collapsed .section-collapse-indicator {
+    transform: rotate(-90deg);
+}
+
+.section-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #666);
+    opacity: 0.72;
+    cursor: pointer;
+    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+    border-radius: 4px;
+}
+
+.section-action-btn:hover {
+    opacity: 1;
+    color: var(--text-color, #333);
+    background: var(--hover-bg-color, rgba(0, 0, 0, 0.05));
+}
+
+.section-action-btn svg {
+    pointer-events: none;
 }
 
 .section-content {
@@ -382,13 +419,12 @@
 
 .file-tree-context-menu {
     position: fixed;
-    min-width: 170px;
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgb(199, 199, 199);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
+    min-width: 196px;
+    padding: 6px;
+    background: var(--bg-color, #ffffff);
+    border: 1px solid var(--border-color, #d8d8d8);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+    border-radius: 10px;
     z-index: 9999;
     color: var(--text-color, #222222);
 }
@@ -397,55 +433,123 @@
     display: none;
 }
 
-.file-tree-context-menu__item {
+.file-tree-context-menu__group {
     display: block;
+}
+
+.file-tree-context-menu__separator {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--border-color, #e5e7eb);
+}
+
+.file-tree-context-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
     text-align: left;
-    padding: 8px 14px;
+    padding: 8px 10px;
     font-size: 12px;
+    line-height: 1.35;
+    border-radius: 7px;
     background: transparent;
     border: none;
     color: var(--text-color, #222);
     cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.file-tree-context-menu__item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary, #6b7280);
+    flex: 0 0 16px;
+}
+
+.file-tree-context-menu__item-icon svg {
+    width: 16px;
+    height: 16px;
+    pointer-events: none;
+}
+
+.file-tree-context-menu__item-label {
+    flex: 1;
+    min-width: 0;
 }
 
 .file-tree-context-menu__item:hover {
-    background: var(--hover-bg-color, #f2f2f2);
+    background: var(--hover-bg-color, #f3f4f6);
 }
 
 .file-tree-context-menu__item.danger {
     color: var(--danger-color, #c63939);
 }
 
+.file-tree-context-menu__item.danger .file-tree-context-menu__item-icon {
+    color: inherit;
+}
+
+.file-tree-context-menu__item.danger:hover {
+    background: rgba(198, 57, 57, 0.1);
+}
+
 .tree-file.context-menu-target {
-    background-color: var(--hover-bg-color, #e4e5e5);
+    background-color: var(--active-bg-color, #e8eefc);
+    box-shadow: inset 2px 0 0 var(--accent-color, #2563eb);
 }
 
 .tree-folder.context-menu-target > .tree-folder-header {
-    background-color: var(--hover-bg-color, #e4e5e5);
+    background-color: var(--active-bg-color, #e8eefc);
+    box-shadow: inset 2px 0 0 var(--accent-color, #2563eb);
+}
+
+.open-file-item.context-menu-target {
+    background-color: var(--active-bg-color, #e8eefc);
+    box-shadow: inset 2px 0 0 var(--accent-color, #2563eb);
 }
 
 :root[data-theme-appearance="dark"] .tree-folder.context-menu-target > .tree-folder-header {
-    background-color: rgba(148, 163, 184, 0.2);
+    background-color: rgba(59, 130, 246, 0.18);
+    box-shadow: inset 2px 0 0 rgba(96, 165, 250, 0.95);
 }
 
 :root[data-theme-appearance="dark"] .file-tree-context-menu {
-    background: rgba(31, 31, 31, 0.6);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-color: rgba(255, 255, 255, 0.15);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+    background: #1a1d23;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
     color: var(--text-color, #f5f5f5);
+}
+
+:root[data-theme-appearance="dark"] .file-tree-context-menu__separator {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-theme-appearance="dark"] .file-tree-context-menu__item {
     color: var(--text-color, #f5f5f5);
 }
 
+:root[data-theme-appearance="dark"] .file-tree-context-menu__item-icon {
+    color: rgba(241, 245, 249, 0.72);
+}
+
 :root[data-theme-appearance="dark"] .file-tree-context-menu__item:hover {
-    background: rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.16);
 }
 
 :root[data-theme-appearance="dark"] .file-tree-context-menu__item.danger {
     color: #ffb4b4;
+}
+
+:root[data-theme-appearance="dark"] .file-tree-context-menu__item.danger:hover {
+    background: rgba(239, 68, 68, 0.16);
+}
+
+:root[data-theme-appearance="dark"] .tree-file.context-menu-target,
+:root[data-theme-appearance="dark"] .open-file-item.context-menu-target {
+    background-color: rgba(59, 130, 246, 0.18);
+    box-shadow: inset 2px 0 0 rgba(96, 165, 250, 0.95);
 }

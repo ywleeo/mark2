@@ -85,6 +85,8 @@ export function setupFileTree({
     normalizeFsPath,
     documentSessions,
     onRunFile,
+    onOpenFile,
+    onOpenFolder,
 }) {
     const fileTreeElement = document.getElementById('fileTree');
     const fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
@@ -93,6 +95,8 @@ export function setupFileTree({
         onOpenFilesChange: handleOpenFilesChange,
         onStateChange: handleSidebarStateChange,
         onPathRenamed: applyPathChange,
+        onOpenFileRequest: onOpenFile,
+        onOpenFolderRequest: onOpenFolder,
         onCloseFileRequest: (path) => {
             if (!path) {
                 return;
