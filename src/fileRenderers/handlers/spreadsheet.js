@@ -1,3 +1,6 @@
+import { showSheetPickerDialog } from '../../components/SheetPickerDialog.js';
+import { stringifyCSV } from '../../utils/csvParser.js';
+
 export function createSpreadsheetRenderer() {
     return {
         id: 'spreadsheet',
@@ -9,22 +12,31 @@ export function createSpreadsheetRenderer() {
             const {
                 filePath,
                 fileData,
+                session,
                 editorRegistry,
-                spreadsheetViewer,
-                imageViewer,
-                mediaViewer,
-                unsupportedViewer,
-                activateSpreadsheetView,
-                forceReload,
+                activateMarkdownView,
+                shouldAutoFocus,
             } = ctx;
 
-            activateSpreadsheetView?.();
-            editorRegistry?.getMarkdownEditor?.()?.clear?.();
-            editorRegistry?.getCodeEditor?.()?.hide?.();
-            imageViewer?.hide?.();
-            mediaViewer?.hide?.();
-            unsupportedViewer?.hide?.();
-            await spreadsheetViewer?.loadWorkbook?.(filePath, fileData.content, { forceReload });
+            const editor = editorRegistry?.getMarkdownEditor?.();
+            if (!editor) return false;
+
+            const sheets = fileData?.content?.sheets;
+            if (!Array.isArray(sheets) || sheets.length === 0) return false;
+
+            let sheetIndex = 0;
+            if (sheets.length > 1) {
+                const picked = await showSheetPickerDialog(sheets);
+                if (picked === null) return false;
+                sheetIndex = picked;
+            }
+
+            const sheet = sheets[sheetIndex];
+            const csvContent = stringifyCSV(sheet?.rows ?? []);
+
+            activateMarkdownView?.({ skipScrollSync: true });
+            await editor.loadCsvFile(session, filePath, csvContent, { autoFocus: shouldAutoFocus });
+
             return true;
         },
     };

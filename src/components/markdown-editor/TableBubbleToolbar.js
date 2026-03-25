@@ -1,66 +1,148 @@
 /**
- * 表格气泡工具栏
- * 负责表格的行列操作工具栏以及 IME 空单元格补全逻辑
+ * 表格右键菜单
+ * 负责表格的行列操作菜单以及 IME 空单元格补全逻辑
  */
+
+const TABLE_MENU_ITEMS = [
+    { action: 'addRowBefore',    label: '上方插入行' },
+    { action: 'addRowAfter',     label: '下方插入行' },
+    { action: 'addColumnBefore', label: '左侧插入列' },
+    { action: 'addColumnAfter',  label: '右侧插入列' },
+    { separator: true },
+    { action: 'deleteRow',    label: '删除当前行',   danger: true },
+    { action: 'deleteColumn', label: '删除当前列',   danger: true },
+    { separator: true },
+    { action: 'deleteTable',  label: '删除整个表格', danger: true },
+];
+
 export class TableBubbleToolbar {
     constructor(editor, viewElement) {
         this._editor = editor;
         this._viewElement = viewElement;
-        this._dom = null;
-        this._scrollHandler = null;
+        this._menuEl = null;
+        this._overlayEl = null;
+        this._closeHandler = (e) => {
+            if (this._menuEl && !this._menuEl.contains(e.target)) this._hide();
+        };
+        this._keyHandler = (e) => {
+            if (e.key === 'Escape') this._hide();
+        };
+        this._contextMenuHandler = null;
+        this._mousedownHandler = null;
     }
 
     setup() {
-        this._dom = document.createElement('div');
-        this._dom.className = 'table-bubble-toolbar';
-        this._dom.innerHTML = `
-            <button class="table-bubble-toolbar__btn" data-action="addRowBefore">上插行</button>
-            <button class="table-bubble-toolbar__btn" data-action="addRowAfter">下插行</button>
-            <button class="table-bubble-toolbar__btn table-bubble-toolbar__btn--danger" data-action="deleteRow">删行</button>
-            <span class="table-bubble-toolbar__sep"></span>
-            <button class="table-bubble-toolbar__btn" data-action="addColumnBefore">左插列</button>
-            <button class="table-bubble-toolbar__btn" data-action="addColumnAfter">右插列</button>
-            <button class="table-bubble-toolbar__btn table-bubble-toolbar__btn--danger" data-action="deleteColumn">删列</button>
-            <span class="table-bubble-toolbar__sep"></span>
-            <button class="table-bubble-toolbar__btn table-bubble-toolbar__btn--danger" data-action="deleteTable">删表格</button>
-        `;
-        document.body.appendChild(this._dom);
-
-        this._dom.addEventListener('mousedown', (e) => {
+        // 阻止右键 mousedown 触发 ProseMirror table 的 cell 拖选
+        this._mousedownHandler = (e) => {
+            if (e.button !== 2) return;
+            const cell = e.target.closest('td, th');
+            if (!cell) return;
+            if (!this._viewElement?.contains(cell)) return;
+            if (cell.closest('.csv-table')) return;
             e.preventDefault();
             e.stopPropagation();
-            const btn = e.target.closest('[data-action]');
-            if (!btn) return;
-            this._executeAction(btn.dataset.action);
-        });
+        };
+        this._viewElement?.addEventListener('mousedown', this._mousedownHandler, true);
+
+        this._contextMenuHandler = (e) => {
+            const cell = e.target.closest('td, th');
+            if (!cell) return;
+            // 确认在编辑器内的原生表格（非 csv-table）
+            if (!this._viewElement?.contains(cell)) return;
+            if (cell.closest('.csv-table')) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            // 把光标移到右键所在单元格
+            const pos = this._editor.view.posAtDOM(cell, 0);
+            if (pos != null) {
+                this._editor.commands.setTextSelection(pos);
+            }
+
+            this._show(e.clientX, e.clientY);
+        };
+
+        this._viewElement?.addEventListener('contextmenu', this._contextMenuHandler);
 
         this._editor.on('selectionUpdate', () => {
             this._fillEmptyTableCellAtCursor();
-            this._updatePosition();
         });
-
-        this._editor.on('blur', () => {
-            setTimeout(() => {
-                if (!this._dom?.matches(':hover')) {
-                    this._hide();
-                }
-            }, 100);
-        });
-
-        this._scrollHandler = () => this._hide();
-        this._viewElement?.addEventListener('scroll', this._scrollHandler, { passive: true });
     }
 
     destroy() {
-        if (this._scrollHandler && this._viewElement) {
-            this._viewElement.removeEventListener('scroll', this._scrollHandler);
-            this._scrollHandler = null;
+        this._hide();
+        if (this._mousedownHandler && this._viewElement) {
+            this._viewElement.removeEventListener('mousedown', this._mousedownHandler, true);
+            this._mousedownHandler = null;
         }
-        this._dom?.remove();
-        this._dom = null;
+        if (this._contextMenuHandler && this._viewElement) {
+            this._viewElement.removeEventListener('contextmenu', this._contextMenuHandler);
+            this._contextMenuHandler = null;
+        }
     }
 
     // ─── 内部方法 ────────────────────────────────────────────────────────────
+
+    _show(x, y) {
+        this._hide();
+
+        // 透明遮罩：覆盖 editor，阻止菜单显示期间鼠标移动触发 ProseMirror 拖选
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;';
+        document.body.appendChild(overlay);
+        this._overlayEl = overlay;
+
+        const menu = document.createElement('div');
+        menu.className = 'csv-context-menu';
+
+        TABLE_MENU_ITEMS.forEach(item => {
+            if (item.separator) {
+                const sep = document.createElement('div');
+                sep.className = 'csv-context-menu__separator';
+                menu.appendChild(sep);
+                return;
+            }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'csv-context-menu__item' + (item.danger ? ' csv-context-menu__item--danger' : '');
+            btn.textContent = item.label;
+            btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this._hide();
+                this._executeAction(item.action);
+            });
+            menu.appendChild(btn);
+        });
+
+        document.body.appendChild(menu);
+        this._menuEl = menu;
+
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const rect = menu.getBoundingClientRect();
+        menu.style.left = Math.min(x, vw - rect.width - 8) + 'px';
+        menu.style.top  = Math.min(y, vh - rect.height - 8) + 'px';
+
+        setTimeout(() => {
+            document.addEventListener('mousedown', this._closeHandler, true);
+            document.addEventListener('keydown', this._keyHandler, true);
+        }, 0);
+    }
+
+    _hide() {
+        if (this._overlayEl) {
+            this._overlayEl.remove();
+            this._overlayEl = null;
+        }
+        if (this._menuEl) {
+            this._menuEl.remove();
+            this._menuEl = null;
+        }
+        document.removeEventListener('mousedown', this._closeHandler, true);
+        document.removeEventListener('keydown', this._keyHandler, true);
+    }
 
     _executeAction(action) {
         if (!this._editor) return;
@@ -74,10 +156,7 @@ export class TableBubbleToolbar {
             deleteTable:     () => this._editor.chain().focus().deleteTable().run(),
         };
         commands[action]?.();
-        setTimeout(() => {
-            this._fillEmptyTableCells();
-            this._updatePosition();
-        }, 10);
+        setTimeout(() => this._fillEmptyTableCells(), 10);
     }
 
     /**
@@ -134,50 +213,5 @@ export class TableBubbleToolbar {
                 break;
             }
         }
-    }
-
-    _updatePosition() {
-        if (!this._editor || !this._dom) return;
-
-        const { $from } = this._editor.state.selection;
-        let tableNode = null;
-        for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (node.type.name === 'table') {
-                tableNode = this._editor.view.nodeDOM($from.before(d));
-                break;
-            }
-        }
-
-        if (!tableNode) {
-            this._hide();
-            return;
-        }
-
-        this._dom.style.visibility = 'hidden';
-        this._dom.classList.add('is-visible');
-
-        const cellDOM = this._editor.view.domAtPos($from.pos).node;
-        const cellElement = cellDOM?.nodeType === 1
-            ? cellDOM.closest('td, th')
-            : cellDOM?.parentElement?.closest('td, th');
-        const anchorRect = cellElement
-            ? cellElement.getBoundingClientRect()
-            : tableNode.getBoundingClientRect();
-        const toolbarRect = this._dom.getBoundingClientRect();
-
-        let left = anchorRect.left + (anchorRect.width - toolbarRect.width) / 2;
-        let top = anchorRect.top - toolbarRect.height - 8;
-
-        left = Math.max(8, Math.min(left, window.innerWidth - toolbarRect.width - 8));
-        top = Math.max(8, top);
-
-        this._dom.style.left = `${left}px`;
-        this._dom.style.top = `${top}px`;
-        this._dom.style.visibility = 'visible';
-    }
-
-    _hide() {
-        this._dom?.classList.remove('is-visible');
     }
 }

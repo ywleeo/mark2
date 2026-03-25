@@ -16,6 +16,84 @@ function normalizeCols(rows) {
     });
 }
 
+const MENU_ITEMS = [
+    { action: 'addRowBefore', label: '上方插入行' },
+    { action: 'addRowAfter',  label: '下方插入行' },
+    { action: 'addColBefore', label: '左侧插入列' },
+    { action: 'addColAfter',  label: '右侧插入列' },
+    { separator: true },
+    { action: 'deleteRow', label: '删除当前行', danger: true },
+    { action: 'deleteCol', label: '删除当前列', danger: true },
+];
+
+class CsvContextMenu {
+    constructor(onAction) {
+        this._onAction = onAction;
+        this._el = null;
+        this._closeHandler = (e) => {
+            if (this._el && !this._el.contains(e.target)) this.hide();
+        };
+        this._keyHandler = (e) => {
+            if (e.key === 'Escape') this.hide();
+        };
+    }
+
+    show(x, y) {
+        this.hide();
+
+        const menu = document.createElement('div');
+        menu.className = 'csv-context-menu';
+
+        MENU_ITEMS.forEach(item => {
+            if (item.separator) {
+                const sep = document.createElement('div');
+                sep.className = 'csv-context-menu__separator';
+                menu.appendChild(sep);
+                return;
+            }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'csv-context-menu__item' + (item.danger ? ' csv-context-menu__item--danger' : '');
+            btn.textContent = item.label;
+            btn.addEventListener('mousedown', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hide();
+                this._onAction(item.action);
+            });
+            menu.appendChild(btn);
+        });
+
+        document.body.appendChild(menu);
+        this._el = menu;
+
+        // 定位，防止超出视口
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const rect = menu.getBoundingClientRect();
+        menu.style.left = Math.min(x, vw - rect.width - 8) + 'px';
+        menu.style.top  = Math.min(y, vh - rect.height - 8) + 'px';
+
+        setTimeout(() => {
+            document.addEventListener('mousedown', this._closeHandler, true);
+            document.addEventListener('keydown', this._keyHandler, true);
+        }, 0);
+    }
+
+    hide() {
+        if (this._el) {
+            this._el.remove();
+            this._el = null;
+        }
+        document.removeEventListener('mousedown', this._closeHandler, true);
+        document.removeEventListener('keydown', this._keyHandler, true);
+    }
+
+    destroy() {
+        this.hide();
+    }
+}
+
 class CsvTableView {
     constructor(node, view, getPos) {
         this.node = node;
@@ -27,36 +105,13 @@ class CsvTableView {
         this.dom.className = 'csv-table-node';
         this.dom.setAttribute('contenteditable', 'false');
 
-        this._toolbar = this._buildToolbar();
         this._tableWrapper = document.createElement('div');
         this._tableWrapper.className = 'csv-table-scroll';
-
-        this.dom.appendChild(this._toolbar);
         this.dom.appendChild(this._tableWrapper);
 
-        this._toolbar.addEventListener('mousedown', e => {
-            e.preventDefault();    // 防止焦点离开单元格
-            e.stopPropagation();   // 防止 ProseMirror 拦截
-            const btn = e.target.closest('[data-action]');
-            if (btn) this._handleAction(btn.dataset.action);
-        });
+        this._contextMenu = new CsvContextMenu(action => this._handleAction(action));
 
         this._render(node.attrs.csv);
-    }
-
-    _buildToolbar() {
-        const tb = document.createElement('div');
-        tb.className = 'csv-table-toolbar';
-        tb.innerHTML = `
-            <span class="csv-tb-label">CSV 表格</span>
-            <button class="csv-tb-btn" data-action="addRowBefore" title="上方插行">↑ 行</button>
-            <button class="csv-tb-btn" data-action="addRowAfter" title="下方插行">↓ 行</button>
-            <button class="csv-tb-btn" data-action="addColBefore" title="左侧插列">← 列</button>
-            <button class="csv-tb-btn" data-action="addColAfter" title="右侧插列">→ 列</button>
-            <button class="csv-tb-btn csv-tb-danger" data-action="deleteRow" title="删除当前行">删行</button>
-            <button class="csv-tb-btn csv-tb-danger" data-action="deleteCol" title="删除当前列">删列</button>
-        `;
-        return tb;
     }
 
     _render(csvText) {
@@ -76,16 +131,19 @@ class CsvTableView {
                 el.textContent = cell;
                 el.dataset.row = ri;
                 el.dataset.col = ci;
-                el.addEventListener('mousedown', e => {
-                    // 阻止 ProseMirror 拦截事件并抢走焦点
-                    e.stopPropagation();
-                });
+                el.addEventListener('mousedown', e => e.stopPropagation());
                 el.addEventListener('click', () => el.focus());
                 el.addEventListener('focus', () => {
                     this._focusedCell = { row: ri, col: ci };
                 });
                 el.addEventListener('blur', () => this._onCellBlur());
-                el.addEventListener('keydown', e => this._onKeydown(e, ri, ci, rows));
+                el.addEventListener('keydown', e => this._onKeydown(e, ri, ci));
+                el.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this._focusedCell = { row: ri, col: ci };
+                    this._contextMenu.show(e.clientX, e.clientY);
+                });
                 tr.appendChild(el);
             });
             table.appendChild(tr);
@@ -104,7 +162,7 @@ class CsvTableView {
         });
     }
 
-    _onKeydown(e, ri, ci, rows) {
+    _onKeydown(e, ri, ci) {
         if (e.key === 'Tab') {
             e.preventDefault();
             const cells = this._getAllCells();
@@ -114,7 +172,6 @@ class CsvTableView {
             } else if (idx < cells.length - 1) {
                 cells[idx + 1].focus();
             } else {
-                // 最后一格：追加新行
                 this._handleAction('addRowAfter');
                 requestAnimationFrame(() => {
                     const newCells = this._getAllCells();
@@ -158,24 +215,12 @@ class CsvTableView {
         const colCount = rows[0]?.length || 1;
 
         switch (action) {
-            case 'addRowBefore':
-                rows.splice(fr, 0, Array(colCount).fill(''));
-                break;
-            case 'addRowAfter':
-                rows.splice(fr + 1, 0, Array(colCount).fill(''));
-                break;
-            case 'addColBefore':
-                rows.forEach(r => r.splice(fc, 0, ''));
-                break;
-            case 'addColAfter':
-                rows.forEach(r => r.splice(fc + 1, 0, ''));
-                break;
-            case 'deleteRow':
-                if (rows.length > 1) rows.splice(fr, 1);
-                break;
-            case 'deleteCol':
-                if (colCount > 1) rows.forEach(r => r.splice(fc, 1));
-                break;
+            case 'addRowBefore': rows.splice(fr, 0, Array(colCount).fill('')); break;
+            case 'addRowAfter':  rows.splice(fr + 1, 0, Array(colCount).fill('')); break;
+            case 'addColBefore': rows.forEach(r => r.splice(fc, 0, '')); break;
+            case 'addColAfter':  rows.forEach(r => r.splice(fc + 1, 0, '')); break;
+            case 'deleteRow':    if (rows.length > 1) rows.splice(fr, 1); break;
+            case 'deleteCol':    if (colCount > 1) rows.forEach(r => r.splice(fc, 1)); break;
         }
 
         const csv = stringifyCSV(rows);
@@ -190,7 +235,6 @@ class CsvTableView {
         const prev = this.node.attrs.csv;
         this.node = node;
         if (node.attrs.csv !== prev) {
-            // 保留焦点位置
             const focused = this._focusedCell;
             this._render(node.attrs.csv);
             requestAnimationFrame(() => {
@@ -203,16 +247,12 @@ class CsvTableView {
         return true;
     }
 
-    stopEvent() {
-        return true;
-    }
-
-    ignoreMutation() {
-        return true;
-    }
+    stopEvent() { return true; }
+    ignoreMutation() { return true; }
 
     destroy() {
         this._commit();
+        this._contextMenu.destroy();
     }
 }
 

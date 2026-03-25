@@ -554,3 +554,102 @@
     background-color: rgba(59, 130, 246, 0.18);
     box-shadow: inset 2px 0 0 rgba(96, 165, 250, 0.95);
 }
+
+/* ===== Sheet 选择弹窗 ===== */
+.sheet-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.sheet-picker-dialog {
+    background: var(--bg-color, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    min-width: 240px;
+    max-width: 320px;
+    width: 100%;
+}
+
+.sheet-picker-dialog__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color, #1e293b);
+    margin-bottom: 12px;
+}
+
+.sheet-picker-dialog__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.sheet-picker-dialog__sheet-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-color, #1e293b);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.sheet-picker-dialog__sheet-btn:hover,
+.sheet-picker-dialog__sheet-btn:focus {
+    background: var(--hover-bg-color, #f1f5f9);
+    outline: none;
+}
+
+.sheet-picker-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.sheet-picker-dialog__cancel {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: transparent;
+    color: var(--text-secondary-color, #64748b);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.sheet-picker-dialog__cancel:hover {
+    background: var(--hover-bg-color, #f1f5f9);
+}
+
+:root[data-theme-appearance="dark"] .sheet-picker-dialog {
+    background: #1a1d23;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme-appearance="dark"] .sheet-picker-dialog__title,
+:root[data-theme-appearance="dark"] .sheet-picker-dialog__sheet-btn {
+    color: var(--text-color, #f5f5f5);
+}
+
+:root[data-theme-appearance="dark"] .sheet-picker-dialog__sheet-btn:hover,
+:root[data-theme-appearance="dark"] .sheet-picker-dialog__sheet-btn:focus {
+    background: rgba(148, 163, 184, 0.16);
+}
+
+:root[data-theme-appearance="dark"] .sheet-picker-dialog__cancel {
+    border-color: rgba(255, 255, 255, 0.12);
+    color: rgba(241, 245, 249, 0.6);
+}
+
+:root[data-theme-appearance="dark"] .sheet-picker-dialog__cancel:hover {
+    background: rgba(148, 163, 184, 0.16);
+}

@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core';
 import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
+import { isSpreadsheetFilePath } from '../../utils/fileTypeUtils.js';
 import { createMarkdownParser, createMarkdownSerializer } from '../../utils/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
@@ -21,6 +22,17 @@ import { LinkHandler } from './LinkHandler.js';
 import { ImagePasteHandler } from './ImagePasteHandler.js';
 import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
+
+function extractCsvFromDoc(doc) {
+    if (!doc) return null;
+    let csv = null;
+    doc.forEach(node => {
+        if (node.type.name === 'csvBlock') {
+            csv = node.attrs.csv ?? '';
+        }
+    });
+    return csv;
+}
 
 function ensureMarkdownContentElement(viewElement) {
     if (!viewElement) throw new Error('[MarkdownEditor] 缺少有效的 view 容器');
@@ -166,7 +178,13 @@ export class MarkdownEditor {
         });
 
         this.saveManager = new SaveManager({
-            getMarkdown: () => this.contentLoader.getMarkdown(),
+            getMarkdown: () => {
+                const currentFile = this.contentLoader.currentFile ?? '';
+                if (isSpreadsheetFilePath(currentFile)) {
+                    return extractCsvFromDoc(this.editor?.state?.doc) ?? '';
+                }
+                return this.contentLoader.getMarkdown();
+            },
             getCurrentFile: () => this.contentLoader.currentFile,
             getCurrentSessionId: () => this.contentLoader.currentSessionId,
             isSessionActive: (id) => this.contentLoader._isSessionActive(id),
@@ -253,13 +271,44 @@ export class MarkdownEditor {
 
     // 内容加载
     prepareForDocument(session, filePath, tabId) { return this.contentLoader.prepareForDocument(session, filePath, tabId); }
-    loadFile(...args)                            { return this.contentLoader.loadFile(...args); }
+    loadFile(...args)                            {
+        this.viewElement.classList.remove('csv-table-mode');
+        return this.contentLoader.loadFile(...args);
+    }
     setContent(markdown, focus, opts)           { return this.contentLoader.setContent(markdown, focus, opts); }
     getMarkdown()                               { return this.contentLoader.getMarkdown(); }
 
     // 保存
     save(options)                               { return this.saveManager?.save(options) ?? Promise.resolve(false); }
     hasUnsavedChanges()                         { return !!this.contentLoader.contentChanged; }
+    markSaved()                                 { if (this.contentLoader) this.contentLoader.contentChanged = false; }
+
+    // CSV 文件直接编辑模式：加载 CSV 内容为单个 csvBlock 节点
+    async loadCsvFile(session, filePath, csvContent, options = {}) {
+        const { autoFocus = false } = options;
+
+        this.viewElement.classList.add('csv-table-mode');
+        this.contentLoader.currentFile = filePath;
+        this.contentLoader.currentSessionId = session?.id ?? null;
+        this.contentLoader.isLoadingFile = true;
+
+        this.suppressUpdateEvent = true;
+        this.editor.commands.setContent({
+            type: 'doc',
+            content: [{ type: 'csvBlock', attrs: { csv: csvContent } }],
+        });
+        this.editor.setEditable(true);
+        this.suppressUpdateEvent = false;
+
+        this.contentLoader.originalMarkdown = csvContent;
+        this.contentLoader.contentChanged = false;
+        this.contentLoader.isLoadingFile = false;
+
+        if (autoFocus) {
+            this.editor.commands.focus();
+        }
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+    }
 
     // 焦点
     focus()                                     { this.editor?.commands?.focus?.(); }

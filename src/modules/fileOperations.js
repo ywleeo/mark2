@@ -1,5 +1,6 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
 import { getPathIdentityKey } from '../utils/pathUtils.js';
+import { isSpreadsheetFilePath, isCsvFilePath } from '../utils/fileTypeUtils.js';
 
 let sharedExternalDropOpener = null;
 let lastExternalDropKey = null;
@@ -261,6 +262,28 @@ export function createFileOperations({
         }
     }
 
+    async function saveExcelAsCsv(excelPath, editor) {
+        try {
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const defaultPath = excelPath.replace(/\.[^.]+$/, '.csv');
+            const targetPath = await save({
+                title: '另存为 CSV',
+                defaultPath,
+                filters: [{ name: 'CSV', extensions: ['csv'] }],
+            });
+            if (!targetPath) return false;
+            const csvContent = editor.getMarkdown?.() || '';
+            await fileService.writeText(targetPath, csvContent);
+            editor.markSaved?.();
+            setHasUnsavedChanges(false);
+            await updateWindowTitle();
+            return true;
+        } catch (err) {
+            console.error('[SaveExcel] 另存 CSV 失败:', err);
+            return false;
+        }
+    }
+
     async function saveCurrentFile() {
         const currentFile = getCurrentFile();
         if (!currentFile) {
@@ -283,6 +306,10 @@ export function createFileOperations({
         const activeViewMode = getActiveViewMode();
 
         if (activeViewMode === 'markdown' && editor) {
+            // Excel 文件在 csv-table 模式下：另存为新 CSV 文件，不覆盖原 Excel
+            if (isSpreadsheetFilePath(currentFile) && !isCsvFilePath(currentFile)) {
+                return await saveExcelAsCsv(currentFile, editor);
+            }
             const result = await editor.save();
             if (result) {
                 setHasUnsavedChanges(false);
