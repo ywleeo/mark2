@@ -84,7 +84,7 @@ export class ContentLoader {
      * 在 loadFile 之前调用。
      */
     prepareForDocument(session, filePath, tabId = null) {
-        const sessionId = session?.id ?? this.currentSessionId ?? null;
+        const sessionId = session?.id ?? null;
         const isFileSwitching = this.currentFile !== filePath;
         const previousTabId = this.currentTabId;
 

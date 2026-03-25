@@ -90,7 +90,9 @@ export function createFileOperations({
     updateRecentMenuFn,
     untitledFileManager,
     saveUntitledFile,
+    importAsUntitled,
     getRendererRegistry,
+    getStatusBarController,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -221,7 +223,13 @@ export function createFileOperations({
                         }
                     }
                 } else {
-                    fileTree.addToOpenFiles(resolvedPath);
+                    // docx/spreadsheet 等导入型文件不加入 open list，直接触发文件选择
+                    // 这类文件会被渲染器转成 untitled tab，不应在文件树中留下持久 tab
+                    const viewMode = getViewModeForPath(resolvedPath);
+                    const isImportType = viewMode === 'docx' || viewMode === 'spreadsheet';
+                    if (!isImportType) {
+                        fileTree.addToOpenFiles(resolvedPath);
+                    }
                     fileTree.selectFile(resolvedPath);
                 }
             } catch (error) {
@@ -462,6 +470,33 @@ export function createFileOperations({
         };
 
         try {
+            // 计算目标文件的视图模式
+            const initialViewMode = getViewModeForPath(filePath);
+            const rendererRegistry = getRendererRegistry?.();
+            const renderer = rendererRegistry?.getHandlerForPath?.(filePath) || null;
+
+            // 导入型文件（docx/spreadsheet）：不影响当前编辑器状态，只读文件并触发导入
+            if (importAsUntitled && (initialViewMode === 'docx' || initialViewMode === 'spreadsheet')) {
+                const statusBar = getStatusBarController?.();
+                statusBar?.showProgress?.('正在读取文件…');
+                try {
+                    const fileData = await fileSession.getFileContent(filePath, { skipCache: forceReload });
+                    if (shouldAbort('import-read')) return;
+                    await renderer?.load({
+                        filePath,
+                        fileData,
+                        fileService,
+                        importAsUntitled: (content, suggestedName) => {
+                            if (sessionId) documentSessions.closeSession(sessionId);
+                            return importAsUntitled(content, suggestedName, filePath);
+                        },
+                    });
+                } finally {
+                    statusBar?.hideProgress?.();
+                }
+                return;
+            }
+
             const previousFile = getCurrentFile();
             const previousViewMode = getActiveViewMode();
             if (previousFile) {
@@ -473,10 +508,6 @@ export function createFileOperations({
             }
             setCurrentFile(filePath);
 
-            // 计算目标文件的视图模式
-            const initialViewMode = getViewModeForPath(filePath);
-            const rendererRegistry = getRendererRegistry?.();
-            const renderer = rendererRegistry?.getHandlerForPath?.(filePath) || null;
             const rendererViewMode = renderer?.getViewMode?.(filePath) || null;
 
             const editor = getEditor();
@@ -667,6 +698,12 @@ export function createFileOperations({
                 unsupportedViewer,
                 workflowEditor: getWorkflowEditor(),
                 fileService,
+                importAsUntitled: importAsUntitled
+                    ? (content, suggestedName) => {
+                        if (sessionId) documentSessions.closeSession(sessionId);
+                        return importAsUntitled(content, suggestedName, filePath);
+                    }
+                    : undefined,
                 activateSpreadsheetView,
                 activatePdfView,
                 activateWorkflowView,

@@ -115,49 +115,74 @@ export class TabManager {
         return null;
     }
 
+    // 直接移除单个 file tab，不影响其他 tab 状态
+    // 调用方负责设置新的 active tab
+    removeFileTab(path) {
+        const index = this.fileTabs.findIndex(tab => tab.path === path);
+        if (index === -1) {
+            return null;
+        }
+        const [removed] = this.fileTabs.splice(index, 1);
+        this.render();
+        return removed;
+    }
+
     syncFileTabs(openFilePaths = [], activePath = null) {
+        // sharedTab 被加入 open list 时提升为 file tab
         if (this.sharedTab && openFilePaths.includes(this.sharedTab.path)) {
             this.sharedTab = null;
         }
 
-        const previous = new Map(this.fileTabs.map(tab => [tab.path, tab]));
+        const newPathSet = new Set(openFilePaths);
 
-        // 保留不在 openFilePaths 中的 untitled tabs（虚拟文件不受 fileTree 管理）
-        const untitledTabs = this.fileTabs.filter(tab =>
-            tab.path && tab.path.startsWith('untitled://') && !openFilePaths.includes(tab.path)
-        );
+        // 移除已关闭的 managed tab（从后往前遍历，避免 splice 影响索引）
+        // 只有被移除的 tab 恰好是 active 时，才更新 activeTabId
+        for (let i = this.fileTabs.length - 1; i >= 0; i--) {
+            const tab = this.fileTabs[i];
+            if (tab.path && tab.path.startsWith('untitled://')) continue; // untitled 不受 fileTree 管理
+            if (newPathSet.has(tab.path)) continue;
 
-        this.fileTabs = openFilePaths.map(path => {
-            const fileName = basename(path) || path;
-            const existing = previous.get(path);
-            if (existing) {
-                return { ...existing, label: fileName };
+            const wasActive = tab.id === this.activeTabId;
+            this.fileTabs.splice(i, 1);
+
+            if (wasActive) {
+                // 优先选相邻 tab（下一个，然后上一个），不影响其他 tab
+                const fallback = this.fileTabs[i] || this.fileTabs[i - 1] || this.sharedTab || null;
+                this.activeTabId = fallback ? fallback.id : null;
+                this.updateActiveState();
             }
-            return {
-                id: path,
-                type: 'file',
-                path,
-                label: fileName,
-            };
-        }).reverse();
-
-        // 将 untitled tabs 追加回来，保持原有顺序
-        if (untitledTabs.length > 0) {
-            this.fileTabs.push(...untitledTabs);
         }
 
-        if (activePath && openFilePaths.includes(activePath)) {
-            this.setActiveTab(activePath, { silent: true });
-        } else if (this.activeTabId && !this.getAllTabs().some(tab => tab.id === this.activeTabId)) {
-            const fallback = this.fileTabs[this.fileTabs.length - 1] || this.sharedTab;
-            if (fallback) {
-                this.setActiveTab(fallback.id);
-            } else {
-                this.activeTabId = null;
+        // 添加新打开的 tab（用 unshift 保证最新的显示在最左边）
+        const currentPaths = new Set(
+            this.fileTabs
+                .filter(tab => !tab.path || !tab.path.startsWith('untitled://'))
+                .map(tab => tab.path)
+        );
+        for (const path of openFilePaths) {
+            if (currentPaths.has(path)) continue;
+            const fileName = basename(path) || path;
+            this.fileTabs.unshift({ id: path, type: 'file', path, label: fileName });
+        }
+
+        // 更新现有 tab 的标签名（文件重命名场景）
+        for (const tab of this.fileTabs) {
+            if (tab.path && !tab.path.startsWith('untitled://') && newPathSet.has(tab.path)) {
+                tab.label = basename(tab.path) || tab.path;
             }
-        } else if (!this.activeTabId && (this.sharedTab || this.fileTabs.length > 0)) {
-            const fallback = this.sharedTab || this.fileTabs[0];
-            this.setActiveTab(fallback.id, { silent: true });
+        }
+
+        // 只有在没有 active tab 时才自动选择（不干扰已有的 active 状态）
+        if (!this.activeTabId) {
+            const allTabs = this.getAllTabs();
+            if (allTabs.length > 0) {
+                let targetId = null;
+                if (activePath) {
+                    const target = allTabs.find(t => t.path === activePath);
+                    if (target) targetId = target.id;
+                }
+                this.setActiveTab(targetId || allTabs[0].id, { silent: true });
+            }
         }
 
         this.render();

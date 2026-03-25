@@ -57,6 +57,7 @@ import { createMediaRenderer } from './fileRenderers/handlers/media.js';
 import { createSpreadsheetRenderer } from './fileRenderers/handlers/spreadsheet.js';
 import { createPdfRenderer } from './fileRenderers/handlers/pdf.js';
 import { createWorkflowRenderer } from './fileRenderers/handlers/workflow.js';
+import { createDocxRenderer } from './fileRenderers/handlers/docx.js';
 
 // ========== 状态管理实例 ==========
 const appState = new AppState();
@@ -99,6 +100,7 @@ rendererRegistry.register(createMediaRenderer());
 rendererRegistry.register(createSpreadsheetRenderer());
 rendererRegistry.register(createPdfRenderer());
 rendererRegistry.register(createWorkflowRenderer());
+rendererRegistry.register(createDocxRenderer());
 rendererRegistry.setDefaultHandler(createCodeRenderer());
 
 // ========== 外观变化监听 ==========
@@ -344,6 +346,7 @@ const untitledController = createUntitledController({
 });
 const {
     handleCreateUntitled,
+    handleImportAsUntitled,
     saveUntitledFile,
 } = untitledController;
 
@@ -403,7 +406,9 @@ const {
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
     untitledFileManager,
     saveUntitledFile,
+    importAsUntitled: handleImportAsUntitled,
     getRendererRegistry: () => appState.getRendererRegistry(),
+    getStatusBarController: () => appState.getStatusBarController(),
 });
 
 // ========== 导航控制器 ==========

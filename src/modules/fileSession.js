@@ -163,7 +163,7 @@ export function createFileSession({
                 return result;
             }
 
-            if (viewMode === 'pdf') {
+            if (viewMode === 'pdf' || viewMode === 'docx') {
                 const base64 = await readBinaryBase64Fn(filePath);
                 const result = {
                     content: base64,
@@ -196,7 +196,7 @@ export function createFileSession({
             cache.set(filePath, result);
             return result;
         } catch (error) {
-            if (viewMode === 'spreadsheet' || viewMode === 'pdf' || isLikelyBinaryReadError(error)) {
+            if (viewMode === 'spreadsheet' || viewMode === 'pdf' || viewMode === 'docx' || isLikelyBinaryReadError(error)) {
                 return {
                     content: null,
                     hasChanges: false,

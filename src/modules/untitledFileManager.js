@@ -121,6 +121,24 @@ export function createUntitledFileManager() {
     }
 
     /**
+     * 为导入操作创建 untitled 文件，使用原文件名作为建议保存名
+     */
+    function createImportFile(suggestedName) {
+        const name = suggestedName || 'untitled.md';
+        let path = `${UNTITLED_PROTOCOL}${name}`;
+        if (untitledFiles.has(path)) {
+            const extMatch = name.match(/(\.[^.]+)$/);
+            const ext = extMatch ? extMatch[1] : '.md';
+            const base = extMatch ? name.slice(0, -ext.length) : name;
+            let i = 2;
+            while (untitledFiles.has(`${UNTITLED_PROTOCOL}${base}-${i}${ext}`)) i++;
+            path = `${UNTITLED_PROTOCOL}${base}-${i}${ext}`;
+        }
+        untitledFiles.set(path, { content: '', hasChanges: false });
+        return path;
+    }
+
+    /**
      * 清除所有 untitled 文件
      */
     function clearAll() {
@@ -131,6 +149,7 @@ export function createUntitledFileManager() {
     return {
         isUntitledPath,
         createUntitledFile,
+        createImportFile,
         getContent,
         setContent,
         hasUnsavedChanges,

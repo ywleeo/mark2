@@ -187,6 +187,17 @@ export function createNavigationController({
             await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
             getEditor?.()?.refreshSearch?.();
 
+            // 检查 importAsUntitled 是否已将当前文件切换到 untitled 路径（如 docx/xlsx 导入）
+            const currentFileAfterLoad = getCurrentFile?.();
+            const wasImportedAsUntitled = currentFileAfterLoad !== filePath
+                && untitledFileManager?.isUntitledPath?.(currentFileAfterLoad)
+                && tabManager?.fileTabs?.some(tab => tab.path === currentFileAfterLoad);
+            if (wasImportedAsUntitled) {
+                // 文件已作为 untitled 导入，直接激活 untitled tab，不更新 shared tab
+                tabManager?.setActiveTab(currentFileAfterLoad, { silent: true });
+                return;
+            }
+
             const isOpenTab = fileTree?.isInOpenList?.(filePath);
             // untitled 文件已经在 fileTabs 中，直接激活
             const isUntitledInFileTabs = untitledFileManager?.isUntitledPath?.(filePath)
@@ -305,11 +316,6 @@ export function createNavigationController({
             const currentIdentity = getPathIdentityKey(currentNormalized);
             const wasActive = Boolean(targetIdentity) && targetIdentity === currentIdentity;
 
-            if (wasActive) {
-                tabManager?.setActiveTab(null, { silent: true });
-                clearActiveFileView();
-            }
-
             let fallbackPath = null;
             if (wasActive) {
                 const canonicalOpenPaths = getCanonicalOpenFilePaths(
@@ -326,11 +332,22 @@ export function createNavigationController({
                 }
             }
 
+            // 先更新 TabManager 状态，再触发 fileTree 操作
+            // 这样 fileTree.closeFile 触发的 syncFileTabs 看到的是已处理好的状态（no-op）
+            tabManager?.removeFileTab(targetPath);
+            if (wasActive) {
+                if (fallbackPath) {
+                    tabManager?.setActiveFileTab(fallbackPath, { silent: true });
+                } else {
+                    tabManager?.setActiveTab(null, { silent: true });
+                }
+                clearActiveFileView();
+            }
+
             fileTree?.closeFile(tab.path, { suppressActivate: wasActive });
 
             if (wasActive) {
                 if (fallbackPath) {
-                    tabManager?.setActiveFileTab(fallbackPath, { silent: true });
                     fileTree?.selectFile(fallbackPath);
                 } else {
                     fileTree?.selectFile(null);

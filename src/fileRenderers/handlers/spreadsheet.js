@@ -9,17 +9,7 @@ export function createSpreadsheetRenderer() {
             return 'spreadsheet';
         },
         async load(ctx) {
-            const {
-                filePath,
-                fileData,
-                session,
-                editorRegistry,
-                activateMarkdownView,
-                shouldAutoFocus,
-            } = ctx;
-
-            const editor = editorRegistry?.getMarkdownEditor?.();
-            if (!editor) return false;
+            const { filePath, fileData, importAsUntitled } = ctx;
 
             const sheets = fileData?.content?.sheets;
             if (!Array.isArray(sheets) || sheets.length === 0) return false;
@@ -33,10 +23,10 @@ export function createSpreadsheetRenderer() {
 
             const sheet = sheets[sheetIndex];
             const csvContent = stringifyCSV(sheet?.rows ?? []);
+            const mdContent = '```csv\n' + csvContent + '\n```\n';
 
-            activateMarkdownView?.({ skipScrollSync: true });
-            await editor.loadCsvFile(session, filePath, csvContent, { autoFocus: shouldAutoFocus });
-
+            const suggestedName = filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '.md') || 'spreadsheet.md';
+            await importAsUntitled(mdContent, suggestedName);
             return true;
         },
     };
