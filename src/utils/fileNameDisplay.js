@@ -1,5 +1,4 @@
-const MIN_VISIBLE_TAIL_LENGTH = 5;
-const MAX_VISIBLE_TAIL_LENGTH = 8;
+const VISIBLE_NAME_CHARS_BEFORE_EXTENSION = 3;
 const MIN_VISIBLE_HEAD_LENGTH = 1;
 const ELLIPSIS = '...';
 
@@ -33,13 +32,16 @@ function measureTextWidth(label, text) {
     return context.measureText(text).width;
 }
 
-function getPreferredSuffixLength(fileName) {
+function getPreferredSuffixText(fileName) {
     const lastDotIndex = fileName.lastIndexOf('.');
-    const extensionLength = lastDotIndex > 0 ? fileName.length - lastDotIndex : 0;
-    return Math.min(
-        MAX_VISIBLE_TAIL_LENGTH,
-        Math.max(MIN_VISIBLE_TAIL_LENGTH, extensionLength + 2),
-    );
+    if (lastDotIndex <= 0) {
+        return fileName.slice(-VISIBLE_NAME_CHARS_BEFORE_EXTENSION);
+    }
+
+    const extension = fileName.slice(lastDotIndex);
+    const stem = fileName.slice(0, lastDotIndex);
+    const visibleStem = stem.slice(-VISIBLE_NAME_CHARS_BEFORE_EXTENSION);
+    return `${visibleStem}${extension}`;
 }
 
 function findPrefixLengthThatFits(label, fileName, availableWidth, maxPrefixLength) {
@@ -76,31 +78,18 @@ function buildCompactParts(label, fileName, availableWidth) {
     }
 
     const ellipsisWidth = measureTextWidth(label, ELLIPSIS);
-    const preferredSuffixLength = getPreferredSuffixLength(fileName);
-    const minimumSuffixLength = Math.min(MIN_VISIBLE_TAIL_LENGTH, fileName.length);
-
-    for (let suffixLength = preferredSuffixLength; suffixLength >= minimumSuffixLength; suffixLength -= 1) {
-        const suffix = fileName.slice(-suffixLength);
-        const suffixWidth = measureTextWidth(label, suffix);
-        const availableForPrefix = availableWidth - ellipsisWidth - suffixWidth;
-        const maxPrefixLength = Math.max(
-            MIN_VISIBLE_HEAD_LENGTH,
-            fileName.length - suffixLength - 1,
-        );
-        const prefixLength = findPrefixLengthThatFits(label, fileName, availableForPrefix, maxPrefixLength);
-
-        if (prefixLength > 0 || availableForPrefix >= 0) {
-            return {
-                prefix: fileName.slice(0, prefixLength),
-                suffix,
-                truncated: true,
-            };
-        }
-    }
+    const suffix = getPreferredSuffixText(fileName);
+    const suffixWidth = measureTextWidth(label, suffix);
+    const availableForPrefix = availableWidth - ellipsisWidth - suffixWidth;
+    const maxPrefixLength = Math.max(
+        MIN_VISIBLE_HEAD_LENGTH,
+        fileName.length - suffix.length - 1,
+    );
+    const prefixLength = findPrefixLengthThatFits(label, fileName, availableForPrefix, maxPrefixLength);
 
     return {
-        prefix: '',
-        suffix: fileName.slice(-minimumSuffixLength),
+        prefix: fileName.slice(0, prefixLength),
+        suffix,
         truncated: true,
     };
 }
