@@ -3,7 +3,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow: hidden;
+    overflow: visible;
     user-select: none;
     -webkit-user-select: none;
 }
@@ -33,7 +33,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 12px 12px 8px 12px;
+    padding: 12px 4px 8px 12px;
     margin-top: 8px;
     cursor: pointer;
     user-select: none;
@@ -109,6 +109,7 @@
 .section-content {
     max-height: 300px;
     overflow-y: auto;
+    overflow-y: overlay;
     overflow-x: hidden;
     scrollbar-width: none;
 }
@@ -142,6 +143,7 @@
     font-size: 12px;
     transition: background 0.15s;
     position: relative;
+    min-width: 0;
 }
 
 .open-file-item:hover {
@@ -160,11 +162,14 @@
 }
 
 .open-file-name {
-    flex: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
+    flex: 1 1 auto;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text-color, #333);
+    min-width: 0;
 }
 
 .open-file-rename-input {
@@ -175,7 +180,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    margin-right: 12px;
+    margin-right: 4px;
     padding: 2px 4px;
     font-size: 16px;
     color: var(--text-secondary, #999);
@@ -196,6 +201,7 @@
     align-items: center;
     gap: 2px;
     margin-left: 6px;
+    flex: 0 0 auto;
 }
 
 .root-folder-action-btn {
@@ -235,10 +241,11 @@
 .tree-folder-header {
     display: flex;
     align-items: center;
-    padding: 1px 16px 1px 14px;
+    padding: 1px 4px 1px 14px;
     margin: 1px 0;
     cursor: pointer;
     font-size: 13px;
+    min-width: 0;
 }
 
 .tree-folder-header:hover {
@@ -254,7 +261,7 @@
 .tree-folder-header.root {
     font-weight: 600;
     border-bottom: 1px solid var(--border-color, #e9ecef);
-    padding: 8px 5px 8px 15px;
+    padding: 8px 4px 8px 15px;
 }
 
 /* 展开/收起小箭头 */
@@ -315,14 +322,32 @@
 }
 
 .tree-item-name {
-    flex: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0;
+    flex: 1 1 auto;
     overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--text-color, #333);
     font-weight: 400;
     min-width: 0;
     pointer-events: none;
+}
+
+.open-file-name__prefix,
+.tree-item-name__prefix {
+    flex: 1 1 auto;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+}
+
+.open-file-name__ellipsis,
+.tree-item-name__ellipsis,
+.open-file-name__suffix,
+.tree-item-name__suffix {
+    flex: 0 0 auto;
 }
 
 /* 文件夹子项容器 - 带竖线 */
@@ -342,10 +367,11 @@
 .tree-file {
     display: flex;
     align-items: center;
-    padding: 2px 16px 2px 16px;
+    padding: 2px 4px 2px 16px;
     cursor: pointer;
     font-size: 12px;
     border-radius: 0;
+    min-width: 0;
 }
 
 .tree-file:hover {
@@ -368,11 +394,88 @@
     color: var(--file-icon-color, #656d76);
 }
 
-.tree-file-icon svg {
-    width: 100%;
-    height: 100%;
-    display: block;
+.tree-file-icon,
+.open-file-icon {
+    overflow: visible;
 }
+
+.file-icon--markdown { color: #2563eb; }
+.file-icon--workflow { color: #ca8a04; }
+.file-icon--image { color: #db2777; }
+.file-icon--audio { color: #ea580c; }
+.file-icon--video { color: #dc2626; }
+.file-icon--spreadsheet,
+.file-icon--csv { color: #16a34a; }
+.file-icon--pdf { color: #b91c1c; }
+.file-icon--javascript { color: #ca8a04; }
+.file-icon--typescript { color: #2563eb; }
+.file-icon--json { color: #0f766e; }
+.file-icon--yaml,
+.file-icon--ini,
+.file-icon--env,
+.file-icon--xml { color: #0891b2; }
+.file-icon--html { color: #ea580c; }
+.file-icon--css,
+.file-icon--scss,
+.file-icon--less { color: #7c3aed; }
+.file-icon--python { color: #2563eb; }
+.file-icon--go { color: #0891b2; }
+.file-icon--rust { color: #9a3412; }
+.file-icon--java,
+.file-icon--kotlin,
+.file-icon--swift { color: #dc2626; }
+.file-icon--ruby,
+.file-icon--php { color: #9333ea; }
+.file-icon--csharp,
+.file-icon--cpp,
+.file-icon--c,
+.file-icon--objective-c { color: #1d4ed8; }
+.file-icon--sql { color: #0f766e; }
+.file-icon--shell,
+.file-icon--powershell,
+.file-icon--dockerfile,
+.file-icon--diff { color: #475569; }
+.file-icon--plaintext,
+.file-icon--code { color: var(--file-icon-color, #656d76); }
+
+:root[data-theme-appearance="dark"] .file-icon--markdown { color: #60a5fa; }
+:root[data-theme-appearance="dark"] .file-icon--workflow { color: #fbbf24; }
+:root[data-theme-appearance="dark"] .file-icon--image { color: #f472b6; }
+:root[data-theme-appearance="dark"] .file-icon--audio { color: #fb923c; }
+:root[data-theme-appearance="dark"] .file-icon--video { color: #f87171; }
+:root[data-theme-appearance="dark"] .file-icon--spreadsheet,
+:root[data-theme-appearance="dark"] .file-icon--csv { color: #4ade80; }
+:root[data-theme-appearance="dark"] .file-icon--pdf { color: #f87171; }
+:root[data-theme-appearance="dark"] .file-icon--javascript { color: #facc15; }
+:root[data-theme-appearance="dark"] .file-icon--typescript { color: #60a5fa; }
+:root[data-theme-appearance="dark"] .file-icon--json { color: #2dd4bf; }
+:root[data-theme-appearance="dark"] .file-icon--yaml,
+:root[data-theme-appearance="dark"] .file-icon--ini,
+:root[data-theme-appearance="dark"] .file-icon--env,
+:root[data-theme-appearance="dark"] .file-icon--xml { color: #67e8f9; }
+:root[data-theme-appearance="dark"] .file-icon--html { color: #fb923c; }
+:root[data-theme-appearance="dark"] .file-icon--css,
+:root[data-theme-appearance="dark"] .file-icon--scss,
+:root[data-theme-appearance="dark"] .file-icon--less { color: #c084fc; }
+:root[data-theme-appearance="dark"] .file-icon--python { color: #93c5fd; }
+:root[data-theme-appearance="dark"] .file-icon--go { color: #67e8f9; }
+:root[data-theme-appearance="dark"] .file-icon--rust { color: #fdba74; }
+:root[data-theme-appearance="dark"] .file-icon--java,
+:root[data-theme-appearance="dark"] .file-icon--kotlin,
+:root[data-theme-appearance="dark"] .file-icon--swift { color: #fca5a5; }
+:root[data-theme-appearance="dark"] .file-icon--ruby,
+:root[data-theme-appearance="dark"] .file-icon--php { color: #d8b4fe; }
+:root[data-theme-appearance="dark"] .file-icon--csharp,
+:root[data-theme-appearance="dark"] .file-icon--cpp,
+:root[data-theme-appearance="dark"] .file-icon--c,
+:root[data-theme-appearance="dark"] .file-icon--objective-c { color: #93c5fd; }
+:root[data-theme-appearance="dark"] .file-icon--sql { color: #5eead4; }
+:root[data-theme-appearance="dark"] .file-icon--shell,
+:root[data-theme-appearance="dark"] .file-icon--powershell,
+:root[data-theme-appearance="dark"] .file-icon--dockerfile,
+:root[data-theme-appearance="dark"] .file-icon--diff,
+:root[data-theme-appearance="dark"] .file-icon--plaintext,
+:root[data-theme-appearance="dark"] .file-icon--code { color: rgba(233, 237, 245, 0.92); }
 
 /* 取消文件/文件夹节点获得焦点时的系统描边，不改动已有选中样式 */
 .tree-file:focus,

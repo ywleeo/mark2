@@ -1,4 +1,6 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { createCompactFileNameElement } from '../../utils/fileNameDisplay.js';
+import { getFileIconSvg } from '../../utils/fileIcons.js';
 
 /**
  * FileTree 的 DOM 渲染模块
@@ -58,9 +60,10 @@ export class FileTreeRenderer {
             ${expandIcon}
             ${folderIconClosed}
             ${folderIconOpen}
-            <span class="tree-item-name">${name}</span>
             ${rootActions}
         `;
+        const rootActionsElement = header.querySelector('.root-folder-actions');
+        header.insertBefore(createCompactFileNameElement('tree-item-name', name), rootActionsElement);
 
         // Drag & Drop support
         item.addEventListener('dragenter', (e) => this.fileTree.mover?.handleDragEnter(e, header));
@@ -135,6 +138,7 @@ export class FileTreeRenderer {
         item.className = 'tree-file';
         item.dataset.path = path;
         item.tabIndex = '0';
+        item.title = name;
 
         // 启用原生 dragstart
         item.draggable = true;
@@ -147,27 +151,8 @@ export class FileTreeRenderer {
             item.removeEventListener('dragend', onNativeDragEnd);
         });
 
-        // SVG 文件图标
-        let iconSvg = `
-            <svg class="tree-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M13 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V9l-7-7z"/>
-                <path d="M13 3v6h6"/>
-            </svg>
-        `;
-
-        if (name.endsWith('.md') || name.endsWith('.markdown')) {
-            iconSvg = `
-                <svg class="tree-file-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                    <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
-                </svg>
-            `;
-        }
-
-        item.innerHTML = `
-            ${iconSvg}
-            <span class="tree-item-name">${name}</span>
-        `;
+        item.innerHTML = getFileIconSvg(path, { className: 'tree-file-icon', size: 16 });
+        item.appendChild(createCompactFileNameElement('tree-item-name', name));
 
         // 键盘：回车触发重命名
         const onKeyDown = (e) => {
