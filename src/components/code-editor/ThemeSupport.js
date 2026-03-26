@@ -24,10 +24,10 @@ const THEMES = {
         },
         dark: {
             background: '#1e1e1e',
-            foreground: '#d4d4d4',
+            foreground: '#cccccc',
             lineHighlight: '#2a2d2e',
             selection: '#264f78',
-            cursor: '#d4d4d4',
+            cursor: '#aeafad',
             gutterForeground: '#858585',
             gutterActiveForeground: '#c6c6c6',
         },
@@ -164,10 +164,10 @@ const THEMES = {
         },
         dark: {
             background: '#1e1e1e',
-            foreground: '#d4d4d4',
+            foreground: '#cccccc',
             lineHighlight: '#2a2d2e',
             selection: '#264f78',
-            cursor: '#d4d4d4',
+            cursor: '#aeafad',
             gutterForeground: '#858585',
             gutterActiveForeground: '#c6c6c6',
         },
@@ -184,10 +184,10 @@ const THEMES = {
         },
         dark: {
             background: '#1e1e1e',
-            foreground: '#d4d4d4',
+            foreground: '#cccccc',
             lineHighlight: '#2a2d2e',
             selection: '#264f78',
-            cursor: '#d4d4d4',
+            cursor: '#aeafad',
             gutterForeground: '#858585',
             gutterActiveForeground: '#c6c6c6',
         },
@@ -247,11 +247,17 @@ export function buildTheme(themeName, isDark) {
 
     return EditorView.theme({
         '&': {
-            backgroundColor: colors.background,
+            backgroundColor: 'transparent',
             color: colors.foreground,
         },
         '.cm-content': {
             caretColor: colors.cursor,
+        },
+        '.cm-editor': {
+            backgroundColor: 'transparent',
+        },
+        '.cm-scroller': {
+            backgroundColor: 'transparent',
         },
         '.cm-cursor, .cm-dropCursor': {
             borderLeftColor: colors.cursor,
@@ -264,7 +270,7 @@ export function buildTheme(themeName, isDark) {
             backgroundColor: hexToRgba(colors.lineHighlight, 0.7),
         },
         '.cm-gutters': {
-            backgroundColor: colors.background,
+            backgroundColor: 'transparent',
             color: colors.gutterForeground,
             borderRight: `1px solid ${hexToRgba(colors.gutterForeground, 0.2)}`,
         },
