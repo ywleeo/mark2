@@ -10,35 +10,48 @@ const LANGUAGE_BADGE_MAP = new Map([
     ['javascript', 'JS'],
     ['typescript', 'TS'],
     ['json', 'JSON'],
-    ['yaml', 'YAML'],
+    ['yaml', 'YML'],
     ['ini', 'INI'],
     ['env', 'ENV'],
     ['html', 'HTML'],
     ['xml', 'XML'],
     ['css', 'CSS'],
-    ['scss', 'SCSS'],
-    ['less', 'LESS'],
+    ['scss', 'SC'],
+    ['less', 'LS'],
     ['python', 'PY'],
     ['go', 'GO'],
     ['rust', 'RS'],
-    ['java', 'JAVA'],
+    ['java', 'JV'],
     ['kotlin', 'KT'],
-    ['swift', 'SWIFT'],
+    ['swift', 'SW'],
     ['ruby', 'RB'],
     ['php', 'PHP'],
     ['csharp', 'C#'],
     ['cpp', 'C++'],
     ['c', 'C'],
-    ['objective-c', 'OBJC'],
+    ['objective-c', 'OC'],
     ['sql', 'SQL'],
     ['shell', 'SH'],
     ['powershell', 'PS'],
-    ['dockerfile', 'DOCKER'],
-    ['diff', 'DIFF'],
+    ['dockerfile', 'DKR'],
+    ['diff', 'DF'],
     ['plaintext', 'TXT'],
     ['csv', 'CSV'],
     ['markdown', 'MD'],
 ]);
+
+/**
+ * 规范化图标徽标长度，避免小尺寸图标里文字拥挤。
+ * @param {string} badge - 原始徽标文本
+ * @returns {string} 适合小图标显示的徽标文本
+ */
+function normalizeBadge(badge) {
+    const normalized = String(badge || '').trim().toUpperCase();
+    if (normalized.length <= 3) {
+        return normalized;
+    }
+    return normalized.slice(0, 3);
+}
 
 function getFileIconMeta(filePath) {
     const viewMode = getViewModeForPath(filePath);
@@ -47,7 +60,7 @@ function getFileIconMeta(filePath) {
         return { kind: 'markdown', badge: 'MD' };
     }
     if (viewMode === 'workflow') {
-        return { kind: 'workflow', badge: 'FLOW' };
+        return { kind: 'workflow', badge: 'WF' };
     }
     if (viewMode === 'image') {
         return { kind: 'image', badge: 'IMG' };
@@ -70,7 +83,7 @@ function getFileIconMeta(filePath) {
     const language = detectLanguageForPath(filePath);
     return {
         kind: language || 'code',
-        badge: LANGUAGE_BADGE_MAP.get(language) || 'CODE',
+        badge: normalizeBadge(LANGUAGE_BADGE_MAP.get(language) || 'CODE'),
     };
 }
 
@@ -80,7 +93,7 @@ export function getFileIconSvg(filePath, options = {}) {
         size = 16,
     } = options;
     const { kind, badge } = getFileIconMeta(filePath);
-    const escapedBadge = String(badge)
+    const escapedBadge = normalizeBadge(badge)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
@@ -94,10 +107,22 @@ export function getFileIconSvg(filePath, options = {}) {
             fill="none"
             aria-hidden="true"
         >
-            <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M14 2v7h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <rect x="4.5" y="13.5" width="15" height="6" rx="3" fill="currentColor" opacity="0.16"/>
-            <text x="12" y="17.65" text-anchor="middle" font-size="4.3" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor">${escapedBadge}</text>
+            <path
+                d="M14 3.5H7.75A1.75 1.75 0 0 0 6 5.25v13.5c0 .97.78 1.75 1.75 1.75h8.5c.97 0 1.75-.78 1.75-1.75V9.25L14 5.5z"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+            <path
+                d="M14 3.5v4.25c0 .83.67 1.5 1.5 1.5H18"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            />
+            <rect x="4.75" y="13.75" width="14.5" height="5.5" rx="2.75" fill="currentColor" opacity="0.16"/>
+            <text x="12" y="17.55" text-anchor="middle" font-size="4.05" font-weight="700" font-family="system-ui, sans-serif" fill="currentColor">${escapedBadge}</text>
         </svg>
     `;
 }
