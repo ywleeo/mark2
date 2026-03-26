@@ -1,5 +1,7 @@
 import { basename } from '../../utils/pathUtils.js';
 import { rememberSecurityScopes } from '../../services/securityScopeService.js';
+import { isUnsupportedFilePath } from '../../utils/fileTypeUtils.js';
+import { createCompactFileNameElement, scheduleCompactFileNameRefresh } from '../../utils/fileNameDisplay.js';
 
 export class FolderLoader {
     constructor(options = {}) {
@@ -69,6 +71,7 @@ export class FolderLoader {
             .map(entry => ({ path: entry.path, isDir: true }));
         const regularFiles = files
             .filter(entry => !this.shouldIgnoreFile(entry.name))
+            .filter(entry => !isUnsupportedFilePath(entry.path))
             .map(entry => ({ path: entry.path, isDir: false }));
 
         folders.sort((a, b) => a.path.localeCompare(b.path));
@@ -149,7 +152,9 @@ export class FolderLoader {
                 contentDiv.prepend(rootItem);
             } else {
                 const nameSpan = rootItem.querySelector('.tree-item-name');
-                if (nameSpan) nameSpan.textContent = folderName;
+                if (nameSpan) {
+                    nameSpan.replaceWith(createCompactFileNameElement('tree-item-name', folderName));
+                }
             }
             rootItem.dataset.parentPath = '';
             rootItem.dataset.nodeKey = folderKey;
@@ -220,6 +225,7 @@ export class FolderLoader {
         }
 
         childrenContainer.replaceChildren(fragment);
+        scheduleCompactFileNameRefresh(childrenContainer);
     }
 
     async toggleFolder(path, folderElement = null) {

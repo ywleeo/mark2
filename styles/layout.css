@@ -209,7 +209,7 @@ body.sidebar-resizing {
     overflow: hidden;
     position: relative;
     background: var(--content-bg, #ffffff);
-    border-left: 1px solid var(--border-color, #d1d1d1);
+    border-left: none;
 }
 
 .sidebar {
@@ -221,7 +221,7 @@ body.sidebar-resizing {
     flex-direction: column;
     height: calc(100vh - var(--titlebar-height, 28px));
     border-right: none;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
     background: var(--sidebar-bg, #f5f6f8);
 }
@@ -236,8 +236,12 @@ body.is-sidebar-hidden .content-wrapper {
 }
 
 .sidebar-resizer {
-    width: 4px;
-    flex: 0 0 auto;
+    position: relative;
+    z-index: 5;
+    width: 8px;
+    flex: 0 0 8px;
+    margin-left: -1px;
+    margin-right: -7px;
     cursor: col-resize;
     background: transparent;
     border-right: none;
@@ -248,8 +252,23 @@ body.is-sidebar-hidden .content-wrapper {
     touch-action: none;
 }
 
+.sidebar-resizer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    background: var(--border-color, #d1d1d1);
+}
+
 .sidebar-resizer:hover,
 body.sidebar-resizing .sidebar-resizer {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.sidebar-resizer:hover::before,
+body.sidebar-resizing .sidebar-resizer::before {
     background: var(--sidebar-resizer-active, rgba(0, 0, 0, 0.12));
 }
 
@@ -605,20 +624,20 @@ body.is-internal-drag .content-wrapper::after {
 .markdown-content pre::-webkit-scrollbar-track,
 .editor-textarea::-webkit-scrollbar-track,
 .view-content::-webkit-scrollbar-track {
-    background: var(--scrollbar-track-color, #f1f3f4);
+    background: transparent;
 }
 
 /* Sidebar 和文件树的滚动条 - 使用统一变量 */
 .sidebar::-webkit-scrollbar-thumb,
 .section-content::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.6));
+    background: color-mix(in srgb, var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.6)) 50%, transparent);
     border-radius: 2px;
     transition: background 0.2s ease;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover,
 .section-content::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.45));
+    background: color-mix(in srgb, var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.45)) 50%, transparent);
 }
 
 /* View 区域的滚动条 - 保持原样 */
@@ -641,12 +660,12 @@ body.is-internal-drag .content-wrapper::after {
 /* 深色模式下 sidebar 的滚动条 - 使用统一变量 */
 :root[data-theme-appearance='dark'] .sidebar::-webkit-scrollbar-thumb,
 :root[data-theme-appearance='dark'] .section-content::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb-color, rgba(255, 255, 255, 0.32));
+    background: color-mix(in srgb, var(--scrollbar-thumb-color, rgba(255, 255, 255, 0.32)) 50%, transparent);
 }
 
 :root[data-theme-appearance='dark'] .sidebar::-webkit-scrollbar-thumb:hover,
 :root[data-theme-appearance='dark'] .section-content::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover-color, rgba(255, 255, 255, 0.52));
+    background: color-mix(in srgb, var(--scrollbar-thumb-hover-color, rgba(255, 255, 255, 0.52)) 50%, transparent);
 }
 #foldersContent{
     padding-bottom: 20px;

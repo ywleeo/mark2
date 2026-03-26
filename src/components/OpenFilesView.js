@@ -1,5 +1,7 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { basename } from '../utils/pathUtils.js';
+import { createCompactFileNameElement, scheduleCompactFileNameRefresh } from '../utils/fileNameDisplay.js';
+import { getFileIconSvg } from '../utils/fileIcons.js';
 
 export class OpenFilesView {
     constructor(options = {}) {
@@ -58,32 +60,21 @@ export class OpenFilesView {
             item.className = 'open-file-item';
             item.dataset.path = normalized;
             item.tabIndex = '0';
+            item.title = fileName;
 
             if (this.normalizePath?.(currentFile) === normalized) {
                 item.classList.add('selected');
             }
 
-            let iconSvg = `
-                <svg class="open-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M13 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V9l-7-7z"/>
-                    <path d="M13 3v6h6"/>
-                </svg>
-            `;
+            item.innerHTML = getFileIconSvg(normalized, { className: 'open-file-icon', size: 14 });
+            item.appendChild(createCompactFileNameElement('open-file-name', fileName));
 
-            if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
-                iconSvg = `
-                    <svg class="open-file-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
-                        <path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/>
-                    </svg>
-                `;
-            }
-
-            item.innerHTML = `
-                ${iconSvg}
-                <span class="open-file-name">${fileName}</span>
-                <button class="close-file-btn" data-path="${normalized}">×</button>
-            `;
+            const closeButton = document.createElement('button');
+            closeButton.className = 'close-file-btn';
+            closeButton.dataset.path = normalized;
+            closeButton.type = 'button';
+            closeButton.textContent = '×';
+            item.appendChild(closeButton);
 
             const cleanupSelect = addClickHandler(item, (event) => {
                 if (event.target.closest('.close-file-btn')) {
@@ -93,7 +84,6 @@ export class OpenFilesView {
             }, { shouldHandle: () => !this.shouldBlockInteraction?.() });
             this.cleanups.push(cleanupSelect);
 
-            const closeButton = item.querySelector('.close-file-btn');
             const cleanupClose = addClickHandler(closeButton, (event) => {
                 event.stopPropagation();
                 this.onClose?.(normalized);
@@ -113,6 +103,8 @@ export class OpenFilesView {
 
             contentDiv.appendChild(item);
         });
+
+        scheduleCompactFileNameRefresh(contentDiv);
     }
 
     dispose() {

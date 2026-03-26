@@ -1,4 +1,5 @@
 import { basename } from '../utils/pathUtils.js';
+import { createCompactFileNameElement, scheduleCompactFileNameRefresh } from '../utils/fileNameDisplay.js';
 
 export class FileRenamer {
     constructor(options = {}) {
@@ -63,7 +64,7 @@ export class FileRenamer {
             return;
         }
 
-        const fileName = nameSpan.textContent || basename(normalized);
+        const fileName = nameSpan.dataset.fullName || basename(normalized);
         if (useOpenFileItem && !item.hasAttribute('tabindex')) {
             item.tabIndex = -1;
         }
@@ -144,11 +145,10 @@ export class FileRenamer {
         const endedPath = this.renamingPath;
         if (this._renameCleanup) this._renameCleanup();
         if (input && item) {
-            const span = document.createElement('span');
-            span.className = nameClass;
             const fallbackName = originalName || (basename(this.renamingPath));
-            span.textContent = fallbackName;
+            const span = createCompactFileNameElement(nameClass, fallbackName);
             input.replaceWith(span);
+            scheduleCompactFileNameRefresh(item);
             try {
                 item.focus();
             } catch {}
