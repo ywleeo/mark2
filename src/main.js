@@ -44,6 +44,7 @@ import { createLayoutControls } from './app/layoutControls.js';
 import { createWorkspaceSyncController, createDocumentSnapshotSyncController } from './app/syncControllers.js';
 import { AppState } from './state/AppState.js';
 import { EditorRegistry } from './state/EditorRegistry.js';
+import { TabHistoryManager } from './state/TabHistoryManager.js';
 import { createEditorHistoryController } from './app/editorHistoryController.js';
 import { createToolbarController } from './app/toolbarController.js';
 import { createUntitledController } from './app/untitledController.js';
@@ -63,6 +64,7 @@ import { createDocxRenderer } from './fileRenderers/handlers/docx.js';
 const appState = new AppState();
 const editorRegistry = new EditorRegistry();
 const rendererRegistry = new RendererRegistry();
+const tabHistoryManager = new TabHistoryManager();
 
 // 由 initializeApplication 赋值，通过 setter/getter 传递给 appBootstrap
 let cardExportSidebar = null;
@@ -126,7 +128,9 @@ const { scheduleDocumentSnapshotSync } = documentSnapshotSyncController;
 const editorHistoryController = createEditorHistoryController({
     getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
+    getCurrentTabId: () => appState.getCurrentFile(),
     getActiveViewMode: () => appState.getActiveViewMode(),
+    tabHistoryManager,
     getEditorSettings: () => appState.getEditorSettings(),
     setEditorSettings: (s) => appState.setEditorSettings(s),
 });
@@ -502,6 +506,7 @@ const {
 bootstrap = createAppBootstrap({
     appState,
     editorRegistry,
+    tabHistoryManager,
     documentSessions,
     fileSession,
     untitledFileManager,

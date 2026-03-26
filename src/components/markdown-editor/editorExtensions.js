@@ -22,8 +22,11 @@ import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugi
 /**
  * 返回 MarkdownEditor 所需的 TipTap 扩展列表。
  * @param {object} lowlight - createConfiguredLowlight() 实例
+ * @param {Object} [historyHandlers] - 共享历史快捷键处理器
+ * @param {Function|null} [historyHandlers.onUndo] - undo 回调
+ * @param {Function|null} [historyHandlers.onRedo] - redo 回调
  */
-export function createEditorExtensions(lowlight) {
+export function createEditorExtensions(lowlight, historyHandlers = {}) {
     return [
         StarterKit.configure({
             heading: { levels: [1, 2, 3, 4, 5, 6] },
@@ -31,7 +34,7 @@ export function createEditorExtensions(lowlight) {
             link: false,
             trailingNode: false,
             hardBreak: { keepMarks: true },
-            history: { depth: 100 },
+            history: false,
         }),
         Link.configure({
             openOnClick: false,
@@ -68,6 +71,18 @@ export function createEditorExtensions(lowlight) {
             name: 'boldAutoSpace',
             addKeyboardShortcuts() {
                 return {
+                    'Mod-z': () => {
+                        if (typeof historyHandlers.onUndo !== 'function') return false;
+                        return historyHandlers.onUndo() !== false;
+                    },
+                    'Mod-Shift-z': () => {
+                        if (typeof historyHandlers.onRedo !== 'function') return false;
+                        return historyHandlers.onRedo() !== false;
+                    },
+                    'Mod-y': () => {
+                        if (typeof historyHandlers.onRedo !== 'function') return false;
+                        return historyHandlers.onRedo() !== false;
+                    },
                     'Mod-b': () => {
                         const { state } = this.editor;
                         const { from, to, empty } = state.selection;

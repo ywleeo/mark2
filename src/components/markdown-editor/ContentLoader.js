@@ -168,8 +168,8 @@ export class ContentLoader {
                 return;
             }
 
-            // 没有缓存状态或内容已变更，正常加载
-            const applied = await this.setContent(content, autoFocus, { resetHistory: isNewFile });
+            // 没有缓存状态或内容已变更，正常加载，始终重置 undo 历史（避免跨 tab 污染）
+            const applied = await this.setContent(content, autoFocus, { resetHistory: true });
             if (!applied) return;
 
             if (isNewFile && this._isSessionActive(sessionId)) {
@@ -188,13 +188,17 @@ export class ContentLoader {
      * 将 Markdown 文本加载到编辑器。
      * resetHistory=true 时清空撤销历史（首次打开文件）。
      */
-    async setContent(markdown, shouldFocusStart = true, { resetHistory = false } = {}) {
+    async setContent(markdown, shouldFocusStart = true, { resetHistory = false, preserveOriginalMarkdown = false } = {}) {
         const sessionId = this.currentSessionId;
         const normalizedMarkdown = ensureMarkdownTrailingEmptyLine(
             typeof markdown === 'string' ? markdown : ''
         );
-        this.originalMarkdown = normalizedMarkdown;
-        this.contentChanged = false;
+        if (!preserveOriginalMarkdown) {
+            this.originalMarkdown = normalizedMarkdown;
+            this.contentChanged = false;
+        } else {
+            this.contentChanged = normalizedMarkdown !== this.originalMarkdown;
+        }
         this.getSaveManager()?.clearAutoSaveTimer();
 
         const staleUrls = drainImageObjectUrls();

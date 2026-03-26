@@ -1,5 +1,6 @@
 /**
- * 编辑器历史命令（undo/redo）、焦点检测、设置提交
+ * 编辑器历史命令（undo/redo）和设置提交。
+ * 历史命令按当前 tab 的活动视图路由，不再依赖编辑器焦点。
  */
 import {
     applyEditorSettings,
@@ -10,65 +11,39 @@ import {
 export function createEditorHistoryController({
     getMarkdownEditor,
     getCodeEditor,
+    getCurrentTabId,
     getActiveViewMode,
+    tabHistoryManager,
     getEditorSettings,
     setEditorSettings,
 }) {
-    function isMarkdownEditorFocused() {
-        const activeElement = document?.activeElement;
-        if (!activeElement) return false;
-        const editor = getMarkdownEditor();
-        const tiptapRoot = editor?.editor?.view?.dom;
-        return Boolean(tiptapRoot && (tiptapRoot === activeElement || tiptapRoot.contains(activeElement)));
-    }
-
-    function isCodeEditorFocused() {
-        const activeElement = document?.activeElement;
-        if (!activeElement) return false;
-        const codeEditor = getCodeEditor();
-        const codeHost = codeEditor?.editorHost;
-        return Boolean(codeHost && (codeHost === activeElement || codeHost.contains(activeElement)));
-    }
-
     function invokeEditorHistoryAction(action) {
+        const tabId = getCurrentTabId?.();
+        if (!tabId || !tabHistoryManager) return false;
+
+        const nextContent = action === 'undo'
+            ? tabHistoryManager.undo(tabId)
+            : tabHistoryManager.redo(tabId);
+        if (typeof nextContent !== 'string') return false;
+
         const editor = getMarkdownEditor();
         const codeEditor = getCodeEditor();
-
-        const attemptMarkdown = () => {
-            if (typeof editor?.[action] !== 'function') return false;
-            return editor[action]();
-        };
-        const attemptCode = () => {
-            if (typeof codeEditor?.[action] !== 'function') return false;
-            return codeEditor[action]();
-        };
-
-        if (isMarkdownEditorFocused()) {
-            return attemptMarkdown() || attemptCode();
-        }
-
-        if (isCodeEditorFocused()) {
-            return attemptCode() || attemptMarkdown();
-        }
-
         const activeViewMode = getActiveViewMode();
         if (activeViewMode === 'code') {
-            return attemptCode() || attemptMarkdown();
+            return codeEditor?.applyHistoryContent?.(nextContent) ?? false;
         }
-
         if (activeViewMode === 'markdown' || activeViewMode === 'split') {
-            return attemptMarkdown() || attemptCode();
+            return editor?.applyHistoryContent?.(nextContent) ?? false;
         }
-
-        return attemptMarkdown() || attemptCode();
+        return false;
     }
 
     function handleUndoCommand() {
-        invokeEditorHistoryAction('undo');
+        return invokeEditorHistoryAction('undo');
     }
 
     function handleRedoCommand() {
-        invokeEditorHistoryAction('redo');
+        return invokeEditorHistoryAction('redo');
     }
 
     async function handleSettingsSubmit(nextSettings) {
@@ -85,7 +60,5 @@ export function createEditorHistoryController({
         handleSettingsSubmit,
         handleUndoCommand,
         handleRedoCommand,
-        isMarkdownEditorFocused,
-        isCodeEditorFocused,
     };
 }

@@ -7,13 +7,22 @@ export class TabStateManager {
      * @param {Object} opts
      * @param {() => import('@tiptap/core').Editor} opts.getEditor
      * @param {() => Element} opts.getScrollContainer
+     * @param {() => string} opts.getCurrentMarkdown
      * @param {() => string} opts.getOriginalMarkdown
      * @param {(v: string) => void} opts.setOriginalMarkdown
      * @param {(v: boolean) => void} opts.setContentChanged
      */
-    constructor({ getEditor, getScrollContainer, getOriginalMarkdown, setOriginalMarkdown, setContentChanged }) {
+    constructor({
+        getEditor,
+        getScrollContainer,
+        getCurrentMarkdown,
+        getOriginalMarkdown,
+        setOriginalMarkdown,
+        setContentChanged,
+    }) {
         this._getEditor = getEditor;
         this._getScrollContainer = getScrollContainer;
+        this._getCurrentMarkdown = getCurrentMarkdown;
         this._getOriginalMarkdown = getOriginalMarkdown;
         this._setOriginalMarkdown = setOriginalMarkdown;
         this._setContentChanged = setContentChanged;
@@ -31,7 +40,9 @@ export class TabStateManager {
         const scrollContainer = this._getScrollContainer();
         this._states.set(tabId, {
             editorState: editor.state,
-            markdown: this._getOriginalMarkdown(),
+            currentMarkdown: this._getCurrentMarkdown(),
+            originalMarkdown: this._getOriginalMarkdown(),
+            contentChanged: this._getCurrentMarkdown() !== this._getOriginalMarkdown(),
             scrollTop: scrollContainer?.scrollTop ?? 0,
             lastActive: Date.now(),
         });
@@ -48,16 +59,38 @@ export class TabStateManager {
         const snapshot = this._states.get(tabId);
         if (!snapshot) return false;
 
-        const { editorState, markdown: savedMarkdown } = snapshot;
+        const {
+            editorState,
+            currentMarkdown: savedMarkdown,
+            originalMarkdown,
+            contentChanged,
+            scrollTop,
+        } = snapshot;
 
         if (editorState && savedMarkdown === currentMarkdown) {
             editor.view.updateState(editorState);
-            this._setOriginalMarkdown(savedMarkdown);
-            this._setContentChanged(false);
+            this._setOriginalMarkdown(originalMarkdown);
+            this._setContentChanged(Boolean(contentChanged));
+            const scrollContainer = this._getScrollContainer();
+            if (scrollContainer && typeof scrollTop === 'number') {
+                scrollContainer.scrollTop = scrollTop;
+            }
+            snapshot.lastActive = Date.now();
             return true;
         }
 
         return false;
+    }
+
+    trimStaleEditorStates(maxAge, currentTabId = null) {
+        const now = Date.now();
+        for (const [tabId, snapshot] of this._states) {
+            if (tabId === currentTabId) continue;
+            if (!snapshot?.editorState) continue;
+            const lastActive = snapshot.lastActive ?? 0;
+            if (now - lastActive < maxAge) continue;
+            snapshot.editorState = null;
+        }
     }
 
     forget(tabId) {

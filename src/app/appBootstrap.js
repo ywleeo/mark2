@@ -35,6 +35,7 @@ export function createAppBootstrap({
     // 核心状态/服务
     appState,
     editorRegistry,
+    tabHistoryManager,
     documentSessions,
     fileSession,
     untitledFileManager,
@@ -273,6 +274,8 @@ export function createAppBootstrap({
             normalizeFsPath,
             updateWindowTitle,
             scheduleDocumentSnapshotSync,
+            onUndoRequest: handleUndoCommand,
+            onRedoRequest: handleRedoCommand,
             onFileSaved: async (filePath, modifiedTime) => {
                 await windowFocusHandler?.syncFileModifiedTime?.(filePath, modifiedTime);
             },
@@ -285,6 +288,7 @@ export function createAppBootstrap({
             editorCallbacks,
             documentSessions,
             setContentZoom,
+            tabHistoryManager,
         });
 
         eventBus.emit('editor:ready', { markdownEditor: editor, codeEditor });

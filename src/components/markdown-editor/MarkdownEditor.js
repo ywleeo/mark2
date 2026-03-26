@@ -82,6 +82,7 @@ export class MarkdownEditor {
         this._lowlight = createConfiguredLowlight();
         this._documentSessions = options?.documentSessions ?? null;
         this._autoSaveDelayMs = options.autoSaveDelayMs;
+        this._tabHistoryManager = options?.tabHistoryManager ?? null;
 
         this.init();
     }
@@ -91,7 +92,10 @@ export class MarkdownEditor {
     init() {
         this.editor = new Editor({
             element: this.element,
-            extensions: createEditorExtensions(this._lowlight),
+            extensions: createEditorExtensions(this._lowlight, {
+                onUndo: () => this.callbacks.onUndoRequest?.(),
+                onRedo: () => this.callbacks.onRedoRequest?.(),
+            }),
             content: '',
             editable: false,
             autofocus: false,
@@ -103,6 +107,7 @@ export class MarkdownEditor {
             onUpdate: () => {
                 if (this.suppressUpdateEvent) return;
                 this.contentLoader.contentChanged = true;
+                this._recordTabHistory();
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
                 this.saveManager?.scheduleAutoSave();
@@ -124,6 +129,7 @@ export class MarkdownEditor {
         this.tabStateManager = new TabStateManager({
             getEditor: () => this.editor,
             getScrollContainer: () => this.getScrollContainer(),
+            getCurrentMarkdown: () => this.contentLoader.getMarkdown(),
             getOriginalMarkdown: () => this.contentLoader.originalMarkdown,
             setOriginalMarkdown: (v) => { this.contentLoader.originalMarkdown = v; },
             setContentChanged: (v) => { this.contentLoader.contentChanged = v; },
@@ -273,9 +279,21 @@ export class MarkdownEditor {
     prepareForDocument(session, filePath, tabId) { return this.contentLoader.prepareForDocument(session, filePath, tabId); }
     loadFile(...args)                            {
         this.viewElement.classList.remove('csv-table-mode');
-        return this.contentLoader.loadFile(...args);
+        return this.contentLoader.loadFile(...args).then(result => {
+            if (result !== false) {
+                this._syncTabHistory();
+            }
+            return result;
+        });
     }
-    setContent(markdown, focus, opts)           { return this.contentLoader.setContent(markdown, focus, opts); }
+    setContent(markdown, focus, opts)           {
+        return this.contentLoader.setContent(markdown, focus, opts).then(result => {
+            if (result !== false) {
+                this._syncTabHistory();
+            }
+            return result;
+        });
+    }
     getMarkdown()                               { return this.contentLoader.getMarkdown(); }
 
     // 保存
@@ -315,8 +333,22 @@ export class MarkdownEditor {
     blur()                                      { this.editor?.commands?.blur?.() ?? this.editor?.view?.dom?.blur?.(); }
 
     // 编辑
-    undo()                                      { return this.editor?.commands?.undo?.() ?? false; }
-    redo()                                      { return this.editor?.commands?.redo?.() ?? false; }
+    undo()                                      { return this.callbacks.onUndoRequest?.() ?? false; }
+    redo()                                      { return this.callbacks.onRedoRequest?.() ?? false; }
+
+    async applyHistoryContent(markdown) {
+        this.suppressUpdateEvent = true;
+        try {
+            const applied = await this.contentLoader.setContent(markdown, false, {
+                resetHistory: false,
+                preserveOriginalMarkdown: true,
+            });
+            if (!applied) return false;
+            return true;
+        } finally {
+            this.suppressUpdateEvent = false;
+        }
+    }
 
     insertTextAtCursor(text) {
         if (!this.editor || !text) return;
@@ -395,6 +427,26 @@ export class MarkdownEditor {
     restoreViewStateForTab(tabId, md)           { return this.tabStateManager.restore(tabId, md); }
     forgetViewStateForTab(tabId)                { return this.tabStateManager.forget(tabId); }
     renameViewStateForTab(oldId, newId)         { return this.tabStateManager.rename(oldId, newId); }
+    getCurrentTabId()                           { return this.contentLoader.currentTabId; }
+    trimStaleViewStates(maxAge)                 { return this.tabStateManager.trimStaleEditorStates(maxAge, this.getCurrentTabId()); }
+
+    /**
+     * 将当前内容同步到 tab 共享历史。
+     */
+    _syncTabHistory() {
+        const tabId = this.getCurrentTabId();
+        if (!tabId || !this._tabHistoryManager) return;
+        this._tabHistoryManager.syncContent(tabId, this.getMarkdown());
+    }
+
+    /**
+     * 记录一次来自 Markdown 视图的用户修改。
+     */
+    _recordTabHistory() {
+        const tabId = this.getCurrentTabId();
+        if (!tabId || !this._tabHistoryManager) return;
+        this._tabHistoryManager.recordChange(tabId, this.getMarkdown(), { source: 'markdown' });
+    }
 
     // 源码滚动同步
     getSelectionSourcepos()                     { return this.sourceScrollManager.getSelectionSourcepos(); }

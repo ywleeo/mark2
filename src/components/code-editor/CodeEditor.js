@@ -1,6 +1,6 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
 import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
-import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo } from '@codemirror/commands';
+import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
@@ -85,6 +85,7 @@ export class CodeEditor {
         this.pendingLayoutFrame = null;
         this.preferences = null;
         this.documentSessions = options?.documentSessions || null;
+        this.tabHistoryManager = options?.tabHistoryManager || null;
         this.currentSessionId = null;
         this.loadingSessionId = null;
         this.currentTabId = null;
@@ -158,26 +159,30 @@ export class CodeEditor {
         }
     }
 
-    async ensureEditor() {
-        if (this.editor) return;
-
-        const fontTheme = this._buildFontTheme();
+    /**
+     * 构建给定语言对应的编辑器状态，作为 tab 首次加载时的基础状态。
+     */
+    createEditorState(doc = '', language = 'plaintext') {
+        const targetLanguage = this.resolveLanguage(language);
+        const langSupport = resolveLanguageSupport(targetLanguage);
+        const tabSize = targetLanguage === 'markdown' ? 2 : 4;
+        const indent = ' '.repeat(tabSize);
         const isDark = document?.documentElement?.dataset?.themeAppearance === 'dark';
-        const themeExt = buildTheme('auto', isDark);
-        const hlStyle = buildHighlightStyle('auto', isDark);
-
-        this._updateListener = EditorView.updateListener.of((update) => {
-            if (update.docChanged && !this.suppressChange) {
-                const currentContent = update.state.doc.toString();
-                this.isDirty = currentContent !== this.baseContent;
-                this.callbacks.onContentChange?.();
-                this.notifyContentMutation();
-                this.scheduleAutoSave();
+        const userTheme = this.preferences?.theme || 'auto';
+        let themeName = userTheme;
+        if (userTheme === 'auto') {
+            if (targetLanguage === 'markdown' || targetLanguage === 'sql' || targetLanguage === 'mysql' || targetLanguage === 'pgsql') {
+                themeName = 'markdown-sql';
+            } else if (targetLanguage === 'csv' && !isDark) {
+                themeName = 'csv';
             }
-        });
+        }
+        const themeExt = buildTheme(themeName, isDark);
+        const hlStyle = buildHighlightStyle(themeName, isDark);
+        const fontTheme = this._buildFontTheme();
 
-        const state = EditorState.create({
-            doc: '',
+        return EditorState.create({
+            doc,
             extensions: [
                 lineNumbers(),
                 highlightActiveLine(),
@@ -187,25 +192,80 @@ export class CodeEditor {
                 indentOnInput(),
                 bracketMatching(),
                 foldGutter(),
-                history(),
                 keymap.of([
+                    {
+                        key: 'Mod-z',
+                        run: () => this.callbacks.onUndoRequest?.() !== false,
+                    },
+                    {
+                        key: 'Mod-Shift-z',
+                        run: () => this.callbacks.onRedoRequest?.() !== false,
+                    },
+                    {
+                        key: 'Mod-y',
+                        run: () => this.callbacks.onRedoRequest?.() !== false,
+                    },
                     ...defaultKeymap,
-                    ...historyKeymap,
                     ...foldKeymap,
                     indentWithTab,
                 ]),
-                this._langCompartment.of([]),
+                this._langCompartment.of(langSupport ? [langSupport] : []),
                 this._themeCompartment.of(themeExt),
                 this._highlightCompartment.of(hlStyle),
                 this._fontCompartment.of(fontTheme),
-                this._tabSizeCompartment.of(EditorState.tabSize.of(4)),
-                this._indentUnitCompartment.of(indentUnit.of('    ')),
+                this._tabSizeCompartment.of(EditorState.tabSize.of(tabSize)),
+                this._indentUnitCompartment.of(indentUnit.of(indent)),
                 this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
                 searchDecorationField,
                 this._updateListener,
                 EditorView.lineWrapping,
             ],
         });
+    }
+
+    /**
+     * 恢复指定 tab 的完整 CodeMirror 状态，包含撤销栈。
+     */
+    restoreTabState(tabId, content, language) {
+        if (!tabId || !this.editor) return false;
+        this.clearSearchDecorations();
+        const snapshot = this.tabViewStates.get(tabId);
+        if (!snapshot?.editorState) return false;
+        if (snapshot.content !== content || snapshot.language !== language) return false;
+
+        try {
+            this.editor.setState(snapshot.editorState);
+            this.currentLanguage = snapshot.language;
+            this.baseContent = snapshot.baseContent;
+            this.isDirty = Boolean(snapshot.isDirty);
+            this.applyPreferencesToEditor();
+            if (typeof snapshot.scrollTop === 'number') {
+                this.editor.scrollDOM.scrollTop = snapshot.scrollTop;
+            }
+            snapshot.lastActive = Date.now();
+            ensureSyntaxTree(this.editor.state, this.editor.state.doc.length, 500);
+            return true;
+        } catch (error) {
+            console.warn('[CodeEditor] 恢复标签页状态失败', error);
+            return false;
+        }
+    }
+
+    async ensureEditor() {
+        if (this.editor) return;
+
+        this._updateListener = EditorView.updateListener.of((update) => {
+            if (update.docChanged && !this.suppressChange) {
+                const currentContent = update.state.doc.toString();
+                this.isDirty = currentContent !== this.baseContent;
+                this._recordTabHistory(currentContent);
+                this.callbacks.onContentChange?.();
+                this.notifyContentMutation();
+                this.scheduleAutoSave();
+            }
+        });
+
+        const state = this.createEditorState('', 'plaintext');
 
         this.editor = new EditorView({
             state,
@@ -313,54 +373,10 @@ export class CodeEditor {
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
         this.isDirty = false;
-
-        const langSupport = resolveLanguageSupport(targetLanguage);
-        const tabSize = targetLanguage === 'markdown' ? 2 : 4;
-        const indent = ' '.repeat(tabSize);
-        const isDark = document?.documentElement?.dataset?.themeAppearance === 'dark';
-        const userTheme = this.preferences?.theme || 'auto';
-        let themeName = userTheme;
-        if (userTheme === 'auto') {
-            if (targetLanguage === 'markdown' || targetLanguage === 'sql' || targetLanguage === 'mysql' || targetLanguage === 'pgsql') {
-                themeName = 'markdown-sql';
-            } else if (targetLanguage === 'csv' && !isDark) {
-                themeName = 'csv';
-            }
+        const restored = this.restoreTabState(this.currentTabId, normalizedContent, targetLanguage);
+        if (!restored) {
+            this.editor.setState(this.createEditorState(normalizedContent, targetLanguage));
         }
-        const themeExt = buildTheme(themeName, isDark);
-        const hlStyle = buildHighlightStyle(themeName, isDark);
-        const fontTheme = this._buildFontTheme();
-
-        this.editor.setState(EditorState.create({
-            doc: normalizedContent,
-            extensions: [
-                lineNumbers(),
-                highlightActiveLine(),
-                highlightActiveLineGutter(),
-                highlightSpecialChars(),
-                rectangularSelection(),
-                indentOnInput(),
-                bracketMatching(),
-                foldGutter(),
-                history(),
-                keymap.of([
-                    ...defaultKeymap,
-                    ...historyKeymap,
-                    ...foldKeymap,
-                    indentWithTab,
-                ]),
-                this._langCompartment.of(langSupport ? [langSupport] : []),
-                this._themeCompartment.of(themeExt),
-                this._highlightCompartment.of(hlStyle),
-                this._fontCompartment.of(fontTheme),
-                this._tabSizeCompartment.of(EditorState.tabSize.of(tabSize)),
-                this._indentUnitCompartment.of(indentUnit.of(indent)),
-                this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
-                searchDecorationField,
-                this._updateListener,
-                EditorView.lineWrapping,
-            ],
-        }));
 
         // Force synchronous parsing so highlighting appears immediately
         ensureSyntaxTree(this.editor.state, this.editor.state.doc.length, 500);
@@ -370,13 +386,14 @@ export class CodeEditor {
             return;
         }
 
-        this.restoreViewStateForTab(this.currentTabId);
         this.showContainer();
         this.requestLayout();
 
         if (autoFocus === true) {
             this.editor.focus();
         }
+
+        this._syncTabHistory(normalizedContent);
 
         if (this.loadingSessionId === sessionId) {
             this.loadingSessionId = null;
@@ -790,30 +807,22 @@ export class CodeEditor {
         if (!tabId || !this.editor) return;
         try {
             const scrollTop = this.editor.scrollDOM.scrollTop;
-            const selection = this.editor.state.selection;
-            this.tabViewStates.set(tabId, { scrollTop, selection });
+            this.tabViewStates.set(tabId, {
+                editorState: this.editor.state,
+                content: this.editor.state.doc.toString(),
+                baseContent: this.baseContent,
+                isDirty: this.isDirty,
+                language: this.currentLanguage,
+                scrollTop,
+                lastActive: Date.now(),
+            });
         } catch (error) {
             console.warn('[CodeEditor] 保存视图状态失败', error);
         }
     }
 
-    restoreViewStateForTab(tabId) {
-        if (!tabId || !this.editor) return false;
-        this.clearSearchDecorations();
-        const viewState = this.tabViewStates.get(tabId);
-        if (!viewState) return false;
-        try {
-            if (viewState.selection) {
-                this.editor.dispatch({ selection: viewState.selection });
-            }
-            if (typeof viewState.scrollTop === 'number') {
-                this.editor.scrollDOM.scrollTop = viewState.scrollTop;
-            }
-            return true;
-        } catch (error) {
-            console.warn('[CodeEditor] 恢复视图状态失败', error);
-            return false;
-        }
+    restoreViewStateForTab(tabId, content = this.baseContent, language = this.currentLanguage) {
+        return this.restoreTabState(tabId, content, language);
     }
 
     forgetViewStateForTab(tabId) {
@@ -827,6 +836,17 @@ export class CodeEditor {
         const state = this.tabViewStates.get(oldTabId);
         this.tabViewStates.delete(oldTabId);
         if (state) this.tabViewStates.set(newTabId, state);
+    }
+
+    trimStaleViewStates(maxAge) {
+        const now = Date.now();
+        for (const [tabId, snapshot] of this.tabViewStates) {
+            if (tabId === this.currentTabId) continue;
+            if (!snapshot?.editorState) continue;
+            const lastActive = snapshot.lastActive ?? 0;
+            if (now - lastActive < maxAge) continue;
+            snapshot.editorState = null;
+        }
     }
 
     getSelectionText() {
@@ -856,16 +876,43 @@ export class CodeEditor {
         });
     }
 
-    undo() {
+    undo() { return this.callbacks.onUndoRequest?.() ?? false; }
+
+    redo() { return this.callbacks.onRedoRequest?.() ?? false; }
+
+    applyHistoryContent(content) {
         if (!this.editor) return false;
-        undo(this.editor);
+        const nextContent = typeof content === 'string' ? content : '';
+        const selection = this.editor.state.selection.main;
+        const nextPos = Math.min(selection.head, nextContent.length);
+        this.suppressChange = true;
+        try {
+            this.editor.dispatch({
+                changes: { from: 0, to: this.editor.state.doc.length, insert: nextContent },
+                selection: { anchor: nextPos },
+            });
+            this.isDirty = nextContent !== this.baseContent;
+        } finally {
+            this.suppressChange = false;
+        }
+        this.callbacks.onContentChange?.();
         return true;
     }
 
-    redo() {
-        if (!this.editor) return false;
-        redo(this.editor);
-        return true;
+    /**
+     * 将当前内容同步到 tab 共享历史。
+     */
+    _syncTabHistory(content = this.getValue()) {
+        if (!this.currentTabId || !this.tabHistoryManager) return;
+        this.tabHistoryManager.syncContent(this.currentTabId, content);
+    }
+
+    /**
+     * 记录一次来自代码视图的用户修改。
+     */
+    _recordTabHistory(content = this.getValue()) {
+        if (!this.currentTabId || !this.tabHistoryManager) return;
+        this.tabHistoryManager.recordChange(this.currentTabId, content, { source: 'code' });
     }
 
     // --- AI Stream ---

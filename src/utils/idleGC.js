@@ -72,20 +72,7 @@ export function createTabStateTrimmer(getMarkdownEditor) {
     return {
         trim() {
             const editor = getMarkdownEditor();
-            if (!editor?.tabViewStates) return;
-
-            const now = Date.now();
-            const currentTab = editor.currentTabId;
-
-            for (const [tabId, snapshot] of editor.tabViewStates) {
-                if (tabId === currentTab) continue;
-                if (!snapshot.editorState) continue;
-
-                const lastActive = snapshot.lastActive ?? 0;
-                if (now - lastActive < STALE_TAB_AGE) continue;
-
-                snapshot.editorState = null;
-            }
+            editor?.trimStaleViewStates?.(STALE_TAB_AGE);
         },
     };
 }
