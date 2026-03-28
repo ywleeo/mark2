@@ -45,8 +45,7 @@ export function createUntitledController({
 
         const editor = getMarkdownEditor();
         if (editor) {
-            editor.setContent?.('');
-            editor.currentFile = untitledPath;
+            editor.prepareForDocument(null, untitledPath, untitledPath);
             activateMarkdownView();
             setTimeout(() => {
                 editor.focus?.();
