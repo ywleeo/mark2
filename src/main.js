@@ -59,6 +59,7 @@ import { createSpreadsheetRenderer } from './fileRenderers/handlers/spreadsheet.
 import { createPdfRenderer } from './fileRenderers/handlers/pdf.js';
 import { createWorkflowRenderer } from './fileRenderers/handlers/workflow.js';
 import { createDocxRenderer } from './fileRenderers/handlers/docx.js';
+import { createPptxRenderer } from './fileRenderers/handlers/pptx.js';
 
 // ========== 状态管理实例 ==========
 const appState = new AppState();
@@ -103,6 +104,7 @@ rendererRegistry.register(createSpreadsheetRenderer());
 rendererRegistry.register(createPdfRenderer());
 rendererRegistry.register(createWorkflowRenderer());
 rendererRegistry.register(createDocxRenderer());
+rendererRegistry.register(createPptxRenderer());
 rendererRegistry.setDefaultHandler(createCodeRenderer());
 
 // ========== 外观变化监听 ==========

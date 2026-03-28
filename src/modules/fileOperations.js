@@ -226,7 +226,7 @@ export function createFileOperations({
                     // docx/spreadsheet 等导入型文件不加入 open list，直接触发文件选择
                     // 这类文件会被渲染器转成 untitled tab，不应在文件树中留下持久 tab
                     const viewMode = getViewModeForPath(resolvedPath);
-                    const isImportType = viewMode === 'docx' || viewMode === 'spreadsheet';
+                    const isImportType = viewMode === 'docx' || viewMode === 'pptx' || viewMode === 'spreadsheet';
                     if (!isImportType) {
                         fileTree.addToOpenFiles(resolvedPath);
                     }
@@ -476,7 +476,7 @@ export function createFileOperations({
             const renderer = rendererRegistry?.getHandlerForPath?.(filePath) || null;
 
             // 导入型文件（docx/spreadsheet）：不影响当前编辑器状态，只读文件并触发导入
-            if (importAsUntitled && (initialViewMode === 'docx' || initialViewMode === 'spreadsheet')) {
+            if (importAsUntitled && (initialViewMode === 'docx' || initialViewMode === 'pptx' || initialViewMode === 'spreadsheet')) {
                 const statusBar = getStatusBarController?.();
                 statusBar?.showProgress?.('正在读取文件…');
                 try {

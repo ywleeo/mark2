@@ -18,6 +18,7 @@ const VIDEO_EXTENSIONS = new Set([
     'm4v',
 ]);
 const WORD_EXTENSIONS = new Set(['docx']);
+const PPTX_EXTENSIONS = new Set(['pptx']);
 const SPREADSHEET_EXTENSIONS = new Set([
     'xls',
     'xlsx',
@@ -206,6 +207,14 @@ export function isWordFilePath(filePath) {
     return WORD_EXTENSIONS.has(match[1]);
 }
 
+export function isPptxFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    if (!normalized) return false;
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    if (!match) return false;
+    return PPTX_EXTENSIONS.has(match[1]);
+}
+
 export function isCsvFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     return normalized.endsWith('.csv');
@@ -284,6 +293,9 @@ if (isWorkflowFilePath(filePath)) {
     }
     if (isWordFilePath(filePath)) {
         return 'docx';
+    }
+    if (isPptxFilePath(filePath)) {
+        return 'pptx';
     }
     if (isSpreadsheetFilePath(filePath)) {
         return 'spreadsheet';

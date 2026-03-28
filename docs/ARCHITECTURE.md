@@ -77,9 +77,9 @@ eventBus.once('event-name', handler)
 
 ### 3. 视图模式
 
-支持 7 种视图模式，通过文件扩展名路由：
+支持以下视图模式，通过文件扩展名路由：
 
-| 视图模式 | 文件类型 | 组件 |
+| 视图模式 | 文件类型 | 说明 |
 |----------|----------|------|
 | markdown | .md, .markdown, .mdx | MarkdownEditor |
 | code | 50+ 代码语言 | CodeEditor |
@@ -88,6 +88,13 @@ eventBus.once('event-name', handler)
 | pdf | .pdf | PdfViewer |
 | spreadsheet | .xlsx, .csv, ... | SpreadsheetViewer |
 | unsupported | 其他 | UnsupportedViewer |
+
+**导入型模式**（转换后以 untitled 草稿打开，不在文件树留持久 tab）：
+
+| 视图模式 | 文件类型 | 转换目标 |
+|----------|----------|----------|
+| docx | .docx | Markdown（via Mammoth.js） |
+| pptx | .pptx | Markdown（via JSZip + DOMParser） |
 
 路由逻辑在 `src/utils/fileTypeUtils.js`：
 ```javascript
