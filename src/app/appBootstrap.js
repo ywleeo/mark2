@@ -401,6 +401,7 @@ export function createAppBootstrap({
             onOpen: openFileOrFolder,
             onSave: saveCurrentFile,
             onCloseTab: closeActiveTab,
+            onNewTab: handleCreateUntitled,
             onFind: () => editorRegistry.getMarkdownEditor()?.showSearch?.(),
             onSelectSearchMatches: () => editorRegistry.getMarkdownEditor()?.selectAllSearchMatches?.(),
             onDeleteFile: handleDeleteActiveFile,

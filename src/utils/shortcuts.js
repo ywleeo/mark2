@@ -2,6 +2,7 @@ export function setupKeyboardShortcuts({
     onOpen,
     onSave,
     onCloseTab,
+    onNewTab,
     onFind,
     onSelectSearchMatches,
     onDeleteFile,
@@ -66,6 +67,14 @@ export function setupKeyboardShortcuts({
             }
             if (onToggleMarkdownCodeView) {
                 await onToggleMarkdownCodeView();
+            }
+            return;
+        }
+
+        if (isMeta && key === 't') {
+            event.preventDefault();
+            if (onNewTab) {
+                await onNewTab();
             }
             return;
         }
