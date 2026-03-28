@@ -71,11 +71,20 @@ export class AppState {
     }
 
     setCurrentFile(filePath) {
+        const prev = this.currentFile;
         this.currentFile = filePath;
         // 同时导出到 window（兼容现有代码）
         if (typeof window !== 'undefined') {
             window.currentFile = filePath;
         }
+        if (prev !== filePath) {
+            this._onCurrentFileChange?.(filePath);
+        }
+    }
+
+    /** 注册当前文件变化回调（供 AiSidebar 等模块订阅） */
+    onCurrentFileChange(fn) {
+        this._onCurrentFileChange = fn;
     }
 
     getHasUnsavedChanges() {

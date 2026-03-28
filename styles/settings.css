@@ -593,6 +593,20 @@
     color: var(--settings-primary);
     font-size: 12px;
     font-weight: 500;
+    cursor: pointer;
+}
+
+.ai-model-tag.is-active {
+    background: var(--settings-primary);
+    color: #fff;
+}
+
+.ai-model-tag.is-active .ai-model-tag__remove {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.ai-model-tag.is-active .ai-model-tag__remove:hover {
+    color: #fff;
 }
 
 .ai-model-tag__remove {

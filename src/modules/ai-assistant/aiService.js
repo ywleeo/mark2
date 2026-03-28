@@ -328,7 +328,19 @@ class AiService {
                                     }
                                     const tc = task.toolCalls[idx];
                                     if (delta.id) tc.id = delta.id;
-                                    if (delta.function.name) tc.function.name += delta.function.name;
+                                    if (delta.function.name) {
+                                        const wasEmpty = tc.function.name === '';
+                                        tc.function.name += delta.function.name;
+                                        // 第一次拿到函数名时通知订阅者（用于 UI 显示生成中状态）
+                                        if (wasEmpty) {
+                                            this.notify({
+                                                type: 'task-stream-tool-call',
+                                                id: taskId,
+                                                name: tc.function.name,
+                                                index: idx,
+                                            });
+                                        }
+                                    }
                                     if (delta.function.arguments) tc.function.arguments += delta.function.arguments;
                                 }
                             }

@@ -1,0 +1,694 @@
+/**
+ * AI Agent Sidebar
+ * 右侧 AI 助手面板，支持多轮对话 + 工具调用（读写文件、管理目录）
+ */
+
+import MarkdownIt from 'markdown-it';
+import { aiService } from './aiService.js';
+import { AgentLoop } from './AgentLoop.js';
+import { TOOL_DEFINITIONS, createToolExecutor } from './AgentTools.js';
+import { addClickHandler } from '../../utils/PointerHelper.js';
+import { writeFile } from '../../api/filesystem.js';
+
+// 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）
+const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
+
+// ── 工具中文标签 ──────────────────────────────────────────
+const TOOL_LABELS = {
+    get_document_info: '获取文档信息',
+    read_document_lines: '读取文档片段',
+    search_in_document: '搜索文档内容',
+    write_current_document: '修改当前文档',
+    read_file: '读取文件',
+    write_file: '写入文件',
+    delete_file: '删除文件',
+    rename_file: '重命名文件',
+    list_directory: '列出目录',
+    create_directory: '创建目录',
+};
+
+// 工具执行中的状态文字
+const TOOL_STATUS_RUNNING = {
+    write_current_document: '修改文件中',
+    write_file: '写入文件中',
+    delete_file: '删除文件中',
+    rename_file: '重命名中',
+    create_directory: '创建目录中',
+};
+
+// ── 简单行级 diff（LCS算法） ──────────────────────────────
+function diffLines(oldText, newText) {
+    const a = oldText.split('\n');
+    const b = newText.split('\n');
+    const m = a.length;
+    const n = b.length;
+
+    // LCS dp table
+    const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i - 1] === b[j - 1]
+                ? dp[i - 1][j - 1] + 1
+                : Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+
+    // 回溯
+    const result = [];
+    let i = m, j = n;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
+            result.unshift({ type: 'eq', value: a[i - 1] });
+            i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            result.unshift({ type: 'add', value: b[j - 1] });
+            j--;
+        } else {
+            result.unshift({ type: 'del', value: a[i - 1] });
+            i--;
+        }
+    }
+    return result;
+}
+
+// ── 带上下文行的压缩 diff ──────────────────────────────────
+function buildDiffChunks(diffResult, contextLines = 3) {
+    const CONTEXT = contextLines;
+    const changed = new Set();
+    diffResult.forEach((line, idx) => {
+        if (line.type !== 'eq') changed.add(idx);
+    });
+
+    const visible = new Set();
+    changed.forEach((idx) => {
+        for (let k = Math.max(0, idx - CONTEXT); k <= Math.min(diffResult.length - 1, idx + CONTEXT); k++) {
+            visible.add(k);
+        }
+    });
+
+    const chunks = [];
+    let skipped = 0;
+    for (let idx = 0; idx < diffResult.length; idx++) {
+        if (visible.has(idx)) {
+            if (skipped > 0) {
+                chunks.push({ type: 'skip', count: skipped });
+                skipped = 0;
+            }
+            chunks.push(diffResult[idx]);
+        } else {
+            skipped++;
+        }
+    }
+    if (skipped > 0) chunks.push({ type: 'skip', count: skipped });
+    return chunks;
+}
+
+// ── 内联卡片：对话中的 assistant 消息 ────────────────────
+class AssistantCard {
+    constructor(listEl) {
+        this.el = document.createElement('div');
+        this.el.className = 'ai-message ai-message-assistant';
+        this.el.innerHTML = `
+            <div class="ai-message-thinking is-collapsed" style="display:none">
+                <button class="ai-message-thinking-toggle" type="button">
+                    <span>思考过程</span>
+                    <span class="ai-thinking-expand">▶</span>
+                </button>
+                <div class="ai-message-thinking-preview"></div>
+                <div class="ai-message-thinking-full"></div>
+            </div>
+            <div class="ai-message-body"></div>
+        `;
+        listEl.appendChild(this.el);
+
+        this.thinkingEl = this.el.querySelector('.ai-message-thinking');
+        this.thinkingPreviewEl = this.el.querySelector('.ai-message-thinking-preview');
+        this.thinkingFullEl = this.el.querySelector('.ai-message-thinking-full');
+        this.thinkingToggleEl = this.el.querySelector('.ai-message-thinking-toggle');
+        this.bodyEl = this.el.querySelector('.ai-message-body');
+        this.toolCards = new Map(); // id -> {el}
+
+        // 唯一的 loading 指示器，始终 append 在 bodyEl 末尾
+        this.loadingEl = document.createElement('div');
+        this.loadingEl.className = 'ai-message-content ai-message-loading';
+        this.loadingTextEl = document.createElement('span');
+        this.loadingTextEl.className = 'ai-loading-text';
+        this.loadingTextEl.textContent = '思考中...';
+        this.loadingEl.appendChild(this.loadingTextEl);
+        this.bodyEl.appendChild(this.loadingEl);
+
+        // 当前文字 content box，按需创建
+        this.currentContentEl = null;
+
+        addClickHandler(this.thinkingToggleEl, () => this._toggleThinking());
+    }
+
+    _toggleThinking() {
+        const collapsed = this.thinkingEl.classList.toggle('is-collapsed');
+        const icon = this.thinkingEl.querySelector('.ai-thinking-expand');
+        icon.textContent = collapsed ? '▶' : '▼';
+    }
+
+    /** 新一轮 LLM 迭代开始：重置 content box，让 loadingEl 显示在底部 */
+    newContentBox() {
+        this.currentContentEl = null;
+        this.loadingTextEl.textContent = '思考中...';
+        this.loadingEl.style.display = '';
+        this.bodyEl.appendChild(this.loadingEl); // 移到最底部
+        scrollToBottom(this.el);
+    }
+
+    /** 工具调用开始流式生成时：重新显示 loading 指示器 */
+    showGenerating(toolName) {
+        const GENERATING_LABELS = {
+            write_current_document: '生成修改内容中...',
+            write_file: '生成文件内容中...',
+        };
+        this.loadingTextEl.textContent = GENERATING_LABELS[toolName] || '思考中...';
+        this.loadingEl.style.display = '';
+        this.bodyEl.appendChild(this.loadingEl);
+        scrollToBottom(this.el);
+    }
+
+    /** 流式文本到来：首次时在 loadingEl 前插入 content box 并隐藏 loading */
+    setContent(text) {
+        if (!this.currentContentEl) {
+            this.currentContentEl = document.createElement('div');
+            this.currentContentEl.className = 'ai-message-content ai-message-markdown';
+            this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
+            this.loadingEl.style.display = 'none';
+        }
+        this.currentContentEl.innerHTML = md.render(text);
+        scrollToBottom(this.el);
+    }
+
+    setThinking(text) {
+        this.thinkingEl.style.display = '';
+        this.thinkingPreviewEl.textContent = text.slice(0, 120);
+        this.thinkingFullEl.textContent = text;
+        scrollToBottom(this.el);
+    }
+
+    /** Agent 完成，隐藏 loading */
+    done() {
+        this.loadingEl.style.display = 'none';
+    }
+
+    addToolCard({ id, name }) {
+        // 工具执行有自己的状态卡，loading 先隐藏
+        this.loadingEl.style.display = 'none';
+        const statusText = TOOL_STATUS_RUNNING[name] || '...';
+        const card = document.createElement('div');
+        card.className = 'ai-tool-card ai-tool-card-running';
+        card.innerHTML = `
+            <span class="ai-tool-card-icon">⚙</span>
+            <span class="ai-tool-card-name">${TOOL_LABELS[name] || name}</span>
+            <span class="ai-tool-card-status">${statusText}</span>
+        `;
+        this.bodyEl.insertBefore(card, this.loadingEl);
+        this.toolCards.set(id, { el: card });
+        scrollToBottom(this.el);
+    }
+
+    updateToolCard({ id, result }) {
+        const entry = this.toolCards.get(id);
+        if (!entry) return;
+        const { el } = entry;
+        el.classList.remove('ai-tool-card-running');
+
+        const statusEl = el.querySelector('.ai-tool-card-status');
+        if (result?.error) {
+            el.classList.add('ai-tool-card-error');
+            statusEl.textContent = `失败: ${result.error}`;
+        } else if (result?.cancelled) {
+            el.classList.add('ai-tool-card-cancelled');
+            statusEl.textContent = '已取消';
+        } else {
+            el.classList.add('ai-tool-card-done');
+            statusEl.textContent = '完成';
+        }
+        scrollToBottom(this.el);
+    }
+
+    setError(msg) {
+        this.loadingEl.style.display = 'none';
+        if (!this.currentContentEl) {
+            this.currentContentEl = document.createElement('div');
+            this.currentContentEl.className = 'ai-message-content';
+            this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
+        }
+        this.currentContentEl.textContent = `错误: ${msg}`;
+        this.currentContentEl.style.color = 'var(--ai-sidebar-error, #e05555)';
+    }
+
+    /**
+     * 在 body 内渲染 diff 视图（默认收起），返回 Promise<{applied: boolean}>
+     */
+    addDiffCard({ path, oldContent, newContent }) {
+        // diff 出现 = 内容已生成完毕，把 running 工具卡改为「完成」
+        for (const { el } of this.toolCards.values()) {
+            if (el.classList.contains('ai-tool-card-running')) {
+                el.classList.remove('ai-tool-card-running');
+                el.classList.add('ai-tool-card-done');
+                el.querySelector('.ai-tool-card-status').textContent = '完成';
+            }
+        }
+        return new Promise((resolve) => {
+            const diffResult = diffLines(oldContent, newContent);
+            const chunks = buildDiffChunks(diffResult);
+            const hasChanges = diffResult.some((l) => l.type !== 'eq');
+
+            const card = document.createElement('div');
+            card.className = 'ai-diff-card is-collapsed';
+
+            const fileName = path.split('/').pop();
+            card.innerHTML = `
+                <div class="ai-diff-header">
+                    <span class="ai-diff-file">${escapeHtml(fileName)}</span>
+                    <span class="ai-diff-summary">${this._diffSummary(diffResult)}</span>
+                    <span class="ai-diff-toggle">▶</span>
+                </div>
+                <div class="ai-diff-body"></div>
+                <div class="ai-diff-actions">
+                    ${hasChanges ? `<button class="ai-diff-apply-btn">应用修改</button>` : ''}
+                    <button class="ai-diff-cancel-btn">${hasChanges ? '取消' : '关闭'}</button>
+                </div>
+            `;
+
+            const diffBodyEl = card.querySelector('.ai-diff-body');
+            chunks.forEach((chunk) => {
+                if (chunk.type === 'skip') {
+                    const skip = document.createElement('div');
+                    skip.className = 'ai-diff-skip';
+                    skip.textContent = `··· ${chunk.count} 行未改动 ···`;
+                    diffBodyEl.appendChild(skip);
+                } else {
+                    const line = document.createElement('div');
+                    line.className = `ai-diff-line ai-diff-line-${chunk.type}`;
+                    const prefix = chunk.type === 'add' ? '+' : chunk.type === 'del' ? '-' : ' ';
+                    line.textContent = `${prefix} ${chunk.value}`;
+                    diffBodyEl.appendChild(line);
+                }
+            });
+
+            const headerEl = card.querySelector('.ai-diff-header');
+            const toggleEl = card.querySelector('.ai-diff-toggle');
+            addClickHandler(headerEl, () => {
+                const collapsed = card.classList.toggle('is-collapsed');
+                toggleEl.textContent = collapsed ? '▶' : '▼';
+            });
+
+            const applyBtn = card.querySelector('.ai-diff-apply-btn');
+            const cancelBtn = card.querySelector('.ai-diff-cancel-btn');
+
+            if (applyBtn) {
+                addClickHandler(applyBtn, () => {
+                    applyBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    card.classList.add('ai-diff-card-applied');
+                    resolve({ applied: true });
+                });
+            }
+
+            addClickHandler(cancelBtn, () => {
+                applyBtn && (applyBtn.disabled = true);
+                cancelBtn.disabled = true;
+                card.classList.add('ai-diff-card-cancelled');
+                resolve({ applied: false });
+            });
+
+            this.bodyEl.insertBefore(card, this.loadingEl);
+            scrollToBottom(this.el);
+        });
+    }
+
+    /**
+     * 在 body 内渲染删除确认，返回 Promise<boolean>
+     */
+    addDeleteConfirmCard(path) {
+        return new Promise((resolve) => {
+            const fileName = path.split('/').pop();
+            const card = document.createElement('div');
+            card.className = 'ai-confirm-card';
+            card.innerHTML = `
+                <div class="ai-confirm-text">确认删除 <strong>${escapeHtml(fileName)}</strong>？</div>
+                <div class="ai-confirm-path">${escapeHtml(path)}</div>
+                <div class="ai-confirm-actions">
+                    <button class="ai-confirm-ok-btn">确认删除</button>
+                    <button class="ai-confirm-cancel-btn">取消</button>
+                </div>
+            `;
+
+            const okBtn = card.querySelector('.ai-confirm-ok-btn');
+            const cancelBtn = card.querySelector('.ai-confirm-cancel-btn');
+
+            addClickHandler(okBtn, () => {
+                okBtn.disabled = true;
+                cancelBtn.disabled = true;
+                card.classList.add('ai-confirm-resolved');
+                resolve(true);
+            });
+
+            addClickHandler(cancelBtn, () => {
+                okBtn.disabled = true;
+                cancelBtn.disabled = true;
+                card.classList.add('ai-confirm-resolved');
+                resolve(false);
+            });
+
+            this.bodyEl.insertBefore(card, this.loadingEl);
+            scrollToBottom(this.el);
+        });
+    }
+
+    _diffSummary(diffResult) {
+        const added = diffResult.filter((l) => l.type === 'add').length;
+        const deleted = diffResult.filter((l) => l.type === 'del').length;
+        const parts = [];
+        if (added) parts.push(`<span class="ai-diff-added">+${added}</span>`);
+        if (deleted) parts.push(`<span class="ai-diff-deleted">-${deleted}</span>`);
+        return parts.join(' ') || '无变化';
+    }
+}
+
+// ── 工具函数 ──────────────────────────────────────────────
+function escapeHtml(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function scrollToBottom(refEl) {
+    const list = refEl.closest?.('.ai-conversation-list');
+    if (list) list.scrollTop = list.scrollHeight;
+}
+
+// ── 主类 ─────────────────────────────────────────────────
+export class AiSidebar {
+    /**
+     * @param {Object} options
+     * @param {() => import('../../state/AppState.js').AppState} options.getAppState
+     * @param {() => import('../../state/EditorRegistry.js').EditorRegistry} options.getEditorRegistry
+     * @param {(path: string) => Promise<void>} options.reloadCurrentFile
+     */
+    constructor({ getAppState, getEditorRegistry, reloadCurrentFile }) {
+        this.getAppState = getAppState;
+        this.getEditorRegistry = getEditorRegistry;
+        this.reloadCurrentFile = reloadCurrentFile;
+
+        this.el = document.querySelector('.ai-sidebar');
+        if (!this.el) {
+            console.error('[AiSidebar] .ai-sidebar 元素不存在');
+            return;
+        }
+
+        this.listEl = this.el.querySelector('.ai-conversation-list-items');
+        this.emptyEl = this.el.querySelector('.ai-conversation-empty');
+        this.inputEl = this.el.querySelector('.ai-sidebar-input-field');
+        this.sendBtn = this.el.querySelector('.ai-sidebar-send-btn');
+        this.cancelBtn = this.el.querySelector('.ai-sidebar-cancel-btn');
+        this.clearBtn = this.el.querySelector('.ai-sidebar-clear-btn');
+        this.closeBtn = this.el.querySelector('.ai-sidebar-close-btn');
+        this.fileNameEl = this.el.querySelector('.ai-context-file-name');
+
+        // 对话历史（仅用于 LLM，含 system/user/assistant/tool 消息）
+        this.agentMessages = [];
+        this.agentLoop = null;
+        this.isProcessing = false;
+
+        // 当前活跃的 assistant 卡片（用于关联 diff/confirm 到正确的卡片）
+        this._activeCard = null;
+
+        this._setupToolExecutor();
+        this._bindEvents();
+        this._bindFileChangeListener();
+        this._updateContextBar();
+    }
+
+    // ── 初始化 ────────────────────────────────────────────
+
+    // 从编辑器内存读取当前文档内容（优先于磁盘）
+    _getEditorContent() {
+        const appState = this.getAppState();
+        const viewMode = appState.getActiveViewMode();
+        const reg = this.getEditorRegistry?.();
+        if (!reg) return null;
+        if (viewMode === 'markdown') {
+            const content = reg.getMarkdownEditor?.()?.getMarkdown?.();
+            return typeof content === 'string' ? content : null;
+        }
+        if (viewMode === 'code') {
+            const content = reg.getCodeEditor?.()?.getValue?.();
+            return typeof content === 'string' ? content : null;
+        }
+        return null;
+    }
+
+    _setupToolExecutor() {
+        this.toolExecutor = createToolExecutor({
+            getCurrentFile: () => this.getAppState().getCurrentFile(),
+            getCurrentContent: () => this._getEditorContent(),
+            onWriteCurrentDocument: ({ path, oldContent, newContent }) =>
+                this._handleWriteCurrentDocument({ path, oldContent, newContent }),
+            onDeleteConfirm: (path) => this._handleDeleteConfirm(path),
+        });
+    }
+
+    _bindEvents() {
+        addClickHandler(this.sendBtn, () => this._handleSend());
+        addClickHandler(this.cancelBtn, () => this._handleCancel());
+        addClickHandler(this.clearBtn, () => this._handleClear());
+        addClickHandler(this.closeBtn, () => this.hide());
+
+        this._isComposing = false;
+        this._compositionJustEnded = false;
+        this.inputEl.addEventListener('compositionstart', () => {
+            this._isComposing = true;
+            this._compositionJustEnded = false;
+        });
+        this.inputEl.addEventListener('compositionend', () => {
+            this._isComposing = false;
+            this._compositionJustEnded = true;
+        });
+        this.inputEl.addEventListener('keydown', (e) => {
+            const justEnded = this._compositionJustEnded;
+            this._compositionJustEnded = false;
+            if (e.key === 'Enter' && !e.shiftKey && !this._isComposing && !justEnded) {
+                e.preventDefault();
+                void this._handleSend();
+            }
+        });
+    }
+
+    _bindFileChangeListener() {
+        this.getAppState().onCurrentFileChange((path) => {
+            this._updateContextBar(path);
+        });
+    }
+
+    _updateContextBar(path) {
+        const resolvedPath = path ?? this.getAppState().getCurrentFile();
+        if (resolvedPath) {
+            const name = resolvedPath.split('/').pop();
+            this.fileNameEl.textContent = name;
+            this.fileNameEl.classList.remove('is-empty');
+            this.fileNameEl.title = resolvedPath;
+        } else {
+            this.fileNameEl.textContent = '未打开文件';
+            this.fileNameEl.classList.add('is-empty');
+            this.fileNameEl.title = '';
+        }
+    }
+
+    // ── 显示/隐藏 ─────────────────────────────────────────
+
+    show() {
+        document.body.classList.add('ai-sidebar-visible');
+        this._updateContextBar();
+        this.inputEl.focus();
+    }
+
+    hide() {
+        document.body.classList.remove('ai-sidebar-visible');
+    }
+
+    toggle() {
+        document.body.classList.contains('ai-sidebar-visible') ? this.hide() : this.show();
+    }
+
+    // ── 发送消息 ──────────────────────────────────────────
+
+    async _handleSend() {
+        if (this.isProcessing) return;
+        const text = this.inputEl.value.trim();
+        if (!text) return;
+
+        if (!aiService_hasConfig()) {
+            this._appendSystemMessage('请先在设置中配置 AI Provider 和 API Key');
+            return;
+        }
+
+        this.inputEl.value = '';
+        this._appendUserMessage(text);
+        this._startProcessing();
+
+        // 刷新 system prompt（每次发送都更新，确保当前文件路径是最新的）
+        const systemContent = this._buildSystemPrompt();
+        if (this.agentMessages.length > 0 && this.agentMessages[0].role === 'system') {
+            this.agentMessages[0] = { role: 'system', content: systemContent };
+        } else {
+            this.agentMessages.unshift({ role: 'system', content: systemContent });
+        }
+
+        this.agentMessages.push({ role: 'user', content: text });
+
+        const card = new AssistantCard(this.listEl);
+        this._activeCard = card;
+        this.emptyEl.style.display = 'none';
+
+        this.agentLoop = new AgentLoop({
+            toolExecutor: this.toolExecutor,
+            toolDefinitions: TOOL_DEFINITIONS,
+            onIterationStart: () => card.newContentBox(),
+            onChunk: (_delta, buffer) => card.setContent(buffer),
+            onThink: (_delta, buffer) => card.setThinking(buffer),
+            onToolCall: ({ id, name }) => card.addToolCard({ id, name }),
+            onToolResult: ({ id, result }) => card.updateToolCard({ id, result }),
+            onToolCallStreaming: ({ name }) => card.showGenerating(name),
+            onError: (err) => {
+                card.setError(err.message || '未知错误');
+                this._stopProcessing();
+            },
+        });
+
+        try {
+            const updatedMessages = await this.agentLoop.run(this.agentMessages);
+            this.agentMessages = updatedMessages;
+            card.done();
+        } catch {
+            // onError 已处理
+        } finally {
+            this.agentLoop = null;
+            this._activeCard = null;
+            this._stopProcessing();
+        }
+    }
+
+    _handleCancel() {
+        if (this.agentLoop) {
+            this.agentLoop.abort();
+            this.agentLoop = null;
+        }
+        this._stopProcessing();
+        this._appendSystemMessage('已取消');
+    }
+
+    _handleClear() {
+        if (this.isProcessing) return;
+        this.agentMessages = [];
+        this.listEl.innerHTML = '';
+        this.emptyEl.style.display = '';
+    }
+
+    // ── 工具回调 ──────────────────────────────────────────
+
+    async _handleWriteCurrentDocument({ path, oldContent, newContent }) {
+        const card = this._activeCard;
+        if (!card) return { applied: false };
+
+        const result = await card.addDiffCard({ path, oldContent, newContent });
+
+        if (result.applied) {
+            try {
+                await writeFile(path, newContent);
+                await this.reloadCurrentFile(path);
+            } catch (err) {
+                this._appendSystemMessage(`写入文件失败: ${err.message}`);
+                return { applied: false };
+            }
+        }
+
+        return result;
+    }
+
+    async _handleDeleteConfirm(path) {
+        const card = this._activeCard;
+        if (!card) return false;
+        return card.addDeleteConfirmCard(path);
+    }
+
+    // ── UI 辅助 ───────────────────────────────────────────
+
+    _appendUserMessage(text) {
+        this.emptyEl.style.display = 'none';
+        const el = document.createElement('div');
+        el.className = 'ai-message ai-message-user';
+        el.innerHTML = `<div class="ai-message-content">${escapeHtml(text)}</div>`;
+        this.listEl.appendChild(el);
+        scrollToBottom(el);
+    }
+
+    _appendSystemMessage(text) {
+        const el = document.createElement('div');
+        el.className = 'ai-message ai-message-system';
+        el.innerHTML = `<div class="ai-message-content">${escapeHtml(text)}</div>`;
+        this.listEl.appendChild(el);
+        scrollToBottom(el);
+    }
+
+    _startProcessing() {
+        this.isProcessing = true;
+        this.sendBtn.disabled = true;
+        this.cancelBtn.style.display = '';
+        this.el.querySelector('.ai-conversation-list').classList.add('ai-processing');
+    }
+
+    _stopProcessing() {
+        this.isProcessing = false;
+        this.sendBtn.disabled = false;
+        this.cancelBtn.style.display = 'none';
+        this.el.querySelector('.ai-conversation-list').classList.remove('ai-processing');
+    }
+
+    // ── System Prompt 构建 ────────────────────────────────
+
+    _buildSystemPrompt() {
+        const appState = this.getAppState();
+        const currentFile = appState.getCurrentFile();
+        const workspaceFolder = appState.getFileTree()?.rootPaths?.[0] || null;
+
+        const fileInfo = currentFile
+            ? `当前打开的文档：${currentFile}`
+            : '当前没有打开的文档';
+
+        const workspaceInfo = workspaceFolder
+            ? `工作区文件夹：${workspaceFolder}`
+            : '';
+
+        return `你是一个文档 Agent，帮助用户管理和编辑文档。
+
+## 工作流程
+1. 先理解用户指令
+2. 用工具获取必要信息（先用 get_document_info 了解文件规模，再按需分块读取或搜索）
+3. 完成操作
+
+## 注意事项
+- 不要一次读取超过需要的内容，大文件用 read_document_lines 分块或用 search_in_document 定位
+- 修改当前文档用 write_current_document（会展示 diff 供用户确认）
+- 删除操作会自动请求用户确认
+- 回复简洁，直接说做了什么
+
+## 当前状态
+${fileInfo}${workspaceInfo ? '\n' + workspaceInfo : ''}`;
+    }
+}
+
+// ── 检查 AI 是否已配置 ────────────────────────────────────
+function aiService_hasConfig() {
+    return !!aiService.getActiveApiKey();
+}
+
+/**
+ * 工厂函数
+ */
+export function initAiSidebar({ getAppState, getEditorRegistry, reloadCurrentFile }) {
+    return new AiSidebar({ getAppState, getEditorRegistry, reloadCurrentFile });
+}

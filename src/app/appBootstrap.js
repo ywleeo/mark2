@@ -15,6 +15,7 @@ import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { createTerminalPanel } from '../modules/terminalPanel.js';
 import { initCardExportSidebar } from '../modules/card-export/index.js';
+import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';
 import { restoreStoredSecurityScopes } from '../services/securityScopeService.js';
 import { setExportMenuEnabled } from '../api/native.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
@@ -302,6 +303,21 @@ export function createAppBootstrap({
         console.log('[App] 卡片导出侧边栏已初始化');
         handleCardSidebarOnFileChange(appState.getCurrentFile());
 
+        const aiSidebar = initAiSidebar({
+            getAppState: () => appState,
+            getEditorRegistry: () => editorRegistry,
+            reloadCurrentFile: async (path) => {
+                const normalized = normalizeFsPath(path) || path;
+                await loadFile(normalized, {
+                    skipWatchSetup: true,
+                    forceReload: true,
+                    autoFocus: false,
+                    tabId: normalized,
+                });
+            },
+        });
+        console.log('[App] AI 助手侧边栏已初始化');
+
         const terminalPanel = createTerminalPanel({
             getWorkspaceCwd: () => appState.getFileTree()?.rootPaths?.[0] || null,
         });
@@ -438,6 +454,7 @@ export function createAppBootstrap({
                 }
                 getTerminalPanel()?.toggle();
             },
+            onToggleAiSidebar: () => aiSidebar?.toggle(),
             onDeleteActiveFile: handleDeleteActiveFile,
             onMoveActiveFile: handleMoveActiveFile,
             onRenameActiveFile: handleRenameActiveFile,

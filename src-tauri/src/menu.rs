@@ -181,6 +181,10 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .accelerator("CmdOrCtrl+J")
         .build(app)?;
 
+    let toggle_ai_sidebar_item = MenuItemBuilder::with_id("toggle-ai-sidebar", "AI Assistant")
+        .accelerator("CmdOrCtrl+Shift+A")
+        .build(app)?;
+
     let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", "Toggle Dark/Light Mode")
         .build(app)?;
 
@@ -240,6 +244,7 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .item(&toggle_theme_item)
         .separator()
         .item(&toggle_terminal_item)
+        .item(&toggle_ai_sidebar_item)
         .build()?;
 
     app.manage(ExportMenuState::new(

@@ -225,6 +225,7 @@ export class SettingsDialog {
         this.providerEditorEl = this.root.querySelector('[data-ref="providerEditor"]');
         this.aiProviders = []; // 运行时 provider 数据
         this.selectedProviderId = null;
+        this.selectedActiveModel = ''; // 当前选中的活跃模型
 
         // 添加 provider 按钮
         const addProviderBtn = this.root.querySelector('[data-action="add-provider"]');
@@ -337,6 +338,7 @@ export class SettingsDialog {
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
         this.aiProviders = (aiConfig.providers || []).map(p => ({ ...p }));
+        this.selectedActiveModel = aiConfig.activeModel || '';
         this.aiCreativitySelect.value = aiConfig.preferences?.creativity || 'medium';
         this.renderProviderList();
         // 默认选中第一个 provider
@@ -425,7 +427,7 @@ export class SettingsDialog {
         const aiConfig = {
             providers: this.aiProviders,
             activeProviderId: this.aiProviders[0]?.id || '',
-            activeModel: this.aiProviders[0]?.models?.[0] || '',
+            activeModel: this.selectedActiveModel || this.aiProviders[0]?.models?.[0] || '',
             preferences: {
                 creativity: this.aiCreativitySelect.value || 'medium',
             }
@@ -744,17 +746,14 @@ export class SettingsDialog {
 
         provider.models.forEach((model, index) => {
             const tag = document.createElement('span');
-            tag.className = 'ai-model-tag';
+            tag.className = 'ai-model-tag' + (model === this.selectedActiveModel ? ' is-active' : '');
             tag.dataset.model = model;
+            tag.title = '点击设为使用的模型';
 
             const label = document.createElement('span');
             label.className = 'ai-model-tag__name';
             label.textContent = model;
             tag.appendChild(label);
-
-            const status = document.createElement('span');
-            status.className = 'ai-model-tag__status';
-            tag.appendChild(status);
 
             const removeBtn = document.createElement('button');
             removeBtn.type = 'button';
@@ -762,11 +761,19 @@ export class SettingsDialog {
             removeBtn.textContent = '×';
             tag.appendChild(removeBtn);
 
-            const cleanup = addClickHandler(removeBtn, () => {
-                provider.models.splice(index, 1);
+            const selectCleanup = addClickHandler(tag, (e) => {
+                if (e.target === removeBtn || removeBtn.contains(e.target)) return;
+                this.selectedActiveModel = model;
                 this.renderModelsList(provider);
             });
-            this.cleanupFunctions.push(cleanup);
+            const removeCleanup = addClickHandler(removeBtn, () => {
+                provider.models.splice(index, 1);
+                if (this.selectedActiveModel === model) {
+                    this.selectedActiveModel = provider.models[0] || '';
+                }
+                this.renderModelsList(provider);
+            });
+            this.cleanupFunctions.push(selectCleanup, removeCleanup);
 
             container.appendChild(tag);
         });
@@ -778,6 +785,9 @@ export class SettingsDialog {
         const name = model.trim();
         if (!provider.models.includes(name)) {
             provider.models.push(name);
+        }
+        if (!this.selectedActiveModel) {
+            this.selectedActiveModel = name;
         }
         this.renderModelsList(provider);
     }
@@ -804,6 +814,9 @@ export class SettingsDialog {
             const existing = new Set(provider.models);
             models.forEach(m => existing.add(m));
             provider.models = [...existing];
+            if (!this.selectedActiveModel && provider.models.length > 0) {
+                this.selectedActiveModel = provider.models[0];
+            }
             this.renderModelsList(provider);
             if (statusEl) {
                 statusEl.textContent = `已获取 ${models.length} 个模型`;
