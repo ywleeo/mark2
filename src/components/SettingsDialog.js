@@ -694,6 +694,10 @@ export class SettingsDialog {
                     </div>
                 </div>
                 <div class="ai-models-list" data-ref="modelsList"></div>
+                <div class="ai-model-add-row" data-ref="modelAddRow" style="display:none">
+                    <input type="text" class="ai-model-add-input" data-ref="modelAddInput" placeholder="输入模型名称，如 gpt-4o">
+                    <button type="button" class="ai-provider-btn" data-action="confirm-add-model">确认</button>
+                </div>
                 <span class="ai-models-status" data-ref="modelsStatus"></span>
             </div>
             <div class="ai-provider-test">
@@ -717,6 +721,20 @@ export class SettingsDialog {
         if (addModelBtn) {
             const cleanup = addClickHandler(addModelBtn, () => this.handleAddModel(provider));
             this.cleanupFunctions.push(cleanup);
+        }
+        const confirmAddBtn = this.providerEditorEl.querySelector('[data-action="confirm-add-model"]');
+        const modelAddInput = this.providerEditorEl.querySelector('[data-ref="modelAddInput"]');
+        if (confirmAddBtn) {
+            const cleanup = addClickHandler(confirmAddBtn, () => this.confirmAddModel(provider));
+            this.cleanupFunctions.push(cleanup);
+        }
+        if (modelAddInput) {
+            const onKeydown = (e) => {
+                if (e.key === 'Enter') this.confirmAddModel(provider);
+                if (e.key === 'Escape') this.closeModelAddRow();
+            };
+            modelAddInput.addEventListener('keydown', onKeydown);
+            this.cleanupFunctions.push(() => modelAddInput.removeEventListener('keydown', onKeydown));
         }
         if (testBtn) {
             const cleanup = addClickHandler(testBtn, () => this.handleTestConnection(provider));
@@ -780,16 +798,31 @@ export class SettingsDialog {
     }
 
     handleAddModel(provider) {
-        const model = prompt('输入模型名称：');
-        if (!model?.trim()) return;
-        const name = model.trim();
+        const row = this.providerEditorEl?.querySelector('[data-ref="modelAddRow"]');
+        const input = this.providerEditorEl?.querySelector('[data-ref="modelAddInput"]');
+        if (!row) return;
+        row.style.display = 'flex';
+        input?.focus();
+    }
+
+    confirmAddModel(provider) {
+        const input = this.providerEditorEl?.querySelector('[data-ref="modelAddInput"]');
+        const name = input?.value?.trim();
+        if (!name) return;
         if (!provider.models.includes(name)) {
             provider.models.push(name);
         }
         if (!this.selectedActiveModel) {
             this.selectedActiveModel = name;
         }
+        input.value = '';
+        this.closeModelAddRow();
         this.renderModelsList(provider);
+    }
+
+    closeModelAddRow() {
+        const row = this.providerEditorEl?.querySelector('[data-ref="modelAddRow"]');
+        if (row) row.style.display = 'none';
     }
 
     async handleFetchModels(provider) {

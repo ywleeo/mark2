@@ -655,6 +655,28 @@
     color: var(--settings-danger, #ff3b30);
 }
 
+.ai-model-add-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.ai-model-add-input {
+    flex: 1;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    border: 1px solid var(--settings-field-border);
+    border-radius: 6px;
+    background: var(--settings-field-bg);
+    color: var(--settings-text);
+    outline: none;
+}
+
+.ai-model-add-input:focus {
+    border-color: var(--settings-primary);
+}
+
 .ai-models-status {
     font-size: 12px;
     color: var(--settings-muted);
