@@ -1,6 +1,6 @@
 {
   "productName": "Mark2",
-  "version": "1.6.0",
+  "version": "1.6.10",
   "identifier": "cc.altron.mark2",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -50,7 +50,10 @@
     "category": "Productivity",
     "fileAssociations": [
       {
-        "ext": ["md", "markdown"],
+        "ext": [
+          "md",
+          "markdown"
+        ],
         "mimeType": "text/markdown",
         "description": "Markdown Document",
         "role": "Editor"
