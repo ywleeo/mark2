@@ -15,11 +15,10 @@ export function createWindowLifecycle({
     editorRegistry,
     fileSession,
     untitledFileManager,
-    confirm,
     getViewModeForPath,
     getTerminalPanel,
-    getSaveUntitledFile,
     getHandleSettingsSubmit,
+    getPersistWorkspaceState,
 }) {
     let SettingsDialogCtor = null;
 
@@ -211,7 +210,6 @@ export function createWindowLifecycle({
                 if (untitledTabs.length === 0) return;
 
                 const currentFile = appState.getCurrentFile();
-                let hasContent = false;
 
                 for (const tab of untitledTabs) {
                     if (tab.path === currentFile) {
@@ -226,52 +224,13 @@ export function createWindowLifecycle({
                             content = codeEditor.getValue?.() || '';
                         }
 
-                        if (content.trim().length > 0) {
-                            hasContent = true;
-                            untitledFileManager.setContent(tab.path, content);
-                        }
-                    } else {
-                        if (untitledFileManager.hasUnsavedChanges(tab.path)) {
-                            hasContent = true;
-                        }
+                        untitledFileManager.setContent(tab.path, content);
                     }
                 }
 
-                if (!hasContent) return;
-
+                // Sublime-style：关闭时不强制保存，只持久化 untitled 缓存状态
                 event.preventDefault();
-
-                const displayNames = untitledTabs
-                    .filter(tab => {
-                        if (tab.path === currentFile) {
-                            const content = untitledFileManager.getContent(tab.path) || '';
-                            return content.trim().length > 0;
-                        }
-                        return untitledFileManager.hasUnsavedChanges(tab.path);
-                    })
-                    .map(tab => untitledFileManager.getDisplayName(tab.path))
-                    .join(', ');
-
-                const shouldSave = await confirm(
-                    `"${displayNames}" 尚未保存，是否保存？`,
-                    {
-                        title: '保存文件',
-                        kind: 'warning',
-                        okLabel: '保存',
-                        cancelLabel: '不保存',
-                    }
-                );
-
-                if (shouldSave === true) {
-                    const saveUntitledFile = getSaveUntitledFile();
-                    for (const tab of untitledTabs) {
-                        const content = untitledFileManager.getContent(tab.path) || '';
-                        if (content.trim().length > 0) {
-                            const saved = await saveUntitledFile(tab.path, content);
-                            if (!saved) return;
-                        }
-                    }
-                }
+                getPersistWorkspaceState?.()?.({}, { force: true });
                 currentWindow.destroy();
             });
         } catch (error) {

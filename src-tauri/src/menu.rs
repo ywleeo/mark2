@@ -189,13 +189,16 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .build(app)?;
 
     let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
+    let quit_item = MenuItemBuilder::with_id("app-quit", "Quit Mark2")
+        .accelerator("CmdOrCtrl+Q")
+        .build(app)?;
 
     let app_menu = SubmenuBuilder::new(app, "Mark2")
         .item(&about_item)
         .separator()
         .item(&settings_item)
         .separator()
-        .quit()
+        .item(&quit_item)
         .build()?;
 
     let export_submenu = SubmenuBuilder::new(app, "Export")

@@ -510,26 +510,33 @@ export function createNavigationController({
         // 检查是否有内容需要保存
         const hasContent = content.trim().length > 0;
 
-        if (hasContent && confirm) {
+        if (hasContent) {
             const displayName = untitledFileManager?.getDisplayName?.(targetPath) || 'untitled.md';
             try {
-                const shouldSave = await confirm(
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                const choice = await message(
                     `"${displayName}" 尚未保存，是否保存？`,
                     {
                         title: '保存文件',
                         kind: 'warning',
-                        okLabel: '保存',
-                        cancelLabel: '不保存',
+                        buttons: {
+                            yes: '保存',
+                            no: '不保存',
+                            cancel: '取消',
+                        },
                     }
                 );
 
-                if (shouldSave) {
+                if (choice === '保存' || choice === 'Yes') {
                     // 调用 saveUntitledFile 弹出保存对话框
                     const saved = await saveUntitledFile?.(targetPath, content);
                     if (!saved) {
                         // 用户取消了保存对话框，不关闭 tab
                         return;
                     }
+                } else if (choice === '取消' || choice === 'Cancel') {
+                    // 用户取消关闭，不移除 tab
+                    return;
                 }
             } catch (error) {
                 console.warn('确认保存弹窗失败', error);

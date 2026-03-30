@@ -1,6 +1,7 @@
 import { normalizeFsPath, getPathIdentityKey } from './pathUtils.js';
 
 export const WORKSPACE_STATE_STORAGE_KEY = 'mark2:workspaceState';
+const UNTITLED_PROTOCOL = 'untitled://';
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
@@ -24,6 +25,46 @@ function canonicalizeWorkspacePath(value) {
 
     const canonical = normalizeFsPath(value.trim());
     return isNonEmptyString(canonical) ? canonical : null;
+}
+
+function isUntitledPath(value) {
+    return typeof value === 'string' && value.startsWith(UNTITLED_PROTOCOL);
+}
+
+/**
+ * 规范化 untitled 标签页快照
+ */
+function normalizeUntitledTabs(values) {
+    if (!Array.isArray(values) || values.length === 0) {
+        return [];
+    }
+
+    const deduped = new Map();
+    values.forEach((value) => {
+        if (!value || typeof value !== 'object') {
+            return;
+        }
+
+        const path = typeof value.path === 'string' ? value.path.trim() : '';
+        if (!isUntitledPath(path)) {
+            return;
+        }
+
+        if (deduped.has(path)) {
+            return;
+        }
+
+        deduped.set(path, {
+            path,
+            label: typeof value.label === 'string' ? value.label : path.slice(UNTITLED_PROTOCOL.length),
+            content: typeof value.content === 'string' ? value.content : '',
+            hasChanges: typeof value.hasChanges === 'boolean'
+                ? value.hasChanges
+                : (typeof value.content === 'string' && value.content.trim().length > 0),
+        });
+    });
+
+    return Array.from(deduped.values());
 }
 
 function getCanonicalDedupedPaths(values) {
@@ -168,6 +209,7 @@ export function createDefaultWorkspaceState() {
         currentFile: null,
         sidebar: createDefaultSidebarState(),
         openFiles: [],
+        untitledTabs: [],
     };
 }
 
@@ -202,8 +244,19 @@ export function normalizeWorkspaceState(candidate) {
     if (Array.isArray(candidate.openFiles)) {
         normalized.openFiles = getCanonicalDedupedPaths(candidate.openFiles);
     }
+    if (Array.isArray(candidate.untitledTabs)) {
+        normalized.untitledTabs = normalizeUntitledTabs(candidate.untitledTabs);
+    }
 
-    normalized.currentFile = resolveCanonicalCurrentFile(candidate.currentFile, normalized.openFiles);
+    const candidateCurrentFile = typeof candidate.currentFile === 'string'
+        ? candidate.currentFile
+        : null;
+    if (candidateCurrentFile && isUntitledPath(candidateCurrentFile)) {
+        const matchedUntitled = normalized.untitledTabs.find(tab => tab.path === candidateCurrentFile);
+        normalized.currentFile = matchedUntitled?.path || null;
+    } else {
+        normalized.currentFile = resolveCanonicalCurrentFile(candidate.currentFile, normalized.openFiles);
+    }
     normalized.sidebar.expandedFolders = filterExpandedFoldersByRoots(
         normalized.sidebar.expandedFolders,
         normalized.sidebar.rootPaths

@@ -149,11 +149,10 @@ const windowLifecycle = createWindowLifecycle({
     editorRegistry,
     fileSession,
     untitledFileManager,
-    confirm,
     getViewModeForPath,
     getTerminalPanel: () => terminalPanel,
-    getSaveUntitledFile: () => saveUntitledFile,
     getHandleSettingsSubmit: () => handleSettingsSubmit,
+    getPersistWorkspaceState: () => persistWorkspaceState,
 });
 const {
     updateWindowTitle,
@@ -329,6 +328,7 @@ const workspaceController = createWorkspaceController({
     createDefaultWorkspaceState,
     loadWorkspaceState,
     saveWorkspaceState,
+    untitledFileManager,
 });
 
 // ========== Untitled 控制器（在 fileOperations 前创建，避免 TDZ）==========

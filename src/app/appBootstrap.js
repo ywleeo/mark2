@@ -438,6 +438,10 @@ export function createAppBootstrap({
 
         appState.setCleanupFunction('menuListeners', await registerMenuListeners({
             onAbout: showAboutDialog,
+            onQuit: async () => {
+                const { getCurrentWindow } = await import('@tauri-apps/api/window');
+                await getCurrentWindow().close();
+            },
             onUndo: handleUndoCommand,
             onRedo: handleRedoCommand,
             onNewFile: handleCreateNewFile,

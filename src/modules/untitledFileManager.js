@@ -15,6 +15,21 @@ export function createUntitledFileManager() {
     let counter = 0;
 
     /**
+     * 从 untitled 路径中解析序号
+     */
+    function extractUntitledIndex(path) {
+        if (!isUntitledPath(path)) {
+            return null;
+        }
+        const match = path.match(/^untitled:\/\/untitled-(\d+)\.md$/i);
+        if (!match) {
+            return null;
+        }
+        const parsed = Number.parseInt(match[1], 10);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    /**
      * 检查路径是否是 untitled 文件
      */
     function isUntitledPath(path) {
@@ -146,6 +161,49 @@ export function createUntitledFileManager() {
         counter = 0;
     }
 
+    /**
+     * 获取可持久化的 untitled 快照
+     */
+    function getSnapshot() {
+        return Array.from(untitledFiles.entries()).map(([path, value]) => ({
+            path,
+            content: typeof value?.content === 'string' ? value.content : '',
+            hasChanges: Boolean(value?.hasChanges),
+        }));
+    }
+
+    /**
+     * 从快照恢复 untitled 文件
+     */
+    function restoreFromSnapshot(snapshot = []) {
+        clearAll();
+
+        if (!Array.isArray(snapshot) || snapshot.length === 0) {
+            return;
+        }
+
+        let maxCounter = 0;
+        snapshot.forEach((entry) => {
+            const path = typeof entry?.path === 'string' ? entry.path : '';
+            if (!isUntitledPath(path)) {
+                return;
+            }
+
+            const content = typeof entry?.content === 'string' ? entry.content : '';
+            const hasChanges = typeof entry?.hasChanges === 'boolean'
+                ? entry.hasChanges
+                : content.trim().length > 0;
+            untitledFiles.set(path, { content, hasChanges });
+
+            const index = extractUntitledIndex(path);
+            if (Number.isFinite(index) && index > maxCounter) {
+                maxCounter = index;
+            }
+        });
+
+        counter = maxCounter;
+    }
+
     return {
         isUntitledPath,
         createUntitledFile,
@@ -157,6 +215,8 @@ export function createUntitledFileManager() {
         removeUntitledFile,
         getDisplayName,
         clearAll,
+        getSnapshot,
+        restoreFromSnapshot,
         UNTITLED_PROTOCOL,
     };
 }
