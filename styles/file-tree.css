@@ -151,7 +151,7 @@
 }
 
 .open-file-item.selected {
-    background: var(--active-bg-color, #eeeeee);
+    background: var(--file-selected-bg, #eeeeee);
     font-weight: 500;
 }
 
@@ -381,7 +381,6 @@
 .tree-file.selected {
     background-color: var(--file-selected-bg, #fcf8d8);
     font-weight: 500;
-    border-right: 2px solid var(--file-selected-border, #fd7e14);
 }
 
 /* 文件图标 */

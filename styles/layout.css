@@ -7,18 +7,18 @@
     --scrollbar-thumb-color: rgba(92, 92, 92, 0.679);
     --scrollbar-thumb-hover-color: rgba(82, 82, 82, 0.643);
     --scrollbar-track-color: rgba(67, 67, 67, 0.06);
-    --sidebar-bg: #fdfdfd;
+    --sidebar-bg: #f8f8f8;
     --content-bg: #fdfdfd;
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);
     --body-text-color: rgba(21, 23, 26, 0.85);
-    --tab-border-accent: #ffa2f9;
+    --tab-border-accent: #ffffff;
     --tab-border-color: #c8c8c8;
     --tab-text-color: rgba(21, 23, 26, 0.8);
-    --tab-bg: #fbfbfb;
+    --tab-bg: #eee;
     --tab-hover-bg: rgba(255, 255, 255, 0.9);
     --tab-hover-border-color: #6be275;
     --tab-active-bg: #fdfdfd;
-    --tab-active-border-color: #6be275;
+    --tab-active-border-color: #dedede;
     --tab-active-text-color: rgba(21, 23, 26, 0.95);
     --tab-close-color: rgba(21, 23, 26, 0.4);
     --tab-close-hover-color: rgba(21, 23, 26, 0.85);
@@ -51,8 +51,7 @@
     --text-color: #333333;
     --folder-color: #54aeff;
     --tree-line-color: #d1d5db;
-    --file-selected-bg: #fcf8d8;
-    --file-selected-border: #fd7e14;
+    --file-selected-bg: #e0f6ff;
     --file-icon-color: #656d76;
     --editor-font-size: 16px;
     --editor-line-height: 1.6;
@@ -70,14 +69,14 @@
     --content-bg: #151515;
     --sidebar-resizer-active: rgba(255, 255, 255, 0.18);
     --body-text-color: rgba(235, 239, 247, 0.95);
-    --tab-border-accent: #d57b9f;
+    --tab-border-accent: #151515;
     --tab-border-color: rgba(255, 255, 255, 0.16);
     --tab-text-color: rgba(227, 233, 247, 0.9);
     --tab-bg: #222;
     --tab-hover-bg: rgba(40, 52, 70, 0.92);
     --tab-hover-border-color: #4cc9ff;
     --tab-active-bg: #1a1a1a;
-    --tab-active-border-color: #4cc9ff;
+    --tab-active-border-color: #343434;
     --tab-active-text-color: rgba(252, 254, 255, 0.96);
     --tab-close-color: rgba(226, 232, 240, 0.55);
     --tab-close-hover-color: rgba(252, 254, 255, 0.92);
@@ -148,7 +147,6 @@ button:focus-visible,
     display: flex;
     align-items: center;
     background: var(--sidebar-bg, #f5f6f8);
-    border-bottom: 1px solid var(--border-color, #d1d1d1);
     user-select: none;
     -webkit-user-select: none;
 }
@@ -259,7 +257,6 @@ body.is-sidebar-hidden .content-wrapper {
     bottom: 0;
     left: 0;
     width: 1px;
-    background: var(--border-color, #d1d1d1);
 }
 
 .sidebar-resizer:hover,
@@ -275,6 +272,7 @@ body.sidebar-resizing .sidebar-resizer::before {
 .tab-bar {
     display: flex;
     align-items: center;
+    margin-left: 2px;
     min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
     gap: 2px;
     overflow-x: auto;
@@ -302,9 +300,10 @@ body.sidebar-resizing .sidebar-resizer::before {
     align-items: center;
     gap: 6px;
     padding: 7px 10px;
-    border-top: 3px solid var(--tab-border-accent, #ffa2f9);
+    /* border-top: 3px solid var(--tab-border-accent, #ffa2f9);
+    border-left: 1px solid var(--tab-border-color);
     border-right: 1px solid var(--tab-border-accent, #ffa2f9);
-    border-bottom: 1px solid var(--tab-border-color, #ddd);
+    border-bottom: 1px solid var(--tab-border-color, #ddd); */
     border-radius: 4px 4px 0 0;
     font-size: 12px;
     line-height: 1;
@@ -321,12 +320,12 @@ body.sidebar-resizing .sidebar-resizer::before {
 
 .tab:hover {
     background: var(--tab-hover-bg, rgba(255, 255, 255, 0.9));
-    border-color: var(--tab-hover-border-color, #6be275);
 }
 
 .tab.active {
-    background: var(--tab-active-bg, #ffffff);
-    border-color: var(--tab-active-border-color, #6be275);
+    background: var(--tab-border-accent, #ffffff);
+    /* border: 1px solid; */
+    /* border-color: var(--tab-active-border-color, #6be275); */
     border-bottom-color: transparent;  /* 保持 1px solid，但颜色透明 */
     color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
 }

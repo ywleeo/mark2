@@ -517,7 +517,7 @@ export class FileTree {
         const contentDiv = this.container.querySelector('#foldersContent');
         if (contentDiv) contentDiv.innerHTML = '';
 
-        for (const path of rootPaths) {
+        for (const path of [...rootPaths].reverse()) {
             try {
                 await this.loadFolder(path);
             } catch (error) {
