@@ -1,4 +1,5 @@
 import { pickPaths } from '../../api/filesystem.js';
+import { basename } from '../../utils/pathUtils.js';
 
 /**
  * 输入选择器 - 用于选择卡片的输入来源
@@ -219,8 +220,7 @@ export class InputSelector {
         }
         if (input.type === 'file') {
             // 只显示文件名
-            const parts = input.path.split('/');
-            return parts[parts.length - 1] || input.path;
+            return basename(input.path) || input.path;
         }
         return '未知';
     }

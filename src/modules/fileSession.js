@@ -1,4 +1,5 @@
 import { parseCsvToSpreadsheetData } from '../utils/csvParser.js';
+import { basename } from '../utils/pathUtils.js';
 
 const UTF8_ERROR_SNIPPETS = [
     'valid utf-8',
@@ -147,7 +148,7 @@ export function createFileSession({
                 // CSV 文件使用 JavaScript 解析器
                 if (isCsvFilePath && isCsvFilePath(filePath)) {
                     const csvText = await readText(filePath);
-                    const fileName = filePath.split(/[/\\]/).pop() || 'Sheet1';
+                    const fileName = basename(filePath) || 'Sheet1';
                     workbook = parseCsvToSpreadsheetData(csvText, fileName);
                 } else {
                     // Excel 文件使用 Rust 后端解析

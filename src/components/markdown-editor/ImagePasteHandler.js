@@ -3,6 +3,8 @@
  * - 图片文件 → ![](path) Markdown 语法
  * - 其他文件 → [filename](path) 链接语法
  */
+import { basename } from '../../utils/pathUtils.js';
+
 export class ImagePasteHandler {
     constructor(getEditor, insertTextAtCursor) {
         this.getEditor = getEditor;
@@ -28,13 +30,7 @@ export class ImagePasteHandler {
             return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
         };
 
-        const getFallbackFileName = (path) => {
-            if (!path) return '文件';
-            const normalized = path.replace(/\\/g, '/');
-            const parts = normalized.split('/');
-            const candidate = parts[parts.length - 1];
-            return candidate && candidate.length > 0 ? candidate : path;
-        };
+        const getFallbackFileName = (path) => basename(path) || '文件';
 
         const escapeMarkdownLabel = (text) => {
             if (!text) return '';

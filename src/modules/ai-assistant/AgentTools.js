@@ -8,6 +8,7 @@
  */
 
 import { readFile, writeFile, deleteEntry, renameEntry, listDirectory, createDirectory } from '../../api/filesystem.js';
+import { getFileInfo, readFileChunk } from './fileReaders.js';
 
 export const TOOL_DEFINITIONS = [
     // ── 当前文档：信息 / 分块读 / 搜索 / 写入 ──────────────
@@ -65,13 +66,44 @@ export const TOOL_DEFINITIONS = [
         },
     },
 
-    // ── 任意文件：读 / 写 ────────────────────────────────────
+    // ── 任意文件：info / 分块读 / 全量读 / 写 ───────────────────
 
     {
         type: 'function',
         function: {
+            name: 'get_file_info',
+            description: '获取文件元信息：类型、大小、总页数/行数/段落数/sheet 等。读取大文件前应先调用此工具，再用 read_file_chunk 分块读取。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: '文件的绝对路径' },
+                },
+                required: ['path'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'read_file_chunk',
+            description: '分块读取文件内容。不同格式的分块单位：PDF/PPTX 按页/幻灯片编号，Excel 按 sheet 名+行范围，CSV/文本按行范围，DOCX 按段落范围。先用 get_file_info 获取总量再决定范围。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: '文件的绝对路径' },
+                    start: { type: 'integer', description: '起始位置（含），从 1 开始。对应各格式的页/幻灯片/行/段落编号' },
+                    end: { type: 'integer', description: '结束位置（含）' },
+                    sheet: { type: 'string', description: 'Excel 专用：工作表名称。省略则读取第一个 sheet' },
+                },
+                required: ['path', 'start', 'end'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
             name: 'read_file',
-            description: '读取指定路径文件的完整内容。建议先用 get_document_info 了解文件大小再决定是否全量读取。',
+            description: '读取指定路径文件的完整内容（仅适合纯文本小文件）。对于 Excel/DOCX/PPTX/PDF 或大文件，请改用 get_file_info + read_file_chunk。',
             parameters: {
                 type: 'object',
                 properties: {
@@ -284,6 +316,22 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
             }
 
             // ── 任意文件 ──────────────────────────────────────
+
+            case 'get_file_info': {
+                try {
+                    return await getFileInfo(args.path);
+                } catch (err) {
+                    return { error: `获取文件信息失败: ${err.message}` };
+                }
+            }
+
+            case 'read_file_chunk': {
+                try {
+                    return await readFileChunk(args.path, args.start, args.end, args.sheet);
+                } catch (err) {
+                    return { error: `分块读取失败: ${err.message}` };
+                }
+            }
 
             case 'read_file': {
                 try {

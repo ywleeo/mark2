@@ -8,6 +8,7 @@ import { aiService } from './aiService.js';
 import { AgentLoop } from './AgentLoop.js';
 import { TOOL_DEFINITIONS, createToolExecutor } from './AgentTools.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { basename } from '../../utils/pathUtils.js';
 import { writeFile } from '../../api/filesystem.js';
 
 // 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）
@@ -261,7 +262,7 @@ class AssistantCard {
             const card = document.createElement('div');
             card.className = 'ai-diff-card is-collapsed';
 
-            const fileName = path.split('/').pop();
+            const fileName = basename(path);
             card.innerHTML = `
                 <div class="ai-diff-header">
                     <span class="ai-diff-file">${escapeHtml(fileName)}</span>
@@ -327,7 +328,7 @@ class AssistantCard {
      */
     addDeleteConfirmCard(path) {
         return new Promise((resolve) => {
-            const fileName = path.split('/').pop();
+            const fileName = basename(path);
             const card = document.createElement('div');
             card.className = 'ai-confirm-card';
             card.innerHTML = `
@@ -487,7 +488,7 @@ export class AiSidebar {
     _updateContextBar(path) {
         const resolvedPath = path ?? this.getAppState().getCurrentFile();
         if (resolvedPath) {
-            const name = resolvedPath.split('/').pop();
+            const name = basename(resolvedPath);
             this.fileNameEl.textContent = name;
             this.fileNameEl.classList.remove('is-empty');
             this.fileNameEl.title = resolvedPath;

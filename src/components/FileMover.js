@@ -1,3 +1,5 @@
+import { basename } from '../utils/pathUtils.js';
+
 export class FileMover {
     constructor(options = {}) {
         const {
@@ -370,7 +372,7 @@ export class FileMover {
             return;
         }
 
-        const fileName = normalizedSource.split(/[/\\]/).pop();
+        const fileName = basename(normalizedSource);
         const separator = '/';
         const cleanTarget = normalizedTarget.endsWith(separator)
             ? normalizedTarget.slice(0, -1)

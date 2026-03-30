@@ -1,4 +1,5 @@
 // 图片路径解析和处理模块
+import { basename, dirname } from './pathUtils.js';
 
 // 检查是否是外部图片 URL
 export function isExternalImageSrc(src) {
@@ -181,10 +182,9 @@ async function requestFileAccess(filePath) {
         const { invoke } = window.__TAURI__.core;
 
         // 获取文件所在的目录
-        const pathParts = filePath.split('/');
-        const fileName = pathParts.pop() || '文件';
-        const folderName = pathParts[pathParts.length - 1] || '文件夹';
-        const folderPath = pathParts.join('/');
+        const fileName = basename(filePath) || '文件';
+        const folderPath = dirname(filePath);
+        const folderName = basename(folderPath) || '文件夹';
 
         // 弹出文件夹选择器，让用户授权访问该文件夹
         const selections = await invoke('pick_path', {

@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { basename } from '../../utils/pathUtils.js';
 
 // OOXML namespaces
 const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
@@ -157,7 +158,7 @@ export function createPptxRenderer() {
                 throw new Error('此文件不包含任何幻灯片内容');
             }
 
-            const baseName = filePath.split(/[/\\]/).pop()?.replace(/\.pptx$/i, '') || 'Presentation';
+            const baseName = basename(filePath).replace(/\.pptx$/i, '') || 'Presentation';
             const mdParts = [`# ${baseName}`, ''];
 
             for (let i = 0; i < slidePaths.length; i++) {

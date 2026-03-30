@@ -1,4 +1,5 @@
 import { showSheetPickerDialog } from '../../components/SheetPickerDialog.js';
+import { basename } from '../../utils/pathUtils.js';
 import { stringifyCSV } from '../../utils/csvParser.js';
 
 export function createSpreadsheetRenderer() {
@@ -25,7 +26,7 @@ export function createSpreadsheetRenderer() {
             const csvContent = stringifyCSV(sheet?.rows ?? []);
             const mdContent = '```csv\n' + csvContent + '\n```\n';
 
-            const suggestedName = filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '.md') || 'spreadsheet.md';
+            const suggestedName = basename(filePath).replace(/\.[^.]+$/, '.md') || 'spreadsheet.md';
             await importAsUntitled(mdContent, suggestedName);
             return true;
         },

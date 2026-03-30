@@ -1,4 +1,5 @@
 import { spreadsheetDataToCsv, parseCsvToSpreadsheetData } from '../utils/csvParser.js';
+import { basename } from '../utils/pathUtils.js';
 
 /**
  * CSV 表格模式切换控制器
@@ -97,7 +98,7 @@ export function createCsvTableMode({
             activateSpreadsheetView();
 
             // 解析 CSV 并加载到表格查看器
-            const fileName = currentFile.split(/[/\\]/).pop() || 'Sheet1';
+            const fileName = basename(currentFile) || 'Sheet1';
             const spreadsheetData = parseCsvToSpreadsheetData(csvContent, fileName);
             await spreadsheetViewer.loadWorkbook(currentFile, spreadsheetData, { forceReload: true });
 

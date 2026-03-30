@@ -1,4 +1,5 @@
 import mammoth from 'mammoth';
+import { basename } from '../../utils/pathUtils.js';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
@@ -36,7 +37,7 @@ export function createDocxRenderer() {
             td.use(gfm);
             const markdown = td.turndown(result.value);
 
-            const suggestedName = filePath.split(/[/\\]/).pop()?.replace(/\.docx$/i, '.md') || 'document.md';
+            const suggestedName = basename(filePath).replace(/\.docx$/i, '.md') || 'document.md';
             await importAsUntitled(markdown, suggestedName);
             return true;
         },
