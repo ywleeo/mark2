@@ -10,6 +10,7 @@ import { TOOL_DEFINITIONS, createToolExecutor } from './AgentTools.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { basename } from '../../utils/pathUtils.js';
 import { writeFile } from '../../api/filesystem.js';
+import { untitledFileManager } from '../untitledFileManager.js';
 
 // 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
@@ -599,7 +600,11 @@ export class AiSidebar {
 
         if (result.applied) {
             try {
-                await writeFile(path, newContent);
+                if (untitledFileManager.isUntitledPath(path)) {
+                    untitledFileManager.setContent(path, newContent);
+                } else {
+                    await writeFile(path, newContent);
+                }
                 await this.reloadCurrentFile(path);
             } catch (err) {
                 this._appendSystemMessage(`写入文件失败: ${err.message}`);

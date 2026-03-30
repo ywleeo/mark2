@@ -7,7 +7,7 @@
     --scratchpad-header-text: #24292f;
     --scratchpad-text:        #24292f;
     --scratchpad-placeholder: #8c959f;
-    --scratchpad-shadow:      -2px 0 20px rgba(0, 0, 0, 0.1);
+    --scratchpad-shadow:      0 4px 20px rgba(0, 0, 0, 0.14);
     --scratchpad-resize-dot:  #b0b8c1;
 }
 
@@ -18,7 +18,7 @@
     --scratchpad-header-text: #e6edf3;
     --scratchpad-text:        #e6edf3;
     --scratchpad-placeholder: #6e7681;
-    --scratchpad-shadow:      -2px 0 20px rgba(0, 0, 0, 0.35);
+    --scratchpad-shadow:      0 4px 20px rgba(0, 0, 0, 0.5);
     --scratchpad-resize-dot:  #484f58;
 }
 
@@ -35,11 +35,11 @@
     height: 240px;
     min-width: 220px;
     min-height: 120px;
-    /* 圆角裁剪用 clip-path，避免 overflow:hidden 干扰 backdrop-filter */
-    clip-path: inset(0 0 0 0 round 8px 0 0 8px);
+    border-radius: 8px 0 0 8px;
+    overflow: hidden;
     background: var(--scratchpad-bg);
     backdrop-filter: blur(24px) saturate(1.8);
-    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(10px) saturate(1.8);
     border: 1px solid var(--scratchpad-border);
     border-right: none;
     box-shadow: var(--scratchpad-shadow);
