@@ -220,6 +220,18 @@ export function createWorkspaceController({
         return Array.from(snapshotMap.values());
     }
 
+    /**
+     * 采集 shared tab 路径用于持久化
+     */
+    function collectSharedTabPathForPersistence() {
+        const tabManager = getTabManager();
+        const sharedPath = tabManager?.sharedTab?.path;
+        if (!isNonEmptyString(sharedPath) || untitledFileManager.isUntitledPath(sharedPath)) {
+            return null;
+        }
+        return canonicalizeWorkspacePath(sharedPath);
+    }
+
     function persistWorkspaceState(overrides = {}, options = {}) {
         const forcePersist = options.force === true;
         if (isRestoring && !forcePersist) {
@@ -246,6 +258,7 @@ export function createWorkspaceController({
                 sidebar: sidebarState,
                 openFiles: openFilesState,
                 untitledTabs: collectUntitledTabsForPersistence(),
+                sharedTabPath: collectSharedTabPathForPersistence(),
                 ...overrides,
             };
 
@@ -262,6 +275,9 @@ export function createWorkspaceController({
             }
             if (!Object.prototype.hasOwnProperty.call(overrides, 'untitledTabs')) {
                 nextState.untitledTabs = collectUntitledTabsForPersistence();
+            }
+            if (!Object.prototype.hasOwnProperty.call(overrides, 'sharedTabPath')) {
+                nextState.sharedTabPath = collectSharedTabPathForPersistence();
             }
 
             saveWorkspaceState(nextState);
@@ -376,6 +392,26 @@ export function createWorkspaceController({
                         : (typeof tab.content === 'string' && tab.content.trim().length > 0),
                 }))
             : [];
+        const storedSharedTabPath = !untitledFileManager.isUntitledPath(stored.sharedTabPath)
+            ? canonicalizeWorkspacePath(stored.sharedTabPath)
+            : null;
+        let sanitizedSharedTabPath = null;
+        if (storedSharedTabPath) {
+            const inOpenFiles = sanitizedOpenFiles.some((path) => {
+                return (getPathIdentityKey(path) ?? path) === (getPathIdentityKey(storedSharedTabPath) ?? storedSharedTabPath);
+            });
+            if (!inOpenFiles) {
+                try {
+                    await fileService.metadata(storedSharedTabPath);
+                    const directory = await fileService.isDirectory(storedSharedTabPath);
+                    if (!directory) {
+                        sanitizedSharedTabPath = storedSharedTabPath;
+                    }
+                } catch (error) {
+                    console.warn('跳过无效的 shared 标签页文件', storedSharedTabPath, error);
+                }
+            }
+        }
         const storedCurrentFile = resolveCanonicalCurrentFile(stored.currentFile, sanitizedOpenFiles);
 
         isRestoring = true;
@@ -401,6 +437,11 @@ export function createWorkspaceController({
                 label: tab.label,
             })));
             tabManager.render?.();
+        }
+        if (sanitizedSharedTabPath) {
+            tabManager?.showSharedTab?.(sanitizedSharedTabPath);
+        } else {
+            tabManager?.clearSharedTab?.();
         }
 
         let targetFileToRestore = null;
@@ -433,11 +474,12 @@ export function createWorkspaceController({
         if (!targetFileToRestore && sanitizedUntitledTabs.length > 0) {
             targetFileToRestore = sanitizedUntitledTabs[sanitizedUntitledTabs.length - 1].path;
         }
+        if (!targetFileToRestore && sanitizedSharedTabPath) {
+            targetFileToRestore = sanitizedSharedTabPath;
+        }
 
         if (targetFileToRestore) {
             fileTree?.selectFile(targetFileToRestore);
-        } else {
-            tabManager?.clearSharedTab?.();
         }
 
         const sidebarSnapshot = fileTree?.getPersistedState?.() ?? sanitizedSidebar;
@@ -447,6 +489,7 @@ export function createWorkspaceController({
             sidebar: sidebarSnapshot,
             openFiles: openFilesSnapshot,
             untitledTabs: sanitizedUntitledTabs,
+            sharedTabPath: sanitizedSharedTabPath,
         }, { force: true });
     }
 

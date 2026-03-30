@@ -210,6 +210,7 @@ export function createDefaultWorkspaceState() {
         sidebar: createDefaultSidebarState(),
         openFiles: [],
         untitledTabs: [],
+        sharedTabPath: null,
     };
 }
 
@@ -246,6 +247,9 @@ export function normalizeWorkspaceState(candidate) {
     }
     if (Array.isArray(candidate.untitledTabs)) {
         normalized.untitledTabs = normalizeUntitledTabs(candidate.untitledTabs);
+    }
+    if (typeof candidate.sharedTabPath === 'string' && !isUntitledPath(candidate.sharedTabPath)) {
+        normalized.sharedTabPath = canonicalizeWorkspacePath(candidate.sharedTabPath);
     }
 
     const candidateCurrentFile = typeof candidate.currentFile === 'string'
