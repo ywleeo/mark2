@@ -99,6 +99,9 @@ export class ContentLoader {
         this.isLoadingFile = true;
         this.getSaveManager()?.clearAutoSaveTimer();
         this.contentChanged = false;
+        if (isFileSwitching) {
+            this.originalMarkdown = '';
+        }
 
         const editor = this.getEditor();
         if (!editor) return;
