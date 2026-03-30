@@ -390,9 +390,7 @@ export function createFileMenuActions(options = {}) {
         fileTree?.replaceOpenFilePath?.(normalizedOld, normalizedNew);
 
         const editor = getEditor();
-        if (editor && editor.currentFile === normalizedOld) {
-            editor.currentFile = normalizedNew;
-        }
+        editor?.renameDocumentPath?.(normalizedOld, normalizedNew);
         if (editor?.renameViewStateForTab) {
             editor.renameViewStateForTab(normalizedOld, normalizedNew);
         }

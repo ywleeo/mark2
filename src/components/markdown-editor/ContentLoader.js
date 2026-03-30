@@ -16,7 +16,7 @@ import { preprocessMarkdown, serializeMarkdown } from './MarkdownPreprocessor.js
  * 管理文档内容的加载、解析和序列化。
  *
  * 持有文档相关状态：
- *   currentFile, originalMarkdown, contentChanged,
+ *   loadedFilePath, originalMarkdown, contentChanged,
  *   currentSessionId, loadingSessionId, isLoadingFile, currentTabId
  *
  * 依赖注入（getters，避免初始化顺序问题）：
@@ -68,7 +68,7 @@ export class ContentLoader {
         this.onAfterLoad = onAfterLoad ?? (() => {});
 
         // 文档状态（由本模块拥有）
-        this.currentFile = null;
+        this.loadedFilePath = null;
         this.originalMarkdown = '';
         this.contentChanged = false;
         this.currentSessionId = null;
@@ -85,7 +85,7 @@ export class ContentLoader {
      */
     prepareForDocument(session, filePath, tabId = null) {
         const sessionId = session?.id ?? null;
-        const isFileSwitching = this.currentFile !== filePath;
+        const isFileSwitching = this.loadedFilePath !== filePath;
         const previousTabId = this.currentTabId;
 
         if (previousTabId) {
@@ -94,7 +94,7 @@ export class ContentLoader {
 
         this.currentSessionId = sessionId;
         this.loadingSessionId = sessionId;
-        this.currentFile = filePath;
+        this.loadedFilePath = filePath;
         this.currentTabId = typeof tabId === 'string' && tabId.length > 0 ? tabId : null;
         this.isLoadingFile = true;
         this.getSaveManager()?.clearAutoSaveTimer();
@@ -135,9 +135,9 @@ export class ContentLoader {
         const sessionId = session?.id ?? this.currentSessionId ?? null;
         if (session && !this._isSessionActive(sessionId)) return;
 
-        const isNewFile = this.currentFile !== filePath;
+        const isNewFile = this.loadedFilePath !== filePath;
         this.currentSessionId = sessionId;
-        this.currentFile = filePath;
+        this.loadedFilePath = filePath;
         this.loadingSessionId = sessionId;
         this.isLoadingFile = true;
         const nextTabId = typeof tabId === 'string' && tabId.length > 0 ? tabId : this.currentTabId;
@@ -274,7 +274,7 @@ export class ContentLoader {
 
     /** 重置文档状态（用于 clear） */
     reset() {
-        this.currentFile = null;
+        this.loadedFilePath = null;
         this.currentSessionId = null;
         this.loadingSessionId = null;
         this.originalMarkdown = '';
@@ -293,7 +293,7 @@ export class ContentLoader {
 
     async _resolveImageNodes(sessionId = null) {
         const editor = this.getEditor();
-        if (!editor || !this.currentFile) return;
+        if (!editor || !this.loadedFilePath) return;
 
         const { doc } = editor.state;
         if (!doc) return;
@@ -323,7 +323,7 @@ export class ContentLoader {
                 continue;
             }
 
-            const resolvedPath = resolveImagePath(originalSrc, this.currentFile);
+            const resolvedPath = resolveImagePath(originalSrc, this.loadedFilePath);
             if (!resolvedPath) continue;
 
             try {
@@ -354,5 +354,17 @@ export class ContentLoader {
             plugins: state.plugins,
             selection: state.selection,
         }));
+    }
+
+    /**
+     * 重命名已加载文档路径，保持编辑器内部上下文与磁盘路径迁移一致。
+     */
+    renameLoadedFilePath(oldPath, newPath) {
+        if (!oldPath || !newPath || oldPath === newPath) {
+            return;
+        }
+        if (this.loadedFilePath === oldPath) {
+            this.loadedFilePath = newPath;
+        }
     }
 }

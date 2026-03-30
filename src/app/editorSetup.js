@@ -100,6 +100,7 @@ export function setupEditors({
     const editor = new MarkdownEditor(appState.getPaneElement('markdown'), editorCallbacks, {
         documentSessions,
         tabHistoryManager,
+        getCurrentFile: () => appState.getCurrentFile(),
     });
     editorRegistry.register('markdown', editor);
 

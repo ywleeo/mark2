@@ -83,6 +83,9 @@ export class MarkdownEditor {
         this._documentSessions = options?.documentSessions ?? null;
         this._autoSaveDelayMs = options.autoSaveDelayMs;
         this._tabHistoryManager = options?.tabHistoryManager ?? null;
+        this._getDocumentFilePath = typeof options?.getCurrentFile === 'function'
+            ? options.getCurrentFile
+            : null;
 
         this.init();
     }
@@ -150,7 +153,7 @@ export class MarkdownEditor {
         this.focusManager = new FocusManager({
             getEditor: () => this.editor,
             getViewElement: () => this.viewElement,
-            getCurrentFile: () => this.contentLoader.currentFile,
+            getCurrentFile: () => this.contentLoader.loadedFilePath,
             onEmptyAreaClick: (isEmpty) => {
                 if (isEmpty) this.trailingParagraphManager.ensure({ preserveSelection: false });
                 const docSize = Math.max(0, this.editor.state?.doc?.content?.size ?? 0);
@@ -185,13 +188,13 @@ export class MarkdownEditor {
 
         this.saveManager = new SaveManager({
             getMarkdown: () => {
-                const currentFile = this.contentLoader.currentFile ?? '';
+                const currentFile = this.getDocumentFilePath() ?? this.contentLoader.loadedFilePath ?? '';
                 if (isSpreadsheetFilePath(currentFile)) {
                     return extractCsvFromDoc(this.editor?.state?.doc) ?? '';
                 }
                 return this.contentLoader.getMarkdown();
             },
-            getCurrentFile: () => this.contentLoader.currentFile,
+            getCurrentFile: () => this.getDocumentFilePath(),
             getCurrentSessionId: () => this.contentLoader.currentSessionId,
             isSessionActive: (id) => this.contentLoader._isSessionActive(id),
             isLoadingFile: () => this.contentLoader.isLoadingFile,
@@ -217,7 +220,7 @@ export class MarkdownEditor {
         // ── Event handlers ──
         this.linkHandler = new LinkHandler(this.element, {
             getViewElement: () => this.viewElement,
-            getCurrentFile: () => this.contentLoader.currentFile,
+            getCurrentFile: () => this.contentLoader.loadedFilePath,
         });
         this.linkHandler.setup();
 
@@ -255,7 +258,7 @@ export class MarkdownEditor {
         const editorDom = this.editor.view?.dom;
         if (!editorDom) return;
         editorDom.addEventListener('mousedown', () => {
-            if (!this.contentLoader.currentFile || this.editor.isEditable) return;
+            if (!this.contentLoader.loadedFilePath || this.editor.isEditable) return;
             this.suppressUpdateEvent = true;
             this.editor.setEditable(true);
             this.suppressUpdateEvent = false;
@@ -300,13 +303,15 @@ export class MarkdownEditor {
     save(options)                               { return this.saveManager?.save(options) ?? Promise.resolve(false); }
     hasUnsavedChanges()                         { return !!this.contentLoader.contentChanged; }
     markSaved()                                 { if (this.contentLoader) this.contentLoader.contentChanged = false; }
+    get currentFile()                           { return this.contentLoader?.loadedFilePath ?? null; }
+    renameDocumentPath(oldPath, newPath)        { return this.contentLoader?.renameLoadedFilePath?.(oldPath, newPath); }
 
     // CSV 文件直接编辑模式：加载 CSV 内容为单个 csvBlock 节点
     async loadCsvFile(session, filePath, csvContent, options = {}) {
         const { autoFocus = false } = options;
 
         this.viewElement.classList.add('csv-table-mode');
-        this.contentLoader.currentFile = filePath;
+        this.contentLoader.loadedFilePath = filePath;
         this.contentLoader.currentSessionId = session?.id ?? null;
         this.contentLoader.isLoadingFile = true;
 
@@ -326,6 +331,10 @@ export class MarkdownEditor {
             this.editor.commands.focus();
         }
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+    }
+
+    getDocumentFilePath() {
+        return this._getDocumentFilePath?.() ?? this.contentLoader?.loadedFilePath ?? null;
     }
 
     // 焦点

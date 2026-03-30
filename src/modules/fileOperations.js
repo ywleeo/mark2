@@ -411,12 +411,12 @@ export function createFileOperations({
 
         const requestedKey = getIdentityKeyForPath(filePath);
         const currentKey = getIdentityKeyForPath(currentFile);
+        const cached = fileSession.getCachedEntry(filePath);
 
         if (requestedKey && currentKey && requestedKey === currentKey) {
             return await saveCurrentFile();
         }
 
-        const cached = fileSession.getCachedEntry(filePath);
         if (!cached || !cached.hasChanges) {
             return true;
         }
