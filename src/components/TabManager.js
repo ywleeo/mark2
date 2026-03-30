@@ -401,6 +401,17 @@ export class TabManager {
             this.container.appendChild(tabElement);
         });
 
+        const newTabBtn = document.createElement('button');
+        newTabBtn.className = 'tab-new-btn';
+        newTabBtn.type = 'button';
+        newTabBtn.title = '新建标签页 (⌘T)';
+        newTabBtn.textContent = '+';
+        const cleanupNew = addClickHandler(newTabBtn, () => {
+            this.callbacks.onCreateUntitled?.();
+        });
+        this.cleanupFunctions.push(cleanupNew);
+        this.container.appendChild(newTabBtn);
+
         this.updateActiveState();
     }
 

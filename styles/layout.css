@@ -286,7 +286,7 @@ body.sidebar-resizing .sidebar-resizer::before {
     cursor: grabbing;
 }
 
-.tab-bar:empty {
+.tab-bar:not(:has(.tab)) {
     display: none;
 }
 
@@ -299,7 +299,7 @@ body.sidebar-resizing .sidebar-resizer::before {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 7px 10px;
+    padding: 10px 10px;
     /* border-top: 3px solid var(--tab-border-accent, #ffa2f9);
     border-left: 1px solid var(--tab-border-color);
     border-right: 1px solid var(--tab-border-accent, #ffa2f9);
@@ -392,6 +392,30 @@ body.sidebar-resizing .sidebar-resizer::before {
 
 .tab-close:hover {
     color: var(--tab-close-hover-color, rgba(21, 23, 26, 0.85));
+}
+
+.tab-new-btn {
+    position: sticky;
+    right: 0;
+    appearance: none;
+    border: none;
+    background: var(--sidebar-bg, #f5f6f8);
+    color: var(--tab-text-color, rgba(21, 23, 26, 0.5));
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 10px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tab-new-btn:hover {
+    color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
+    background: var(--tab-hover-bg, rgba(255, 255, 255, 0.9));
 }
 
 .content-area {
