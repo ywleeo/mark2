@@ -70,6 +70,7 @@ const tabHistoryManager = new TabHistoryManager();
 // 由 initializeApplication 赋值，通过 setter/getter 传递给 appBootstrap
 let cardExportSidebar = null;
 let terminalPanel = null;
+let scratchpadPanel = null;
 
 function ensureFileService() {
     if (typeof globalThis !== 'undefined') {
@@ -520,6 +521,8 @@ bootstrap = createAppBootstrap({
     getCardExportSidebar: () => cardExportSidebar,
     setTerminalPanel: (v) => { terminalPanel = v; },
     getTerminalPanel: () => terminalPanel,
+    setScratchpadPanel: (v) => { scratchpadPanel = v; },
+    getScratchpadPanel: () => scratchpadPanel,
     updateWindowTitle,
     loadAvailableFonts,
     openSettingsDialog,

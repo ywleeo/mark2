@@ -1,0 +1,179 @@
+/* Scratchpad 浮动便签面板 */
+
+:root {
+    --scratchpad-bg:          rgba(245, 246, 248, 0.5);
+    --scratchpad-border:      rgba(208, 215, 222, 0.5);
+    --scratchpad-header-bg:   rgba(240, 242, 245, 0.45);
+    --scratchpad-header-text: #24292f;
+    --scratchpad-text:        #24292f;
+    --scratchpad-placeholder: #8c959f;
+    --scratchpad-shadow:      -2px 0 20px rgba(0, 0, 0, 0.1);
+    --scratchpad-resize-dot:  #b0b8c1;
+}
+
+:root[data-theme-appearance='dark'] {
+    --scratchpad-bg:          rgba(22, 27, 34, 0.5);
+    --scratchpad-border:      rgba(48, 54, 61, 0.5);
+    --scratchpad-header-bg:   rgba(13, 17, 23, 0.45);
+    --scratchpad-header-text: #e6edf3;
+    --scratchpad-text:        #e6edf3;
+    --scratchpad-placeholder: #6e7681;
+    --scratchpad-shadow:      -2px 0 20px rgba(0, 0, 0, 0.35);
+    --scratchpad-resize-dot:  #484f58;
+}
+
+/* ── 面板容器 ───────────────────────────────────────────── */
+
+.scratchpad-panel {
+    display: none;
+    flex-direction: column;
+    position: fixed;
+    bottom: 28px;
+    right: 0;
+    z-index: 500;
+    width: 300px;
+    height: 240px;
+    min-width: 220px;
+    min-height: 120px;
+    /* 圆角裁剪用 clip-path，避免 overflow:hidden 干扰 backdrop-filter */
+    clip-path: inset(0 0 0 0 round 8px 0 0 8px);
+    background: var(--scratchpad-bg);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid var(--scratchpad-border);
+    border-right: none;
+    box-shadow: var(--scratchpad-shadow);
+    user-select: none;
+}
+
+.scratchpad-panel.is-visible {
+    display: flex;
+}
+
+/* ── Resize handle（左上角，向左上拖扩大） ───────────────── */
+
+.scratchpad-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    touch-action: none;
+    background-image: radial-gradient(circle, var(--scratchpad-resize-dot) 1.5px, transparent 1.5px);
+    background-size: 5px 5px;
+    background-position: 2px 2px;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    z-index: 1;
+}
+
+.scratchpad-resize-handle:hover {
+    opacity: 1;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+
+.scratchpad-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 6px 12px;
+    background: var(--scratchpad-header-bg);
+    border-bottom: 1px solid var(--scratchpad-border);
+    cursor: grab;
+    flex-shrink: 0;
+    touch-action: none;
+}
+
+.scratchpad-header:active {
+    cursor: grabbing;
+}
+
+.scratchpad-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--scratchpad-header-text);
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+.scratchpad-header-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.scratchpad-header-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--scratchpad-header-text);
+    opacity: 0.6;
+    transition: opacity 0.15s, background 0.15s;
+    padding: 0;
+}
+
+.scratchpad-header-actions button:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.15);
+}
+
+/* ── Body / Textarea ────────────────────────────────────── */
+
+.scratchpad-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+}
+
+.scratchpad-textarea {
+    flex: 1;
+    resize: none;
+    border: none;
+    outline: none;
+    background: var(--scratchpad-bg);
+    color: var(--scratchpad-text);
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+    padding: 10px 12px;
+    overflow-y: auto;
+    user-select: text;
+}
+
+.scratchpad-textarea::placeholder {
+    color: var(--scratchpad-placeholder);
+}
+
+/* ── Status bar 按钮 ────────────────────────────────────── */
+
+.status-scratchpad-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.status-scratchpad-btn:hover {
+    opacity: 1;
+}
+
+.status-scratchpad-btn.is-active {
+    opacity: 1;
+    color: var(--accent-color, #0969da);
+}

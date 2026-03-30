@@ -11,6 +11,7 @@ export function setupKeyboardShortcuts({
     onToggleSvgCodeView,
     onToggleCsvTableView,
     onToggleWorkflowCodeView,
+    onToggleScratchpad,
 }) {
     const handler = async (event) => {
         const isMeta = event.metaKey || event.ctrlKey;
@@ -98,6 +99,15 @@ export function setupKeyboardShortcuts({
             event.preventDefault();
             if (onDeleteFile) {
                 await onDeleteFile();
+            }
+            return;
+        }
+
+        // Cmd+Shift+Space — 唤起/隐藏便签
+        if (isMeta && event.shiftKey && key === ' ') {
+            event.preventDefault();
+            if (onToggleScratchpad) {
+                onToggleScratchpad();
             }
             return;
         }

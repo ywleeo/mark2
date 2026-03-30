@@ -14,6 +14,7 @@ import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { createTerminalPanel } from '../modules/terminalPanel.js';
+import { createScratchpadPanel } from '../modules/scratchpadPanel.js';
 import { initCardExportSidebar } from '../modules/card-export/index.js';
 import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';
 import { restoreStoredSecurityScopes } from '../services/securityScopeService.js';
@@ -50,6 +51,8 @@ export function createAppBootstrap({
     getCardExportSidebar,
     setTerminalPanel,
     getTerminalPanel,
+    setScratchpadPanel,
+    getScratchpadPanel,
     // windowLifecycle 导出
     updateWindowTitle,
     loadAvailableFonts,
@@ -324,6 +327,10 @@ export function createAppBootstrap({
         setTerminalPanel(terminalPanel);
         terminalPanel.initialize();
 
+        const scratchpadPanel = createScratchpadPanel();
+        setScratchpadPanel(scratchpadPanel);
+        scratchpadPanel?.initialize();
+
         const markdownCodeMode = createMarkdownCodeMode({
             detectLanguageForPath,
             isMarkdownFilePath,
@@ -426,6 +433,7 @@ export function createAppBootstrap({
             onToggleSvgCodeView: toggleSvgCodeMode,
             onToggleCsvTableView: toggleCsvTableMode,
             onToggleWorkflowCodeView: toggleWorkflowCodeMode,
+            onToggleScratchpad: () => getScratchpadPanel()?.toggle(),
         }));
 
         appState.setCleanupFunction('menuListeners', await registerMenuListeners({
