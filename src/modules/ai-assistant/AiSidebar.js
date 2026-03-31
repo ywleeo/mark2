@@ -105,6 +105,71 @@ function buildDiffChunks(diffResult, contextLines = 3) {
     return chunks;
 }
 
+/**
+ * 解析 assistant 文本中的 think 标签。
+ * 将 think 内容从正文中剥离出来，避免把标签原样渲染到消息正文。
+ */
+function extractThinkBlocks(text) {
+    const source = typeof text === 'string' ? text : '';
+    if (!source) {
+        return { content: '', thinking: '' };
+    }
+
+    let content = '';
+    let thinking = '';
+    let cursor = 0;
+
+    while (cursor < source.length) {
+        const openIndex = source.indexOf('<think>', cursor);
+        if (openIndex === -1) {
+            content += source.slice(cursor);
+            break;
+        }
+
+        content += source.slice(cursor, openIndex);
+        const thinkingStart = openIndex + '<think>'.length;
+        const closeIndex = source.indexOf('</think>', thinkingStart);
+
+        if (closeIndex === -1) {
+            thinking += source.slice(thinkingStart);
+            break;
+        }
+
+        thinking += source.slice(thinkingStart, closeIndex);
+        cursor = closeIndex + '</think>'.length;
+    }
+
+    return {
+        content: content.trim(),
+        thinking: thinking.trim(),
+    };
+}
+
+/**
+ * 合并显式推理流和正文中的 think 标签内容，尽量避免重复展示。
+ */
+function mergeThinkingText(streamThinking, inlineThinking) {
+    const explicit = typeof streamThinking === 'string' ? streamThinking.trim() : '';
+    const inline = typeof inlineThinking === 'string' ? inlineThinking.trim() : '';
+
+    if (!explicit) {
+        return inline;
+    }
+    if (!inline) {
+        return explicit;
+    }
+    if (explicit === inline) {
+        return explicit;
+    }
+    if (explicit.includes(inline)) {
+        return explicit;
+    }
+    if (inline.includes(explicit)) {
+        return inline;
+    }
+    return `${explicit}\n\n${inline}`;
+}
+
 // ── 内联卡片：对话中的 assistant 消息 ────────────────────
 class AssistantCard {
     constructor(listEl) {
@@ -141,6 +206,8 @@ class AssistantCard {
 
         // 当前文字 content box，按需创建
         this.currentContentEl = null;
+        this.streamThinkingText = '';
+        this.inlineThinkingText = '';
 
         addClickHandler(this.thinkingToggleEl, () => this._toggleThinking());
     }
@@ -174,21 +241,36 @@ class AssistantCard {
 
     /** 流式文本到来：首次时在 loadingEl 前插入 content box 并隐藏 loading */
     setContent(text) {
+        const parsed = extractThinkBlocks(text);
         if (!this.currentContentEl) {
             this.currentContentEl = document.createElement('div');
             this.currentContentEl.className = 'ai-message-content ai-message-markdown';
             this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
             this.loadingEl.style.display = 'none';
         }
-        this.currentContentEl.innerHTML = md.render(text);
+        this.currentContentEl.innerHTML = md.render(parsed.content);
+        this.inlineThinkingText = parsed.thinking;
+        this._renderThinking();
         scrollToBottom(this.el);
     }
 
     setThinking(text) {
-        this.thinkingEl.style.display = '';
-        this.thinkingPreviewEl.textContent = text.slice(0, 120);
-        this.thinkingFullEl.textContent = text;
+        this.streamThinkingText = typeof text === 'string' ? text : '';
+        this._renderThinking();
         scrollToBottom(this.el);
+    }
+
+    _renderThinking() {
+        const mergedThinking = mergeThinkingText(this.streamThinkingText, this.inlineThinkingText);
+        if (!mergedThinking) {
+            this.thinkingEl.style.display = 'none';
+            this.thinkingPreviewEl.textContent = '';
+            this.thinkingFullEl.textContent = '';
+            return;
+        }
+        this.thinkingEl.style.display = '';
+        this.thinkingPreviewEl.textContent = mergedThinking.slice(0, 120);
+        this.thinkingFullEl.textContent = mergedThinking;
     }
 
     /** Agent 完成，隐藏 loading */

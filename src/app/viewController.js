@@ -33,7 +33,6 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
                 // 不在这里主动 focus Markdown 编辑器，交由 editor.loadFile(..., { autoFocus }) 控制，
                 // 避免在从文件树切换文件时抢夺焦点，影响回车重命名。
             },
@@ -46,7 +45,6 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
                 // 同样不在这里主动 focus 代码编辑器，交由 codeEditor.show(..., { autoFocus }) 控制，
                 // 这样点击文件树节点时不会把焦点从文件树抢走。
             },
@@ -61,7 +59,6 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
             },
         },
         media: {
@@ -73,7 +70,6 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
                 options.getMediaViewer?.()?.show?.();
             },
         },
@@ -86,7 +82,6 @@ export function createViewController(options = {}) {
                 options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
                 options.getSpreadsheetViewer?.()?.show?.();
             },
         },
@@ -99,7 +94,6 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getMediaViewer?.()?.hide?.();
                 options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
                 options.getPdfViewer?.()?.show?.();
             },
         },
@@ -112,20 +106,6 @@ export function createViewController(options = {}) {
                 options.getSpreadsheetViewer?.()?.hide?.();
                 options.getMediaViewer?.()?.hide?.();
                 options.getPdfViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.hide?.();
-            },
-        },
-        workflow: {
-            getPane: () => options.getWorkflowPane?.() ?? null,
-            onEnter: () => {
-                options.getEditor?.()?.clear?.();
-                options.getCodeEditor?.()?.hide?.();
-                options.getImageViewer?.()?.hide?.();
-                options.getSpreadsheetViewer?.()?.hide?.();
-                options.getMediaViewer?.()?.hide?.();
-                options.getPdfViewer?.()?.hide?.();
-                options.getUnsupportedViewer?.()?.hide?.();
-                options.getWorkflowEditor?.()?.show?.();
             },
         },
     };
@@ -435,7 +415,6 @@ export function createViewController(options = {}) {
         activateMediaView: () => setActiveViewMode('media'),
         activateSpreadsheetView: () => setActiveViewMode('spreadsheet'),
         activatePdfView: () => setActiveViewMode('pdf'),
-        activateWorkflowView: () => setActiveViewMode('workflow'),
         activateUnsupportedView: () => setActiveViewMode('unsupported'),
         updateZoomDisplayForActiveView,
         handleZoomControl,

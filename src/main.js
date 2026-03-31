@@ -57,7 +57,6 @@ import { createImageRenderer } from './fileRenderers/handlers/image.js';
 import { createMediaRenderer } from './fileRenderers/handlers/media.js';
 import { createSpreadsheetRenderer } from './fileRenderers/handlers/spreadsheet.js';
 import { createPdfRenderer } from './fileRenderers/handlers/pdf.js';
-import { createWorkflowRenderer } from './fileRenderers/handlers/workflow.js';
 import { createDocxRenderer } from './fileRenderers/handlers/docx.js';
 import { createPptxRenderer } from './fileRenderers/handlers/pptx.js';
 
@@ -103,7 +102,6 @@ rendererRegistry.register(createImageRenderer());
 rendererRegistry.register(createMediaRenderer());
 rendererRegistry.register(createSpreadsheetRenderer());
 rendererRegistry.register(createPdfRenderer());
-rendererRegistry.register(createWorkflowRenderer());
 rendererRegistry.register(createDocxRenderer());
 rendererRegistry.register(createPptxRenderer());
 rendererRegistry.setDefaultHandler(createCodeRenderer());
@@ -185,14 +183,12 @@ const viewController = createViewController({
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
-    getWorkflowEditor: () => editorRegistry.get('workflow'),
     getMarkdownPane: () => appState.getPaneElement('markdown'),
     getCodePane: () => appState.getPaneElement('code'),
     getImagePane: () => appState.getPaneElement('image'),
     getMediaPane: () => appState.getPaneElement('media'),
     getSpreadsheetPane: () => appState.getPaneElement('spreadsheet'),
     getPdfPane: () => appState.getPaneElement('pdf'),
-    getWorkflowPane: () => appState.getPaneElement('workflow'),
     getUnsupportedPane: () => appState.getPaneElement('unsupported'),
     getViewContainer: () => appState.getPaneElement('viewContainer'),
     getStatusBarController: () => appState.getStatusBarController(),
@@ -223,7 +219,6 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
-    activateWorkflowView,
     activateUnsupportedView,
     updateZoomDisplayForActiveView,
     handleZoomControl,
@@ -240,7 +235,6 @@ const editorActions = createEditorActions({
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getSvgCodeMode: () => appState.getSvgCodeMode(),
     getCsvTableMode: () => appState.getCsvTableMode(),
-    getWorkflowCodeMode: () => appState.getWorkflowCodeMode(),
     getCurrentFile: () => appState.getCurrentFile(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
     saveCurrentEditorContentToCache: () => { saveCurrentEditorContentToCache(); },
@@ -249,7 +243,6 @@ const editorActions = createEditorActions({
     fileSession,
     getImageViewer: () => editorRegistry.getImageViewer(),
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
-    getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
     getFileService: () => appServices?.file,
     getLoadFile: () => ({ openPathsFromSelection, loadFile }),
 });
@@ -258,7 +251,6 @@ const {
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
     toggleCsvTableMode,
-    toggleWorkflowCodeMode,
     requestActiveEditorContext,
 } = editorActions;
 
@@ -375,7 +367,6 @@ const {
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
-    getWorkflowEditor: () => editorRegistry.get('workflow'),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getCurrentFile: () => appState.getCurrentFile(),
     setCurrentFile: (value) => {
@@ -407,7 +398,6 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
-    activateWorkflowView,
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
@@ -441,7 +431,6 @@ const {
     getActiveViewMode: () => appState.getActiveViewMode(),
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
-    getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
     confirm,
     untitledFileManager,
     saveUntitledFile,
@@ -542,7 +531,6 @@ bootstrap = createAppBootstrap({
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
-    activateWorkflowView,
     activateUnsupportedView,
     setContentZoom,
     updateZoomDisplayForActiveView,
@@ -552,7 +540,6 @@ bootstrap = createAppBootstrap({
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
     toggleCsvTableMode,
-    toggleWorkflowCodeMode,
     toggleSidebarVisibility,
     toggleStatusBarVisibility,
     handleFileSelect,

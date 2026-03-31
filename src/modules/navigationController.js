@@ -41,7 +41,6 @@ export function createNavigationController({
     getActiveViewMode,
     getEditor,
     getCodeEditor,
-    getWorkflowEditor,
     confirm,
     untitledFileManager,
     saveUntitledFile,
@@ -87,9 +86,6 @@ export function createNavigationController({
     if (typeof getCodeEditor !== 'function') {
         throw new Error('navigationController 需要提供 getCodeEditor');
     }
-    if (typeof getWorkflowEditor !== 'function') {
-        throw new Error('navigationController 需要提供 getWorkflowEditor');
-    }
 
     let isOpeningFromLink = false;
 
@@ -111,7 +107,6 @@ export function createNavigationController({
             if (isSwitchingToDifferentFile) {
                 // 切换 tab 前保存当前滚动位置
                 rememberScrollPosition?.(previousFile, getActiveViewMode?.());
-                // 切换 tab 时不停止 workflow 执行，让其在后台继续运行
                 const saved = await autoSaveActiveFileIfNeeded(previousFile);
                 if (!saved) {
                     if (normalizedPrevious) {
@@ -150,34 +145,9 @@ export function createNavigationController({
         }
 
         try {
-            // 检查是否会替换正在执行的 workflow
-            // 条件：1. 新文件会使用 shared tab（不在 open list 中）
-            //      2. 当前 workflow 文件也在 shared tab 中（不在 open list 中）
-            //      3. 当前文件是 workflow 且正在执行
             const newFileWillUseSharedTab = !fileTree?.isInOpenList?.(filePath)
                 && !(untitledFileManager?.isUntitledPath?.(filePath) && tabManager?.fileTabs?.some(t => t.path === filePath));
             const isCurrentFileInSharedTab = previousFile && !fileTree?.isInOpenList?.(previousFile);
-            const isCurrentWorkflowFile = previousFile?.toLowerCase().endsWith('.mflow');
-            const workflowEditor = getWorkflowEditor();
-
-            if (newFileWillUseSharedTab && isCurrentFileInSharedTab && isCurrentWorkflowFile && workflowEditor?.isExecuting?.()) {
-                const fileName = basename(previousFile) || previousFile;
-                const shouldSwitch = await confirm?.(
-                    `"${fileName}" 工作流正在执行，确定要切换吗？`,
-                    {
-                        title: '工作流执行中',
-                        kind: 'warning',
-                        okLabel: '停止并切换',
-                        cancelLabel: '取消',
-                    }
-                );
-                if (!shouldSwitch) {
-                    // 恢复文件树选中状态到之前的文件
-                    fileTree?.selectFile(previousFile, { suppressFileSelect: true });
-                    return;
-                }
-                await workflowEditor.cancelAll?.();
-            }
 
             saveCurrentEditorContentToCache();
 
@@ -274,29 +244,6 @@ export function createNavigationController({
             const editor = getEditor();
             editor?.clearAutoSaveTimer?.();
 
-            // 检查 workflow 是否正在执行
-            const isWorkflowFile = targetPath.toLowerCase().endsWith('.mflow');
-            const workflowEditor = getWorkflowEditor();
-            if (isWorkflowFile) {
-                workflowEditor?.clearAutoSaveTimer?.();
-                if (workflowEditor?.isExecuting?.()) {
-                    const fileName = basename(targetPath) || targetPath;
-                    const shouldClose = await confirm?.(
-                        `"${fileName}" 工作流正在执行，确定要关闭吗？`,
-                        {
-                            title: '工作流执行中',
-                            kind: 'warning',
-                            okLabel: '停止并关闭',
-                            cancelLabel: '取消',
-                        }
-                    );
-                    if (!shouldClose) {
-                        return;
-                    }
-                    await workflowEditor.cancelAll?.();
-                }
-            }
-
             const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
             if (hasChanges) {
@@ -369,27 +316,6 @@ export function createNavigationController({
                 // 清除自动保存定时器
                 const editor = getEditor();
                 editor?.clearAutoSaveTimer?.();
-                const workflowEditor = getWorkflowEditor();
-                workflowEditor?.clearAutoSaveTimer?.();
-
-                // 检查 workflow 是否正在执行
-                const isWorkflowFile = targetPath.toLowerCase().endsWith('.mflow');
-                if (isWorkflowFile && workflowEditor?.isExecuting?.()) {
-                    const fileName = basename(targetPath) || targetPath;
-                    const shouldClose = await confirm?.(
-                        `"${fileName}" 工作流正在执行，确定要关闭吗？`,
-                        {
-                            title: '工作流执行中',
-                            kind: 'warning',
-                            okLabel: '停止并关闭',
-                            cancelLabel: '取消',
-                        }
-                    );
-                    if (!shouldClose) {
-                        return;
-                    }
-                    await workflowEditor.cancelAll?.();
-                }
 
                 const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
@@ -435,16 +361,12 @@ export function createNavigationController({
             const activeViewMode = getActiveViewMode();
             const editor = getEditor();
             const codeEditor = getCodeEditor();
-            const workflowEditor = getWorkflowEditor();
 
             if (activeViewMode === 'markdown' && editor) {
                 return editor.hasUnsavedChanges();
             }
             if (activeViewMode === 'code' && codeEditor) {
                 return codeEditor.hasUnsavedChanges();
-            }
-            if (activeViewMode === 'workflow' && workflowEditor) {
-                return workflowEditor.hasUnsavedChanges();
             }
         }
 

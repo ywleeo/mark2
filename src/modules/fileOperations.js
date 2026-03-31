@@ -59,7 +59,6 @@ export function createFileOperations({
     getSpreadsheetViewer,
     getPdfViewer,
     getUnsupportedViewer,
-    getWorkflowEditor,
     getMarkdownCodeMode,
     getCurrentFile,
     setCurrentFile,
@@ -84,7 +83,6 @@ export function createFileOperations({
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
-    activateWorkflowView,
     activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn,
@@ -102,7 +100,6 @@ export function createFileOperations({
     if (typeof getSpreadsheetViewer !== 'function') throw new Error('fileOperations 需要 getSpreadsheetViewer');
     if (typeof getPdfViewer !== 'function') throw new Error('fileOperations 需要 getPdfViewer');
     if (typeof getUnsupportedViewer !== 'function') throw new Error('fileOperations 需要 getUnsupportedViewer');
-    if (typeof getWorkflowEditor !== 'function') throw new Error('fileOperations 需要 getWorkflowEditor');
     if (typeof getMarkdownCodeMode !== 'function') throw new Error('fileOperations 需要 getMarkdownCodeMode');
     if (typeof getCurrentFile !== 'function') throw new Error('fileOperations 需要 getCurrentFile');
     if (typeof setCurrentFile !== 'function') throw new Error('fileOperations 需要 setCurrentFile');
@@ -131,7 +128,6 @@ export function createFileOperations({
     if (typeof activateMediaView !== 'function') throw new Error('fileOperations 需要 activateMediaView');
     if (typeof activateSpreadsheetView !== 'function') throw new Error('fileOperations 需要 activateSpreadsheetView');
     if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
-    if (typeof activateWorkflowView !== 'function') throw new Error('fileOperations 需要 activateWorkflowView');
     if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
     const getSessionPathKey = (path) => {
@@ -310,7 +306,6 @@ export function createFileOperations({
 
         const editor = getEditor();
         const codeEditor = getCodeEditor();
-        const workflowEditor = getWorkflowEditor();
         const activeViewMode = getActiveViewMode();
 
         if (activeViewMode === 'markdown' && editor) {
@@ -365,16 +360,6 @@ export function createFileOperations({
                 alert('保存失败: ' + error);
                 return false;
             }
-        }
-
-        if (activeViewMode === 'workflow' && workflowEditor) {
-            const result = await workflowEditor.save({ reason: 'manual' });
-            if (result) {
-                setHasUnsavedChanges(false);
-                fileSession.clearEntry(currentFile);
-                await updateWindowTitle();
-            }
-            return result;
         }
 
         return false;
@@ -696,7 +681,6 @@ export function createFileOperations({
                 spreadsheetViewer,
                 pdfViewer,
                 unsupportedViewer,
-                workflowEditor: getWorkflowEditor(),
                 fileService,
                 importAsUntitled: importAsUntitled
                     ? (content, suggestedName) => {
@@ -706,7 +690,6 @@ export function createFileOperations({
                     : undefined,
                 activateSpreadsheetView,
                 activatePdfView,
-                activateWorkflowView,
                 activateUnsupportedView,
                 forceReload,
             });

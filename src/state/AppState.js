@@ -246,14 +246,6 @@ export class AppState {
         this.csvTableMode = instance;
     }
 
-    getWorkflowCodeMode() {
-        return this.workflowCodeMode;
-    }
-
-    setWorkflowCodeMode(instance) {
-        this.workflowCodeMode = instance;
-    }
-
     getDocumentIO() {
         return this.documentIO;
     }

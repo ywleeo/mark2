@@ -13,7 +13,6 @@ import { confirm } from '@tauri-apps/plugin-dialog';
  * @param {Object} options.fileService - 文件服务（用于获取 metadata）
  * @param {Function} options.getEditor - 获取 Markdown 编辑器
  * @param {Function} options.getCodeEditor - 获取代码编辑器
- * @param {Function} options.getWorkflowEditor - 获取工作流编辑器
  * @param {Function} options.getCurrentFile - 获取当前文件路径
  * @param {Function} options.getActiveViewMode - 获取当前视图模式
  * @param {Function} options.scheduleLoadFile - 刷新文件的函数
@@ -26,7 +25,6 @@ export function createWindowFocusHandler(options = {}) {
         fileService,
         getEditor,
         getCodeEditor,
-        getWorkflowEditor,
         getCurrentFile,
         getActiveViewMode,
         scheduleLoadFile,
@@ -79,7 +77,6 @@ export function createWindowFocusHandler(options = {}) {
         const activeViewMode = getActiveViewMode?.();
         const editor = getEditor?.();
         const codeEditor = getCodeEditor?.();
-        const workflowEditor = getWorkflowEditor?.();
 
         if (activeViewMode === 'markdown' && typeof editor?.hasUnsavedChanges === 'function') {
             return editor.hasUnsavedChanges();
@@ -89,9 +86,6 @@ export function createWindowFocusHandler(options = {}) {
         }
         if (activeViewMode === 'html' && typeof codeEditor?.hasUnsavedChanges === 'function') {
             return codeEditor.hasUnsavedChanges();
-        }
-        if (activeViewMode === 'workflow' && typeof workflowEditor?.hasUnsavedChanges === 'function') {
-            return workflowEditor.hasUnsavedChanges();
         }
 
         return false;

@@ -11,7 +11,6 @@ export class FileTreeContextMenu {
             onDelete,
             onCreateFile,
             onCreateFolder,
-            onCreateWorkflow,
             onRun,
             getTargetPath,
         } = options;
@@ -23,7 +22,6 @@ export class FileTreeContextMenu {
         this.onDelete = onDelete;
         this.onCreateFile = onCreateFile;
         this.onCreateFolder = onCreateFolder;
-        this.onCreateWorkflow = onCreateWorkflow;
         this.onRun = onRun;
         this.getTargetPath = getTargetPath;
 
@@ -50,7 +48,6 @@ export class FileTreeContextMenu {
                 ${this.renderMenuItem('run', 'Run', this.getMenuIcon('run'), 'runnable-only')}
                 ${this.renderMenuItem('create-file', 'New File', this.getMenuIcon('create-file'), 'folder-only')}
                 ${this.renderMenuItem('create-folder', 'New Folder', this.getMenuIcon('create-folder'), 'folder-only')}
-                ${this.renderMenuItem('create-workflow', 'New Workflow', this.getMenuIcon('create-workflow'), 'folder-only workflow-only')}
             </div>
             <div class="file-tree-context-menu__separator" aria-hidden="true"></div>
             <div class="file-tree-context-menu__group">
@@ -137,15 +134,6 @@ export class FileTreeContextMenu {
                     <path d="M1.5 6h13l-1 6.2A1.5 1.5 0 0 1 12 13.5H4A1.5 1.5 0 0 1 2.5 12.2z"/>
                     <path d="M8 7.8v3.4"/>
                     <path d="M6.3 9.5h3.4"/>
-                </svg>
-            `,
-            'create-workflow': `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2.5" width="4" height="3" rx="0.8"/>
-                    <rect x="10" y="5.5" width="4" height="3" rx="0.8"/>
-                    <rect x="2" y="10.5" width="4" height="3" rx="0.8"/>
-                    <path d="M6 4h2a2 2 0 0 1 2 2v1"/>
-                    <path d="M10 9H8a2 2 0 0 0-2 2v1"/>
                 </svg>
             `,
             rename: `
@@ -287,18 +275,6 @@ export class FileTreeContextMenu {
             item.style.display = isRunnable ? '' : 'none';
         });
 
-        // 根据 workflow 功能是否启用显示/隐藏 Create Workflow 菜单项（MAS 版本禁用）
-        const workflowOnlyItems = this.element.querySelectorAll('.workflow-only');
-        const workflowEnabled = isFeatureEnabled('workflow');
-        workflowOnlyItems.forEach(item => {
-            // folder-only 已经处理了文件夹条件，这里只需要额外检查 workflow 功能
-            if (!workflowEnabled) {
-                item.style.display = 'none';
-            } else if (isFolder) {
-                item.style.display = '';
-            }
-        });
-
         this.syncSeparators();
 
         this.element.classList.remove('hidden');
@@ -368,9 +344,6 @@ export class FileTreeContextMenu {
                 break;
             case 'create-folder':
                 await this.onCreateFolder?.(targetPath, meta);
-                break;
-            case 'create-workflow':
-                await this.onCreateWorkflow?.(targetPath, meta);
                 break;
             case 'rename':
                 // 延迟到下一轮事件循环再触发重命名，避免与当前点击/焦点变更产生竞争，导致编辑框瞬间消失

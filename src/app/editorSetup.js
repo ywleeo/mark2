@@ -27,10 +27,8 @@ export function createEditorCallbacks({
         onContentChange: () => {
             const editor = editorRegistry.getMarkdownEditor();
             const codeEditor = editorRegistry.getCodeEditor();
-            const workflowEditor = editorRegistry.getWorkflowEditor();
             const hasUnsaved = editor?.hasUnsavedChanges()
                 || codeEditor?.hasUnsavedChanges()
-                || workflowEditor?.hasUnsavedChanges()
                 || false;
             appState.setHasUnsavedChanges(hasUnsaved);
             void updateWindowTitle();
@@ -47,7 +45,6 @@ export function createEditorCallbacks({
             }
             const editor = editorRegistry.getMarkdownEditor();
             const codeEditor = editorRegistry.getCodeEditor();
-            const workflowEditor = editorRegistry.getWorkflowEditor();
             const activeViewMode = appState.getActiveViewMode();
 
             fileSession.saveCurrentEditorContentToCache({
@@ -55,7 +52,6 @@ export function createEditorCallbacks({
                 activeViewMode,
                 editor,
                 codeEditor,
-                workflowEditor,
             });
 
             const modifiedTime = await fileSession.refreshModifiedTime?.(targetPath);
@@ -93,7 +89,6 @@ export function setupEditors({
         SpreadsheetViewer,
         PdfViewer,
         UnsupportedViewer,
-        WorkflowEditor,
     } = constructors;
 
     // 初始化 Markdown 编辑器
@@ -149,13 +144,6 @@ export function setupEditors({
     editorRegistry.register('unsupported', unsupportedViewer);
     unsupportedViewer.hide();
 
-    // 初始化工作流编辑器
-    const workflowEditor = new WorkflowEditor(appState.getPaneElement('workflow'), editorCallbacks, {
-        documentSessions,
-    });
-    editorRegistry.register('workflow', workflowEditor);
-    workflowEditor.hide();
-
     // 设置默认视图模式
     appState.setActiveViewMode('markdown');
 
@@ -177,6 +165,5 @@ export function setupEditors({
         spreadsheetViewer,
         pdfViewer,
         unsupportedViewer,
-        workflowEditor,
     };
 }

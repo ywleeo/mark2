@@ -69,7 +69,6 @@ export function createFileSession({
         activeViewMode,
         editor,
         codeEditor,
-        workflowEditor,
     }) {
         if (!currentFile) return;
 
@@ -90,9 +89,6 @@ export function createFileSession({
                 ? codeEditor.getValueForSave()
                 : codeEditor.getValue();
             hasChanges = codeEditor.hasUnsavedChanges();
-        } else if (viewMode === 'workflow' && workflowEditor) {
-            content = workflowEditor.getContent();
-            hasChanges = workflowEditor.hasUnsavedChanges();
         }
 
         if (content !== null) {

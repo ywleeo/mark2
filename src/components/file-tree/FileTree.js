@@ -206,7 +206,6 @@ export class FileTree {
             onDelete: (path) => this.fileActions.confirmAndDelete(path),
             onCreateFile: (path) => this.creator.createFile(path),
             onCreateFolder: (path) => this.creator.createFolder(path),
-            onCreateWorkflow: (path) => this.creator.createWorkflow(path),
             onRun: (path) => this.onRunFile?.(path),
         });
     }

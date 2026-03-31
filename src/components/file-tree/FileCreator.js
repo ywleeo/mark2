@@ -78,45 +78,4 @@ export class FileCreator {
             } catch {}
         }
     }
-
-    async createWorkflow(folderPath) {
-        const normalized = this.normalizePath?.(folderPath);
-        if (!normalized) return;
-        try {
-            const fileService = this.getFileService?.();
-            const candidatePath = await this._findAvailableName(normalized, 'workflow', '.mflow');
-            const now = new Date().toISOString();
-            const generateId = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-            const emptyWorkflow = {
-                version: '1.0',
-                meta: { title: '新建工作流', created: now, updated: now },
-                layers: [{
-                    id: generateId('layer'),
-                    cards: [{
-                        id: generateId('card'),
-                        title: '任务目标',
-                        type: 'input',
-                        inputs: [],
-                        config: { content: '' },
-                        output: { mode: 'content' },
-                        status: 'pending',
-                    }],
-                }],
-            };
-            this.markLocalWrite?.(candidatePath);
-            this.markLocalWrite?.(normalized);
-            await fileService.writeText(candidatePath, JSON.stringify(emptyWorkflow, null, 2));
-            await this.refreshFolder?.(normalized);
-            setTimeout(() => {
-                this.selectFile?.(candidatePath, { autoFocus: false });
-                this.startRenaming?.(candidatePath);
-            }, 100);
-        } catch (error) {
-            console.error('创建工作流失败:', error);
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`创建工作流失败:\n${error.message || error}`, { title: '创建失败', kind: 'error' });
-            } catch {}
-        }
-    }
 }

@@ -150,14 +150,6 @@ export class EditorRegistry {
     }
 
     /**
-     * 获取 Workflow 编辑器
-     * @returns {Object|null}
-     */
-    getWorkflowEditor() {
-        return this.get('workflow');
-    }
-
-    /**
      * 根据视图模式获取对应的编辑器/查看器
      * @param {string} viewMode - 视图模式
      * @returns {Object|null}

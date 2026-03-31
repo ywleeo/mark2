@@ -9,7 +9,6 @@ import { MarkdownToolbarManager } from '../components/MarkdownToolbarManager.js'
 import { createMarkdownCodeMode } from '../modules/markdownCodeMode.js';
 import { createSvgCodeMode } from '../modules/svgCodeMode.js';
 import { createCsvTableMode } from '../modules/csvTableMode.js';
-import { createWorkflowCodeMode } from '../modules/workflowCodeMode.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
@@ -75,7 +74,6 @@ export function createAppBootstrap({
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
-    activateWorkflowView,
     activateUnsupportedView,
     setContentZoom,
     updateZoomDisplayForActiveView,
@@ -86,7 +84,6 @@ export function createAppBootstrap({
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
     toggleCsvTableMode,
-    toggleWorkflowCodeMode,
     // layoutControls 导出
     toggleSidebarVisibility,
     toggleStatusBarVisibility,
@@ -229,7 +226,6 @@ export function createAppBootstrap({
         const activeViewMode = appState.getActiveViewMode();
         const editor = editorRegistry.getMarkdownEditor();
         const codeEditor = editorRegistry.getCodeEditor();
-        const workflowEditor = editorRegistry.getWorkflowEditor();
 
         if (currentFile && untitledFileManager.isUntitledPath(currentFile)) {
             let content = '';
@@ -247,7 +243,6 @@ export function createAppBootstrap({
             activeViewMode,
             editor,
             codeEditor,
-            workflowEditor,
         });
     }
 
@@ -350,9 +345,6 @@ export function createAppBootstrap({
         });
         appState.setCsvTableMode(csvTableMode);
 
-        const workflowCodeMode = createWorkflowCodeMode({ activateCodeView, activateWorkflowView });
-        appState.setWorkflowCodeMode(workflowCodeMode);
-
         const fileTree = setupFileTree({
             FileTreeCtor: coreModules.FileTree,
             appState,
@@ -386,7 +378,6 @@ export function createAppBootstrap({
             getActiveViewMode: () => appState.getActiveViewMode(),
             getEditor: () => editorRegistry.getMarkdownEditor(),
             getCodeEditor: () => editorRegistry.getCodeEditor(),
-            getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
             scheduleLoadFile: async (path) => {
                 const normalized = normalizeFsPath(path) || path || null;
                 await loadFile(path, {
@@ -432,7 +423,6 @@ export function createAppBootstrap({
             onToggleMarkdownCodeView: toggleMarkdownCodeMode,
             onToggleSvgCodeView: toggleSvgCodeMode,
             onToggleCsvTableView: toggleCsvTableMode,
-            onToggleWorkflowCodeView: toggleWorkflowCodeMode,
             onToggleScratchpad: () => getScratchpadPanel()?.toggle(),
         }));
 
@@ -506,7 +496,6 @@ export function createAppBootstrap({
             fileSession,
             getEditor: () => editorRegistry.getMarkdownEditor(),
             getCodeEditor: () => editorRegistry.getCodeEditor(),
-            getWorkflowEditor: () => editorRegistry.getWorkflowEditor(),
             getCurrentFile: () => appState.getCurrentFile(),
             getActiveViewMode: () => appState.getActiveViewMode(),
             scheduleLoadFile: async (path) => {

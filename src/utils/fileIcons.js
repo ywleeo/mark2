@@ -59,9 +59,6 @@ function getFileIconMeta(filePath) {
     if (viewMode === 'markdown') {
         return { kind: 'markdown', badge: 'MD' };
     }
-    if (viewMode === 'workflow') {
-        return { kind: 'workflow', badge: 'WF' };
-    }
     if (viewMode === 'image') {
         return { kind: 'image', badge: 'IMG' };
     }
