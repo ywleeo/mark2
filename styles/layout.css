@@ -286,7 +286,7 @@ body.sidebar-resizing .sidebar-resizer::before {
     cursor: grabbing;
 }
 
-.tab-bar:not(:has(.tab)) {
+.tab-bar:not(:has(.tab, .tab-new-btn)) {
     display: none;
 }
 

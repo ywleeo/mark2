@@ -30,7 +30,7 @@
 
 .ai-sidebar {
     position: relative;
-    width: 380px;
+    width: var(--ai-sidebar-width, 380px);
     height: calc(100vh - var(--titlebar-height, 30px));
     background: var(--ai-sidebar-bg);
     border-left: 1px solid var(--ai-sidebar-border);
@@ -52,12 +52,19 @@ body.ai-sidebar-visible .ai-sidebar {
     bottom: 0;
     width: 4px;
     cursor: ew-resize;
+    touch-action: none;
     background: transparent;
     transition: background 0.2s;
+    z-index: 2;
 }
 
 .ai-sidebar-resize-handle:hover {
     background: var(--ai-sidebar-primary);
+}
+
+body.ai-sidebar-resizing {
+    cursor: ew-resize;
+    user-select: none;
 }
 
 /* 头部 */
@@ -1036,7 +1043,7 @@ body.ai-sidebar-visible .ai-sidebar {
 
 /* ========== 删除确认卡片 ========== */
 .ai-confirm-card {
-    margin-top: 8px;
+    margin: 8px 0;
     padding: 10px 12px;
     border: 1px solid rgba(224, 85, 85, 0.3);
     border-radius: 6px;

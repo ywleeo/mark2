@@ -12,6 +12,14 @@ import { basename } from '../../utils/pathUtils.js';
 import { writeFile } from '../../api/filesystem.js';
 import { untitledFileManager } from '../untitledFileManager.js';
 
+const AI_SIDEBAR_STORAGE_KEYS = {
+    width: 'mark2_ai_sidebar_width_v1',
+};
+
+const AI_SIDEBAR_DEFAULT_WIDTH = 380;
+const AI_SIDEBAR_MIN_WIDTH = 320;
+const AI_SIDEBAR_MAX_WIDTH = 720;
+
 // 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
 
@@ -168,6 +176,43 @@ function mergeThinkingText(streamThinking, inlineThinking) {
         return inline;
     }
     return `${explicit}\n\n${inline}`;
+}
+
+/**
+ * 约束 AI Sidebar 宽度，避免拖拽到不可用尺寸。
+ * @param {number} width - 目标宽度
+ * @returns {number} 合法宽度
+ */
+function clampSidebarWidth(width) {
+    const numericWidth = Number(width);
+    if (!Number.isFinite(numericWidth)) {
+        return AI_SIDEBAR_DEFAULT_WIDTH;
+    }
+    return Math.min(AI_SIDEBAR_MAX_WIDTH, Math.max(AI_SIDEBAR_MIN_WIDTH, Math.round(numericWidth)));
+}
+
+/**
+ * 从本地存储读取 AI Sidebar 宽度。
+ * @returns {number} 上次保存的宽度
+ */
+function loadSidebarWidth() {
+    try {
+        return clampSidebarWidth(localStorage.getItem(AI_SIDEBAR_STORAGE_KEYS.width));
+    } catch {
+        return AI_SIDEBAR_DEFAULT_WIDTH;
+    }
+}
+
+/**
+ * 持久化 AI Sidebar 宽度。
+ * @param {number} width - 需要保存的宽度
+ */
+function saveSidebarWidth(width) {
+    try {
+        localStorage.setItem(AI_SIDEBAR_STORAGE_KEYS.width, String(clampSidebarWidth(width)));
+    } catch {
+        // 忽略本地存储异常，避免影响主功能
+    }
 }
 
 // ── 内联卡片：对话中的 assistant 消息 ────────────────────
@@ -492,6 +537,7 @@ export class AiSidebar {
         this.clearBtn = this.el.querySelector('.ai-sidebar-clear-btn');
         this.closeBtn = this.el.querySelector('.ai-sidebar-close-btn');
         this.fileNameEl = this.el.querySelector('.ai-context-file-name');
+        this.resizeHandleEl = this.el.querySelector('.ai-sidebar-resize-handle');
 
         // 对话历史（仅用于 LLM，含 system/user/assistant/tool 消息）
         this.agentMessages = [];
@@ -502,8 +548,10 @@ export class AiSidebar {
         this._activeCard = null;
 
         this._setupToolExecutor();
+        this._restoreSidebarWidth();
         this._bindEvents();
         this._bindFileChangeListener();
+        this._bindResizeHandle();
         this._updateContextBar();
     }
 
@@ -560,6 +608,64 @@ export class AiSidebar {
                 void this._handleSend();
             }
         });
+    }
+
+    /**
+     * 恢复上次保存的 sidebar 宽度。
+     */
+    _restoreSidebarWidth() {
+        this._applySidebarWidth(loadSidebarWidth());
+    }
+
+    /**
+     * 将宽度写入 CSS 变量与面板样式，统一布局依赖。
+     * @param {number} width - 目标宽度
+     */
+    _applySidebarWidth(width) {
+        const nextWidth = clampSidebarWidth(width);
+        this.el.style.width = `${nextWidth}px`;
+        document.documentElement.style.setProperty('--ai-sidebar-width', `${nextWidth}px`);
+    }
+
+    /**
+     * 绑定 AI Sidebar 左侧拖拽手柄。
+     */
+    _bindResizeHandle() {
+        if (!this.resizeHandleEl) {
+            return;
+        }
+
+        let startX = 0;
+        let startWidth = AI_SIDEBAR_DEFAULT_WIDTH;
+
+        this.resizeHandleEl.addEventListener('pointerdown', (event) => {
+            this.resizeHandleEl.setPointerCapture(event.pointerId);
+            startX = event.clientX;
+            startWidth = this.el.offsetWidth || loadSidebarWidth();
+            document.body.classList.add('ai-sidebar-resizing');
+            event.preventDefault();
+        });
+
+        this.resizeHandleEl.addEventListener('pointermove', (event) => {
+            if (!this.resizeHandleEl.hasPointerCapture(event.pointerId)) {
+                return;
+            }
+
+            const widthDelta = startX - event.clientX;
+            const nextWidth = clampSidebarWidth(startWidth + widthDelta);
+            this._applySidebarWidth(nextWidth);
+            saveSidebarWidth(nextWidth);
+        });
+
+        const stopResize = (event) => {
+            if (event && this.resizeHandleEl.hasPointerCapture(event.pointerId)) {
+                this.resizeHandleEl.releasePointerCapture(event.pointerId);
+            }
+            document.body.classList.remove('ai-sidebar-resizing');
+        };
+
+        this.resizeHandleEl.addEventListener('pointerup', stopResize);
+        this.resizeHandleEl.addEventListener('pointercancel', stopResize);
     }
 
     _bindFileChangeListener() {
