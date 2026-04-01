@@ -10,10 +10,10 @@ export function createMediaRenderer() {
                 filePath,
                 editorRegistry,
                 mediaViewer,
-                activateMediaView,
+                view,
             } = ctx;
 
-            activateMediaView?.();
+            view?.activate?.('media');
             editorRegistry?.getMarkdownEditor?.()?.clear?.();
             editorRegistry?.getCodeEditor?.()?.clear?.();
             await mediaViewer?.loadMedia?.(filePath);

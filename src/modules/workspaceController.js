@@ -5,9 +5,7 @@ export function createWorkspaceController({
     getFileTree,
     getTabManager,
     fileService,
-    createDefaultWorkspaceState,
-    loadWorkspaceState,
-    saveWorkspaceState,
+    workspaceManager,
     untitledFileManager,
 }) {
     if (typeof getCurrentFile !== 'function') {
@@ -22,27 +20,19 @@ export function createWorkspaceController({
     if (!fileService) {
         throw new Error('workspaceController 需要提供 fileService');
     }
-    if (typeof createDefaultWorkspaceState !== 'function') {
-        throw new Error('workspaceController 需要提供 createDefaultWorkspaceState');
-    }
-    if (typeof loadWorkspaceState !== 'function') {
-        throw new Error('workspaceController 需要提供 loadWorkspaceState');
-    }
-    if (typeof saveWorkspaceState !== 'function') {
-        throw new Error('workspaceController 需要提供 saveWorkspaceState');
+    if (!workspaceManager || typeof workspaceManager.persistWorkspaceState !== 'function') {
+        throw new Error('workspaceController 需要提供 workspaceManager');
     }
     if (!untitledFileManager || typeof untitledFileManager.isUntitledPath !== 'function') {
         throw new Error('workspaceController 需要提供 untitledFileManager');
     }
-
-    let isRestoring = false;
 
     function isNonEmptyString(value) {
         return typeof value === 'string' && value.trim().length > 0;
     }
 
     function getDefaultSidebarState() {
-        return createDefaultWorkspaceState().sidebar;
+        return workspaceManager.getSnapshot().sidebar;
     }
 
     function canonicalizeWorkspacePath(value) {
@@ -233,25 +223,20 @@ export function createWorkspaceController({
     }
 
     function persistWorkspaceState(overrides = {}, options = {}) {
-        const forcePersist = options.force === true;
-        if (isRestoring && !forcePersist) {
-            return;
-        }
-
         try {
-            const defaultState = createDefaultWorkspaceState();
             const fileTree = getFileTree();
             const currentFile = getCurrentFile();
+            const currentWorkspaceState = workspaceManager.getSnapshot();
 
             const sidebarState = overrides.sidebar
                 ?? fileTree?.getPersistedState?.()
-                ?? defaultState.sidebar;
+                ?? currentWorkspaceState.sidebar;
 
             const openFilesState = Array.isArray(overrides.openFiles)
                 ? [...overrides.openFiles]
                 : fileTree?.getOpenFilePaths?.()
                     ? [...fileTree.getOpenFilePaths()]
-                    : [...defaultState.openFiles];
+                    : [...currentWorkspaceState.openFiles];
 
             const nextState = {
                 currentFile,
@@ -280,17 +265,17 @@ export function createWorkspaceController({
                 nextState.sharedTabPath = collectSharedTabPathForPersistence();
             }
 
-            saveWorkspaceState(nextState);
+            workspaceManager.persistWorkspaceState(nextState, options);
         } catch (error) {
             console.warn('保存工作区状态失败', error);
         }
     }
 
     function handleSidebarStateChange(sidebarState) {
-        if (isRestoring) {
+        if (workspaceManager.isRestoring()) {
             return;
         }
-        persistWorkspaceState({ sidebar: sidebarState });
+        workspaceManager.handleSidebarStateChange(sidebarState);
     }
 
     async function sanitizeSidebarState(rawSidebar) {
@@ -363,7 +348,7 @@ export function createWorkspaceController({
     }
 
     async function restoreWorkspaceStateFromStorage() {
-        const stored = loadWorkspaceState();
+        const stored = workspaceManager.loadPersistedState();
         if (!stored) {
             return;
         }
@@ -414,7 +399,7 @@ export function createWorkspaceController({
         }
         const storedCurrentFile = resolveCanonicalCurrentFile(stored.currentFile, sanitizedOpenFiles);
 
-        isRestoring = true;
+        workspaceManager.setRestoring(true);
         try {
             if (fileTree) {
                 await fileTree.restoreState(sanitizedSidebar);
@@ -423,7 +408,7 @@ export function createWorkspaceController({
                 }
             }
         } finally {
-            isRestoring = false;
+            workspaceManager.setRestoring(false);
         }
 
         // 恢复 untitled 内容和 tab 列表（Sublime 类似 hot-exit）
@@ -497,6 +482,6 @@ export function createWorkspaceController({
         persistWorkspaceState,
         handleSidebarStateChange,
         restoreWorkspaceStateFromStorage,
-        isRestoring: () => isRestoring,
+        isRestoring: () => workspaceManager.isRestoring(),
     };
 }

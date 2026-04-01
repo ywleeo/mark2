@@ -11,7 +11,7 @@ export function createMarkdownRenderer() {
                 session,
                 fileData,
                 editorRegistry,
-                activateMarkdownView,
+                view,
                 restoreMarkdownScrollPosition,
                 setHasUnsavedChanges,
                 updateWindowTitle,
@@ -23,7 +23,7 @@ export function createMarkdownRenderer() {
                 return false;
             }
 
-            activateMarkdownView?.({ skipScrollSync: true });
+            view?.activate?.('markdown', { skipScrollSync: true });
             await editor.loadFile(session, filePath, fileData.content, {
                 autoFocus: shouldAutoFocus,
                 onReady: () => restoreMarkdownScrollPosition?.(filePath),

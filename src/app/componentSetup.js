@@ -77,6 +77,7 @@ export function setupStatusBar({
 export function setupFileTree({
     FileTreeCtor,
     appState,
+    executeCommand,
     handleFileSelect,
     handleOpenFilesChange,
     handleSidebarStateChange,
@@ -90,6 +91,7 @@ export function setupFileTree({
 }) {
     const fileTreeElement = document.getElementById('fileTree');
     const fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
+        executeCommand,
         onFolderChange: (...args) => appState.getFileWatcherController()?.handleFolderWatcherEvent(...args),
         onFileChange: (...args) => appState.getFileWatcherController()?.handleFileWatcherEvent(...args),
         onOpenFilesChange: handleOpenFilesChange,

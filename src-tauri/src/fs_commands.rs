@@ -1,9 +1,12 @@
 use base64::Engine;
 use font_kit::source::SystemSource;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
 use std::time::SystemTime;
+use tauri::Manager;
 
 #[cfg(target_os = "macos")]
 use objc2_app_kit::NSPasteboard;
@@ -16,6 +19,28 @@ use crate::macos_security::move_path_to_trash;
 #[derive(Serialize)]
 pub struct FileMetadata {
     pub modified_time: u64,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntryPayload {
+    pub ts: String,
+    pub domain: String,
+    pub level: String,
+    pub message: String,
+    pub context: serde_json::Value,
+}
+
+/**
+ * 返回统一日志文件路径。
+ * 当前先收敛到单文件，后续如需按日期切分可在此处扩展。
+ */
+fn resolve_app_log_file_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let log_dir = app.path().app_log_dir().map_err(|err| err.to_string())?;
+    if !log_dir.exists() {
+        fs::create_dir_all(&log_dir).map_err(|err| err.to_string())?;
+    }
+    Ok(log_dir.join("mark2-debug.log"))
 }
 
 #[tauri::command]
@@ -134,6 +159,37 @@ pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
 #[tauri::command]
 pub fn write_file(path: String, content: String) -> Result<(), String> {
     fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn append_log_entries(
+    app: tauri::AppHandle,
+    entries: Vec<LogEntryPayload>,
+) -> Result<String, String> {
+    if entries.is_empty() {
+        return get_app_log_file_path(app);
+    }
+
+    let log_file = resolve_app_log_file_path(&app)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file)
+        .map_err(|err| err.to_string())?;
+
+    for entry in entries {
+        let line = serde_json::to_string(&entry).map_err(|err| err.to_string())?;
+        file.write_all(line.as_bytes()).map_err(|err| err.to_string())?;
+        file.write_all(b"\n").map_err(|err| err.to_string())?;
+    }
+
+    Ok(log_file.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn get_app_log_file_path(app: tauri::AppHandle) -> Result<String, String> {
+    let log_file = resolve_app_log_file_path(&app)?;
+    Ok(log_file.to_string_lossy().to_string())
 }
 
 #[tauri::command]

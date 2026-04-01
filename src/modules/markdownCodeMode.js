@@ -1,8 +1,7 @@
 export function createMarkdownCodeMode({
     detectLanguageForPath,
     isMarkdownFilePath,
-    activateMarkdownView,
-    activateCodeView,
+    view,
 }) {
     if (typeof detectLanguageForPath !== 'function') {
         throw new Error('createMarkdownCodeMode 需要提供 detectLanguageForPath');
@@ -10,8 +9,8 @@ export function createMarkdownCodeMode({
     if (typeof isMarkdownFilePath !== 'function') {
         throw new Error('createMarkdownCodeMode 需要提供 isMarkdownFilePath');
     }
-    if (typeof activateMarkdownView !== 'function' || typeof activateCodeView !== 'function') {
-        throw new Error('createMarkdownCodeMode 需要提供视图切换方法');
+    if (!view || typeof view.activate !== 'function') {
+        throw new Error('createMarkdownCodeMode 需要提供 view 协议');
     }
 
     let toggleState = null;
@@ -41,7 +40,7 @@ export function createMarkdownCodeMode({
             };
 
             editor?.saveViewStateForTab?.(currentFile);
-            activateCodeView();
+            view.activate('code');
             const language = detectLanguageForPath(currentFile) || 'plaintext';
             await codeEditor.show(currentFile, markdownContent, language, null, { tabId: currentFile });
             editor?.refreshSearch?.();
@@ -79,7 +78,7 @@ export function createMarkdownCodeMode({
             const pos = codeEditor.getCurrentPosition?.();
 
             codeEditor?.saveViewStateForTab?.(currentFile);
-            activateMarkdownView();
+            view.activate('markdown');
             await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });
             editor?.refreshSearch?.();
 

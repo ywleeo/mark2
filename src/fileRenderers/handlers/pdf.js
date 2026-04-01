@@ -15,11 +15,11 @@ export function createPdfRenderer() {
                 mediaViewer,
                 spreadsheetViewer,
                 unsupportedViewer,
-                activatePdfView,
+                view,
                 forceReload,
             } = ctx;
 
-            activatePdfView?.();
+            view?.activate?.('pdf');
             editorRegistry?.getMarkdownEditor?.()?.clear?.();
             editorRegistry?.getCodeEditor?.()?.hide?.();
             imageViewer?.hide?.();

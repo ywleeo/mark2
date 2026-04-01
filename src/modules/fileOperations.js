@@ -51,6 +51,7 @@ function getReadableErrorMessage(error) {
 }
 
 export function createFileOperations({
+    logger,
     getFileTree,
     getEditor,
     getCodeEditor,
@@ -62,12 +63,13 @@ export function createFileOperations({
     getMarkdownCodeMode,
     getCurrentFile,
     setCurrentFile,
+    documentManager,
     getActiveViewMode,
     setHasUnsavedChanges,
     fileSession,
     documentSessions,
     detectLanguageForPath,
-    getViewModeForPath,
+    viewManager,
     normalizeFsPath,
     normalizeSelectedPaths,
     fileService,
@@ -77,19 +79,11 @@ export function createFileOperations({
     rememberMarkdownScrollPosition,
     restoreMarkdownScrollPosition,
     restoreScrollPosition,
-    activateMarkdownView,
-    activateCodeView,
-    activateImageView,
-    activateMediaView,
-    activateSpreadsheetView,
-    activatePdfView,
-    activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn,
     untitledFileManager,
     saveUntitledFile,
     importAsUntitled,
-    getRendererRegistry,
     getStatusBarController,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
@@ -110,7 +104,9 @@ export function createFileOperations({
         throw new Error('fileOperations 需要 documentSessions');
     }
     if (typeof detectLanguageForPath !== 'function') throw new Error('fileOperations 需要 detectLanguageForPath');
-    if (typeof getViewModeForPath !== 'function') throw new Error('fileOperations 需要 getViewModeForPath');
+    if (!viewManager || typeof viewManager.resolveViewMode !== 'function') {
+        throw new Error('fileOperations 需要 viewManager');
+    }
     if (typeof normalizeFsPath !== 'function') throw new Error('fileOperations 需要 normalizeFsPath');
     if (typeof normalizeSelectedPaths !== 'function') throw new Error('fileOperations 需要 normalizeSelectedPaths');
     if (!fileService) throw new Error('fileOperations 需要 fileService');
@@ -122,18 +118,14 @@ export function createFileOperations({
         throw new Error('fileOperations 需要 rememberMarkdownScrollPosition');
     if (typeof restoreMarkdownScrollPosition !== 'function')
         throw new Error('fileOperations 需要 restoreMarkdownScrollPosition');
-    if (typeof activateMarkdownView !== 'function') throw new Error('fileOperations 需要 activateMarkdownView');
-    if (typeof activateCodeView !== 'function') throw new Error('fileOperations 需要 activateCodeView');
-    if (typeof activateImageView !== 'function') throw new Error('fileOperations 需要 activateImageView');
-    if (typeof activateMediaView !== 'function') throw new Error('fileOperations 需要 activateMediaView');
-    if (typeof activateSpreadsheetView !== 'function') throw new Error('fileOperations 需要 activateSpreadsheetView');
-    if (typeof activatePdfView !== 'function') throw new Error('fileOperations 需要 activatePdfView');
-    if (typeof activateUnsupportedView !== 'function') throw new Error('fileOperations 需要 activateUnsupportedView');
 
     const getSessionPathKey = (path) => {
         const normalized = normalizeFsPath(path);
         return normalized || path;
     };
+
+    const rendererViewContext = viewManager.createRendererLoadContext?.() || {};
+    const viewProtocol = rendererViewContext.view || viewManager.createViewProtocol?.() || null;
 
     const getIdentityKeyForPath = (path) => {
         if (!path) {
@@ -221,7 +213,7 @@ export function createFileOperations({
                 } else {
                     // docx/spreadsheet 等导入型文件不加入 open list，直接触发文件选择
                     // 这类文件会被渲染器转成 untitled tab，不应在文件树中留下持久 tab
-                    const viewMode = getViewModeForPath(resolvedPath);
+                    const viewMode = viewManager.resolveViewMode(resolvedPath);
                     const isImportType = viewMode === 'docx' || viewMode === 'pptx' || viewMode === 'spreadsheet';
                     if (!isImportType) {
                         fileTree.addToOpenFiles(resolvedPath);
@@ -291,8 +283,13 @@ export function createFileOperations({
     async function saveCurrentFile() {
         const currentFile = getCurrentFile();
         if (!currentFile) {
+            logger?.info?.('saveCurrentFile:skip', { reason: 'no-current-file' });
             return false;
         }
+        logger?.info?.('saveCurrentFile:start', {
+            path: currentFile,
+            activeViewMode: getActiveViewMode(),
+        });
 
         // 处理 untitled 文件的保存
         if (untitledFileManager?.isUntitledPath?.(currentFile)) {
@@ -301,6 +298,11 @@ export function createFileOperations({
 
         const activeSession = documentSessions.getActiveSession();
         if (!activeSession || activeSession.filePath !== currentFile) {
+            logger?.warn?.('saveCurrentFile:skip', {
+                reason: 'session-mismatch',
+                path: currentFile,
+                activeSessionPath: activeSession?.filePath || null,
+            });
             return false;
         }
 
@@ -316,8 +318,14 @@ export function createFileOperations({
             const result = await editor.save();
             if (result) {
                 setHasUnsavedChanges(false);
+                documentManager?.markDirty?.(currentFile, false);
                 fileSession.clearEntry(currentFile);
                 await updateWindowTitle();
+                logger?.info?.('saveCurrentFile:done', {
+                    path: currentFile,
+                    activeViewMode,
+                    writer: 'markdown-editor',
+                });
             }
             return result;
         }
@@ -349,19 +357,36 @@ export function createFileOperations({
                 markdownCodeMode?.handleCodeSaved(content);
                 codeEditor.markSaved();
                 setHasUnsavedChanges(false);
+                documentManager?.markDirty?.(currentFile, false);
                 fileSession.clearEntry(currentFile);
                 await updateWindowTitle();
+                logger?.info?.('saveCurrentFile:done', {
+                    path: currentFile,
+                    activeViewMode,
+                    writer: 'code-editor',
+                    contentLength: typeof content === 'string' ? content.length : 0,
+                });
                 return true;
             } catch (error) {
                 if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
                     documentSessions.clearLocalWriteSuppression(localWriteKey);
                 }
                 console.error('保存失败:', error);
+                logger?.error?.('saveCurrentFile:failed', {
+                    path: currentFile,
+                    activeViewMode,
+                    error,
+                });
                 alert('保存失败: ' + error);
                 return false;
             }
         }
 
+        logger?.warn?.('saveCurrentFile:skip', {
+            reason: 'unsupported-view-mode',
+            path: currentFile,
+            activeViewMode,
+        });
         return false;
     }
 
@@ -381,10 +406,20 @@ export function createFileOperations({
         }
 
         if (typeof saveUntitledFile === 'function') {
+            logger?.info?.('saveUntitledFile:start', {
+                path: untitledPath,
+                activeViewMode,
+                contentLength: typeof content === 'string' ? content.length : 0,
+            });
             const saved = await saveUntitledFile(untitledPath, content);
             if (saved) {
                 setHasUnsavedChanges(false);
+                documentManager?.markDirty?.(untitledPath, false);
                 await updateWindowTitle();
+                logger?.info?.('saveUntitledFile:done', {
+                    path: untitledPath,
+                    activeViewMode,
+                });
             }
             return saved;
         }
@@ -393,6 +428,10 @@ export function createFileOperations({
 
     async function saveFile(filePath) {
         const currentFile = getCurrentFile();
+        logger?.info?.('saveFile:start', {
+            requestedPath: filePath,
+            currentPath: currentFile,
+        });
 
         const requestedKey = getIdentityKeyForPath(filePath);
         const currentKey = getIdentityKeyForPath(currentFile);
@@ -403,6 +442,10 @@ export function createFileOperations({
         }
 
         if (!cached || !cached.hasChanges) {
+            logger?.info?.('saveFile:skip', {
+                requestedPath: filePath,
+                reason: 'no-cache-or-clean',
+            });
             return true;
         }
 
@@ -413,12 +456,22 @@ export function createFileOperations({
             }
             await fileService.writeText(filePath, cached.content);
             fileSession.clearEntry(filePath);
+            logger?.info?.('saveFile:done', {
+                requestedPath: filePath,
+                writer: 'cached-session',
+                contentLength: typeof cached.content === 'string' ? cached.content.length : 0,
+            });
             return true;
         } catch (error) {
             if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
                 documentSessions.clearLocalWriteSuppression(localWriteKey);
             }
             console.error('保存文件失败:', error);
+            logger?.error?.('saveFile:failed', {
+                requestedPath: filePath,
+                writer: 'cached-session',
+                error,
+            });
             return false;
         }
     }
@@ -434,6 +487,13 @@ export function createFileOperations({
         } = options;
         const session = documentSessions.beginSession(filePath);
         const sessionId = session?.id ?? null;
+        logger?.info?.('loadFile:start', {
+            path: filePath,
+            sessionId,
+            skipWatchSetup,
+            forceReload,
+            autoFocus,
+        });
         const shouldAbort = (phase) => {
             if (!sessionId) {
                 return false;
@@ -456,9 +516,8 @@ export function createFileOperations({
 
         try {
             // 计算目标文件的视图模式
-            const initialViewMode = getViewModeForPath(filePath);
-            const rendererRegistry = getRendererRegistry?.();
-            const renderer = rendererRegistry?.getHandlerForPath?.(filePath) || null;
+            const initialViewMode = viewManager.resolveViewMode(filePath);
+            const renderer = viewManager.getRendererForPath(filePath);
 
             // 导入型文件（docx/spreadsheet）：不影响当前编辑器状态，只读文件并触发导入
             if (importAsUntitled && (initialViewMode === 'docx' || initialViewMode === 'pptx' || initialViewMode === 'spreadsheet')) {
@@ -491,7 +550,32 @@ export function createFileOperations({
                 const markdownCodeMode = getMarkdownCodeMode();
                 markdownCodeMode?.reset();
             }
-            setCurrentFile(filePath);
+            const normalizedTargetPath = typeof filePath === 'string'
+                ? normalizeFsPath(filePath) || filePath
+                : null;
+            const fileTree = getFileTree();
+            const providedTabId = typeof options.tabId === 'string' && options.tabId.length > 0
+                ? options.tabId
+                : null;
+            const hasPersistentTab = normalizedTargetPath
+                ? Boolean(fileTree?.isInOpenList?.(normalizedTargetPath))
+                : false;
+            const tabId = providedTabId
+                || (hasPersistentTab ? normalizedTargetPath : null);
+
+            setCurrentFile(filePath, {
+                tabId,
+                kind: untitledFileManager?.isUntitledPath?.(filePath) ? 'untitled' : 'file',
+                viewMode: initialViewMode,
+                sessionId,
+                dirty: false,
+            });
+            logger?.info?.('loadFile:setCurrentFile', {
+                path: filePath,
+                tabId,
+                sessionId,
+                initialViewMode,
+            });
 
             const rendererViewMode = renderer?.getViewMode?.(filePath) || null;
 
@@ -502,18 +586,6 @@ export function createFileOperations({
             const spreadsheetViewer = getSpreadsheetViewer();
             const pdfViewer = getPdfViewer();
             const unsupportedViewer = getUnsupportedViewer();
-            const fileTree = getFileTree();
-            const normalizedTargetPath = typeof filePath === 'string'
-                ? normalizeFsPath(filePath) || filePath
-                : null;
-            const providedTabId = typeof options.tabId === 'string' && options.tabId.length > 0
-                ? options.tabId
-                : null;
-            const hasPersistentTab = normalizedTargetPath
-                ? Boolean(fileTree?.isInOpenList?.(normalizedTargetPath))
-                : false;
-            const tabId = providedTabId
-                || (hasPersistentTab ? normalizedTargetPath : null);
             editor?.prepareForDocument?.(session, filePath, tabId);
             codeEditor?.prepareForDocument?.(session, filePath, tabId);
             // 关闭旧文件可能仍在等待自动保存，提前清除避免写入到新文件
@@ -521,7 +593,7 @@ export function createFileOperations({
 
             // 处理 untitled 虚拟文件：不监听文件，不从磁盘读取，直接显示编辑器
             if (untitledFileManager?.isUntitledPath?.(filePath)) {
-                activateMarkdownView();
+                viewProtocol?.activate?.('markdown');
                 const untitledContent = untitledFileManager.getContent?.(filePath) || '';
                 if (editor) {
                     await editor.loadFile(session, filePath, untitledContent, { autoFocus });
@@ -535,6 +607,12 @@ export function createFileOperations({
                     return;
                 }
                 markSessionReady();
+                logger?.info?.('loadFile:done', {
+                    path: filePath,
+                    sessionId,
+                    targetViewMode: 'markdown',
+                    source: 'untitled',
+                });
                 return;
             }
 
@@ -549,7 +627,7 @@ export function createFileOperations({
                         getCodeEditor: () => codeEditor,
                     },
                     imageViewer,
-                    activateImageView,
+                    view: viewProtocol,
                 });
                 if (shouldAbort('image-load')) {
                     return;
@@ -575,6 +653,11 @@ export function createFileOperations({
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
                 markSessionReady();
+                logger?.info?.('loadFile:done', {
+                    path: filePath,
+                    sessionId,
+                    targetViewMode: 'image',
+                });
                 return;
             }
 
@@ -589,7 +672,7 @@ export function createFileOperations({
                         getCodeEditor: () => codeEditor,
                     },
                     mediaViewer,
-                    activateMediaView,
+                    view: viewProtocol,
                 });
                 if (shouldAbort('media-load')) {
                     return;
@@ -615,6 +698,11 @@ export function createFileOperations({
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
                 markSessionReady();
+                logger?.info?.('loadFile:done', {
+                    path: filePath,
+                    sessionId,
+                    targetViewMode: 'media',
+                });
                 return;
             }
 
@@ -632,7 +720,7 @@ export function createFileOperations({
                 && previousViewMode !== targetViewMode;
 
             if (targetViewMode === 'unsupported') {
-                activateUnsupportedView();
+                viewProtocol?.activate?.('unsupported');
                 unsupportedViewer?.show(filePath, fileData.error);
                 setHasUnsavedChanges(false);
                 await updateWindowTitle();
@@ -648,12 +736,17 @@ export function createFileOperations({
                 fileTree?.clearExternalModification?.(filePath);
                 persistWorkspaceState();
                 markSessionReady();
+                logger?.info?.('loadFile:done', {
+                    path: filePath,
+                    sessionId,
+                    targetViewMode: 'unsupported',
+                });
                 return;
             }
 
             let effectiveRenderer = renderer;
             if (!effectiveRenderer || rendererViewMode !== targetViewMode) {
-                effectiveRenderer = rendererRegistry?.getHandlerById?.(targetViewMode) || null;
+                effectiveRenderer = viewManager.resolveRenderer(filePath, targetViewMode);
             }
             if (!effectiveRenderer) {
                 throw new Error(`缺少 ${targetViewMode} 渲染器`);
@@ -667,9 +760,8 @@ export function createFileOperations({
                     getMarkdownEditor: () => editor,
                     getCodeEditor: () => codeEditor,
                 },
+                view: viewProtocol,
                 detectLanguageForPath,
-                activateMarkdownView,
-                activateCodeView,
                 restoreMarkdownScrollPosition,
                 restoreScrollPosition,
                 setHasUnsavedChanges,
@@ -688,9 +780,6 @@ export function createFileOperations({
                         return importAsUntitled(content, suggestedName, filePath);
                     }
                     : undefined,
-                activateSpreadsheetView,
-                activatePdfView,
-                activateUnsupportedView,
                 forceReload,
             });
             if (shouldAbort('renderer-load')) {
@@ -731,6 +820,12 @@ export function createFileOperations({
             }
 
             markSessionReady();
+            logger?.info?.('loadFile:done', {
+                path: filePath,
+                sessionId,
+                targetViewMode,
+                forceReload,
+            });
         } catch (error) {
             if (sessionId) {
                 documentSessions.closeSession(sessionId);
@@ -746,6 +841,11 @@ export function createFileOperations({
 
             const readableMessage = getReadableErrorMessage(error);
             console.error('读取文件失败:', readableMessage, error);
+            logger?.error?.('loadFile:failed', {
+                path: filePath,
+                sessionId,
+                error: readableMessage,
+            });
             alert('读取文件失败: ' + readableMessage);
             throw error;
         }

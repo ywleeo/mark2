@@ -36,6 +36,15 @@ import { createFileMenuActions } from './modules/fileMenuActions.js';
 import { createRecentFilesActions } from './modules/recentFilesActions.js';
 import { eventBus } from './core/EventBus.js';
 import { createDocumentIO } from './core/DocumentIO.js';
+import { createDocumentManager } from './core/documents/DocumentManager.js';
+import { createLogger } from './core/diagnostics/Logger.js';
+import { createTraceRecorder } from './core/diagnostics/TraceRecorder.js';
+import { createCommandManager } from './core/commands/CommandManager.js';
+import { createKeybindingManager } from './core/commands/KeybindingManager.js';
+import { createFeatureManager } from './core/features/FeatureManager.js';
+import { createExportManager } from './core/export/ExportManager.js';
+import { createWorkspaceManager } from './core/workspace/WorkspaceManager.js';
+import { createViewManager } from './core/views/ViewManager.js';
 import { createDocumentSessionManager } from './modules/documentSessionManager.js';
 import { untitledFileManager } from './modules/untitledFileManager.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './app/viewController.js';
@@ -65,11 +74,42 @@ const appState = new AppState();
 const editorRegistry = new EditorRegistry();
 const rendererRegistry = new RendererRegistry();
 const tabHistoryManager = new TabHistoryManager();
-
-// 由 initializeApplication 赋值，通过 setter/getter 传递给 appBootstrap
-let cardExportSidebar = null;
-let terminalPanel = null;
-let scratchpadPanel = null;
+const traceRecorder = createTraceRecorder();
+const documentLogger = createLogger('documents');
+const commandLogger = createLogger('commands');
+const ioLogger = createLogger('io');
+const workspaceLogger = createLogger('workspace');
+const featureLogger = createLogger('features');
+const exportLogger = createLogger('export');
+const viewLogger = createLogger('views');
+const documentManager = createDocumentManager({
+    appState,
+    normalizePath: normalizeFsPath,
+    logger: documentLogger,
+    traceRecorder,
+});
+const commandManager = createCommandManager({
+    logger: commandLogger,
+    traceRecorder,
+});
+const keybindingManager = createKeybindingManager({
+    logger: commandLogger,
+});
+const featureManager = createFeatureManager({
+    logger: featureLogger,
+    traceRecorder,
+});
+const exportManager = createExportManager({
+    logger: exportLogger,
+    traceRecorder,
+});
+const workspaceManager = createWorkspaceManager({
+    createDefaultWorkspaceState,
+    loadWorkspaceState,
+    saveWorkspaceState,
+    logger: workspaceLogger,
+    traceRecorder,
+});
 
 function ensureFileService() {
     if (typeof globalThis !== 'undefined') {
@@ -92,6 +132,21 @@ const fileSession = createFileSession({
 });
 const documentSessions = createDocumentSessionManager();
 let appServices = null;
+
+function getActiveDocumentPath() {
+    return documentManager.getActivePath();
+}
+
+function setActiveDocumentPath(path, metadata = {}) {
+    if (!path) {
+        documentManager.clearActiveDocument();
+        return null;
+    }
+    return documentManager.openDocument(path, {
+        activate: true,
+        ...metadata,
+    });
+}
 
 // ========== 初始化应用状态 ==========
 appState.setEditorSettings({ ...defaultEditorSettings });
@@ -129,7 +184,7 @@ const { scheduleDocumentSnapshotSync } = documentSnapshotSyncController;
 const editorHistoryController = createEditorHistoryController({
     getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
-    getCurrentTabId: () => appState.getCurrentFile(),
+    getCurrentTabId: () => getActiveDocumentPath(),
     getActiveViewMode: () => appState.getActiveViewMode(),
     tabHistoryManager,
     getEditorSettings: () => appState.getEditorSettings(),
@@ -147,8 +202,8 @@ const windowLifecycle = createWindowLifecycle({
     editorRegistry,
     fileSession,
     untitledFileManager,
-    getViewModeForPath,
-    getTerminalPanel: () => terminalPanel,
+    getViewManager: () => viewManager,
+    getTerminalPanel: () => featureManager.getFeatureApi('terminal'),
     getHandleSettingsSubmit: () => handleSettingsSubmit,
     getPersistWorkspaceState: () => persistWorkspaceState,
 });
@@ -175,7 +230,7 @@ async function handleRunFile(f) { return bootstrap.handleRunFile(f); }
 
 // ========== 视图控制器 ==========
 const viewController = createViewController({
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getImageViewer: () => editorRegistry.getImageViewer(),
@@ -203,7 +258,7 @@ const viewController = createViewController({
         void updateExportMenuState();
         handleToolbarOnViewModeChange(nextMode);
         if (nextMode !== 'markdown' && nextMode !== 'split') {
-            cardExportSidebar?.hideSidebar?.();
+            featureManager.getFeatureApi('card-export')?.hideSidebar?.();
         }
     },
 });
@@ -226,6 +281,14 @@ const {
     adjustContentZoom,
 } = viewController;
 
+const viewManager = createViewManager({
+    getViewModeForPath,
+    getRendererRegistry: () => appState.getRendererRegistry(),
+    viewController,
+    logger: viewLogger,
+    traceRecorder,
+});
+
 // ========== 编辑器动作 ==========
 const editorActions = createEditorActions({
     getActiveViewMode: () => appState.getActiveViewMode(),
@@ -235,7 +298,7 @@ const editorActions = createEditorActions({
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getSvgCodeMode: () => appState.getSvgCodeMode(),
     getCsvTableMode: () => appState.getCsvTableMode(),
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
     saveCurrentEditorContentToCache: () => { saveCurrentEditorContentToCache(); },
     persistWorkspaceState,
@@ -269,11 +332,12 @@ const {
 const toolbarController = createToolbarController({
     getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
     getActiveViewMode: () => appState.getActiveViewMode(),
+    executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
     getMarkdownToolbarManager: () => appState.getMarkdownToolbarManager(),
     setMarkdownToolbarManager: (m) => appState.setMarkdownToolbarManager(m),
-    getCardExportSidebar: () => cardExportSidebar,
+    getCardExportSidebar: () => featureManager.getFeatureApi('card-export'),
     getAppServices: () => appServices,
     getToggleMarkdownCodeMode: () => toggleMarkdownCodeMode,
     isMarkdownFilePath,
@@ -292,7 +356,7 @@ const {
 // ========== DocumentIO + AppServices ==========
 const documentIO = createDocumentIO({
     eventBus,
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getActiveViewMode: () => appState.getActiveViewMode(),
@@ -307,27 +371,26 @@ registerDocumentIO(documentIO);
 scheduleDocumentSnapshotSync();
 appServices = createAppServices({
     fileService: ensureFileService(),
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
 });
 scheduleWorkspaceContextSync();
 
 // ========== 工作区控制器 ==========
 const workspaceController = createWorkspaceController({
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
     getFileTree: () => appState.getFileTree(),
     getTabManager: () => appState.getTabManager(),
     fileService: appServices.file,
-    createDefaultWorkspaceState,
-    loadWorkspaceState,
-    saveWorkspaceState,
+    workspaceManager,
     untitledFileManager,
 });
 
 // ========== Untitled 控制器（在 fileOperations 前创建，避免 TDZ）==========
 const untitledController = createUntitledController({
     getTabManager: () => appState.getTabManager(),
-    getCurrentFile: () => appState.getCurrentFile(),
-    setCurrentFile: (v) => appState.setCurrentFile(v),
+    getCurrentFile: () => getActiveDocumentPath(),
+    setCurrentFile: (v, meta) => setActiveDocumentPath(v, meta),
+    documentManager,
     setHasUnsavedChanges: (v) => appState.setHasUnsavedChanges(v),
     getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
@@ -359,6 +422,7 @@ const {
     saveFile,
     loadFile,
 } = createFileOperations({
+    logger: ioLogger,
     getFileTree: () => appState.getFileTree(),
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
@@ -368,21 +432,22 @@ const {
     getPdfViewer: () => editorRegistry.getPdfViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
-    getCurrentFile: () => appState.getCurrentFile(),
-    setCurrentFile: (value) => {
-        appState.setCurrentFile(value);
+    getCurrentFile: () => getActiveDocumentPath(),
+    setCurrentFile: (value, metadata = {}) => {
+        setActiveDocumentPath(value, metadata);
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
         handleToolbarOnFileChange(value);
         handleCardSidebarOnFileChange(value);
     },
+    documentManager,
     getActiveViewMode: () => appState.getActiveViewMode(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
     fileSession,
     documentSessions,
     detectLanguageForPath,
-    getViewModeForPath,
+    viewManager,
     normalizeFsPath,
     normalizeSelectedPaths,
     fileService: appServices.file,
@@ -392,19 +457,11 @@ const {
     rememberMarkdownScrollPosition,
     restoreMarkdownScrollPosition,
     restoreScrollPosition,
-    activateMarkdownView,
-    activateCodeView,
-    activateImageView,
-    activateMediaView,
-    activateSpreadsheetView,
-    activatePdfView,
-    activateUnsupportedView,
     recentFilesService,
     updateRecentMenuFn: () => recentFilesActions?.updateRecentMenu?.(),
     untitledFileManager,
     saveUntitledFile,
     importAsUntitled: handleImportAsUntitled,
-    getRendererRegistry: () => appState.getRendererRegistry(),
     getStatusBarController: () => appState.getStatusBarController(),
 });
 
@@ -417,12 +474,15 @@ const {
     checkFileHasUnsavedChanges,
     closeActiveTab,
     setupLinkNavigationListener,
+    activateTabTransition,
 } = createNavigationController({
+    logger: workspaceLogger,
     getFileTree: () => appState.getFileTree(),
     getTabManager: () => appState.getTabManager(),
-    getCurrentFile: () => appState.getCurrentFile(),
+    getCurrentFile: () => getActiveDocumentPath(),
     documentSessions,
     saveCurrentEditorContentToCache,
+    documentManager,
     clearActiveFileView,
     loadFile,
     fileSession,
@@ -453,9 +513,9 @@ const {
     normalizeSelectedPaths,
     checkFileHasUnsavedChanges,
     fileService: appServices.file,
-    getCurrentFile: () => appState.getCurrentFile(),
-    setCurrentFile: (value) => {
-        appState.setCurrentFile(value);
+    getCurrentFile: () => getActiveDocumentPath(),
+    setCurrentFile: (value, metadata = {}) => {
+        setActiveDocumentPath(value, metadata);
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
         void updateExportMenuState();
@@ -467,6 +527,7 @@ const {
     updateWindowTitle,
     persistWorkspaceState,
     fileSession,
+    documentManager,
     getFileTree: () => appState.getFileTree(),
     getTabManager: () => appState.getTabManager(),
     getEditor: () => editorRegistry.getMarkdownEditor(),
@@ -476,8 +537,9 @@ const {
     getStatusBarController: () => appState.getStatusBarController(),
     documentSessions,
     loadFile,
-    getViewModeForPath,
+    viewManager,
     getActiveViewMode: () => appState.getActiveViewMode(),
+    activateTabTransition,
 });
 
 // ========== 最近文件 ==========
@@ -497,6 +559,12 @@ const {
 // ========== 组装 Bootstrap，启动应用 ==========
 bootstrap = createAppBootstrap({
     appState,
+    documentManager,
+    commandManager,
+    keybindingManager,
+    featureManager,
+    exportManager,
+    workspaceManager,
     editorRegistry,
     tabHistoryManager,
     documentSessions,
@@ -506,12 +574,6 @@ bootstrap = createAppBootstrap({
     workspaceController,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
-    setCardExportSidebar: (v) => { cardExportSidebar = v; },
-    getCardExportSidebar: () => cardExportSidebar,
-    setTerminalPanel: (v) => { terminalPanel = v; },
-    getTerminalPanel: () => terminalPanel,
-    setScratchpadPanel: (v) => { scratchpadPanel = v; },
-    getScratchpadPanel: () => scratchpadPanel,
     updateWindowTitle,
     loadAvailableFonts,
     openSettingsDialog,
@@ -525,6 +587,8 @@ bootstrap = createAppBootstrap({
     syncToolbarWithCurrentContext,
     getToolbarEditorInstance,
     toggleMarkdownToolbar,
+    showCardExportSidebar,
+    viewManager,
     activateMarkdownView,
     activateCodeView,
     activateImageView,

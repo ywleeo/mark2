@@ -170,6 +170,8 @@ fn main() {
             fs_commands::read_binary_base64,
             fs_commands::read_clipboard_file_paths,
             fs_commands::write_file,
+            fs_commands::append_log_entries,
+            fs_commands::get_app_log_file_path,
             fs_commands::read_dir,
             fs_commands::delete_entry,
             fs_commands::rename_entry,

@@ -1,9 +1,8 @@
 /**
- * 应用引导模块
- * 包含应用初始化主流程和相关胶水函数
+ * 应用引导模块。
+ * 包含应用初始化主流程和相关胶水函数。
  */
 
-import { exportCurrentViewToImage, exportCurrentViewToPdf } from '../modules/menuExports.js';
 import { isFeatureEnabled, getMASLimitationMessage } from '../config/features.js';
 import { MarkdownToolbarManager } from '../components/MarkdownToolbarManager.js';
 import { createMarkdownCodeMode } from '../modules/markdownCodeMode.js';
@@ -12,18 +11,16 @@ import { createCsvTableMode } from '../modules/csvTableMode.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
-import { createTerminalPanel } from '../modules/terminalPanel.js';
-import { createScratchpadPanel } from '../modules/scratchpadPanel.js';
-import { initCardExportSidebar } from '../modules/card-export/index.js';
-import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';
 import { restoreStoredSecurityScopes } from '../services/securityScopeService.js';
 import { setExportMenuEnabled } from '../api/native.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
-import { setupKeyboardShortcuts } from '../utils/shortcuts.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
+import { registerCoreCommands, registerDefaultKeybindings } from './commandSetup.js';
+import { registerCoreFeatures } from './featureSetup.js';
+import { registerCoreExports, EXPORT_IDS } from './exportSetup.js';
 import { loadAndRegisterModules } from './moduleLoader.js';
 import { setupViewPanes } from './viewSetup.js';
 import { createEditorCallbacks, setupEditors } from './editorSetup.js';
@@ -35,6 +32,12 @@ import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../util
 export function createAppBootstrap({
     // 核心状态/服务
     appState,
+    documentManager,
+    commandManager,
+    keybindingManager,
+    featureManager,
+    exportManager,
+    workspaceManager,
     editorRegistry,
     tabHistoryManager,
     documentSessions,
@@ -45,13 +48,6 @@ export function createAppBootstrap({
     // 同步调度器
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
-    // cardExportSidebar / terminalPanel 的 setter/getter（由 main.js 持有变量）
-    setCardExportSidebar,
-    getCardExportSidebar,
-    setTerminalPanel,
-    getTerminalPanel,
-    setScratchpadPanel,
-    getScratchpadPanel,
     // windowLifecycle 导出
     updateWindowTitle,
     loadAvailableFonts,
@@ -67,6 +63,9 @@ export function createAppBootstrap({
     syncToolbarWithCurrentContext,
     getToolbarEditorInstance,
     toggleMarkdownToolbar,
+    showCardExportSidebar,
+    // viewManager 导出
+    viewManager,
     // viewController 导出
     activateMarkdownView,
     activateCodeView,
@@ -146,7 +145,7 @@ export function createAppBootstrap({
     // ========== 清空活跃文件视图 ==========
 
     function clearActiveFileView() {
-        appState.setCurrentFile(null);
+        documentManager?.clearActiveDocument?.();
         appState.setHasUnsavedChanges(false);
         handleToolbarOnFileChange(null);
         handleCardSidebarOnFileChange(null);
@@ -166,6 +165,7 @@ export function createAppBootstrap({
     function persistWorkspaceState(overrides = {}, options = {}) {
         workspaceController?.persistWorkspaceState(overrides, options);
         scheduleWorkspaceContextSync();
+        return workspaceManager?.getSnapshot?.();
     }
 
     // ========== Tab 重排序 ==========
@@ -184,6 +184,7 @@ export function createAppBootstrap({
 
     function handleSidebarStateChange(sidebarState) {
         workspaceController?.handleSidebarStateChange(sidebarState);
+        return workspaceManager?.getSnapshot?.();
     }
 
     // ========== 运行脚本文件 ==========
@@ -200,7 +201,7 @@ export function createAppBootstrap({
             return;
         }
         try {
-            await getTerminalPanel()?.runCommand(command);
+            await featureManager?.getFeatureApi?.('terminal')?.runCommand?.(command);
         } catch (error) {
             console.error('[Run] 执行命令失败:', error);
         }
@@ -222,7 +223,7 @@ export function createAppBootstrap({
     // ========== 编辑器内容写入会话缓存 ==========
 
     function saveCurrentEditorContentToCache() {
-        const currentFile = appState.getCurrentFile();
+        const currentFile = documentManager?.getActivePath?.() || appState.getCurrentFile();
         const activeViewMode = appState.getActiveViewMode();
         const editor = editorRegistry.getMarkdownEditor();
         const codeEditor = editorRegistry.getCodeEditor();
@@ -270,6 +271,7 @@ export function createAppBootstrap({
             editorRegistry,
             appState,
             fileSession,
+            documentManager,
             normalizeFsPath,
             updateWindowTitle,
             scheduleDocumentSnapshotSync,
@@ -296,51 +298,51 @@ export function createAppBootstrap({
         registerIdleCleanup(() => tabStateTrimmer.trim());
         startIdleGC();
 
-        const cardExportSidebar = await initCardExportSidebar();
-        setCardExportSidebar(cardExportSidebar);
-        console.log('[App] 卡片导出侧边栏已初始化');
-        handleCardSidebarOnFileChange(appState.getCurrentFile());
-
-        const aiSidebar = initAiSidebar({
-            getAppState: () => appState,
-            getEditorRegistry: () => editorRegistry,
-            reloadCurrentFile: async (path) => {
-                const normalized = normalizeFsPath(path) || path;
-                await loadFile(normalized, {
-                    skipWatchSetup: true,
-                    forceReload: true,
-                    autoFocus: false,
-                    tabId: normalized,
-                });
+        appState.setCleanupFunction('exportContributions', registerCoreExports({
+            exportManager,
+            context: {
+                getActiveViewMode: () => appState.getActiveViewMode(),
+                getStatusBarController: () => appState.getStatusBarController(),
             },
-        });
-        console.log('[App] AI 助手侧边栏已初始化');
+        }));
 
-        const terminalPanel = createTerminalPanel({
-            getWorkspaceCwd: () => appState.getFileTree()?.rootPaths?.[0] || null,
+        appState.setCleanupFunction('featureDefinitions', registerCoreFeatures({
+            featureManager,
+            context: {
+                getAppState: () => appState,
+                getEditorRegistry: () => editorRegistry,
+                reloadCurrentFile: async (path) => {
+                    const normalized = normalizeFsPath(path) || path;
+                    await loadFile(normalized, {
+                        skipWatchSetup: true,
+                        forceReload: true,
+                        autoFocus: false,
+                        tabId: normalized,
+                    });
+                },
+                getWorkspaceCwd: () => appState.getFileTree()?.rootPaths?.[0] || null,
+            },
+        }));
+        appState.setCleanupFunction('featureManager', () => {
+            void featureManager?.unmountAll?.();
         });
-        setTerminalPanel(terminalPanel);
-        terminalPanel.initialize();
-
-        const scratchpadPanel = createScratchpadPanel();
-        setScratchpadPanel(scratchpadPanel);
-        scratchpadPanel?.initialize();
+        await featureManager?.mountAll?.();
+        console.log('[App] 功能模块已通过 FeatureManager 挂载');
+        handleCardSidebarOnFileChange(appState.getCurrentFile());
 
         const markdownCodeMode = createMarkdownCodeMode({
             detectLanguageForPath,
             isMarkdownFilePath,
-            activateMarkdownView,
-            activateCodeView,
+            view: viewManager.createViewProtocol(),
         });
         appState.setMarkdownCodeMode(markdownCodeMode);
 
-        const svgCodeMode = createSvgCodeMode({ activateCodeView, activateImageView });
+        const svgCodeMode = createSvgCodeMode({ view: viewManager.createViewProtocol() });
         appState.setSvgCodeMode(svgCodeMode);
 
         const csvTableMode = createCsvTableMode({
             isCsvFilePath,
-            activateSpreadsheetView,
-            activateCodeView,
+            view: viewManager.createViewProtocol(),
             detectLanguageForPath,
         });
         appState.setCsvTableMode(csvTableMode);
@@ -348,6 +350,7 @@ export function createAppBootstrap({
         const fileTree = setupFileTree({
             FileTreeCtor: coreModules.FileTree,
             appState,
+            executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
             handleFileSelect,
             handleOpenFilesChange,
             handleSidebarStateChange,
@@ -411,57 +414,78 @@ export function createAppBootstrap({
             settingsDialog.setAvailableFonts(availableFontFamilies);
         }
 
-        appState.setCleanupFunction('keyboardShortcut', setupKeyboardShortcuts({
-            onOpen: openFileOrFolder,
-            onSave: saveCurrentFile,
-            onCloseTab: closeActiveTab,
-            onNewTab: handleCreateUntitled,
-            onFind: () => editorRegistry.getMarkdownEditor()?.showSearch?.(),
-            onSelectSearchMatches: () => editorRegistry.getMarkdownEditor()?.selectAllSearchMatches?.(),
-            onDeleteFile: handleDeleteActiveFile,
-            onToggleSidebar: toggleSidebarVisibility,
-            onToggleMarkdownCodeView: toggleMarkdownCodeMode,
-            onToggleSvgCodeView: toggleSvgCodeMode,
-            onToggleCsvTableView: toggleCsvTableMode,
-            onToggleScratchpad: () => getScratchpadPanel()?.toggle(),
+        appState.setCleanupFunction('commandContributions', registerCoreCommands({
+            commandManager,
+            handlers: {
+                onAbout: showAboutDialog,
+                onQuit: async () => {
+                    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+                    await getCurrentWindow().close();
+                },
+                onUndo: handleUndoCommand,
+                onRedo: handleRedoCommand,
+                onOpen: openFileOrFolder,
+                onOpenFile: openFileOnly,
+                onOpenFolder: openFolderOnly,
+                onSettings: openSettingsDialog,
+                onExportImage: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_IMAGE),
+                onExportPdf: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_PDF),
+                onToggleSidebar: toggleSidebarVisibility,
+                onToggleStatusBar: toggleStatusBarVisibility,
+                onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+                onToggleMarkdownToolbar: toggleMarkdownToolbar,
+                onToggleTheme: () => toggleAppTheme(appState),
+                onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
+                onToggleTerminal: () => {
+                    if (!isFeatureEnabled('terminal')) {
+                        alert(getMASLimitationMessage('terminal'));
+                        return;
+                    }
+                    featureManager?.getFeatureApi?.('terminal')?.toggle?.();
+                },
+                onToggleAiSidebar: () => featureManager?.getFeatureApi?.('ai-sidebar')?.toggle?.(),
+                onNewUntitled: handleCreateUntitled,
+                onNewFile: handleCreateNewFile,
+                onDeleteActiveFile: handleDeleteActiveFile,
+                onMoveActiveFile: handleMoveActiveFile,
+                onRenameActiveFile: handleRenameActiveFile,
+                onFind: () => editorRegistry.getMarkdownEditor()?.showSearch?.(),
+                onSelectSearchMatches: () => editorRegistry.getMarkdownEditor()?.selectAllSearchMatches?.(),
+                onSave: saveCurrentFile,
+                onCloseTab: closeActiveTab,
+                onToggleSvgCodeView: toggleSvgCodeMode,
+                onToggleCsvTableView: toggleCsvTableMode,
+                onOpenCardExport: showCardExportSidebar,
+                onToggleScratchpad: () => featureManager?.getFeatureApi?.('scratchpad')?.toggle?.(),
+                onCreateWorkspaceFile: ({ path }) => appState.getFileTree()?.createFileInFolder?.(path),
+                onCreateWorkspaceFolder: ({ path }) => appState.getFileTree()?.createFolderInFolder?.(path),
+                onRenameWorkspaceEntry: ({ path, targetType }) => appState.getFileTree()?.startRenaming?.(path, { targetType }),
+                onMoveWorkspaceEntry: ({ path, targetType }) => appState.getFileTree()?.promptMoveTo?.(path, { targetType }),
+                onDeleteWorkspaceEntry: ({ path }) => appState.getFileTree()?.confirmAndDelete?.(path),
+                onRevealWorkspaceEntry: ({ path }) => appState.getFileTree()?.revealInFinder?.(path),
+                onRunWorkspaceEntry: ({ path }) => handleRunFile(path),
+                onCopyWorkspacePath: async ({ path }) => {
+                    if (!path) {
+                        return;
+                    }
+                    await navigator.clipboard.writeText(path);
+                },
+                onRecentItemClick: handleRecentItemClick,
+                onClearRecent: clearRecent,
+            },
+        }));
+
+        appState.setCleanupFunction('keybindingManager', registerDefaultKeybindings({
+            keybindingManager,
+        }));
+
+        appState.setCleanupFunction('keyboardShortcut', keybindingManager.attach({
+            target: document,
+            executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
         }));
 
         appState.setCleanupFunction('menuListeners', await registerMenuListeners({
-            onAbout: showAboutDialog,
-            onQuit: async () => {
-                const { getCurrentWindow } = await import('@tauri-apps/api/window');
-                await getCurrentWindow().close();
-            },
-            onUndo: handleUndoCommand,
-            onRedo: handleRedoCommand,
-            onNewFile: handleCreateNewFile,
-            onOpen: openFileOrFolder,
-            onOpenFile: openFileOnly,
-            onOpenFolder: openFolderOnly,
-            onSettings: openSettingsDialog,
-            onExportImage: () => exportCurrentViewToImage({ statusBarController: appState.getStatusBarController() }),
-            onExportPdf: () => exportCurrentViewToPdf({
-                activeViewMode: appState.getActiveViewMode(),
-                statusBarController: appState.getStatusBarController(),
-            }),
-            onToggleSidebar: toggleSidebarVisibility,
-            onToggleStatusBar: toggleStatusBarVisibility,
-            onToggleMarkdownCodeView: toggleMarkdownCodeMode,
-            onToggleMarkdownToolbar: toggleMarkdownToolbar,
-            onToggleTheme: () => toggleAppTheme(appState),
-            onToggleTerminal: () => {
-                if (!isFeatureEnabled('terminal')) {
-                    alert(getMASLimitationMessage('terminal'));
-                    return;
-                }
-                getTerminalPanel()?.toggle();
-            },
-            onToggleAiSidebar: () => aiSidebar?.toggle(),
-            onDeleteActiveFile: handleDeleteActiveFile,
-            onMoveActiveFile: handleMoveActiveFile,
-            onRenameActiveFile: handleRenameActiveFile,
-            onRecentItemClick: handleRecentItemClick,
-            onClearRecent: clearRecent,
+            executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
         }));
 
         setupLinkNavigationListener();
@@ -479,7 +503,9 @@ export function createAppBootstrap({
         void updateExportMenuState();
         void updateRecentMenu();
 
-        const markdownToolbarManager = new MarkdownToolbarManager(appServices);
+        const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
+            executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
+        });
         appState.setMarkdownToolbarManager(markdownToolbarManager);
         markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
         syncToolbarWithCurrentContext();

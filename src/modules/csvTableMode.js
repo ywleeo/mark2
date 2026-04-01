@@ -7,18 +7,14 @@ import { basename } from '../utils/pathUtils.js';
  */
 export function createCsvTableMode({
     isCsvFilePath,
-    activateSpreadsheetView,
-    activateCodeView,
+    view,
     detectLanguageForPath,
 }) {
     if (typeof isCsvFilePath !== 'function') {
         throw new Error('createCsvTableMode 需要提供 isCsvFilePath');
     }
-    if (typeof activateSpreadsheetView !== 'function') {
-        throw new Error('createCsvTableMode 需要提供 activateSpreadsheetView');
-    }
-    if (typeof activateCodeView !== 'function') {
-        throw new Error('createCsvTableMode 需要提供 activateCodeView');
+    if (!view || typeof view.activate !== 'function') {
+        throw new Error('createCsvTableMode 需要提供 view 协议');
     }
     if (typeof detectLanguageForPath !== 'function') {
         throw new Error('createCsvTableMode 需要提供 detectLanguageForPath');
@@ -69,7 +65,7 @@ export function createCsvTableMode({
 
             // 切换到代码视图
             spreadsheetViewer?.saveViewStateForTab?.(currentFile);
-            activateCodeView();
+            view.activate('code');
 
             const language = detectLanguageForPath(currentFile) || 'csv';
             await codeEditor.show(currentFile, csvContent, language, null, { tabId: currentFile });
@@ -95,7 +91,7 @@ export function createCsvTableMode({
             codeEditor?.saveViewStateForTab?.(currentFile);
 
             // 切换到表格视图
-            activateSpreadsheetView();
+            view.activate('spreadsheet');
 
             // 解析 CSV 并加载到表格查看器
             const fileName = basename(currentFile) || 'Sheet1';

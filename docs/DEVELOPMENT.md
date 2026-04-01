@@ -1,16 +1,305 @@
-# Mark2 开发规范
+# Mark2 开发手册
 
-## 点击事件处理
+## 文档目的
 
-### 问题背景
+本文档描述 Mark2 当前架构下的日常开发约束和标准接入流程。
 
-macOS 触控板轻点会同时触发 `pointerup` 和 `click` 事件，导致回调函数被执行两次。
+它重点回答：
 
-### 统一解决方案
+1. 新功能应该挂到哪一层
+2. 新命令、快捷键、文件类型、功能模块应该怎么接
+3. 哪些旧写法不允许再回来了
+4. 交互和发布层面有哪些必须遵守的规则
 
-**所有需要处理点击的交互组件，必须使用 `addClickHandler` 工具函数**，不要直接使用 `addEventListener('click')`。
+架构总览见 [ARCHITECTURE.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/ARCHITECTURE.md)。
+日志和 trace 规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
 
-### 使用方法
+---
+
+## 一、开发原则
+
+### 1. 先判断归属层，再写代码
+
+新增功能前先判断它属于哪一层：
+
+| 类型 | 归属 |
+|---|---|
+| 文档身份、rename、dirty、save | `DocumentManager` |
+| open files、shared tab、workspace 恢复 | `WorkspaceManager` |
+| 视图模式、renderer 分发、pane 切换 | `ViewManager` |
+| 菜单、快捷键、toolbar、context menu 动作 | `CommandManager` |
+| 快捷键绑定关系 | `KeybindingManager` |
+| AI / Terminal / Scratchpad / Card Export | `FeatureManager` |
+| 图片 / PDF 等导出能力 | `ExportManager` |
+
+如果一个实现需要跨多个 UI 组件同步状态，通常不应该直接写在组件里。
+
+### 2. 不新增第二真源
+
+禁止为了局部方便，再新增一份“当前文件 / 当前 tab / 当前 view mode / dirty”的业务真源副本。
+
+允许的做法：
+
+- UI 组件持有展示态
+- Manager 持有业务真源
+- controller 负责事务协调
+
+不允许的做法：
+
+- 组件私自缓存一份 `currentFile` 并独立驱动保存
+- 某个 panel 再维护一套 tab 激活状态
+- 为修 bug 临时再加一个全局变量同步状态
+
+### 3. 系统动作必须先走命令层
+
+菜单、快捷键、toolbar、context menu 触发的系统动作，统一走：
+
+```text
+UI -> CommandManager -> handler -> Manager / module
+```
+
+不要新增“按钮点击直接调业务函数”的新入口。
+
+### 4. 视图切换必须走 `ViewManager`
+
+不要再在业务模块里散传：
+
+- `activateMarkdownView`
+- `activateCodeView`
+- `activateImageView`
+
+统一改用：
+
+```javascript
+const view = viewManager.createViewProtocol();
+view.activate('markdown');
+```
+
+### 5. 关键链路必须可日志化
+
+新接入的关键链路至少要能回答：
+
+- 谁触发了
+- 目标对象是谁
+- 状态改成了什么
+- 最终写到了哪
+- 失败原因是什么
+
+日志域约定见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+
+---
+
+## 二、标准接入流程
+
+## 1. 新增命令
+
+适用场景：
+
+- 菜单动作
+- 快捷键动作
+- toolbar 动作
+- file tree context menu 动作
+- 未来 command palette 动作
+
+标准流程：
+
+1. 在 [commandIds.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/core/commands/commandIds.js) 新增命令 ID
+2. 在 [commandSetup.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/app/commandSetup.js) 注册 handler
+3. UI 入口统一调用 `commandManager.executeCommand(id, payload, context)`
+4. 如需快捷键，在 `registerDefaultKeybindings()` 注册默认绑定
+
+示例：
+
+```javascript
+register(COMMAND_IDS.DOCUMENT_SAVE, () => handlers.onSave?.(), '保存当前文档');
+```
+
+不要这样写：
+
+```javascript
+button.addEventListener('click', saveCurrentFile);
+```
+
+## 2. 新增快捷键
+
+标准流程：
+
+1. 先有 command
+2. 再在 `registerDefaultKeybindings()` 里注册快捷键
+3. 不要让快捷键直接绑定业务函数
+
+示例：
+
+```javascript
+register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, 'Mod+T');
+```
+
+## 3. 新增功能模块
+
+适用场景：
+
+- 新 sidebar
+- 新 panel
+- 独立业务能力模块
+
+标准流程：
+
+1. 在 [featureSetup.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/app/featureSetup.js) 注册 feature
+2. 提供 `mount()`，必要时提供 `unmount()`
+3. 对外暴露最小 API
+4. 通过 `FeatureManager` 获取实例 API，不直接在 `main.js` 到处持有局部变量
+
+示例结构：
+
+```javascript
+register({
+    id: 'scratchpad',
+    title: '便签面板',
+    contributes: { panel: true },
+    mount() {
+        const panel = createScratchpadPanel();
+        panel?.initialize?.();
+        return panel;
+    },
+});
+```
+
+## 4. 新增导出能力
+
+标准流程：
+
+1. 在 [exportSetup.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/app/exportSetup.js) 定义 export id
+2. 注册 exporter handler
+3. 菜单或其他入口只发 command，不直接调 exporter
+
+示例：
+
+```javascript
+register(
+    EXPORT_IDS.CURRENT_VIEW_IMAGE,
+    () => exportCurrentViewToImage({ statusBarController: context.getStatusBarController?.() }),
+    '导出当前视图为图片'
+);
+```
+
+## 5. 新增文件类型 / 视图
+
+标准流程：
+
+1. 在 `fileTypeUtils` 定义扩展名和默认 view mode
+2. 在 `fileRenderers/handlers` 增加 renderer
+3. 注册到 `RendererRegistry`
+4. 如需要新增 pane/viewer，再接入 `viewController`
+5. 由 `ViewManager` 统一负责 `resolveViewMode / resolveRenderer / activateView`
+
+推荐 renderer 形态：
+
+```javascript
+export function createXxxRenderer() {
+    return {
+        id: 'xxx',
+        extensions: ['xxx'],
+        getViewMode() {
+            return 'xxx';
+        },
+        async load(ctx) {
+            const { filePath, view } = ctx;
+            view?.activate?.('xxx');
+            // load viewer/editor
+            return true;
+        },
+    };
+}
+```
+
+不要再在多个业务文件里复制文件类型判断。
+
+## 6. 新增视图模式切换能力
+
+适用场景：
+
+- markdown/code 切换
+- svg image/code 切换
+- csv table/code 切换
+
+标准流程：
+
+1. 新增独立 mode module
+2. 只依赖稳定 `view` 协议，而不是一堆 `activateXxxView`
+3. 通过 `editorActions` 暴露给命令层和 toolbar
+
+推荐接口：
+
+```javascript
+const mode = createXxxMode({
+    view: viewManager.createViewProtocol(),
+});
+```
+
+## 7. 新增工作区级能力
+
+适用场景：
+
+- open files 持久化
+- sidebar 状态
+- shared tab 规则
+- workspace 恢复逻辑
+
+这类能力优先挂到 `WorkspaceManager` 或围绕它的 controller，不要把持久化逻辑塞回某个 UI 组件。
+
+## 8. 新增文档生命周期能力
+
+适用场景：
+
+- rename path 迁移
+- dirty / save
+- 关闭文档
+- active document 同步
+
+这类能力优先挂到 `DocumentManager`，不要让 editor/viewer 自己再创造一套生命周期。
+
+---
+
+## 三、控制器与组件边界
+
+### 1. controller 的职责
+
+controller 负责跨模块事务，不负责持有最终真源。
+
+例如：
+
+- `navigationController`
+  负责 tab 激活事务、fallback 决策、fileTree 和 document load 的串联
+- `workspaceController`
+  负责 workspace restore/apply 适配
+- `toolbarController`
+  负责 toolbar 与当前上下文同步
+
+### 2. 组件的职责
+
+组件负责：
+
+- UI 展示
+- 本地交互状态
+- 资源清理
+
+组件不应该：
+
+- 直接成为文档真源
+- 绕开命令层直接控制系统动作
+- 自己偷偷维护第二套导航状态
+
+---
+
+## 四、点击事件处理
+
+### 1. 统一规则
+
+macOS 触控板轻点会同时触发 `pointerup` 和 `click`，容易导致回调执行两次。
+
+**所有需要处理点击的交互组件，必须使用 `addClickHandler` 工具函数，不要直接使用 `addEventListener('click')`。**
+
+### 2. 使用方法
 
 ```javascript
 import { addClickHandler } from '../utils/PointerHelper.js';
@@ -24,150 +313,87 @@ export class YourComponent {
     init() {
         const button = document.createElement('button');
 
-        // ✅ 正确：使用 addClickHandler
         const cleanup = addClickHandler(button, (event) => {
             console.log('按钮被点击');
         });
         this.cleanupFunctions.push(cleanup);
-
-        // ❌ 错误：不要直接使用 click 事件
-        // button.addEventListener('click', handleClick);
     }
 
     dispose() {
-        // 清理所有事件监听器
         this.cleanupFunctions.forEach(cleanup => cleanup?.());
         this.cleanupFunctions = [];
     }
 }
 ```
 
-### 常见场景
+### 3. 双击
 
-#### 1. 简单点击
-```javascript
-addClickHandler(element, () => {
-    doSomething();
-});
-```
-
-#### 2. 带条件判断
-```javascript
-addClickHandler(container, (event) => {
-    // 忽略特定子元素的点击
-    if (event.target.closest('.ignore-class')) {
-        return;
-    }
-    handleClick();
-});
-```
-
-#### 3. 阻止冒泡
-```javascript
-addClickHandler(button, (event) => {
-    event.stopPropagation();
-    handleAction();
-});
-```
-
-#### 4. 双击事件
 双击仍然使用原生 `dblclick`：
+
 ```javascript
 addClickHandler(element, handleSingleClick);
 element.addEventListener('dblclick', handleDoubleClick);
 ```
 
-### 清理规范
+### 4. 清理要求
 
-**所有组件必须实现 `dispose()` 方法**，清理事件监听器：
-
-```javascript
-dispose() {
-    // 清理点击事件
-    this.cleanupFunctions.forEach(cleanup => {
-        if (typeof cleanup === 'function') {
-            cleanup();
-        }
-    });
-    this.cleanupFunctions = [];
-
-    // 其他清理逻辑...
-}
-```
-
-### 已实现的组件
-
-以下组件已正确实现：
-- ✅ `FileTree.js` - 文件树
-- ✅ `SettingsDialog.js` - 设置对话框
-- ✅ `TabManager.js` - 标签管理器
-
-新增组件请参考这些组件的实现。
-
-### 工具函数参考
-
-**位置**: `src/utils/PointerHelper.js`
-
-#### `addClickHandler(element, handler, options)`
-
-**参数**:
-- `element` (HTMLElement): 目标元素
-- `handler` (Function): 点击处理函数，接收 event 参数
-- `options` (Object, 可选):
-  - `shouldHandle` (Function): 可选的判断函数，返回 false 则忽略该次点击
-
-**返回**: 清理函数，调用后移除事件监听器
-
-**示例**:
-```javascript
-const cleanup = addClickHandler(button, (event) => {
-    console.log('点击了按钮');
-});
-
-// 使用完毕后清理
-cleanup();
-```
-
-#### `isPrimaryPointerActivation(event)`
-
-检查是否是有效的主指针激活事件（鼠标左键/触摸/笔）。
-
-**通常不需要直接调用**，`addClickHandler` 内部已处理。
+所有组件必须实现 `dispose()`，清理点击事件和其他资源。
 
 ---
 
-## 其他开发规范
+## 五、日志与排错
 
-### 代码风格
-- 使用 ES6+ 语法
-- 类使用 PascalCase，函数和变量使用 camelCase
-- 保持代码简洁，避免过度工程化
+### 1. 什么时候必须加正式日志
 
-### 组件结构
-```javascript
-export class Component {
-    constructor() {
-        // 初始化状态
-        this.cleanupFunctions = [];
-        this.init();
-    }
+以下情况新增逻辑时应优先补正式结构化日志：
 
-    init() {
-        // 创建 DOM 和绑定事件
-    }
+- 文档切换
+- rename / save / delete
+- workspace 恢复和持久化
+- 命令执行
+- feature mount / unmount
+- 导出执行
+- 新增复杂事务链
 
-    dispose() {
-        // 清理资源
-    }
-}
+### 2. 日志要求
+
+- 优先结构化对象，不拼长字符串
+- 临时日志要么删掉，要么升格成正式日志域
+- 关键链路至少记录输入、状态变化、目标对象、失败原因
+
+---
+
+## 六、禁止回退的旧写法
+
+以下写法不允许再新增：
+
+- 组件内部再维护一份业务级 `currentFile` 真源
+- UI 入口直接调业务函数，不走命令层
+- 到处散传 `activateMarkdownView / activateCodeView / ...`
+- 新增 feature 时继续在 `main.js` 堆实例变量
+- 为了快，直接在多个模块里手工同步 path 状态
+
+---
+
+## 七、开发完成后的最低检查
+
+至少执行：
+
+```bash
+npm run build
+cargo check
+git diff --check
 ```
 
-### 命名规范
-- 回调函数：`onXxx` 或 `handleXxx`
-- 布尔值：`isXxx` 或 `hasXxx`
-- 异步函数：使用 `async/await`
+如果改到了关键链路，还应补：
 
-## MAS 发布自动化
+- 对应日志域验证
+- 对应回归动作验证
+- 如适用，更新 [REFACTOR_CHECKLIST.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/REFACTOR_CHECKLIST.md)
+
+---
+
+## 八、MAS 发布自动化
 
 - 使用 `scripts/mas-release.sh` 自动完成签名、打包、校验与上传。运行前请确认钥匙串已导入 `Mac App Distribution` 与 `Mac Installer Distribution` 证书，并准备好 MAS 描述文件。
 - 必填环境变量：`APPLE_SIGNING_IDENTITY`、`APPLE_INSTALLER_IDENTITY`、`APPLE_PROVISIONING_PROFILE`。上传至 App Store Connect 时任选其一：`APP_STORE_CONNECT_API_KEY` + `APP_STORE_CONNECT_API_ISSUER`，或 `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD`。

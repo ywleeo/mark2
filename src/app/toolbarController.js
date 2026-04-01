@@ -8,6 +8,7 @@ export function createToolbarController({
     getCodeEditor,
     getCurrentFile,
     getActiveViewMode,
+    executeCommand,
     getMarkdownToolbarManager,
     setMarkdownToolbarManager,
     getCardExportSidebar,
@@ -88,6 +89,7 @@ export function createToolbarController({
     function syncToolbarWithCurrentContext(options = {}) {
         const markdownToolbarManager = getMarkdownToolbarManager();
         if (!markdownToolbarManager) return;
+        markdownToolbarManager.executeCommand = executeCommand;
 
         const activeViewMode = getActiveViewMode();
         const currentFile = getCurrentFile();
@@ -131,6 +133,7 @@ export function createToolbarController({
         if (!currentFile || !isMarkdownFilePath(currentFile)) return;
 
         if (markdownToolbarManager) {
+            markdownToolbarManager.executeCommand = executeCommand;
             const toggleMarkdownCodeMode = getToggleMarkdownCodeMode();
             markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
             markdownToolbarManager.setCardExportCallback?.(() => showCardExportSidebar());
@@ -140,6 +143,7 @@ export function createToolbarController({
             if (services) {
                 const toggleMarkdownCodeMode = getToggleMarkdownCodeMode();
                 const newManager = new MarkdownToolbarManager(services, {
+                    executeCommand,
                     onToggleViewMode: toggleMarkdownCodeMode,
                     onCardExport: () => showCardExportSidebar(),
                 });

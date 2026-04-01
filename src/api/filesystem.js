@@ -68,6 +68,24 @@ export async function writeFile(path, content) {
     return await invoke('write_file', { path, content });
 }
 
+/**
+ * 追加结构化日志到应用日志文件。
+ * @param {Array<Object>} entries - 日志条目数组
+ * @returns {Promise<string>}
+ */
+export async function appendLogEntries(entries) {
+    const normalizedEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
+    return await invoke('append_log_entries', { entries: normalizedEntries });
+}
+
+/**
+ * 读取应用日志文件的固定路径。
+ * @returns {Promise<string>}
+ */
+export async function getAppLogFilePath() {
+    return await invoke('get_app_log_file_path');
+}
+
 export async function isDirectory(path) {
     ensurePath(path, 'isDirectory');
     return await invoke('is_directory', { path });

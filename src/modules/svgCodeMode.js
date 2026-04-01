@@ -1,11 +1,10 @@
 import { isSvgFilePath } from '../utils/fileTypeUtils.js';
 
 export function createSvgCodeMode({
-    activateCodeView,
-    activateImageView,
+    view,
 }) {
-    if (typeof activateCodeView !== 'function' || typeof activateImageView !== 'function') {
-        throw new Error('createSvgCodeMode needs view activation methods');
+    if (!view || typeof view.activate !== 'function') {
+        throw new Error('createSvgCodeMode needs view protocol');
     }
 
     let toggleState = null;
@@ -31,7 +30,7 @@ export function createSvgCodeMode({
                 originalViewMode: activeViewMode,
             };
 
-            activateCodeView();
+            view.activate('code');
             
             // Read the SVG file as text
             const svgContent = await fileService.readText(currentFile);
@@ -66,7 +65,7 @@ export function createSvgCodeMode({
                 }
             }
             
-            activateImageView();
+            view.activate('image');
             
             // Reload the image to show updates
             await imageViewer.loadImage(currentFile);

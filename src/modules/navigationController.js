@@ -28,11 +28,13 @@ function getCanonicalOpenFilePaths(fileTree, openFilePaths = []) {
 }
 
 export function createNavigationController({
+    logger,
     getFileTree,
     getTabManager,
     getCurrentFile,
     documentSessions,
     saveCurrentEditorContentToCache,
+    documentManager,
     clearActiveFileView,
     loadFile,
     fileSession,
@@ -89,6 +91,89 @@ export function createNavigationController({
 
     let isOpeningFromLink = false;
 
+    /**
+     * 从当前 TabManager 快照中计算关闭某个 tab 后的备选 tab。
+     * 关闭流程统一使用这个函数，避免每种 tab 关闭逻辑各算一遍。
+     * @param {Object|null} tab - 即将关闭的 tab
+     * @returns {Object|null}
+     */
+    function resolveFallbackTab(tab) {
+        const tabManager = getTabManager();
+        const tabs = tabManager?.getAllTabs?.() || [];
+        const closingTabId = tab?.id || null;
+        const currentIndex = tabs.findIndex(candidate => candidate?.id === closingTabId);
+
+        if (currentIndex === -1) {
+            return tabs.length > 0 ? tabs[tabs.length - 1] : null;
+        }
+
+        const remainingTabs = tabs.filter(candidate => candidate?.id !== closingTabId);
+        if (remainingTabs.length === 0) {
+            return null;
+        }
+
+        const fallbackIndex = Math.min(currentIndex, remainingTabs.length - 1);
+        return remainingTabs[fallbackIndex] || null;
+    }
+
+    /**
+     * 事务化提交 tab 激活切换。
+     * 先同步 tab/fileTree 选中态，再直接触发文档加载，避免依赖 onTabSelect 间接驱动。
+     * @param {Object|null} targetTab - 目标 tab
+     * @param {{autoFocus?: boolean}} options - 切换选项
+     */
+    async function activateTabTransition(targetTab, options = {}) {
+        const { autoFocus = true } = options;
+        const fileTree = getFileTree();
+        const tabManager = getTabManager();
+        const currentPath = getCurrentFile?.() || null;
+        const currentTabId = tabManager?.activeTabId || null;
+        const normalizedCurrent = normalizeComparablePath(fileTree, currentPath);
+        const normalizedTarget = normalizeComparablePath(fileTree, targetTab?.path || null);
+        const currentIdentity = getPathIdentityKey(normalizedCurrent);
+        const targetIdentity = getPathIdentityKey(normalizedTarget);
+        logger?.info?.('tabTransition:start', {
+            autoFocus,
+            targetTabId: targetTab?.id || null,
+            targetPath: targetTab?.path || null,
+            targetType: targetTab?.type || null,
+        });
+
+        if (!targetTab || !targetTab.path) {
+            tabManager?.setActiveTab(null, { silent: true, force: true });
+            fileTree?.selectFile?.(null, { autoFocus, silent: true });
+            clearActiveFileView();
+            logger?.info?.('tabTransition:done', {
+                autoFocus,
+                targetTabId: null,
+                targetPath: null,
+                targetType: null,
+            });
+            return;
+        }
+
+        if (currentTabId === targetTab.id && currentIdentity && currentIdentity === targetIdentity) {
+            logger?.info?.('tabTransition:skip', {
+                autoFocus,
+                reason: 'already-active',
+                targetTabId: targetTab.id,
+                targetPath: targetTab.path,
+                targetType: targetTab.type || null,
+            });
+            return;
+        }
+
+        tabManager?.setActiveTab(targetTab.id, { silent: true, force: true });
+        fileTree?.selectFile?.(targetTab.path, { autoFocus, silent: true });
+        await handleFileSelect(targetTab.path, { autoFocus });
+        logger?.info?.('tabTransition:done', {
+            autoFocus,
+            targetTabId: targetTab.id,
+            targetPath: targetTab.path,
+            targetType: targetTab.type || null,
+        });
+    }
+
     async function handleFileSelect(filePath, options = {}) {
         const { autoFocus = true } = options;
         const fileTree = getFileTree();
@@ -99,6 +184,25 @@ export function createNavigationController({
         const normalizedNext = normalizePath(filePath);
         const previousIdentity = getPathIdentityKey(normalizedPrevious);
         const nextIdentity = getPathIdentityKey(normalizedNext);
+        const shouldForceReload = filePath
+            ? Boolean(fileTree?.consumeExternalModification?.(filePath))
+            : false;
+        logger?.info?.('handleFileSelect:start', {
+            filePath,
+            autoFocus,
+            previousFile,
+            normalizedPrevious,
+            normalizedNext,
+        });
+
+        if (filePath && previousIdentity && previousIdentity === nextIdentity && !shouldForceReload) {
+            logger?.info?.('handleFileSelect:skip', {
+                autoFocus,
+                filePath,
+                reason: 'same-file-noop',
+            });
+            return;
+        }
 
         if (previousFile) {
             const isSwitchingToDifferentFile = nextIdentity
@@ -109,6 +213,11 @@ export function createNavigationController({
                 rememberScrollPosition?.(previousFile, getActiveViewMode?.());
                 const saved = await autoSaveActiveFileIfNeeded(previousFile);
                 if (!saved) {
+                    logger?.warn?.('handleFileSelect:blocked', {
+                        filePath,
+                        previousFile,
+                        reason: 'auto-save-failed',
+                    });
                     if (normalizedPrevious) {
                         tabManager?.setActiveFileTab(previousFile, { silent: true });
                         const restoreSelection = () => {
@@ -128,6 +237,9 @@ export function createNavigationController({
 
         if (!filePath) {
             saveCurrentEditorContentToCache();
+            logger?.info?.('handleFileSelect:clear', {
+                reason: 'no-file-path',
+            });
 
             const sharedTab = tabManager?.sharedTab;
             if (sharedTab && sharedTab.path) {
@@ -139,6 +251,13 @@ export function createNavigationController({
                     clearActiveFileView();
                 }
             } else {
+                if (!previousFile && !tabManager?.activeTabId) {
+                    logger?.debug?.('handleFileSelect:skip', {
+                        filePath,
+                        reason: 'already-cleared',
+                    });
+                    return;
+                }
                 clearActiveFileView();
             }
             return;
@@ -151,9 +270,14 @@ export function createNavigationController({
 
             saveCurrentEditorContentToCache();
 
-            const shouldForceReload = Boolean(fileTree?.consumeExternalModification?.(filePath));
-
             const tabId = normalizedNext || filePath || null;
+            logger?.info?.('handleFileSelect:load', {
+                filePath,
+                tabId,
+                shouldForceReload,
+                newFileWillUseSharedTab,
+                isCurrentFileInSharedTab,
+            });
             await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
             getEditor?.()?.refreshSearch?.();
 
@@ -165,6 +289,11 @@ export function createNavigationController({
             if (wasImportedAsUntitled) {
                 // 文件已作为 untitled 导入，直接激活 untitled tab，不更新 shared tab
                 tabManager?.setActiveTab(currentFileAfterLoad, { silent: true });
+                logger?.info?.('handleFileSelect:done', {
+                    filePath,
+                    resolvedPath: currentFileAfterLoad,
+                    tabStrategy: 'imported-untitled',
+                });
                 return;
             }
 
@@ -181,8 +310,19 @@ export function createNavigationController({
             } else {
                 tabManager?.showSharedTab(filePath);
             }
+            logger?.info?.('handleFileSelect:done', {
+                filePath,
+                resolvedPath: getCurrentFile?.(),
+                tabStrategy: isOpeningFromLink
+                    ? 'shared-from-link'
+                    : (isOpenTab || isUntitledInFileTabs ? 'existing-tab' : 'shared-tab'),
+            });
         } catch (error) {
             console.error('文件选择失败，保持当前 tab 状态', { filePath, error });
+            logger?.error?.('handleFileSelect:failed', {
+                filePath,
+                error,
+            });
             isOpeningFromLink = false;
         }
     }
@@ -194,15 +334,26 @@ export function createNavigationController({
         const canonicalCurrentFile = normalizeComparablePath(fileTree, fileTree?.currentFile || null) || null;
         tabManager?.syncFileTabs(canonicalOpenFilePaths, canonicalCurrentFile);
         persistWorkspaceState({ openFiles: canonicalOpenFilePaths });
+        logger?.info?.('handleOpenFilesChange', {
+            openFiles: canonicalOpenFilePaths,
+            currentFile: canonicalCurrentFile,
+        });
     }
 
+    /**
+     * 处理用户点击 tab 的激活。
+     * 普通切换也统一走事务化激活，避免再依赖 fileTree.selectFile 间接触发。
+     * @param {Object|null} tab - 被点击的 tab
+     */
     function handleTabSelect(tab) {
         // 发出 tab 切换事件，用于通知其他模块（如 AI 工具栏）
         eventBus?.emit('tab:switch', { tab });
 
-        if (!tab) return;
+        if (!tab) {
+            return;
+        }
         if ((tab.type === 'file' || tab.type === 'shared') && tab.path) {
-            getFileTree()?.selectFile(tab.path);
+            void activateTabTransition(tab, { autoFocus: true });
         }
     }
 
@@ -263,44 +414,22 @@ export function createNavigationController({
             const currentIdentity = getPathIdentityKey(currentNormalized);
             const wasActive = Boolean(targetIdentity) && targetIdentity === currentIdentity;
 
-            let fallbackPath = null;
-            if (wasActive) {
-                const canonicalOpenPaths = getCanonicalOpenFilePaths(
-                    fileTree,
-                    Array.isArray(fileTree?.getOpenFilePaths?.()) ? fileTree.getOpenFilePaths() : []
-                );
-                const targetIndex = canonicalOpenPaths.findIndex(path => path === normalizedTarget);
-                if (targetIndex !== -1) {
-                    const remaining = canonicalOpenPaths.filter(path => path !== normalizedTarget);
-                    if (remaining.length > 0) {
-                        const fallbackIndex = Math.min(targetIndex, remaining.length - 1);
-                        fallbackPath = remaining[fallbackIndex] || null;
-                    }
-                }
-            }
+            const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
 
             // 先更新 TabManager 状态，再触发 fileTree 操作
             // 这样 fileTree.closeFile 触发的 syncFileTabs 看到的是已处理好的状态（no-op）
             tabManager?.removeFileTab(targetPath);
             if (wasActive) {
-                if (fallbackPath) {
-                    tabManager?.setActiveFileTab(fallbackPath, { silent: true });
-                } else {
-                    tabManager?.setActiveTab(null, { silent: true });
-                }
-                clearActiveFileView();
+                tabManager?.setActiveTab(fallbackTab?.id || null, { silent: true, force: true });
             }
 
             fileTree?.closeFile(tab.path, { suppressActivate: wasActive });
 
             if (wasActive) {
-                if (fallbackPath) {
-                    fileTree?.selectFile(fallbackPath);
-                } else {
-                    fileTree?.selectFile(null);
-                }
+                await activateTabTransition(fallbackTab, { autoFocus: true });
             }
             documentSessions.closeSessionForPath(targetPath);
+            documentManager?.closeDocument?.(targetPath);
             const codeEditor = getCodeEditor();
             const markdownEditor = getEditor();
             codeEditor?.forgetViewStateForTab?.(normalizedTarget);
@@ -310,6 +439,12 @@ export function createNavigationController({
         }
 
         if (tab.type === 'shared') {
+            const currentNormalized = normalizeComparablePath(fileTree, fileTree?.currentFile);
+            const targetNormalized = normalizeComparablePath(fileTree, tab.path);
+            const wasActive = Boolean(getPathIdentityKey(currentNormalized))
+                && getPathIdentityKey(currentNormalized) === getPathIdentityKey(targetNormalized);
+            const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
+
             if (tab.path) {
                 const targetPath = tab.path;
 
@@ -331,6 +466,7 @@ export function createNavigationController({
                     fileTree?.stopWatchingFile(targetPath);
                 }
                 documentSessions.closeSessionForPath(targetPath);
+                documentManager?.closeDocument?.(targetPath);
                 const codeEditor = getCodeEditor();
                 const markdownEditor = getEditor();
                 codeEditor?.forgetViewStateForTab?.(tab.id || null);
@@ -338,11 +474,13 @@ export function createNavigationController({
                 fileSession.clearEntry(targetPath);
             }
 
-            // 清除 shared tab
-            tabManager?.clearSharedTab?.();
+            // shared tab 的移除与后续激活拆开，统一交给事务层提交。
+            tabManager?.removeSharedTab?.({ nextActiveTabId: fallbackTab?.id || null });
 
-            if (!tab.fallbackPath) {
-                fileTree?.selectFile(null);
+            if (wasActive) {
+                await activateTabTransition(fallbackTab, { autoFocus: true });
+            } else if (!fallbackTab) {
+                fileTree?.selectFile(null, { silent: true });
             }
             return;
         }
@@ -385,13 +523,25 @@ export function createNavigationController({
         }
         const hasChanges = await checkFileHasUnsavedChanges(currentPath);
         if (!hasChanges) {
+            logger?.info?.('autoSaveActiveFileIfNeeded:skip', {
+                path: currentPath,
+                reason: 'clean',
+            });
             return true;
         }
         try {
             const saved = await saveFile(currentPath);
+            logger?.info?.('autoSaveActiveFileIfNeeded:done', {
+                path: currentPath,
+                saved: Boolean(saved),
+            });
             return Boolean(saved);
         } catch (error) {
             console.error('自动保存当前文件失败:', error);
+            logger?.error?.('autoSaveActiveFileIfNeeded:failed', {
+                path: currentPath,
+                error,
+            });
             return false;
         }
     }
@@ -471,35 +621,15 @@ export function createNavigationController({
         // 清理视图状态
         const currentFile = getCurrentFile();
         const wasActive = currentFile === targetPath;
-
-        // 从 tabManager.fileTabs 中移除 untitled tab
-        if (tabManager && Array.isArray(tabManager.fileTabs)) {
-            const tabIndex = tabManager.fileTabs.findIndex(t => t.path === targetPath);
-            if (tabIndex !== -1) {
-                tabManager.fileTabs.splice(tabIndex, 1);
-            }
-        }
-
-        // 找到备选 tab
-        let fallbackTab = null;
-        if (wasActive && tabManager) {
-            const remainingTabs = tabManager.getAllTabs() || [];
-            if (remainingTabs.length > 0) {
-                fallbackTab = remainingTabs[remainingTabs.length - 1];
-            }
-        }
-
+        const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
+        tabManager?.removeFileTab?.(targetPath);
         if (wasActive) {
-            tabManager?.setActiveTab(null, { silent: true });
-            clearActiveFileView();
+            tabManager?.setActiveTab?.(fallbackTab?.id || null, { silent: true, force: true });
         }
-
-        // 重新渲染 tab bar
-        tabManager?.render?.();
 
         // 切换到备选 tab
-        if (wasActive && fallbackTab) {
-            tabManager?.setActiveTab(fallbackTab.id);
+        if (wasActive) {
+            await activateTabTransition(fallbackTab, { autoFocus: true });
         }
 
         // 清理 session
@@ -549,5 +679,7 @@ export function createNavigationController({
         checkFileHasUnsavedChanges,
         closeActiveTab,
         setupLinkNavigationListener,
+        activateTabTransition,
+        resolveFallbackTab,
     };
 }

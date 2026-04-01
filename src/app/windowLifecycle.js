@@ -15,7 +15,7 @@ export function createWindowLifecycle({
     editorRegistry,
     fileSession,
     untitledFileManager,
-    getViewModeForPath,
+    getViewManager,
     getTerminalPanel,
     getHandleSettingsSubmit,
     getPersistWorkspaceState,
@@ -43,7 +43,7 @@ export function createWindowLifecycle({
             let lastModified = '';
 
             if (currentFile) {
-                const viewMode = getViewModeForPath(currentFile);
+                const viewMode = getViewManager?.()?.resolveViewMode?.(currentFile);
 
                 if (viewMode === 'markdown') {
                     wordCount = statusBarController

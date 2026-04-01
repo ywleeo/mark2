@@ -16,6 +16,7 @@ export function createFileMenuActions(options = {}) {
         updateWindowTitle,
         persistWorkspaceState,
         fileSession,
+        documentManager,
         getFileTree,
         getTabManager,
         getEditor,
@@ -25,8 +26,9 @@ export function createFileMenuActions(options = {}) {
         getStatusBarController,
         documentSessions,
         loadFile,
-        getViewModeForPath,
+        viewManager,
         getActiveViewMode,
+        activateTabTransition,
     } = options;
 
     if (typeof confirm !== 'function') {
@@ -62,6 +64,9 @@ export function createFileMenuActions(options = {}) {
     if (!fileSession || typeof fileSession.renameEntry !== 'function') {
         throw new Error('createFileMenuActions 需要提供支持 renameEntry 的 fileSession');
     }
+    if (!documentManager || typeof documentManager.renameDocument !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 documentManager');
+    }
     if (typeof getFileTree !== 'function' || typeof getTabManager !== 'function') {
         throw new Error('createFileMenuActions 需要提供文件树和标签访问方法');
     }
@@ -80,11 +85,14 @@ export function createFileMenuActions(options = {}) {
     if (typeof loadFile !== 'function') {
         throw new Error('createFileMenuActions 需要提供 loadFile');
     }
-    if (typeof getViewModeForPath !== 'function') {
-        throw new Error('createFileMenuActions 需要提供 getViewModeForPath');
+    if (!viewManager || typeof viewManager.resolveViewMode !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 viewManager');
     }
     if (typeof getActiveViewMode !== 'function') {
         throw new Error('createFileMenuActions 需要提供 getActiveViewMode');
+    }
+    if (typeof activateTabTransition !== 'function') {
+        throw new Error('createFileMenuActions 需要提供 activateTabTransition');
     }
 
     async function createNewFile() {
@@ -206,20 +214,20 @@ export function createFileMenuActions(options = {}) {
         const fileTree = getFileTree();
         const tabManager = getTabManager();
 
-        const openFilePaths = fileTree?.getOpenFilePaths?.() || [];
-        const currentIndex = openFilePaths.findIndex(path => path === currentFile);
-        const fallbackPath = (() => {
-            if (currentIndex === -1) {
-                return openFilePaths.length > 0 ? openFilePaths[openFilePaths.length - 1] : null;
+        const fallbackTab = (() => {
+            const tabs = tabManager?.getAllTabs?.() || [];
+            const currentTabIndex = tabs.findIndex((tab) => tab?.path === currentFile);
+            if (currentTabIndex === -1) {
+                return tabs.length > 0 ? tabs[tabs.length - 1] : null;
             }
-            if (openFilePaths.length <= 1) {
+            if (tabs.length <= 1) {
                 return null;
             }
-            if (currentIndex < openFilePaths.length - 1) {
-                return openFilePaths[currentIndex + 1];
+            if (currentTabIndex < tabs.length - 1) {
+                return tabs[currentTabIndex + 1] || null;
             }
-            if (currentIndex > 0) {
-                return openFilePaths[currentIndex - 1];
+            if (currentTabIndex > 0) {
+                return tabs[currentTabIndex - 1] || null;
             }
             return null;
         })();
@@ -230,23 +238,19 @@ export function createFileMenuActions(options = {}) {
         fileSession.clearEntry(currentFile);
         fileTree?.stopWatchingFile?.(currentFile);
         documentSessions.closeSessionForPath(currentFile);
+        documentManager.closeDocument(currentFile);
 
         if (wasOpenInList) {
             setHasUnsavedChanges(false);
+            tabManager?.removeFileTab?.(currentFile);
+            tabManager?.setActiveTab?.(fallbackTab?.id || null, { silent: true, force: true });
             fileTree.closeFile(currentFile, { suppressActivate: true });
-
-            if (fallbackPath) {
-                const normalizedFallback = fileTree?.normalizePath?.(fallbackPath) || fallbackPath;
-                // 让 TabManager 走正常的 tab 激活流程，触发 handleTabSelect -> selectFile -> loadFile
-                tabManager?.setActiveFileTab(normalizedFallback);
-            } else {
-                clearActiveFileView();
-                void updateWindowTitle();
-            }
+            await activateTabTransition(fallbackTab, { autoFocus: true });
+            void updateWindowTitle();
             return;
         } else if (wasSharedTab) {
-            tabManager?.clearSharedTab();
-            clearActiveFileView();
+            tabManager?.removeSharedTab?.({ nextActiveTabId: fallbackTab?.id || null });
+            await activateTabTransition(fallbackTab, { autoFocus: true });
         } else if (normalizeFsPath(getCurrentFile()) === currentFile) {
             clearActiveFileView();
         }
@@ -411,6 +415,10 @@ export function createFileMenuActions(options = {}) {
         }
 
         const isCurrentFile = normalizeFsPath(getCurrentFile()) === normalizedOld;
+        documentManager.renameDocument(normalizedOld, normalizedNew, {
+            tabId: normalizedNew,
+            active: isCurrentFile,
+        });
         if (isCurrentFile) {
             // 仅更新当前文件路径，不触发任何会导致编辑器聚焦的逻辑
             setCurrentFile(normalizedNew);
@@ -428,8 +436,8 @@ export function createFileMenuActions(options = {}) {
 
         // 检测文件类型是否变化，如果变了需要重新加载文件
         if (isCurrentFile) {
-            const oldViewMode = getViewModeForPath(normalizedOld);
-            const newViewMode = getViewModeForPath(normalizedNew);
+            const oldViewMode = viewManager.resolveViewMode(normalizedOld);
+            const newViewMode = viewManager.resolveViewMode(normalizedNew);
             const currentViewMode = getActiveViewMode();
 
             // 如果新文件的视图模式与当前不一致，需要重新加载

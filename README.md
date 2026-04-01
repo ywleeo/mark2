@@ -112,9 +112,8 @@ styles/                  # 样式文件
 docs/                    # 开发文档
 ```
 
-详细架构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+详细架构白皮书见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ## 许可证
 
 MIT
-

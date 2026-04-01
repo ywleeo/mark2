@@ -14,6 +14,7 @@ export function createEditorCallbacks({
     editorRegistry,
     appState,
     fileSession,
+    documentManager,
     normalizeFsPath,
     updateWindowTitle,
     scheduleDocumentSnapshotSync,
@@ -27,9 +28,13 @@ export function createEditorCallbacks({
         onContentChange: () => {
             const editor = editorRegistry.getMarkdownEditor();
             const codeEditor = editorRegistry.getCodeEditor();
+            const currentFile = documentManager?.getActivePath?.() || appState.getCurrentFile();
             const hasUnsaved = editor?.hasUnsavedChanges()
                 || codeEditor?.hasUnsavedChanges()
                 || false;
+            if (currentFile) {
+                documentManager?.markDirty?.(currentFile, hasUnsaved);
+            }
             appState.setHasUnsavedChanges(hasUnsaved);
             void updateWindowTitle();
             scheduleDocumentSnapshotSync();
@@ -57,6 +62,7 @@ export function createEditorCallbacks({
             const modifiedTime = await fileSession.refreshModifiedTime?.(targetPath);
             await onFileSaved?.(targetPath, modifiedTime);
             if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
+                documentManager?.markDirty?.(targetPath, false);
                 appState.setHasUnsavedChanges(false);
                 await updateWindowTitle();
             }

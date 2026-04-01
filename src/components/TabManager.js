@@ -64,9 +64,14 @@ export class TabManager {
         return tabs.concat(this.fileTabs);
     }
 
+    /**
+     * 显示 shared 预览 tab。
+     * shared tab 只负责承载“未固定”的临时预览，不直接参与持久 openFiles 管理。
+     * @param {string|null} path - shared tab 对应路径
+     */
     showSharedTab(path) {
         if (!path) {
-            this.clearSharedTab();
+            this.removeSharedTab();
             return;
         }
         const fileName = basename(path) || path;
@@ -80,38 +85,23 @@ export class TabManager {
         this.render();
     }
 
-    clearSharedTab(preferredFallbackId = null) {
+    /**
+     * 只移除 shared tab，不负责做文档切换。
+     * 激活下一 tab 的事务统一由 navigationController 提交，避免 TabManager 再偷偷驱动业务状态。
+     * @param {{ nextActiveTabId?: string|null }} options - 移除后的 active tab 设定
+     */
+    removeSharedTab(options = {}) {
+        const { nextActiveTabId = null } = options;
         if (!this.sharedTab) {
             return null;
         }
-        const wasActive = this.activeTabId === this.sharedTabId;
+        const removedSharedTab = this.sharedTab;
         this.sharedTab = null;
+        if (this.activeTabId === this.sharedTabId) {
+            this.activeTabId = nextActiveTabId;
+        }
         this.render();
-
-        if (!wasActive) {
-            if (this.activeTabId === this.sharedTabId) {
-                this.activeTabId = null;
-                this.updateActiveState();
-            }
-            return null;
-        }
-
-        let fallback = null;
-        if (preferredFallbackId) {
-            fallback = this.fileTabs.find(tab => tab.id === preferredFallbackId) || null;
-        }
-        if (!fallback) {
-            fallback = this.fileTabs[0] || this.fileTabs[this.fileTabs.length - 1] || null;
-        }
-
-        if (fallback) {
-            this.setActiveTab(fallback.id);
-            return fallback;
-        }
-
-        this.activeTabId = null;
-        this.updateActiveState();
-        return null;
+        return removedSharedTab;
     }
 
     // 直接移除单个 file tab，不影响其他 tab 状态
@@ -128,6 +118,8 @@ export class TabManager {
 
     syncFileTabs(openFilePaths = [], activePath = null) {
         // sharedTab 被加入 open list 时提升为 file tab
+        const promotedSharedTabPath = this.sharedTab?.path || null;
+        const wasSharedTabActive = this.activeTabId === this.sharedTabId;
         if (this.sharedTab && openFilePaths.includes(this.sharedTab.path)) {
             this.sharedTab = null;
         }
@@ -164,6 +156,13 @@ export class TabManager {
             this.fileTabs.unshift({ id: path, type: 'file', path, label: fileName });
         }
 
+        // shared tab 提升成 file tab 后，需要把 active id 同步到真实 file tab，
+        // 否则 activeTabId 会停留在 shared-preview，UI 上看起来没有激活 tab。
+        if (wasSharedTabActive && promotedSharedTabPath && openFilePaths.includes(promotedSharedTabPath)) {
+            this.activeTabId = promotedSharedTabPath;
+            this.updateActiveState();
+        }
+
         // 更新现有 tab 的标签名（文件重命名场景）
         for (const tab of this.fileTabs) {
             if (tab.path && !tab.path.startsWith('untitled://') && newPathSet.has(tab.path)) {
@@ -196,6 +195,7 @@ export class TabManager {
     }
 
     setActiveTab(tabId, options = {}) {
+        const { force = false } = options;
         if (!tabId) {
             this.activeTabId = null;
             this.updateActiveState();
@@ -205,7 +205,7 @@ export class TabManager {
             return;
         }
 
-        if (this.activeTabId === tabId) {
+        if (this.activeTabId === tabId && !force) {
             return;
         }
 
@@ -229,12 +229,7 @@ export class TabManager {
         }
 
         if (tab.type === 'shared') {
-            const fallback = this.fileTabs[0] || null;
-            this.clearSharedTab(fallback?.id || null);
-            await this.callbacks.onTabClose?.({
-                ...tab,
-                fallbackPath: fallback?.path || null,
-            });
+            await this.callbacks.onTabClose?.(tab);
             return;
         }
 

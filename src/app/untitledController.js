@@ -7,6 +7,7 @@ export function createUntitledController({
     getTabManager,
     getCurrentFile,
     setCurrentFile,
+    documentManager,
     setHasUnsavedChanges,
     getMarkdownEditor,
     getCodeEditor,
@@ -41,6 +42,13 @@ export function createUntitledController({
         }
 
         setCurrentFile(untitledPath);
+        documentManager?.openDocument?.(untitledPath, {
+            activate: true,
+            kind: 'untitled',
+            tabId: untitledPath,
+            viewMode: 'markdown',
+            dirty: false,
+        });
         setHasUnsavedChanges(false);
 
         const editor = getMarkdownEditor();
@@ -83,6 +91,13 @@ export function createUntitledController({
         }
 
         setCurrentFile(untitledPath);
+        documentManager?.openDocument?.(untitledPath, {
+            activate: true,
+            kind: 'import',
+            tabId: untitledPath,
+            viewMode: 'markdown',
+            dirty: content.length > 0,
+        });
         setHasUnsavedChanges(content.length > 0);
 
         const editor = getMarkdownEditor();
@@ -149,6 +164,7 @@ export function createUntitledController({
         }
 
         documentSessions.closeSessionForPath(untitledPath);
+        documentManager?.closeDocument?.(untitledPath);
         const editor = getMarkdownEditor();
         const codeEditor = getCodeEditor();
         editor?.forgetViewStateForTab?.(untitledPath);

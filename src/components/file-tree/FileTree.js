@@ -31,6 +31,7 @@ export class FileTree {
             onFileChange,
             onOpenFilesChange,
             onStateChange,
+            executeCommand,
             onCloseFileRequest,
             onPathRenamed,
             onRunFile,
@@ -47,6 +48,7 @@ export class FileTree {
         this.onFolderChange = onFolderChange;
         this.onFileChange = onFileChange;
         this.onOpenFilesChange = onOpenFilesChange;
+        this.executeCommand = executeCommand;
         this.onCloseFileRequest = onCloseFileRequest;
         this.onPathRenamed = onPathRenamed;
         this.onOpenFileRequest = onOpenFileRequest;
@@ -199,6 +201,7 @@ export class FileTree {
 
         this.contextMenu = new FileTreeContextMenu({
             container: this.container,
+            executeCommand: this.executeCommand,
             getTargetPath: (item) => this.normalizePath(item?.dataset?.path),
             onRename: (path, meta) => this.startRenaming(path, meta),
             onMove: (path, meta) => this.fileActions.promptMoveTo(path, meta),
@@ -369,12 +372,12 @@ export class FileTree {
     // ========== 文件选择 ==========
 
     selectFile(path, options = {}) {
-        const { autoFocus = true, preserveFocus = false } = options;
+        const { autoFocus = true, preserveFocus = false, silent = false } = options;
         const normalized = this.normalizePath(path);
         if (!normalized) {
             this.clearSelection();
             this.currentFile = null;
-            if (this.onFileSelect) this.onFileSelect(null, { autoFocus });
+            if (!silent && this.onFileSelect) this.onFileSelect(null, { autoFocus });
             return;
         }
 
@@ -407,11 +410,13 @@ export class FileTree {
             }
         }
 
-        if (this.onFileSelect) this.onFileSelect(normalized, { autoFocus });
+        if (!silent && this.onFileSelect) this.onFileSelect(normalized, { autoFocus });
 
-        this.ensureFileWatcherHealth(normalized).catch(error => {
-            console.warn('文件监听健康检查失败:', { path: normalized, error });
-        });
+        if (!silent) {
+            this.ensureFileWatcherHealth(normalized).catch(error => {
+                console.warn('文件监听健康检查失败:', { path: normalized, error });
+            });
+        }
     }
 
     clearSelection() {

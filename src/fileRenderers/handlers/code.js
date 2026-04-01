@@ -12,7 +12,7 @@ export function createCodeRenderer() {
                 fileData,
                 editorRegistry,
                 detectLanguageForPath,
-                activateCodeView,
+                view,
                 restoreScrollPosition,
                 setHasUnsavedChanges,
                 updateWindowTitle,
@@ -26,7 +26,7 @@ export function createCodeRenderer() {
                 return false;
             }
 
-            activateCodeView?.({ skipScrollSync: true });
+            view?.activate?.('code', { skipScrollSync: true });
             markdownEditor?.clear?.();
             const language = detectLanguageForPath?.(filePath) || null;
             await codeEditor.show(filePath, fileData.content, language, session, {

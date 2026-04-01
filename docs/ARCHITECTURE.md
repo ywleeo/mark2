@@ -1,281 +1,445 @@
-# Mark2 项目架构文档
+# Mark2 架构白皮书
 
-## 技术栈
+## 文档目的
 
-- **框架**: Tauri (Rust 后端 + Web 前端)
-- **前端**: 原生 JavaScript（无 React/Vue）
-- **编辑器**: TipTap (Markdown) + Monaco (Code)
-- **状态管理**: 原生 JS 类 + EventBus
+本文档是 Mark2 当前正式架构的白皮书版本。
 
-## 目录结构
+它回答 4 个问题：
 
-```
-src/
-├── main.js                    # 应用入口
-├── app/                       # 核心应用逻辑
-│   ├── coreModules.js         # 编辑器构造函数延迟加载
-│   ├── editorSetup.js         # 编辑器初始化
-│   ├── viewSetup.js           # 视图面板设置
-│   ├── viewController.js      # 视图切换控制
-│   └── ...
-├── state/                     # 状态管理
-│   ├── AppState.js            # 全局应用状态
-│   └── EditorRegistry.js      # 编辑器实例注册表
-├── components/                # UI 组件
-│   ├── markdown-editor/       # TipTap Markdown 编辑器
-│   ├── code-editor/           # Monaco 代码编辑器
-│   ├── file-tree/             # 文件树
-│   ├── ImageViewer.js         # 图片查看器
-│   ├── MediaViewer.js         # 音视频查看器
-│   ├── PdfViewer.js           # PDF 查看器
-│   ├── SpreadsheetViewer.js   # 表格查看器
-│   └── ...
-├── modules/                   # 业务模块
-│   ├── ai-assistant/          # AI 助手 Sidebar
-│   ├── terminal-sidebar/      # 终端 Sidebar
-│   ├── card-export/           # 卡片导出 Sidebar
-│   ├── fileOperations.js      # 文件加载/保存
-│   └── ...
-├── core/                      # 基础设施
-│   ├── EventBus.js            # 事件总线
-│   ├── DocumentIO.js          # 文档 I/O
-│   └── AppBridge.js           # Tauri 桥接
-├── utils/                     # 工具函数
-│   ├── fileTypeUtils.js       # 文件类型检测和路由
-│   └── ...
-├── services/                  # 服务层
-├── extensions/                # TipTap 扩展
-└── config/                    # 配置
-```
+1. 当前系统的核心真源是什么
+2. 核心链路由哪些 Manager 承接
+3. 新功能应该挂到哪一层
+4. 什么写法符合当前架构，什么写法会重新把系统带回旧胶水模式
 
-## 核心设计模式
+这份文档描述的是**重构完成后的现状**，不是重构计划，也不是探索性草案。
 
-### 1. 状态管理
+---
 
-**AppState** (`src/state/AppState.js`)
-- 单例，管理全局应用状态
-- 包含：当前文件、视图模式、编辑器设置、UI 实例引用等
+## 一、设计原则
 
-**EditorRegistry** (`src/state/EditorRegistry.js`)
-- 管理所有编辑器/查看器实例
-- 支持延迟初始化：`registerConstructor()` + `register()`
-- 获取实例：`get('markdown')`、`getMarkdownEditor()` 等
+### 1. 单一真源
 
-### 2. 事件通信
+同一个事实只允许有一个正式写入口。
 
-**EventBus** (`src/core/EventBus.js`)
-```javascript
-eventBus.on('event-name', handler)
-eventBus.emit('event-name', data)
-eventBus.once('event-name', handler)
-```
+当前系统已经把几个最容易漂移的事实收敛到以下真源：
 
-关键事件：
-- `editor:ready` - 编辑器初始化完成
-- `app:initialized` - 应用初始化完成
-- `ai-sidebar:show` - AI Sidebar 显示
+- 当前文档身份：`DocumentManager`
+- 当前工作区快照：`WorkspaceManager`
+- 当前命令入口：`CommandManager`
+- 当前视图激活协议：`ViewManager`
+- 当前功能模块挂载：`FeatureManager`
+- 当前导出能力：`ExportManager`
 
-### 3. 视图模式
+`AppState` 仍然存在，但它现在更偏向 UI 共享状态与兼容镜像层，而不是所有业务事实的最终来源。
 
-支持以下视图模式，通过文件扩展名路由：
+### 2. 事务先于 UI
 
-| 视图模式 | 文件类型 | 说明 |
-|----------|----------|------|
-| markdown | .md, .markdown, .mdx | MarkdownEditor |
-| code | 50+ 代码语言 | CodeEditor |
-| image | .png, .jpg, .gif, ... | ImageViewer |
-| media | .mp4, .mp3, ... | MediaViewer |
-| pdf | .pdf | PdfViewer |
-| spreadsheet | .xlsx, .csv, ... | SpreadsheetViewer |
-| unsupported | 其他 | UnsupportedViewer |
+业务切换必须先做状态决策，再让 UI 反映结果。
 
-**导入型模式**（转换后以 untitled 草稿打开，不在文件树留持久 tab）：
+例如 tab 切换和关闭回退，当前已经按这个原则收口：
 
-| 视图模式 | 文件类型 | 转换目标 |
-|----------|----------|----------|
-| docx | .docx | Markdown（via Mammoth.js） |
-| pptx | .pptx | Markdown（via JSZip + DOMParser） |
+- 先决定下一个激活 tab
+- 再统一提交 tab 激活、file tree 选中、文档加载
+- UI 不再反向驱动业务链路
 
-路由逻辑在 `src/utils/fileTypeUtils.js`：
-```javascript
-export function getViewModeForPath(filePath) {
-  if (isMarkdownFilePath(filePath)) return 'markdown';
-  if (isImageFilePath(filePath)) return 'image';
-  // ...
-  return 'code';  // 默认
-}
-```
+### 3. 命令统一入口
 
-### 4. 文件加载流程
+菜单、快捷键、context menu、toolbar 触发的系统动作，必须先进入命令层。
 
-`src/modules/fileOperations.js` - `performLoad()`:
-```
-loadFile(filePath)
-  → getViewModeForPath(filePath)      # 确定视图模式
-  → activateXxxView()                 # 切换视图
-  → editor.loadFile(filePath, content) # 加载内容
+禁止新增“某个按钮直接调某个业务函数”的新胶水。
+
+### 4. 协议优于散传函数
+
+新架构尽量避免把 `activateMarkdownView / activateCodeView / ...` 这种细粒度函数到处散传。
+
+更推荐传稳定协议对象，例如：
+
+- `view.activate(mode, options)`
+- `featureManager.getFeatureApi(id)`
+- `commandManager.executeCommand(id, payload, context)`
+
+### 5. 可观测性内建
+
+关键链路必须可日志化、可回放、可定位。
+
+当前正式日志域见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+
+---
+
+## 二、系统总览
+
+### 1. 核心 Manager
+
+当前系统的核心内核由 6 个 Manager 组成：
+
+| Manager | 职责 |
+|---|---|
+| `DocumentManager` | 文档身份、激活态、rename、dirty、save 目标路径 |
+| `WorkspaceManager` | open files、shared tab、sidebar、workspace snapshot 持久化 |
+| `ViewManager` | 视图模式解析、渲染器分发、视图激活协议 |
+| `CommandManager` | 统一命令注册与执行 |
+| `KeybindingManager` | 快捷键到命令的绑定 |
+| `FeatureManager` | AI / Terminal / Card Export / Scratchpad 等功能模块挂载 |
+
+另外还有一个跨域能力 Manager：
+
+| Manager | 职责 |
+|---|---|
+| `ExportManager` | 导出图片/PDF 等导出能力 |
+
+### 2. 高层关系
+
+```mermaid
+flowchart LR
+    UI["Menu / Keybinding / Toolbar / FileTree / Tabs"] --> CMD["CommandManager"]
+    CMD --> DOC["DocumentManager"]
+    CMD --> WS["WorkspaceManager"]
+    CMD --> FEAT["FeatureManager"]
+    CMD --> EXP["ExportManager"]
+    DOC --> VIEW["ViewManager"]
+    WS --> NAV["navigationController"]
+    NAV --> DOC
+    NAV --> VIEW
+    VIEW --> RENDER["Renderer / Editor / Viewer"]
+    FEAT --> UI
+    EXP --> VIEW
 ```
 
-## 添加新的文件类型/视图
+---
 
-以添加 `.mflow` 文件类型为例：
+## 三、核心状态模型
 
-### Step 1: 文件类型检测
-`src/utils/fileTypeUtils.js`:
-```javascript
-const WORKFLOW_EXTENSIONS = new Set(['mflow']);
+### 1. DocumentManager
 
-export function isWorkflowFilePath(filePath) {
-  return WORKFLOW_EXTENSIONS.has(getExtension(filePath));
-}
+`DocumentManager` 是文档生命周期的正式真源。
 
-export function getViewModeForPath(filePath) {
-  if (isWorkflowFilePath(filePath)) return 'workflow';
-  // ... 其他类型
-}
+它负责：
+
+- 当前激活文档 path
+- 文档 tabId/path/viewMode/sessionId 的对应关系
+- `open / activate / rename / close`
+- `dirty` 状态
+- 保存链路读取的 active path
+
+任何“当前文档是谁”的判断，应该优先从 `DocumentManager` 得出，而不是依赖某个 editor 内部缓存路径。
+
+典型链路：
+
+```text
+handleFileSelect
+  -> DocumentManager.openDocument / syncActiveDocument
+  -> loadFile
+  -> saveCurrentFile 读取 active path
 ```
 
-### Step 2: 创建编辑器组件
-`src/components/workflow-editor/WorkflowEditor.js`:
-```javascript
-export class WorkflowEditor {
-  constructor(container) {
-    this.container = container;
-  }
+### 2. WorkspaceManager
 
-  async loadWorkflow(filePath, content) { }
-  async save() { }
-  show() { this.container.style.display = 'block'; }
-  hide() { this.container.style.display = 'none'; }
-  destroy() { }
-}
+`WorkspaceManager` 负责工作区级快照，而不是文档级业务。
+
+它维护：
+
+- `openFiles`
+- `sharedTabPath`
+- `currentFile`
+- sidebar 状态
+- workspace restore / persist
+
+它的角色是“工作区真源”，不是“文档内容真源”。
+
+### 3. ViewManager
+
+`ViewManager` 负责“当前文档如何展示”，不负责“当前文档是谁”。
+
+它维护的正式协议包括：
+
+- `resolveViewMode(filePath)`
+- `resolveRenderer(filePath, targetViewMode)`
+- `activateView(viewMode, viewOptions)`
+- `createViewProtocol()`
+
+`createViewProtocol()` 是当前视图层最重要的稳定接口。
+
+现在以下调用方都已经统一依赖它：
+
+- `fileOperations`
+- renderer handlers
+- markdown/code/svg/csv mode toggle
+- `windowLifecycle`
+- `fileMenuActions`
+
+### 4. CommandManager 与 KeybindingManager
+
+`CommandManager` 定义系统“能做什么”，`KeybindingManager` 定义“按什么触发”。
+
+新增系统动作时，标准路径是：
+
+1. 注册 command id
+2. 在 `commandSetup` 注册 handler
+3. 如有需要，在 `KeybindingManager` 注册默认快捷键
+4. UI 入口统一执行 command
+
+### 5. FeatureManager
+
+`FeatureManager` 统一挂载业务功能模块。
+
+当前已经纳入：
+
+- `ai-sidebar`
+- `terminal`
+- `scratchpad`
+- `card-export`
+
+功能模块通过 `mount / unmount / getApi` 参与应用，而不是直接在 `main.js` 里手工拼装。
+
+### 6. ExportManager
+
+`ExportManager` 统一管理导出能力。
+
+当前导出链路是：
+
+```text
+menu
+  -> command
+  -> ExportManager
+  -> exporter
 ```
 
-### Step 3: 注册构造函数
-`src/app/coreModules.js`:
-```javascript
-export async function loadCoreModules() {
-  const { WorkflowEditor } = await import('../components/workflow-editor');
-  return {
-    // ... 现有的
-    WorkflowEditor,
-  };
-}
+这避免了导出逻辑继续散落在菜单层和视图层之间。
+
+---
+
+## 四、运行时主链
+
+### 1. 启动链
+
+高层启动顺序如下：
+
+1. `main.js` 初始化基础设施与状态容器
+2. 创建核心 Manager
+3. 创建 controller 与 setup 层
+4. 通过 `appBootstrap` 注册命令、功能、导出能力
+5. 恢复 workspace
+6. 恢复或打开当前文档
+
+### 2. 文件打开链
+
+当前文件打开链已经收敛为：
+
+```text
+fileTree / recent / open dialog
+  -> handleFileSelect
+  -> fileOperations.loadFile
+  -> ViewManager.resolveViewMode
+  -> ViewManager.resolveRenderer
+  -> renderer.load(...)
+  -> DocumentManager / WorkspaceManager 同步
 ```
 
-### Step 4: 添加视图面板
-`src/app/viewSetup.js`:
-```javascript
-viewContainer.innerHTML = `
-  <!-- 现有面板 -->
-  <div class="workflow-pane" data-pane="workflow" style="display:none;"></div>
-`;
+导入型文件也走这条主链，但在 renderer 内转换为 untitled 文档：
+
+- `docx`
+- `pptx`
+- `spreadsheet` 导入型场景
+
+### 3. Tab 切换与关闭回退链
+
+这是本轮重构前最脆弱的一段，现在已经改成事务模型。
+
+正式链路：
+
+```text
+tab intent
+  -> activateTabTransition
+  -> resolve fallback / commit active tab
+  -> silent sync fileTree
+  -> handleFileSelect
+  -> loadFile
 ```
 
-### Step 5: 注册视图模式
-`src/app/viewController.js`:
-```javascript
-const VIEW_MODE_BEHAVIORS = {
-  // ... 现有的
-  workflow: {
-    getPane: () => options.getWorkflowPane?.(),
-    onEnter: () => { /* 隐藏其他面板 */ },
-  },
-};
+以下场景都已经迁到这条事务链：
+
+- 普通 tab 点击切换
+- 关闭 file tab 后回退
+- 关闭 untitled/import tab 后回退
+- 关闭 shared tab 后回退
+- 删除当前文件后的 fallback 激活
+
+### 4. 保存链
+
+正式保存链以 `DocumentManager` 的 active path 为准，不再允许 editor 内部缓存路径单独决定写盘目标。
+
+```text
+document.save
+  -> saveCurrentFile
+  -> DocumentManager active path
+  -> markdown/code writer
+  -> dirty=false
 ```
 
-### Step 6: 注册编辑器实例
-`src/app/editorSetup.js`:
-```javascript
-const workflowEditor = new constructors.WorkflowEditor(workflowPane);
-editorRegistry.register('workflow', workflowEditor);
+### 5. 自动保存链
+
+自动保存现在由导航切换链统一协调：
+
+```text
+handleFileSelect
+  -> autoSaveActiveFileIfNeeded
+  -> saveCurrentFile 或 skip
+  -> load next file
 ```
 
-### Step 7: 文件加载路由
-`src/modules/fileOperations.js`:
-```javascript
-if (targetViewMode === 'workflow') {
-  activateWorkflowView();
-  await workflowEditor?.loadWorkflow(filePath, content);
-}
-```
+同路径 no-op 切换已经短路，不再无意义重复 reload。
 
-## Sidebar 模块结构
+---
 
-现有 3 个 Sidebar，互斥显示：
+## 五、目录职责
 
-```
-src/modules/
-├── ai-assistant/           # AI 助手
-│   ├── index.js            # 初始化入口
-│   ├── components/
-│   │   └── AISidebar.js    # 主 UI
-│   └── services/
-│       ├── messageService.js
-│       ├── contextService.js
-│       └── layoutService.js
-├── terminal-sidebar/       # 终端
-└── card-export/            # 卡片导出
-```
+### 1. `src/core/`
 
-通用接口：
-```javascript
-{
-  showSidebar: () => void,
-  hideSidebar: () => void,
-  toggleSidebar: () => void,
-  destroy: () => void,
-}
-```
+这里放内核级能力，不放具体业务功能。
 
-## 应用初始化流程
+当前核心目录含义：
 
-`src/main.js` - `initializeApplication()`:
+- `core/documents/`：文档真源
+- `core/workspace/`：工作区真源
+- `core/views/`：视图协议与渲染器调度
+- `core/commands/`：命令与快捷键
+- `core/features/`：功能挂载
+- `core/export/`：导出能力
+- `core/diagnostics/`：日志和 trace
 
-```
-1. loadAndRegisterModules()      # 注册编辑器构造函数
-2. setupViewPanes()              # 创建视图面板
-3. setupStatusBar()              # 状态栏
-4. setupEditors()                # 创建编辑器实例
-5. eventBus.emit('editor:ready')
-6. initAIAssistant()             # AI 助手
-7. initTerminalSidebar()         # 终端
-8. initCardExportSidebar()       # 卡片导出
-9. setupFileTree()               # 文件树
-10. setupTabManager()            # 标签管理
-11. 恢复工作区状态
-12. setupKeyboardShortcuts()     # 快捷键
-13. registerMenuListeners()      # 菜单监听
-14. eventBus.emit('app:initialized')
-```
+### 2. `src/app/`
 
-## AI 服务调用
+放装配层和 setup/controller 层。
 
-AI 相关逻辑在 `src/modules/ai-assistant/`：
+它们负责：
 
-```javascript
-// 调用 AI
-import { aiService } from './services/aiService';
+- 组装核心对象
+- 连接 UI 与 Manager
+- 保持初始化顺序清晰
 
-const result = await aiService.runTask({
-  prompt: '...',
-  context: '...',
-  onChunk: (chunk) => { /* 流式输出 */ },
-});
-```
+它们不应该重新发明真源。
 
-## Tauri 命令调用
+### 3. `src/modules/`
 
-通过 `@tauri-apps/api` 调用 Rust 后端：
+放业务模块和跨组件控制器。
 
-```javascript
-import { invoke } from '@tauri-apps/api/tauri';
-import { Command } from '@tauri-apps/api/shell';
+例如：
 
-// 调用自定义命令
-const result = await invoke('command_name', { arg1: '...' });
+- `navigationController`
+- `fileOperations`
+- `fileMenuActions`
+- `recentFilesActions`
+- `ai-assistant`
+- `card-export`
 
-// 执行 shell 命令
-const command = new Command('program', ['arg1', 'arg2']);
-const output = await command.execute();
-```
+模块可以有业务逻辑，但不应该绕开核心 Manager 自建第二套生命周期。
+
+### 4. `src/components/`
+
+放 UI 组件与编辑器/查看器实现。
+
+组件层原则：
+
+- 负责展示和交互
+- 不持有跨模块的最终真源
+- 尽量通过协议或 manager API 与外部协作
+
+---
+
+## 六、扩展模型
+
+### 1. 新增文件类型/视图
+
+新增文件类型时，标准路径是：
+
+1. 在 `fileTypeUtils` 定义扩展名与默认视图模式
+2. 在 `fileRenderers` 增加 renderer handler
+3. 通过 `RendererRegistry` 注册
+4. 如需要新增 pane/viewer，再接入 `viewController`
+5. `ViewManager` 自动负责解析和分发
+
+不要再在多个业务模块里各自写一段 `if (ext === ...)`。
+
+### 2. 新增命令
+
+标准路径：
+
+1. 在 `commandIds.js` 新增命令 ID
+2. 在 `commandSetup.js` 注册 handler
+3. 如需要快捷键，在 `registerDefaultKeybindings` 注册
+4. UI 调用 `executeCommand`
+
+### 3. 新增功能模块
+
+标准路径：
+
+1. 在 `featureSetup.js` 注册 feature
+2. 暴露 `mount / unmount / getApi`
+3. 通过 `FeatureManager` 挂载
+
+不要再直接在 `appBootstrap` 或 `main.js` 里散落 feature 实例变量。
+
+### 4. 新增导出能力
+
+标准路径：
+
+1. 在 `exportSetup.js` 注册 exporter
+2. 给它一个稳定 export id
+3. 菜单或命令层通过 `ExportManager` 执行
+
+---
+
+## 七、正式约束
+
+### 1. 允许的写法
+
+- 用 `CommandManager` 承接系统动作
+- 用 `DocumentManager` 判断当前文档
+- 用 `WorkspaceManager` 持久化工作区
+- 用 `ViewManager` 激活视图和解析 renderer
+- 用 `FeatureManager` 管功能挂载
+- 用结构化日志验证关键链路
+
+### 2. 禁止回退的写法
+
+- 在多个模块里各自维护一份 `currentFile`
+- UI 组件直接决定文档最终状态
+- 新增按钮直接调业务函数，不走 command
+- 新增视图切换时继续散传 `activateXxxView`
+- 为了修 bug 再加新的全局状态副本
+
+---
+
+## 八、调试与验收
+
+当前架构默认支持结构化日志验收。
+
+关键日志域：
+
+- `documents`
+- `workspace`
+- `views`
+- `commands`
+- `features`
+- `io`
+
+详细规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+
+重构验收记录保留在 [REFACTOR_CHECKLIST.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/REFACTOR_CHECKLIST.md)。
+
+---
+
+## 九、当前文档集合
+
+当前 `docs/` 建议保留为以下分工：
+
+- `ARCHITECTURE.md`
+  当前正式架构白皮书
+- `DEVELOPMENT.md`
+  开发规范、交互约束、发布流程
+- `DEBUG_CONVENTIONS.md`
+  日志与 trace 约定
+- `REFACTOR_CHECKLIST.md`
+  本轮架构重构与回归验收记录
+
+历史性的蓝图、风险草案、已删除功能设计稿，不再作为正式文档保留。

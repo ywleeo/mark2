@@ -330,7 +330,7 @@ class AssistantCard {
         const card = document.createElement('div');
         card.className = 'ai-tool-card ai-tool-card-running';
         card.innerHTML = `
-            <span class="ai-tool-card-icon">🪶</span>
+            <span class="ai-tool-card-icon"></span>
             <span class="ai-tool-card-name">${TOOL_LABELS[name] || name}</span>
             <span class="ai-tool-card-status">${statusText}</span>
         `;

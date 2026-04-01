@@ -1,4 +1,5 @@
 import { MarkdownToolbar } from './markdown-toolbar/index.js';
+import { COMMAND_IDS } from '../core/commands/commandIds.js';
 
 /**
  * Markdown工具栏管理器
@@ -15,6 +16,7 @@ export class MarkdownToolbarManager {
         this.rawEditorInstance = null;
         this.editorType = null; // 'tiptap' 或 'codemirror'
         this.isInitialized = false;
+        this.executeCommand = options.executeCommand || null;
         this.onToggleViewMode = options.onToggleViewMode || null;
         this.onCardExport = options.onCardExport || null;
 
@@ -339,17 +341,46 @@ export class MarkdownToolbarManager {
         // 监听工具栏动作
         this.toolbar.on('action', (action) => {
             // 处理视图模式切换
-            if (action === 'toggleViewMode' && this.onToggleViewMode) {
-                this.onToggleViewMode();
+            if (action === 'toggleViewMode') {
+                if (this.dispatchCommand(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, action)) {
+                    return;
+                }
+                this.onToggleViewMode?.();
+                return;
             }
             // 处理复制 markdown
             if (action === 'copyMarkdown') {
+                if (this.dispatchCommand(COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, action)) {
+                    return;
+                }
                 this.copyMarkdown();
+                return;
             }
-            if (action === 'cardExport' && this.onCardExport) {
-                this.onCardExport();
+            if (action === 'cardExport') {
+                if (this.dispatchCommand(COMMAND_IDS.FEATURE_CARD_EXPORT_OPEN, action)) {
+                    return;
+                }
+                this.onCardExport?.();
             }
         });
+    }
+
+    /**
+     * 将工具栏动作转发到统一命令层。
+     * @param {string} commandId - 命令 ID
+     * @param {string} action - 工具栏动作名
+     * @returns {boolean}
+     */
+    dispatchCommand(commandId, action) {
+        if (typeof this.executeCommand !== 'function') {
+            return false;
+        }
+
+        void this.executeCommand(commandId, {}, {
+            source: 'markdown-toolbar',
+            action,
+        });
+        return true;
     }
 
     /**

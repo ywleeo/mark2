@@ -10,10 +10,10 @@ export function createImageRenderer() {
                 filePath,
                 editorRegistry,
                 imageViewer,
-                activateImageView,
+                view,
             } = ctx;
 
-            activateImageView?.();
+            view?.activate?.('image');
             editorRegistry?.getMarkdownEditor?.()?.clear?.();
             editorRegistry?.getCodeEditor?.()?.clear?.();
             await imageViewer?.loadImage?.(filePath);

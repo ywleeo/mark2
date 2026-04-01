@@ -65,7 +65,12 @@ export class OpenFileManager {
                 this.selectFile(fallback);
             } else if (!fallback) {
                 this.clearSelection();
-                this.onFileSelect?.(null);
+                // suppressActivate 场景下，外层通常会立即切到 untitled/shared fallback。
+                // 这里如果先发 onFileSelect(null)，会把视图清空成中间态，导致最后一个 untitled
+                // 回退时短暂显示空白内容。
+                if (!options.suppressActivate) {
+                    this.onFileSelect?.(null);
+                }
             }
         }
     }

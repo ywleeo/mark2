@@ -1,10 +1,12 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { isFeatureEnabled } from '../config/features.js';
+import { COMMAND_IDS } from '../core/commands/commandIds.js';
 
 export class FileTreeContextMenu {
     constructor(options = {}) {
         const {
             container,
+            executeCommand,
             onRename,
             onMove,
             onReveal,
@@ -16,6 +18,7 @@ export class FileTreeContextMenu {
         } = options;
 
         this.container = container;
+        this.executeCommand = executeCommand;
         this.onRename = onRename;
         this.onMove = onMove;
         this.onReveal = onReveal;
@@ -334,6 +337,26 @@ export class FileTreeContextMenu {
         this.hideMenu();
 
         const meta = { targetType };
+        const payload = { path: targetPath, targetType };
+        const commandId = this.resolveCommandId(action);
+
+        if (commandId && typeof this.executeCommand === 'function') {
+            if (action === 'rename') {
+                setTimeout(() => {
+                    void this.executeCommand(commandId, payload, {
+                        source: 'file-tree-context-menu',
+                        action,
+                    });
+                }, 0);
+                return;
+            }
+
+            await this.executeCommand(commandId, payload, {
+                source: 'file-tree-context-menu',
+                action,
+            });
+            return;
+        }
 
         switch (action) {
             case 'run':
@@ -368,6 +391,26 @@ export class FileTreeContextMenu {
             default:
                 break;
         }
+    }
+
+    /**
+     * 将上下文菜单动作映射到统一命令 ID。
+     * @param {string} action - 上下文菜单动作
+     * @returns {string|null}
+     */
+    resolveCommandId(action) {
+        const commandMap = {
+            run: COMMAND_IDS.WORKSPACE_RUN_ENTRY,
+            'create-file': COMMAND_IDS.WORKSPACE_CREATE_FILE,
+            'create-folder': COMMAND_IDS.WORKSPACE_CREATE_FOLDER,
+            rename: COMMAND_IDS.WORKSPACE_RENAME_ENTRY,
+            move: COMMAND_IDS.WORKSPACE_MOVE_ENTRY,
+            'copy-path': COMMAND_IDS.WORKSPACE_COPY_PATH,
+            reveal: COMMAND_IDS.WORKSPACE_REVEAL_IN_FINDER,
+            delete: COMMAND_IDS.WORKSPACE_DELETE_ENTRY,
+        };
+
+        return commandMap[action] || null;
     }
 
     dispose() {
