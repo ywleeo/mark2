@@ -8,7 +8,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "tauri:build": "tauri build",
     "tauri:run": "open src-tauri/target/release/bundle/macos/Mark2.app"
   },

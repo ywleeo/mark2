@@ -2,92 +2,40 @@
 
 ## 文档目的
 
-本文档是 Mark2 当前正式架构的白皮书版本。
+本文档描述 Mark2 当前正式架构，重点说明 5 件事：
 
-它回答 4 个问题：
+1. 系统由哪些核心层组成
+2. 目录结构如何组织
+3. 每一层分别承接什么职责
+4. 新功能如何扩展接入
+5. 当前工程标准是什么
 
-1. 当前系统的核心真源是什么
-2. 核心链路由哪些 Manager 承接
-3. 新功能应该挂到哪一层
-4. 什么写法符合当前架构，什么写法会重新把系统带回旧胶水模式
-
-这份文档描述的是**重构完成后的现状**，不是重构计划，也不是探索性草案。
-
----
-
-## 一、设计原则
-
-### 1. 单一真源
-
-同一个事实只允许有一个正式写入口。
-
-当前系统已经把几个最容易漂移的事实收敛到以下真源：
-
-- 当前文档身份：`DocumentManager`
-- 当前工作区快照：`WorkspaceManager`
-- 当前命令入口：`CommandManager`
-- 当前视图激活协议：`ViewManager`
-- 当前功能模块挂载：`FeatureManager`
-- 当前导出能力：`ExportManager`
-
-`AppState` 仍然存在，但它现在更偏向 UI 共享状态与兼容镜像层，而不是所有业务事实的最终来源。
-
-### 2. 事务先于 UI
-
-业务切换必须先做状态决策，再让 UI 反映结果。
-
-例如 tab 切换和关闭回退，当前已经按这个原则收口：
-
-- 先决定下一个激活 tab
-- 再统一提交 tab 激活、file tree 选中、文档加载
-- UI 不再反向驱动业务链路
-
-### 3. 命令统一入口
-
-菜单、快捷键、context menu、toolbar 触发的系统动作，必须先进入命令层。
-
-禁止新增“某个按钮直接调某个业务函数”的新胶水。
-
-### 4. 协议优于散传函数
-
-新架构尽量避免把 `activateMarkdownView / activateCodeView / ...` 这种细粒度函数到处散传。
-
-更推荐传稳定协议对象，例如：
-
-- `view.activate(mode, options)`
-- `featureManager.getFeatureApi(id)`
-- `commandManager.executeCommand(id, payload, context)`
-
-### 5. 可观测性内建
-
-关键链路必须可日志化、可回放、可定位。
-
-当前正式日志域见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+开发流程见 [DEVELOPMENT.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEVELOPMENT.md)。
+日志规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
 
 ---
 
-## 二、系统总览
+## 一、架构总览
 
-### 1. 核心 Manager
+Mark2 当前采用“核心 Manager + 装配层 + 业务模块 + UI 组件”的分层结构。
 
-当前系统的核心内核由 6 个 Manager 组成：
-
-| Manager | 职责 |
-|---|---|
-| `DocumentManager` | 文档身份、激活态、rename、dirty、save 目标路径 |
-| `WorkspaceManager` | open files、shared tab、sidebar、workspace snapshot 持久化 |
-| `ViewManager` | 视图模式解析、渲染器分发、视图激活协议 |
-| `CommandManager` | 统一命令注册与执行 |
-| `KeybindingManager` | 快捷键到命令的绑定 |
-| `FeatureManager` | AI / Terminal / Card Export / Scratchpad 等功能模块挂载 |
-
-另外还有一个跨域能力 Manager：
+核心业务由以下 7 个 Manager 承接：
 
 | Manager | 职责 |
-|---|---|
-| `ExportManager` | 导出图片/PDF 等导出能力 |
+| --- | --- |
+| `DocumentManager` | 文档身份、激活态、rename、dirty、保存目标路径 |
+| `WorkspaceManager` | open files、shared tab、sidebar 状态、workspace snapshot 持久化 |
+| `ViewManager` | 视图模式解析、renderer 分发、视图激活协议 |
+| `CommandManager` | 系统命令注册与执行 |
+| `KeybindingManager` | 快捷键与命令绑定 |
+| `FeatureManager` | AI、Terminal、Scratchpad、Card Export 等功能模块挂载 |
+| `ExportManager` | 图片、PDF 等导出能力 |
 
-### 2. 高层关系
+`AppState` 负责共享 UI 状态与兼容镜像状态。
+`navigationController`、`fileOperations`、`fileMenuActions` 等模块负责运行时事务协调。
+`components/` 下的编辑器、查看器、面板组件负责展示与交互。
+
+高层关系如下：
 
 ```mermaid
 flowchart LR
@@ -107,34 +55,76 @@ flowchart LR
 
 ---
 
-## 三、核心状态模型
+## 二、目录结构
+
+当前核心目录结构如下：
+
+```text
+src/
+  app/                  应用装配、setup、controller
+  components/           UI 组件、编辑器、查看器、面板
+  core/
+    commands/           CommandManager、KeybindingManager
+    diagnostics/        Logger、TraceRecorder、文件日志
+    documents/          DocumentManager
+    export/             ExportManager
+    features/           FeatureManager
+    views/              ViewManager
+    workspace/          WorkspaceManager
+  fileRenderers/        文件类型 renderer 与 handler
+  modules/              业务模块与运行时控制器
+  services/             基础服务与适配层
+  state/                AppState、EditorRegistry 等共享状态
+  utils/                工具函数与导出辅助
+
+src-tauri/
+  src/                  Rust 命令与桌面端能力
+  icons/                应用图标资源
+  gen/                  生成文件与 schema
+```
+
+目录分工如下：
+
+| 目录 | 说明 |
+| --- | --- |
+| `src/core/` | 内核层，承接系统正式协议与真源 |
+| `src/app/` | 装配层，负责初始化顺序与模块连接 |
+| `src/modules/` | 业务模块与事务协调层 |
+| `src/components/` | 展示层与交互层 |
+| `src/fileRenderers/` | 文件类型渲染扩展层 |
+| `src/state/` | 共享状态与实例注册 |
+| `src/services/` | 文件、权限、AI 等服务封装 |
+| `src/utils/` | 可复用工具与导出辅助逻辑 |
+| `src-tauri/` | Tauri/Rust 桌面能力层 |
+
+---
+
+## 三、核心部分职责
 
 ### 1. DocumentManager
 
-`DocumentManager` 是文档生命周期的正式真源。
+`DocumentManager` 承接文档生命周期真源。
 
-它负责：
+它维护：
 
-- 当前激活文档 path
-- 文档 tabId/path/viewMode/sessionId 的对应关系
+- 当前激活文档路径
+- tabId、path、viewMode、sessionId 的关联关系
 - `open / activate / rename / close`
 - `dirty` 状态
-- 保存链路读取的 active path
+- 保存链路使用的 active path
 
-任何“当前文档是谁”的判断，应该优先从 `DocumentManager` 得出，而不是依赖某个 editor 内部缓存路径。
-
-典型链路：
+典型主链：
 
 ```text
 handleFileSelect
   -> DocumentManager.openDocument / syncActiveDocument
-  -> loadFile
+  -> fileOperations.loadFile
   -> saveCurrentFile 读取 active path
 ```
 
 ### 2. WorkspaceManager
 
-`WorkspaceManager` 负责工作区级快照，而不是文档级业务。
+`WorkspaceManager` 承接工作区级快照。
 
 它维护：
 
@@ -144,22 +134,20 @@ handleFileSelect
 - sidebar 状态
 - workspace restore / persist
 
-它的角色是“工作区真源”，不是“文档内容真源”。
+它支撑应用恢复、tab 集合恢复、shared tab 恢复和 sidebar 状态恢复。
 
 ### 3. ViewManager
 
-`ViewManager` 负责“当前文档如何展示”，不负责“当前文档是谁”。
+`ViewManager` 承接视图模式和渲染协议。
 
-它维护的正式协议包括：
+它提供：
 
 - `resolveViewMode(filePath)`
 - `resolveRenderer(filePath, targetViewMode)`
-- `activateView(viewMode, viewOptions)`
+- `activateView(viewMode, options)`
 - `createViewProtocol()`
 
-`createViewProtocol()` 是当前视图层最重要的稳定接口。
-
-现在以下调用方都已经统一依赖它：
+当前以下能力都通过 `ViewManager` 协议协作：
 
 - `fileOperations`
 - renderer handlers
@@ -167,20 +155,41 @@ handleFileSelect
 - `windowLifecycle`
 - `fileMenuActions`
 
-### 4. CommandManager 与 KeybindingManager
+### 4. CommandManager
 
-`CommandManager` 定义系统“能做什么”，`KeybindingManager` 定义“按什么触发”。
+`CommandManager` 承接系统动作入口。
 
-新增系统动作时，标准路径是：
+它负责：
 
-1. 注册 command id
-2. 在 `commandSetup` 注册 handler
-3. 如有需要，在 `KeybindingManager` 注册默认快捷键
-4. UI 入口统一执行 command
+- 命令注册
+- 命令执行
+- payload 与 context 透传
+- 执行日志
 
-### 5. FeatureManager
+菜单、快捷键、toolbar、context menu 等系统动作都会先进入 `CommandManager`。
 
-`FeatureManager` 统一挂载业务功能模块。
+### 5. KeybindingManager
+
+`KeybindingManager` 承接快捷键绑定关系。
+
+它负责：
+
+- 默认快捷键注册
+- 按键与命令映射
+- 按键触发分发
+
+当前快捷键主链如下：
+
+```text
+keydown
+  -> KeybindingManager
+  -> CommandManager
+  -> command handler
+```
+
+### 6. FeatureManager
+
+`FeatureManager` 承接功能模块挂载。
 
 当前已经纳入：
 
@@ -189,22 +198,80 @@ handleFileSelect
 - `scratchpad`
 - `card-export`
 
-功能模块通过 `mount / unmount / getApi` 参与应用，而不是直接在 `main.js` 里手工拼装。
+每个 feature 通过 `mount / unmount / getApi` 参与应用运行。
 
-### 6. ExportManager
+### 7. ExportManager
 
-`ExportManager` 统一管理导出能力。
+`ExportManager` 承接导出能力。
 
-当前导出链路是：
+当前导出链路如下：
 
 ```text
-menu
+menu / toolbar
   -> command
   -> ExportManager
   -> exporter
 ```
 
-这避免了导出逻辑继续散落在菜单层和视图层之间。
+当前已经纳入：
+
+- `currentView.image`
+- `currentView.pdf`
+
+### 8. app 装配层
+
+`src/app/` 下的 setup 与 bootstrap 承接初始化装配。
+
+这一层负责：
+
+- 创建 Manager
+- 注册命令
+- 注册 feature
+- 注册 export
+- 连接 UI 和 Manager
+- 组织启动顺序
+
+### 9. 业务模块层
+
+`src/modules/` 承接运行时事务。
+
+典型模块包括：
+
+- `navigationController`
+- `fileOperations`
+- `fileMenuActions`
+- `recentFilesActions`
+- `workspaceController`
+- `ai-assistant`
+- `card-export`
+
+这一层负责把用户动作、文档状态、视图状态和工作区状态串起来。
+
+### 10. 组件层
+
+`src/components/` 承接界面与交互实现。
+
+这一层包括：
+
+- `TabManager`
+- `FileTree`
+- `MarkdownEditor`
+- `SpreadsheetViewer`
+- `PdfViewer`
+- 各类 sidebar / dialog / panel
+
+组件层通过协议、Manager API 和 controller 协作。
+
+### 11. 状态与实例层
+
+`src/state/` 承接共享状态与实例注册。
+
+当前主要包括：
+
+- `AppState`
+- `EditorRegistry`
+
+这一层支撑 UI 同步、实例访问和兼容层状态共享。
 
 ---
 
@@ -212,18 +279,21 @@ menu
 
 ### 1. 启动链
 
-高层启动顺序如下：
+当前启动顺序如下：
 
-1. `main.js` 初始化基础设施与状态容器
-2. 创建核心 Manager
-3. 创建 controller 与 setup 层
-4. 通过 `appBootstrap` 注册命令、功能、导出能力
-5. 恢复 workspace
-6. 恢复或打开当前文档
+```text
+main.js
+  -> 创建基础设施与共享状态
+  -> 创建核心 Manager
+  -> 创建 controller / setup
+  -> appBootstrap 注册命令、功能、导出
+  -> 恢复 workspace
+  -> 恢复或打开当前文档
+```
 
 ### 2. 文件打开链
 
-当前文件打开链已经收敛为：
+当前文件打开链如下：
 
 ```text
 fileTree / recent / open dialog
@@ -235,28 +305,21 @@ fileTree / recent / open dialog
   -> DocumentManager / WorkspaceManager 同步
 ```
 
-导入型文件也走这条主链，但在 renderer 内转换为 untitled 文档：
-
-- `docx`
-- `pptx`
-- `spreadsheet` 导入型场景
-
 ### 3. Tab 切换与关闭回退链
 
-这是本轮重构前最脆弱的一段，现在已经改成事务模型。
-
-正式链路：
+当前 tab 切换和关闭回退链如下：
 
 ```text
 tab intent
   -> activateTabTransition
-  -> resolve fallback / commit active tab
-  -> silent sync fileTree
+  -> 计算 fallback
+  -> 提交 active tab
+  -> 同步 fileTree
   -> handleFileSelect
   -> loadFile
 ```
 
-以下场景都已经迁到这条事务链：
+当前已经覆盖以下场景：
 
 - 普通 tab 点击切换
 - 关闭 file tab 后回退
@@ -266,19 +329,19 @@ tab intent
 
 ### 4. 保存链
 
-正式保存链以 `DocumentManager` 的 active path 为准，不再允许 editor 内部缓存路径单独决定写盘目标。
+当前保存链如下：
 
 ```text
 document.save
   -> saveCurrentFile
   -> DocumentManager active path
   -> markdown/code writer
-  -> dirty=false
+  -> dirty = false
 ```
 
 ### 5. 自动保存链
 
-自动保存现在由导航切换链统一协调：
+当前自动保存链如下：
 
 ```text
 handleFileSelect
@@ -287,134 +350,111 @@ handleFileSelect
   -> load next file
 ```
 
-同路径 no-op 切换已经短路，不再无意义重复 reload。
+同路径 no-op 切换已经在切换链上短路。
 
 ---
 
-## 五、目录职责
+## 五、扩展方式
 
-### 1. `src/core/`
+### 1. 新增文件类型 / 视图
 
-这里放内核级能力，不放具体业务功能。
+标准接入顺序：
 
-当前核心目录含义：
-
-- `core/documents/`：文档真源
-- `core/workspace/`：工作区真源
-- `core/views/`：视图协议与渲染器调度
-- `core/commands/`：命令与快捷键
-- `core/features/`：功能挂载
-- `core/export/`：导出能力
-- `core/diagnostics/`：日志和 trace
-
-### 2. `src/app/`
-
-放装配层和 setup/controller 层。
-
-它们负责：
-
-- 组装核心对象
-- 连接 UI 与 Manager
-- 保持初始化顺序清晰
-
-它们不应该重新发明真源。
-
-### 3. `src/modules/`
-
-放业务模块和跨组件控制器。
-
-例如：
-
-- `navigationController`
-- `fileOperations`
-- `fileMenuActions`
-- `recentFilesActions`
-- `ai-assistant`
-- `card-export`
-
-模块可以有业务逻辑，但不应该绕开核心 Manager 自建第二套生命周期。
-
-### 4. `src/components/`
-
-放 UI 组件与编辑器/查看器实现。
-
-组件层原则：
-
-- 负责展示和交互
-- 不持有跨模块的最终真源
-- 尽量通过协议或 manager API 与外部协作
-
----
-
-## 六、扩展模型
-
-### 1. 新增文件类型/视图
-
-新增文件类型时，标准路径是：
-
-1. 在 `fileTypeUtils` 定义扩展名与默认视图模式
-2. 在 `fileRenderers` 增加 renderer handler
-3. 通过 `RendererRegistry` 注册
-4. 如需要新增 pane/viewer，再接入 `viewController`
-5. `ViewManager` 自动负责解析和分发
-
-不要再在多个业务模块里各自写一段 `if (ext === ...)`。
+1. 在 `fileTypeUtils` 定义扩展名和默认 `viewMode`
+2. 在 `fileRenderers/handlers` 新增 renderer
+3. 通过 `RendererRegistry` 注册 renderer
+4. 如有需要，接入对应 viewer / pane
+5. 交给 `ViewManager` 统一解析和激活
 
 ### 2. 新增命令
 
-标准路径：
+标准接入顺序：
 
 1. 在 `commandIds.js` 新增命令 ID
 2. 在 `commandSetup.js` 注册 handler
-3. 如需要快捷键，在 `registerDefaultKeybindings` 注册
-4. UI 调用 `executeCommand`
+3. UI 入口通过 `commandManager.executeCommand()` 执行
+4. 如需快捷键，在 `KeybindingManager` 注册默认绑定
 
 ### 3. 新增功能模块
 
-标准路径：
+标准接入顺序：
 
 1. 在 `featureSetup.js` 注册 feature
-2. 暴露 `mount / unmount / getApi`
+2. 提供 `mount()`，按需提供 `unmount()` 和 `getApi()`
 3. 通过 `FeatureManager` 挂载
-
-不要再直接在 `appBootstrap` 或 `main.js` 里散落 feature 实例变量。
+4. 在命令层或视图层消费 feature API
 
 ### 4. 新增导出能力
 
-标准路径：
+标准接入顺序：
 
 1. 在 `exportSetup.js` 注册 exporter
-2. 给它一个稳定 export id
-3. 菜单或命令层通过 `ExportManager` 执行
+2. 定义稳定 export id
+3. 在命令层提供导出命令入口
+4. 通过 `ExportManager` 执行
+
+### 5. 新增工作区能力
+
+标准接入顺序：
+
+1. 把需要持久化的工作区状态纳入 `WorkspaceManager`
+2. 在 restore / persist 链上接入
+3. 在 UI 层消费工作区快照
+
+### 6. 新增文档生命周期能力
+
+标准接入顺序：
+
+1. 把文档状态纳入 `DocumentManager`
+2. 在 `handleFileSelect / loadFile / saveCurrentFile` 主链接入
+3. 在需要的模块里读取统一文档上下文
 
 ---
 
-## 七、正式约束
+## 六、工程标准
 
-### 1. 允许的写法
+### 1. 真源标准
 
-- 用 `CommandManager` 承接系统动作
-- 用 `DocumentManager` 判断当前文档
-- 用 `WorkspaceManager` 持久化工作区
-- 用 `ViewManager` 激活视图和解析 renderer
-- 用 `FeatureManager` 管功能挂载
-- 用结构化日志验证关键链路
+当前真源分工如下：
 
-### 2. 禁止回退的写法
+- 当前文档：`DocumentManager`
+- 当前工作区快照：`WorkspaceManager`
+- 当前命令入口：`CommandManager`
+- 当前视图协议：`ViewManager`
+- 当前功能挂载：`FeatureManager`
+- 当前导出能力：`ExportManager`
 
-- 在多个模块里各自维护一份 `currentFile`
-- UI 组件直接决定文档最终状态
-- 新增按钮直接调业务函数，不走 command
-- 新增视图切换时继续散传 `activateXxxView`
-- 为了修 bug 再加新的全局状态副本
+### 2. 接入标准
 
----
+系统动作接入标准：
 
-## 八、调试与验收
+```text
+UI -> CommandManager -> handler -> Manager / module
+```
 
-当前架构默认支持结构化日志验收。
+视图切换接入标准：
 
-关键日志域：
+```text
+module / renderer -> ViewManager.createViewProtocol() -> view.activate(...)
+```
+
+功能模块接入标准：
+
+```text
+featureSetup -> FeatureManager -> feature api
+```
+
+导出接入标准：
+
+```text
+command -> ExportManager -> exporter
+```
+
+### 3. 日志标准
+
+关键链路通过结构化日志验收。
+
+当前正式日志域包括：
 
 - `documents`
 - `workspace`
@@ -425,21 +465,15 @@ handleFileSelect
 
 详细规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
 
-重构验收记录保留在 [REFACTOR_CHECKLIST.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/REFACTOR_CHECKLIST.md)。
+### 4. 文档标准
 
----
-
-## 九、当前文档集合
-
-当前 `docs/` 建议保留为以下分工：
+当前 `docs/` 文档分工如下：
 
 - `ARCHITECTURE.md`
   当前正式架构白皮书
 - `DEVELOPMENT.md`
-  开发规范、交互约束、发布流程
+  开发规范、接入流程、发布流程
 - `DEBUG_CONVENTIONS.md`
   日志与 trace 约定
 - `REFACTOR_CHECKLIST.md`
-  本轮架构重构与回归验收记录
-
-历史性的蓝图、风险草案、已删除功能设计稿，不再作为正式文档保留。
+  重构与回归验收记录

@@ -1,118 +1,120 @@
 # Mark2
 
-一个轻量、快速、功能丰富的 Markdown 编辑器。
+Mark2 是一个面向重度写作、资料处理和内容输出的桌面工作台。
+它把 Markdown 编辑、代码阅读、文档导入、AI 辅助、卡片导出和本地文件管理放进了同一个应用里。
 
-![图片描述](demo.png)
+![Mark2 总览](demo/demo.png)
 
-## 为什么选择 Mark2？
+## 为什么是 Mark2
 
-**不只是 Markdown 编辑器**——Mark2 是一个完整的知识工作站。
+- 快。基于 Tauri 和原生 JavaScript，启动轻，交互直接。
+- 全。Markdown、代码、图片、音视频、PDF、表格、Word 都能在同一个工作区处理。
+- 深。AI 直接理解当前文档和上下文，不是游离在编辑器外面的聊天框。
+- 美。内置卡片导出和主题化展示，内容从写作到分享可以一条链完成。
 
-| 特性 | 说明 |
-| --- | --- |
-| **极致轻量** | 基于 Tauri + 原生 JS，无框架负担，启动快如闪电 |
-| **全格式支持** | Markdown、代码、图片、音视频、PDF、Excel、Word、PPT，一个应用搞定 |
-| **AI 深度集成** | 内置 AI 助手，写作、润色、翻译一键完成 |
-| **Workflow** | AI 驱动的卡片式工作流，让复杂创作变得简单 |
-| **卡片导出** | 一键生成精美图片/PDF，分享到社交媒体 |
+## 核心体验
 
-## 核心功能
+### AI 助手
 
-### 📝 Markdown 编辑
+AI 助手和当前文档深度绑定，可以读取文档、改写内容、生成段落、辅助润色和整理材料。
 
-- 所见即所得 + 源码模式自由切换
-- 实时预览，语法高亮
-- 支持 GFM、表格、任务列表、数学公式
-- 50+ 编程语言代码高亮
+![AI 助手](demo/ai.png)
 
-### 🤖 AI 助手
+### Markdown 写作
 
-- 侧边栏 AI 对话，随时调用
-- 智能续写、润色、翻译
-- 上下文感知，理解你正在编辑的内容
+Mark2 的核心工作区围绕 Markdown 展开，支持所见即所得编辑、源码模式、任务列表、表格、数学公式、Mermaid 等常用能力。
 
-### 🎯 Workflow（AI 工作流）
+![Markdown 编辑](demo/demo.png)
 
-与传统 AI 对话不同，Workflow 通过**分步引导、逐层确认**的方式，让你参与整个思考过程：
+### 数学公式
 
-```
-任务目标 → 信息收集 → 分析整理 → 创意生成 → 最终产出
-```
+Mark2 内置数学公式渲染能力，适合写技术文档、学习笔记、研究记录和带公式的讲解内容。
 
-- 每一步都可以修改、确认后再继续
-- 修改任意步骤，后续自动重新生成
-- 工作流可保存为 `.mflow` 文件，随时继续
+![数学公式](demo/math.png)
 
-### 🎨 卡片导出
+### 代码与技术内容
 
-把你的内容变成精美的分享图片：
+除了 Markdown，Mark2 也适合处理代码和技术文档。代码文件可以直接查看和编辑，适合写说明、看脚本、改配置。
 
-- 多种主题风格
-- 自定义样式
-- 一键导出 PNG/PDF
+![代码查看](demo/code.png)
 
-### 📥 文件导入
+### PDF 与资料阅读
 
-拖入即用，自动转换为可编辑的 Markdown：
+PDF、图片、媒体和多种附件格式都可以直接在工作区内查看，适合一边读资料一边整理输出。
 
-- `.docx` — Word 文档
-- `.pptx` — PowerPoint 演示文稿（每张幻灯片转为独立章节）
+![PDF 阅读](demo/pdf.png)
 
-### 📂 文件管理
+### 卡片导出
 
-- 文件树侧边栏
-- 多标签页
-- 最近文件快速访问
+文档内容可以快速整理成适合分享的卡片图。Mark2 内置卡片样式和导出能力，适合做社交媒体内容、摘要图和视觉化摘录。
 
-## 快速开始
+![卡片导出](demo/card.png)
 
-### 方式一：从 Mac App Store 安装
+### 深色界面
 
-搜索 "Mark2" 并安装。
+在长时间写作和阅读场景下，深色主题更适合夜间和沉浸式工作流。
 
-> 注：App Store 版本因沙盒限制，Workflow 和脚本执行功能不可用。
+![深色主题](demo/dark.png)
 
-### 方式二：下载 DMG（完整功能）
+### 内置终端
 
-从 [GitHub Releases](../../releases) 下载最新 DMG，拖入 Applications 即可。
+Mark2 提供内置终端面板，方便在同一工作区内执行脚本、查看输出和处理本地开发任务。
+
+![内置终端](demo/terminal.png)
+
+## 支持的内容类型
+
+- Markdown
+- 代码文件
+- 图片
+- 音视频
+- PDF
+- CSV / Excel 表格
+- Word 文档导入
+
+## 适合什么场景
+
+- 写文章、做选题、整理材料
+- 阅读 PDF、文档、代码并输出笔记
+- 用 AI 对当前稿件做润色、改写和补写
+- 把内容导出成分享卡片
+- 在同一工作区里完成“阅读 -> 写作 -> 导出”
+
+## 安装
+
+### Mac App Store
+
+在 Mac App Store 搜索 `Mark2` 并安装。
+
+### DMG
+
+从 [GitHub Releases](../../releases) 下载最新版本，拖入 `Applications` 即可。
 
 ## 开发
 
 ```bash
-# 安装依赖
 npm install
-
-# 启动开发模式
 npm run tauri:dev
-
-# 构建应用
 npm run tauri:build
 ```
 
 ## 技术栈
 
-- **框架**: [Tauri](https://tauri.app/) (Rust + WebView)
-- **前端**: 原生 JavaScript（无 React/Vue）
-- **编辑器**: [TipTap](https://tiptap.dev/) + [Monaco Editor](https://microsoft.github.io/monaco-editor/)
-- **PDF**: [PDF.js](https://mozilla.github.io/pdf.js/)
-- **图表**: [Mermaid](https://mermaid.js.org/)
+- [Tauri](https://tauri.app/)
+- [Vite](https://vitejs.dev/)
+- 原生 JavaScript
+- [TipTap](https://tiptap.dev/)
+- [CodeMirror](https://codemirror.net/)
+- [KaTeX](https://katex.org/)
+- [PDF.js](https://mozilla.github.io/pdf.js/)
+- [Mermaid](https://mermaid.js.org/)
+- [xterm.js](https://xtermjs.org/)
 
-## 项目结构
+## 项目文档
 
-```
-src/
-├── components/          # UI 组件（编辑器、查看器）
-├── modules/             # 功能模块（AI 助手、卡片导出）
-├── state/               # 状态管理
-├── core/                # 基础设施（EventBus、IO）
-└── utils/               # 工具函数
-
-src-tauri/               # Rust 后端
-styles/                  # 样式文件
-docs/                    # 开发文档
-```
-
-详细架构白皮书见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+- 架构白皮书：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 开发手册：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- 调试规范：[docs/DEBUG_CONVENTIONS.md](docs/DEBUG_CONVENTIONS.md)
 
 ## 许可证
 
