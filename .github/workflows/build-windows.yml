@@ -26,6 +26,44 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Determine release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          elif [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate version sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${{ steps.tag.outputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAURI_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          CARGO_VERSION="$(python - <<'PY'
+import re
+from pathlib import Path
+text = Path('src-tauri/Cargo.toml').read_text()
+match = re.search(r'^version = "([^"]+)"', text, re.MULTILINE)
+if not match:
+    raise SystemExit('Unable to read Cargo.toml version')
+print(match.group(1))
+PY
+)"
+          echo "release tag version: ${TAG_VERSION}"
+          echo "package.json version: ${PACKAGE_VERSION}"
+          echo "tauri.conf.json version: ${TAURI_VERSION}"
+          echo "Cargo.toml version: ${CARGO_VERSION}"
+          [ "${PACKAGE_VERSION}" = "${TAG_VERSION}" ]
+          [ "${TAURI_VERSION}" = "${TAG_VERSION}" ]
+          [ "${CARGO_VERSION}" = "${TAG_VERSION}" ]
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -48,18 +86,6 @@ jobs:
         id: version
         shell: bash
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-
-      - name: Determine release tag
-        id: tag
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          elif [ -n "${{ inputs.tag }}" ]; then
-            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=v${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2

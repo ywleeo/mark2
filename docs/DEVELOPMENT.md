@@ -396,6 +396,7 @@ git diff --check
 ## 八、MAS 发布自动化
 
 - 使用 `scripts/mas-release.sh` 自动完成签名、打包、校验与上传。运行前请确认钥匙串已导入 `Mac App Distribution` 与 `Mac Installer Distribution` 证书，并准备好 MAS 描述文件。
+- 正式发版时，脚本会把版本更新、git 提交、tag、push 和 GitHub Release 上传收成同一条链路，保证远端 release tag 对应的代码快照和构建产物版本一致。
 - 必填环境变量：`APPLE_SIGNING_IDENTITY`、`APPLE_INSTALLER_IDENTITY`、`APPLE_PROVISIONING_PROFILE`。上传至 App Store Connect 时任选其一：`APP_STORE_CONNECT_API_KEY` + `APP_STORE_CONNECT_API_ISSUER`，或 `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD`。
 - 示例命令：
   ```bash
@@ -404,7 +405,21 @@ git diff --check
   APPLE_PROVISIONING_PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/Mark2.mas.provisionprofile" \
   APP_STORE_CONNECT_API_KEY="ABC123DEFG" \
   APP_STORE_CONNECT_API_ISSUER="11223344-5566-7788-99aa-bbccddeeff00" \
-  ./scripts/mas-release.sh
+  ./scripts/mas-release.sh --ver 1.6.16
   ```
 - 脚本会自动读取钥匙串中的 `Mac App Distribution`、`Mac Installer Distribution` 证书，并尝试在 `~/Library/MobileDevice/Provisioning Profiles/` 匹配应用的描述文件；若自动匹配失败，再通过参数或环境变量覆盖。
 - 如果只想生成本地产物，可加上 `--skip-upload`；已编译好的 `.app` 也可以配合 `--skip-build` 复用。打包结果默认输出到 `./artifacts/`。
+- 如果只想本地打包、不想自动提交版本变更和推送 tag，可加上 `--skip-release-sync`。这个开关会跳过 release 用的 git commit/tag/push，只保留本地构建和上传逻辑。
+
+## 九、GitHub Release / Windows 发布
+
+- Windows GitHub Action 现在会在构建前校验 release tag 与以下三处版本号完全一致：
+  - [package.json](/Users/leeo/Code/github/public/mark2s/mark2-tauri/package.json)
+  - [tauri.conf.json](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src-tauri/tauri.conf.json)
+  - [Cargo.toml](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src-tauri/Cargo.toml)
+- 版本不一致时，workflow 会直接失败，不再继续打包错误版本的 Windows 安装包。
+- 推荐发版顺序：
+  1. 运行 `./scripts/mas-release.sh --ver X.Y.Z`
+  2. 等脚本完成版本提交、打 tag、push 和 GitHub Release 上传
+  3. 让 GitHub Actions 基于新 tag 构建 Windows 包
+- 不要手工先创建 release/tag，再补版本提交；正式版本应始终以版本 commit 对应的 tag 为准。
