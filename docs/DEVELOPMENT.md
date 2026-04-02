@@ -436,12 +436,14 @@ git diff --check
     - 自动 commit
     - 自动创建并 push `vX.Y.Z` tag
     - 自动创建或复用 GitHub Release
-    - 自动触发 Windows 和 macOS 两个打包 workflow
+    - 由 `release.published` 自动触发 Windows 和 macOS 两个打包 workflow
     - 不走 MAS，不上传 App Store Connect
   - `--tag vX.Y.Z`
     - 不改版本
     - 不重新 commit/tag
-    - 只基于已存在的远端 tag 重新触发两个 workflow
+    - 基于已存在的远端 tag 重跑 workflow
+    - workflow 文件固定取最新 `main`
+    - `tag` 只作为 release 资产上传目标
 - 不要手工先创建 release/tag，再补版本提交；正式版本应始终以版本 commit 对应的 tag 为准。
 
 ## 十、GitHub Actions 构建 macOS DMG
