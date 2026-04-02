@@ -13,3 +13,5 @@ AGENTS.md
 /fastlane
 .sisyphus
 NUL
+src-tauri/gen/schemas/windows-schema.json
+docs/CLOUD_SERVICE_INTEGRATION.md
