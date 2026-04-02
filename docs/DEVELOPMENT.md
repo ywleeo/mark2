@@ -427,6 +427,9 @@ git diff --check
   - `npm run release:github -- --ver X.Y.Z`
   - `npm run release:github -- --tag vX.Y.Z`
   - 或 `bash ./scripts/trigger-github-builds.sh --ver X.Y.Z`
+- 如果只想重跑单个平台：
+  - `npm run release:mac -- --tag vX.Y.Z`
+  - `npm run release:win -- --tag vX.Y.Z`
 - 行为说明：
   - 默认参数或 `--ver X.Y.Z`
     - 自动更新版本文件
