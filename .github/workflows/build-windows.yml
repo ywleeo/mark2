@@ -46,16 +46,7 @@ jobs:
           TAG_VERSION="${TAG_VERSION#v}"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           TAURI_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          CARGO_VERSION="$(python - <<'PY'
-import re
-from pathlib import Path
-text = Path('src-tauri/Cargo.toml').read_text()
-match = re.search(r'^version = "([^"]+)"', text, re.MULTILINE)
-if not match:
-    raise SystemExit('Unable to read Cargo.toml version')
-print(match.group(1))
-PY
-)"
+          CARGO_VERSION="$(python -c "import re, pathlib; text = pathlib.Path('src-tauri/Cargo.toml').read_text(); match = re.search(r'^version = \\\"([^\\\"]+)\\\"', text, re.MULTILINE); print(match.group(1) if match else (_ for _ in ()).throw(SystemExit('Unable to read Cargo.toml version')))")"
           echo "release tag version: ${TAG_VERSION}"
           echo "package.json version: ${PACKAGE_VERSION}"
           echo "tauri.conf.json version: ${TAURI_VERSION}"
