@@ -185,9 +185,24 @@ body.terminal-resizing {
     background: rgba(255, 255, 255, 0.1);
 }
 
+.terminal-action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: transparent;
+}
+
+.terminal-action-btn:disabled:hover {
+    opacity: 0.3;
+    background: transparent;
+}
+
 .terminal-action-btn svg {
     width: 14px;
     height: 14px;
+}
+
+.terminal-stop-btn {
+    color: #ff6b6b;
 }
 
 /* ── Panes 容器 ── */

@@ -149,6 +149,13 @@ export function createTerminalPanel(options = {}) {
         const splitBtn = panelElement.querySelector('.terminal-split-btn');
         if (splitBtn) addClickHandler(splitBtn, () => addPane());
 
+        // 停止当前 pane 进程按钮
+        const stopBtn = panelElement.querySelector('.terminal-stop-btn');
+        if (stopBtn) {
+            addClickHandler(stopBtn, () => stopActivePaneProcess());
+            stopBtn.disabled = true;
+        }
+
         // 设置按钮
         const settingsBtn = panelElement.querySelector('.terminal-settings-btn');
         if (settingsBtn) addClickHandler(settingsBtn, () => toggleSettingsPopover(settingsBtn));
@@ -241,7 +248,15 @@ export function createTerminalPanel(options = {}) {
             return true;
         });
 
-        const pane = { id, terminal, fitAddon, ptyService: null, tabEl, containerEl };
+        const pane = {
+            id,
+            terminal,
+            fitAddon,
+            ptyService: null,
+            tabEl,
+            containerEl,
+            isStopping: false,
+        };
         panes.push(pane);
 
         setActivePane(id);
@@ -285,6 +300,7 @@ export function createTerminalPanel(options = {}) {
         }
 
         updateTabCloseVisibility();
+        updateStopButtonState();
         fitAllPanes();
     }
 
@@ -298,6 +314,7 @@ export function createTerminalPanel(options = {}) {
         // 聚焦活跃 pane 的终端
         const active = panes.find(p => p.id === id);
         if (active) active.terminal.focus();
+        updateStopButtonState();
     }
 
     function updateTabCloseVisibility() {
@@ -312,6 +329,45 @@ export function createTerminalPanel(options = {}) {
         return panes.find(p => p.id === activePaneId) || panes[0] || null;
     }
 
+    /**
+     * 同步 Stop 按钮状态，只允许对当前活跃且已启动的 pane 执行强停。
+     */
+    function updateStopButtonState() {
+        if (!panelElement) return;
+        const stopBtn = panelElement.querySelector('.terminal-stop-btn');
+        if (!stopBtn) return;
+        const activePane = getActivePane();
+        stopBtn.disabled = !activePane || !activePane.ptyService?.isSpawned() || activePane.isStopping;
+    }
+
+    /**
+     * 强制终止当前 pane 的 PTY，并自动拉起一个新的 shell，避免面板进入不可用状态。
+     */
+    async function stopActivePaneProcess() {
+        const pane = getActivePane();
+        if (!pane?.ptyService?.isSpawned() || pane.isStopping) return;
+
+        pane.isStopping = true;
+        updateStopButtonState();
+
+        try {
+            await pane.ptyService.kill();
+            pane.terminal.reset();
+            pane.terminal.writeln('[进程已强制终止]');
+            pane.isStopping = false;
+            await spawnPtyForPane(pane);
+            fitPane(pane);
+            if (activePaneId === pane.id) {
+                pane.terminal.focus();
+            }
+        } catch (error) {
+            pane.isStopping = false;
+            console.error('[TerminalPanel] 停止终端进程失败:', error);
+            pane.terminal.writeln(`\r\n[停止进程失败: ${error.message || error}]`);
+            updateStopButtonState();
+        }
+    }
+
     // ── PTY ──
 
     async function spawnPtyForPane(pane) {
@@ -322,7 +378,9 @@ export function createTerminalPanel(options = {}) {
 
         ptyService.onData((data) => pane.terminal.write(data));
         ptyService.onExit(() => {
+            pane.isStopping = false;
             pane.terminal.writeln('\r\n[进程已退出]');
+            updateStopButtonState();
         });
 
         pane.terminal.onData((data) => ptyService.write(data));
@@ -338,9 +396,11 @@ export function createTerminalPanel(options = {}) {
                 rows: pane.terminal.rows,
                 cwd,
             });
+            updateStopButtonState();
         } catch (error) {
             console.error('[TerminalPanel] 启动 PTY 失败:', error);
             pane.terminal.writeln(`\r\n[启动终端失败: ${error.message || error}]`);
+            updateStopButtonState();
         }
     }
 
@@ -496,6 +556,7 @@ export function createTerminalPanel(options = {}) {
         if (!panelElement) return;
         isVisible = false;
         panelElement.classList.remove('is-visible');
+        updateStopButtonState();
     }
 
     async function toggle() {

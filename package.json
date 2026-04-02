@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "tauri:build": "tauri build",
-    "tauri:run": "open src-tauri/target/release/bundle/macos/Mark2.app"
+    "tauri:run": "open src-tauri/target/release/bundle/macos/Mark2.app",
+    "release:github": "bash ./scripts/trigger-github-builds.sh"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",

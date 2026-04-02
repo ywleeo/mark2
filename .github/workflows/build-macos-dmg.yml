@@ -1,0 +1,121 @@
+name: Build macOS DMG
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach artifacts (e.g. v1.6.19)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            arch_label: x86_64
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            arch_label: arm64
+
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Determine release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate version sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${{ steps.tag.outputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          TAURI_VERSION="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          CARGO_VERSION="$(python -c "import re, pathlib; text = pathlib.Path('src-tauri/Cargo.toml').read_text(); match = re.search(r'^version = \\\"([^\\\"]+)\\\"', text, re.MULTILINE); print(match.group(1) if match else (_ for _ in ()).throw(SystemExit('Unable to read Cargo.toml version')))")"
+          echo "release tag version: ${TAG_VERSION}"
+          echo "package.json version: ${PACKAGE_VERSION}"
+          echo "tauri.conf.json version: ${TAURI_VERSION}"
+          echo "Cargo.toml version: ${CARGO_VERSION}"
+          [ "${PACKAGE_VERSION}" = "${TAG_VERSION}" ]
+          [ "${TAURI_VERSION}" = "${TAG_VERSION}" ]
+          [ "${CARGO_VERSION}" = "${TAG_VERSION}" ]
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Import Developer ID certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      - name: Write App Store Connect API key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/appstoreconnect"
+          KEY_PATH="$RUNNER_TEMP/appstoreconnect/AuthKey_${{ secrets.APP_STORE_CONNECT_API_KEY }}.p8"
+          printf '%s' "${{ secrets.APP_STORE_CONNECT_KEY }}" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "APP_STORE_CONNECT_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Build signed DMG
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          APP_STORE_CONNECT_API_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          ./scripts/mas-release.sh \
+            --channel dmg \
+            --target "${{ matrix.target }}" \
+            --arch-mode universal \
+            --output-dir "$PWD/artifacts/${{ matrix.arch_label }}" \
+            --skip-release-sync \
+            --skip-github-upload
+
+      - name: Upload DMG to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            artifacts/${{ matrix.arch_label }}/*.dmg

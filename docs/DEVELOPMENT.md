@@ -422,7 +422,56 @@ git diff --check
   1. 运行 `./scripts/mas-release.sh --ver X.Y.Z`
   2. 等脚本完成版本提交、打 tag、push 和 GitHub Release 上传
   3. 让 GitHub Actions 基于新 tag 构建 Windows 包
+- 如果只想本地手动触发 GitHub 的两个打包 workflow，可执行：
+  - `npm run release:github`
+  - `npm run release:github -- --ver X.Y.Z`
+  - `npm run release:github -- --tag vX.Y.Z`
+  - 或 `bash ./scripts/trigger-github-builds.sh --ver X.Y.Z`
 - 默认情况下，这条命令会产出：
   - 一个 `universal` 的 MAS 安装包并上传 App Store Connect
   - 两个 DMG 上传 GitHub Release：`universal` 和 `arm64`
 - 不要手工先创建 release/tag，再补版本提交；正式版本应始终以版本 commit 对应的 tag 为准。
+
+## 十、GitHub Actions 构建 macOS DMG
+
+- macOS DMG 的 CI workflow 是 [build-macos-dmg.yml](/Users/leeo/Code/github/public/mark2s/mark2-tauri/.github/workflows/build-macos-dmg.yml)。
+- 这个 workflow 会在 release 发布后自动构建两份已签名并已公证的 DMG：
+  - `x86_64`
+  - `arm64`
+- 这两个 DMG 会上传到当前 GitHub Release。
+- Apple Connect 上传不走这个 workflow，仍然由本地 `scripts/mas-release.sh` 的 `mas` 渠道负责，且上传的是 `universal` 包。
+
+### 1. 需要配置的 GitHub Secrets
+
+- `APPLE_CERTIFICATE_P12`
+  Developer ID Application 证书导出的 `.p12` 内容，先转成 base64 再存入 secret。
+- `APPLE_CERTIFICATE_PASSWORD`
+  这个 `.p12` 文件的导出密码。
+- `APPLE_SIGNING_IDENTITY`
+  例如 `Developer ID Application: Your Company (TEAMID)`。
+- `APP_STORE_CONNECT_API_KEY`
+  App Store Connect API Key 的 Key ID。
+- `APP_STORE_CONNECT_API_ISSUER`
+  App Store Connect API Key 的 Issuer ID。
+- `APP_STORE_CONNECT_KEY`
+  `.p8` 私钥文件内容本身。
+- `APPLE_TEAM_ID`
+  Apple Developer Team ID，用于 `notarytool`。
+
+### 2. Secrets 准备方式
+
+- `.p12` 证书可以这样生成 base64：
+
+  ```bash
+  base64 -i developer-id.p12 | pbcopy
+  ```
+
+- `.p8` 私钥内容不要放进仓库，直接把文件内容粘贴到 `APP_STORE_CONNECT_KEY` secret。
+
+### 3. workflow 行为
+
+- `macos-13` runner 构建 `x86_64-apple-darwin`
+- `macos-14` runner 构建 `aarch64-apple-darwin`
+- workflow 会导入 Developer ID 证书、写入临时 `.p8` 文件，然后复用 [mas-release.sh](/Users/leeo/Code/github/public/mark2s/mark2-tauri/scripts/mas-release.sh) 的 `dmg` 渠道做签名、公证、staple。
+- CI 中会使用 `--skip-release-sync` 和 `--skip-github-upload`
+  因为 release tag 已经存在，CI 只负责基于该 tag 构建并把 DMG 作为 release asset 上传。
