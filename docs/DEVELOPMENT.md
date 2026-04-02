@@ -419,17 +419,26 @@ git diff --check
   - [Cargo.toml](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src-tauri/Cargo.toml)
 - 版本不一致时，workflow 会直接失败，不再继续打包错误版本的 Windows 安装包。
 - 推荐发版顺序：
-  1. 运行 `./scripts/mas-release.sh --ver X.Y.Z`
-  2. 等脚本完成版本提交、打 tag、push 和 GitHub Release 上传
-  3. 让 GitHub Actions 基于新 tag 构建 Windows 包
-- 如果只想本地手动触发 GitHub 的两个打包 workflow，可执行：
+  1. 如果要发完整 macOS 版本，运行 `./scripts/mas-release.sh --ver X.Y.Z`
+  2. 如果只想发 GitHub 版本，运行 `npm run release:github -- --ver X.Y.Z`
+  3. 等脚本完成版本提交、打 tag、push、创建 GitHub Release，并触发 GitHub Actions
+- `release:github` / `trigger-github-builds.sh` 现在是 GitHub-only 发版命令：
   - `npm run release:github`
   - `npm run release:github -- --ver X.Y.Z`
   - `npm run release:github -- --tag vX.Y.Z`
   - 或 `bash ./scripts/trigger-github-builds.sh --ver X.Y.Z`
-- 默认情况下，这条命令会产出：
-  - 一个 `universal` 的 MAS 安装包并上传 App Store Connect
-  - 两个 DMG 上传 GitHub Release：`universal` 和 `arm64`
+- 行为说明：
+  - 默认参数或 `--ver X.Y.Z`
+    - 自动更新版本文件
+    - 自动 commit
+    - 自动创建并 push `vX.Y.Z` tag
+    - 自动创建或复用 GitHub Release
+    - 自动触发 Windows 和 macOS 两个打包 workflow
+    - 不走 MAS，不上传 App Store Connect
+  - `--tag vX.Y.Z`
+    - 不改版本
+    - 不重新 commit/tag
+    - 只基于已存在的远端 tag 重新触发两个 workflow
 - 不要手工先创建 release/tag，再补版本提交；正式版本应始终以版本 commit 对应的 tag 为准。
 
 ## 十、GitHub Actions 构建 macOS DMG
