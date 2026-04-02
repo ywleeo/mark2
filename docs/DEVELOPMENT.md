@@ -422,4 +422,7 @@ git diff --check
   1. 运行 `./scripts/mas-release.sh --ver X.Y.Z`
   2. 等脚本完成版本提交、打 tag、push 和 GitHub Release 上传
   3. 让 GitHub Actions 基于新 tag 构建 Windows 包
+- 默认情况下，这条命令会产出：
+  - 一个 `universal` 的 MAS 安装包并上传 App Store Connect
+  - 两个 DMG 上传 GitHub Release：`universal` 和 `arm64`
 - 不要手工先创建 release/tag，再补版本提交；正式版本应始终以版本 commit 对应的 tag 为准。
