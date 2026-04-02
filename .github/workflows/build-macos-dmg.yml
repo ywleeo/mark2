@@ -105,16 +105,11 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           APP_STORE_CONNECT_API_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER }}
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TARGET_TRIPLE: ${{ matrix.target }}
+          OUTPUT_DIR: ${{ github.workspace }}/artifacts/${{ matrix.arch_label }}
         run: |
           set -euo pipefail
-          ./scripts/mas-release.sh \
-            --channel dmg \
-            --target "${{ matrix.target }}" \
-            --arch-mode universal \
-            --output-dir "$PWD/artifacts/${{ matrix.arch_label }}" \
-            --skip-release-sync \
-            --skip-github-upload
+          bash ./.github/scripts/build-macos-dmg-ci.sh
 
       - name: Upload DMG to Release
         uses: softprops/action-gh-release@v2
