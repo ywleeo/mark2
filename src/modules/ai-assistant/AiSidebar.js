@@ -287,6 +287,13 @@ class AssistantCard {
     /** 流式文本到来：首次时在 loadingEl 前插入 content box 并隐藏 loading */
     setContent(text) {
         const parsed = extractThinkBlocks(text);
+        const hasRenderableContent = typeof parsed.content === 'string' && parsed.content.trim().length > 0;
+        if (!hasRenderableContent) {
+            this.inlineThinkingText = parsed.thinking;
+            this._renderThinking();
+            scrollToBottom(this.el);
+            return;
+        }
         if (!this.currentContentEl) {
             this.currentContentEl = document.createElement('div');
             this.currentContentEl.className = 'ai-message-content ai-message-markdown';
@@ -321,6 +328,10 @@ class AssistantCard {
     /** Agent 完成，隐藏 loading */
     done() {
         this.loadingEl.style.display = 'none';
+        if (this.currentContentEl && !this.currentContentEl.textContent?.trim()) {
+            this.currentContentEl.remove();
+            this.currentContentEl = null;
+        }
     }
 
     addToolCard({ id, name }) {
@@ -517,11 +528,13 @@ export class AiSidebar {
      * @param {() => import('../../state/AppState.js').AppState} options.getAppState
      * @param {() => import('../../state/EditorRegistry.js').EditorRegistry} options.getEditorRegistry
      * @param {(path: string) => Promise<void>} options.reloadCurrentFile
+     * @param {(message: string, options?: Object) => Promise<boolean>|boolean} [options.confirm]
      */
-    constructor({ getAppState, getEditorRegistry, reloadCurrentFile }) {
+    constructor({ getAppState, getEditorRegistry, reloadCurrentFile, confirm }) {
         this.getAppState = getAppState;
         this.getEditorRegistry = getEditorRegistry;
         this.reloadCurrentFile = reloadCurrentFile;
+        this.confirm = confirm;
 
         this.el = document.querySelector('.ai-sidebar');
         if (!this.el) {
@@ -543,6 +556,8 @@ export class AiSidebar {
         this.agentMessages = [];
         this.agentLoop = null;
         this.isProcessing = false;
+        this.processingPath = null;
+        this.processingTabId = null;
 
         // 当前活跃的 assistant 卡片（用于关联 diff/confirm 到正确的卡片）
         this._activeCard = null;
@@ -578,8 +593,8 @@ export class AiSidebar {
         this.toolExecutor = createToolExecutor({
             getCurrentFile: () => this.getAppState().getCurrentFile(),
             getCurrentContent: () => this._getEditorContent(),
-            onWriteCurrentDocument: ({ path, oldContent, newContent }) =>
-                this._handleWriteCurrentDocument({ path, oldContent, newContent }),
+            onWriteCurrentDocument: ({ path, oldContent, newContent, patchPlan, mode }) =>
+                this._handleWriteCurrentDocument({ path, oldContent, newContent, patchPlan, mode }),
             onDeleteConfirm: (path) => this._handleDeleteConfirm(path),
         });
     }
@@ -674,6 +689,50 @@ export class AiSidebar {
         });
     }
 
+    /**
+     * 在文档真正切换前，判断当前 AI 任务是否允许离开当前文档。
+     * 这是唯一的切换守卫出口：允许切换时会先停止 AI，取消切换时返回 false。
+     * @param {string|null} nextPath - 目标文档路径
+     * @returns {Promise<boolean>}
+     */
+    async confirmBeforeDocumentChange(nextPath) {
+        if (!this.isProcessing || !this.processingPath) {
+            return true;
+        }
+        if (nextPath === this.processingPath) {
+            return true;
+        }
+
+        const shouldLeave = await this._confirmProcessingDocumentChange(nextPath);
+        if (!shouldLeave) {
+            return false;
+        }
+        this._abortProcessingWithMessage('已因切换文档而停止执行');
+        return true;
+    }
+
+    /**
+     * 弹出确认框，询问用户是否在 AI 运行中切换文档。
+     * @param {string|null} nextPath - 新切换到的文档路径
+     * @returns {Promise<boolean>} `true` 表示继续离开当前文档，`false` 表示留在原文档
+     */
+    async _confirmProcessingDocumentChange(nextPath) {
+        const nextLabel = nextPath ? basename(nextPath) : '未打开文件';
+        const currentLabel = this.processingPath ? basename(this.processingPath) : '当前文档';
+        const message = `AI 助手仍在处理“${currentLabel}”。\n\n切换到“${nextLabel}”会停止当前执行。\n\n点击“确定”继续切换，点击“取消”留在当前标签页。`;
+
+        if (typeof this.confirm === 'function') {
+            return await this.confirm(message, {
+                okText: '继续切换',
+                cancelText: '留在当前标签页',
+            });
+        }
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+            return window.confirm(message);
+        }
+        return true;
+    }
+
     _updateContextBar(path) {
         const resolvedPath = path ?? this.getAppState().getCurrentFile();
         if (resolvedPath) {
@@ -718,6 +777,8 @@ export class AiSidebar {
 
         this.inputEl.value = '';
         this._appendUserMessage(text);
+        this.processingPath = this.getAppState().getCurrentFile() || null;
+        this.processingTabId = this.getAppState().getTabManager?.()?.activeTabId || null;
         this._startProcessing();
 
         // 刷新 system prompt（每次发送都更新，确保当前文件路径是最新的）
@@ -759,16 +820,13 @@ export class AiSidebar {
             this.agentLoop = null;
             this._activeCard = null;
             this._stopProcessing();
+            this.processingPath = null;
+            this.processingTabId = null;
         }
     }
 
     _handleCancel() {
-        if (this.agentLoop) {
-            this.agentLoop.abort();
-            this.agentLoop = null;
-        }
-        this._stopProcessing();
-        this._appendSystemMessage('已取消');
+        this._abortProcessingWithMessage('已取消');
     }
 
     _handleClear() {
@@ -788,6 +846,11 @@ export class AiSidebar {
 
         if (result.applied) {
             try {
+                const latestContent = this._getEditorContent();
+                if (typeof latestContent === 'string' && latestContent !== oldContent) {
+                    this._appendSystemMessage('当前文档在 AI 生成修改期间已发生变化，请重新生成修改。');
+                    return { applied: false };
+                }
                 if (untitledFileManager.isUntitledPath(path)) {
                     untitledFileManager.setContent(path, newContent);
                 } else {
@@ -842,6 +905,21 @@ export class AiSidebar {
         this.el.querySelector('.ai-conversation-list').classList.remove('ai-processing');
     }
 
+    /**
+     * 停止当前 AI 执行，并追加一条原因提示。
+     * @param {string} message - 停止原因文案
+     */
+    _abortProcessingWithMessage(message) {
+        if (this.agentLoop) {
+            this.agentLoop.abort();
+            this.agentLoop = null;
+        }
+        this._stopProcessing();
+        if (message) {
+            this._appendSystemMessage(message);
+        }
+    }
+
     // ── System Prompt 构建 ────────────────────────────────
 
     _buildSystemPrompt() {
@@ -866,7 +944,10 @@ export class AiSidebar {
 
 ## 注意事项
 - 不要一次读取超过需要的内容，大文件用 read_document_lines 分块或用 search_in_document 定位
-- 修改当前文档用 write_current_document（会展示 diff 供用户确认）
+- 如果任务是改整篇稿子、通篇润色、重写全文，调用 write_current_document 时用 mode=rewrite_full
+- 如果任务只修改你刚读取的某一段，调用 write_current_document 时用 mode=replace_range，并直接复用读取结果里的 start_line、end_line、document_version
+- replace_range 时同时传 source_excerpt，内容就是你刚读取到的原片段正文；如果文档已变化，系统会用它在最新文档中自动重定位
+- replace_range 的 content 只写替换后的正文片段，不要带行号前缀
 - 删除操作会自动请求用户确认
 - 回复简洁，直接说做了什么
 
@@ -883,6 +964,6 @@ function aiService_hasConfig() {
 /**
  * 工厂函数
  */
-export function initAiSidebar({ getAppState, getEditorRegistry, reloadCurrentFile }) {
-    return new AiSidebar({ getAppState, getEditorRegistry, reloadCurrentFile });
+export function initAiSidebar({ getAppState, getEditorRegistry, reloadCurrentFile, confirm }) {
+    return new AiSidebar({ getAppState, getEditorRegistry, reloadCurrentFile, confirm });
 }

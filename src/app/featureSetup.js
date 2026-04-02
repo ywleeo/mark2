@@ -45,6 +45,7 @@ export function registerCoreFeatures(options = {}) {
                 getAppState: context.getAppState,
                 getEditorRegistry: context.getEditorRegistry,
                 reloadCurrentFile: context.reloadCurrentFile,
+                confirm: context.confirm,
             });
         },
     });

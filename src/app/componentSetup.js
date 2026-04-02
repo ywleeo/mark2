@@ -78,6 +78,7 @@ export function setupFileTree({
     FileTreeCtor,
     appState,
     executeCommand,
+    beforeFileSelect,
     handleFileSelect,
     handleOpenFilesChange,
     handleSidebarStateChange,
@@ -91,6 +92,7 @@ export function setupFileTree({
 }) {
     const fileTreeElement = document.getElementById('fileTree');
     const fileTree = new FileTreeCtor(fileTreeElement, handleFileSelect, {
+        beforeFileSelect,
         executeCommand,
         onFolderChange: (...args) => appState.getFileWatcherController()?.handleFolderWatcherEvent(...args),
         onFileChange: (...args) => appState.getFileWatcherController()?.handleFileWatcherEvent(...args),
@@ -131,6 +133,7 @@ export function setupFileTree({
 export function setupTabManager({
     TabManagerCtor,
     appState,
+    beforeTabSelect,
     handleTabSelect,
     handleTabClose,
     handleTabRenameConfirm,
@@ -140,6 +143,7 @@ export function setupTabManager({
 }) {
     const tabBarElement = document.getElementById('tabBar');
     const tabManager = new TabManagerCtor(tabBarElement, {
+        beforeTabSelect,
         onTabSelect: handleTabSelect,
         onTabClose: handleTabClose,
         onRenameConfirm: handleTabRenameConfirm,

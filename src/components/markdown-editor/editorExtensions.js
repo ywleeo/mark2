@@ -27,6 +27,16 @@ import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugi
  * @param {Function|null} [historyHandlers.onRedo] - redo 回调
  */
 export function createEditorExtensions(lowlight, historyHandlers = {}) {
+    /**
+     * 判断编辑器当前是否处于输入法组合输入中。
+     * 组合态下应尽量让原生 IME 处理按键，避免自定义快捷键污染候选确认流程。
+     * @param {import('@tiptap/core').Editor} editor - TipTap 编辑器实例
+     * @returns {boolean}
+     */
+    function isEditorComposing(editor) {
+        return Boolean(editor?.view?.composing);
+    }
+
     return [
         StarterKit.configure({
             heading: { levels: [1, 2, 3, 4, 5, 6] },
@@ -72,18 +82,22 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
             addKeyboardShortcuts() {
                 return {
                     'Mod-z': () => {
+                        if (isEditorComposing(this.editor)) return false;
                         if (typeof historyHandlers.onUndo !== 'function') return false;
                         return historyHandlers.onUndo() !== false;
                     },
                     'Mod-Shift-z': () => {
+                        if (isEditorComposing(this.editor)) return false;
                         if (typeof historyHandlers.onRedo !== 'function') return false;
                         return historyHandlers.onRedo() !== false;
                     },
                     'Mod-y': () => {
+                        if (isEditorComposing(this.editor)) return false;
                         if (typeof historyHandlers.onRedo !== 'function') return false;
                         return historyHandlers.onRedo() !== false;
                     },
                     'Mod-b': () => {
+                        if (isEditorComposing(this.editor)) return false;
                         const { state } = this.editor;
                         const { from, to, empty } = state.selection;
                         if (empty || this.editor.isActive('bold')) {
@@ -118,6 +132,7 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
             addKeyboardShortcuts() {
                 return {
                     'Enter': () => {
+                        if (isEditorComposing(this.editor)) return false;
                         const { $from } = this.editor.state.selection;
                         if ($from.parent.type.name !== 'paragraph') return false;
                         for (let d = $from.depth; d > 0; d--) {
@@ -126,7 +141,10 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
                         }
                         return this.editor.commands.setHardBreak();
                     },
-                    'Shift-Enter': () => this.editor.commands.splitBlock(),
+                    'Shift-Enter': () => {
+                        if (isEditorComposing(this.editor)) return false;
+                        return this.editor.commands.splitBlock();
+                    },
                 };
             },
         }),
@@ -136,6 +154,7 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
             addKeyboardShortcuts() {
                 return {
                     Tab: () => {
+                        if (isEditorComposing(this.editor)) return false;
                         if (this.editor.commands.sinkListItem('listItem')) return true;
                         if (this.editor.commands.sinkListItem('taskItem')) return true;
                         return this.editor.commands.insertContent('    ');

@@ -379,8 +379,12 @@ export class TabManager {
 
                 tabElement.appendChild(closeButton);
 
-                const cleanup2 = addClickHandler(tabElement, () => {
+                const cleanup2 = addClickHandler(tabElement, async () => {
                     if (this.isDraggingTabs) {
+                        return;
+                    }
+                    const shouldContinue = await this.callbacks.beforeTabSelect?.(tab);
+                    if (shouldContinue === false) {
                         return;
                     }
                     this.setActiveTab(tab.id);

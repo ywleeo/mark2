@@ -150,18 +150,32 @@ function buildContentWrapper({ clone, isCentered }) {
 }
 
 function buildExportFooter({ isCentered }) {
+    // 统一 footer 容器，显式控制虚线和品牌标记的层级，避免导出图里出现虚线被中途遮断。
+    const footer = document.createElement('div');
+    footer.style.position = 'relative';
+    footer.style.width = '100%';
+    footer.style.marginTop = '5px';
+    footer.style.minHeight = '32px';
+    footer.style.boxSizing = 'border-box';
+
     const separator = document.createElement('div');
-    separator.style.width = '100%';
+    separator.style.position = 'absolute';
+    separator.style.left = '0';
+    separator.style.right = '0';
+    separator.style.top = '50%';
+    separator.style.transform = 'translateY(-50%)';
     separator.style.height = '0';
-    separator.style.marginTop = '10px';
     separator.style.borderTop = '1px dashed rgba(125, 125, 125, 0.2)';
+    separator.style.zIndex = '1';
 
-    // branding 容器：block 布局下用 text-align: right 让内容靠右
     const brandingWrapper = document.createElement('div');
-    brandingWrapper.style.textAlign = 'right';
-    brandingWrapper.style.margin = '10px 30px 0 0';
+    brandingWrapper.style.position = 'relative';
+    brandingWrapper.style.zIndex = '2';
+    brandingWrapper.style.display = 'flex';
+    brandingWrapper.style.justifyContent = 'flex-end';
+    brandingWrapper.style.paddingRight = '30px';
+    brandingWrapper.style.paddingTop = '25px';
 
-    // branding 标签：inline-block 使背景色仅覆盖文字区域
     const brandingLabel = document.createElement('span');
     brandingLabel.textContent = 'MARK2';
     brandingLabel.style.display = 'inline-block';
@@ -177,11 +191,12 @@ function buildExportFooter({ isCentered }) {
     brandingWrapper.appendChild(brandingLabel);
 
     if (isCentered) {
-        separator.style.marginTop = 'auto';
-        brandingWrapper.style.marginTop = '10px';
+        footer.style.marginTop = 'auto';
     }
 
-    return { separator, branding: brandingWrapper };
+    footer.appendChild(separator);
+    footer.appendChild(brandingWrapper);
+    return footer;
 }
 
 
@@ -257,9 +272,8 @@ export async function captureViewContent() {
     const contentWrapper = buildContentWrapper({ clone, isCentered, viewElement });
     captureContainer.appendChild(contentWrapper);
 
-    const { separator, branding } = buildExportFooter({ isCentered });
-    captureContainer.appendChild(separator);
-    captureContainer.appendChild(branding);
+    const footer = buildExportFooter({ isCentered });
+    captureContainer.appendChild(footer);
 
     wrapper.appendChild(captureContainer);
     document.body.appendChild(wrapper);

@@ -9,6 +9,7 @@
 
 import { readFile, writeFile, deleteEntry, renameEntry, listDirectory, createDirectory } from '../../api/filesystem.js';
 import { getFileInfo, readFileChunk } from './fileReaders.js';
+import { getDocumentVersion, relocateRangeByExcerpt, replaceDocumentRange, rewriteFullDocument } from './DocumentPatchService.js';
 
 export const TOOL_DEFINITIONS = [
     // ── 当前文档：信息 / 分块读 / 搜索 / 写入 ──────────────
@@ -55,13 +56,18 @@ export const TOOL_DEFINITIONS = [
         type: 'function',
         function: {
             name: 'write_current_document',
-            description: '将新内容写入当前打开的文档。会先展示 diff 供用户确认后才实际写入。',
+            description: '修改当前打开的文档。整篇改稿用 rewrite_full；只改已读取片段时用 replace_range，并提供 start_line/end_line。调用前应先读取文档信息或片段，并把 document_version 一并传回。',
             parameters: {
                 type: 'object',
                 properties: {
-                    content: { type: 'string', description: '文档的完整新内容' },
+                    mode: { type: 'string', description: '写入模式：rewrite_full 或 replace_range' },
+                    start_line: { type: 'integer', description: 'replace_range 的起始行（从 1 开始）' },
+                    end_line: { type: 'integer', description: 'replace_range 的结束行（含）' },
+                    document_version: { type: 'string', description: '来自 get_document_info / read_document_lines / search_in_document 的 document_version，应用前会校验' },
+                    source_excerpt: { type: 'string', description: 'replace_range 时建议一并传入的原片段正文，用于文档变更后在最新内容中重定位' },
+                    content: { type: 'string', description: 'rewrite_full 时是整篇新内容；replace_range 时是用于替换该行区间的新片段内容，不要带行号前缀。' },
                 },
-                required: ['content'],
+                required: [],
             },
         },
     },
@@ -205,7 +211,7 @@ function getLines(content) {
  * @param {Object} options
  * @param {() => string|null} options.getCurrentFile
  * @param {() => string|null} options.getCurrentContent - 从编辑器内存读取（优先于磁盘）
- * @param {(p: {path,oldContent,newContent}) => Promise<{applied:boolean}>} options.onWriteCurrentDocument
+ * @param {(p: {path,oldContent,newContent,patchPlan?:Array<object>,mode:'patch'|'replace'}) => Promise<{applied:boolean}>} options.onWriteCurrentDocument
  * @param {(path: string) => Promise<boolean>} options.onDeleteConfirm
  */
 export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteCurrentDocument, onDeleteConfirm }) {
@@ -238,6 +244,7 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
                         path,
                         line_count: lines.length,
                         char_count: content.length,
+                        document_version: getDocumentVersion(content),
                         preview,
                     };
                 } catch (err) {
@@ -262,6 +269,7 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
                         start_line: start,
                         end_line: start + slice.length - 1,
                         total_lines: lines.length,
+                        document_version: getDocumentVersion(content),
                         content: slice.map((l, i) => `${start + i}: ${l}`).join('\n'),
                     };
                 } catch (err) {
@@ -294,6 +302,7 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
                     return {
                         query,
                         match_count: matches.length,
+                        document_version: getDocumentVersion(content),
                         matches: matches.slice(0, 20),
                     };
                 } catch (err) {
@@ -306,7 +315,48 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
                 if (!path) return { error: '当前没有打开的文档' };
                 try {
                     const oldContent = await fetchCurrentContent() ?? '';
-                    const result = await onWriteCurrentDocument({ path, oldContent, newContent: args.content });
+                    const currentVersion = getDocumentVersion(oldContent);
+                    const mode = typeof args.mode === 'string' ? args.mode : '';
+                    let payload;
+                    if (mode === 'replace_range') {
+                        let startLine = Number(args.start_line);
+                        let endLine = Number(args.end_line);
+                        const hasVersionMismatch = typeof args.document_version === 'string'
+                            && args.document_version
+                            && args.document_version !== currentVersion;
+
+                        if (hasVersionMismatch) {
+                            const relocated = relocateRangeByExcerpt(oldContent, args.source_excerpt);
+                            startLine = relocated.startLine;
+                            endLine = relocated.endLine;
+                        }
+
+                        const { patchPlan, newContent } = replaceDocumentRange(
+                            oldContent,
+                            startLine,
+                            endLine,
+                            typeof args.content === 'string' ? args.content : ''
+                        );
+                        payload = {
+                            path,
+                            oldContent,
+                            newContent,
+                            patchPlan,
+                            mode,
+                        };
+                    } else if (mode === 'rewrite_full' || typeof args.content === 'string') {
+                        const { newContent } = rewriteFullDocument(oldContent, args.content);
+                        payload = {
+                            path,
+                            oldContent,
+                            newContent,
+                            mode: 'rewrite_full',
+                        };
+                    } else {
+                        return { error: 'write_current_document 缺少合法的 mode 或 content' };
+                    }
+
+                    const result = await onWriteCurrentDocument(payload);
                     return result.applied
                         ? { success: true, message: '修改已应用' }
                         : { cancelled: true, message: '用户取消了修改' };

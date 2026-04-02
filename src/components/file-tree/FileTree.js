@@ -31,6 +31,7 @@ export class FileTree {
             onFileChange,
             onOpenFilesChange,
             onStateChange,
+            beforeFileSelect,
             executeCommand,
             onCloseFileRequest,
             onPathRenamed,
@@ -48,6 +49,7 @@ export class FileTree {
         this.onFolderChange = onFolderChange;
         this.onFileChange = onFileChange;
         this.onOpenFilesChange = onOpenFilesChange;
+        this.beforeFileSelect = beforeFileSelect;
         this.executeCommand = executeCommand;
         this.onCloseFileRequest = onCloseFileRequest;
         this.onPathRenamed = onPathRenamed;
@@ -371,7 +373,7 @@ export class FileTree {
 
     // ========== 文件选择 ==========
 
-    selectFile(path, options = {}) {
+    async selectFile(path, options = {}) {
         const { autoFocus = true, preserveFocus = false, silent = false } = options;
         const normalized = this.normalizePath(path);
         if (!normalized) {
@@ -379,6 +381,16 @@ export class FileTree {
             this.currentFile = null;
             if (!silent && this.onFileSelect) this.onFileSelect(null, { autoFocus });
             return;
+        }
+
+        if (!silent && typeof this.beforeFileSelect === 'function') {
+            const shouldContinue = await this.beforeFileSelect(normalized, {
+                autoFocus,
+                preserveFocus,
+            });
+            if (shouldContinue === false) {
+                return;
+            }
         }
 
         this.container.querySelectorAll('.tree-file.selected, .open-file-item.selected').forEach(el => {

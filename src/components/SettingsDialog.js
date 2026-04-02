@@ -341,9 +341,10 @@ export class SettingsDialog {
         this.selectedActiveModel = aiConfig.activeModel || '';
         this.aiCreativitySelect.value = aiConfig.preferences?.creativity || 'medium';
         this.renderProviderList();
-        // 默认选中第一个 provider
+        // 优先回显当前生效的 provider，避免保存后打开设置仍然跳回第一个 provider。
         if (this.aiProviders.length > 0) {
-            this.selectProvider(this.aiProviders[0].id);
+            const initialProviderId = this.resolveActiveProviderId(aiConfig.activeProviderId);
+            this.selectProvider(initialProviderId);
         } else {
             this.renderProviderEditor(null);
         }
@@ -424,10 +425,13 @@ export class SettingsDialog {
 
         // AI 助手设置 - 同步当前编辑器中的值到 provider 数据
         this.syncCurrentProviderFromEditor();
+        const activeProviderId = this.resolveActiveProviderId(this.selectedProviderId);
+        const activeProvider = this.aiProviders.find(provider => provider.id === activeProviderId) || null;
+        const activeModel = this.resolveActiveModel(activeProvider);
         const aiConfig = {
             providers: this.aiProviders,
-            activeProviderId: this.aiProviders[0]?.id || '',
-            activeModel: this.selectedActiveModel || this.aiProviders[0]?.models?.[0] || '',
+            activeProviderId,
+            activeModel,
             preferences: {
                 creativity: this.aiCreativitySelect.value || 'medium',
             }
@@ -575,6 +579,29 @@ export class SettingsDialog {
             return min;
         }
         return Math.min(Math.max(value, min), max);
+    }
+
+    /**
+     * 解析当前真正生效的 provider，优先使用显式选择，其次回退到第一个 provider。
+     */
+    resolveActiveProviderId(preferredProviderId) {
+        if (preferredProviderId && this.aiProviders.some(provider => provider.id === preferredProviderId)) {
+            return preferredProviderId;
+        }
+        return this.aiProviders[0]?.id || '';
+    }
+
+    /**
+     * 确保保存的 activeModel 属于当前 provider，避免被 aiService 归一化回第一个模型。
+     */
+    resolveActiveModel(provider) {
+        if (!provider) {
+            return '';
+        }
+        if (this.selectedActiveModel && provider.models.includes(this.selectedActiveModel)) {
+            return this.selectedActiveModel;
+        }
+        return provider.models[0] || '';
     }
 
     // ── Provider 管理 ────────────────────────────────────

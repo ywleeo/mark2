@@ -94,6 +94,7 @@ export function createAppBootstrap({
     checkFileHasUnsavedChanges,
     closeActiveTab,
     setupLinkNavigationListener,
+    activateTabTransition,
     // fileMenuActions 导出
     handleCreateNewFile,
     handleDeleteActiveFile,
@@ -320,6 +321,7 @@ export function createAppBootstrap({
                         tabId: normalized,
                     });
                 },
+                confirm,
                 getWorkspaceCwd: () => appState.getFileTree()?.rootPaths?.[0] || null,
             },
         }));
@@ -351,6 +353,9 @@ export function createAppBootstrap({
             FileTreeCtor: coreModules.FileTree,
             appState,
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
+            beforeFileSelect: async (targetPath) => {
+                return await featureManager?.getFeatureApi?.('ai-sidebar')?.confirmBeforeDocumentChange?.(targetPath) ?? true;
+            },
             handleFileSelect,
             handleOpenFilesChange,
             handleSidebarStateChange,
@@ -366,6 +371,9 @@ export function createAppBootstrap({
         setupTabManager({
             TabManagerCtor: coreModules.TabManager,
             appState,
+            beforeTabSelect: async (targetTab) => {
+                return await featureManager?.getFeatureApi?.('ai-sidebar')?.confirmBeforeDocumentChange?.(targetTab?.path || null) ?? true;
+            },
             handleTabSelect,
             handleTabClose,
             handleTabRenameConfirm,
