@@ -4,6 +4,7 @@
 #[cfg(target_os = "macos")]
 mod macos_security;
 
+mod ai_proxy;
 mod fs_commands;
 mod media_stream;
 mod menu;
@@ -156,6 +157,7 @@ fn main() {
         })
         .manage(WorkspaceState::default())
         .manage(DocumentState::default())
+        .manage(ai_proxy::AiProxyState::default())
         .manage(pty::PtyState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -195,6 +197,9 @@ fn main() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            ai_proxy::ai_proxy_json_request,
+            ai_proxy::ai_proxy_start_stream,
+            ai_proxy::ai_proxy_cancel_stream,
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {

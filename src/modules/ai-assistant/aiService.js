@@ -1,4 +1,10 @@
 import { parseStreamData } from './services/streamParser.js';
+import {
+    aiProxyJsonRequest,
+    cancelAiProxyStream,
+    normalizeAiBaseUrl,
+    startAiProxyStream,
+} from '../../api/aiProxy.js';
 
 /**
  * AI 服务 - 直接调用 OpenAI API
@@ -43,7 +49,7 @@ class AiService {
             id: p.id || this.generateId(),
             name: (p.name || '').trim() || 'Unnamed',
             apiKey: p.apiKey || '',
-            baseUrl: (p.baseUrl || '').trim() || 'https://api.openai.com/v1',
+            baseUrl: normalizeAiBaseUrl((p.baseUrl || '').trim() || 'https://api.openai.com/v1'),
             models: Array.isArray(p.models) ? p.models.filter(Boolean) : [],
         })) : [];
 
@@ -90,7 +96,7 @@ class AiService {
     }
 
     getActiveBaseUrl() {
-        return this.getActiveProvider()?.baseUrl || 'https://api.openai.com/v1';
+        return normalizeAiBaseUrl(this.getActiveProvider()?.baseUrl || 'https://api.openai.com/v1');
     }
 
     // ── 测试连通性 ───────────────────────────────────────
@@ -102,39 +108,32 @@ class AiService {
         if (!provider?.apiKey) {
             return { success: false, model, duration: 0, error: '请填写 API Key' };
         }
-        const baseUrl = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const baseUrl = normalizeAiBaseUrl(provider.baseUrl || 'https://api.openai.com/v1');
         const start = performance.now();
 
         try {
-            const response = await fetch(`${baseUrl}/chat/completions`, {
+            const response = await aiProxyJsonRequest({
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${provider.apiKey}`,
-                },
-                body: JSON.stringify({
+                url: `${baseUrl}/chat/completions`,
+                apiKey: provider.apiKey,
+                body: {
                     model,
                     messages: [{ role: 'user', content: 'hi' }],
                     max_tokens: 1,
                     stream: false,
-                }),
-                signal: controller.signal,
+                },
+                timeoutMs: 15000,
             });
 
             const duration = Math.round(performance.now() - start);
-            if (!response.ok) {
-                const errorText = await response.text();
-                return { success: false, model, duration, error: `${response.status}: ${errorText.slice(0, 120)}` };
+            if (response.status < 200 || response.status >= 300) {
+                return { success: false, model, duration, error: `${response.status}: ${String(response.body || '').slice(0, 120)}` };
             }
             return { success: true, model, duration, error: null };
         } catch (error) {
             const duration = Math.round(performance.now() - start);
-            const msg = error.name === 'AbortError' ? '超时（15s）' : (error.message || '连接失败');
+            const msg = error.message || '连接失败';
             return { success: false, model, duration, error: msg };
-        } finally {
-            clearTimeout(timeoutId);
         }
     }
 
@@ -159,36 +158,28 @@ class AiService {
         if (!provider?.apiKey) {
             throw new Error('请填写 API Key');
         }
-        const baseUrl = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const baseUrl = normalizeAiBaseUrl(provider.baseUrl || 'https://api.openai.com/v1');
 
         try {
-            const response = await fetch(`${baseUrl}/models`, {
-                headers: {
-                    'Authorization': `Bearer ${provider.apiKey}`,
-                },
-                signal: controller.signal,
+            const response = await aiProxyJsonRequest({
+                method: 'GET',
+                url: `${baseUrl}/models`,
+                apiKey: provider.apiKey,
+                timeoutMs: 15000,
             });
 
-            if (!response.ok) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new Error(`获取模型列表失败: ${response.status}`);
             }
 
-            const result = await response.json();
+            const result = JSON.parse(response.body || '{}');
             const models = (result.data || [])
                 .map(m => m.id)
                 .filter(Boolean)
                 .sort();
             return models;
         } catch (error) {
-            if (error.name === 'AbortError') {
-                throw new Error('获取模型列表超时（15s）');
-            }
             throw error;
-        } finally {
-            clearTimeout(timeoutId);
         }
     }
 
@@ -244,30 +235,7 @@ class AiService {
         });
 
         try {
-            const controller = new AbortController();
-            task.abortController = controller;
-
             const baseUrl = this.getActiveBaseUrl();
-            const response = await fetch(`${baseUrl}/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                },
-                body: JSON.stringify({
-                    model: requestOptions.model || this.getActiveModel(),
-                    messages: requestOptions.messages,
-                    temperature: requestOptions.temperature,
-                    stream: true,
-                    ...(requestOptions.tools?.length ? { tools: requestOptions.tools } : {}),
-                }),
-                signal: controller.signal,
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API 请求失败: ${response.status} ${errorText}`);
-            }
 
             task.status = 'streaming';
             this.notify({
@@ -275,81 +243,103 @@ class AiService {
                 id: taskId,
             });
 
-            const reader = response.body?.getReader?.();
-            if (!reader) {
-                throw new Error('当前系统禁止流式网络访问，请在系统偏好设置中授予 Mark2 网络权限后重试');
-            }
-            const decoder = new TextDecoder();
+            let streamResolved = false;
+            const streamPromise = new Promise((resolve, reject) => {
+                startAiProxyStream({
+                    requestId: taskId,
+                    url: `${baseUrl}/chat/completions`,
+                    apiKey,
+                    body: {
+                        model: requestOptions.model || this.getActiveModel(),
+                        messages: requestOptions.messages,
+                        temperature: requestOptions.temperature,
+                        stream: true,
+                        ...(requestOptions.tools?.length ? { tools: requestOptions.tools } : {}),
+                    },
+                    timeoutMs: 15000,
+                    onChunk: (chunk) => {
+                        const lines = chunk.split('\n').map(line => line.trim()).filter(Boolean);
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+                        for (const line of lines) {
+                            if (!line.startsWith('data:')) continue;
+                            const data = line.slice(5).trimStart();
+                            if (data === '[DONE]') continue;
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n').map(line => line.trim()).filter(Boolean);
+                            try {
+                                const { answerDelta, reasoningDelta, toolCallDeltas } = parseStreamData(data);
 
-                for (const line of lines) {
-                    if (line.startsWith('data:')) {
-                        const data = line.slice(5).trimStart();
-                        if (data === '[DONE]') continue;
-
-                        try {
-                            const { answerDelta, reasoningDelta, toolCallDeltas } = parseStreamData(data);
-
-                            if (reasoningDelta) {
-                                task.thinkBuffer += reasoningDelta;
-                                this.notify({
-                                    type: 'task-stream-think',
-                                    id: taskId,
-                                    delta: reasoningDelta,
-                                    buffer: task.thinkBuffer,
-                                });
-                            }
-
-                            if (answerDelta) {
-                                task.buffer += answerDelta;
-                                this.notify({
-                                    type: 'task-stream-chunk',
-                                    id: taskId,
-                                    delta: answerDelta,
-                                    buffer: task.buffer,
-                                });
-                            }
-
-                            if (toolCallDeltas) {
-                                for (const delta of toolCallDeltas) {
-                                    const idx = delta.index;
-                                    if (!task.toolCalls[idx]) {
-                                        task.toolCalls[idx] = {
-                                            id: delta.id || '',
-                                            type: delta.type || 'function',
-                                            function: { name: '', arguments: '' },
-                                        };
-                                    }
-                                    const tc = task.toolCalls[idx];
-                                    if (delta.id) tc.id = delta.id;
-                                    if (delta.function.name) {
-                                        const wasEmpty = tc.function.name === '';
-                                        tc.function.name += delta.function.name;
-                                        // 第一次拿到函数名时通知订阅者（用于 UI 显示生成中状态）
-                                        if (wasEmpty) {
-                                            this.notify({
-                                                type: 'task-stream-tool-call',
-                                                id: taskId,
-                                                name: tc.function.name,
-                                                index: idx,
-                                            });
-                                        }
-                                    }
-                                    if (delta.function.arguments) tc.function.arguments += delta.function.arguments;
+                                if (reasoningDelta) {
+                                    task.thinkBuffer += reasoningDelta;
+                                    this.notify({
+                                        type: 'task-stream-think',
+                                        id: taskId,
+                                        delta: reasoningDelta,
+                                        buffer: task.thinkBuffer,
+                                    });
                                 }
+
+                                if (answerDelta) {
+                                    task.buffer += answerDelta;
+                                    this.notify({
+                                        type: 'task-stream-chunk',
+                                        id: taskId,
+                                        delta: answerDelta,
+                                        buffer: task.buffer,
+                                    });
+                                }
+
+                                if (toolCallDeltas) {
+                                    for (const delta of toolCallDeltas) {
+                                        const idx = delta.index;
+                                        if (!task.toolCalls[idx]) {
+                                            task.toolCalls[idx] = {
+                                                id: delta.id || '',
+                                                type: delta.type || 'function',
+                                                function: { name: '', arguments: '' },
+                                            };
+                                        }
+                                        const tc = task.toolCalls[idx];
+                                        if (delta.id) tc.id = delta.id;
+                                        if (delta.function.name) {
+                                            const wasEmpty = tc.function.name === '';
+                                            tc.function.name += delta.function.name;
+                                            if (wasEmpty) {
+                                                this.notify({
+                                                    type: 'task-stream-tool-call',
+                                                    id: taskId,
+                                                    name: tc.function.name,
+                                                    index: idx,
+                                                });
+                                            }
+                                        }
+                                        if (delta.function.arguments) tc.function.arguments += delta.function.arguments;
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn('[aiService] 解析流式数据失败:', e);
                             }
-                        } catch (e) {
-                            console.warn('[aiService] 解析流式数据失败:', e);
                         }
-                    }
-                }
-            }
+                    },
+                    onError: (error) => {
+                        if (!streamResolved) {
+                            streamResolved = true;
+                            reject(new Error(error || '请求失败'));
+                        }
+                    },
+                    onEnd: () => {
+                        if (!streamResolved) {
+                            streamResolved = true;
+                            resolve();
+                        }
+                    },
+                }).then(unlisten => {
+                    task.streamCleanup = unlisten;
+                }).catch(reject);
+            });
+
+            await streamPromise;
+            task.streamCleanup?.();
+            task.streamCleanup = null;
 
             const completedToolCalls = task.toolCalls.length > 0 ? task.toolCalls : null;
             this.notify({
@@ -364,7 +354,9 @@ class AiService {
             return { id: taskId, content: task.buffer, thinking: task.thinkBuffer, toolCalls: completedToolCalls };
 
         } catch (error) {
-            const isAborted = task.abortController?.signal?.aborted || error?.name === 'AbortError';
+            task.streamCleanup?.();
+            task.streamCleanup = null;
+            const isAborted = task.cancelRequested === true || error?.name === 'AbortError';
             this.activeTasks.delete(taskId);
             if (isAborted) {
                 if (!task.cancelledNotified) {
@@ -388,9 +380,8 @@ class AiService {
     async cancelTask(taskId) {
         const task = this.activeTasks.get(taskId);
         if (task) {
-            if (task.abortController && !task.abortController.signal.aborted) {
-                task.abortController.abort();
-            }
+            task.cancelRequested = true;
+            await cancelAiProxyStream(taskId).catch(() => false);
             this.activeTasks.delete(taskId);
             this.notify({
                 type: 'task-cancelled',
@@ -413,26 +404,23 @@ class AiService {
         }
 
         const baseUrl = this.getActiveBaseUrl();
-        const response = await fetch(`${baseUrl}/chat/completions`, {
+        const response = await aiProxyJsonRequest({
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
+            url: `${baseUrl}/chat/completions`,
+            apiKey,
+            body: {
                 model: options.model || this.getActiveModel(),
                 messages: options.messages,
                 temperature: options.temperature,
                 stream: false,
-            }),
+            },
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API 请求失败: ${response.status} ${errorText}`);
+        if (response.status < 200 || response.status >= 300) {
+            throw new Error(`API 请求失败: ${response.status} ${response.body}`);
         }
 
-        const result = await response.json();
+        const result = JSON.parse(response.body || '{}');
         const message = result?.choices?.[0]?.message?.content ?? '';
 
         return {
