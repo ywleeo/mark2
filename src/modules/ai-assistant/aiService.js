@@ -256,7 +256,7 @@ class AiService {
                         stream: true,
                         ...(requestOptions.tools?.length ? { tools: requestOptions.tools } : {}),
                     },
-                    timeoutMs: 15000,
+                    timeoutMs: 180000,
                     onChunk: (chunk) => {
                         const lines = chunk.split('\n').map(line => line.trim()).filter(Boolean);
 

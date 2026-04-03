@@ -15,8 +15,9 @@ export function normalizeAiBaseUrl(baseUrl) {
 
 /**
  * 通过 Tauri 后端发起非流式 AI 请求。
+ * 默认总超时 3 分钟，兼容较慢的模型响应。
  */
-export async function aiProxyJsonRequest({ method, url, apiKey, body, timeoutMs = 15000 }) {
+export async function aiProxyJsonRequest({ method, url, apiKey, body, timeoutMs = 180000 }) {
     return await invoke('ai_proxy_json_request', {
         request: {
             method,
@@ -31,13 +32,14 @@ export async function aiProxyJsonRequest({ method, url, apiKey, body, timeoutMs 
 /**
  * 通过 Tauri 后端发起流式 AI 请求。
  * 返回取消监听函数，避免事件监听器泄漏。
+ * timeoutMs 只控制连接阶段超时，不限制整个流式响应时长。
  */
 export async function startAiProxyStream({
     requestId,
     url,
     apiKey,
     body,
-    timeoutMs = 15000,
+    timeoutMs = 180000,
     onChunk,
     onError,
     onEnd,

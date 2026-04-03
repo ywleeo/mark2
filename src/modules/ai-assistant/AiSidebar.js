@@ -46,6 +46,21 @@ const TOOL_STATUS_RUNNING = {
     create_directory: '创建目录中',
 };
 
+/**
+ * 判断工具错误是否需要直接暴露给用户。
+ * 默认将工具执行错误视为 agent 的内部尝试结果，仅当工具明确标记为需要用户介入
+ * 或属于阻断性错误时，才在卡片上显示失败状态。
+ *
+ * @param {object} result - 工具执行结果
+ * @returns {boolean} 是否需要展示错误
+ */
+function shouldShowToolError(result) {
+    if (!result?.error) {
+        return false;
+    }
+    return Boolean(result.userActionRequired || result.blocking || result.fatal);
+}
+
 // ── 简单行级 diff（LCS算法） ──────────────────────────────
 function diffLines(oldText, newText) {
     const a = oldText.split('\n');
@@ -350,16 +365,23 @@ class AssistantCard {
         scrollToBottom(this.el);
     }
 
-    updateToolCard({ id, result }) {
+    updateToolCard({ id, name, result }) {
         const entry = this.toolCards.get(id);
         if (!entry) return;
         const { el } = entry;
         el.classList.remove('ai-tool-card-running');
 
         const statusEl = el.querySelector('.ai-tool-card-status');
-        if (result?.error) {
+        if (shouldShowToolError(result)) {
             el.classList.add('ai-tool-card-error');
             statusEl.textContent = `失败: ${result.error}`;
+        } else if (result?.error) {
+            el.classList.add('ai-tool-card-done');
+            statusEl.textContent = '完成';
+            console.warn('[AiSidebar] 工具执行失败，已交由 agent 自行处理', {
+                tool: name,
+                error: result.error,
+            });
         } else if (result?.cancelled) {
             el.classList.add('ai-tool-card-cancelled');
             statusEl.textContent = '已取消';
@@ -802,7 +824,7 @@ export class AiSidebar {
             onChunk: (_delta, buffer) => card.setContent(buffer),
             onThink: (_delta, buffer) => card.setThinking(buffer),
             onToolCall: ({ id, name }) => card.addToolCard({ id, name }),
-            onToolResult: ({ id, result }) => card.updateToolCard({ id, result }),
+            onToolResult: ({ id, name, result }) => card.updateToolCard({ id, name, result }),
             onToolCallStreaming: ({ name }) => card.showGenerating(name),
             onError: (err) => {
                 card.setError(err.message || '未知错误');

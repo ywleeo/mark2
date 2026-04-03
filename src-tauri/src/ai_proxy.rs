@@ -84,12 +84,25 @@ struct AiProxyStreamErrorPayload {
 }
 
 /**
- * 创建带默认头部的 reqwest client。
+ * 创建非流式请求使用的 reqwest client。
  * 这里显式带上浏览器风格 UA，兼容对非浏览器请求敏感的 OpenAI-compatible 服务。
+ * 非流式请求保留 3 分钟总超时。
  */
-fn build_http_client(timeout_ms: Option<u64>) -> Result<reqwest::Client, String> {
+fn build_json_http_client(timeout_ms: Option<u64>) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .timeout(Duration::from_millis(timeout_ms.unwrap_or(15_000)))
+        .timeout(Duration::from_millis(timeout_ms.unwrap_or(180_000)))
+        .build()
+        .map_err(|err| err.to_string())
+}
+
+/**
+ * 创建流式请求使用的 reqwest client。
+ * 只限制连接阶段，不对整个 body 读取设置总超时，
+ * 避免 provider 长时间思考时被底层 body timeout 提前打断。
+ */
+fn build_stream_http_client(timeout_ms: Option<u64>) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_millis(timeout_ms.unwrap_or(180_000)))
         .build()
         .map_err(|err| err.to_string())
 }
@@ -113,7 +126,7 @@ fn apply_common_headers(
  */
 #[tauri::command]
 pub async fn ai_proxy_json_request(request: AiProxyJsonRequest) -> Result<AiProxyJsonResponse, String> {
-    let client = build_http_client(request.timeout_ms)?;
+    let client = build_json_http_client(request.timeout_ms)?;
     let method = request
         .method
         .parse::<reqwest::Method>()
@@ -154,11 +167,9 @@ pub async fn ai_proxy_start_stream(
     let url = request.url.clone();
     let api_key = request.api_key.clone();
     let body = request.body.clone();
-    let timeout_ms = request.timeout_ms;
-
     tauri::async_runtime::spawn(async move {
         let result = async {
-            let client = build_http_client(timeout_ms)?;
+            let client = build_stream_http_client(request.timeout_ms)?;
             let response = apply_common_headers(client.post(&url), &api_key)
                 .header(CONTENT_TYPE, "application/json")
                 .header(ACCEPT, "text/event-stream")
@@ -174,13 +185,17 @@ pub async fn ai_proxy_start_stream(
             }
 
             let mut stream = response.bytes_stream();
+            let mut cancel_tick = tokio::time::interval(Duration::from_millis(250));
+            cancel_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
-                if cancel_flag.load(Ordering::SeqCst) {
-                    return Err("请求已取消".to_string());
-                }
-
-                match tokio::time::timeout(Duration::from_millis(250), stream.next()).await {
-                    Ok(Some(Ok(bytes))) => {
+                tokio::select! {
+                    _ = cancel_tick.tick() => {
+                        if cancel_flag.load(Ordering::SeqCst) {
+                            return Err("请求已取消".to_string());
+                        }
+                    }
+                    item = stream.next() => match item {
+                        Some(Ok(bytes)) => {
                         let chunk = String::from_utf8_lossy(&bytes).to_string();
                         window
                             .emit(
@@ -191,10 +206,10 @@ pub async fn ai_proxy_start_stream(
                                 },
                             )
                             .map_err(|err| err.to_string())?;
+                        }
+                        Some(Err(err)) => return Err(err.to_string()),
+                        None => break,
                     }
-                    Ok(Some(Err(err))) => return Err(err.to_string()),
-                    Ok(None) => break,
-                    Err(_) => continue,
                 }
             }
 
