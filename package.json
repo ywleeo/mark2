@@ -1,7 +1,7 @@
 {
   "name": "mark2-tauri",
   "productName": "Mark2",
-  "version": "1.6.22",
+  "version": "1.6.23",
   "type": "module",
   "description": "一个基于 Tauri 的 Markdown 阅读器",
   "scripts": {
