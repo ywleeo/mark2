@@ -46,11 +46,21 @@ export class FileTreeRenderer {
         const rootActions = isRoot
             ? `
                 <div class="root-folder-actions">
-                    <button class="root-folder-action-btn pin-folder-btn" type="button" data-path="${path}" title="置顶文件夹">
-                        ↑
+                    <button class="root-folder-action-btn move-up-btn" type="button" data-path="${path}" title="上移">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="18 15 12 9 6 15"/>
+                        </svg>
+                    </button>
+                    <button class="root-folder-action-btn move-down-btn" type="button" data-path="${path}" title="下移">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
                     </button>
                     <button class="root-folder-action-btn close-folder-btn" type="button" data-path="${path}" title="移除文件夹">
-                        ×
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
                     </button>
                 </div>
             `
@@ -93,7 +103,9 @@ export class FileTreeRenderer {
 
         // 点击处理
         const cleanup1 = addClickHandler(header, (event) => {
-            if (event.target.closest('.close-folder-btn') || event.target.closest('.pin-folder-btn')) {
+            if (event.target.closest('.close-folder-btn') ||
+                event.target.closest('.move-up-btn') ||
+                event.target.closest('.move-down-btn')) {
                 return;
             }
             this.fileTree.toggleFolder(path, item);
@@ -110,13 +122,22 @@ export class FileTreeRenderer {
                 this.fileTree.cleanupFunctions.push(cleanup2);
             }
 
-            const pinButton = header.querySelector('.pin-folder-btn');
-            if (pinButton) {
-                const cleanup3 = addClickHandler(pinButton, (event) => {
+            const moveUpButton = header.querySelector('.move-up-btn');
+            if (moveUpButton) {
+                const cleanup3 = addClickHandler(moveUpButton, (event) => {
                     event.stopPropagation();
-                    this.fileTree.pinRootFolder(path);
+                    this.fileTree.moveRootFolderUp(path);
                 });
                 this.fileTree.cleanupFunctions.push(cleanup3);
+            }
+
+            const moveDownButton = header.querySelector('.move-down-btn');
+            if (moveDownButton) {
+                const cleanup4 = addClickHandler(moveDownButton, (event) => {
+                    event.stopPropagation();
+                    this.fileTree.moveRootFolderDown(path);
+                });
+                this.fileTree.cleanupFunctions.push(cleanup4);
             }
         }
 

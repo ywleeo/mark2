@@ -27,6 +27,7 @@ import { createEditorCallbacks, setupEditors } from './editorSetup.js';
 import { setupStatusBar, setupFileTree, setupTabManager } from './componentSetup.js';
 import { setupToolbarEvents } from './eventSetup.js';
 import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windowControls.js';
+import { AppMenu } from '../components/AppMenu.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
 
 export function createAppBootstrap({
@@ -495,6 +496,14 @@ export function createAppBootstrap({
         appState.setCleanupFunction('menuListeners', await registerMenuListeners({
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
         }));
+
+        // Windows 自定义标题栏菜单（macOS 使用原生菜单栏）
+        if (navigator.userAgent.includes('Windows')) {
+            const appMenu = new AppMenu({
+                executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
+            });
+            appState.setCleanupFunction('appMenu', () => appMenu.destroy());
+        }
 
         setupLinkNavigationListener();
         appState.setCleanupFunction('sidebarResizer', setupSidebarResizer());

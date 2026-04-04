@@ -1,0 +1,12 @@
+{
+  "app": {
+    "windows": [
+      {
+        "decorations": false,
+        "minWidth": 800,
+        "minHeight": 600,
+        "center": true
+      }
+    ]
+  }
+}

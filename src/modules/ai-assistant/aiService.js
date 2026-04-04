@@ -7,6 +7,74 @@ import {
 } from '../../api/aiProxy.js';
 
 /**
+ * 解析 provider 返回的错误载荷，提取统一错误信息。
+ * @param {string|object|null|undefined} payload - 原始响应体
+ * @returns {{type: string, message: string}|null} 结构化错误
+ */
+function parseProviderErrorPayload(payload) {
+    let data = payload;
+    if (typeof payload === 'string') {
+        try {
+            data = JSON.parse(payload);
+        } catch {
+            return null;
+        }
+    }
+
+    const error = data?.error;
+    if (!error || typeof error !== 'object') {
+        return null;
+    }
+
+    return {
+        type: String(error.type || ''),
+        message: String(error.message || ''),
+    };
+}
+
+/**
+ * 将 provider/代理错误转换成适合给用户看的文案。
+ * @param {string} rawMessage - 原始错误信息
+ * @returns {string} 用户可读文案
+ */
+function formatAiErrorMessage(rawMessage) {
+    const message = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '未知错误');
+    const parsed = parseProviderErrorPayload(message.replace(/^API 请求失败:\s*\d+\s*/u, '').trim()) || parseProviderErrorPayload(message);
+
+    if (parsed?.type === 'CreditsError') {
+        return '当前 AI Provider 余额不足，请先充值后再试。';
+    }
+    if (parsed?.type === 'authentication_error' || /invalid api key|incorrect api key|unauthorized|401/i.test(message)) {
+        return 'API Key 无效或已失效，请检查设置后重试。';
+    }
+    if (parsed?.type === 'invalid_request_error' || /model.*not found|unknown model|does not exist/i.test(message)) {
+        return '当前模型不可用，请更换模型后重试。';
+    }
+    if (/operation timed out|timed out|timeout/i.test(message)) {
+        return 'AI 请求超时，请稍后重试。';
+    }
+    if (/load failed|network error|failed to fetch/i.test(message)) {
+        return '网络请求失败，请检查网络或稍后重试。';
+    }
+    if (parsed?.message) {
+        return parsed.message;
+    }
+    return message;
+}
+
+/**
+ * 将 HTTP 错误包装成统一文案。
+ * @param {number} status - HTTP 状态码
+ * @param {string} body - 原始响应体
+ * @returns {string} 用户可读文案
+ */
+function formatAiHttpError(status, body) {
+    const parsed = parseProviderErrorPayload(body);
+    const rawMessage = parsed?.message || `${status} ${String(body || '').trim()}`.trim();
+    return formatAiErrorMessage(rawMessage);
+}
+
+/**
  * AI 服务 - 直接调用 OpenAI API
  * 支持多 provider 配置，流式响应
  */
@@ -127,12 +195,12 @@ class AiService {
 
             const duration = Math.round(performance.now() - start);
             if (response.status < 200 || response.status >= 300) {
-                return { success: false, model, duration, error: `${response.status}: ${String(response.body || '').slice(0, 120)}` };
+                return { success: false, model, duration, error: formatAiHttpError(response.status, response.body) };
             }
             return { success: true, model, duration, error: null };
         } catch (error) {
             const duration = Math.round(performance.now() - start);
-            const msg = error.message || '连接失败';
+            const msg = formatAiErrorMessage(error.message || '连接失败');
             return { success: false, model, duration, error: msg };
         }
     }
@@ -169,7 +237,7 @@ class AiService {
             });
 
             if (response.status < 200 || response.status >= 300) {
-                throw new Error(`获取模型列表失败: ${response.status}`);
+                throw new Error(formatAiHttpError(response.status, response.body));
             }
 
             const result = JSON.parse(response.body || '{}');
@@ -323,7 +391,7 @@ class AiService {
                     onError: (error) => {
                         if (!streamResolved) {
                             streamResolved = true;
-                            reject(new Error(error || '请求失败'));
+                            reject(new Error(formatAiErrorMessage(error || '请求失败')));
                         }
                     },
                     onEnd: () => {
@@ -370,9 +438,9 @@ class AiService {
                 this.notify({
                     type: 'task-failed',
                     id: taskId,
-                    error: error.message || error,
+                    error: formatAiErrorMessage(error.message || error),
                 });
-                throw error;
+                throw new Error(formatAiErrorMessage(error.message || error));
             }
         }
     }
@@ -417,7 +485,7 @@ class AiService {
         });
 
         if (response.status < 200 || response.status >= 300) {
-            throw new Error(`API 请求失败: ${response.status} ${response.body}`);
+            throw new Error(formatAiHttpError(response.status, response.body));
         }
 
         const result = JSON.parse(response.body || '{}');

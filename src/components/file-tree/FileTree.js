@@ -467,7 +467,7 @@ export class FileTree {
         this.emitStateChange();
     }
 
-    pinRootFolder(path) {
+    moveRootFolderUp(path) {
         const normalizedPath = this.normalizePath(path);
         const existingRootPath = this.state.findRootPathEntry(normalizedPath);
         if (!normalizedPath || !existingRootPath) return;
@@ -476,18 +476,41 @@ export class FileTree {
         const index = ordered.indexOf(existingRootPath);
         if (index <= 0) return;
 
-        ordered.splice(index, 1);
-        ordered.unshift(existingRootPath);
+        [ordered[index - 1], ordered[index]] = [ordered[index], ordered[index - 1]];
         this.rootPaths = new Set(ordered);
 
-        const contentDiv = this.container.querySelector('#foldersContent');
-        const folderElement = this.loader.findRootFolderElement(existingRootPath);
-        if (contentDiv && folderElement) {
-            contentDiv.removeChild(folderElement);
-            contentDiv.insertBefore(folderElement, contentDiv.firstChild);
-        }
-
+        this.reorderRootFolderElements();
         this.emitStateChange();
+    }
+
+    moveRootFolderDown(path) {
+        const normalizedPath = this.normalizePath(path);
+        const existingRootPath = this.state.findRootPathEntry(normalizedPath);
+        if (!normalizedPath || !existingRootPath) return;
+
+        const ordered = Array.from(this.rootPaths);
+        const index = ordered.indexOf(existingRootPath);
+        if (index < 0 || index >= ordered.length - 1) return;
+
+        [ordered[index], ordered[index + 1]] = [ordered[index + 1], ordered[index]];
+        this.rootPaths = new Set(ordered);
+
+        this.reorderRootFolderElements();
+        this.emitStateChange();
+    }
+
+    reorderRootFolderElements() {
+        const contentDiv = this.container.querySelector('#foldersContent');
+        if (!contentDiv) return;
+
+        const ordered = Array.from(this.rootPaths);
+        for (let i = ordered.length - 1; i >= 0; i--) {
+            const folderElement = this.loader.findRootFolderElement(ordered[i]);
+            if (folderElement && folderElement.parentElement === contentDiv) {
+                contentDiv.removeChild(folderElement);
+                contentDiv.insertBefore(folderElement, contentDiv.firstChild);
+            }
+        }
     }
 
     // ========== 文件监听（委托 FileWatcher）==========

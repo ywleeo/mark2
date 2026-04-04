@@ -6,6 +6,22 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 
 /**
+ * 更新最大化按钮状态（根据当前窗口状态显示最大化或还原图标）
+ */
+function updateMaximizeButtonState() {
+    const maximizeBtn = document.getElementById('titlebar-maximize');
+    if (!maximizeBtn) return;
+
+    getCurrentWindow().isMaximized().then((isMaximized) => {
+        if (isMaximized) {
+            maximizeBtn.classList.add('is-maximized');
+        } else {
+            maximizeBtn.classList.remove('is-maximized');
+        }
+    });
+}
+
+/**
  * 设置自定义标题栏的窗口控制按钮
  */
 export function setupTitlebarControls() {
@@ -28,7 +44,14 @@ export function setupTitlebarControls() {
             } else {
                 await appWindow.maximize();
             }
+            updateMaximizeButtonState();
         });
+    }
+
+    // Windows 专属：监听窗口大小变化，同步最大化按钮图标
+    if (navigator.userAgent.includes('Windows')) {
+        appWindow.onResized(() => updateMaximizeButtonState());
+        updateMaximizeButtonState();
     }
 }
 

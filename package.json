@@ -11,9 +11,10 @@
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "tauri:build": "tauri build",
     "tauri:run": "open src-tauri/target/release/bundle/macos/Mark2.app",
-    "release:github": "bash ./scripts/trigger-github-builds.sh",
-    "release:mac": "bash ./scripts/trigger-single-workflow.sh --workflow mac",
-    "release:win": "bash ./scripts/trigger-single-workflow.sh --workflow win"
+    "release:github": "bash ./scripts/release-github.sh",
+    "release:mac": "bash ./scripts/release-github.sh --platform mac",
+    "release:win": "bash ./scripts/release-github.sh --platform win",
+    "release:mas": "bash ./scripts/release-mas.sh"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",

@@ -395,8 +395,12 @@ git diff --check
 
 ## 八、MAS 发布自动化
 
-- 使用 `scripts/mas-release.sh` 自动完成签名、打包、校验与上传。运行前请确认钥匙串已导入 `Mac App Distribution` 与 `Mac Installer Distribution` 证书，并准备好 MAS 描述文件。
-- 正式发版时，脚本会把当前已跟踪改动、版本更新、git 提交、tag、push 和 GitHub Release 上传收成同一条链路，保证远端 release tag 对应的代码快照和构建产物版本一致。
+- 正式使用的本地 MAS 入口是 `scripts/release-mas.sh`。
+- 这个入口只负责：
+  - 本地 MAS 打包
+  - 上传 App Store Connect
+  - 自动提交审核
+- 运行前请确认钥匙串已导入 `Mac App Distribution` 与 `Mac Installer Distribution` 证书，并准备好 MAS 描述文件。
 - 必填环境变量：`APPLE_SIGNING_IDENTITY`、`APPLE_INSTALLER_IDENTITY`、`APPLE_PROVISIONING_PROFILE`。上传至 App Store Connect 时任选其一：`APP_STORE_CONNECT_API_KEY` + `APP_STORE_CONNECT_API_ISSUER`，或 `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD`。
 - 示例命令：
   ```bash
@@ -405,11 +409,17 @@ git diff --check
   APPLE_PROVISIONING_PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/Mark2.mas.provisionprofile" \
   APP_STORE_CONNECT_API_KEY="ABC123DEFG" \
   APP_STORE_CONNECT_API_ISSUER="11223344-5566-7788-99aa-bbccddeeff00" \
-  ./scripts/mas-release.sh --ver 1.6.16
+  ./scripts/release-mas.sh --ver 1.6.16
+  ```
+- 常用变体：
+  ```bash
+  ./scripts/release-mas.sh --ver X.Y.Z --auto-release
+  ./scripts/release-mas.sh --ver X.Y.Z --skip-review
+  ./scripts/release-mas.sh --check-only
+  npm run release:mas -- --ver X.Y.Z
   ```
 - 脚本会自动读取钥匙串中的 `Mac App Distribution`、`Mac Installer Distribution` 证书，并尝试在 `~/Library/MobileDevice/Provisioning Profiles/` 匹配应用的描述文件；若自动匹配失败，再通过参数或环境变量覆盖。
-- 如果只想生成本地产物，可加上 `--skip-upload`；已编译好的 `.app` 也可以配合 `--skip-build` 复用。打包结果默认输出到 `./artifacts/`。
-- 如果只想本地打包、不想自动提交当前改动和推送 tag，可加上 `--skip-release-sync`。这个开关会跳过 release 用的 git commit/tag/push，只保留本地构建和上传逻辑。
+- 底层实现仍由 `scripts/mas-release.sh` 与 `scripts/submit-review.sh` 承担；优先从 `release-mas.sh` 进入，不要在日常发布时直接混用底层脚本。
 
 ## 九、GitHub Release / Windows 发布
 
@@ -419,14 +429,14 @@ git diff --check
   - [Cargo.toml](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src-tauri/Cargo.toml)
 - 版本不一致时，workflow 会直接失败，不再继续打包错误版本的 Windows 安装包。
 - 推荐发版顺序：
-  1. 如果要发完整 macOS 版本，运行 `./scripts/mas-release.sh --ver X.Y.Z`
+  1. 如果要发本地 MAS 版本，运行 `./scripts/release-mas.sh --ver X.Y.Z`
   2. 如果只想发 GitHub 版本，运行 `npm run release:github -- --ver X.Y.Z`
   3. 等脚本完成版本提交、打 tag、push、创建 GitHub Release，并触发 GitHub Actions
-- `release:github` / `trigger-github-builds.sh` 现在是 GitHub-only 发版命令：
+- `release:github` / `release-github.sh` 现在是 GitHub-only 发版命令：
   - `npm run release:github`
   - `npm run release:github -- --ver X.Y.Z`
   - `npm run release:github -- --tag vX.Y.Z`
-  - 或 `bash ./scripts/trigger-github-builds.sh --ver X.Y.Z`
+  - 或 `bash ./scripts/release-github.sh --ver X.Y.Z`
 - 如果只想重跑单个平台：
   - `npm run release:mac -- --tag vX.Y.Z`
   - `npm run release:win -- --tag vX.Y.Z`
@@ -453,7 +463,7 @@ git diff --check
   - `x86_64`
   - `arm64`
 - 这两个 DMG 会上传到当前 GitHub Release。
-- Apple Connect 上传不走这个 workflow，仍然由本地 `scripts/mas-release.sh` 的 `mas` 渠道负责，且上传的是 `universal` 包。
+- Apple Connect 上传不走这个 workflow，仍然由本地 `scripts/release-mas.sh` 负责，且上传的是 `universal` 包。
 
 ### 1. 需要配置的 GitHub Secrets
 
@@ -484,8 +494,8 @@ git diff --check
 
 ### 3. workflow 行为
 
-- `macos-13` runner 构建 `x86_64-apple-darwin`
-- `macos-14` runner 构建 `aarch64-apple-darwin`
-- workflow 会导入 Developer ID 证书、写入临时 `.p8` 文件，然后复用 [mas-release.sh](/Users/leeo/Code/github/public/mark2s/mark2-tauri/scripts/mas-release.sh) 的 `dmg` 渠道做签名、公证、staple。
-- CI 中会使用 `--skip-release-sync` 和 `--skip-github-upload`
-  因为 release tag 已经存在，CI 只负责基于该 tag 构建并把 DMG 作为 release asset 上传。
+- `macos-14` runner 分别构建：
+  - `x86_64-apple-darwin`
+  - `aarch64-apple-darwin`
+- workflow 会导入 Developer ID 证书、写入临时 `.p8` 文件，然后调用 `.github/scripts/build-macos-dmg-ci.sh` 做签名、公证、staple。
+- release tag 已经存在时，CI 只负责基于该 tag 构建并把 DMG 作为 release asset 上传。

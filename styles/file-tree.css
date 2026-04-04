@@ -216,8 +216,11 @@
     line-height: 1;
 }
 
-.pin-folder-btn {
-    font-size: 14px;
+.move-up-btn,
+.move-down-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .tree-folder-header.root:hover .root-folder-action-btn {
@@ -229,7 +232,9 @@
 }
 
 .close-folder-btn {
-    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* 文件夹项 - 参考 mark2 electron 版本 */

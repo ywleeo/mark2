@@ -293,6 +293,13 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .item(&edit_menu)
         .build()?;
 
+    // Windows 上不设置菜单（使用前端自定义标题栏菜单），accelerators 仍会生效
+    #[cfg(target_os = "windows")]
+    {
+        // 不调用 set_menu，菜单栏就不会显示
+    }
+
+    #[cfg(not(target_os = "windows"))]
     app.set_menu(menu_bar)?;
 
     app.on_menu_event(|app, event| {
