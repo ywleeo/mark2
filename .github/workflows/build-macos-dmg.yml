@@ -117,3 +117,24 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: |
             artifacts/${{ matrix.arch_label }}/*.dmg
+
+      - name: Sync DMG to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          TAG=${{ steps.tag.outputs.tag }}
+          ARCH=${{ matrix.arch_label }}
+          DMG=$(ls artifacts/$ARCH/*.dmg | head -1)
+          FILENAME=$(basename $DMG)
+          ENDPOINT=https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET=${{ secrets.R2_BUCKET_NAME }}
+
+          # 上传到版本目录
+          aws s3 cp $DMG s3://$BUCKET/mark2/$TAG/$FILENAME \
+            --endpoint-url $ENDPOINT
+
+          # 上传到 latest 目录，重命名
+          aws s3 cp $DMG s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.dmg \
+            --endpoint-url $ENDPOINT
