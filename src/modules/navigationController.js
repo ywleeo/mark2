@@ -333,6 +333,13 @@ export function createNavigationController({
         const canonicalOpenFilePaths = getCanonicalOpenFilePaths(fileTree, Array.isArray(openFilePaths) ? openFilePaths : []);
         const canonicalCurrentFile = normalizeComparablePath(fileTree, fileTree?.currentFile || null) || null;
         tabManager?.syncFileTabs(canonicalOpenFilePaths, canonicalCurrentFile);
+
+        // 同步 sidebar 选中状态（syncFileTabs 已设置 activeTabId，这里需要同步 sidebar）
+        const activeTab = tabManager?.getAllTabs().find(t => t.id === tabManager.activeTabId);
+        if (activeTab?.path) {
+            fileTree?.selectFile?.(activeTab.path, { autoFocus: false, silent: true });
+        }
+
         persistWorkspaceState({ openFiles: canonicalOpenFilePaths });
         logger?.info?.('handleOpenFilesChange', {
             openFiles: canonicalOpenFilePaths,

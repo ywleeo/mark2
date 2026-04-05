@@ -399,12 +399,13 @@ export class FileTree {
 
         const shouldManageFocus = !autoFocus && !preserveFocus;
 
-        const fileItem = this.container.querySelector(`.tree-file[data-path="${normalized}"]`)
-            || this.container.querySelector(`.tree-file[data-path="${path}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免中文路径的 Unicode 编码问题
+        const fileItem = Array.from(this.container.querySelectorAll('.tree-file'))
+            .find(el => el.dataset.path === normalized);
         if (fileItem) fileItem.classList.add('selected');
 
-        const openFileItem = this.container.querySelector(`.open-file-item[data-path="${normalized}"]`)
-            || this.container.querySelector(`.open-file-item[data-path="${path}"]`);
+        const openFileItem = Array.from(this.container.querySelectorAll('.open-file-item'))
+            .find(el => el.dataset.path === normalized);
         if (openFileItem) openFileItem.classList.add('selected');
 
         this.currentFile = normalized;
