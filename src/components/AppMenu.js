@@ -30,8 +30,7 @@ export class AppMenu {
                 label: '文件',
                 submenu: [
                     { id: 'new', label: '新建文件', shortcut: 'Ctrl+N', command: COMMAND_IDS.DOCUMENT_NEW_FILE },
-                    { id: 'open', label: '打开...', shortcut: 'Ctrl+O', command: COMMAND_IDS.APP_OPEN },
-                    { id: 'open-file', label: '打开文件...', shortcut: 'Ctrl+Shift+O', command: COMMAND_IDS.APP_OPEN_FILE },
+                    { id: 'open-file', label: '打开文件...', shortcut: 'Ctrl+O', command: COMMAND_IDS.APP_OPEN_FILE },
                     { id: 'open-folder', label: '打开文件夹...', command: COMMAND_IDS.APP_OPEN_FOLDER },
                     { id: 'sep1', separator: true },
                     { id: 'save', label: '保存', shortcut: 'Ctrl+S', command: COMMAND_IDS.DOCUMENT_SAVE },
