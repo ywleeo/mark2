@@ -75,9 +75,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.23</string>
+	<string>1.6.24</string>
 	<key>CFBundleVersion</key>
-	<string>1.6.23</string>
+	<string>1.6.24</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
