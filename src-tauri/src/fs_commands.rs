@@ -293,18 +293,23 @@ fn reveal_in_file_manager_impl(path: &str) -> Result<(), String> {
     let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
     let windows_path = path.replace('/', "\\");
 
-    let mut command = Command::new("explorer.exe");
     if metadata.is_dir() {
-        command.arg(&windows_path);
+        Command::new("explorer.exe")
+            .arg(&windows_path)
+            .status()
+            .map_err(|e| e.to_string())?;
     } else {
-        command.arg(format!(r#"/select,"{}""#, windows_path));
+        // 使用 PowerShell 来执行，这样可以更好地处理包含空格和特殊字符的路径
+        let ps_command = format!(
+            "Start-Process explorer.exe -ArgumentList '/select,\"{}\"'",
+            windows_path
+        );
+        Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps_command])
+            .status()
+            .map_err(|e| e.to_string())?;
     }
 
-    let _status = command
-        .status()
-        .map_err(|e| e.to_string())?;
-
-    // explorer 返回 1 也算成功（正常行为）
     Ok(())
 }
 
