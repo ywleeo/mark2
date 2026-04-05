@@ -119,6 +119,7 @@ jobs:
             artifacts/${{ matrix.arch_label }}/*.dmg
 
       - name: Sync DMG to R2
+        shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -138,3 +139,15 @@ jobs:
           # 上传到 latest 目录，重命名
           aws s3 cp $DMG s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.dmg \
             --endpoint-url $ENDPOINT
+
+      - name: Purge Cloudflare Cache for latest
+        shell: bash
+        run: |
+          curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "files": [
+                "https://static.mark2app.com/mark2/latest/Mark2_${{ matrix.arch_label }}_latest.dmg"
+              ]
+            }'
