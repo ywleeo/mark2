@@ -142,6 +142,11 @@ fn register_plain_paste_shortcut(app_handle: &AppHandle) {
     }
 }
 
+#[tauri::command]
+fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
+    app.clipboard().read_text().map_err(|e| e.to_string())
+}
+
 fn main() {
     std::env::set_var("TOKIO_WORKER_THREADS", "4");
 
@@ -200,6 +205,7 @@ fn main() {
             ai_proxy::ai_proxy_json_request,
             ai_proxy::ai_proxy_start_stream,
             ai_proxy::ai_proxy_cancel_stream,
+            read_clipboard_text,
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {

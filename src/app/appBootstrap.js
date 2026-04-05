@@ -433,6 +433,66 @@ export function createAppBootstrap({
                 },
                 onUndo: handleUndoCommand,
                 onRedo: handleRedoCommand,
+                onSelectAll: () => editorRegistry.getMarkdownEditor()?.selectAll?.(),
+                onCut: async () => {
+                    const viewMode = appState.getActiveViewMode();
+                    let editor = null;
+                    if (viewMode === 'markdown') {
+                        editor = editorRegistry.getMarkdownEditor();
+                    } else if (viewMode === 'code') {
+                        editor = editorRegistry.getCodeEditor();
+                    }
+                    if (editor) {
+                        const text = editor.getSelectionText?.() || editor.getSelectedMarkdown?.() || '';
+                        if (text) {
+                            await navigator.clipboard.writeText(text);
+                            if (viewMode === 'markdown' && editor.editor) {
+                                editor.editor.chain().focus().deleteSelection().run();
+                            } else if (viewMode === 'code' && editor.replaceSelectionWithText) {
+                                editor.replaceSelectionWithText('');
+                            }
+                        }
+                        return;
+                    }
+                    document.execCommand('cut');
+                },
+                onCopy: async () => {
+                    const viewMode = appState.getActiveViewMode();
+                    let editor = null;
+                    if (viewMode === 'markdown') {
+                        editor = editorRegistry.getMarkdownEditor();
+                    } else if (viewMode === 'code') {
+                        editor = editorRegistry.getCodeEditor();
+                    }
+                    if (editor) {
+                        const text = editor.getSelectionText?.() || editor.getSelectedMarkdown?.() || '';
+                        if (text) {
+                            await navigator.clipboard.writeText(text);
+                            return;
+                        }
+                    }
+                    document.execCommand('copy');
+                },
+                onPaste: async () => {
+                    const viewMode = appState.getActiveViewMode();
+                    let editor = null;
+                    if (viewMode === 'markdown') {
+                        editor = editorRegistry.getMarkdownEditor();
+                    } else if (viewMode === 'code') {
+                        editor = editorRegistry.getCodeEditor();
+                    }
+                    if (editor && typeof editor.insertTextAtCursor === 'function') {
+                        try {
+                            const { readClipboardText } = await import('../api/clipboard.js');
+                            const text = await readClipboardText();
+                            if (text) {
+                                editor.insertTextAtCursor(text);
+                                return;
+                            }
+                        } catch {}
+                    }
+                    document.execCommand('paste');
+                },
                 onOpen: openFileOrFolder,
                 onOpenFile: openFileOnly,
                 onOpenFolder: openFolderOnly,

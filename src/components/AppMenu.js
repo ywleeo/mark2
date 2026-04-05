@@ -5,14 +5,6 @@
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 
-/** 浏览器原生编辑操作（不走命令系统，直接 execCommand） */
-const NATIVE_EDIT_ACTIONS = {
-    'native.cut': () => document.execCommand('cut'),
-    'native.copy': () => document.execCommand('copy'),
-    'native.paste': () => document.execCommand('paste'),
-    'native.selectAll': () => document.execCommand('selectAll'),
-};
-
 export class AppMenu {
     constructor(options = {}) {
         this.executeCommand = options.executeCommand;
@@ -50,10 +42,10 @@ export class AppMenu {
                     { id: 'undo', label: '撤销', shortcut: 'Ctrl+Z', command: COMMAND_IDS.EDITOR_UNDO },
                     { id: 'redo', label: '重做', shortcut: 'Ctrl+Shift+Z', command: COMMAND_IDS.EDITOR_REDO },
                     { id: 'sep1', separator: true },
-                    { id: 'cut', label: '剪切', shortcut: 'Ctrl+X', command: 'native.cut' },
-                    { id: 'copy', label: '复制', shortcut: 'Ctrl+C', command: 'native.copy' },
-                    { id: 'paste', label: '粘贴', shortcut: 'Ctrl+V', command: 'native.paste' },
-                    { id: 'select-all', label: '全选', shortcut: 'Ctrl+A', command: 'native.selectAll' },
+                    { id: 'cut', label: '剪切', shortcut: 'Ctrl+X', command: COMMAND_IDS.EDITOR_CUT },
+                    { id: 'copy', label: '复制', shortcut: 'Ctrl+C', command: COMMAND_IDS.EDITOR_COPY },
+                    { id: 'paste', label: '粘贴', shortcut: 'Ctrl+V', command: COMMAND_IDS.EDITOR_PASTE },
+                    { id: 'select-all', label: '全选', shortcut: 'Ctrl+A', command: COMMAND_IDS.EDITOR_SELECT_ALL },
                     { id: 'sep2', separator: true },
                     { id: 'settings', label: '设置', shortcut: 'Ctrl+,', command: COMMAND_IDS.APP_SETTINGS },
                 ]
@@ -129,17 +121,6 @@ export class AppMenu {
         this.element.innerHTML = html;
     }
 
-    _executeMenuCommand(command) {
-        const nativeAction = NATIVE_EDIT_ACTIONS[command];
-        if (nativeAction) {
-            nativeAction();
-            return;
-        }
-        if (this.executeCommand) {
-            this.executeCommand(command, {}, { source: 'menu' });
-        }
-    }
-
     _setupEventListeners() {
         const menuBtn = document.getElementById('titlebar-menu');
         if (menuBtn) {
@@ -160,9 +141,9 @@ export class AppMenu {
             if (!item || item.querySelector('.app-menu__submenu')) return;
 
             const command = item.dataset.command;
-            if (command) {
+            if (command && this.executeCommand) {
                 try {
-                    this._executeMenuCommand(command);
+                    this.executeCommand(command, {}, { source: 'menu' });
                 } catch (err) {
                     console.warn('菜单命令执行失败:', command, err);
                 }
