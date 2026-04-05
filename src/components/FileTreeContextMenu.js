@@ -1,6 +1,7 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { isFeatureEnabled } from '../config/features.js';
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
+import { isWindows, isMac } from '../utils/platform.js';
 
 export class FileTreeContextMenu {
     constructor(options = {}) {
@@ -183,13 +184,8 @@ export class FileTreeContextMenu {
      * 返回当前平台对应的“在文件管理器中显示”菜单文案。
      */
     getRevealMenuLabel() {
-        const userAgent = typeof navigator?.userAgent === 'string' ? navigator.userAgent : '';
-        if (/Windows/i.test(userAgent)) {
-            return 'Show in Explorer';
-        }
-        if (/Mac/i.test(userAgent)) {
-            return 'Find in Finder';
-        }
+        if (isWindows) return 'Show in Explorer';
+        if (isMac) return 'Find in Finder';
         return 'Reveal in File Manager';
     }
 

@@ -4,6 +4,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
+import { isWindows } from '../utils/platform.js';
 
 /**
  * 更新最大化按钮状态（根据当前窗口状态显示最大化或还原图标）
@@ -49,7 +50,7 @@ export function setupTitlebarControls() {
     }
 
     // Windows 专属：监听窗口大小变化，同步最大化按钮图标
-    if (navigator.userAgent.includes('Windows')) {
+    if (isWindows) {
         appWindow.onResized(() => updateMaximizeButtonState());
         updateMaximizeButtonState();
     }

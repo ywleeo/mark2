@@ -18,7 +18,8 @@ import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../uti
 import { normalizeFsPath } from '../utils/pathUtils.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
-import { registerCoreCommands, registerDefaultKeybindings } from './commandSetup.js';
+import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
+import { isWindows } from '../utils/platform.js';
 import { registerCoreFeatures } from './featureSetup.js';
 import { registerCoreExports, EXPORT_IDS } from './exportSetup.js';
 import { loadAndRegisterModules } from './moduleLoader.js';
@@ -547,6 +548,9 @@ export function createAppBootstrap({
         appState.setCleanupFunction('keybindingManager', registerDefaultKeybindings({
             keybindingManager,
         }));
+        appState.setCleanupFunction('windowsKeybindings', registerWindowsKeybindings({
+            keybindingManager,
+        }));
 
         appState.setCleanupFunction('keyboardShortcut', keybindingManager.attach({
             target: document,
@@ -558,7 +562,7 @@ export function createAppBootstrap({
         }));
 
         // Windows 自定义标题栏菜单（macOS 使用原生菜单栏）
-        if (navigator.userAgent.includes('Windows')) {
+        if (isWindows) {
             const appMenu = new AppMenu({
                 executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
             });

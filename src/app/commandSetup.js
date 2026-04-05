@@ -4,6 +4,7 @@
  */
 
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
+import { isWindows } from '../utils/platform.js';
 
 /**
  * 注册当前应用的核心命令。
@@ -118,6 +119,9 @@ export function registerDefaultKeybindings(options = {}) {
     register(COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete');
     register(COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace');
     register(COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, 'Mod+Shift+Space');
+    // F2 重命名和 Mod+B 侧边栏切换在所有平台通用（macOS 原生菜单未注册这两个快捷键）
+    register(COMMAND_IDS.DOCUMENT_RENAME, 'F2');
+    register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+B');
 
     return () => {
         while (disposers.length > 0) {
@@ -126,6 +130,41 @@ export function registerDefaultKeybindings(options = {}) {
                 dispose?.();
             } catch (error) {
                 console.warn('移除快捷键绑定失败', error);
+            }
+        }
+    };
+}
+
+/**
+ * 注册 Windows 平台专有快捷键。
+ * macOS 上这些快捷键由 Rust 原生菜单 accelerator 处理，
+ * Windows 因隐藏原生菜单栏需在前端补齐。
+ */
+export function registerWindowsKeybindings(options = {}) {
+    const { keybindingManager } = options;
+    if (!keybindingManager || typeof keybindingManager.registerBinding !== 'function') {
+        return () => {};
+    }
+
+    if (!isWindows) return () => {};
+
+    const disposers = [];
+    const register = (commandId, shortcut) => {
+        disposers.push(keybindingManager.registerBinding({ commandId, shortcut }));
+    };
+
+    register(COMMAND_IDS.DOCUMENT_NEW_FILE, 'Mod+N');
+    register(COMMAND_IDS.APP_SETTINGS, 'Mod+,');
+    register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, 'Mod+`');
+    register(COMMAND_IDS.FEATURE_AI_TOGGLE, 'Mod+Shift+K');
+
+    return () => {
+        while (disposers.length > 0) {
+            const dispose = disposers.pop();
+            try {
+                dispose?.();
+            } catch (error) {
+                console.warn('移除 Windows 快捷键绑定失败', error);
             }
         }
     };

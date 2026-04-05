@@ -48,8 +48,11 @@ export class FileRenamer {
             this.cancel();
         }
 
-        const treeItem = this.container?.querySelector(`.tree-file[data-path="${normalized}"]`);
-        const openFileItem = this.container?.querySelector(`.open-file-item[data-path="${normalized}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免中文路径的 Unicode 编码问题
+        const treeItem = Array.from(this.container?.querySelectorAll('.tree-file') || [])
+            .find(el => el.dataset.path === normalized) || null;
+        const openFileItem = Array.from(this.container?.querySelectorAll('.open-file-item') || [])
+            .find(el => el.dataset.path === normalized) || null;
         // 优先使用 openFileItem，因为用户更可能从打开文件列表触发重命名
         const item = openFileItem || treeItem;
         if (!item) {
@@ -242,8 +245,11 @@ export class FileRenamer {
         }
 
         setTimeout(() => {
-            const renamedItem = this.container?.querySelector(`.tree-file[data-path="${normalizedDestination}"]`)
-                || this.container?.querySelector(`.open-file-item[data-path="${normalizedDestination}"]`);
+            // 用遍历 + 严格相等替代 CSS 属性选择器，避免中文路径的 Unicode 编码问题
+            const renamedItem = Array.from(this.container?.querySelectorAll('.tree-file') || [])
+                .find(el => el.dataset.path === normalizedDestination)
+                || Array.from(this.container?.querySelectorAll('.open-file-item') || [])
+                    .find(el => el.dataset.path === normalizedDestination);
             if (renamedItem) {
                 try {
                     renamedItem.focus();

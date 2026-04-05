@@ -134,7 +134,67 @@ button.addEventListener('click', saveCurrentFile);
 register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, 'Mod+T');
 ```
 
-## 3. 新增功能模块
+## 3. Windows 平台开发规范
+
+Mark2 同时支持 macOS 和 Windows。两个平台在标题栏、菜单系统、快捷键来源上有本质差异，开发时必须遵守以下隔离规则。
+
+### 3.1 架构差异概览
+
+| 能力 | macOS | Windows |
+|---|---|---|
+| 标题栏 | 系统原生（Overlay 模式） | 前端自定义（`decorations: false`） |
+| 菜单栏 | Rust 原生菜单（`set_menu`） | 前端 `AppMenu` 组件 |
+| 快捷键来源 | 原生菜单 accelerator + JS 补充 | 全部由 JS `KeybindingManager` 注册 |
+| 窗口控件 | 系统提供 | 前端按钮（最小化/最大化/关闭） |
+
+### 3.2 平台检测
+
+**统一使用 `src/utils/platform.js` 导出的常量**，不要自己写 `navigator.userAgent` 判断：
+
+```javascript
+import { isWindows, isMac } from '../utils/platform.js';
+
+if (isWindows) {
+    // Windows 专有逻辑
+}
+```
+
+唯一的例外是 `index.html` 里的早期 CSS class 设置（在 JS 模块加载之前执行）。
+
+### 3.3 各层的隔离方式
+
+**Rust 后端**：用条件编��� `#[cfg(target_os)]`，已有良好隔离。
+
+**CSS**：用 `.windows-only` class 控制元素显隐，用 `:root.platform-windows` 选择器覆盖样式。
+
+**JS 前端**：按以下原则隔离——
+
+| 场景 | 做法 | 不要这样做 |
+|---|---|---|
+| Windows 专有组件 | 独立文件（如 `AppMenu.js`），在 bootstrap 里用 `if (isWindows)` 条件初始化 | 把 Windows 逻辑塞进跨平台组件 |
+| Windows 专有快捷键 | 注册到 `registerWindowsKeybindings()` | 塞进 `registerDefaultKeybindings()` 加 if 判断 |
+| 跨平台通用快捷键 | 注册到 `registerDefaultKeybindings()` | — |
+| 平台相关的文案差异 | 在组件内用 `isWindows` / `isMac` 分支返回 | 自己写 `navigator.userAgent` 检测 |
+
+### 3.4 新增 Windows 功能的标准流程
+
+1. **判断是否 Windows 专有**。如果逻辑只在 Windows 上运行，独立为单独的文件或函数
+2. **平台检测只用 `platform.js`**。`import { isWindows } from '../utils/platform.js'`
+3. **快捷键走 `registerWindowsKeybindings()`**。macOS 上这些快捷键已由 Rust 原生菜单 accelerator 处理，JS 端重复注册会双重触发
+4. **CSS 元素用 `.windows-only` class**。不需要 JS 控制显隐
+5. **不要污染 macOS 代码路径**。新增 Windows 功能后，确认 macOS 上无副作用
+
+### 3.5 当前 Windows 专有文件清单
+
+| 文件 | 用途 |
+|---|---|
+| `src/components/AppMenu.js` | 前端下拉菜单（替代隐藏的原生菜单栏） |
+| `src/components/EditorContextMenu.js` | 编辑器右键菜单 |
+| `src/app/windowControls.js` 中的 `onResized` 监听 | 最大化按钮图标同步 |
+| `commandSetup.js` 中的 `registerWindowsKeybindings()` | Windows 专有快捷键 |
+| `src-tauri/src/menu.rs` 中的 `#[cfg(target_os = "windows")]` | 隐藏原生菜单栏 |
+
+## 4. 新增功能模块
 
 适用场景：
 
@@ -164,7 +224,7 @@ register({
 });
 ```
 
-## 4. 新增导出能力
+## 5. 新增导出能力
 
 标准流程：
 
@@ -182,7 +242,7 @@ register(
 );
 ```
 
-## 5. 新增文件类型 / 视图
+## 6. 新增文件类型 / 视图
 
 标准流程：
 
@@ -214,7 +274,7 @@ export function createXxxRenderer() {
 
 不要再在多个业务文件里复制文件类型判断。
 
-## 6. 新增视图模式切换能力
+## 7. 新增视图模式切换能力
 
 适用场景：
 
@@ -236,7 +296,7 @@ const mode = createXxxMode({
 });
 ```
 
-## 7. 新增工作区级能力
+## 8. 新增工作区级能力
 
 适用场景：
 
@@ -247,7 +307,7 @@ const mode = createXxxMode({
 
 这类能力优先挂到 `WorkspaceManager` 或围绕它的 controller，不要把持久化逻辑塞回某个 UI 组件。
 
-## 8. 新增文档生命周期能力
+## 9. 新增文档生命周期能力
 
 适用场景：
 

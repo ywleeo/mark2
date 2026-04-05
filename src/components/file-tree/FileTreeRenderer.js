@@ -175,10 +175,10 @@ export class FileTreeRenderer {
         item.innerHTML = getFileIconSvg(path, { className: 'tree-file-icon', size: 16 });
         item.appendChild(createCompactFileNameElement('tree-item-name', name));
 
-        // 键盘：回车触发重命名
+        // 键盘：回车和 F2 触发重命名
         const onKeyDown = (e) => {
             if (this.fileTree.isRenaming()) return;
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' || e.key === 'F2') {
                 e.preventDefault();
                 e.stopPropagation();
                 this.fileTree.startRenaming(path);
