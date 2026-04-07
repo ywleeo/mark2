@@ -1,74 +1,93 @@
-/* About 对话框样式 */
+/* About 对话框样式 — 与 settings 对话框保持统一的视觉风格 */
 
 .about-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: var(--settings-backdrop, rgba(0, 0, 0, 0.35));
     z-index: 10000;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.about-overlay,
+.about-overlay * {
+    -webkit-app-region: no-drag;
 }
 
 .about-dialog {
-    background: white;
-    padding: 32px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 300px;
+    backdrop-filter: blur(12px);
+    background: var(--settings-surface, #ffffffad);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(14, 18, 27, 0.25);
     text-align: center;
-    min-width: 300px;
-    border: 2px solid #d13434d6;
+    padding: 32px 28px 24px;
+    animation: about-fade-in 0.2s ease;
 }
 
-:root[data-theme-appearance='dark'] .about-dialog {
-    background: #1e1e1e;
-    color: #d4d4d4;
+@keyframes about-fade-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.about-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    border-radius: 14px;
 }
 
 .about-app-name {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
-    margin-bottom: 8px;
-    font-style: italic;
-    color: #ff3b30;
-    letter-spacing: 2px;
-}
-
-:root[data-theme-appearance='dark'] .about-app-name {
-    color: #ff3b30;
+    color: var(--settings-surface-contrast, #111827);
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
 }
 
 .about-version {
     font-size: 12px;
-    color: #666;
+    color: var(--settings-muted, #64748b);
+    margin-bottom: 16px;
+}
+
+.about-description {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--settings-muted, #64748b);
     margin-bottom: 20px;
-    font-style: italic;
 }
 
-:root[data-theme-appearance='dark'] .about-version {
-    color: #999;
+.about-links {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
-.about-ok-button {
-    padding: 8px 24px;
-    background: #ff3b30;
-    color: white;
-    border: none;
-    border-radius: 6px;
+.about-link {
+    font-size: 12px;
+    color: var(--settings-primary, #2563eb);
+    text-decoration: none;
     cursor: pointer;
-    font-size: 14px;
-    transition: background 0.2s;
+    transition: opacity 0.15s;
 }
 
-.about-ok-button:hover {
-    background: #d32f2f;
+.about-link:hover {
+    opacity: 0.75;
 }
 
-.about-ok-button:active {
-    background: #b71c1c;
+.about-divider {
+    height: 1px;
+    background: var(--settings-divider, rgba(15, 23, 42, 0.08));
+    margin-bottom: 16px;
+}
+
+.about-copyright {
+    font-size: 11px;
+    color: var(--settings-muted, #64748b);
+    opacity: 0.7;
 }

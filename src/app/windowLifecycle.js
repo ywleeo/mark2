@@ -138,24 +138,44 @@ export function createWindowLifecycle({
         const dialog = document.createElement('div');
         dialog.className = 'about-dialog';
         dialog.innerHTML = `
+            <img class="about-icon" src="/icon.png" alt="Mark2" />
             <div class="about-app-name">Mark2</div>
             <div class="about-version">Version ${version}</div>
-            <button class="about-ok-button">OK</button>
+            <div class="about-description">A minimal Markdown editor built with Tauri.</div>
+            <div class="about-links">
+                <a class="about-link" data-url="https://github.com/ywleeo/mark2">GitHub</a>
+                <a class="about-link" data-url="https://mark2app.com">Website</a>
+            </div>
+            <div class="about-divider"></div>
+            <div class="about-copyright">© ${new Date().getFullYear()} Mark2 Contributors</div>
         `;
 
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
 
-        const closeDialog = () => {
-            document.body.removeChild(overlay);
-        };
+        const closeDialog = () => overlay.remove();
 
-        dialog.querySelector('.about-ok-button').addEventListener('click', closeDialog);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeDialog();
-            }
+        // 点击链接用系统浏览器打开
+        dialog.querySelectorAll('.about-link[data-url]').forEach(link => {
+            link.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const { open } = await import('@tauri-apps/plugin-shell');
+                open(link.dataset.url);
+            });
         });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeDialog();
+        });
+
+        // ESC 关闭
+        const onKeydown = (e) => {
+            if (e.key === 'Escape') {
+                closeDialog();
+                document.removeEventListener('keydown', onKeydown);
+            }
+        };
+        document.addEventListener('keydown', onKeydown);
     }
 
     // ========== 文件打开事件 ==========
