@@ -80,7 +80,6 @@ export class MarkdownToolbarManager {
                 'cardExport',
                 'separator',
                 'centerContent',
-                'toc',
                 'copyMarkdown',
                 'toggleViewMode'
             ]
@@ -567,6 +566,15 @@ export class MarkdownToolbarManager {
      */
     setCardExportCallback(callback) {
         this.onCardExport = callback;
+    }
+
+    /**
+     * 切换目录面板显示
+     */
+    toggleToc() {
+        if (this.toolbar) {
+            this.toolbar.handleToc();
+        }
     }
 
     /**

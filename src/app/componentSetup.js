@@ -5,6 +5,7 @@
 
 import { requireElementById, requireElementWithin } from './domHelpers.js';
 import { createStatusBarController } from '../modules/statusBarController.js';
+import { addClickHandler } from '../utils/PointerHelper.js';
 import { ZOOM_STEP } from './viewController.js';
 
 /**
@@ -65,6 +66,14 @@ export function setupStatusBar({
     });
     updateZoomDisplayForActiveView();
     statusBarController.setPageInfo('');
+
+    // 目录按钮
+    const tocBtn = document.getElementById('statusBarToc');
+    if (tocBtn) {
+        addClickHandler(tocBtn, () => {
+            appState.getMarkdownToolbarManager()?.toggleToc?.();
+        });
+    }
 
     return statusBarController;
 }

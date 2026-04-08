@@ -76,6 +76,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, () => handlers.onToggleTerminal?.(), '切换终端面板');
     register(COMMAND_IDS.FEATURE_AI_TOGGLE, () => handlers.onToggleAiSidebar?.(), '切换 AI 侧边栏');
     register(COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, () => handlers.onToggleScratchpad?.(), '切换便签');
+    register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');
     register(COMMAND_IDS.EXPORT_IMAGE, () => handlers.onExportImage?.(), '导出图片');
     register(COMMAND_IDS.EXPORT_PDF, () => handlers.onExportPdf?.(), '导出 PDF');
     register(COMMAND_IDS.RECENT_OPEN_ENTRY, (payload = {}) => handlers.onRecentItemClick?.(payload.index), '打开最近项目');

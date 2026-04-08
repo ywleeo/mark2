@@ -527,6 +527,7 @@ export function createAppBootstrap({
                 onToggleCsvTableView: toggleCsvTableMode,
                 onOpenCardExport: showCardExportSidebar,
                 onToggleScratchpad: () => featureManager?.getFeatureApi?.('scratchpad')?.toggle?.(),
+                onToggleToc: () => appState.getMarkdownToolbarManager()?.toggleToc?.(),
                 onCreateWorkspaceFile: ({ path }) => appState.getFileTree()?.createFileInFolder?.(path),
                 onCreateWorkspaceFolder: ({ path }) => appState.getFileTree()?.createFolderInFolder?.(path),
                 onRenameWorkspaceEntry: ({ path, targetType }) => appState.getFileTree()?.startRenaming?.(path, { targetType }),

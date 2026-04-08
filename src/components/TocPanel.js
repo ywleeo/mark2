@@ -412,6 +412,9 @@ export class TocPanel {
         this.container.offsetHeight;
         this.container.classList.add('toc-panel--visible');
 
+        // 更新状态栏按钮状态
+        document.getElementById('statusBarToc')?.classList.add('is-active');
+
         // 启动定期更新（每2秒检查一次内容变化）
         this.startAutoUpdate();
     }
@@ -477,6 +480,9 @@ export class TocPanel {
 
         this.isVisible = false;
         this.container.classList.remove('toc-panel--visible');
+
+        // 更新状态栏按钮状态
+        document.getElementById('statusBarToc')?.classList.remove('is-active');
 
         // 停止自动更新
         this.stopAutoUpdate();

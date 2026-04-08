@@ -192,6 +192,5 @@ export const DEFAULT_BUTTONS = [
     'emoji',
     'cardExport',
     'separator',
-    'toc',
     'toggleViewMode'
 ];
