@@ -1,8 +1,7 @@
 let mermaidPromise = null;
 let mermaidInstance = null;
-let initialized = false;
 
-// 内存缓存：code hash -> svg string
+// 内存缓存：code hash -> svg string（包含主题标识）
 const svgCache = new Map();
 
 // 简单 hash 函数
@@ -23,13 +22,57 @@ async function loadMermaid() {
         mermaidPromise = import('mermaid')
             .then(module => {
                 const mermaid = module?.default || module;
-                if (!initialized) {
-                    mermaid.initialize({
-                        startOnLoad: false,
-                        securityLevel: 'strict',
-                    });
-                    initialized = true;
-                }
+                mermaid.initialize({
+                    startOnLoad: false,
+                    securityLevel: 'strict',
+                    theme: 'base',
+                    themeVariables: {
+                        // 基础
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        fontSize: '13px',
+                        background: 'transparent',
+                        // 节点
+                        primaryColor: '#e8f0fe',
+                        primaryTextColor: '#1a1a1a',
+                        primaryBorderColor: '#c4d7f2',
+                        secondaryColor: '#f0e6ff',
+                        secondaryTextColor: '#1a1a1a',
+                        secondaryBorderColor: '#d4c4ef',
+                        tertiaryColor: '#e6f7ed',
+                        tertiaryTextColor: '#1a1a1a',
+                        tertiaryBorderColor: '#b8e0c8',
+                        // 线条
+                        lineColor: '#8899aa',
+                        textColor: '#333',
+                        // 特殊节点
+                        noteBkgColor: '#fff8e6',
+                        noteTextColor: '#5a5a5a',
+                        noteBorderColor: '#e8d9a0',
+                        // 饼图 / 柱状图
+                        pie1: '#5b8ff9', pie2: '#5ad8a6', pie3: '#f6bd16',
+                        pie4: '#e86452', pie5: '#6dc8ec', pie6: '#945fb9',
+                        pie7: '#ff9845', pie8: '#1e9493', pie9: '#ff99c3',
+                        // XY 图表
+                        xyChart: {
+                            titleColor: '#333',
+                            xAxisLabelColor: '#666',
+                            yAxisLabelColor: '#666',
+                            xAxisTitleColor: '#444',
+                            yAxisTitleColor: '#444',
+                            xAxisLineColor: '#ddd',
+                            yAxisLineColor: '#ddd',
+                        },
+                        // 其他
+                        activationBorderColor: '#5b8ff9',
+                        edgeLabelBackground: '#ffffffcc',
+                    },
+                    xyChart: {
+                        width: 800,
+                        height: 450,
+                        chartOrientation: 'vertical',
+                        plotReservedSpacePercent: 60,
+                    },
+                });
                 mermaidInstance = mermaid;
                 return mermaidInstance;
             })
@@ -39,6 +82,337 @@ async function loadMermaid() {
             });
     }
     return mermaidPromise;
+}
+
+/**
+ * 移除 mermaid SVG 内部的背景，使其透明融入页面
+ */
+function stripSvgBackground(svgElement) {
+    // 移除 SVG 自身的背景样式
+    svgElement.style.backgroundColor = 'transparent';
+    // mermaid 常用一个 rect 作为背景（通常是第一个 rect，或 class 含 background）
+    const rects = svgElement.querySelectorAll('rect');
+    for (const rect of rects) {
+        // 只处理全尺寸背景 rect（宽高接近 viewBox 或 100%）
+        const width = rect.getAttribute('width');
+        const height = rect.getAttribute('height');
+        if (width === '100%' || height === '100%' ||
+            (parseFloat(width) > 200 && parseFloat(height) > 100 && !rect.closest('g[class*="node"]'))) {
+            rect.setAttribute('fill', 'transparent');
+            rect.style.fill = 'transparent';
+        }
+    }
+}
+
+/**
+ * 自动稀疏过密的坐标轴刻度标签
+ */
+function thinAxisTicks(svgElement) {
+    // mermaid xychart 的轴结构：.left-axis .label text / .bottom-axis .label text
+    const yTickTexts = Array.from(svgElement.querySelectorAll('.left-axis .label text'));
+    const xTickTexts = Array.from(svgElement.querySelectorAll('.bottom-axis .label text'));
+
+    if (yTickTexts.length > 0 || xTickTexts.length > 0) {
+        // Y 轴：根据文字长度动态决定最大数量
+        const avgLen = yTickTexts.reduce((s, t) => s + (t.textContent?.length || 0), 0) / (yTickTexts.length || 1);
+        const yMax = avgLen > 5 ? 6 : 8;
+        thinTickGroup(yTickTexts, 'y', yMax);
+        thinTickGroup(xTickTexts, 'x', 10);
+        return;
+    }
+
+    // 非 xychart 类型，按坐标推断
+    thinAxisTicksByPosition(svgElement);
+}
+
+function thinTickGroup(texts, axis, maxVisible) {
+    if (texts.length <= maxVisible) return;
+
+    const sorted = [...texts].sort((a, b) => {
+        const attr = axis === 'y' ? 'y' : 'x';
+        return parseFloat(a.getAttribute(attr) || 0) - parseFloat(b.getAttribute(attr) || 0);
+    });
+
+    // 整数步进，保证间距完全一致
+    const step = Math.ceil(sorted.length / maxVisible);
+    const keep = new Set();
+    for (let i = 0; i < sorted.length; i += step) {
+        keep.add(i);
+    }
+
+    for (let i = 0; i < sorted.length; i++) {
+        if (!keep.has(i)) {
+            sorted[i].textContent = '';
+        }
+    }
+
+    // 同时清理对应的 tick 线段
+    const ticksGroup = sorted[0]?.closest('.left-axis, .bottom-axis')?.querySelector('.ticks');
+    if (ticksGroup) {
+        const tickLines = Array.from(ticksGroup.querySelectorAll('line'));
+        if (tickLines.length === sorted.length) {
+            for (let i = 0; i < tickLines.length; i++) {
+                if (!keep.has(i)) {
+                    tickLines[i].setAttribute('visibility', 'hidden');
+                }
+            }
+        }
+    }
+}
+
+function thinAxisTicksByPosition(svgElement) {
+    const allTexts = Array.from(svgElement.querySelectorAll('text'));
+    if (allTexts.length < 8) return;
+
+    // 按 x 坐标分组找 Y 轴标签（同一 x 上的多个 text）
+    const xGroups = new Map();
+    for (const t of allTexts) {
+        const x = Math.round(parseFloat(t.getAttribute('x') || 0));
+        if (!xGroups.has(x)) xGroups.set(x, []);
+        xGroups.get(x).push(t);
+    }
+
+    for (const [, texts] of xGroups) {
+        if (texts.length > 10) {
+            thinTickGroup(texts, 'y', 8);
+        }
+    }
+
+    // 按 y 坐标分组找 X 轴标签
+    const yGroups = new Map();
+    for (const t of allTexts) {
+        const y = Math.round(parseFloat(t.getAttribute('y') || 0));
+        if (!yGroups.has(y)) yGroups.set(y, []);
+        yGroups.get(y).push(t);
+    }
+
+    for (const [, texts] of yGroups) {
+        if (texts.length > 12) {
+            thinTickGroup(texts, 'x', 10);
+        }
+    }
+}
+
+/**
+ * 优化 xychart 的柱子宽度和折线平滑度
+ */
+function polishXYChart(svgElement, mermaidCode) {
+    const hasXY = svgElement.querySelector('[class*="bar-plot"], [class*="line-plot"]');
+    if (!hasXY) return svgElement;
+
+    // 克隆 SVG 去除 mermaid 绑定的事件监听
+    const clone = svgElement.cloneNode(true);
+    svgElement.parentNode.replaceChild(clone, svgElement);
+    const svg = clone;
+
+    // 获取绘图区域边界（从 plot group 推断）
+    const plotGroup = svg.querySelector('g.plot');
+    const plotRect = plotGroup ? plotGroup.getBBox() : null;
+    const chartTop = plotRect ? plotRect.y : 0;
+    const chartBottom = plotRect ? plotRect.y + plotRect.height : 500;
+
+    // ── 收集每列数据 ──
+    const columns = []; // [{centerX, barOrigX, barOrigW, bar, barFill, dots:[{dot, stroke}]}]
+
+    // 柱子
+    const bars = svg.querySelectorAll('[class*="bar-plot"] rect');
+    for (const bar of bars) {
+        const origW = parseFloat(bar.getAttribute('width'));
+        const origX = parseFloat(bar.getAttribute('x'));
+        if (!(origW > 0)) continue;
+        // 变窄 + 圆角
+        const newW = origW * 0.6;
+        bar.setAttribute('width', newW);
+        bar.setAttribute('x', origX + (origW - newW) / 2);
+        bar.setAttribute('rx', '4');
+        bar.setAttribute('ry', '4');
+        bar.style.opacity = '0.85';
+
+        const centerX = origX + origW / 2;
+        const origFill = bar.getAttribute('fill') || bar.style.fill;
+        columns.push({ centerX, bar, barFill: origFill, dots: [] });
+    }
+
+    // 折线平滑 + 数据点
+    const linePlots = svg.querySelectorAll('[class*="line-plot"]');
+    for (const plot of linePlots) {
+        const path = plot.querySelector('path');
+        if (!path) continue;
+        const d = path.getAttribute('d');
+        if (!d) continue;
+
+        const points = extractPoints(d);
+
+        // 将折线点的 x 对齐到 bar 的 centerX，再平滑
+        const alignedPoints = points.map(([cx, cy], idx) => {
+            if (idx < columns.length) return [columns[idx].centerX, cy];
+            // 超出列数的点，找最近的列
+            let closest = cx, minDist = Infinity;
+            for (const col of columns) {
+                const dist = Math.abs(col.centerX - cx);
+                if (dist < minDist) { minDist = dist; closest = col.centerX; }
+            }
+            return [closest, cy];
+        });
+
+        // 用对齐后的坐标重建 path 再平滑
+        const alignedD = 'M' + alignedPoints.map(p => p.join(',')).join(' L');
+        const smoothed = smoothLinePath(alignedD);
+        if (smoothed) path.setAttribute('d', smoothed);
+
+        const stroke = path.getAttribute('stroke') || path.style.stroke || '#4a90d9';
+        for (let pi = 0; pi < alignedPoints.length; pi++) {
+            const [cx, cy] = alignedPoints[pi];
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('cx', cx);
+            dot.setAttribute('cy', cy);
+            dot.setAttribute('r', '4');
+            dot.setAttribute('fill', 'white');
+            dot.setAttribute('stroke', stroke);
+            dot.setAttribute('stroke-width', '2');
+            dot.style.transition = 'all 0.15s ease';
+            plot.appendChild(dot);
+
+            if (pi < columns.length) {
+                columns[pi].dots.push({ dot, stroke });
+            }
+        }
+    }
+
+    // 如果没有 bar 但有折线点，按点的 x 创建列
+    if (columns.length === 0) {
+        const allDots = svg.querySelectorAll('.xychart-dot');
+        // fallback: 不做列 hover
+        return;
+    }
+
+    // ── 解析数据值用于 tooltip ──
+    const barValues = parseChartValues(mermaidCode, 'bar');
+    const lineValues = parseChartValues(mermaidCode, 'line');
+    const xLabels = parseXLabels(mermaidCode);
+    // ── 创建透明竖条热区，覆盖整列 ──
+    const hitGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    hitGroup.setAttribute('class', 'xychart-hit-zones');
+    svg.appendChild(hitGroup);
+
+    for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const bar = col.bar;
+        const barX = parseFloat(bar.getAttribute('x'));
+        const barW = parseFloat(bar.getAttribute('width'));
+        const hitX = col.centerX - barW;
+        const hitW = barW * 2;
+
+        const hitRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        hitRect.setAttribute('x', hitX);
+        hitRect.setAttribute('y', chartTop);
+        hitRect.setAttribute('width', hitW);
+        hitRect.setAttribute('height', chartBottom - chartTop);
+        hitRect.setAttribute('fill', 'transparent');
+        hitRect.style.cursor = 'pointer';
+        hitGroup.appendChild(hitRect);
+
+        // tooltip 只显示 bar 值（优先）或 line 值
+        const tipText = barValues[i] !== undefined ? formatNumber(barValues[i])
+            : lineValues[i] !== undefined ? formatNumber(lineValues[i]) : '';
+
+        hitRect.addEventListener('mouseenter', (e) => {
+            for (const { dot } of col.dots) {
+                dot.setAttribute('r', '6.5');
+                dot.setAttribute('fill', '#f59e0b');
+                dot.setAttribute('stroke', '#f59e0b');
+                dot.setAttribute('stroke-width', '2.5');
+            }
+            if (tipText) showTooltip(tipText, e);
+        });
+        hitRect.addEventListener('mousemove', (e) => {
+            if (tipText) showTooltip(tipText, e);
+        });
+        hitRect.addEventListener('mouseleave', () => {
+            for (const { dot, stroke } of col.dots) {
+                dot.setAttribute('r', '4');
+                dot.setAttribute('fill', 'white');
+                dot.setAttribute('stroke', stroke);
+                dot.setAttribute('stroke-width', '2');
+            }
+            hideTooltip();
+        });
+    }
+
+    return svg;
+}
+
+/** 从 SVG path d 属性提取坐标点 */
+function extractPoints(d) {
+    const points = [];
+    const parts = d.replace(/([ML])/g, '\n$1').split('\n').filter(Boolean);
+    for (const part of parts) {
+        const cmd = part[0];
+        const coords = part.slice(1).trim().split(/[\s,]+/).map(Number);
+        if ((cmd === 'M' || cmd === 'L') && coords.length >= 2) {
+            points.push([coords[0], coords[1]]);
+        }
+    }
+    return points;
+}
+
+/**
+ * 单调三次样条（Fritsch-Carlson）—— 保证曲线不超调
+ */
+function smoothLinePath(d) {
+    const pts = extractPoints(d);
+    const n = pts.length;
+    if (n < 3) return null;
+
+    // 计算每段的斜率 delta 和切线 m
+    const dx = [], dy = [], delta = [];
+    for (let i = 0; i < n - 1; i++) {
+        dx[i] = pts[i + 1][0] - pts[i][0];
+        dy[i] = pts[i + 1][1] - pts[i][1];
+        delta[i] = dx[i] === 0 ? 0 : dy[i] / dx[i];
+    }
+
+    // 初始切线：三点中心差分
+    const m = new Array(n);
+    m[0] = delta[0];
+    m[n - 1] = delta[n - 2];
+    for (let i = 1; i < n - 1; i++) {
+        if (delta[i - 1] * delta[i] <= 0) {
+            m[i] = 0; // 单调性改变，切线为 0
+        } else {
+            m[i] = (delta[i - 1] + delta[i]) / 2;
+        }
+    }
+
+    // Fritsch-Carlson 修正：保证单调性
+    for (let i = 0; i < n - 1; i++) {
+        if (Math.abs(delta[i]) < 1e-12) {
+            m[i] = 0;
+            m[i + 1] = 0;
+        } else {
+            const alpha = m[i] / delta[i];
+            const beta = m[i + 1] / delta[i];
+            // 限制在圆内以保证单调
+            const s = alpha * alpha + beta * beta;
+            if (s > 9) {
+                const t = 3 / Math.sqrt(s);
+                m[i] = t * alpha * delta[i];
+                m[i + 1] = t * beta * delta[i];
+            }
+        }
+    }
+
+    // 生成三次贝塞尔路径
+    let result = `M${pts[0][0]},${pts[0][1]}`;
+    for (let i = 0; i < n - 1; i++) {
+        const seg = dx[i] / 3;
+        const cp1x = pts[i][0] + seg;
+        const cp1y = pts[i][1] + m[i] * seg;
+        const cp2x = pts[i + 1][0] - seg;
+        const cp2y = pts[i + 1][1] - m[i + 1] * seg;
+        result += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${pts[i + 1][0]},${pts[i + 1][1]}`;
+    }
+    return result;
 }
 
 const decodeMermaidCode = value => {
@@ -60,17 +434,17 @@ const encodeMermaidCode = value => {
 };
 
 // 从 mermaid 代码中解析数值
-function parseChartValues(mermaidCode) {
+function parseChartValues(mermaidCode, type = 'bar') {
     if (!mermaidCode) return [];
+    const re = new RegExp(type + '\\s*\\[([^\\]]+)\\]');
+    const match = mermaidCode.match(re);
+    return match ? match[1].split(',').map(v => v.trim()) : [];
+}
 
-    // 只匹配 bar 行的数值数组（柱状图的数据）
-    const barMatch = mermaidCode.match(/bar\s*\[([^\]]+)\]/);
-
-    if (barMatch) {
-        return barMatch[1].split(',').map(v => v.trim());
-    }
-
-    return [];
+function parseXLabels(mermaidCode) {
+    if (!mermaidCode) return [];
+    const match = mermaidCode.match(/x-axis\s*\[([^\]]+)\]/);
+    return match ? match[1].split(',').map(v => v.trim().replace(/^["']|["']$/g, '')) : [];
 }
 
 // 创建浮层 tooltip 元素
@@ -106,7 +480,7 @@ function formatNumber(value) {
 // 显示 tooltip
 function showTooltip(value, event) {
     const tooltip = createTooltipElement();
-    tooltip.textContent = formatNumber(value);
+    tooltip.textContent = value;
     tooltip.style.display = 'block';
     tooltip.style.left = event.clientX + 10 + 'px';
     tooltip.style.top = event.clientY + 10 + 'px';
@@ -123,6 +497,8 @@ function hideTooltip() {
 // 为 mermaid 图表节点添加 hover tooltip
 function addTooltipsToNodes(svgElement, mermaidCode) {
     if (!svgElement) return;
+    // xychart 的 tooltip 由 polishXYChart 处理
+    if (svgElement.querySelector('[class*="bar-plot"], [class*="line-plot"]')) return;
 
     // 解析图表数值
     const values = parseChartValues(mermaidCode);
@@ -268,10 +644,12 @@ async function renderSingleMermaid(element) {
     const cached = svgCache.get(cacheKey);
     if (cached) {
         element.innerHTML = cached.svg;
-        // 保留 minHeight，让内容自然撑起高度，避免滚动位置跳动
         const svgElement = element.querySelector('svg');
         if (svgElement) {
-            addTooltipsToNodes(svgElement, code);
+            stripSvgBackground(svgElement);
+            thinAxisTicks(svgElement);
+            const polished = polishXYChart(svgElement, code) || svgElement;
+            addTooltipsToNodes(polished, code);
         }
         element.setAttribute('data-processed', 'true');
         element.classList.add('mermaid--clickable');
@@ -294,9 +672,15 @@ async function renderSingleMermaid(element) {
             svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             svgElement.style.overflow = 'visible';
             svgElement.style.display = 'block';
+            svgElement.style.background = 'transparent';
+
+            // 移除 mermaid 内部的背景矩形
+            stripSvgBackground(svgElement);
+            thinAxisTicks(svgElement);
+            const polished = polishXYChart(svgElement, code) || svgElement;
 
             // 为节点添加 hover tooltip
-            addTooltipsToNodes(svgElement, code);
+            addTooltipsToNodes(polished, code);
         }
         element.setAttribute('data-processed', 'true');
         element.classList.add('mermaid--clickable');
@@ -367,4 +751,11 @@ export async function renderMermaidIn(rootElement) {
     });
 
     await Promise.all(targets.map(element => renderSingleMermaid(element)));
+}
+
+/**
+ * 主题切换时调用：清缓存，下次编辑/加载文件时自动用新主题渲染
+ */
+export function invalidateMermaidTheme() {
+    svgCache.clear();
 }

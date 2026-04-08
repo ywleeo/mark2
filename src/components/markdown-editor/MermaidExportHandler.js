@@ -12,11 +12,11 @@ export class MermaidExportHandler {
 
     setup() {
         const handleMermaidClick = (e) => {
-            const mermaidElement = e.target.closest('.mermaid--clickable');
-            if (!mermaidElement) return;
-
-            const svgElement = mermaidElement.querySelector('svg');
+            // 只有点击在 SVG 内部才触发放大
+            const svgElement = e.target.closest('svg');
             if (!svgElement) return;
+            const mermaidElement = svgElement.closest('.mermaid--clickable');
+            if (!mermaidElement) return;
 
             try {
                 const svgStyles = window.getComputedStyle(svgElement);
@@ -96,7 +96,7 @@ export class MermaidExportHandler {
         };
 
         this.cleanup = addClickHandler(this.element, handleMermaidClick, {
-            shouldHandle: (e) => e.target.closest('.mermaid--clickable') !== null,
+            shouldHandle: (e) => e.target.closest('svg')?.closest('.mermaid--clickable') !== null,
             preventDefault: false,
         });
     }

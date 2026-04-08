@@ -56,6 +56,7 @@ import { EditorRegistry } from './state/EditorRegistry.js';
 import { TabHistoryManager } from './state/TabHistoryManager.js';
 import { createEditorHistoryController } from './app/editorHistoryController.js';
 import { createToolbarController } from './app/toolbarController.js';
+import { invalidateMermaidTheme } from './utils/mermaidRenderer.js';
 import { createUntitledController } from './app/untitledController.js';
 import { createWindowLifecycle } from './app/windowLifecycle.js';
 import { createAppBootstrap } from './app/appBootstrap.js';
@@ -167,6 +168,8 @@ appState.setCleanupFunction('appearanceChange', onEditorAppearanceChange(({ appe
     const markdownToolbarManager = appState.getMarkdownToolbarManager();
     codeEditor?.applyPreferences?.(appState.getEditorSettings());
     markdownToolbarManager?.setTheme?.(appearance);
+    // mermaid 颜色通过 CSS filter 即时适配，仅清缓存让下次编辑/加载用新主题
+    invalidateMermaidTheme();
 }));
 
 const workspaceSyncController = createWorkspaceSyncController({
