@@ -584,6 +584,9 @@ export class AiSidebar {
         // 当前活跃的 assistant 卡片（用于关联 diff/confirm 到正确的卡片）
         this._activeCard = null;
 
+        // 事件清理函数集合
+        this._cleanups = [];
+
         this._setupToolExecutor();
         this._restoreSidebarWidth();
         this._bindEvents();
@@ -622,28 +625,40 @@ export class AiSidebar {
     }
 
     _bindEvents() {
-        addClickHandler(this.sendBtn, () => this._handleSend());
-        addClickHandler(this.cancelBtn, () => this._handleCancel());
-        addClickHandler(this.clearBtn, () => this._handleClear());
-        addClickHandler(this.closeBtn, () => this.hide());
+        this._cleanups.push(
+            addClickHandler(this.sendBtn, () => this._handleSend()),
+            addClickHandler(this.cancelBtn, () => this._handleCancel()),
+            addClickHandler(this.clearBtn, () => this._handleClear()),
+            addClickHandler(this.closeBtn, () => this.hide()),
+        );
 
         this._isComposing = false;
         this._compositionJustEnded = false;
-        this.inputEl.addEventListener('compositionstart', () => {
+
+        const onCompositionStart = () => {
             this._isComposing = true;
             this._compositionJustEnded = false;
-        });
-        this.inputEl.addEventListener('compositionend', () => {
+        };
+        const onCompositionEnd = () => {
             this._isComposing = false;
             this._compositionJustEnded = true;
-        });
-        this.inputEl.addEventListener('keydown', (e) => {
+        };
+        const onKeydown = (e) => {
             const justEnded = this._compositionJustEnded;
             this._compositionJustEnded = false;
             if (e.key === 'Enter' && !e.shiftKey && !this._isComposing && !justEnded) {
                 e.preventDefault();
                 void this._handleSend();
             }
+        };
+
+        this.inputEl.addEventListener('compositionstart', onCompositionStart);
+        this.inputEl.addEventListener('compositionend', onCompositionEnd);
+        this.inputEl.addEventListener('keydown', onKeydown);
+        this._cleanups.push(() => {
+            this.inputEl.removeEventListener('compositionstart', onCompositionStart);
+            this.inputEl.removeEventListener('compositionend', onCompositionEnd);
+            this.inputEl.removeEventListener('keydown', onKeydown);
         });
     }
 
@@ -675,24 +690,23 @@ export class AiSidebar {
         let startX = 0;
         let startWidth = AI_SIDEBAR_DEFAULT_WIDTH;
 
-        this.resizeHandleEl.addEventListener('pointerdown', (event) => {
+        const onDown = (event) => {
             this.resizeHandleEl.setPointerCapture(event.pointerId);
             startX = event.clientX;
             startWidth = this.el.offsetWidth || loadSidebarWidth();
             document.body.classList.add('ai-sidebar-resizing');
             event.preventDefault();
-        });
+        };
 
-        this.resizeHandleEl.addEventListener('pointermove', (event) => {
+        const onMove = (event) => {
             if (!this.resizeHandleEl.hasPointerCapture(event.pointerId)) {
                 return;
             }
-
             const widthDelta = startX - event.clientX;
             const nextWidth = clampSidebarWidth(startWidth + widthDelta);
             this._applySidebarWidth(nextWidth);
             saveSidebarWidth(nextWidth);
-        });
+        };
 
         const stopResize = (event) => {
             if (event && this.resizeHandleEl.hasPointerCapture(event.pointerId)) {
@@ -701,13 +715,25 @@ export class AiSidebar {
             document.body.classList.remove('ai-sidebar-resizing');
         };
 
+        this.resizeHandleEl.addEventListener('pointerdown', onDown);
+        this.resizeHandleEl.addEventListener('pointermove', onMove);
         this.resizeHandleEl.addEventListener('pointerup', stopResize);
         this.resizeHandleEl.addEventListener('pointercancel', stopResize);
+
+        this._cleanups.push(() => {
+            this.resizeHandleEl.removeEventListener('pointerdown', onDown);
+            this.resizeHandleEl.removeEventListener('pointermove', onMove);
+            this.resizeHandleEl.removeEventListener('pointerup', stopResize);
+            this.resizeHandleEl.removeEventListener('pointercancel', stopResize);
+        });
     }
 
     _bindFileChangeListener() {
         this.getAppState().onCurrentFileChange((path) => {
             this._updateContextBar(path);
+        });
+        this._cleanups.push(() => {
+            this.getAppState().onCurrentFileChange(null);
         });
     }
 
@@ -940,6 +966,19 @@ export class AiSidebar {
         if (message) {
             this._appendSystemMessage(message);
         }
+    }
+
+    // ── 销毁 ──────────────────────────────────────────────
+
+    destroy() {
+        if (this.agentLoop) {
+            this.agentLoop.abort();
+            this.agentLoop = null;
+        }
+        this._cleanups.forEach(fn => typeof fn === 'function' && fn());
+        this._cleanups.length = 0;
+        this.agentMessages = [];
+        this._activeCard = null;
     }
 
     // ── System Prompt 构建 ────────────────────────────────

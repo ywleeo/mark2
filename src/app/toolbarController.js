@@ -13,6 +13,7 @@ export function createToolbarController({
     setMarkdownToolbarManager,
     getCardExportSidebar,
     getAppServices,
+    getEditorRegistry,
     getToggleMarkdownCodeMode,
     isMarkdownFilePath,
     MarkdownToolbarManager,
@@ -146,6 +147,7 @@ export function createToolbarController({
                     executeCommand,
                     onToggleViewMode: toggleMarkdownCodeMode,
                     onCardExport: () => showCardExportSidebar(),
+                    getEditorRegistry,
                 });
                 setMarkdownToolbarManager(newManager);
 

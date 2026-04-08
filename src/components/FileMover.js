@@ -1,4 +1,5 @@
 import { basename } from '../utils/pathUtils.js';
+import { setInternalDrag, isInternalDrag } from '../utils/dragState.js';
 
 export class FileMover {
     constructor(options = {}) {
@@ -65,7 +66,7 @@ export class FileMover {
         if (!active && (dx > threshold || dy > threshold)) {
             this._dragState.active = true;
             document.body.classList.add('is-internal-drag');
-            window.__IS_INTERNAL_DRAG__ = true;
+            setInternalDrag(true);
             const name = (this._dragState.sourcePath || '').split(/[\\/]/).pop() || '';
             const sourceEl = this.container?.querySelector(`.tree-file[data-path="${this._dragState.sourcePath}"]`)
                 || this.container?.querySelector(`.tree-folder[data-path="${this._dragState.sourcePath}"] .tree-folder-header`);
@@ -103,7 +104,7 @@ export class FileMover {
         this.clearAllDragOverHighlights();
         this.removeDragGhost();
         document.body.classList.remove('is-internal-drag');
-        window.__IS_INTERNAL_DRAG__ = false;
+        setInternalDrag(false);
 
         if (!active) return;
 
@@ -131,7 +132,7 @@ export class FileMover {
     }
 
     handleTreeDragOver(event) {
-        if (!window.__IS_INTERNAL_DRAG__) return;
+        if (!isInternalDrag()) return;
         if (event) {
             event.preventDefault();
             event.stopPropagation();
@@ -153,7 +154,7 @@ export class FileMover {
     }
 
     handleTreeDragLeave(event) {
-        if (!window.__IS_INTERNAL_DRAG__) return;
+        if (!isInternalDrag()) return;
         const related = event?.relatedTarget;
         if (!related || !this.container?.contains(related)) {
             this.clearAllDragOverHighlights();
@@ -161,7 +162,7 @@ export class FileMover {
     }
 
     async handleTreeDrop(event) {
-        if (!window.__IS_INTERNAL_DRAG__) return;
+        if (!isInternalDrag()) return;
         event.preventDefault();
         event.stopPropagation();
 
@@ -189,7 +190,7 @@ export class FileMover {
 
         const types = event?.dataTransfer?.types || [];
         const hasInternalType = Array.from(types).includes('application/x-mark2-file');
-        const isInternal = hasInternalType || window.__IS_INTERNAL_DRAG__;
+        const isInternal = hasInternalType || isInternalDrag();
 
         if (!isInternal) {
             return;
@@ -210,7 +211,7 @@ export class FileMover {
 
         const types = event?.dataTransfer?.types || [];
         const hasInternalType = Array.from(types).includes('application/x-mark2-file');
-        const isInternal = hasInternalType || window.__IS_INTERNAL_DRAG__;
+        const isInternal = hasInternalType || isInternalDrag();
 
         if (!isInternal) {
             return;
@@ -430,6 +431,6 @@ export class FileMover {
         this._onInternalMouseUp = null;
         this.cancelNativeDragState = null;
         document.body.classList.remove('is-internal-drag');
-        window.__IS_INTERNAL_DRAG__ = false;
+        setInternalDrag(false);
     }
 }

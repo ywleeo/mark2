@@ -74,16 +74,7 @@ export class FileTreeManager {
         if (this.fileService) {
             return this.fileService;
         }
-        try {
-            this.services = getAppServices();
-        } catch (error) {
-            const fallback = typeof window !== 'undefined' ? window.__MARK2_SERVICES__ : null;
-            if (fallback) {
-                this.services = fallback;
-            } else {
-                throw error;
-            }
-        }
+        this.services = getAppServices();
         if (!this.services?.file) {
             throw new Error('文件服务未初始化');
         }

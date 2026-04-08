@@ -1,5 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { captureSecurityScopeForPath } from '../services/securityScopeService.js';
+import { isInternalDrag } from '../utils/dragState.js';
 
 export function createFileDropController({ openPathsFromSelection }) {
     if (typeof openPathsFromSelection !== 'function') {
@@ -15,7 +16,7 @@ export function createFileDropController({ openPathsFromSelection }) {
 
     function setFileDropHoverState(isActive) {
         // 如果是内部拖拽（通过全局变量判断），始终不显示 hover 效果
-        if (window.__IS_INTERNAL_DRAG__) {
+        if (isInternalDrag()) {
             if (isFileDropHoverActive) {
                 isActive = false;
             } else {

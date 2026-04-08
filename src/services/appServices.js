@@ -21,10 +21,6 @@ export function createAppServices(options = {}) {
         workspace,
     });
 
-    if (options.exposeToWindow !== false && typeof window !== 'undefined') {
-        window.__MARK2_SERVICES__ = cachedServices;
-    }
-
     return cachedServices;
 }
 

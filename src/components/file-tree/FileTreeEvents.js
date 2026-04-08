@@ -1,4 +1,5 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { isInternalDrag } from '../../utils/dragState.js';
 
 /**
  * FileTree 的事件处理模块
@@ -136,14 +137,14 @@ export class FileTreeEvents {
         this._onTreeDragLeave = (e) => this.fileTree.mover?.handleTreeDragLeave(e);
         this._onTreeDrop = (e) => {
             // 外部文件拖入
-            if (!window.__IS_INTERNAL_DRAG__) {
+            if (!isInternalDrag()) {
                 this.fileTree.externalDropHandler?.handleDrop(e);
                 return;
             }
             this.fileTree.mover?.handleTreeDrop(e);
         };
         this._onTreeDragEnter = (e) => {
-            if (!window.__IS_INTERNAL_DRAG__) {
+            if (!isInternalDrag()) {
                 this.fileTree.externalDropHandler?.handleDragOver(e);
                 return;
             }
@@ -158,7 +159,7 @@ export class FileTreeEvents {
 
         // 部分环境下 dragover 可能被系统级拦截，这里用 mousemove 兜底
         this._onMouseMoveDuringDrag = (e) => {
-            if (!window.__IS_INTERNAL_DRAG__) return;
+            if (!isInternalDrag()) return;
             // 构造一个伪事件对象传给 handleTreeDragOver（只用到 clientX/clientY）
             this.fileTree.mover?.handleTreeDragOver({
                 clientX: e.clientX,

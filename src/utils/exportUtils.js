@@ -1,6 +1,7 @@
 import { desktopDir, join } from '@tauri-apps/api/path';
 import { getBundledStyles, getThemeStyles } from '../config/bundled-styles.js';
 import { detectMimeType, resolveImagePath } from './imageResolver.js';
+import { getAppServices } from '../services/appServices.js';
 
 export function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
@@ -645,7 +646,8 @@ async function embedImagesAsBase64(element) {
             // 本地图片：优先使用 data-image-path，其次用 data-original-src 解析
             let localPath = imagePath;
             if (!localPath && originalSrc && !/^https?:\/\//i.test(originalSrc)) {
-                localPath = resolveImagePath(originalSrc, window.currentFile);
+                const currentFile = getAppServices().workspace.getCurrentFile();
+                localPath = resolveImagePath(originalSrc, currentFile);
             }
 
             if (localPath) {

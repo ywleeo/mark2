@@ -73,10 +73,6 @@ export class AppState {
     setCurrentFile(filePath) {
         const prev = this.currentFile;
         this.currentFile = filePath;
-        // 同时导出到 window（兼容现有代码）
-        if (typeof window !== 'undefined') {
-            window.currentFile = filePath;
-        }
         if (prev !== filePath) {
             this._onCurrentFileChange?.(filePath);
         }
@@ -298,8 +294,5 @@ export class AppState {
         this.currentFile = null;
         this.hasUnsavedChanges = false;
         this.activeViewMode = 'markdown';
-        if (typeof window !== 'undefined') {
-            window.currentFile = null;
-        }
     }
 }

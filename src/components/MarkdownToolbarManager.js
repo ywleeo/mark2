@@ -19,6 +19,7 @@ export class MarkdownToolbarManager {
         this.executeCommand = options.executeCommand || null;
         this.onToggleViewMode = options.onToggleViewMode || null;
         this.onCardExport = options.onCardExport || null;
+        this._getEditorRegistry = options.getEditorRegistry || null;
 
         // 从设置中加载工具栏可见性
         this.loadVisibility();
@@ -428,9 +429,12 @@ export class MarkdownToolbarManager {
 
         if (this.toolbar) {
             this.toolbar.toggle();
-        } else if (!this.isInitialized && window.editor) {
-            // console.log('MarkdownToolbarManager: Auto-initializing toolbar...');
-            this.initialize(window.editor, 'tiptap');
+        } else if (!this.isInitialized && this._getEditorRegistry) {
+            const mdEditor = this._getEditorRegistry()?.getMarkdownEditor?.();
+            const tiptapEditor = mdEditor?.editor;
+            if (tiptapEditor) {
+                this.initialize(tiptapEditor, 'tiptap');
+            }
         } else {
             console.warn('MarkdownToolbarManager: Cannot toggle - toolbar not initialized');
         }
@@ -625,8 +629,9 @@ export class MarkdownToolbarManager {
             if (this.editorType === 'tiptap') {
                 // TipTap 编辑器 - 需要从全局的 markdownEditor 实例获取 markdown
                 // 因为 getMarkdown() 方法在 MarkdownEditor 上，而不是在 TipTap 编辑器上
-                if (typeof window !== 'undefined' && window.markdownEditor && typeof window.markdownEditor.getMarkdown === 'function') {
-                    markdown = window.markdownEditor.getMarkdown();
+                const mdEditor = this._getEditorRegistry?.()?.getMarkdownEditor?.();
+                if (mdEditor && typeof mdEditor.getMarkdown === 'function') {
+                    markdown = mdEditor.getMarkdown();
                 } else if (this.rawEditorInstance && typeof this.rawEditorInstance.getMarkdown === 'function') {
                     markdown = this.rawEditorInstance.getMarkdown();
                 } else if (this.editorInstance && typeof this.editorInstance.getMarkdown === 'function') {

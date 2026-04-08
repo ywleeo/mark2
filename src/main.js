@@ -339,6 +339,7 @@ const toolbarController = createToolbarController({
     setMarkdownToolbarManager: (m) => appState.setMarkdownToolbarManager(m),
     getCardExportSidebar: () => featureManager.getFeatureApi('card-export'),
     getAppServices: () => appServices,
+    getEditorRegistry: () => editorRegistry,
     getToggleMarkdownCodeMode: () => toggleMarkdownCodeMode,
     isMarkdownFilePath,
     MarkdownToolbarManager,

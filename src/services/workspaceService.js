@@ -59,10 +59,6 @@ export function createWorkspaceService(options = {}) {
             }
         }
 
-        if (typeof window !== 'undefined' && isNonEmptyString(window.currentFile)) {
-            return window.currentFile.trim();
-        }
-
         const state = readWorkspaceState(storageKey);
         return isNonEmptyString(state.currentFile) ? state.currentFile.trim() : null;
     }
