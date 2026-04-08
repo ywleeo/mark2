@@ -218,6 +218,16 @@
     flex-shrink: 0;
 }
 
+.settings-row__label::before {
+    content: '##';
+    margin-right: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'SF Mono', ui-monospace, monospace;
+    color: var(--settings-muted);
+    opacity: 0.5;
+}
+
 .settings-row__control {
     width: 160px;
     flex: 0 0 160px;

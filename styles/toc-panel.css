@@ -110,8 +110,8 @@ body.toc-resizing {
 }
 
 .toc-panel__item:hover {
-    color: rgba(0, 0, 0, 0.85);
-    background: rgba(0, 0, 0, 0.03);
+    color: var(--accent-color, #0969da);
+    background: rgba(9, 105, 218, 0.06);
 }
 
 :root[data-theme-appearance='dark'] .toc-panel__item {
@@ -119,18 +119,20 @@ body.toc-resizing {
 }
 
 :root[data-theme-appearance='dark'] .toc-panel__item:hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.05);
+    color: #58a6ff;
+    background: rgba(88, 166, 255, 0.08);
 }
 
 /* 激活状态 */
 .toc-panel__item--active {
-    color: rgba(0, 0, 0, 0.85);
+    color: var(--accent-color, #0969da);
     font-weight: 500;
+    background: rgba(9, 105, 218, 0.06);
 }
 
 :root[data-theme-appearance='dark'] .toc-panel__item--active {
-    color: rgba(255, 255, 255, 0.9);
+    color: #58a6ff;
+    background: rgba(88, 166, 255, 0.08);
 }
 
 /* 不同级别的标题缩进 */
