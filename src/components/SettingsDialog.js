@@ -64,48 +64,47 @@ export class SettingsDialog {
 
                     <!-- 编辑器设置 -->
                     <section class="settings-body" data-tab-content="editor">
-                        <p class="settings-subtitle">设置默认的字号、行距、字重和字体</p>
-                        <label class="settings-field">
-                            <span class="settings-label">主题</span>
-                            <select name="theme">
-                                <option value="default">GitHub</option>
-                                <option value="emerald">竹林清风</option>
-                                <option value="notion">Notion</option>
-                            </select>
-                        </label>
-                        <label class="settings-field">
-                            <span class="settings-label">颜色模式</span>
-                            <select name="appearance">
-                                <option value="system">跟随系统 (默认)</option>
-                                <option value="light">浅色</option>
-                                <option value="dark">深色</option>
-                            </select>
-                        </label>
-                        <label class="settings-field">
-                            <span class="settings-label">字体</span>
-                            <select name="fontFamily"></select>
-                        </label>
-                        <div class="settings-grid">
-                            <label class="settings-field">
-                                <span class="settings-label">字号 (px)</span>
-                                <input type="number" name="fontSize" min="10" max="48" step="1" />
+                        <div class="settings-rows">
+                            <label class="settings-row">
+                                <span class="settings-row__label">主题</span>
+                                <select name="theme" class="settings-row__control">
+                                    <option value="default">GitHub</option>
+                                    <option value="emerald">竹林清风</option>
+                                    <option value="notion">Notion</option>
+                                </select>
                             </label>
-                            <label class="settings-field">
-                                <span class="settings-label">行距</span>
-                                <input type="number" name="lineHeight" min="1.0" max="3.0" step="0.1" />
+                            <label class="settings-row">
+                                <span class="settings-row__label">颜色模式</span>
+                                <select name="appearance" class="settings-row__control">
+                                    <option value="system">跟随系统</option>
+                                    <option value="light">浅色</option>
+                                    <option value="dark">深色</option>
+                                </select>
                             </label>
-                            <label class="settings-field">
-                                <span class="settings-label">字重</span>
-                                <select name="fontWeight">
-                                    <option value="100">Thin 100</option>
-                                    <option value="200">Extra Light 200</option>
-                                    <option value="300">Light 300</option>
-                                    <option value="400">Regular 400</option>
-                                    <option value="500">Medium 500</option>
-                                    <option value="600">Semibold 600</option>
-                                    <option value="700">Bold 700</option>
-                                    <option value="800">Extra Bold 800</option>
-                                    <option value="900">Black 900</option>
+                            <label class="settings-row">
+                                <span class="settings-row__label">字体</span>
+                                <select name="fontFamily" class="settings-row__control"></select>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">字号 (px)</span>
+                                <input type="number" name="fontSize" min="10" max="48" step="1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">行距</span>
+                                <input type="number" name="lineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">字重</span>
+                                <select name="fontWeight" class="settings-row__control">
+                                    <option value="100">Thin</option>
+                                    <option value="200">Extra Light</option>
+                                    <option value="300">Light</option>
+                                    <option value="400">Regular</option>
+                                    <option value="500">Medium</option>
+                                    <option value="600">Semibold</option>
+                                    <option value="700">Bold</option>
+                                    <option value="800">Extra Bold</option>
+                                    <option value="900">Black</option>
                                 </select>
                             </label>
                         </div>
@@ -113,45 +112,44 @@ export class SettingsDialog {
 
                     <!-- Code 模式设置 -->
                     <section class="settings-body hidden" data-tab-content="code">
-                        <p class="settings-subtitle">设置代码模式的字体样式</p>
-                        <label class="settings-field">
-                            <span class="settings-label">主题</span>
-                            <select name="codeTheme">
-                                <option value="auto">跟随颜色模式 (默认)</option>
-                                <option value="vs">VS Code</option>
-                                <option value="monokai">Monokai</option>
-                                <option value="dracula">Dracula</option>
-                                <option value="one-dark-pro">One Dark Pro</option>
-                                <option value="github">GitHub</option>
-                                <option value="night-owl">Night Owl</option>
-                                <option value="solarized">Solarized</option>
-                            </select>
-                        </label>
-                        <label class="settings-field">
-                            <span class="settings-label">字体</span>
-                            <select name="codeFontFamily"></select>
-                        </label>
-                        <div class="settings-grid">
-                            <label class="settings-field">
-                                <span class="settings-label">字号 (px)</span>
-                                <input type="number" name="codeFontSize" min="10" max="48" step="1" />
+                        <div class="settings-rows">
+                            <label class="settings-row">
+                                <span class="settings-row__label">配色</span>
+                                <select name="codeTheme" class="settings-row__control">
+                                    <option value="auto">跟随颜色模式</option>
+                                    <option value="vs">VS Code</option>
+                                    <option value="monokai">Monokai</option>
+                                    <option value="dracula">Dracula</option>
+                                    <option value="one-dark-pro">One Dark Pro</option>
+                                    <option value="github">GitHub</option>
+                                    <option value="night-owl">Night Owl</option>
+                                    <option value="solarized">Solarized</option>
+                                </select>
                             </label>
-                            <label class="settings-field">
-                                <span class="settings-label">行距</span>
-                                <input type="number" name="codeLineHeight" min="1.0" max="3.0" step="0.1" />
+                            <label class="settings-row">
+                                <span class="settings-row__label">字体</span>
+                                <select name="codeFontFamily" class="settings-row__control"></select>
                             </label>
-                            <label class="settings-field">
-                                <span class="settings-label">字重</span>
-                                <select name="codeFontWeight">
-                                    <option value="100">Thin 100</option>
-                                    <option value="200">Extra Light 200</option>
-                                    <option value="300">Light 300</option>
-                                    <option value="400">Regular 400</option>
-                                    <option value="500">Medium 500</option>
-                                    <option value="600">Semibold 600</option>
-                                    <option value="700">Bold 700</option>
-                                    <option value="800">Extra Bold 800</option>
-                                    <option value="900">Black 900</option>
+                            <label class="settings-row">
+                                <span class="settings-row__label">字号 (px)</span>
+                                <input type="number" name="codeFontSize" min="10" max="48" step="1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">行距</span>
+                                <input type="number" name="codeLineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">字重</span>
+                                <select name="codeFontWeight" class="settings-row__control">
+                                    <option value="100">Thin</option>
+                                    <option value="200">Extra Light</option>
+                                    <option value="300">Light</option>
+                                    <option value="400">Regular</option>
+                                    <option value="500">Medium</option>
+                                    <option value="600">Semibold</option>
+                                    <option value="700">Bold</option>
+                                    <option value="800">Extra Bold</option>
+                                    <option value="900">Black</option>
                                 </select>
                             </label>
                         </div>
@@ -159,8 +157,6 @@ export class SettingsDialog {
 
                     <!-- AI 助手设置 -->
                     <section class="settings-body hidden" data-tab-content="ai">
-                        <p class="settings-subtitle">管理 AI 服务商和模型</p>
-
                         <div class="ai-providers-layout">
                             <!-- 左侧 Provider 列表 -->
                             <div class="ai-providers-list">
@@ -179,14 +175,16 @@ export class SettingsDialog {
                             </div>
                         </div>
 
-                        <label class="settings-field">
-                            <span class="settings-label">创造性</span>
-                            <select name="aiCreativity">
-                                <option value="low">保守</option>
-                                <option value="medium">适中</option>
-                                <option value="high">大胆</option>
-                            </select>
-                        </label>
+                        <div class="settings-rows">
+                            <label class="settings-row">
+                                <span class="settings-row__label">创造性</span>
+                                <select name="aiCreativity" class="settings-row__control">
+                                    <option value="low">保守</option>
+                                    <option value="medium">适中</option>
+                                    <option value="high">大胆</option>
+                                </select>
+                            </label>
+                        </div>
                     </section>
 
                     <footer class="settings-footer">
