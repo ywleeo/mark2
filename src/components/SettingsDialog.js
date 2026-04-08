@@ -19,7 +19,7 @@ export class SettingsDialog {
 
         this.recommendedFonts = [
             {
-                label: 'SF Pro / 系统无衬线',
+                label: 'SF Pro / System Sans',
                 value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
             },
             {
@@ -54,11 +54,11 @@ export class SettingsDialog {
             <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsDialogTitle">
                 <form class="settings-form">
                     <header class="settings-header">
-                        <h2 id="settingsDialogTitle">应用设置</h2>
+                        <h2 id="settingsDialogTitle">Settings</h2>
                         <nav class="settings-tabs">
                             <button type="button" class="settings-tab active" data-tab="editor">Markdown</button>
-                            <button type="button" class="settings-tab" data-tab="code">代码模式</button>
-                            <button type="button" class="settings-tab" data-tab="ai">AI 助手</button>
+                            <button type="button" class="settings-tab" data-tab="code">Code</button>
+                            <button type="button" class="settings-tab" data-tab="ai">AI</button>
                         </nav>
                     </header>
 
@@ -66,35 +66,35 @@ export class SettingsDialog {
                     <section class="settings-body" data-tab-content="editor">
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">主题</span>
+                                <span class="settings-row__label">Theme</span>
                                 <select name="theme" class="settings-row__control">
                                     <option value="default">GitHub</option>
-                                    <option value="emerald">竹林清风</option>
+                                    <option value="emerald">Emerald</option>
                                     <option value="notion">Notion</option>
                                 </select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">颜色模式</span>
+                                <span class="settings-row__label">Appearance</span>
                                 <select name="appearance" class="settings-row__control">
-                                    <option value="system">跟随系统</option>
-                                    <option value="light">浅色</option>
-                                    <option value="dark">深色</option>
+                                    <option value="system">System</option>
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
                                 </select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">字体</span>
+                                <span class="settings-row__label">Font</span>
                                 <select name="fontFamily" class="settings-row__control"></select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">字号 (px)</span>
+                                <span class="settings-row__label">Font Size</span>
                                 <input type="number" name="fontSize" min="10" max="48" step="1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">行距</span>
+                                <span class="settings-row__label">Line Height</span>
                                 <input type="number" name="lineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">字重</span>
+                                <span class="settings-row__label">Font Weight</span>
                                 <select name="fontWeight" class="settings-row__control">
                                     <option value="100">Thin</option>
                                     <option value="200">Extra Light</option>
@@ -114,9 +114,9 @@ export class SettingsDialog {
                     <section class="settings-body hidden" data-tab-content="code">
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">配色</span>
+                                <span class="settings-row__label">Color Scheme</span>
                                 <select name="codeTheme" class="settings-row__control">
-                                    <option value="auto">跟随颜色模式</option>
+                                    <option value="auto">Auto</option>
                                     <option value="vs">VS Code</option>
                                     <option value="monokai">Monokai</option>
                                     <option value="dracula">Dracula</option>
@@ -127,19 +127,19 @@ export class SettingsDialog {
                                 </select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">字体</span>
+                                <span class="settings-row__label">Font</span>
                                 <select name="codeFontFamily" class="settings-row__control"></select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">字号 (px)</span>
+                                <span class="settings-row__label">Font Size</span>
                                 <input type="number" name="codeFontSize" min="10" max="48" step="1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">行距</span>
+                                <span class="settings-row__label">Line Height</span>
                                 <input type="number" name="codeLineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">字重</span>
+                                <span class="settings-row__label">Font Weight</span>
                                 <select name="codeFontWeight" class="settings-row__control">
                                     <option value="100">Thin</option>
                                     <option value="200">Extra Light</option>
@@ -161,8 +161,8 @@ export class SettingsDialog {
                             <!-- 左侧 Provider 列表 -->
                             <div class="ai-providers-list">
                                 <div class="ai-providers-list__header">
-                                    <span class="settings-label">服务商</span>
-                                    <button type="button" class="ai-provider-btn ai-provider-btn--add" data-action="add-provider" title="添加服务商">＋</button>
+                                    <span class="settings-label">Providers</span>
+                                    <button type="button" class="ai-provider-btn ai-provider-btn--add" data-action="add-provider" title="Add provider">＋</button>
                                 </div>
                                 <div class="ai-providers-list__items" data-ref="providerList"></div>
                             </div>
@@ -170,26 +170,26 @@ export class SettingsDialog {
                             <!-- 右侧编辑区 -->
                             <div class="ai-provider-editor" data-ref="providerEditor">
                                 <div class="ai-provider-editor__empty">
-                                    <span>点击左侧添加服务商</span>
+                                    <span>Click + to add a provider</span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">创造性</span>
+                                <span class="settings-row__label">Creativity</span>
                                 <select name="aiCreativity" class="settings-row__control">
-                                    <option value="low">保守</option>
-                                    <option value="medium">适中</option>
-                                    <option value="high">大胆</option>
+                                    <option value="low">Conservative</option>
+                                    <option value="medium">Balanced</option>
+                                    <option value="high">Creative</option>
                                 </select>
                             </label>
                         </div>
                     </section>
 
                     <footer class="settings-footer">
-                        <button type="button" class="btn secondary" data-action="cancel">取消</button>
-                        <button type="submit" class="btn primary">保存</button>
+                        <button type="button" class="btn secondary" data-action="cancel">Cancel</button>
+                        <button type="submit" class="btn primary">Save</button>
                     </footer>
                 </form>
             </div>
@@ -297,7 +297,7 @@ export class SettingsDialog {
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = '跟随系统 (默认)';
+        defaultOption.textContent = 'System Default';
         this.codeFontFamilySelect.appendChild(defaultOption);
 
         this.codeModeFonts.forEach(font => {
@@ -469,7 +469,7 @@ export class SettingsDialog {
         if (existing) {
             this.fontFamilySelect.value = value;
             if (existing.dataset.dynamic === 'true') {
-                existing.textContent = `自定义：${value}`;
+                existing.textContent = `Custom: ${value}`;
             }
             return;
         }
@@ -477,7 +477,7 @@ export class SettingsDialog {
         this.removeDynamicFontOption();
         const customOption = document.createElement('option');
         customOption.value = value;
-        customOption.textContent = `自定义：${value}`;
+        customOption.textContent = `Custom: ${value}`;
         customOption.dataset.dynamic = 'true';
         this.fontFamilySelect.appendChild(customOption);
         this.fontFamilySelect.value = value;
@@ -520,12 +520,12 @@ export class SettingsDialog {
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = '跟随系统 (默认)';
+        defaultOption.textContent = 'System Default';
         this.fontFamilySelect.appendChild(defaultOption);
 
         if (this.recommendedFonts.length > 0) {
             const recommendedGroup = document.createElement('optgroup');
-            recommendedGroup.label = '推荐字体';
+            recommendedGroup.label = 'Recommended';
             this.recommendedFonts.forEach(font => {
                 const option = document.createElement('option');
                 option.value = font.value;
@@ -537,7 +537,7 @@ export class SettingsDialog {
 
         if (this.availableFonts.length > 0) {
             const systemGroup = document.createElement('optgroup');
-            systemGroup.label = '系统字体';
+            systemGroup.label = 'System Fonts';
             this.availableFonts.forEach(name => {
                 const option = document.createElement('option');
                 const cssValue = this.toCssFontValue(name);
@@ -663,14 +663,14 @@ export class SettingsDialog {
 
             const label = document.createElement('span');
             label.className = 'ai-provider-item__name';
-            label.textContent = p.name || '未命名';
+            label.textContent = p.name || 'Untitled';
             item.appendChild(label);
 
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
             delBtn.className = 'ai-provider-item__delete';
             delBtn.textContent = '×';
-            delBtn.title = '删除';
+            delBtn.title = 'Delete';
             item.appendChild(delBtn);
 
             const selectCleanup = addClickHandler(item, (e) => {
@@ -688,14 +688,14 @@ export class SettingsDialog {
         if (!this.providerEditorEl) return;
 
         if (!provider) {
-            this.providerEditorEl.innerHTML = '<div class="ai-provider-editor__empty"><span>点击左侧 ＋ 添加服务商</span></div>';
+            this.providerEditorEl.innerHTML = '<div class="ai-provider-editor__empty"><span>Click + to add a provider</span></div>';
             return;
         }
 
         this.providerEditorEl.innerHTML = `
             <label class="settings-field">
-                <span class="settings-label">名称</span>
-                <input type="text" data-field="name" value="${this.escAttr(provider.name)}" placeholder="如：DeepSeek、OpenAI">
+                <span class="settings-label">Name</span>
+                <input type="text" data-field="name" value="${this.escAttr(provider.name)}" placeholder="e.g. DeepSeek, OpenAI">
             </label>
             <label class="settings-field">
                 <span class="settings-label">API Key</span>
@@ -707,21 +707,21 @@ export class SettingsDialog {
             </label>
             <div class="settings-field">
                 <div class="ai-models-header">
-                    <span class="settings-label">模型</span>
+                    <span class="settings-label">Models</span>
                     <div class="ai-models-actions">
-                        <button type="button" class="ai-provider-btn" data-action="fetch-models">获取列表</button>
-                        <button type="button" class="ai-provider-btn" data-action="add-model">添加</button>
+                        <button type="button" class="ai-provider-btn" data-action="fetch-models">Fetch List</button>
+                        <button type="button" class="ai-provider-btn" data-action="add-model">Add</button>
                     </div>
                 </div>
                 <div class="ai-models-list" data-ref="modelsList"></div>
                 <div class="ai-model-add-row" data-ref="modelAddRow" style="display:none">
-                    <input type="text" class="ai-model-add-input" data-ref="modelAddInput" placeholder="输入模型名称，如 gpt-4o">
-                    <button type="button" class="ai-provider-btn" data-action="confirm-add-model">确认</button>
+                    <input type="text" class="ai-model-add-input" data-ref="modelAddInput" placeholder="Model name, e.g. gpt-4o">
+                    <button type="button" class="ai-provider-btn" data-action="confirm-add-model">OK</button>
                 </div>
                 <span class="ai-models-status" data-ref="modelsStatus"></span>
             </div>
             <div class="ai-provider-test">
-                <button type="button" class="ai-provider-btn ai-provider-btn--test" data-action="test-connection">测试连通</button>
+                <button type="button" class="ai-provider-btn ai-provider-btn--test" data-action="test-connection">Test Connection</button>
                 <span class="ai-provider-test__result" data-ref="testResult"></span>
             </div>
         `;
@@ -767,7 +767,7 @@ export class SettingsDialog {
             nameInput.addEventListener('input', () => {
                 provider.name = nameInput.value.trim();
                 const listItem = this.providerListEl?.querySelector(`[data-id="${provider.id}"] .ai-provider-item__name`);
-                if (listItem) listItem.textContent = provider.name || '未命名';
+                if (listItem) listItem.textContent = provider.name || 'Untitled';
             });
         }
     }
@@ -778,7 +778,7 @@ export class SettingsDialog {
         container.innerHTML = '';
 
         if (provider.models.length === 0) {
-            container.innerHTML = '<span class="ai-models-empty">暂无模型，点击「添加」或「获取列表」</span>';
+            container.innerHTML = '<span class="ai-models-empty">No models yet. Click Add or Fetch List.</span>';
             return;
         }
 
@@ -786,7 +786,7 @@ export class SettingsDialog {
             const tag = document.createElement('span');
             tag.className = 'ai-model-tag' + (model === this.selectedActiveModel ? ' is-active' : '');
             tag.dataset.model = model;
-            tag.title = '点击设为使用的模型';
+            tag.title = 'Click to set as active model';
 
             const label = document.createElement('span');
             label.className = 'ai-model-tag__name';
@@ -851,14 +851,14 @@ export class SettingsDialog {
 
         try {
             if (statusEl) {
-                statusEl.textContent = '正在获取…';
+                statusEl.textContent = 'Fetching…';
                 statusEl.className = 'ai-models-status';
             }
             const service = await getAiService();
             const models = await service.fetchModels(provider);
             if (models.length === 0) {
                 if (statusEl) {
-                    statusEl.textContent = 'API 未返回模型列表';
+                    statusEl.textContent = 'No models returned by API';
                     statusEl.className = 'ai-models-status is-warning';
                 }
                 return;
@@ -872,12 +872,12 @@ export class SettingsDialog {
             }
             this.renderModelsList(provider);
             if (statusEl) {
-                statusEl.textContent = `已获取 ${models.length} 个模型`;
+                statusEl.textContent = `${models.length} models fetched`;
                 statusEl.className = 'ai-models-status is-success';
             }
         } catch (error) {
             if (statusEl) {
-                statusEl.textContent = error.message || '获取失败';
+                statusEl.textContent = error.message || 'Fetch failed';
                 statusEl.className = 'ai-models-status is-error';
             }
         }
@@ -892,7 +892,7 @@ export class SettingsDialog {
         const models = provider.models?.length > 0 ? provider.models : [];
         if (models.length === 0) {
             if (resultEl) {
-                resultEl.textContent = '请先添加模型';
+                resultEl.textContent = 'Please add a model first';
                 resultEl.className = 'ai-provider-test__result is-error';
             }
             return;
@@ -920,7 +920,7 @@ export class SettingsDialog {
             const tag = modelsContainer?.querySelector(`.ai-model-tag[data-model="${CSS.escape(model)}"]`);
             const status = tag?.querySelector('.ai-model-tag__status');
             if (tag) tag.classList.add('is-testing');
-            if (status) status.textContent = '测试中…';
+            if (status) status.textContent = 'Testing…';
 
             const result = await service.testModel(provider, model);
 
@@ -936,7 +936,7 @@ export class SettingsDialog {
         }
 
         if (resultEl) {
-            resultEl.textContent = `${successCount}/${models.length} 个模型可用`;
+            resultEl.textContent = `${successCount}/${models.length} models available`;
             resultEl.className = `ai-provider-test__result ${successCount === models.length ? 'is-success' : 'is-error'}`;
         }
         if (testBtn) testBtn.disabled = false;
