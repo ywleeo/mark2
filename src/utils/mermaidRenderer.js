@@ -31,40 +31,52 @@ async function loadMermaid() {
                         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                         fontSize: '13px',
                         background: 'transparent',
-                        // 节点
-                        primaryColor: '#e8f0fe',
-                        primaryTextColor: '#1a1a1a',
-                        primaryBorderColor: '#c4d7f2',
-                        secondaryColor: '#f0e6ff',
-                        secondaryTextColor: '#1a1a1a',
-                        secondaryBorderColor: '#d4c4ef',
-                        tertiaryColor: '#e6f7ed',
-                        tertiaryTextColor: '#1a1a1a',
+                        // 节点 — 淡蓝系
+                        primaryColor: '#eef4ff',
+                        primaryTextColor: '#2c3e50',
+                        primaryBorderColor: '#b8d4f0',
+                        // 节点 — 淡紫系
+                        secondaryColor: '#f3eeff',
+                        secondaryTextColor: '#2c3e50',
+                        secondaryBorderColor: '#d0c4ef',
+                        // 节点 — 淡绿系
+                        tertiaryColor: '#edf8f0',
+                        tertiaryTextColor: '#2c3e50',
                         tertiaryBorderColor: '#b8e0c8',
-                        // 线条
-                        lineColor: '#8899aa',
-                        textColor: '#333',
-                        // 特殊节点
-                        noteBkgColor: '#fff8e6',
-                        noteTextColor: '#5a5a5a',
-                        noteBorderColor: '#e8d9a0',
+                        // 线条 — 柔灰
+                        lineColor: '#94a3b8',
+                        textColor: '#475569',
+                        // 特殊
+                        noteBkgColor: '#fffbeb',
+                        noteTextColor: '#64748b',
+                        noteBorderColor: '#e2d5a0',
+                        // subgraph
+                        clusterBkg: '#f8fafc',
+                        clusterBorder: '#cbd5e1',
                         // 饼图 / 柱状图
                         pie1: '#5b8ff9', pie2: '#5ad8a6', pie3: '#f6bd16',
                         pie4: '#e86452', pie5: '#6dc8ec', pie6: '#945fb9',
                         pie7: '#ff9845', pie8: '#1e9493', pie9: '#ff99c3',
                         // XY 图表
                         xyChart: {
-                            titleColor: '#333',
-                            xAxisLabelColor: '#666',
-                            yAxisLabelColor: '#666',
-                            xAxisTitleColor: '#444',
-                            yAxisTitleColor: '#444',
-                            xAxisLineColor: '#ddd',
-                            yAxisLineColor: '#ddd',
+                            titleColor: '#475569',
+                            xAxisLabelColor: '#64748b',
+                            yAxisLabelColor: '#64748b',
+                            xAxisTitleColor: '#475569',
+                            yAxisTitleColor: '#475569',
+                            xAxisLineColor: '#e2e8f0',
+                            yAxisLineColor: '#e2e8f0',
                         },
                         // 其他
                         activationBorderColor: '#5b8ff9',
-                        edgeLabelBackground: '#ffffffcc',
+                        edgeLabelBackground: '#ffffffee',
+                    },
+                    flowchart: {
+                        curve: 'basis',
+                        padding: 16,
+                        nodeSpacing: 40,
+                        rankSpacing: 50,
+                        htmlLabels: true,
                     },
                     xyChart: {
                         width: 800,
@@ -82,6 +94,112 @@ async function loadMermaid() {
             });
     }
     return mermaidPromise;
+}
+
+// ── 流程图配色方案（每个 subgraph 一套） ──
+// 配色设计：light mode 下偏淡，经 dark mode invert 后仍清晰
+const FLOWCHART_PALETTES = [
+    { bg: '#e0edff', border: '#6ea8fe', nodeBg: '#c5dbff', nodeBorder: '#4a90f4', text: '#1a3a6b', label: '#2563eb' },
+    { bg: '#ece5ff', border: '#a78bfa', nodeBg: '#ddd3fe', nodeBorder: '#8b6cf6', text: '#3b1d8e', label: '#7c3aed' },
+    { bg: '#fef0c7', border: '#f0b429', nodeBg: '#fde68a', nodeBorder: '#e09d13', text: '#78530a', label: '#c27803' },
+    { bg: '#d0f5e0', border: '#4ade80', nodeBg: '#a7f3d0', nodeBorder: '#22c55e', text: '#064e2b', label: '#16a34a' },
+    { bg: '#ffe0e0', border: '#f87171', nodeBg: '#fecaca', nodeBorder: '#ef4444', text: '#7f1d1d', label: '#dc2626' },
+    { bg: '#d5f5fd', border: '#38bdf8', nodeBg: '#b0e9fc', nodeBorder: '#0ea5e9', text: '#0c4a6e', label: '#0284c7' },
+];
+
+/**
+ * 自动美化流程图：给 subgraph 和节点分配不同配色
+ */
+function polishFlowchart(svgElement) {
+    const clusters = svgElement.querySelectorAll('.cluster');
+    if (clusters.length === 0) return;
+
+    // 收集每个 cluster 的范围和配色
+    const clusterInfos = [];
+    clusters.forEach((cluster, i) => {
+        const palette = FLOWCHART_PALETTES[i % FLOWCHART_PALETTES.length];
+        const rect = cluster.querySelector('rect');
+        if (!rect) return;
+
+        // cluster 边框有颜色，背景透明
+        rect.style.fill = 'transparent';
+        rect.style.stroke = palette.border;
+        rect.style.strokeWidth = '1px';
+        rect.setAttribute('rx', '12');
+        rect.setAttribute('ry', '12');
+
+        // cluster label 样式 + 移到左上角
+        const labelEl = cluster.querySelector('.cluster-label');
+        if (labelEl) {
+            const labelText = labelEl.querySelector('.nodeLabel');
+            if (labelText) {
+                labelText.style.color = palette.label;
+                labelText.style.fontWeight = '600';
+                labelText.style.fontSize = '12px';
+            }
+            // label 的 transform 是绝对坐标，直接改为 rect 左上角
+            const rx = parseFloat(rect.getAttribute('x')) || 0;
+            const ry = parseFloat(rect.getAttribute('y')) || 0;
+            // mermaid 内部有 2x 缩放（label translate 值 ≈ rect 坐标 * 2）
+            const existingT = labelEl.getAttribute('transform') || '';
+            const tm = existingT.match(/translate\(\s*([^,]+),\s*([^)]+)\)/);
+            const rectCenterX = rx + (parseFloat(rect.getAttribute('width')) || 0) / 2;
+            if (tm) {
+                const curTx = parseFloat(tm[1]);
+                const curTy = parseFloat(tm[2]);
+                // 推算缩放因子
+                const scale = curTy > 0 && ry > 0 ? curTy / ry : (curTx / rectCenterX || 1);
+                const newTx = (rx + 12) * scale;
+                const newTy = (ry + 4) * scale;
+                labelEl.setAttribute('transform', `translate(${newTx}, ${newTy})`);
+            }
+        }
+
+        // 记录 cluster 范围用于匹配节点
+        clusterInfos.push({
+            x: parseFloat(rect.getAttribute('x')) || 0,
+            y: parseFloat(rect.getAttribute('y')) || 0,
+            w: parseFloat(rect.getAttribute('width')) || 0,
+            h: parseFloat(rect.getAttribute('height')) || 0,
+            palette,
+        });
+    });
+
+    // 节点不在 cluster DOM 内部，按位置匹配到 cluster
+    const allNodes = svgElement.querySelectorAll('.node');
+    for (const node of allNodes) {
+        const shape = node.querySelector('rect, polygon, circle');
+        if (!shape) continue;
+
+        // 获取节点中心位置
+        const nBBox = node.getBBox?.();
+        if (!nBBox) continue;
+        const ncx = nBBox.x + nBBox.width / 2;
+        const ncy = nBBox.y + nBBox.height / 2;
+
+        // 找包含该节点的最小 cluster
+        let bestCluster = null;
+        let bestArea = Infinity;
+        for (const ci of clusterInfos) {
+            if (ncx >= ci.x && ncx <= ci.x + ci.w && ncy >= ci.y && ncy <= ci.y + ci.h) {
+                const area = ci.w * ci.h;
+                if (area < bestArea) { bestArea = area; bestCluster = ci; }
+            }
+        }
+
+        const p = bestCluster ? bestCluster.palette : FLOWCHART_PALETTES[0];
+        shape.style.fill = p.nodeBg;
+        shape.style.stroke = p.nodeBorder;
+        shape.style.strokeWidth = '1.5px';
+        shape.setAttribute('rx', '8');
+        shape.setAttribute('ry', '8');
+
+        // 节点文字
+        const nodeLabel = node.querySelector('.nodeLabel');
+        if (nodeLabel) {
+            nodeLabel.style.color = p.text;
+        }
+    }
 }
 
 /**
@@ -647,6 +765,7 @@ async function renderSingleMermaid(element) {
         const svgElement = element.querySelector('svg');
         if (svgElement) {
             stripSvgBackground(svgElement);
+            polishFlowchart(svgElement);
             thinAxisTicks(svgElement);
             const polished = polishXYChart(svgElement, code) || svgElement;
             addTooltipsToNodes(polished, code);
@@ -676,6 +795,7 @@ async function renderSingleMermaid(element) {
 
             // 移除 mermaid 内部的背景矩形
             stripSvgBackground(svgElement);
+            polishFlowchart(svgElement);
             thinAxisTicks(svgElement);
             const polished = polishXYChart(svgElement, code) || svgElement;
 

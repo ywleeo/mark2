@@ -38,19 +38,37 @@ Mark2 当前采用“核心 Manager + 装配层 + 业务模块 + UI 组件”的
 高层关系如下：
 
 ```mermaid
-flowchart LR
-    UI["Menu / Keybinding / Toolbar / FileTree / Tabs"] --> CMD["CommandManager"]
-    CMD --> DOC["DocumentManager"]
-    CMD --> WS["WorkspaceManager"]
-    CMD --> FEAT["FeatureManager"]
-    CMD --> EXP["ExportManager"]
-    DOC --> VIEW["ViewManager"]
-    WS --> NAV["navigationController"]
+flowchart TB
+    subgraph Input ["入口层"]
+        UI["Menu / Keybinding / Toolbar / FileTree / Tabs"]
+    end
+
+    subgraph Core ["调度层"]
+        CMD["CommandManager"]
+        WS["WorkspaceManager"]
+        NAV["navigationController"]
+    end
+
+    subgraph Domain ["业务层"]
+        DOC["DocumentManager"]
+        FEAT["FeatureManager"]
+        EXP["ExportManager"]
+    end
+
+    subgraph Output ["渲染层"]
+        VIEW["ViewManager"]
+        RENDER["Renderer / Editor / Viewer"]
+    end
+
+    UI --> CMD
+    CMD --> WS
+    CMD --> FEAT
+    CMD --> EXP
+    WS --> NAV
     NAV --> DOC
-    NAV --> VIEW
-    VIEW --> RENDER["Renderer / Editor / Viewer"]
-    FEAT --> UI
+    DOC --> VIEW
     EXP --> VIEW
+    VIEW --> RENDER
 ```
 
 ---

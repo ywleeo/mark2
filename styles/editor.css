@@ -142,19 +142,44 @@
 /* mermaid 图内部微调 */
 .tiptap-editor .mermaid svg text {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 13px;
     -webkit-font-smoothing: antialiased;
 }
 
+/* 流程图节点 */
 .tiptap-editor .mermaid svg .node rect,
 .tiptap-editor .mermaid svg .node circle,
 .tiptap-editor .mermaid svg .node polygon {
-    rx: 6;
-    ry: 6;
-    stroke-width: 1.2px;
+    rx: 8;
+    ry: 8;
+    stroke-width: 1px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.04));
 }
 
+/* 连线 */
 .tiptap-editor .mermaid svg .edgePath path {
-    stroke-width: 1.5px;
+    stroke-width: 1.2px;
+    stroke-linecap: round;
+}
+
+/* 箭头 */
+.tiptap-editor .mermaid svg .edgePath marker path {
+    stroke-width: 0;
+}
+
+/* subgraph 分组框 */
+.tiptap-editor .mermaid svg .cluster rect {
+    rx: 10;
+    ry: 10;
+    stroke-width: 1px;
+    stroke-dasharray: none;
+}
+
+/* subgraph 标题 */
+.tiptap-editor .mermaid svg .cluster-label .nodeLabel {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 
 /* 折线样式 */
