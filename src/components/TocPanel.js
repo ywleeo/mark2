@@ -12,7 +12,6 @@ export class TocPanel {
         this.headings = [];
         this.activeHeadingId = null;
         this.clickCleanups = [];
-        this.closeButtonCleanup = null;
         this.updateDebounceTimer = null;
         this.scrollContainer = null;
         this.scrollHandler = null;
@@ -22,6 +21,7 @@ export class TocPanel {
         this.warningTimeout = null;
         this.isDirty = true;
         this.editorUpdateHandler = null;
+        this.resizeCleanup = null;
     }
 
     /**
@@ -56,11 +56,6 @@ export class TocPanel {
         header.className = 'toc-panel__header';
         header.innerHTML = `
             <span class="toc-panel__title">目录</span>
-            <button class="toc-panel__close" type="button" aria-label="关闭目录">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
-                </svg>
-            </button>
         `;
 
         // 目录内容容器
@@ -72,15 +67,14 @@ export class TocPanel {
         empty.className = 'toc-panel__empty';
         empty.textContent = '当前文档无标题';
 
+        // 拖拽调整宽度的手柄
+        const resizer = document.createElement('div');
+        resizer.className = 'toc-panel__resizer';
+
+        container.appendChild(resizer);
         container.appendChild(header);
         container.appendChild(content);
         container.appendChild(empty);
-
-        // 绑定关闭按钮事件
-        const closeBtn = header.querySelector('.toc-panel__close');
-        this.closeButtonCleanup = addClickHandler(closeBtn, () => {
-            this.hide();
-        });
 
         return container;
     }
@@ -95,7 +89,23 @@ export class TocPanel {
         }
 
         this.container = this.createContainer();
-        parent.appendChild(this.container);
+
+        // 挂载到 #contentArea 作为 content-main 的右侧兄弟
+        const contentArea = document.getElementById('contentArea');
+        if (contentArea) {
+            contentArea.appendChild(this.container);
+        } else {
+            parent.appendChild(this.container);
+        }
+
+        // 恢复保存的宽度
+        const savedWidth = localStorage.getItem('toc-panel-width');
+        if (savedWidth) {
+            this.container.style.flexBasis = savedWidth + 'px';
+        }
+
+        // 绑定拖拽调整宽度
+        this.resizeCleanup = this.setupResize();
 
         // 绑定滚动事件
         this.bindScrollEvent();
@@ -116,6 +126,62 @@ export class TocPanel {
         }, 100);
 
         this.scrollContainer.addEventListener('scroll', this.scrollHandler);
+    }
+
+    /**
+     * 设置拖拽调整宽度
+     */
+    setupResize() {
+        const resizer = this.container.querySelector('.toc-panel__resizer');
+        if (!resizer) return null;
+
+        const MIN_WIDTH = 140;
+        const MAX_WIDTH = 400;
+        let startX = 0;
+        let startWidth = 0;
+        let pointerId = null;
+
+        const stop = (e) => {
+            if (pointerId === null || e.pointerId !== pointerId) return;
+            if (resizer.hasPointerCapture(pointerId)) {
+                resizer.releasePointerCapture(pointerId);
+            }
+            pointerId = null;
+            document.body.classList.remove('toc-resizing');
+            document.body.style.userSelect = '';
+            localStorage.setItem('toc-panel-width', this.container.getBoundingClientRect().width);
+        };
+
+        const onDown = (e) => {
+            if (pointerId !== null) return;
+            startX = e.clientX;
+            startWidth = this.container.getBoundingClientRect().width;
+            pointerId = e.pointerId;
+            resizer.setPointerCapture(pointerId);
+            document.body.classList.add('toc-resizing');
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        };
+
+        const onMove = (e) => {
+            if (pointerId === null || e.pointerId !== pointerId) return;
+            // 向左拖 = 变宽（因为面板在右侧）
+            const delta = startX - e.clientX;
+            const next = Math.min(Math.max(MIN_WIDTH, startWidth + delta), MAX_WIDTH);
+            this.container.style.flexBasis = next + 'px';
+        };
+
+        resizer.addEventListener('pointerdown', onDown);
+        resizer.addEventListener('pointermove', onMove);
+        resizer.addEventListener('pointerup', stop);
+        resizer.addEventListener('pointercancel', stop);
+
+        return () => {
+            resizer.removeEventListener('pointerdown', onDown);
+            resizer.removeEventListener('pointermove', onMove);
+            resizer.removeEventListener('pointerup', stop);
+            resizer.removeEventListener('pointercancel', stop);
+        };
     }
 
     /**
@@ -408,10 +474,6 @@ export class TocPanel {
         this.markDirty();
         this.scheduleRender();
 
-        // 触发重排以启动过渡动画
-        this.container.offsetHeight;
-        this.container.classList.add('toc-panel--visible');
-
         // 更新状态栏按钮状态
         document.getElementById('statusBarToc')?.classList.add('is-active');
 
@@ -479,20 +541,13 @@ export class TocPanel {
         if (!this.container) return;
 
         this.isVisible = false;
-        this.container.classList.remove('toc-panel--visible');
+        this.container.style.display = 'none';
 
         // 更新状态栏按钮状态
         document.getElementById('statusBarToc')?.classList.remove('is-active');
 
         // 停止自动更新
         this.stopAutoUpdate();
-
-        // 等待过渡动画完成后隐藏
-        setTimeout(() => {
-            if (!this.isVisible) {
-                this.container.style.display = 'none';
-            }
-        }, 200);
     }
 
     /**
@@ -561,15 +616,15 @@ export class TocPanel {
         // 清理警告提示
         this.removeWarning();
 
+        // 清理拖拽事件
+        if (this.resizeCleanup) {
+            this.resizeCleanup();
+            this.resizeCleanup = null;
+        }
+
         // 清理滚动事件
         if (this.scrollContainer && this.scrollHandler) {
             this.scrollContainer.removeEventListener('scroll', this.scrollHandler);
-        }
-
-        // 清理关闭按钮事件
-        if (this.closeButtonCleanup && typeof this.closeButtonCleanup === 'function') {
-            this.closeButtonCleanup();
-            this.closeButtonCleanup = null;
         }
 
         // 清理目录项点击事件
