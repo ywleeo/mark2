@@ -292,11 +292,6 @@ export class SettingsDialog {
             }
         });
 
-        // AI tab 需要更宽的对话框
-        const dialog = this.root.querySelector('.settings-dialog');
-        if (dialog) {
-            dialog.classList.toggle('settings-dialog--wide', tabName === 'ai');
-        }
     }
 
     initCodeFontOptions() {
