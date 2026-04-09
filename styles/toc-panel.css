@@ -229,8 +229,14 @@ body.toc-resizing {
     transition: opacity 0.15s;
 }
 
-.status-toc-btn:hover {
+.status-toc-btn:hover:not(:disabled) {
     opacity: 1;
+}
+
+.status-toc-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
 }
 
 .status-toc-btn.is-active {

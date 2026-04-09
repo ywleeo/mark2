@@ -270,6 +270,15 @@ const viewController = createViewController({
         if (nextMode !== 'markdown' && nextMode !== 'split') {
             featureManager.getFeatureApi('card-export')?.hideSidebar?.();
         }
+        // TOC 仅在 markdown 视图下可用
+        const tocBtn = document.getElementById('statusBarToc');
+        if (tocBtn) {
+            const isMarkdown = nextMode === 'markdown';
+            tocBtn.disabled = !isMarkdown;
+            if (!isMarkdown && tocBtn.classList.contains('is-active')) {
+                appState.getMarkdownToolbarManager()?.toggleToc?.();
+            }
+        }
     },
 });
 const {
