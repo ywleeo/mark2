@@ -4,11 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mark2 - Markdown 编辑器</title>
-    <!-- 平台检测：尽早设置 class 避免布局闪烁 -->
+    <!-- 平台检测 + 主题早恢复：避免布局/颜色闪烁 -->
     <script>
         if (navigator.userAgent.includes('Windows')) {
             document.documentElement.classList.add('platform-windows');
         }
+        // Restore theme appearance before CSS renders to prevent flash
+        try {
+            var s = JSON.parse(localStorage.getItem('mark2:editorSettings') || '{}');
+            var pref = s.appearance || 'system';
+            var resolved = pref;
+            if (pref === 'system') {
+                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.dataset.themeAppearance = resolved;
+            document.documentElement.dataset.themeAppearancePreference = pref;
+            document.documentElement.style.setProperty('color-scheme', resolved);
+        } catch(e) {}
     </script>
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAF/gL+dlz7WwAAAABJRU5ErkJggg==" />
     <link rel="stylesheet" href="/styles/layout.css">

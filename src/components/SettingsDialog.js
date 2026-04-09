@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { t, getLocale, setLocale } from '../i18n/index.js';
 
 // 动态导入 aiService（避免循环依赖）
 let aiService = null;
@@ -46,7 +47,7 @@ export class SettingsDialog {
             { label: 'Courier New', value: "'Courier New', monospace" },
         ];
 
-        this.currentTab = 'editor'; // 'editor', 'code', or 'ai'
+        this.currentTab = 'general'; // 'general', 'editor', 'code', or 'ai'
 
         this.root = document.createElement('div');
         this.root.className = 'settings-modal hidden';
@@ -54,19 +55,41 @@ export class SettingsDialog {
             <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsDialogTitle">
                 <form class="settings-form">
                     <header class="settings-header">
-                        <h2 id="settingsDialogTitle">Settings</h2>
+                        <h2 id="settingsDialogTitle">${t('settings.title')}</h2>
                         <nav class="settings-tabs">
-                            <button type="button" class="settings-tab active" data-tab="editor">Markdown</button>
-                            <button type="button" class="settings-tab" data-tab="code">Code</button>
-                            <button type="button" class="settings-tab" data-tab="ai">AI</button>
+                            <button type="button" class="settings-tab active" data-tab="general">${t('settings.tabGeneral')}</button>
+                            <button type="button" class="settings-tab" data-tab="editor">${t('settings.tabMarkdown')}</button>
+                            <button type="button" class="settings-tab" data-tab="code">${t('settings.tabCode')}</button>
+                            <button type="button" class="settings-tab" data-tab="ai">${t('settings.tabAi')}</button>
                         </nav>
                     </header>
 
-                    <!-- 编辑器设置 -->
-                    <section class="settings-body" data-tab-content="editor">
+                    <!-- General 设置 -->
+                    <section class="settings-body" data-tab-content="general">
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">Theme</span>
+                                <span class="settings-row__label">${t('settings.appearance')}</span>
+                                <select name="appearance" class="settings-row__control">
+                                    <option value="system">${t('settings.appearanceSystem')}</option>
+                                    <option value="light">${t('settings.appearanceLight')}</option>
+                                    <option value="dark">${t('settings.appearanceDark')}</option>
+                                </select>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.language')}</span>
+                                <select name="language" class="settings-row__control">
+                                    <option value="en">English</option>
+                                    <option value="zh-CN">中文</option>
+                                </select>
+                            </label>
+                        </div>
+                    </section>
+
+                    <!-- 编辑器设置 -->
+                    <section class="settings-body hidden" data-tab-content="editor">
+                        <div class="settings-rows">
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.theme')}</span>
                                 <select name="theme" class="settings-row__control">
                                     <option value="default">GitHub</option>
                                     <option value="emerald">Emerald</option>
@@ -74,37 +97,29 @@ export class SettingsDialog {
                                 </select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Appearance</span>
-                                <select name="appearance" class="settings-row__control">
-                                    <option value="system">System</option>
-                                    <option value="light">Light</option>
-                                    <option value="dark">Dark</option>
-                                </select>
-                            </label>
-                            <label class="settings-row">
-                                <span class="settings-row__label">Font</span>
+                                <span class="settings-row__label">${t('settings.font')}</span>
                                 <select name="fontFamily" class="settings-row__control"></select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Font Size</span>
+                                <span class="settings-row__label">${t('settings.fontSize')}</span>
                                 <input type="number" name="fontSize" min="10" max="48" step="1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Line Height</span>
+                                <span class="settings-row__label">${t('settings.lineHeight')}</span>
                                 <input type="number" name="lineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Font Weight</span>
+                                <span class="settings-row__label">${t('settings.fontWeight')}</span>
                                 <select name="fontWeight" class="settings-row__control">
-                                    <option value="100">Thin</option>
-                                    <option value="200">Extra Light</option>
-                                    <option value="300">Light</option>
-                                    <option value="400">Regular</option>
-                                    <option value="500">Medium</option>
-                                    <option value="600">Semibold</option>
-                                    <option value="700">Bold</option>
-                                    <option value="800">Extra Bold</option>
-                                    <option value="900">Black</option>
+                                    <option value="100">${t('settings.weightThin')}</option>
+                                    <option value="200">${t('settings.weightExtraLight')}</option>
+                                    <option value="300">${t('settings.weightLight')}</option>
+                                    <option value="400">${t('settings.weightRegular')}</option>
+                                    <option value="500">${t('settings.weightMedium')}</option>
+                                    <option value="600">${t('settings.weightSemibold')}</option>
+                                    <option value="700">${t('settings.weightBold')}</option>
+                                    <option value="800">${t('settings.weightExtraBold')}</option>
+                                    <option value="900">${t('settings.weightBlack')}</option>
                                 </select>
                             </label>
                         </div>
@@ -114,7 +129,7 @@ export class SettingsDialog {
                     <section class="settings-body hidden" data-tab-content="code">
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">Color Scheme</span>
+                                <span class="settings-row__label">${t('settings.colorScheme')}</span>
                                 <select name="codeTheme" class="settings-row__control">
                                     <option value="auto">Auto</option>
                                     <option value="vs">VS Code</option>
@@ -127,29 +142,29 @@ export class SettingsDialog {
                                 </select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Font</span>
+                                <span class="settings-row__label">${t('settings.font')}</span>
                                 <select name="codeFontFamily" class="settings-row__control"></select>
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Font Size</span>
+                                <span class="settings-row__label">${t('settings.fontSize')}</span>
                                 <input type="number" name="codeFontSize" min="10" max="48" step="1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Line Height</span>
+                                <span class="settings-row__label">${t('settings.lineHeight')}</span>
                                 <input type="number" name="codeLineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
-                                <span class="settings-row__label">Font Weight</span>
+                                <span class="settings-row__label">${t('settings.fontWeight')}</span>
                                 <select name="codeFontWeight" class="settings-row__control">
-                                    <option value="100">Thin</option>
-                                    <option value="200">Extra Light</option>
-                                    <option value="300">Light</option>
-                                    <option value="400">Regular</option>
-                                    <option value="500">Medium</option>
-                                    <option value="600">Semibold</option>
-                                    <option value="700">Bold</option>
-                                    <option value="800">Extra Bold</option>
-                                    <option value="900">Black</option>
+                                    <option value="100">${t('settings.weightThin')}</option>
+                                    <option value="200">${t('settings.weightExtraLight')}</option>
+                                    <option value="300">${t('settings.weightLight')}</option>
+                                    <option value="400">${t('settings.weightRegular')}</option>
+                                    <option value="500">${t('settings.weightMedium')}</option>
+                                    <option value="600">${t('settings.weightSemibold')}</option>
+                                    <option value="700">${t('settings.weightBold')}</option>
+                                    <option value="800">${t('settings.weightExtraBold')}</option>
+                                    <option value="900">${t('settings.weightBlack')}</option>
                                 </select>
                             </label>
                         </div>
@@ -161,7 +176,7 @@ export class SettingsDialog {
                             <!-- 左侧 Provider 列表 -->
                             <div class="ai-providers-list">
                                 <div class="ai-providers-list__header">
-                                    <span class="settings-label">Providers</span>
+                                    <span class="settings-label">${t('settings.providers')}</span>
                                     <button type="button" class="ai-provider-btn ai-provider-btn--add" data-action="add-provider" title="Add provider">＋</button>
                                 </div>
                                 <div class="ai-providers-list__items" data-ref="providerList"></div>
@@ -170,26 +185,26 @@ export class SettingsDialog {
                             <!-- 右侧编辑区 -->
                             <div class="ai-provider-editor" data-ref="providerEditor">
                                 <div class="ai-provider-editor__empty">
-                                    <span>Click + to add a provider</span>
+                                    <span>${t('settings.addProviderHint')}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">Creativity</span>
+                                <span class="settings-row__label">${t('settings.creativity')}</span>
                                 <select name="aiCreativity" class="settings-row__control">
-                                    <option value="low">Conservative</option>
-                                    <option value="medium">Balanced</option>
-                                    <option value="high">Creative</option>
+                                    <option value="low">${t('settings.creativityLow')}</option>
+                                    <option value="medium">${t('settings.creativityMedium')}</option>
+                                    <option value="high">${t('settings.creativityHigh')}</option>
                                 </select>
                             </label>
                         </div>
                     </section>
 
                     <footer class="settings-footer">
-                        <button type="button" class="btn secondary" data-action="cancel">Cancel</button>
-                        <button type="submit" class="btn primary">Save</button>
+                        <button type="button" class="btn secondary" data-action="cancel">${t('settings.cancel')}</button>
+                        <button type="submit" class="btn primary">${t('settings.save')}</button>
                     </footer>
                 </form>
             </div>
@@ -210,6 +225,9 @@ export class SettingsDialog {
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
         this.lineHeightInput = this.form.querySelector('input[name="lineHeight"]');
         this.fontWeightSelect = this.form.querySelector('select[name="fontWeight"]');
+
+        // Language
+        this.languageSelect = this.form.querySelector('select[name="language"]');
 
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
@@ -297,7 +315,7 @@ export class SettingsDialog {
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = 'System Default';
+        defaultOption.textContent = t('settings.systemDefault');
         this.codeFontFamilySelect.appendChild(defaultOption);
 
         this.codeModeFonts.forEach(font => {
@@ -316,6 +334,9 @@ export class SettingsDialog {
         this.themeSelect.value = editorPrefs.theme || 'default';
         if (this.appearanceSelect) {
             this.appearanceSelect.value = editorPrefs.appearance || 'system';
+        }
+        if (this.languageSelect) {
+            this.languageSelect.value = getLocale();
         }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
@@ -343,7 +364,7 @@ export class SettingsDialog {
         }
 
         // 重置到第一个 tab
-        this.switchTab('editor');
+        this.switchTab('general');
 
         if (!this.isOpen) {
             document.addEventListener('keydown', this.handleKeydown);
@@ -435,6 +456,14 @@ export class SettingsDialog {
             this.onSubmit(sanitized);
         }
 
+        // Language change triggers reload — must be after other settings are saved
+        const newLocale = this.languageSelect?.value;
+        if (newLocale && newLocale !== getLocale()) {
+            this.close(false);
+            setLocale(newLocale);
+            return;
+        }
+
         this.close(false);
     }
 
@@ -520,12 +549,12 @@ export class SettingsDialog {
 
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
-        defaultOption.textContent = 'System Default';
+        defaultOption.textContent = t('settings.systemDefault');
         this.fontFamilySelect.appendChild(defaultOption);
 
         if (this.recommendedFonts.length > 0) {
             const recommendedGroup = document.createElement('optgroup');
-            recommendedGroup.label = 'Recommended';
+            recommendedGroup.label = t('settings.recommended');
             this.recommendedFonts.forEach(font => {
                 const option = document.createElement('option');
                 option.value = font.value;
@@ -537,7 +566,7 @@ export class SettingsDialog {
 
         if (this.availableFonts.length > 0) {
             const systemGroup = document.createElement('optgroup');
-            systemGroup.label = 'System Fonts';
+            systemGroup.label = t('settings.systemFonts');
             this.availableFonts.forEach(name => {
                 const option = document.createElement('option');
                 const cssValue = this.toCssFontValue(name);
@@ -663,14 +692,14 @@ export class SettingsDialog {
 
             const label = document.createElement('span');
             label.className = 'ai-provider-item__name';
-            label.textContent = p.name || 'Untitled';
+            label.textContent = p.name || t('settings.untitled');
             item.appendChild(label);
 
             const delBtn = document.createElement('button');
             delBtn.type = 'button';
             delBtn.className = 'ai-provider-item__delete';
             delBtn.textContent = '×';
-            delBtn.title = 'Delete';
+            delBtn.title = t('settings.delete');
             item.appendChild(delBtn);
 
             const selectCleanup = addClickHandler(item, (e) => {
@@ -688,40 +717,40 @@ export class SettingsDialog {
         if (!this.providerEditorEl) return;
 
         if (!provider) {
-            this.providerEditorEl.innerHTML = '<div class="ai-provider-editor__empty"><span>Click + to add a provider</span></div>';
+            this.providerEditorEl.innerHTML = `<div class="ai-provider-editor__empty"><span>${t('settings.addProviderHint')}</span></div>`;
             return;
         }
 
         this.providerEditorEl.innerHTML = `
             <label class="settings-field">
-                <span class="settings-label">Name</span>
-                <input type="text" data-field="name" value="${this.escAttr(provider.name)}" placeholder="e.g. DeepSeek, OpenAI">
+                <span class="settings-label">${t('settings.providerName')}</span>
+                <input type="text" data-field="name" value="${this.escAttr(provider.name)}" placeholder="${t('settings.providerNamePlaceholder')}">
             </label>
             <label class="settings-field">
-                <span class="settings-label">API Key</span>
+                <span class="settings-label">${t('settings.apiKey')}</span>
                 <input type="password" data-field="apiKey" value="${this.escAttr(provider.apiKey)}" placeholder="sk-...">
             </label>
             <label class="settings-field">
-                <span class="settings-label">Base URL</span>
+                <span class="settings-label">${t('settings.baseUrl')}</span>
                 <input type="text" data-field="baseUrl" value="${this.escAttr(provider.baseUrl)}" placeholder="https://api.openai.com/v1">
             </label>
             <div class="settings-field">
                 <div class="ai-models-header">
-                    <span class="settings-label">Models</span>
+                    <span class="settings-label">${t('settings.models')}</span>
                     <div class="ai-models-actions">
-                        <button type="button" class="ai-provider-btn" data-action="fetch-models">Fetch List</button>
-                        <button type="button" class="ai-provider-btn" data-action="add-model">Add</button>
+                        <button type="button" class="ai-provider-btn" data-action="fetch-models">${t('settings.fetchList')}</button>
+                        <button type="button" class="ai-provider-btn" data-action="add-model">${t('settings.add')}</button>
                     </div>
                 </div>
                 <div class="ai-models-list" data-ref="modelsList"></div>
                 <div class="ai-model-add-row" data-ref="modelAddRow" style="display:none">
-                    <input type="text" class="ai-model-add-input" data-ref="modelAddInput" placeholder="Model name, e.g. gpt-4o">
-                    <button type="button" class="ai-provider-btn" data-action="confirm-add-model">OK</button>
+                    <input type="text" class="ai-model-add-input" data-ref="modelAddInput" placeholder="${t('settings.modelPlaceholder')}">
+                    <button type="button" class="ai-provider-btn" data-action="confirm-add-model">${t('settings.ok')}</button>
                 </div>
                 <span class="ai-models-status" data-ref="modelsStatus"></span>
             </div>
             <div class="ai-provider-test">
-                <button type="button" class="ai-provider-btn ai-provider-btn--test" data-action="test-connection">Test Connection</button>
+                <button type="button" class="ai-provider-btn ai-provider-btn--test" data-action="test-connection">${t('settings.testConnection')}</button>
                 <span class="ai-provider-test__result" data-ref="testResult"></span>
             </div>
         `;
@@ -767,7 +796,7 @@ export class SettingsDialog {
             nameInput.addEventListener('input', () => {
                 provider.name = nameInput.value.trim();
                 const listItem = this.providerListEl?.querySelector(`[data-id="${provider.id}"] .ai-provider-item__name`);
-                if (listItem) listItem.textContent = provider.name || 'Untitled';
+                if (listItem) listItem.textContent = provider.name || t('settings.untitled');
             });
         }
     }
@@ -778,7 +807,7 @@ export class SettingsDialog {
         container.innerHTML = '';
 
         if (provider.models.length === 0) {
-            container.innerHTML = '<span class="ai-models-empty">No models yet. Click Add or Fetch List.</span>';
+            container.innerHTML = `<span class="ai-models-empty">${t('settings.noModels')}</span>`;
             return;
         }
 
@@ -786,7 +815,7 @@ export class SettingsDialog {
             const tag = document.createElement('span');
             tag.className = 'ai-model-tag' + (model === this.selectedActiveModel ? ' is-active' : '');
             tag.dataset.model = model;
-            tag.title = 'Click to set as active model';
+            tag.title = t('settings.activeModelTooltip');
 
             const label = document.createElement('span');
             label.className = 'ai-model-tag__name';
@@ -851,14 +880,14 @@ export class SettingsDialog {
 
         try {
             if (statusEl) {
-                statusEl.textContent = 'Fetching…';
+                statusEl.textContent = t('settings.fetching');
                 statusEl.className = 'ai-models-status';
             }
             const service = await getAiService();
             const models = await service.fetchModels(provider);
             if (models.length === 0) {
                 if (statusEl) {
-                    statusEl.textContent = 'No models returned by API';
+                    statusEl.textContent = t('settings.noModelsReturned');
                     statusEl.className = 'ai-models-status is-warning';
                 }
                 return;
@@ -872,7 +901,7 @@ export class SettingsDialog {
             }
             this.renderModelsList(provider);
             if (statusEl) {
-                statusEl.textContent = `${models.length} models fetched`;
+                statusEl.textContent = t('settings.modelsFetched', { count: models.length });
                 statusEl.className = 'ai-models-status is-success';
             }
         } catch (error) {
@@ -892,7 +921,7 @@ export class SettingsDialog {
         const models = provider.models?.length > 0 ? provider.models : [];
         if (models.length === 0) {
             if (resultEl) {
-                resultEl.textContent = 'Please add a model first';
+                resultEl.textContent = t('settings.addModelFirst');
                 resultEl.className = 'ai-provider-test__result is-error';
             }
             return;
@@ -936,7 +965,7 @@ export class SettingsDialog {
         }
 
         if (resultEl) {
-            resultEl.textContent = `${successCount}/${models.length} models available`;
+            resultEl.textContent = t('settings.modelsAvailable', { success: successCount, total: models.length });
             resultEl.className = `ai-provider-test__result ${successCount === models.length ? 'is-success' : 'is-error'}`;
         }
         if (testBtn) testBtn.disabled = false;

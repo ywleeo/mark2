@@ -1,7 +1,85 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::menu::*;
 use tauri::{App, Emitter, Manager, Wry};
+
+/// Read locale from app data file written by the JS frontend.
+fn read_locale(app: &App) -> String {
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        let locale_file = data_dir.join("locale.txt");
+        if let Ok(content) = std::fs::read_to_string(&locale_file) {
+            let trimmed = content.trim().to_string();
+            if !trimmed.is_empty() {
+                return trimmed;
+            }
+        }
+    }
+    "en".to_string()
+}
+
+/// Build a translation map for menu labels.
+fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
+    let mut m = HashMap::new();
+    if locale == "zh-CN" {
+        m.insert("file", "文件");
+        m.insert("edit", "编辑");
+        m.insert("view", "视图");
+        m.insert("new", "新建...");
+        m.insert("open", "打开...");
+        m.insert("open-file", "打开文件...");
+        m.insert("open-folder", "打开文件夹...");
+        m.insert("open-recent", "最近打开");
+        m.insert("export", "导出");
+        m.insert("export-image", "导出为图片...");
+        m.insert("export-pdf", "导出为 PDF...");
+        m.insert("rename", "重命名...");
+        m.insert("move", "移动到...");
+        m.insert("delete", "删除");
+        m.insert("settings", "设置...");
+        m.insert("undo", "撤销");
+        m.insert("redo", "重做");
+        m.insert("toggle-sidebar", "切换侧边栏");
+        m.insert("toggle-status-bar", "切换状态栏");
+        m.insert("markdown-toolbar", "Markdown 工具栏");
+        m.insert("terminal", "终端");
+        m.insert("ai-assistant", "AI 助手");
+        m.insert("toggle-theme", "切换深色/浅色模式");
+        m.insert("toggle-code-mode", "切换 Markdown 代码模式");
+        m.insert("about", "关于 Mark2");
+        m.insert("quit", "退出 Mark2");
+        m.insert("clear-recent", "清除最近记录");
+    } else {
+        m.insert("file", "File");
+        m.insert("edit", "Edit");
+        m.insert("view", "View");
+        m.insert("new", "New...");
+        m.insert("open", "Open...");
+        m.insert("open-file", "Open File...");
+        m.insert("open-folder", "Open Folder...");
+        m.insert("open-recent", "Open Recent");
+        m.insert("export", "Export");
+        m.insert("export-image", "Export as Image...");
+        m.insert("export-pdf", "Export as PDF...");
+        m.insert("rename", "Rename...");
+        m.insert("move", "Move To...");
+        m.insert("delete", "Delete");
+        m.insert("settings", "Settings...");
+        m.insert("undo", "Undo");
+        m.insert("redo", "Redo");
+        m.insert("toggle-sidebar", "Toggle Sidebar");
+        m.insert("toggle-status-bar", "Toggle Status Bar");
+        m.insert("markdown-toolbar", "Markdown Toolbar");
+        m.insert("terminal", "Terminal");
+        m.insert("ai-assistant", "AI Assistant");
+        m.insert("toggle-theme", "Toggle Dark/Light Mode");
+        m.insert("toggle-code-mode", "Toggle Markdown Code Mode");
+        m.insert("about", "About Mark2");
+        m.insert("quit", "Quit Mark2");
+        m.insert("clear-recent", "Clear Recent");
+    }
+    m
+}
 
 pub struct ExportMenuHandles {
     image: MenuItem<Wry>,
@@ -139,57 +217,60 @@ pub fn update_recent_menu(
 }
 
 pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+    let locale = read_locale(app);
+    let l = menu_labels(&locale);
+
     #[cfg(target_os = "macos")]
-    let open_item = MenuItemBuilder::with_id("open", "Open...")
+    let open_item = MenuItemBuilder::with_id("open", l["open"])
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
 
     #[cfg(not(target_os = "macos"))]
-    let open_file_item = MenuItemBuilder::with_id("open-file", "Open File...")
+    let open_file_item = MenuItemBuilder::with_id("open-file", l["open-file"])
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
 
     #[cfg(not(target_os = "macos"))]
     let open_folder_item =
-        MenuItemBuilder::with_id("open-folder", "Open Folder...").build(app)?;
+        MenuItemBuilder::with_id("open-folder", l["open-folder"]).build(app)?;
 
-    let settings_item = MenuItemBuilder::with_id("settings", "Settings...")
+    let settings_item = MenuItemBuilder::with_id("settings", l["settings"])
         .accelerator("CmdOrCtrl+,")
         .build(app)?;
 
-    let export_image_item = MenuItemBuilder::with_id("export-image", "Export as Image...")
+    let export_image_item = MenuItemBuilder::with_id("export-image", l["export-image"])
         .accelerator("CmdOrCtrl+Shift+C")
         .build(app)?;
 
-    let export_pdf_item = MenuItemBuilder::with_id("export-pdf", "Export as PDF...")
+    let export_pdf_item = MenuItemBuilder::with_id("export-pdf", l["export-pdf"])
         .accelerator("CmdOrCtrl+Shift+P")
         .build(app)?;
 
-    let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", "Toggle Sidebar")
+    let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", l["toggle-sidebar"])
         .accelerator("CmdOrCtrl+\\")
         .build(app)?;
 
     let toggle_status_bar_item =
-        MenuItemBuilder::with_id("toggle-status-bar", "Toggle Status Bar").build(app)?;
+        MenuItemBuilder::with_id("toggle-status-bar", l["toggle-status-bar"]).build(app)?;
 
     let toggle_markdown_toolbar_item =
-        MenuItemBuilder::with_id("toggle-markdown-toolbar", "Markdown Toolbar")
+        MenuItemBuilder::with_id("toggle-markdown-toolbar", l["markdown-toolbar"])
             .accelerator("CmdOrCtrl+Shift+T")
             .build(app)?;
 
-    let toggle_terminal_item = MenuItemBuilder::with_id("toggle-terminal", "Terminal")
+    let toggle_terminal_item = MenuItemBuilder::with_id("toggle-terminal", l["terminal"])
         .accelerator("CmdOrCtrl+J")
         .build(app)?;
 
-    let toggle_ai_sidebar_item = MenuItemBuilder::with_id("toggle-ai-sidebar", "AI Assistant")
+    let toggle_ai_sidebar_item = MenuItemBuilder::with_id("toggle-ai-sidebar", l["ai-assistant"])
         .accelerator("CmdOrCtrl+Shift+A")
         .build(app)?;
 
-    let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", "Toggle Dark/Light Mode")
+    let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"])
         .build(app)?;
 
-    let about_item = MenuItemBuilder::with_id("about", "About Mark2").build(app)?;
-    let quit_item = MenuItemBuilder::with_id("app-quit", "Quit Mark2")
+    let about_item = MenuItemBuilder::with_id("about", l["about"]).build(app)?;
+    let quit_item = MenuItemBuilder::with_id("app-quit", l["quit"])
         .accelerator("CmdOrCtrl+Q")
         .build(app)?;
 
@@ -201,31 +282,31 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .item(&quit_item)
         .build()?;
 
-    let export_submenu = SubmenuBuilder::new(app, "Export")
+    let export_submenu = SubmenuBuilder::new(app, l["export"])
         .item(&export_image_item)
         .item(&export_pdf_item)
         .build()?;
 
-    let new_file_item = MenuItemBuilder::with_id("file-new", "New...")
+    let new_file_item = MenuItemBuilder::with_id("file-new", l["new"])
         .accelerator("CmdOrCtrl+N")
         .build(app)?;
 
-    let rename_file_item = MenuItemBuilder::with_id("file-rename", "Rename...").build(app)?;
-    let move_file_item = MenuItemBuilder::with_id("file-move", "Move To...").build(app)?;
-    let delete_file_item = MenuItemBuilder::with_id("file-delete", "Delete")
+    let rename_file_item = MenuItemBuilder::with_id("file-rename", l["rename"]).build(app)?;
+    let move_file_item = MenuItemBuilder::with_id("file-move", l["move"]).build(app)?;
+    let delete_file_item = MenuItemBuilder::with_id("file-delete", l["delete"])
         .accelerator("CmdOrCtrl+Delete")
         .build(app)?;
 
-    let open_recent_submenu = SubmenuBuilder::new(app, "Open Recent").build()?;
+    let open_recent_submenu = SubmenuBuilder::new(app, l["open-recent"]).build()?;
 
     #[cfg(target_os = "macos")]
-    let file_menu_builder = SubmenuBuilder::new(app, "File")
+    let file_menu_builder = SubmenuBuilder::new(app, l["file"])
         .item(&new_file_item)
         .item(&open_item)
         .item(&open_recent_submenu);
 
     #[cfg(not(target_os = "macos"))]
-    let file_menu_builder = SubmenuBuilder::new(app, "File")
+    let file_menu_builder = SubmenuBuilder::new(app, l["file"])
         .item(&new_file_item)
         .item(&open_file_item)
         .item(&open_folder_item)
@@ -240,7 +321,7 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .item(&delete_file_item)
         .build()?;
 
-    let view_menu = SubmenuBuilder::new(app, "View")
+    let view_menu = SubmenuBuilder::new(app, l["view"])
         .item(&toggle_sidebar_item)
         .item(&toggle_status_bar_item)
         .item(&toggle_markdown_toolbar_item)
@@ -259,10 +340,10 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     recent_menu_state.set_app_handle(app.handle().clone());
     app.manage(recent_menu_state);
 
-    let undo_item = MenuItemBuilder::with_id("undo", "Undo")
+    let undo_item = MenuItemBuilder::with_id("undo", l["undo"])
         .accelerator("CmdOrCtrl+Z")
         .build(app)?;
-    let redo_item = MenuItemBuilder::with_id("redo", "Redo")
+    let redo_item = MenuItemBuilder::with_id("redo", l["redo"])
         .accelerator("CmdOrCtrl+Shift+Z")
         .build(app)?;
     let cut_item = PredefinedMenuItem::cut(app, None)?;
@@ -270,11 +351,11 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let paste_item = PredefinedMenuItem::paste(app, None)?;
     let select_all_item = PredefinedMenuItem::select_all(app, None)?;
     let markdown_code_mode_item =
-        MenuItemBuilder::with_id("toggle-markdown-code-view", "Toggle Markdown Code Mode")
+        MenuItemBuilder::with_id("toggle-markdown-code-view", l["toggle-code-mode"])
             .accelerator("CmdOrCtrl+E")
             .build(app)?;
 
-    let edit_menu = SubmenuBuilder::new(app, "Edit")
+    let edit_menu = SubmenuBuilder::new(app, l["edit"])
         .item(&undo_item)
         .item(&redo_item)
         .separator()

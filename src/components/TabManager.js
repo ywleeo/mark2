@@ -1,5 +1,6 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { basename } from '../utils/pathUtils.js';
+import { t } from '../i18n/index.js';
 
 const TAB_DRAG_ACTIVATION_THRESHOLD = 4;
 
@@ -402,7 +403,7 @@ export class TabManager {
         const newTabBtn = document.createElement('button');
         newTabBtn.className = 'tab-new-btn';
         newTabBtn.type = 'button';
-        newTabBtn.title = '新建标签页 (⌘T)';
+        newTabBtn.title = `${t('tab.newTab')} (⌘T)`;
         newTabBtn.textContent = '+';
         const cleanupNew = addClickHandler(newTabBtn, () => {
             this.callbacks.onCreateUntitled?.();

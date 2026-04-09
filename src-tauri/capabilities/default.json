@@ -77,6 +77,22 @@
       ]
     },
     "fs:allow-unwatch",
-    "fs:allow-temp-write"
+    "fs:allow-temp-write",
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        {
+          "path": "$APPDATA/**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        {
+          "path": "$APPDATA/**"
+        }
+      ]
+    }
   ]
 }

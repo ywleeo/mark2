@@ -1,6 +1,7 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createCompactFileNameElement } from '../../utils/fileNameDisplay.js';
 import { getFileIconSvg } from '../../utils/fileIcons.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * FileTree 的 DOM 渲染模块
@@ -233,7 +234,7 @@ export class FileTreeRenderer {
             <!-- 打开的文件区域 -->
             <div class="sidebar-section open-files-section">
                 <div class="section-header" id="openFilesHeader">
-                    <span class="section-title">OPEN FILES</span>
+                    <span class="section-title">${t('sidebar.openFiles')}</span>
                     <div class="section-header-actions">
                         <span class="section-collapse-indicator" aria-hidden="true">
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -244,8 +245,8 @@ export class FileTreeRenderer {
                             class="section-action-btn"
                             id="openFilesAction"
                             type="button"
-                            title="打开文件"
-                            aria-label="打开文件"
+                            title="${t('sidebar.openFile')}"
+                            aria-label="${t('sidebar.openFile')}"
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -260,7 +261,7 @@ export class FileTreeRenderer {
             <!-- 文件夹区域 -->
             <div class="sidebar-section folders-section">
                 <div class="section-header" id="foldersHeader">
-                    <span class="section-title">FOLDERS</span>
+                    <span class="section-title">${t('sidebar.folders')}</span>
                     <div class="section-header-actions">
                         <span class="section-collapse-indicator" aria-hidden="true">
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -271,8 +272,8 @@ export class FileTreeRenderer {
                             class="section-action-btn"
                             id="foldersAction"
                             type="button"
-                            title="打开文件夹"
-                            aria-label="打开文件夹"
+                            title="${t('sidebar.openFolder')}"
+                            aria-label="${t('sidebar.openFolder')}"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3z"/>

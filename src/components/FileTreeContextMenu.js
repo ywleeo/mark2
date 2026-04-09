@@ -2,6 +2,7 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { isFeatureEnabled } from '../config/features.js';
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { isWindows, isMac } from '../utils/platform.js';
+import { t } from '../i18n/index.js';
 
 export class FileTreeContextMenu {
     constructor(options = {}) {
@@ -49,20 +50,20 @@ export class FileTreeContextMenu {
         menu.className = 'file-tree-context-menu hidden';
         menu.innerHTML = `
             <div class="file-tree-context-menu__group">
-                ${this.renderMenuItem('run', 'Run', this.getMenuIcon('run'), 'runnable-only')}
-                ${this.renderMenuItem('create-file', 'New File', this.getMenuIcon('create-file'), 'folder-only')}
-                ${this.renderMenuItem('create-folder', 'New Folder', this.getMenuIcon('create-folder'), 'folder-only')}
+                ${this.renderMenuItem('run', t('contextMenu.run'), this.getMenuIcon('run'), 'runnable-only')}
+                ${this.renderMenuItem('create-file', t('contextMenu.newFile'), this.getMenuIcon('create-file'), 'folder-only')}
+                ${this.renderMenuItem('create-folder', t('contextMenu.newFolder'), this.getMenuIcon('create-folder'), 'folder-only')}
             </div>
             <div class="file-tree-context-menu__separator" aria-hidden="true"></div>
             <div class="file-tree-context-menu__group">
-                ${this.renderMenuItem('rename', 'Rename', this.getMenuIcon('rename'))}
-                ${this.renderMenuItem('move', 'Move To...', this.getMenuIcon('move'))}
-                ${this.renderMenuItem('copy-path', 'Copy Path', this.getMenuIcon('copy-path'))}
+                ${this.renderMenuItem('rename', t('contextMenu.rename'), this.getMenuIcon('rename'))}
+                ${this.renderMenuItem('move', t('contextMenu.moveTo'), this.getMenuIcon('move'))}
+                ${this.renderMenuItem('copy-path', t('contextMenu.copyPath'), this.getMenuIcon('copy-path'))}
                 ${this.renderMenuItem('reveal', revealLabel, this.getMenuIcon('reveal'))}
             </div>
             <div class="file-tree-context-menu__separator" aria-hidden="true"></div>
             <div class="file-tree-context-menu__group">
-                ${this.renderMenuItem('delete', 'Delete', this.getMenuIcon('delete'), 'danger')}
+                ${this.renderMenuItem('delete', t('contextMenu.delete'), this.getMenuIcon('delete'), 'danger')}
             </div>
         `;
 
@@ -184,9 +185,9 @@ export class FileTreeContextMenu {
      * 返回当前平台对应的“在文件管理器中显示”菜单文案。
      */
     getRevealMenuLabel() {
-        if (isWindows) return 'Show in Explorer';
-        if (isMac) return 'Find in Finder';
-        return 'Reveal in File Manager';
+        if (isWindows) return t('contextMenu.showInExplorer');
+        if (isMac) return t('contextMenu.findInFinder');
+        return t('contextMenu.revealInFileManager');
     }
 
     handleContextMenu(event) {

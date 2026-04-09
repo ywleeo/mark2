@@ -9,6 +9,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { listFonts } from '../api/filesystem.js';
 import { loadCoreModules } from './coreModules.js';
+import { t } from '../i18n/index.js';
 
 export function createWindowLifecycle({
     appState,
@@ -69,7 +70,7 @@ export function createWindowLifecycle({
             });
 
             if (hasUnsavedChanges) {
-                statusBarController?.showProgress('已编辑', { state: 'dirty' });
+                statusBarController?.showProgress(t('statusBar.edited'), { state: 'dirty' });
             } else {
                 statusBarController?.hideProgress();
             }
@@ -140,8 +141,8 @@ export function createWindowLifecycle({
         dialog.innerHTML = `
             <img class="about-icon" src="/icon.png" alt="Mark2" />
             <div class="about-app-name">Mark2</div>
-            <div class="about-version">Version ${version}</div>
-            <div class="about-description">A minimal Markdown editor built with Tauri.</div>
+            <div class="about-version">${t('about.version', { version })}</div>
+            <div class="about-description">${t('about.description')}</div>
             <div class="about-links">
                 <a class="about-link" data-url="https://github.com/ywleeo/mark2">GitHub</a>
                 <a class="about-link" data-url="https://mark2app.com">Website</a>

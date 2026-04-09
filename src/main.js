@@ -643,5 +643,7 @@ bootstrap = createAppBootstrap({
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Apply i18n to static HTML elements before components init
+    import('./i18n/applyHtmlLocale.js').then(({ applyHtmlLocale }) => applyHtmlLocale());
     void bootstrap.initializeApplication();
 });

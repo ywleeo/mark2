@@ -1,4 +1,5 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { t } from '../i18n/index.js';
 
 /**
  * 目录面板组件
@@ -55,7 +56,7 @@ export class TocPanel {
         const header = document.createElement('div');
         header.className = 'toc-panel__header';
         header.innerHTML = `
-            <span class="toc-panel__title">目录</span>
+            <span class="toc-panel__title">${t('toc.title')}</span>
         `;
 
         // 目录内容容器
@@ -65,7 +66,7 @@ export class TocPanel {
         // 空状态提示
         const empty = document.createElement('div');
         empty.className = 'toc-panel__empty';
-        empty.textContent = '当前文档无标题';
+        empty.textContent = t('toc.empty');
 
         // 拖拽调整宽度的手柄
         const resizer = document.createElement('div');
@@ -493,7 +494,7 @@ export class TocPanel {
         // 创建临时提示元素
         this.currentWarning = document.createElement('div');
         this.currentWarning.className = 'toc-mode-warning';
-        this.currentWarning.textContent = '目录功能仅在 Markdown 预览模式下可用';
+        this.currentWarning.textContent = t('toc.warningPreviewOnly');
 
         // 添加到页面
         document.body.appendChild(this.currentWarning);
