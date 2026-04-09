@@ -269,7 +269,10 @@ export class MarkdownEditor {
         this._imageClickCleanup = addClickHandler(this.element, (e) => {
             const img = e.target.closest('img');
             const src = img?.getAttribute('src');
-            if (src) this.imageModal?.show(src, img.getAttribute('alt') || '');
+            if (src) {
+                const hints = img.naturalWidth > 0 ? { width: img.naturalWidth, height: img.naturalHeight } : {};
+                this.imageModal?.show(src, img.getAttribute('alt') || '', hints);
+            }
         }, {
             shouldHandle: (e) => e.target.closest('img') !== null,
             preventDefault: false,

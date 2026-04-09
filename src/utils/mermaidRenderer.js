@@ -200,6 +200,18 @@ function polishFlowchart(svgElement) {
             nodeLabel.style.color = p.text;
         }
     }
+
+    // ── 连线加粗 ──
+    const allPaths = svgElement.querySelectorAll('.edgePath path, .edgePaths path');
+    for (const path of allPaths) {
+        path.style.setProperty('stroke-width', '2px', 'important');
+    }
+
+    // cluster 边框加粗
+    for (const cluster of clusters) {
+        const rect = cluster.querySelector('rect');
+        if (rect) rect.style.setProperty('stroke-width', '1.5px', 'important');
+    }
 }
 
 /**

@@ -1,79 +1,99 @@
-/* 图片弹窗样式 */
+/* ── Image Lightbox ─────────────────────────────────── */
+
 .image-modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     z-index: 10000;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease, visibility 0s linear 200ms;
 }
 
 .image-modal.is-visible {
-    display: flex;
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 200ms ease, visibility 0s;
 }
 
+/* backdrop */
 .image-modal-backdrop {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
-    cursor: zoom-out;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    cursor: default;
 }
 
+/* image container */
 .image-modal-content {
     position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1;
 }
 
+/* image — no CSS transform/transition; JS fully controls transform */
 .image-modal-img {
-    max-width: 100%;
-    max-height: 90vh;
-    object-fit: contain;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
     cursor: zoom-in;
-    transform-origin: center center;
     user-select: none;
     -webkit-user-select: none;
     pointer-events: auto;
 }
 
+/* smooth zoom for button/keyboard/dblclick only */
+.image-modal-img.smooth-zoom {
+    transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+                width 200ms cubic-bezier(0.16, 1, 0.3, 1),
+                height 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* close animation */
+.image-modal.is-closing {
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+
+.image-modal.is-closing .image-modal-img {
+    opacity: 0;
+    transition: opacity 150ms ease !important;
+}
+
+/* ── Close button — dark glass ──────────────────────── */
 .image-modal-close {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    width: 34px;
-    height: 34px;
-    border: none;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.95);
-    color: #333;
-    font-size: 28px;
-    line-height: 1;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: rgba(255, 255, 255, 0.8);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
-    transition: transform 0.15s ease, background 0.15s ease;
     z-index: 2;
+    transition: background 0.15s ease, color 0.15s ease, opacity 0.3s ease;
 }
 
 .image-modal-close:hover {
-    background: rgba(255, 255, 255, 1);
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
 }
 
+/* ── Controls bar — dark glass pill ─────────────────── */
 .image-modal-controls {
     position: fixed;
     bottom: 24px;
@@ -81,80 +101,73 @@
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 8px 16px;
-    border-radius: 24px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px 10px;
+    border-radius: 22px;
     z-index: 2;
+    transition: opacity 0.3s ease;
+}
+
+.image-modal-controls.controls-hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .image-modal-zoom-btn {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border: none;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.08);
-    color: #333;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.8);
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 400;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s ease, transform 0.1s ease;
+    transition: background 0.12s ease, color 0.12s ease;
 }
 
 .image-modal-zoom-btn:hover {
-    background: rgba(0, 0, 0, 0.12);
-    transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
 }
 
 .image-modal-zoom-btn:active {
-    transform: scale(0.95);
-}
-
-.image-modal-zoom-btn[data-action="reset"] {
-    font-size: 12px;
-    width: 36px;
+    background: rgba(255, 255, 255, 0.18);
 }
 
 .image-modal-zoom-value {
-    min-width: 50px;
+    min-width: 44px;
     text-align: center;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    color: #333;
+    color: rgba(255, 255, 255, 0.6);
     font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    padding: 4px 2px;
+    border-radius: 4px;
+    transition: color 0.12s ease;
 }
 
-/* 深色模式 */
-:root[data-theme-appearance='dark'] .image-modal-backdrop {
-    background: rgba(0, 0, 0, 0.92);
+.image-modal-zoom-value:hover {
+    color: rgba(255, 255, 255, 0.9);
 }
 
-:root[data-theme-appearance='dark'] .image-modal-close {
-    background: rgba(40, 40, 40, 0.95);
-    color: #e0e0e0;
+/* dark mode adaptation for SVG/mermaid diagrams */
+:root[data-theme-appearance='dark'] .image-modal-img.is-svg {
+    filter: invert(0.88) hue-rotate(180deg);
+    box-shadow: none;
 }
 
-:root[data-theme-appearance='dark'] .image-modal-close:hover {
-    background: rgba(50, 50, 50, 1);
-}
-
-:root[data-theme-appearance='dark'] .image-modal-controls {
-    background: rgba(40, 40, 40, 0.95);
-}
-
-:root[data-theme-appearance='dark'] .image-modal-zoom-btn {
-    background: rgba(255, 255, 255, 0.1);
-    color: #e0e0e0;
-}
-
-:root[data-theme-appearance='dark'] .image-modal-zoom-btn:hover {
+.image-modal-divider {
+    width: 1px;
+    height: 16px;
     background: rgba(255, 255, 255, 0.15);
-}
-
-:root[data-theme-appearance='dark'] .image-modal-zoom-value {
-    color: #e0e0e0;
+    margin: 0 4px;
 }

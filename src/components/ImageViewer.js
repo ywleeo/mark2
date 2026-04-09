@@ -153,7 +153,10 @@ export class ImageViewer {
             return;
         }
         const alt = this.imgElement.alt || basename(this.currentFile) || '图片';
-        this.imageModal?.show(this.imgElement.src, alt);
+        const hints = this.imgElement.naturalWidth > 0
+            ? { width: this.imgElement.naturalWidth, height: this.imgElement.naturalHeight }
+            : {};
+        this.imageModal?.show(this.imgElement.src, alt, hints);
     }
 
     dispose() {

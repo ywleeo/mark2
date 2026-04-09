@@ -158,7 +158,7 @@
 
 /* 连线 */
 .tiptap-editor .mermaid svg .edgePath path {
-    stroke-width: 1.2px;
+    stroke-width: 2px;
     stroke-linecap: round;
 }
 

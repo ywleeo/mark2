@@ -89,7 +89,7 @@ export class MermaidExportHandler {
                 const svgData = new XMLSerializer().serializeToString(clonedSvg);
                 const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`;
 
-                this.getImageModal()?.show(dataUrl, 'Mermaid 图表');
+                this.getImageModal()?.show(dataUrl, 'Mermaid 图表', { width: totalWidth, height: totalHeight });
             } catch (error) {
                 console.error('无法显示 Mermaid 图表:', error);
             }
