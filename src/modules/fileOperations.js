@@ -593,12 +593,22 @@ export function createFileOperations({
 
             // 处理 untitled 虚拟文件：不监听文件，不从磁盘读取，直接显示编辑器
             if (untitledFileManager?.isUntitledPath?.(filePath)) {
-                viewProtocol?.activate?.('markdown');
+                const untitledViewMode = initialViewMode === 'code' ? 'code' : 'markdown';
+                viewProtocol?.activate?.(untitledViewMode);
                 const untitledContent = untitledFileManager.getContent?.(filePath) || '';
-                if (editor) {
-                    await editor.loadFile(session, filePath, untitledContent, { autoFocus });
-                    if (shouldAbort('untitled-editor-load')) {
-                        return;
+                if (untitledViewMode === 'code') {
+                    if (codeEditor) {
+                        await codeEditor.show(filePath, untitledContent, null, session, { autoFocus, tabId });
+                        if (shouldAbort('untitled-code-load')) {
+                            return;
+                        }
+                    }
+                } else {
+                    if (editor) {
+                        await editor.loadFile(session, filePath, untitledContent, { autoFocus });
+                        if (shouldAbort('untitled-editor-load')) {
+                            return;
+                        }
                     }
                 }
                 setHasUnsavedChanges(untitledContent.trim().length > 0);
@@ -610,7 +620,7 @@ export function createFileOperations({
                 logger?.info?.('loadFile:done', {
                     path: filePath,
                     sessionId,
-                    targetViewMode: 'markdown',
+                    targetViewMode: untitledViewMode,
                     source: 'untitled',
                 });
                 return;
