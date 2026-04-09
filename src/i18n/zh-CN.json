@@ -183,6 +183,9 @@
     "settings.kb.delete": "删除文件",
     "settings.kb.rename": "重命名",
     "settings.kb.scratchpad": "切换便签",
+    "settings.kb.terminal": "切换终端",
+    "settings.kb.ai": "切换 AI 助手",
+    "settings.kb.settings": "设置",
     "settings.kb.selectAllMatches": "选中全部匹配",
 
     "about.description": "基于 Tauri 构建的极简 Markdown 编辑器。",

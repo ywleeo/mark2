@@ -181,13 +181,21 @@
     max-height: calc(80vh - 170px);
 }
 
-.settings-body::-webkit-scrollbar { width: 3px; }
+.settings-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+}
+:root[data-theme-appearance='dark'] .settings-body {
+    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+.settings-body::-webkit-scrollbar { width: 4px; }
+.settings-body::-webkit-scrollbar-track { background: transparent; }
 .settings-body::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.06);
-    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 4px;
 }
 :root[data-theme-appearance='dark'] .settings-body::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.08);
 }
 
 /* ── Row layout (label left, control right) ─────────────────────────────── */

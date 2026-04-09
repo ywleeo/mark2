@@ -183,6 +183,9 @@
     "settings.kb.delete": "Delete File",
     "settings.kb.rename": "Rename",
     "settings.kb.scratchpad": "Toggle Scratchpad",
+    "settings.kb.terminal": "Toggle Terminal",
+    "settings.kb.ai": "Toggle AI Assistant",
+    "settings.kb.settings": "Settings",
     "settings.kb.selectAllMatches": "Select All Matches",
 
     "about.description": "A minimal Markdown editor built with Tauri.",

@@ -112,6 +112,9 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, 'Mod+Shift+Space'],
     [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+B'],
+    [COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, 'Mod+J'],
+    [COMMAND_IDS.FEATURE_AI_TOGGLE, 'Mod+Shift+A'],
+    [COMMAND_IDS.APP_SETTINGS, 'Mod+,'],
 ];
 
 /**
@@ -174,9 +177,6 @@ export function registerWindowsKeybindings(options = {}) {
     };
 
     register(COMMAND_IDS.DOCUMENT_NEW_FILE, 'Mod+N');
-    register(COMMAND_IDS.APP_SETTINGS, 'Mod+,');
-    register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, 'Mod+`');
-    register(COMMAND_IDS.FEATURE_AI_TOGGLE, 'Mod+Shift+K');
 
     return () => {
         while (disposers.length > 0) {
