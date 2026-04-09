@@ -421,6 +421,7 @@ const untitledController = createUntitledController({
     fileSession,
     normalizeFsPath,
     activateMarkdownView,
+    activateCodeView,
     getUpdateWindowTitle: () => updateWindowTitle,
     getSaveCurrentEditorContentToCache: () => saveCurrentEditorContentToCache,
     scheduleWorkspaceContextSync,

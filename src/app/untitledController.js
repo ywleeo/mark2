@@ -18,15 +18,17 @@ export function createUntitledController({
     fileSession,
     normalizeFsPath,
     activateMarkdownView,
+    activateCodeView,
     getUpdateWindowTitle,
     getSaveCurrentEditorContentToCache,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
 }) {
-    async function handleCreateUntitled() {
+    async function handleCreateUntitled({ ext = 'md' } = {}) {
         getSaveCurrentEditorContentToCache()();
 
-        const untitledPath = untitledFileManager.createUntitledFile();
+        const isMarkdown = ext === 'md';
+        const untitledPath = untitledFileManager.createUntitledFile(ext);
         const displayName = untitledFileManager.getDisplayName(untitledPath);
 
         const tabManager = getTabManager();
@@ -46,18 +48,25 @@ export function createUntitledController({
             activate: true,
             kind: 'untitled',
             tabId: untitledPath,
-            viewMode: 'markdown',
+            viewMode: isMarkdown ? 'markdown' : 'code',
             dirty: false,
         });
         setHasUnsavedChanges(false);
 
-        const editor = getMarkdownEditor();
-        if (editor) {
-            editor.prepareForDocument(null, untitledPath, untitledPath);
-            activateMarkdownView();
-            setTimeout(() => {
-                editor.focus?.();
-            }, 50);
+        if (isMarkdown) {
+            const editor = getMarkdownEditor();
+            if (editor) {
+                editor.prepareForDocument(null, untitledPath, untitledPath);
+                activateMarkdownView();
+                setTimeout(() => editor.focus?.(), 50);
+            }
+        } else {
+            const codeEditor = getCodeEditor();
+            if (codeEditor) {
+                activateCodeView();
+                await codeEditor.show(untitledPath, '', null, null, { tabId: untitledPath });
+                setTimeout(() => codeEditor.focus?.(), 50);
+            }
         }
 
         void getUpdateWindowTitle()();
@@ -123,12 +132,14 @@ export function createUntitledController({
             const { save } = await import('@tauri-apps/plugin-dialog');
             const displayName = untitledFileManager.getDisplayName(untitledPath);
 
+            const ext = displayName.split('.').pop() || 'md';
+            const filterName = ext === 'md' ? 'Markdown' : 'Text';
             const targetPath = await save({
                 title: '保存文件',
                 defaultPath: displayName,
                 filters: [{
-                    name: 'Markdown',
-                    extensions: ['md'],
+                    name: filterName,
+                    extensions: [ext],
                 }],
             });
 

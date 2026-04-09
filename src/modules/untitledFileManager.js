@@ -21,7 +21,7 @@ export function createUntitledFileManager() {
         if (!isUntitledPath(path)) {
             return null;
         }
-        const match = path.match(/^untitled:\/\/untitled-(\d+)\.md$/i);
+        const match = path.match(/^untitled:\/\/untitled-(\d+)\.\w+$/i);
         if (!match) {
             return null;
         }
@@ -39,17 +39,18 @@ export function createUntitledFileManager() {
     /**
      * 生成新的 untitled 文件路径
      */
-    function generateUntitledPath() {
+    function generateUntitledPath(ext = 'md') {
         counter += 1;
-        return `${UNTITLED_PROTOCOL}untitled-${counter}.md`;
+        return `${UNTITLED_PROTOCOL}untitled-${counter}.${ext}`;
     }
 
     /**
      * 创建新的 untitled 文件
+     * @param {string} [ext='md'] - 文件扩展名
      * @returns {string} 新文件的路径
      */
-    function createUntitledFile() {
-        const path = generateUntitledPath();
+    function createUntitledFile(ext = 'md') {
+        const path = generateUntitledPath(ext);
         untitledFiles.set(path, {
             content: '',
             hasChanges: false,

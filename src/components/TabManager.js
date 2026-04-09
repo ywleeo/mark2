@@ -409,6 +409,10 @@ export class TabManager {
             this.callbacks.onCreateUntitled?.();
         });
         this.cleanupFunctions.push(cleanupNew);
+        newTabBtn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.callbacks.onCreateUntitled?.({ ext: 'txt' });
+        });
         this.container.appendChild(newTabBtn);
 
         this.updateActiveState();
