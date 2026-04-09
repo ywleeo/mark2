@@ -236,10 +236,11 @@ class AssistantCard {
         this.el = document.createElement('div');
         this.el.className = 'ai-message ai-message-assistant';
         this.el.innerHTML = `
+            <div class="ai-message-role">AI</div>
             <div class="ai-message-thinking is-collapsed" style="display:none">
                 <button class="ai-message-thinking-toggle" type="button">
-                    <span>思考过程</span>
-                    <span class="ai-thinking-expand">▶</span>
+                    <span>Thinking</span>
+                    <span class="ai-thinking-expand">›</span>
                 </button>
                 <div class="ai-message-thinking-preview"></div>
                 <div class="ai-message-thinking-full"></div>
@@ -275,7 +276,7 @@ class AssistantCard {
     _toggleThinking() {
         const collapsed = this.thinkingEl.classList.toggle('is-collapsed');
         const icon = this.thinkingEl.querySelector('.ai-thinking-expand');
-        icon.textContent = collapsed ? '▶' : '▼';
+        icon.textContent = collapsed ? '›' : '‹';
     }
 
     /** 新一轮 LLM 迭代开始：重置 content box，让 loadingEl 显示在底部 */
@@ -400,7 +401,7 @@ class AssistantCard {
             this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
         }
         this.currentContentEl.textContent = `错误: ${msg}`;
-        this.currentContentEl.style.color = 'var(--ai-sidebar-error, #e05555)';
+        this.currentContentEl.style.color = 'var(--ai-tool-error, #ef4444)';
     }
 
     /**
@@ -428,7 +429,7 @@ class AssistantCard {
                 <div class="ai-diff-header">
                     <span class="ai-diff-file">${escapeHtml(fileName)}</span>
                     <span class="ai-diff-summary">${this._diffSummary(diffResult)}</span>
-                    <span class="ai-diff-toggle">▶</span>
+                    <span class="ai-diff-toggle">›</span>
                 </div>
                 <div class="ai-diff-body"></div>
                 <div class="ai-diff-actions">
@@ -456,8 +457,7 @@ class AssistantCard {
             const headerEl = card.querySelector('.ai-diff-header');
             const toggleEl = card.querySelector('.ai-diff-toggle');
             addClickHandler(headerEl, () => {
-                const collapsed = card.classList.toggle('is-collapsed');
-                toggleEl.textContent = collapsed ? '▶' : '▼';
+                card.classList.toggle('is-collapsed');
             });
 
             const applyBtn = card.querySelector('.ai-diff-apply-btn');
@@ -926,7 +926,7 @@ export class AiSidebar {
         this.emptyEl.style.display = 'none';
         const el = document.createElement('div');
         el.className = 'ai-message ai-message-user';
-        el.innerHTML = `<div class="ai-message-content">${escapeHtml(text)}</div>`;
+        el.innerHTML = `<div class="ai-message-role">You</div><div class="ai-message-content">${escapeHtml(text)}</div>`;
         this.listEl.appendChild(el);
         scrollToBottom(el);
     }

@@ -177,7 +177,10 @@
     <div class="ai-sidebar">
         <div class="ai-sidebar-resize-handle"></div>
         <div class="ai-sidebar-header">
-            <span class="ai-sidebar-title">AI 助手</span>
+            <div class="ai-sidebar-header-left">
+                <span class="ai-sidebar-title">AI</span>
+                <span class="ai-context-file-name is-empty"></span>
+            </div>
             <div class="ai-sidebar-header-actions">
                 <button type="button" class="ai-sidebar-clear-btn" title="清除对话">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -191,32 +194,29 @@
                 </button>
             </div>
         </div>
-        <div class="ai-context-bar">
-            <div class="ai-context-current-file">
-                <span class="ai-context-file-icon">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                </span>
-                <span class="ai-context-file-name is-empty">未打开文件</span>
-            </div>
-        </div>
         <div class="ai-conversation-list">
             <div class="ai-conversation-list-items"></div>
             <div class="ai-conversation-empty">
-                <div class="ai-conversation-empty-icon">✦</div>
-                <div class="ai-conversation-empty-text">AI Agent</div>
-                <div class="ai-conversation-empty-hint">可对当前文档进行调整，或操作工作区文件</div>
+                <div class="ai-conversation-empty-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a7 7 0 0 1 7 7c0 3-1.5 5-3 6.5V18a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.5C6.5 14 5 12 5 9a7 7 0 0 1 7-7z"/>
+                        <path d="M9 22h6"/><path d="M10 22v-1"/><path d="M14 22v-1"/>
+                    </svg>
+                </div>
+                <div class="ai-conversation-empty-text">How can I help?</div>
             </div>
         </div>
         <div class="ai-sidebar-chat-input">
-            <textarea class="ai-sidebar-input-field" placeholder="描述你想要做什么..." rows="3"></textarea>
-            <div class="ai-sidebar-input-actions">
-                <div></div>
-                <div class="ai-sidebar-input-actions-right">
-                    <button type="button" class="ai-sidebar-cancel-btn" style="display:none">取消</button>
-                    <button type="button" class="ai-sidebar-send-btn">发送</button>
-                </div>
+            <div class="ai-sidebar-input-wrapper">
+                <textarea class="ai-sidebar-input-field" placeholder="Message..." rows="1"></textarea>
+                <button type="button" class="ai-sidebar-cancel-btn" style="display:none">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+                </button>
+                <button type="button" class="ai-sidebar-send-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                    </svg>
+                </button>
             </div>
         </div>
     </div>
