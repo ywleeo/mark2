@@ -16,6 +16,7 @@ export function createEditorHistoryController({
     tabHistoryManager,
     getEditorSettings,
     setEditorSettings,
+    reloadKeybindings,
 }) {
     function invokeEditorHistoryAction(action) {
         const tabId = getCurrentTabId?.();
@@ -54,6 +55,7 @@ export function createEditorHistoryController({
         applyEditorSettings(normalizedSettings);
         getCodeEditor()?.applyPreferences?.(normalizedSettings);
         saveEditorSettings(normalizedSettings);
+        reloadKeybindings?.();
     }
 
     return {

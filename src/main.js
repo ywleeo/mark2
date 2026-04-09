@@ -192,6 +192,13 @@ const editorHistoryController = createEditorHistoryController({
     tabHistoryManager,
     getEditorSettings: () => appState.getEditorSettings(),
     setEditorSettings: (s) => appState.setEditorSettings(s),
+    reloadKeybindings: () => {
+        // 清理旧的快捷键绑定，重新注册（含用户自定义覆盖）
+        appState.getCleanupFunction('keybindingManager')?.();
+        import('./app/commandSetup.js').then(({ registerDefaultKeybindings }) => {
+            appState.setCleanupFunction('keybindingManager', registerDefaultKeybindings({ keybindingManager }));
+        });
+    },
 });
 const {
     handleSettingsSubmit,

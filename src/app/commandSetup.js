@@ -5,6 +5,7 @@
 
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { isWindows } from '../utils/platform.js';
+import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
 
 /**
  * 注册当前应用的核心命令。
@@ -95,7 +96,26 @@ export function registerCoreCommands(options = {}) {
 }
 
 /**
- * 注册应用默认快捷键。
+ * 默认快捷键定义表。
+ * 每项为 [commandId, shortcut]，一个命令可以有多条快捷键。
+ */
+export const DEFAULT_KEYBINDINGS = [
+    [COMMAND_IDS.APP_OPEN, 'Mod+O'],
+    [COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, 'Mod+Shift+L'],
+    [COMMAND_IDS.DOCUMENT_SAVE, 'Mod+S'],
+    [COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, 'Mod+E'],
+    [COMMAND_IDS.DOCUMENT_NEW_UNTITLED, 'Mod+T'],
+    [COMMAND_IDS.DOCUMENT_CLOSE_TAB, 'Mod+W'],
+    [COMMAND_IDS.EDITOR_FIND, 'Mod+F'],
+    [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete'],
+    [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],
+    [COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, 'Mod+Shift+Space'],
+    [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
+    [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+B'],
+];
+
+/**
+ * 注册应用默认快捷键，并合并用户自定义覆盖。
  * @param {{keybindingManager: Object}} options - 快捷键装配参数
  * @returns {Function}
  */
@@ -105,24 +125,23 @@ export function registerDefaultKeybindings(options = {}) {
         throw new Error('registerDefaultKeybindings 需要 keybindingManager');
     }
 
+    const customBindings = loadCustomKeybindings();
     const disposers = [];
+    const registered = new Set(); // 防止用户自定义后同一命令重复注册
     const register = (commandId, shortcut) => {
         disposers.push(keybindingManager.registerBinding({ commandId, shortcut }));
     };
 
-    register(COMMAND_IDS.APP_OPEN, 'Mod+O');
-    register(COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, 'Mod+Shift+L');
-    register(COMMAND_IDS.DOCUMENT_SAVE, 'Mod+S');
-    register(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, 'Mod+E');
-    register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, 'Mod+T');
-    register(COMMAND_IDS.DOCUMENT_CLOSE_TAB, 'Mod+W');
-    register(COMMAND_IDS.EDITOR_FIND, 'Mod+F');
-    register(COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete');
-    register(COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace');
-    register(COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, 'Mod+Shift+Space');
-    // F2 重命名和 Mod+B 侧边栏切换在所有平台通用（macOS 原生菜单未注册这两个快捷键）
-    register(COMMAND_IDS.DOCUMENT_RENAME, 'F2');
-    register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+B');
+    for (const [commandId, defaultShortcut] of DEFAULT_KEYBINDINGS) {
+        if (commandId in customBindings) {
+            // 用户自定义：只注册一次
+            if (registered.has(commandId)) continue;
+            registered.add(commandId);
+            register(commandId, customBindings[commandId]);
+        } else {
+            register(commandId, defaultShortcut);
+        }
+    }
 
     return () => {
         while (disposers.length > 0) {

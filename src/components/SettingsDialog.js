@@ -1,5 +1,7 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t, getLocale, setLocale } from '../i18n/index.js';
+import { KeybindingsSettings } from './KeybindingsSettings.js';
+import { saveCustomKeybindings } from '../utils/keybindingsStorage.js';
 
 // 动态导入 aiService（避免循环依赖）
 let aiService = null;
@@ -61,6 +63,7 @@ export class SettingsDialog {
                             <button type="button" class="settings-tab" data-tab="editor">${t('settings.tabMarkdown')}</button>
                             <button type="button" class="settings-tab" data-tab="code">${t('settings.tabCode')}</button>
                             <button type="button" class="settings-tab" data-tab="ai">${t('settings.tabAi')}</button>
+                            <button type="button" class="settings-tab" data-tab="keybindings">${t('settings.tabKeybindings')}</button>
                         </nav>
                     </header>
 
@@ -83,6 +86,11 @@ export class SettingsDialog {
                                 </select>
                             </label>
                         </div>
+                    </section>
+
+                    <!-- 快捷键设置 -->
+                    <section class="settings-body hidden" data-tab-content="keybindings">
+                        <div data-ref="keybindingsContainer" class="keybindings-container"></div>
                     </section>
 
                     <!-- 编辑器设置 -->
@@ -243,6 +251,10 @@ export class SettingsDialog {
         this.selectedProviderId = null;
         this.selectedActiveModel = ''; // 当前选中的活跃模型
 
+        // 快捷键设置
+        this.keybindingsContainerEl = this.root.querySelector('[data-ref="keybindingsContainer"]');
+        this.keybindingsSettings = null;
+
         // 添加 provider 按钮
         const addProviderBtn = this.root.querySelector('[data-action="add-provider"]');
         if (addProviderBtn) {
@@ -363,6 +375,14 @@ export class SettingsDialog {
             this.renderProviderEditor(null);
         }
 
+        // 快捷键设置
+        if (this.keybindingsSettings) {
+            this.keybindingsSettings.destroy();
+        }
+        this.keybindingsSettings = new KeybindingsSettings({
+            container: this.keybindingsContainerEl,
+        });
+
         // 重置到第一个 tab
         this.switchTab('general');
 
@@ -387,6 +407,11 @@ export class SettingsDialog {
     close(triggerCancel = false) {
         if (!this.isOpen) {
             return;
+        }
+
+        if (this.keybindingsSettings) {
+            this.keybindingsSettings.destroy();
+            this.keybindingsSettings = null;
         }
 
         this.root.classList.add('hidden');
@@ -451,6 +476,11 @@ export class SettingsDialog {
             }
         };
         await this.saveAiConfig(aiConfig);
+
+        // 保存自定义快捷键
+        if (this.keybindingsSettings) {
+            saveCustomKeybindings(this.keybindingsSettings.getCustomBindings());
+        }
 
         if (this.onSubmit) {
             this.onSubmit(sanitized);

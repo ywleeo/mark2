@@ -704,6 +704,124 @@ input[type="number"]::-webkit-inner-spin-button {
 .ai-provider-test__result.is-success { color: #22c55e; }
 .ai-provider-test__result.is-error { color: #ef4444; }
 
+/* ── 快捷键设置 ─────────────────────────────── */
+
+.keybindings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 0 6px;
+}
+
+.keybindings-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--settings-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.keybindings-reset-btn {
+    border: none;
+    background: none;
+    font-size: 11px;
+    color: var(--settings-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.keybindings-reset-btn:hover {
+    color: var(--settings-danger);
+    background: var(--settings-danger-ghost-bg);
+}
+
+.keybindings-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.keybindings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--settings-divider);
+}
+
+.keybindings-row:last-child {
+    border-bottom: none;
+}
+
+.keybindings-row__label {
+    font-size: 13px;
+    color: var(--settings-field-text);
+    flex: 1;
+}
+
+.keybindings-row__right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.keybindings-row__shortcut {
+    border: 1px solid var(--settings-ghost-border);
+    background: var(--settings-ghost-bg);
+    color: var(--settings-field-text);
+    font-size: 12px;
+    font-family: 'SF Mono', ui-monospace, monospace;
+    padding: 3px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-width: 60px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.keybindings-row__shortcut:hover {
+    border-color: var(--settings-ghost-hover-border);
+    background: var(--settings-ghost-hover-bg);
+}
+
+.keybindings-row__shortcut--custom {
+    border-color: rgba(59, 130, 246, 0.3);
+    background: rgba(59, 130, 246, 0.06);
+}
+
+.keybindings-row__shortcut--recording {
+    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    animation: keybinding-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes keybinding-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.keybindings-row__reset {
+    border: none;
+    background: none;
+    font-size: 14px;
+    color: var(--settings-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+
+.keybindings-row__reset:hover {
+    color: var(--settings-field-text);
+    background: var(--settings-ghost-hover-bg);
+}
+
 /* ── 响应式 ─────────────────────────────── */
 
 @media (max-width: 580px) {
