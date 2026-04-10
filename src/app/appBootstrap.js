@@ -57,6 +57,7 @@ export function createAppBootstrap({
     showAboutDialog,
     setupOpenedFilesListener,
     setupCleanupHandlers,
+    restoreWindowState,
     setSettingsDialogCtor,
     // toolbarController 导出
     handleToolbarOnFileChange,
@@ -578,6 +579,7 @@ export function createAppBootstrap({
         appState.setCleanupFunction('fileDrop', await fileDropController.setup());
 
         setupCleanupHandlers();
+        await restoreWindowState();
         loadAvailableFonts();
         updateWindowTitle();
 

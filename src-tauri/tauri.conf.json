@@ -16,6 +16,7 @@
         "height": 800,
         "resizable": true,
         "fullscreen": false,
+        "visible": false,
         "decorations": true,
         "transparent": false,
         "acceptFirstMouse": true,
