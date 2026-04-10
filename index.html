@@ -49,8 +49,9 @@
 <body>
     <!-- 自定义标题栏 -->
     <div id="titlebar" data-tauri-drag-region>
-        <!-- Windows only: 汉堡菜单按钮 -->
+        <!-- Windows only: logo + 汉堡菜单按钮 -->
         <div class="titlebar-left windows-only">
+            <img id="titlebar-logo" class="titlebar-logo" src="/icon.svg" alt="Mark2">
             <button id="titlebar-menu" class="titlebar-btn titlebar-menu" aria-label="菜单">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="3" y1="6" x2="21" y2="6"/>

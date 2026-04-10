@@ -209,6 +209,15 @@ button:focus-visible,
     opacity: 1;
 }
 
+/* 标题栏 logo */
+.titlebar-logo {
+    height: 18px;
+    width: 18px;
+    margin-right: 4px;
+    -webkit-app-region: no-drag;
+    pointer-events: none;
+}
+
 .titlebar-title {
     flex: 1;
     text-align: center;
