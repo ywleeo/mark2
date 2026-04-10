@@ -544,6 +544,18 @@ body.is-status-bar-hidden .status-bar {
     text-overflow: ellipsis;
 }
 
+.status-item-path.is-dirty::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
 .status-item-word-count,
 .status-item-last-modified {
     flex: 0 0 auto;

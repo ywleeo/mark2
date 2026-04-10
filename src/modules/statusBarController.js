@@ -116,7 +116,7 @@ export function createStatusBarController({
         setStatusBarVisibility(!isStatusBarHidden);
     }
 
-    function updateStatusBar({ filePath, wordCount, lineCount, lastModified } = {}) {
+    function updateStatusBar({ filePath, wordCount, lineCount, lastModified, isDirty } = {}) {
         if (filePath && typeof filePath === 'string') {
             statusBarFilePathElement.textContent = filePath;
             statusBarFilePathElement.title = filePath;
@@ -124,6 +124,7 @@ export function createStatusBarController({
             statusBarFilePathElement.textContent = '未打开文件';
             statusBarFilePathElement.removeAttribute('title');
         }
+        statusBarFilePathElement.classList.toggle('is-dirty', Boolean(isDirty));
 
         let statsText = '';
         if (typeof wordCount === 'object' && wordCount !== null) {

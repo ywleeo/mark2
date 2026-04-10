@@ -69,9 +69,7 @@ export function createWindowLifecycle({
                 isDirty: hasUnsavedChanges,
             });
 
-            if (hasUnsavedChanges) {
-                statusBarController?.showProgress(t('statusBar.edited'), { state: 'dirty' });
-            } else {
+            if (!hasUnsavedChanges) {
                 statusBarController?.hideProgress();
             }
 

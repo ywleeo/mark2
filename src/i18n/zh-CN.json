@@ -37,7 +37,7 @@
     "statusBar.zoomIn": "放大",
     "statusBar.toc": "显示/隐藏目录",
     "statusBar.scratchpad": "便签",
-    "statusBar.edited": "已编辑",
+
 
     "terminal.stop": "停止当前进程",
     "terminal.split": "分栏",

@@ -37,7 +37,7 @@
     "statusBar.zoomIn": "Zoom In",
     "statusBar.toc": "Show/Hide Table of Contents",
     "statusBar.scratchpad": "Scratchpad",
-    "statusBar.edited": "Edited",
+
 
     "terminal.stop": "Stop Current Process",
     "terminal.split": "Split Pane",
