@@ -11,12 +11,14 @@ mod menu;
 mod pty;
 mod security_scope;
 mod spreadsheet;
+mod window_state;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::async_runtime;
 use tauri::http::{Response, StatusCode};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Listener, Manager};
+use tauri::webview::WebviewWindowBuilder;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -209,11 +211,100 @@ fn main() {
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {
-            let handle = app.handle();
+            let handle = app.handle().clone();
             register_plain_paste_shortcut(&handle);
             menu::build_app_menu(app)?;
 
-            // Windows: 读取命令行参数中的文件路径（双击文件打开时传入）
+            // ── 动态创建主窗口（恢复上次尺寸/位置） ──
+            let ws = window_state::load(&handle);
+            let mut builder = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                .title("")
+                .inner_size(ws.width, ws.height)
+                .resizable(true)
+                .fullscreen(ws.fullscreen)
+                .visible(false) // 先隐藏，JS ready 后 show
+                .accept_first_mouse(true);
+
+            #[cfg(target_os = "macos")]
+            {
+                builder = builder
+                    .hidden_title(true)
+                    .title_bar_style(tauri::TitleBarStyle::Overlay);
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder
+                    .decorations(false);
+            }
+
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            {
+                builder = builder.decorations(true);
+            }
+
+            // 只在有保存过位置时恢复（x/y >= 0 表示有效值）
+            if ws.x >= 0.0 && ws.y >= 0.0 {
+                builder = builder.position(ws.x, ws.y);
+            }
+
+            let win = builder.build()?;
+
+            if ws.maximized && !ws.fullscreen {
+                let _ = win.maximize();
+            }
+
+            // ── 窗口状态保存：resize / move debounce ──
+            let save_handle = handle.clone();
+            let debounce_timer: std::sync::Arc<Mutex<Option<async_runtime::JoinHandle<()>>>> =
+                std::sync::Arc::new(Mutex::new(None));
+
+            let schedule_save = {
+                let debounce_timer = debounce_timer.clone();
+                let save_handle = save_handle.clone();
+                move || {
+                    let save_handle = save_handle.clone();
+                    if let Ok(mut guard) = debounce_timer.lock() {
+                        if let Some(prev) = guard.take() {
+                            prev.abort();
+                        }
+                        *guard = Some(async_runtime::spawn(async move {
+                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                            if let Some(win) = save_handle.get_webview_window("main") {
+                                let maximized = win.is_maximized().unwrap_or(false);
+                                let fullscreen = win.is_fullscreen().unwrap_or(false);
+                                if maximized || fullscreen {
+                                    // 只更新标志，不覆盖 normal 尺寸
+                                    let mut prev = window_state::load(&save_handle);
+                                    prev.maximized = maximized;
+                                    prev.fullscreen = fullscreen;
+                                    window_state::save(&save_handle, &prev);
+                                    return;
+                                }
+                                let factor = win.scale_factor().unwrap_or(1.0);
+                                if let (Ok(size), Ok(pos)) = (win.inner_size(), win.outer_position()) {
+                                    let state = window_state::WindowState {
+                                        width: size.width as f64 / factor,
+                                        height: size.height as f64 / factor,
+                                        x: pos.x as f64 / factor,
+                                        y: pos.y as f64 / factor,
+                                        maximized: false,
+                                        fullscreen: false,
+                                    };
+                                    window_state::save(&save_handle, &state);
+                                }
+                            }
+                        }));
+                    }
+                }
+            };
+
+            let on_resize = schedule_save.clone();
+            win.listen("tauri://resize", move |_| { on_resize(); });
+            let on_move = schedule_save.clone();
+            win.listen("tauri://move", move |_| { on_move(); });
+
+            // ── Windows: 读取命令行参数中的文件路径 ──
             #[cfg(target_os = "windows")]
             {
                 let args: Vec<String> = std::env::args().skip(1).collect();

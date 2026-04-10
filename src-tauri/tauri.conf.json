@@ -9,21 +9,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "title": "",
-        "width": 1200,
-        "height": 800,
-        "resizable": true,
-        "fullscreen": false,
-        "visible": false,
-        "decorations": true,
-        "transparent": false,
-        "acceptFirstMouse": true,
-        "hiddenTitle": true,
-        "titleBarStyle": "Overlay"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null,
       "assetProtocol": {

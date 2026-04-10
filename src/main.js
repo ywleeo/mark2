@@ -224,7 +224,7 @@ const {
     showAboutDialog,
     setupOpenedFilesListener,
     setupCleanupHandlers,
-    restoreWindowState,
+    showWindow,
     setSettingsDialogCtor,
 } = windowLifecycle;
 
@@ -602,7 +602,7 @@ bootstrap = createAppBootstrap({
     showAboutDialog,
     setupOpenedFilesListener,
     setupCleanupHandlers,
-    restoreWindowState,
+    showWindow,
     setSettingsDialogCtor,
     handleToolbarOnFileChange,
     handleCardSidebarOnFileChange,

@@ -209,77 +209,12 @@ export function createWindowLifecycle({
         }
     }
 
-    // ========== 窗口状态持久化 ==========
+    // ========== 窗口显示 ==========
 
-    const WINDOW_STATE_KEY = 'mark2_window_state_v1';
-
-    async function saveWindowState() {
+    async function showWindow() {
         try {
-            const win = getCurrentWindow();
-            const isMaximized = await win.isMaximized();
-            const isFullscreen = await win.isFullscreen();
-            // 最大化/全屏时记住状态，但不覆盖 normal 尺寸
-            if (isMaximized || isFullscreen) {
-                const prev = JSON.parse(localStorage.getItem(WINDOW_STATE_KEY) || '{}');
-                const state = { ...prev, maximized: isMaximized, fullscreen: isFullscreen };
-                localStorage.setItem(WINDOW_STATE_KEY, JSON.stringify(state));
-                console.log('[windowState] saved (maximized/fullscreen)', state);
-                return;
-            }
-            const factor = await win.scaleFactor();
-            const size = await win.innerSize();
-            const pos = await win.outerPosition();
-            const state = {
-                width: Math.round(size.width / factor),
-                height: Math.round(size.height / factor),
-                x: Math.round(pos.x / factor),
-                y: Math.round(pos.y / factor),
-                maximized: false,
-                fullscreen: false,
-            };
-            localStorage.setItem(WINDOW_STATE_KEY, JSON.stringify(state));
-            console.log('[windowState] saved', state);
-        } catch (err) { console.warn('[windowState] save failed', err); }
-    }
-
-    async function restoreWindowState() {
-        const win = getCurrentWindow();
-        try {
-            const raw = localStorage.getItem(WINDOW_STATE_KEY);
-            if (raw) {
-                const state = JSON.parse(raw);
-                if (state.fullscreen) {
-                    await win.setFullscreen(true);
-                } else {
-                    if (typeof state.width === 'number' && typeof state.height === 'number') {
-                        const { LogicalSize, LogicalPosition } = await import('@tauri-apps/api/dpi');
-                        await win.setSize(new LogicalSize(state.width, state.height));
-                        if (typeof state.x === 'number' && typeof state.y === 'number') {
-                            await win.setPosition(new LogicalPosition(state.x, state.y));
-                        }
-                    }
-                    if (state.maximized) {
-                        await win.maximize();
-                    }
-                }
-            }
-        } catch (err) { console.warn('[windowState] restore failed', err); }
-        // 无论恢复成功与否，显示窗口
-        await win.show();
-    }
-
-    // ========== 窗口状态实时跟踪 ==========
-
-    function setupWindowStateTracking() {
-        let saveTimer = null;
-        const debouncedSave = () => {
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(() => saveWindowState(), 500);
-        };
-        // Tauri 窗口 resize/move 事件
-        const win = getCurrentWindow();
-        win.onResized(debouncedSave);
-        win.onMoved(debouncedSave);
+            await getCurrentWindow().show();
+        } catch { /* ignore */ }
     }
 
     // ========== 清理 ==========
@@ -287,14 +222,12 @@ export function createWindowLifecycle({
     function setupCleanupHandlers() {
         window.addEventListener('beforeunload', cleanupResources);
         setupWindowCloseHandler();
-        setupWindowStateTracking();
     }
 
     async function setupWindowCloseHandler() {
         try {
             const currentWindow = getCurrentWindow();
             await currentWindow.onCloseRequested(async (event) => {
-                await saveWindowState();
                 const tabManager = appState.getTabManager();
                 const allTabs = tabManager?.getAllTabs() || [];
                 const untitledTabs = allTabs.filter(tab =>
@@ -372,6 +305,6 @@ export function createWindowLifecycle({
         setupCleanupHandlers,
         cleanupResources,
         setSettingsDialogCtor,
-        restoreWindowState,
+        showWindow,
     };
 }
