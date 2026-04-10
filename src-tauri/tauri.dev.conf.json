@@ -1,4 +1,7 @@
 {
   "identifier": "cc.altron.mark2.dev",
-  "productName": "Mark2 Dev"
+  "productName": "Mark2 Dev",
+  "app": {
+    "windows": []
+  }
 }
