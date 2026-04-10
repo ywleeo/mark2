@@ -14,7 +14,11 @@ import { untitledFileManager } from '../untitledFileManager.js';
 
 const AI_SIDEBAR_STORAGE_KEYS = {
     width: 'mark2_ai_sidebar_width_v1',
+    chatHistory: 'mark2_ai_chat_history_v1',
+    agentMessages: 'mark2_ai_agent_messages_v1',
 };
+
+const AGENT_MESSAGES_MAX_SIZE = 200_000; // localStorage 字符数上限
 
 const AI_SIDEBAR_DEFAULT_WIDTH = 380;
 const AI_SIDEBAR_MIN_WIDTH = 320;
@@ -230,6 +234,44 @@ function saveSidebarWidth(width) {
     }
 }
 
+// ── 聊天持久化 ──────────────────────────────────────────
+function saveChatHistory(history) {
+    try {
+        localStorage.setItem(AI_SIDEBAR_STORAGE_KEYS.chatHistory, JSON.stringify(history));
+    } catch { /* ignore */ }
+}
+
+function loadChatHistory() {
+    try {
+        return JSON.parse(localStorage.getItem(AI_SIDEBAR_STORAGE_KEYS.chatHistory)) || [];
+    } catch { return []; }
+}
+
+function saveAgentMessages(messages) {
+    try {
+        const json = JSON.stringify(messages);
+        if (json.length <= AGENT_MESSAGES_MAX_SIZE) {
+            localStorage.setItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages, json);
+        } else {
+            // 超限则丢弃 LLM 上下文，仅保留展示历史
+            localStorage.removeItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages);
+        }
+    } catch { /* ignore */ }
+}
+
+function loadAgentMessages() {
+    try {
+        return JSON.parse(localStorage.getItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages)) || [];
+    } catch { return []; }
+}
+
+function clearChatStorage() {
+    try {
+        localStorage.removeItem(AI_SIDEBAR_STORAGE_KEYS.chatHistory);
+        localStorage.removeItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages);
+    } catch { /* ignore */ }
+}
+
 // ── 内联卡片：对话中的 assistant 消息 ────────────────────
 class AssistantCard {
     constructor(listEl) {
@@ -348,6 +390,10 @@ class AssistantCard {
             this.currentContentEl.remove();
             this.currentContentEl = null;
         }
+        // 给所有文字内容块加复制按钮
+        this.bodyEl.querySelectorAll('.ai-message-content.ai-message-markdown').forEach(el => {
+            if (!el.querySelector('.ai-message-copy-btn')) appendCopyButton(el);
+        });
     }
 
     addToolCard({ id, name }) {
@@ -538,9 +584,31 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function scrollToBottom(refEl) {
+function appendCopyButton(containerEl) {
+    const btn = document.createElement('button');
+    btn.className = 'ai-message-copy-btn';
+    btn.type = 'button';
+    btn.textContent = '复制';
+    addClickHandler(btn, () => {
+        const text = containerEl.textContent.replace(/复制$|已复制$/, '').trim();
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = '已复制';
+            btn.classList.add('is-copied');
+            setTimeout(() => {
+                btn.textContent = '复制';
+                btn.classList.remove('is-copied');
+            }, 1500);
+        });
+    });
+    containerEl.appendChild(btn);
+}
+
+function scrollToBottom(refEl, force = false) {
     const list = refEl.closest?.('.ai-conversation-list');
-    if (list) list.scrollTop = list.scrollHeight;
+    if (!list) return;
+    if (force || list._shouldAutoScroll !== false) {
+        list.scrollTop = list.scrollHeight;
+    }
 }
 
 // ── 主类 ─────────────────────────────────────────────────
@@ -576,6 +644,8 @@ export class AiSidebar {
 
         // 对话历史（仅用于 LLM，含 system/user/assistant/tool 消息）
         this.agentMessages = [];
+        // 展示历史（用于持久化，每条 {role, html}）
+        this.chatHistory = [];
         this.agentLoop = null;
         this.isProcessing = false;
         this.processingPath = null;
@@ -593,9 +663,40 @@ export class AiSidebar {
         this._bindFileChangeListener();
         this._bindResizeHandle();
         this._updateContextBar();
+        this._restoreChatHistory();
     }
 
     // ── 初始化 ────────────────────────────────────────────
+
+    _restoreChatHistory() {
+        const history = loadChatHistory();
+        if (!history.length) return;
+        this.chatHistory = history;
+        this.agentMessages = loadAgentMessages();
+        this.emptyEl.style.display = 'none';
+        for (const entry of history) {
+            const el = document.createElement('div');
+            el.className = entry.role === 'user'
+                ? 'ai-message ai-message-user'
+                : 'ai-message ai-message-assistant';
+            if (entry.role === 'user') {
+                el.innerHTML = `<div class="ai-message-role">You</div><div class="ai-message-content">${entry.html}</div>`;
+            } else {
+                el.innerHTML = `<div class="ai-message-role">AI</div><div class="ai-message-body"><div class="ai-message-content ai-message-markdown">${entry.html}</div></div>`;
+            }
+            el.querySelectorAll('.ai-message-content').forEach(c => {
+                if (!c.querySelector('.ai-message-copy-btn')) appendCopyButton(c);
+            });
+            this.listEl.appendChild(el);
+        }
+        const listContainer = this.el.querySelector('.ai-conversation-list');
+        if (listContainer) listContainer.scrollTop = listContainer.scrollHeight;
+    }
+
+    _persistChat() {
+        saveChatHistory(this.chatHistory);
+        saveAgentMessages(this.agentMessages);
+    }
 
     // 从编辑器内存读取当前文档内容（优先于磁盘）
     _getEditorContent() {
@@ -660,6 +761,19 @@ export class AiSidebar {
             this.inputEl.removeEventListener('compositionend', onCompositionEnd);
             this.inputEl.removeEventListener('keydown', onKeydown);
         });
+
+        // 自动滚动：用户向上滚动时暂停，滚回底部时恢复
+        const listContainer = this.el.querySelector('.ai-conversation-list');
+        if (listContainer) {
+            listContainer._shouldAutoScroll = true;
+            const BOTTOM_THRESHOLD = 40;
+            const onScroll = () => {
+                const { scrollTop, scrollHeight, clientHeight } = listContainer;
+                listContainer._shouldAutoScroll = scrollHeight - scrollTop - clientHeight < BOTTOM_THRESHOLD;
+            };
+            listContainer.addEventListener('scroll', onScroll);
+            this._cleanups.push(() => listContainer.removeEventListener('scroll', onScroll));
+        }
     }
 
     /**
@@ -824,6 +938,9 @@ export class AiSidebar {
         }
 
         this.inputEl.value = '';
+        // 用户发送新消息时恢复自动滚动
+        const listContainer = this.el.querySelector('.ai-conversation-list');
+        if (listContainer) listContainer._shouldAutoScroll = true;
         this._appendUserMessage(text);
         this.processingPath = this.getAppState().getCurrentFile() || null;
         this.processingTabId = this.getAppState().getTabManager?.()?.activeTabId || null;
@@ -862,6 +979,17 @@ export class AiSidebar {
             const updatedMessages = await this.agentLoop.run(this.agentMessages);
             this.agentMessages = updatedMessages;
             card.done();
+            // 提取 AI 回复的纯内容 HTML 用于持久化
+            const contentEls = card.bodyEl.querySelectorAll('.ai-message-content.ai-message-markdown');
+            const htmlParts = Array.from(contentEls).map(el => {
+                const clone = el.cloneNode(true);
+                clone.querySelectorAll('.ai-message-copy-btn').forEach(b => b.remove());
+                return clone.innerHTML;
+            });
+            if (htmlParts.length) {
+                this.chatHistory.push({ role: 'assistant', html: htmlParts.join('') });
+            }
+            this._persistChat();
         } catch {
             // onError 已处理
         } finally {
@@ -880,8 +1008,10 @@ export class AiSidebar {
     _handleClear() {
         if (this.isProcessing) return;
         this.agentMessages = [];
+        this.chatHistory = [];
         this.listEl.innerHTML = '';
         this.emptyEl.style.display = '';
+        clearChatStorage();
     }
 
     // ── 工具回调 ──────────────────────────────────────────
@@ -926,8 +1056,11 @@ export class AiSidebar {
         this.emptyEl.style.display = 'none';
         const el = document.createElement('div');
         el.className = 'ai-message ai-message-user';
-        el.innerHTML = `<div class="ai-message-role">You</div><div class="ai-message-content">${escapeHtml(text)}</div>`;
+        const contentHtml = escapeHtml(text);
+        el.innerHTML = `<div class="ai-message-role">You</div><div class="ai-message-content">${contentHtml}</div>`;
+        appendCopyButton(el.querySelector('.ai-message-content'));
         this.listEl.appendChild(el);
+        this.chatHistory.push({ role: 'user', html: contentHtml });
         scrollToBottom(el);
     }
 
