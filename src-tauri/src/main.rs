@@ -220,10 +220,18 @@ fn main() {
             let mut builder = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
                 .title("")
                 .inner_size(ws.width, ws.height)
+                .min_inner_size(800.0, 600.0)
                 .resizable(true)
                 .fullscreen(ws.fullscreen)
                 .visible(false) // 先隐藏，JS ready 后 show
                 .accept_first_mouse(true);
+
+            // 只在有保存过位置时恢复（x/y >= 0 表示有效值），否则居中
+            if ws.x >= 0.0 && ws.y >= 0.0 {
+                builder = builder.position(ws.x, ws.y);
+            } else {
+                builder = builder.center();
+            }
 
             #[cfg(target_os = "macos")]
             {
@@ -241,11 +249,6 @@ fn main() {
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             {
                 builder = builder.decorations(true);
-            }
-
-            // 只在有保存过位置时恢复（x/y >= 0 表示有效值）
-            if ws.x >= 0.0 && ws.y >= 0.0 {
-                builder = builder.position(ws.x, ws.y);
             }
 
             let win = builder.build()?;
