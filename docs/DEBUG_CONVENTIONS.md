@@ -11,8 +11,8 @@
 - `views`
 - `commands`
 - `features`
+- `export`
 - `io`
-- `bootstrap`
 
 ## 本地开关
 

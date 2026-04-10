@@ -11,8 +11,8 @@
 3. 哪些旧写法不允许再回来了
 4. 交互和发布层面有哪些必须遵守的规则
 
-架构总览见 [ARCHITECTURE.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/ARCHITECTURE.md)。
-日志和 trace 规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+架构总览见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+日志和 trace 规范见 [DEBUG_CONVENTIONS.md](DEBUG_CONVENTIONS.md)。
 
 ---
 
@@ -85,7 +85,7 @@ view.activate('markdown');
 - 最终写到了哪
 - 失败原因是什么
 
-日志域约定见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+日志域约定见 [DEBUG_CONVENTIONS.md](DEBUG_CONVENTIONS.md)。
 
 ---
 
@@ -103,8 +103,8 @@ view.activate('markdown');
 
 标准流程：
 
-1. 在 [commandIds.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/core/commands/commandIds.js) 新增命令 ID
-2. 在 [commandSetup.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/app/commandSetup.js) 注册 handler
+1. 在 [commandIds.js](../src/core/commands/commandIds.js) 新增命令 ID
+2. 在 [commandSetup.js](../src/app/commandSetup.js) 注册 handler
 3. UI 入口统一调用 `commandManager.executeCommand(id, payload, context)`
 4. 如需快捷键，在 `registerDefaultKeybindings()` 注册默认绑定
 
@@ -189,10 +189,11 @@ if (isWindows) {
 | 文件 | 用途 |
 |---|---|
 | `src/components/AppMenu.js` | 前端下拉菜单（替代隐藏的原生菜单栏） |
-| `src/components/EditorContextMenu.js` | 编辑器右键菜单 |
+| `src/api/clipboard.js` | 通过 Rust invoke 读取剪贴板（Windows 下 `navigator.clipboard` 受限） |
 | `src/app/windowControls.js` 中的 `onResized` 监听 | 最大化按钮图标同步 |
 | `commandSetup.js` 中的 `registerWindowsKeybindings()` | Windows 专有快捷键 |
 | `src-tauri/src/menu.rs` 中的 `#[cfg(target_os = "windows")]` | 隐藏原生菜单栏 |
+| `src-tauri/src/main.rs` 中的 `read_clipboard_text` | Rust 侧剪贴板读取命令 |
 
 ## 4. 新增功能模块
 
@@ -204,7 +205,7 @@ if (isWindows) {
 
 标准流程：
 
-1. 在 [featureSetup.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/app/featureSetup.js) 注册 feature
+1. 在 [featureSetup.js](../src/app/featureSetup.js) 注册 feature
 2. 提供 `mount()`，必要时提供 `unmount()`
 3. 对外暴露最小 API
 4. 通过 `FeatureManager` 获取实例 API，不直接在 `main.js` 到处持有局部变量
@@ -228,7 +229,7 @@ register({
 
 标准流程：
 
-1. 在 [exportSetup.js](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src/app/exportSetup.js) 定义 export id
+1. 在 [exportSetup.js](../src/app/exportSetup.js) 定义 export id
 2. 注册 exporter handler
 3. 菜单或其他入口只发 command，不直接调 exporter
 
@@ -449,7 +450,7 @@ git diff --check
 
 - 对应日志域验证
 - 对应回归动作验证
-- 如适用，更新 [REFACTOR_CHECKLIST.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/REFACTOR_CHECKLIST.md)
+- 如适用，更新相关文档
 
 ---
 
@@ -484,9 +485,9 @@ git diff --check
 ## 九、GitHub Release / Windows 发布
 
 - Windows GitHub Action 现在会在构建前校验 release tag 与以下三处版本号完全一致：
-  - [package.json](/Users/leeo/Code/github/public/mark2s/mark2-tauri/package.json)
-  - [tauri.conf.json](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src-tauri/tauri.conf.json)
-  - [Cargo.toml](/Users/leeo/Code/github/public/mark2s/mark2-tauri/src-tauri/Cargo.toml)
+  - [package.json](../package.json)
+  - [tauri.conf.json](../src-tauri/tauri.conf.json)
+  - [Cargo.toml](../src-tauri/Cargo.toml)
 - 版本不一致时，workflow 会直接失败，不再继续打包错误版本的 Windows 安装包。
 - 推荐发版顺序：
   1. 如果要发本地 MAS 版本，运行 `./scripts/release-mas.sh --ver X.Y.Z`
@@ -518,7 +519,7 @@ git diff --check
 
 ## 十、GitHub Actions 构建 macOS DMG
 
-- macOS DMG 的 CI workflow 是 [build-macos-dmg.yml](/Users/leeo/Code/github/public/mark2s/mark2-tauri/.github/workflows/build-macos-dmg.yml)。
+- macOS DMG 的 CI workflow 是 [build-macos-dmg.yml](../.github/workflows/build-macos-dmg.yml)。
 - 这个 workflow 会在 release 发布后自动构建两份已签名并已公证的 DMG：
   - `x86_64`
   - `arm64`

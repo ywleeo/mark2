@@ -10,8 +10,8 @@
 4. 新功能如何扩展接入
 5. 当前工程标准是什么
 
-开发流程见 [DEVELOPMENT.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEVELOPMENT.md)。
-日志规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+开发流程见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+日志规范见 [DEBUG_CONVENTIONS.md](DEBUG_CONVENTIONS.md)。
 
 ---
 
@@ -79,8 +79,10 @@ flowchart TB
 
 ```text
 src/
+  api/                  Tauri invoke 封装（filesystem、clipboard、aiProxy 等）
   app/                  应用装配、setup、controller
   components/           UI 组件、编辑器、查看器、面板
+  config/               配置（代码主题、feature flags、CodeMirror 语法等）
   core/
     commands/           CommandManager、KeybindingManager
     diagnostics/        Logger、TraceRecorder、文件日志
@@ -89,14 +91,21 @@ src/
     features/           FeatureManager
     views/              ViewManager
     workspace/          WorkspaceManager
+    AppBridge.js        前后端桥接层
+    DocumentIO.js       文档读写 IO
+    EventBus.js         事件总线
+  extensions/           TipTap 扩展（Mermaid、Math、CSV、Search 等）
+  features/             编辑器增强功能（剪贴板增强、代码复制、搜索框）
   fileRenderers/        文件类型 renderer 与 handler
+  i18n/                 多语言支持（中文/英文）
   modules/              业务模块与运行时控制器
+  renderer/             渲染层辅助（FileTreeManager）
   services/             基础服务与适配层
-  state/                AppState、EditorRegistry 等共享状态
-  utils/                工具函数与导出辅助
+  state/                AppState、EditorRegistry、TabHistoryManager
+  utils/                工具函数（平台检测、导出、Mermaid 渲染等）
 
 src-tauri/
-  src/                  Rust 命令与桌面端能力
+  src/                  Rust 命令与桌面端能力（fs_commands、ai_proxy、menu、pty、media_stream、spreadsheet、security_scope、macos_security）
   icons/                应用图标资源
   gen/                  生成文件与 schema
 ```
@@ -105,13 +114,19 @@ src-tauri/
 
 | 目录 | 说明 |
 | --- | --- |
+| `src/api/` | Tauri invoke 前端封装层 |
 | `src/core/` | 内核层，承接系统正式协议与真源 |
 | `src/app/` | 装配层，负责初始化顺序与模块连接 |
-| `src/modules/` | 业务模块与事务协调层 |
+| `src/config/` | 配置与 feature flags |
 | `src/components/` | 展示层与交互层 |
+| `src/extensions/` | TipTap 编辑器扩展 |
+| `src/features/` | 编辑器增强功能 |
 | `src/fileRenderers/` | 文件类型渲染扩展层 |
+| `src/i18n/` | 多语言（中文/英文） |
+| `src/modules/` | 业务模块与事务协调层 |
+| `src/renderer/` | 渲染层辅助 |
+| `src/services/` | 文件、权限等服务封装 |
 | `src/state/` | 共享状态与实例注册 |
-| `src/services/` | 文件、权限、AI 等服务封装 |
 | `src/utils/` | 可复用工具与导出辅助逻辑 |
 | `src-tauri/` | Tauri/Rust 桌面能力层 |
 
@@ -255,13 +270,22 @@ menu / toolbar
 
 典型模块包括：
 
-- `navigationController`
-- `fileOperations`
-- `fileMenuActions`
-- `recentFilesActions`
-- `workspaceController`
-- `ai-assistant`
-- `card-export`
+- `navigationController` — tab 激活事务、fallback 决策
+- `fileOperations` — 文件加载、保存
+- `fileMenuActions` — 文件菜单动作
+- `recentFilesActions` — 最近文件
+- `workspaceController` — workspace restore/apply
+- `statusBarController` — 状态栏控制
+- `untitledFileManager` — untitled 文件管理
+- `fileWatchers` / `fileDropController` — 文件监听与拖拽
+- `documentSessionManager` / `fileSession` — 文档会话管理
+- `menuExports` / `menuListeners` — 菜单导出与监听
+- `windowFocusHandler` — 窗口焦点处理
+- `markdownCodeMode` / `svgCodeMode` / `csvTableMode` — 视图模式切换
+- `scratchpadPanel` / `terminalPanel` — 面板模块
+- `ai-assistant/` — AI 助手
+- `card-export/` — 卡片导出
+- `terminal-sidebar/` — 终端侧边栏
 
 这一层负责把用户动作、文档状态、视图状态和工作区状态串起来。
 
@@ -272,10 +296,22 @@ menu / toolbar
 这一层包括：
 
 - `TabManager`
-- `FileTree`
-- `MarkdownEditor`
-- `SpreadsheetViewer`
+- `file-tree/`（FileTree、FileTreeState、FileTreeRenderer、FileActions、FileCreator、FolderLoader 等）
+- `FileTreeContextMenu`
+- `markdown-editor/`（MarkdownEditor、ContentLoader、SaveManager、LinkHandler、ImagePasteHandler、AiStreamManager 等）
+- `markdown-toolbar/`（MarkdownToolbar、toolbarConfig）
+- `code-editor/`（CodeEditor、LanguageSupport、ThemeSupport、CodeFormatter）
+- `SpreadsheetViewer` / `SheetPickerDialog`
 - `PdfViewer`
+- `ImageViewer` / `ImageModal`
+- `MediaViewer`
+- `UnsupportedViewer`
+- `SettingsDialog` / `KeybindingsSettings`
+- `TocPanel` / `TodoList`
+- `OpenFilesView`
+- `AppMenu`（Windows 专有前端菜单）
+- `FileMover` / `FileRenamer`
+- `ExternalDropHandler` / `FileWatcher`
 - 各类 sidebar / dialog / panel
 
 组件层通过协议、Manager API 和 controller 协作。
@@ -288,8 +324,9 @@ menu / toolbar
 
 - `AppState`
 - `EditorRegistry`
+- `TabHistoryManager`
 
-这一层支撑 UI 同步、实例访问和兼容层状态共享。
+这一层支撑 UI 同步、实例访问、Tab 历史管理和兼容层状态共享。
 
 ---
 
@@ -479,9 +516,10 @@ command -> ExportManager -> exporter
 - `views`
 - `commands`
 - `features`
+- `export`
 - `io`
 
-详细规范见 [DEBUG_CONVENTIONS.md](/Users/leeo/Code/github/public/mark2s/mark2-tauri/docs/DEBUG_CONVENTIONS.md)。
+详细规范见 [DEBUG_CONVENTIONS.md](DEBUG_CONVENTIONS.md)。
 
 ### 4. 文档标准
 
@@ -493,5 +531,3 @@ command -> ExportManager -> exporter
   开发规范、接入流程、发布流程
 - `DEBUG_CONVENTIONS.md`
   日志与 trace 约定
-- `REFACTOR_CHECKLIST.md`
-  重构与回归验收记录
