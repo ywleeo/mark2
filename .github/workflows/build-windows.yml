@@ -110,6 +110,15 @@ jobs:
           aws s3 cp $EXE s3://$BUCKET/mark2/latest/Mark2_windows_latest.exe \
             --endpoint-url $ENDPOINT
 
+      - name: Update Windows version
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          VERSION="${TAG#v}"
+          curl -sf -X POST "${{ secrets.SITE_API_BASE_URL }}/api/open/app/version" \
+            -H "Content-Type: application/json" \
+            -H "X-Auth-Key: ${{ secrets.SITE_OPEN_AUTH_KEY }}" \
+            -d "{\"platform\": \"win\", \"version\": \"${VERSION}\"}"
+
       - name: Purge Cloudflare Cache for latest
         shell: bash
         run: |
