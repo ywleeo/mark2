@@ -111,6 +111,7 @@ jobs:
             --endpoint-url $ENDPOINT
 
       - name: Update Windows version
+        shell: bash
         run: |
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
