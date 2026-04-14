@@ -163,6 +163,18 @@ jobs:
           aws s3 cp $DMG s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.dmg \
             --endpoint-url $ENDPOINT
 
+          # 上传 updater 产物到 latest 目录
+          TAR_GZ=$(find artifacts/$ARCH -maxdepth 1 -name '*.tar.gz' | head -1)
+          TAR_GZ_SIG=$(find artifacts/$ARCH -maxdepth 1 -name '*.tar.gz.sig' | head -1)
+          if [[ -n "$TAR_GZ" && -f "$TAR_GZ" ]]; then
+            aws s3 cp $TAR_GZ s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.app.tar.gz \
+              --endpoint-url $ENDPOINT
+          fi
+          if [[ -n "$TAR_GZ_SIG" && -f "$TAR_GZ_SIG" ]]; then
+            aws s3 cp $TAR_GZ_SIG s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.app.tar.gz.sig \
+              --endpoint-url $ENDPOINT
+          fi
+
       - name: Update macOS version
         run: |
           TAG="${{ steps.tag.outputs.tag }}"

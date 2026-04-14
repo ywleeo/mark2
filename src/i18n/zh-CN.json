@@ -26,6 +26,7 @@
     "menu.toggleAi": "切换 AI 助手",
     "menu.toggleTheme": "切换深色/浅色主题",
     "menu.about": "关于 Mark2",
+    "menu.checkUpdate": "检查更新...",
 
     "titlebar.menu": "菜单",
     "titlebar.toggleTheme": "切换主题",
