@@ -114,6 +114,17 @@ jobs:
           aws s3 cp $EXE s3://$BUCKET/mark2/latest/Mark2_windows_latest.exe \
             --endpoint-url $ENDPOINT
 
+          MSI_SIG=$(ls src-tauri/target/release/bundle/msi/*.msi.sig 2>/dev/null | head -1)
+          EXE_SIG=$(ls src-tauri/target/release/bundle/nsis/*.exe.sig 2>/dev/null | head -1)
+          if [[ -n "$MSI_SIG" && -f "$MSI_SIG" ]]; then
+            aws s3 cp $MSI_SIG s3://$BUCKET/mark2/latest/Mark2_windows_latest.msi.sig \
+              --endpoint-url $ENDPOINT
+          fi
+          if [[ -n "$EXE_SIG" && -f "$EXE_SIG" ]]; then
+            aws s3 cp $EXE_SIG s3://$BUCKET/mark2/latest/Mark2_windows_latest.exe.sig \
+              --endpoint-url $ENDPOINT
+          fi
+
       - name: Update Windows version
         shell: bash
         run: |
