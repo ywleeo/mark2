@@ -125,8 +125,8 @@ jobs:
           BUCKET=${{ secrets.R2_BUCKET_NAME }}
 
           # NSIS 签名
-          NSIS_SIG=$(ls src-tauri/target/release/bundle/nsis/*.exe.sig 2>/dev/null | head -1)
-          if [[ -n "$NSIS_SIG" ]]; then
+          NSIS_SIG=$(find src-tauri/target/release/bundle/nsis -name '*.exe.sig' 2>/dev/null | head -1)
+          if [[ -n "$NSIS_SIG" && -f "$NSIS_SIG" ]]; then
             aws s3 cp $NSIS_SIG s3://$BUCKET/mark2/latest/Mark2_windows_latest.exe.sig \
               --endpoint-url $ENDPOINT
             aws s3 cp $NSIS_SIG s3://$BUCKET/mark2/$TAG/$(basename $NSIS_SIG) \
@@ -134,8 +134,8 @@ jobs:
           fi
 
           # MSI 签名
-          MSI_SIG=$(ls src-tauri/target/release/bundle/msi/*.msi.sig 2>/dev/null | head -1)
-          if [[ -n "$MSI_SIG" ]]; then
+          MSI_SIG=$(find src-tauri/target/release/bundle/msi -name '*.msi.sig' 2>/dev/null | head -1)
+          if [[ -n "$MSI_SIG" && -f "$MSI_SIG" ]]; then
             aws s3 cp $MSI_SIG s3://$BUCKET/mark2/latest/Mark2_windows_latest.msi.sig \
               --endpoint-url $ENDPOINT
             aws s3 cp $MSI_SIG s3://$BUCKET/mark2/$TAG/$(basename $MSI_SIG) \
