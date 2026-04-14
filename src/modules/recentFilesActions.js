@@ -3,6 +3,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 export function createRecentFilesActions(options = {}) {
     const {
@@ -162,6 +163,11 @@ export function createRecentFilesActions(options = {}) {
             });
         }
     }
+
+    // 菜单重建后自动刷新最近文件列表
+    listen('menu-rebuilt', () => {
+        void updateRecentMenu();
+    });
 
     return {
         updateRecentMenu,

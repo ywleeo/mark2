@@ -479,7 +479,7 @@ export class SettingsDialog {
 
         // 保存自定义快捷键
         if (this.keybindingsSettings) {
-            saveCustomKeybindings(this.keybindingsSettings.getCustomBindings());
+            await saveCustomKeybindings(this.keybindingsSettings.getCustomBindings());
         }
 
         if (this.onSubmit) {

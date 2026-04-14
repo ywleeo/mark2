@@ -197,6 +197,7 @@ fn main() {
             security_scope::restore_security_scoped_access,
             menu::set_export_menu_enabled,
             menu::update_recent_menu,
+            menu::rebuild_menu,
             update_workspace_context,
             update_document_snapshot,
             get_opened_files,
