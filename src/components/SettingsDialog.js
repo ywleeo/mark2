@@ -1,3 +1,4 @@
+import { Dropdown } from './Dropdown.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t, getLocale, setLocale } from '../i18n/index.js';
 import { KeybindingsSettings } from './KeybindingsSettings.js';
@@ -294,9 +295,55 @@ export class SettingsDialog {
             this.cleanupFunctions.push(cleanup2);
         }
 
+        this._dropdownMap = new Map();
         this.availableFonts = [];
         this.setAvailableFonts([]);
         this.initCodeFontOptions();
+        this._wrapSettingsSelects();
+    }
+
+    _settingsSelectElements() {
+        return [
+            this.themeSelect,
+            this.appearanceSelect,
+            this.languageSelect,
+            this.fontFamilySelect,
+            this.fontWeightSelect,
+            this.codeThemeSelect,
+            this.codeFontFamilySelect,
+            this.codeFontWeightSelect,
+            this.aiCreativitySelect,
+        ].filter(Boolean);
+    }
+
+    _wrapSettingsSelects() {
+        for (const el of this._settingsSelectElements()) {
+            if (!this._dropdownMap.has(el)) {
+                this._dropdownMap.set(el, new Dropdown(el));
+            }
+        }
+    }
+
+    _destroySettingsSelects() {
+        for (const dd of this._dropdownMap.values()) {
+            try { dd.destroy(); } catch (_) { /* ignore */ }
+        }
+        this._dropdownMap.clear();
+    }
+
+    _refreshDropdown(el) {
+        const dd = this._dropdownMap.get(el);
+        if (dd) dd.refresh();
+    }
+
+    _setSelectValue(el, value) {
+        const v = value == null ? '' : String(value);
+        const dd = this._dropdownMap.get(el);
+        if (dd) {
+            dd.setValue(v);
+        } else if (el) {
+            el.value = v;
+        }
     }
 
     switchTab(tabName) {
@@ -343,12 +390,12 @@ export class SettingsDialog {
         this.initialSettings = { ...editorPrefs };
 
         // 编辑器设置
-        this.themeSelect.value = editorPrefs.theme || 'default';
+        this._setSelectValue(this.themeSelect, editorPrefs.theme || 'default');
         if (this.appearanceSelect) {
-            this.appearanceSelect.value = editorPrefs.appearance || 'system';
+            this._setSelectValue(this.appearanceSelect, editorPrefs.appearance || 'system');
         }
         if (this.languageSelect) {
-            this.languageSelect.value = getLocale();
+            this._setSelectValue(this.languageSelect, getLocale());
         }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
@@ -356,16 +403,16 @@ export class SettingsDialog {
         this.syncFontWeight(editorPrefs.fontWeight);
 
         // Code 模式设置
-        this.codeThemeSelect.value = editorPrefs.codeTheme || 'auto';
-        this.codeFontFamilySelect.value = editorPrefs.codeFontFamily || '';
+        this._setSelectValue(this.codeThemeSelect, editorPrefs.codeTheme || 'auto');
+        this._setSelectValue(this.codeFontFamilySelect, editorPrefs.codeFontFamily || '');
         this.codeFontSizeInput.value = Number(editorPrefs.codeFontSize) || 14;
         this.codeLineHeightInput.value = Number(editorPrefs.codeLineHeight) || 1.5;
-        this.codeFontWeightSelect.value = String(editorPrefs.codeFontWeight || 400);
+        this._setSelectValue(this.codeFontWeightSelect, String(editorPrefs.codeFontWeight || 400));
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
         this.aiProviders = (aiConfig.providers || []).map(p => ({ ...p }));
         this.selectedActiveModel = aiConfig.activeModel || '';
-        this.aiCreativitySelect.value = aiConfig.preferences?.creativity || 'medium';
+        this._setSelectValue(this.aiCreativitySelect, aiConfig.preferences?.creativity || 'medium');
         this.renderProviderList();
         // 优先回显当前生效的 provider，避免保存后打开设置仍然跳回第一个 provider。
         if (this.aiProviders.length > 0) {
@@ -517,8 +564,9 @@ export class SettingsDialog {
         const value = typeof fontFamily === 'string' ? fontFamily.trim() : '';
 
         if (!value) {
-            this.removeDynamicFontOption();
-            this.fontFamilySelect.value = '';
+            const removed = this.removeDynamicFontOption();
+            if (removed) this._refreshDropdown(this.fontFamilySelect);
+            this._setSelectValue(this.fontFamilySelect, '');
             return;
         }
 
@@ -526,10 +574,11 @@ export class SettingsDialog {
         const existing = options.find(option => option.value === value);
 
         if (existing) {
-            this.fontFamilySelect.value = value;
-            if (existing.dataset.dynamic === 'true') {
+            if (existing.dataset.dynamic === 'true' && existing.textContent !== `Custom: ${value}`) {
                 existing.textContent = `Custom: ${value}`;
+                this._refreshDropdown(this.fontFamilySelect);
             }
+            this._setSelectValue(this.fontFamilySelect, value);
             return;
         }
 
@@ -539,7 +588,8 @@ export class SettingsDialog {
         customOption.textContent = `Custom: ${value}`;
         customOption.dataset.dynamic = 'true';
         this.fontFamilySelect.appendChild(customOption);
-        this.fontFamilySelect.value = value;
+        this._refreshDropdown(this.fontFamilySelect);
+        this._setSelectValue(this.fontFamilySelect, value);
     }
 
     removeDynamicFontOption() {
@@ -547,17 +597,15 @@ export class SettingsDialog {
         const custom = options.find(option => option.dataset.dynamic === 'true');
         if (custom) {
             custom.remove();
+            return true;
         }
+        return false;
     }
 
     syncFontWeight(weight) {
         const allowed = ['100', '200', '300', '400', '500', '600', '700', '800', '900'];
         const value = Number.isFinite(Number(weight)) ? String(weight) : '400';
-        if (allowed.includes(value)) {
-            this.fontWeightSelect.value = value;
-            return;
-        }
-        this.fontWeightSelect.value = '400';
+        this._setSelectValue(this.fontWeightSelect, allowed.includes(value) ? value : '400');
     }
 
     setAvailableFonts(fonts = []) {
@@ -608,6 +656,7 @@ export class SettingsDialog {
             this.fontFamilySelect.appendChild(systemGroup);
         }
 
+        this._refreshDropdown(this.fontFamilySelect);
         this.syncFontSelection(previousValue || '');
     }
 
@@ -1006,6 +1055,8 @@ export class SettingsDialog {
     }
 
     dispose() {
+        this._destroySettingsSelects();
+
         // 清理所有事件监听器
         this.cleanupFunctions.forEach(cleanup => {
             if (typeof cleanup === 'function') {
