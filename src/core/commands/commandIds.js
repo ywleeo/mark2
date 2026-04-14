@@ -48,4 +48,5 @@ export const COMMAND_IDS = Object.freeze({
     EXPORT_PDF: 'export.currentView.pdf',
     RECENT_OPEN_ENTRY: 'recent.openEntry',
     RECENT_CLEAR: 'recent.clear',
+    APP_CHECK_UPDATE: 'app.checkUpdate',
 });

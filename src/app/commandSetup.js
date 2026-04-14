@@ -82,6 +82,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.EXPORT_PDF, () => handlers.onExportPdf?.(), '导出 PDF');
     register(COMMAND_IDS.RECENT_OPEN_ENTRY, (payload = {}) => handlers.onRecentItemClick?.(payload.index), '打开最近项目');
     register(COMMAND_IDS.RECENT_CLEAR, () => handlers.onClearRecent?.(), '清空最近项目');
+    register(COMMAND_IDS.APP_CHECK_UPDATE, () => handlers.onCheckUpdate?.(), '检查更新');
 
     return () => {
         while (disposers.length > 0) {

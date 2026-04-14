@@ -46,6 +46,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("ai-assistant", "AI 助手");
         m.insert("toggle-theme", "切换深色/浅色模式");
         m.insert("toggle-code-mode", "切换 Markdown 代码模式");
+        m.insert("check-update", "检查更新...");
         m.insert("about", "关于 Mark2");
         m.insert("quit", "退出 Mark2");
         m.insert("clear-recent", "清除最近记录");
@@ -74,6 +75,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("ai-assistant", "AI Assistant");
         m.insert("toggle-theme", "Toggle Dark/Light Mode");
         m.insert("toggle-code-mode", "Toggle Markdown Code Mode");
+        m.insert("check-update", "Check for Updates...");
         m.insert("about", "About Mark2");
         m.insert("quit", "Quit Mark2");
         m.insert("clear-recent", "Clear Recent");
@@ -374,6 +376,7 @@ fn build_menu(
     let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"])
         .build(handle)?;
 
+    let check_update_item = MenuItemBuilder::with_id("check-update", l["check-update"]).build(handle)?;
     let about_item = MenuItemBuilder::with_id("about", l["about"]).build(handle)?;
     let quit_item = MenuItemBuilder::with_id("app-quit", l["quit"])
         .accelerator(get_accelerator("app-quit", "CmdOrCtrl+Q", custom_accel))
@@ -381,6 +384,7 @@ fn build_menu(
 
     let app_menu = SubmenuBuilder::new(handle, "Mark2")
         .item(&about_item)
+        .item(&check_update_item)
         .separator()
         .item(&settings_item)
         .separator()

@@ -48,6 +48,7 @@ export async function registerMenuListeners(handlers) {
     await register('menu-file-move', COMMAND_IDS.DOCUMENT_MOVE);
     await register('menu-file-rename', COMMAND_IDS.DOCUMENT_RENAME);
     await register('menu-clear-recent', COMMAND_IDS.RECENT_CLEAR);
+    await register('menu-check-update', COMMAND_IDS.APP_CHECK_UPDATE);
 
     // 注册最近文件菜单项点击事件（recent-0 到 recent-9）
     for (let i = 0; i < 10; i++) {
