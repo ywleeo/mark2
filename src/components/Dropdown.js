@@ -158,8 +158,11 @@ export class Dropdown {
                 }
             }
         };
-        this._onScroll = () => {
-            if (this.isOpen) this.close();
+        this._onScroll = (e) => {
+            if (!this.isOpen) return;
+            // panel 自身滚动不关闭
+            if (e.target === this.panel || (this.panel.contains && this.panel.contains(e.target))) return;
+            this.close();
         };
         this._onResize = () => {
             if (this.isOpen) this._positionPanel();
