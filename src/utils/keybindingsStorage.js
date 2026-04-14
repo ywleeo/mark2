@@ -4,6 +4,7 @@
  */
 
 const STORAGE_KEY = 'mark2:keybindings';
+const KEYBINDINGS_UPDATED_EVENT = 'mark2:keybindings-updated';
 
 /**
  * 加载用户自定义快捷键。
@@ -52,4 +53,7 @@ export async function saveCustomKeybindings(keybindings) {
     } catch (error) {
         console.warn('重建菜单失败', error);
     }
+
+    // 通知前端菜单更新（跨标签页用 storage 事件，同标签页用自定义事件）
+    window.dispatchEvent(new CustomEvent(KEYBINDINGS_UPDATED_EVENT, { detail: keybindings }));
 }

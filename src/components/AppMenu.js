@@ -3,8 +3,50 @@
  * 使用 CSS hover 实现子菜单展开
  */
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
+import { DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t } from '../i18n/index.js';
+
+// command ID → menu item ID 映射（与 Rust menu.rs 保持一致）
+const COMMAND_TO_MENU_IDS = {
+    'app.open': 'open-file',
+    'app.openFile': 'open-file',
+    'app.settings': 'settings',
+    'export.currentView.image': 'export-image',
+    'export.currentView.pdf': 'export-pdf',
+    'view.toggleSidebar': 'toggle-sidebar',
+    'toolbar.toggleMarkdown': 'toggle-markdown-toolbar',
+    'feature.terminal.toggle': 'toggle-terminal',
+    'feature.ai.toggle': 'toggle-ai-sidebar',
+    'document.newFile': 'file-new',
+    'document.delete': 'file-delete',
+    'editor.undo': 'undo',
+    'editor.redo': 'redo',
+    'view.toggleSourceMode': 'toggle-markdown-code-mode',
+    'app.quit': 'app-quit',
+    'app.checkUpdate': 'check-update',
+};
+
+const KEYBINDINGS_UPDATED_EVENT = 'mark2:keybindings-updated';
+
+// 将 Mod 转换为 Ctrl（Windows 显示）
+function formatShortcut(shortcut) {
+    if (!shortcut) return '';
+    return shortcut
+        .split('+')
+        .map(token => {
+            const t = token.trim().toLowerCase();
+            if (t === 'mod') return 'Ctrl';
+            if (t === 'shift') return 'Shift';
+            if (t === 'alt') return 'Alt';
+            if (t === 'delete') return 'Del';
+            if (t === 'backspace') return 'Backspace';
+            if (t === 'space') return 'Space';
+            if (t === 'escape') return 'Esc';
+            return token.trim().charAt(0).toUpperCase() + token.trim().slice(1);
+        })
+        .join('+');
+}
 
 export class AppMenu {
     constructor(options = {}) {
@@ -13,7 +55,38 @@ export class AppMenu {
         this.cleanupFunctions = [];
 
         this.menuItems = this.buildMenuItems();
+        this.customBindings = this._loadCustomBindings();
         this.init();
+    }
+
+    _loadCustomBindings() {
+        try {
+            const stored = window.localStorage.getItem('mark2:keybindings');
+            return stored ? JSON.parse(stored) : {};
+        } catch {
+            return {};
+        }
+    }
+
+    updateShortcuts() {
+        this.customBindings = this._loadCustomBindings();
+        const items = this.element.querySelectorAll('[data-menu-id]');
+        for (const item of items) {
+            const menuId = item.dataset.menuId;
+            const entry = Object.entries(COMMAND_TO_MENU_IDS).find(([_, id]) => id === menuId);
+            if (!entry) continue;
+            const commandId = entry[0];
+
+            const customShortcut = this.customBindings[commandId];
+            const defaultEntry = DEFAULT_KEYBINDINGS.find(([id]) => id === commandId);
+            const defaultShortcut = defaultEntry ? formatShortcut(defaultEntry[1]) : '';
+            const displayShortcut = customShortcut ? formatShortcut(customShortcut) : defaultShortcut;
+
+            const shortcutEl = item.querySelector('.app-menu__shortcut');
+            if (shortcutEl) {
+                shortcutEl.textContent = displayShortcut;
+            }
+        }
     }
 
     buildMenuItems() {
@@ -22,45 +95,45 @@ export class AppMenu {
                 id: 'file',
                 label: t('menu.file'),
                 submenu: [
-                    { id: 'new', label: t('menu.newFile'), shortcut: 'Ctrl+N', command: COMMAND_IDS.DOCUMENT_NEW_FILE },
-                    { id: 'open-file', label: t('menu.openFile'), shortcut: 'Ctrl+O', command: COMMAND_IDS.APP_OPEN_FILE },
+                    { id: 'new', label: t('menu.newFile'), shortcut: 'Ctrl+N', command: COMMAND_IDS.DOCUMENT_NEW_FILE, menuId: 'file-new' },
+                    { id: 'open-file', label: t('menu.openFile'), shortcut: 'Ctrl+O', command: COMMAND_IDS.APP_OPEN_FILE, menuId: 'open-file' },
                     { id: 'open-folder', label: t('menu.openFolder'), command: COMMAND_IDS.APP_OPEN_FOLDER },
                     { id: 'sep1', separator: true },
                     { id: 'save', label: t('menu.save'), shortcut: 'Ctrl+S', command: COMMAND_IDS.DOCUMENT_SAVE },
                     { id: 'sep2', separator: true },
-                    { id: 'export-image', label: t('menu.exportImage'), command: COMMAND_IDS.EXPORT_IMAGE },
-                    { id: 'export-pdf', label: t('menu.exportPdf'), command: COMMAND_IDS.EXPORT_PDF },
+                    { id: 'export-image', label: t('menu.exportImage'), command: COMMAND_IDS.EXPORT_IMAGE, menuId: 'export-image' },
+                    { id: 'export-pdf', label: t('menu.exportPdf'), command: COMMAND_IDS.EXPORT_PDF, menuId: 'export-pdf' },
                     { id: 'sep3', separator: true },
                     { id: 'rename', label: t('menu.rename'), shortcut: 'F2', command: COMMAND_IDS.DOCUMENT_RENAME },
                     { id: 'move', label: t('menu.moveTo'), command: COMMAND_IDS.DOCUMENT_MOVE },
-                    { id: 'delete', label: t('menu.delete'), shortcut: 'Delete', command: COMMAND_IDS.DOCUMENT_DELETE, danger: true },
+                    { id: 'delete', label: t('menu.delete'), shortcut: 'Del', command: COMMAND_IDS.DOCUMENT_DELETE, menuId: 'file-delete', danger: true },
                 ]
             },
             {
                 id: 'edit',
                 label: t('menu.edit'),
                 submenu: [
-                    { id: 'undo', label: t('menu.undo'), shortcut: 'Ctrl+Z', command: COMMAND_IDS.EDITOR_UNDO },
-                    { id: 'redo', label: t('menu.redo'), shortcut: 'Ctrl+Shift+Z', command: COMMAND_IDS.EDITOR_REDO },
+                    { id: 'undo', label: t('menu.undo'), shortcut: 'Ctrl+Z', command: COMMAND_IDS.EDITOR_UNDO, menuId: 'undo' },
+                    { id: 'redo', label: t('menu.redo'), shortcut: 'Ctrl+Shift+Z', command: COMMAND_IDS.EDITOR_REDO, menuId: 'redo' },
                     { id: 'sep1', separator: true },
                     { id: 'cut', label: t('menu.cut'), shortcut: 'Ctrl+X', command: COMMAND_IDS.EDITOR_CUT },
                     { id: 'copy', label: t('menu.copy'), shortcut: 'Ctrl+C', command: COMMAND_IDS.EDITOR_COPY },
                     { id: 'paste', label: t('menu.paste'), shortcut: 'Ctrl+V', command: COMMAND_IDS.EDITOR_PASTE },
                     { id: 'select-all', label: t('menu.selectAll'), shortcut: 'Ctrl+A', command: COMMAND_IDS.EDITOR_SELECT_ALL },
                     { id: 'sep2', separator: true },
-                    { id: 'settings', label: t('menu.settings'), shortcut: 'Ctrl+,', command: COMMAND_IDS.APP_SETTINGS },
+                    { id: 'settings', label: t('menu.settings'), shortcut: 'Ctrl+,', command: COMMAND_IDS.APP_SETTINGS, menuId: 'settings' },
                 ]
             },
             {
                 id: 'view',
                 label: t('menu.view'),
                 submenu: [
-                    { id: 'toggle-sidebar', label: t('menu.toggleSidebar'), shortcut: 'Ctrl+B', command: COMMAND_IDS.VIEW_TOGGLE_SIDEBAR },
+                    { id: 'toggle-sidebar', label: t('menu.toggleSidebar'), shortcut: 'Ctrl+B', command: COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, menuId: 'toggle-sidebar' },
                     { id: 'toggle-status-bar', label: t('menu.toggleStatusBar'), command: COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR },
-                    { id: 'toggle-toolbar', label: t('menu.toggleToolbar'), command: COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN },
+                    { id: 'toggle-toolbar', label: t('menu.toggleToolbar'), command: COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, menuId: 'toggle-markdown-toolbar' },
                     { id: 'sep1', separator: true },
-                    { id: 'toggle-terminal', label: t('menu.toggleTerminal'), shortcut: 'Ctrl+`', command: COMMAND_IDS.FEATURE_TERMINAL_TOGGLE },
-                    { id: 'toggle-ai', label: t('menu.toggleAi'), shortcut: 'Ctrl+Shift+A', command: COMMAND_IDS.FEATURE_AI_TOGGLE },
+                    { id: 'toggle-terminal', label: t('menu.toggleTerminal'), shortcut: 'Ctrl+`', command: COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, menuId: 'toggle-terminal' },
+                    { id: 'toggle-ai', label: t('menu.toggleAi'), shortcut: 'Ctrl+Shift+A', command: COMMAND_IDS.FEATURE_AI_TOGGLE, menuId: 'toggle-ai-sidebar' },
                     { id: 'sep2', separator: true },
                     { id: 'toggle-theme', label: t('menu.toggleTheme'), command: COMMAND_IDS.THEME_TOGGLE },
                 ]
@@ -69,6 +142,7 @@ export class AppMenu {
                 id: 'help',
                 label: t('menu.help'),
                 submenu: [
+                    { id: 'check-update', label: t('menu.checkUpdate'), command: COMMAND_IDS.APP_CHECK_UPDATE, menuId: 'check-update' },
                     { id: 'about', label: t('menu.about'), command: COMMAND_IDS.APP_ABOUT },
                 ]
             }
@@ -82,6 +156,18 @@ export class AppMenu {
 
         this._render();
         this._setupEventListeners();
+
+        // 监听快捷键更新事件（同标签页用自定义事件，跨标签页用 storage 事件）
+        this._onKeybindingsUpdated = () => {
+            this.updateShortcuts();
+        };
+        window.addEventListener(KEYBINDINGS_UPDATED_EVENT, this._onKeybindingsUpdated);
+        this._onStorage = (e) => {
+            if (e.key === 'mark2:keybindings') {
+                this.updateShortcuts();
+            }
+        };
+        window.addEventListener('storage', this._onStorage);
     }
 
     _renderMenuItem(item) {
@@ -104,7 +190,7 @@ export class AppMenu {
         }
 
         return `
-            <div class="app-menu__item ${dangerClass} ${hasSubmenu ? 'has-submenu' : ''}" data-command="${item.command || ''}">
+            <div class="app-menu__item ${dangerClass} ${hasSubmenu ? 'has-submenu' : ''}" data-command="${item.command || ''}" data-menu-id="${item.menuId || ''}">
                 <span class="app-menu__label">${item.label}</span>
                 ${shortcut}
                 ${arrow}
@@ -181,6 +267,8 @@ export class AppMenu {
 
         document.removeEventListener('click', this._onGlobalClose, true);
         document.removeEventListener('keydown', this._onKeydown, true);
+        window.removeEventListener(KEYBINDINGS_UPDATED_EVENT, this._onKeybindingsUpdated);
+        window.removeEventListener('storage', this._onStorage);
 
         this.element?.remove();
         this.element = null;
