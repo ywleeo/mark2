@@ -35,14 +35,14 @@ function formatShortcut(shortcut) {
     return shortcut
         .split('+')
         .map(token => {
-            const t = token.trim().toLowerCase();
-            if (t === 'mod') return 'Ctrl';
-            if (t === 'shift') return 'Shift';
-            if (t === 'alt') return 'Alt';
-            if (t === 'delete') return 'Del';
-            if (t === 'backspace') return 'Backspace';
-            if (t === 'space') return 'Space';
-            if (t === 'escape') return 'Esc';
+            const k = token.trim().toLowerCase();
+            if (k === 'mod') return 'Ctrl';
+            if (k === 'shift') return 'Shift';
+            if (k === 'alt') return 'Alt';
+            if (k === 'delete') return 'Del';
+            if (k === 'backspace') return 'Backspace';
+            if (k === 'space') return 'Space';
+            if (k === 'escape') return 'Esc';
             return token.trim().charAt(0).toUpperCase() + token.trim().slice(1);
         })
         .join('+');

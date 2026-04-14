@@ -164,8 +164,8 @@ jobs:
             --endpoint-url $ENDPOINT
 
           # 上传 updater 产物到 latest 目录
-          TAR_GZ=$(ls artifacts/$ARCH/*.tar.gz 2>/dev/null | head -1)
-          TAR_GZ_SIG=$(ls artifacts/$ARCH/*.tar.gz.sig 2>/dev/null | head -1)
+          TAR_GZ=$(find artifacts/$ARCH -maxdepth 1 -name '*.tar.gz' | head -1)
+          TAR_GZ_SIG=$(find artifacts/$ARCH -maxdepth 1 -name '*.tar.gz.sig' | head -1)
           if [[ -n "$TAR_GZ" && -f "$TAR_GZ" ]]; then
             aws s3 cp $TAR_GZ s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.app.tar.gz \
               --endpoint-url $ENDPOINT
