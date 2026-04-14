@@ -268,6 +268,7 @@ select.settings-row__control {
     background-size: 13px 13px;
     padding-right: 24px;
     cursor: pointer;
+    color-scheme: light dark;
 }
 
 input[type="number"].settings-row__control {
@@ -322,6 +323,7 @@ input[type="number"]::-webkit-inner-spin-button {
     padding-right: 28px;
     cursor: pointer;
     text-align: left;
+    color-scheme: light dark;
 }
 
 .settings-field input[type="text"],
