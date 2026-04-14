@@ -102,6 +102,8 @@ export function registerCoreCommands(options = {}) {
  */
 export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.APP_OPEN, 'Mod+O'],
+    [COMMAND_IDS.EDITOR_UNDO, 'Mod+Z'],
+    [COMMAND_IDS.EDITOR_REDO, 'Mod+Shift+Z'],
     [COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, 'Mod+Shift+L'],
     [COMMAND_IDS.DOCUMENT_SAVE, 'Mod+S'],
     [COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, 'Mod+E'],
