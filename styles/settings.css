@@ -294,6 +294,13 @@ input[type="number"]::-webkit-inner-spin-button {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.06);
 }
 
+/* Windows WebView2 下原生 select 弹出面板不会继承 :root 的 color-scheme，
+   必须在 select 元素上显式写死 dark 才生效 */
+:root[data-theme-appearance='dark'] select.settings-row__control,
+:root[data-theme-appearance='dark'] .settings-field select {
+    color-scheme: dark;
+}
+
 /* Legacy .settings-field (used in AI provider editor) */
 .settings-field {
     display: flex;
