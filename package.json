@@ -37,12 +37,12 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.1",
     "@lezer/highlight": "^1.2.3",
-    "@tauri-apps/api": "^2.3.0",
-    "@tauri-apps/plugin-dialog": "^2.3.0",
-    "@tauri-apps/plugin-fs": "^2.3.0",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-dialog": "^2.7.0",
+    "@tauri-apps/plugin-fs": "^2.5.0",
     "@tauri-apps/plugin-global-shortcut": "^2.3.1",
     "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-shell": "^2.3.1",
+    "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "@tiptap/core": "^3.13.0",
     "@tiptap/extension-code-block-lowlight": "^3.13.0",
@@ -78,7 +78,7 @@
     "turndown-plugin-gfm": "^1.0.2"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.3.0",
+    "@tauri-apps/cli": "^2.10.1",
     "vite": "^7.1.12"
   }
 }
