@@ -125,15 +125,37 @@ jobs:
               --endpoint-url $ENDPOINT
           fi
 
-      - name: Update Windows version
+      - name: Read signature and update Windows version
         shell: bash
         run: |
+          set -euo pipefail
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
+
+          # 读取签名文件内容（优先 .exe.sig，回退 .msi.sig）
+          ACTUAL_SIG_FILE=$(ls src-tauri/target/release/bundle/nsis/*.exe.sig 2>/dev/null | head -1)
+          if [[ -z "$ACTUAL_SIG_FILE" || ! -f "$ACTUAL_SIG_FILE" ]]; then
+            ACTUAL_SIG_FILE=$(ls src-tauri/target/release/bundle/msi/*.msi.sig 2>/dev/null | head -1)
+            if [[ -z "$ACTUAL_SIG_FILE" || ! -f "$ACTUAL_SIG_FILE" ]]; then
+              echo "Error: no signature file found (.exe.sig or .msi.sig)"
+              exit 1
+            fi
+          fi
+          SIGNATURE="$(cat "$ACTUAL_SIG_FILE")"
+
+          PAYLOAD=$(SIGNATURE="$SIGNATURE" node -e "
+            console.log(JSON.stringify({
+              platform: 'windows-x86_64',
+              version: '$VERSION',
+              signature: process.env.SIGNATURE
+            }));
+          ")
+
+          echo "Payload: $PAYLOAD"
           curl -sf -X POST "${{ secrets.SITE_API_BASE_URL }}/api/open/app/version" \
             -H "Content-Type: application/json" \
             -H "X-Auth-Key: ${{ secrets.SITE_OPEN_AUTH_KEY }}" \
-            -d "{\"platform\": \"win\", \"version\": \"${VERSION}\"}"
+            -d "$PAYLOAD"
 
       - name: Purge Cloudflare Cache for latest
         shell: bash

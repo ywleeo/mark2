@@ -175,14 +175,42 @@ jobs:
               --endpoint-url $ENDPOINT
           fi
 
-      - name: Update macOS version
+      - name: Read signature and update macOS version
+        shell: bash
         run: |
+          set -euo pipefail
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
+          ARCH=${{ matrix.arch_label }}
+
+          # 读取签名文件内容
+          SIG_FILE="artifacts/${ARCH}/Mark2_${ARCH}.app.tar.gz.sig"
+          if [[ ! -f "$SIG_FILE" ]]; then
+            echo "Error: signature file not found: $SIG_FILE"
+            exit 1
+          fi
+          SIGNATURE="$(cat "$SIG_FILE")"
+
+          # arm64 -> darwin-aarch64, x86_64 -> darwin-x86_64
+          if [[ "$ARCH" == "arm64" ]]; then
+            PLATFORM="darwin-aarch64"
+          else
+            PLATFORM="darwin-x86_64"
+          fi
+
+          PAYLOAD=$(SIGNATURE="$SIGNATURE" node -e "
+            console.log(JSON.stringify({
+              platform: '$PLATFORM',
+              version: '$VERSION',
+              signature: process.env.SIGNATURE
+            }));
+          ")
+
+          echo "Payload: $PAYLOAD"
           curl -sf -X POST "${{ secrets.SITE_API_BASE_URL }}/api/open/app/version" \
             -H "Content-Type: application/json" \
             -H "X-Auth-Key: ${{ secrets.SITE_OPEN_AUTH_KEY }}" \
-            -d "{\"platform\": \"mac\", \"version\": \"${VERSION}\"}"
+            -d "$PAYLOAD"
 
       - name: Purge Cloudflare Cache for latest
         shell: bash
