@@ -105,18 +105,36 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           APP_STORE_CONNECT_API_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TARGET_TRIPLE: ${{ matrix.target }}
           OUTPUT_DIR: ${{ github.workspace }}/artifacts/${{ matrix.arch_label }}
         run: |
           set -euo pipefail
           bash ./.github/scripts/build-macos-dmg-ci.sh
 
-      - name: Upload DMG to Release
+      - name: Prepare updater artifacts
+        shell: bash
+        run: |
+          TARGET=${{ matrix.target }}
+          ARCH=${{ matrix.arch_label }}
+          BUNDLE_DIR=src-tauri/target/${TARGET}/release/bundle/macos
+          TAR_GZ=$(ls ${BUNDLE_DIR}/*.tar.gz 2>/dev/null | head -1)
+          TAR_GZ_SIG=$(ls ${BUNDLE_DIR}/*.tar.gz.sig 2>/dev/null | head -1)
+          if [[ -n "$TAR_GZ" ]]; then
+            cp "$TAR_GZ" "artifacts/${ARCH}/Mark2_${ARCH}.app.tar.gz"
+          fi
+          if [[ -n "$TAR_GZ_SIG" ]]; then
+            cp "$TAR_GZ_SIG" "artifacts/${ARCH}/Mark2_${ARCH}.app.tar.gz.sig"
+          fi
+
+      - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: |
             artifacts/${{ matrix.arch_label }}/*.dmg
+            artifacts/${{ matrix.arch_label }}/*.tar.gz
+            artifacts/${{ matrix.arch_label }}/*.tar.gz.sig
 
       - name: Sync DMG to R2
         shell: bash
@@ -139,6 +157,37 @@ jobs:
           # 上传到 latest 目录，重命名
           aws s3 cp $DMG s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.dmg \
             --endpoint-url $ENDPOINT
+
+      - name: Sync updater artifacts to R2
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          TAG=${{ steps.tag.outputs.tag }}
+          ARCH=${{ matrix.arch_label }}
+          TARGET=${{ matrix.target }}
+          ENDPOINT=https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET=${{ secrets.R2_BUCKET_NAME }}
+          BUNDLE_DIR=src-tauri/target/${TARGET}/release/bundle/macos
+
+          TAR_GZ=$(ls ${BUNDLE_DIR}/*.tar.gz 2>/dev/null | head -1)
+          TAR_GZ_SIG=$(ls ${BUNDLE_DIR}/*.tar.gz.sig 2>/dev/null | head -1)
+
+          if [[ -n "$TAR_GZ" && -n "$TAR_GZ_SIG" ]]; then
+            aws s3 cp $TAR_GZ s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.app.tar.gz \
+              --endpoint-url $ENDPOINT
+            aws s3 cp $TAR_GZ_SIG s3://$BUCKET/mark2/latest/Mark2_${ARCH}_latest.app.tar.gz.sig \
+              --endpoint-url $ENDPOINT
+            aws s3 cp $TAR_GZ s3://$BUCKET/mark2/$TAG/Mark2_${ARCH}.app.tar.gz \
+              --endpoint-url $ENDPOINT
+            aws s3 cp $TAR_GZ_SIG s3://$BUCKET/mark2/$TAG/Mark2_${ARCH}.app.tar.gz.sig \
+              --endpoint-url $ENDPOINT
+          else
+            echo "Warning: updater .tar.gz or .sig not found in ${BUNDLE_DIR}"
+            ls -la ${BUNDLE_DIR}/ || true
+          fi
 
       - name: Update macOS version
         run: |

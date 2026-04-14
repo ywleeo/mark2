@@ -17,6 +17,8 @@
     "core:window:allow-is-maximized",
     "core:window:allow-show",
     "core:window:allow-set-theme",
+    "updater:default",
+    "process:allow-restart",
     "dialog:default",
     "fs:default",
     {

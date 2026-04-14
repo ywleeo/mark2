@@ -154,7 +154,7 @@ main() {
     log "Building signed Tauri app and DMG for target ${target}"
     export APPLE_SIGNING_IDENTITY
     export TAURI_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY}"
-    npm run tauri:build -- --target "${target}" --bundles app,dmg
+    npm run tauri:build -- --target "${target}" --bundles app,dmg,updater
 
     app_build_dir="${repo_root}/src-tauri/target/${target}/release/bundle/macos"
     app_path="${app_build_dir}/${app_name}.app"

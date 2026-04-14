@@ -10,6 +10,7 @@ import { createSvgCodeMode } from '../modules/svgCodeMode.js';
 import { createCsvTableMode } from '../modules/csvTableMode.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
+import { setupAutoUpdater } from '../modules/autoUpdater.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { restoreStoredSecurityScopes } from '../services/securityScopeService.js';
 import { setExportMenuEnabled } from '../api/native.js';
@@ -586,6 +587,7 @@ export function createAppBootstrap({
         eventBus.emit('app:initialized');
         void updateExportMenuState();
         void updateRecentMenu();
+        setupAutoUpdater();
 
         const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),

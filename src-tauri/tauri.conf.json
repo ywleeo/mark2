@@ -1,6 +1,6 @@
 {
   "productName": "Mark2",
-  "version": "1.6.24",
+  "version": "1.6.25",
   "identifier": "cc.altron.mark2",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -19,6 +19,14 @@
       }
     },
     "withGlobalTauri": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://mark2app.com/api/app/tauri-update"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERCMjBDMjg3QUJDMjE0N0UKUldSK0ZNS3JoOElnMit4dVdGTmo0Uk45ZGgxUTJMRlBqYTdKRXBLcDNaNVpLTVRxK210NEt4a2YK"
+    }
   },
   "bundle": {
     "active": true,

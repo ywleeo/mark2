@@ -1,7 +1,7 @@
 {
   "name": "mark2-tauri",
   "productName": "Mark2",
-  "version": "1.6.24",
+  "version": "1.6.25",
   "type": "module",
   "description": "一个基于 Tauri 的 Markdown 阅读器",
   "scripts": {
@@ -41,7 +41,9 @@
     "@tauri-apps/plugin-dialog": "^2.3.0",
     "@tauri-apps/plugin-fs": "^2.3.0",
     "@tauri-apps/plugin-global-shortcut": "^2.3.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-shell": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.1",
     "@tiptap/core": "^3.13.0",
     "@tiptap/extension-code-block-lowlight": "^3.13.0",
     "@tiptap/extension-table": "^3.13.0",
