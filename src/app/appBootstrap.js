@@ -3,14 +3,13 @@
  * 包含应用初始化主流程和相关胶水函数。
  */
 
-import { isFeatureEnabled, getMASLimitationMessage } from '../config/features.js';
 import { MarkdownToolbarManager } from '../components/MarkdownToolbarManager.js';
 import { createMarkdownCodeMode } from '../modules/markdownCodeMode.js';
 import { createSvgCodeMode } from '../modules/svgCodeMode.js';
 import { createCsvTableMode } from '../modules/csvTableMode.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
-import { setupAutoUpdater, manualCheckUpdate } from '../modules/autoUpdater.js';
+import { setupAutoUpdater } from '../modules/autoUpdater.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { restoreStoredSecurityScopes } from '../services/securityScopeService.js';
 import { setExportMenuEnabled } from '../api/native.js';
@@ -20,9 +19,10 @@ import { normalizeFsPath } from '../utils/pathUtils.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
+import { createCommandHandlers } from './commandHandlers.js';
 import { isWindows } from '../utils/platform.js';
 import { registerCoreFeatures } from './featureSetup.js';
-import { registerCoreExports, EXPORT_IDS } from './exportSetup.js';
+import { registerCoreExports } from './exportSetup.js';
 import { loadAndRegisterModules } from './moduleLoader.js';
 import { setupViewPanes } from './viewSetup.js';
 import { createEditorCallbacks, setupEditors } from './editorSetup.js';
@@ -428,129 +428,37 @@ export function createAppBootstrap({
 
         appState.setCleanupFunction('commandContributions', registerCoreCommands({
             commandManager,
-            handlers: {
-                onAbout: showAboutDialog,
-                onQuit: async () => {
-                    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-                    await getCurrentWindow().close();
-                },
-                onUndo: handleUndoCommand,
-                onRedo: handleRedoCommand,
-                onSelectAll: () => editorRegistry.getMarkdownEditor()?.selectAll?.(),
-                onCut: async () => {
-                    const viewMode = appState.getActiveViewMode();
-                    let editor = null;
-                    if (viewMode === 'markdown') {
-                        editor = editorRegistry.getMarkdownEditor();
-                    } else if (viewMode === 'code') {
-                        editor = editorRegistry.getCodeEditor();
-                    }
-                    if (editor) {
-                        const text = editor.getSelectionText?.() || editor.getSelectedMarkdown?.() || '';
-                        if (text) {
-                            await navigator.clipboard.writeText(text);
-                            if (viewMode === 'markdown' && editor.editor) {
-                                editor.editor.chain().focus().deleteSelection().run();
-                            } else if (viewMode === 'code' && editor.replaceSelectionWithText) {
-                                editor.replaceSelectionWithText('');
-                            }
-                        }
-                        return;
-                    }
-                    document.execCommand('cut');
-                },
-                onCopy: async () => {
-                    const viewMode = appState.getActiveViewMode();
-                    let editor = null;
-                    if (viewMode === 'markdown') {
-                        editor = editorRegistry.getMarkdownEditor();
-                    } else if (viewMode === 'code') {
-                        editor = editorRegistry.getCodeEditor();
-                    }
-                    if (editor) {
-                        const text = editor.getSelectionText?.() || editor.getSelectedMarkdown?.() || '';
-                        if (text) {
-                            await navigator.clipboard.writeText(text);
-                            return;
-                        }
-                    }
-                    document.execCommand('copy');
-                },
-                onPaste: async () => {
-                    const viewMode = appState.getActiveViewMode();
-                    let editor = null;
-                    if (viewMode === 'markdown') {
-                        editor = editorRegistry.getMarkdownEditor();
-                    } else if (viewMode === 'code') {
-                        editor = editorRegistry.getCodeEditor();
-                    }
-                    if (editor && typeof editor.insertTextAtCursor === 'function') {
-                        try {
-                            const { readClipboardText } = await import('../api/clipboard.js');
-                            const text = await readClipboardText();
-                            if (text) {
-                                editor.insertTextAtCursor(text);
-                                return;
-                            }
-                        } catch {}
-                    }
-                    document.execCommand('paste');
-                },
-                onOpen: openFileOrFolder,
-                onOpenFile: openFileOnly,
-                onOpenFolder: openFolderOnly,
-                onSettings: openSettingsDialog,
-                onExportImage: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_IMAGE),
-                onExportPdf: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_PDF),
-                onToggleSidebar: toggleSidebarVisibility,
-                onToggleStatusBar: toggleStatusBarVisibility,
-                onToggleMarkdownCodeView: toggleMarkdownCodeMode,
-                onToggleMarkdownToolbar: toggleMarkdownToolbar,
-                onToggleTheme: () => toggleAppTheme(appState),
-                onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
-                onToggleTerminal: () => {
-                    if (!isFeatureEnabled('terminal')) {
-                        alert(getMASLimitationMessage('terminal'));
-                        return;
-                    }
-                    featureManager?.getFeatureApi?.('terminal')?.toggle?.();
-                },
-                onToggleTerminalHistory: () => {
-                    if (!isFeatureEnabled('terminal')) return;
-                    featureManager?.getFeatureApi?.('terminal')?.showHistory?.();
-                },
-                onToggleAiSidebar: () => featureManager?.getFeatureApi?.('ai-sidebar')?.toggle?.(),
-                onNewUntitled: handleCreateUntitled,
-                onNewFile: handleCreateNewFile,
-                onDeleteActiveFile: handleDeleteActiveFile,
-                onMoveActiveFile: handleMoveActiveFile,
-                onRenameActiveFile: handleRenameActiveFile,
-                onFind: () => editorRegistry.getMarkdownEditor()?.showSearch?.(),
-                onSelectSearchMatches: () => editorRegistry.getMarkdownEditor()?.selectAllSearchMatches?.(),
-                onSave: saveCurrentFile,
-                onCloseTab: closeActiveTab,
-                onToggleSvgCodeView: toggleSvgCodeMode,
-                onToggleCsvTableView: toggleCsvTableMode,
-                onOpenCardExport: showCardExportSidebar,
-                onToggleScratchpad: () => featureManager?.getFeatureApi?.('scratchpad')?.toggle?.(),
-                onToggleToc: () => appState.getMarkdownToolbarManager()?.toggleToc?.(),
-                onCreateWorkspaceFile: ({ path }) => appState.getFileTree()?.createFileInFolder?.(path),
-                onCreateWorkspaceFolder: ({ path }) => appState.getFileTree()?.createFolderInFolder?.(path),
-                onRenameWorkspaceEntry: ({ path, targetType }) => appState.getFileTree()?.startRenaming?.(path, { targetType }),
-                onMoveWorkspaceEntry: ({ path, targetType }) => appState.getFileTree()?.promptMoveTo?.(path, { targetType }),
-                onDeleteWorkspaceEntry: ({ path }) => appState.getFileTree()?.confirmAndDelete?.(path),
-                onRevealWorkspaceEntry: ({ path }) => appState.getFileTree()?.revealInFinder?.(path),
-                onRunWorkspaceEntry: ({ path }) => handleRunFile(path),
-                onCopyWorkspacePath: async ({ path }) => {
-                    if (!path) {
-                        return;
-                    }
-                    await navigator.clipboard.writeText(path);
-                },
-                onRecentItemClick: handleRecentItemClick,
-                onClearRecent: clearRecent,
-                onCheckUpdate: manualCheckUpdate,
-            },
+            handlers: createCommandHandlers({
+                appState,
+                editorRegistry,
+                exportManager,
+                featureManager,
+                showAboutDialog,
+                openSettingsDialog,
+                toggleSidebarVisibility,
+                toggleStatusBarVisibility,
+                toggleMarkdownCodeMode,
+                toggleSvgCodeMode,
+                toggleCsvTableMode,
+                toggleMarkdownToolbar,
+                toggleAppTheme,
+                openFileOrFolder,
+                openFileOnly,
+                openFolderOnly,
+                saveCurrentFile,
+                closeActiveTab,
+                handleUndoCommand,
+                handleRedoCommand,
+                handleCreateNewFile,
+                handleCreateUntitled,
+                handleDeleteActiveFile,
+                handleMoveActiveFile,
+                handleRenameActiveFile,
+                showCardExportSidebar,
+                handleRunFile,
+                handleRecentItemClick,
+                clearRecent,
+            }),
         }));
 
         appState.setCleanupFunction('keybindingManager', registerDefaultKeybindings({
