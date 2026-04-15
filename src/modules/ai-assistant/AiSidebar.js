@@ -311,6 +311,8 @@ class AssistantCard {
         this.currentContentEl = null;
         this.streamThinkingText = '';
         this.inlineThinkingText = '';
+        // 记录每个 content box 对应的 markdown 源,用于持久化(不存渲染后的 HTML)
+        this.markdownSegments = [];
 
         addClickHandler(this.thinkingToggleEl, () => this._toggleThinking());
     }
@@ -357,8 +359,12 @@ class AssistantCard {
             this.currentContentEl.className = 'ai-message-content ai-message-markdown';
             this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
             this.loadingEl.style.display = 'none';
+            this.markdownSegments.push('');
         }
         this.currentContentEl.innerHTML = md.render(parsed.content);
+        if (this.markdownSegments.length > 0) {
+            this.markdownSegments[this.markdownSegments.length - 1] = parsed.content;
+        }
         this.inlineThinkingText = parsed.thinking;
         this._renderThinking();
         scrollToBottom(this.el);
@@ -584,6 +590,55 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/**
+ * 从原始文本构造用户消息 DOM。
+ * 全部走 createElement + textContent,避免从不可信数据拼 innerHTML。
+ */
+function buildUserMessageElement(text) {
+    const el = document.createElement('div');
+    el.className = 'ai-message ai-message-user';
+
+    const roleEl = document.createElement('div');
+    roleEl.className = 'ai-message-role';
+    roleEl.textContent = 'You';
+    el.appendChild(roleEl);
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'ai-message-content';
+    contentEl.textContent = text;
+    el.appendChild(contentEl);
+
+    appendCopyButton(contentEl);
+    return el;
+}
+
+/**
+ * 从原始 markdown 构造助手消息 DOM。
+ * 唯一的 innerHTML 来源是 md.render(),且 MarkdownIt 配置为 html: false,
+ * 会把任何原始 HTML 标签当纯文本转义。
+ */
+function buildAssistantMessageElement(markdown) {
+    const el = document.createElement('div');
+    el.className = 'ai-message ai-message-assistant';
+
+    const roleEl = document.createElement('div');
+    roleEl.className = 'ai-message-role';
+    roleEl.textContent = 'AI';
+    el.appendChild(roleEl);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'ai-message-body';
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'ai-message-content ai-message-markdown';
+    contentEl.innerHTML = md.render(markdown || '');
+    bodyEl.appendChild(contentEl);
+
+    el.appendChild(bodyEl);
+    appendCopyButton(contentEl);
+    return el;
+}
+
 function appendCopyButton(containerEl) {
     const btn = document.createElement('button');
     btn.className = 'ai-message-copy-btn';
@@ -671,23 +726,20 @@ export class AiSidebar {
     _restoreChatHistory() {
         const history = loadChatHistory();
         if (!history.length) return;
+        // 旧格式把渲染后的 HTML 存在 entry.html,会把信任边界扩大到 localStorage;
+        // 检测到任一旧条目就整体丢弃,强制用户从干净状态开始
+        if (history.some(e => e && typeof e.html === 'string')) {
+            clearChatStorage();
+            return;
+        }
         this.chatHistory = history;
         this.agentMessages = loadAgentMessages();
         this.emptyEl.style.display = 'none';
         for (const entry of history) {
-            const el = document.createElement('div');
-            el.className = entry.role === 'user'
-                ? 'ai-message ai-message-user'
-                : 'ai-message ai-message-assistant';
-            if (entry.role === 'user') {
-                el.innerHTML = `<div class="ai-message-role">You</div><div class="ai-message-content">${entry.html}</div>`;
-            } else {
-                el.innerHTML = `<div class="ai-message-role">AI</div><div class="ai-message-body"><div class="ai-message-content ai-message-markdown">${entry.html}</div></div>`;
-            }
-            el.querySelectorAll('.ai-message-content').forEach(c => {
-                if (!c.querySelector('.ai-message-copy-btn')) appendCopyButton(c);
-            });
-            this.listEl.appendChild(el);
+            const el = entry.role === 'user'
+                ? buildUserMessageElement(entry.text || '')
+                : buildAssistantMessageElement(entry.markdown || '');
+            if (el) this.listEl.appendChild(el);
         }
         const listContainer = this.el.querySelector('.ai-conversation-list');
         if (listContainer) listContainer.scrollTop = listContainer.scrollHeight;
@@ -979,15 +1031,10 @@ export class AiSidebar {
             const updatedMessages = await this.agentLoop.run(this.agentMessages);
             this.agentMessages = updatedMessages;
             card.done();
-            // 提取 AI 回复的纯内容 HTML 用于持久化
-            const contentEls = card.bodyEl.querySelectorAll('.ai-message-content.ai-message-markdown');
-            const htmlParts = Array.from(contentEls).map(el => {
-                const clone = el.cloneNode(true);
-                clone.querySelectorAll('.ai-message-copy-btn').forEach(b => b.remove());
-                return clone.innerHTML;
-            });
-            if (htmlParts.length) {
-                this.chatHistory.push({ role: 'assistant', html: htmlParts.join('') });
+            // 持久化原始 markdown 源,重新加载时再走 md.render,避免把渲染后的 HTML 存进 localStorage
+            const markdownParts = card.markdownSegments.filter(s => typeof s === 'string' && s.trim());
+            if (markdownParts.length) {
+                this.chatHistory.push({ role: 'assistant', markdown: markdownParts.join('\n\n') });
             }
             this._persistChat();
         } catch {
@@ -1054,13 +1101,9 @@ export class AiSidebar {
 
     _appendUserMessage(text) {
         this.emptyEl.style.display = 'none';
-        const el = document.createElement('div');
-        el.className = 'ai-message ai-message-user';
-        const contentHtml = escapeHtml(text);
-        el.innerHTML = `<div class="ai-message-role">You</div><div class="ai-message-content">${contentHtml}</div>`;
-        appendCopyButton(el.querySelector('.ai-message-content'));
+        const el = buildUserMessageElement(text);
         this.listEl.appendChild(el);
-        this.chatHistory.push({ role: 'user', html: contentHtml });
+        this.chatHistory.push({ role: 'user', text });
         scrollToBottom(el);
     }
 
