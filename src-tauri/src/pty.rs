@@ -191,7 +191,9 @@ pub fn pty_spawn(
                     break;
                 }
                 Ok(n) => {
-                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    // Send raw bytes instead of lossy UTF-8 string
+                    // xterm.js handles encoding internally
+                    let data: Vec<u8> = buf[..n].to_vec();
                     let _ = app_handle.emit(&format!("pty-data:{}", event_name_clone), data);
                 }
                 Err(e) => {

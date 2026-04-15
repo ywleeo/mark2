@@ -42,7 +42,12 @@ export async function createTaskRunner({
 
     // 1. 先设置好事件监听器（使用 taskId 作为事件名）
     dataUnlisten = await listen(`pty-data:${taskId}`, (event) => {
-        onData?.(event.payload);
+        // event.payload 是 Uint8Array（Rust 传来的原始字节）
+        let data = event.payload;
+        if (Array.isArray(data)) {
+            data = new Uint8Array(data);
+        }
+        onData?.(data);
     });
 
     exitUnlisten = await listen(`pty-exit:${taskId}`, (event) => {
@@ -123,7 +128,13 @@ export function createPtyService() {
             // 监听数据事件
             dataUnlisten = await listen(`pty-data:${ptyId}`, (event) => {
                 if (onDataCallback) {
-                    onDataCallback(event.payload);
+                    // event.payload 是 Uint8Array（Rust 传来的原始字节）
+                    // 确保是 Uint8Array 类型（xterm.js write() 支持）
+                    let data = event.payload;
+                    if (Array.isArray(data)) {
+                        data = new Uint8Array(data);
+                    }
+                    onDataCallback(data);
                 }
             });
 
