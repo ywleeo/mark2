@@ -1,5 +1,6 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
 import { basename } from '../utils/pathUtils.js';
+import { t } from '../i18n/index.js';
 
 export function createFileMenuActions(options = {}) {
     const {
@@ -120,7 +121,7 @@ export function createFileMenuActions(options = {}) {
                 console.warn('获取新建文件默认目录失败:', pathError);
             }
             const targetPath = await save({
-                title: '创建文件',
+                title: t('fileMenu.createFile.title'),
                 defaultPath: defaultPath || undefined,
             });
 
@@ -138,12 +139,12 @@ export function createFileMenuActions(options = {}) {
             if (exists) {
                 const fileName = basename(normalizedPath) || normalizedPath;
                 const shouldOverride = await confirm(
-                    `文件 "${fileName}" 已存在，覆盖后将丢失原内容，是否继续？`,
+                    t('fileMenu.overwrite.message', { name: fileName }),
                     {
-                        title: '覆盖确认',
+                        title: t('fileMenu.overwrite.title'),
                         kind: 'warning',
-                        okLabel: '覆盖',
-                        cancelLabel: '取消',
+                        okLabel: t('fileMenu.overwrite.ok'),
+                        cancelLabel: t('common.cancel'),
                     }
                 );
                 if (!shouldOverride) {
@@ -161,7 +162,7 @@ export function createFileMenuActions(options = {}) {
             }
         } catch (error) {
             console.error('新建文件失败:', error);
-            alert('新建文件失败: ' + (error?.message || error));
+            alert(t('fileMenu.createFile.error', { error: error?.message || error }));
         }
     }
 
@@ -172,11 +173,11 @@ export function createFileMenuActions(options = {}) {
         }
 
         const fileName = basename(currentFile) || currentFile;
-        const shouldDelete = await confirm(`确认删除文件 "${fileName}" 吗？`, {
-            title: '删除文件',
+        const shouldDelete = await confirm(t('fileMenu.deleteFile.confirm', { name: fileName }), {
+            title: t('fileMenu.deleteFile.title'),
             kind: 'warning',
-            okLabel: '删除',
-            cancelLabel: '取消',
+            okLabel: t('fileMenu.deleteFile.ok'),
+            cancelLabel: t('common.cancel'),
         });
 
         if (!shouldDelete) {
@@ -187,12 +188,12 @@ export function createFileMenuActions(options = {}) {
             const hasChanges = await checkFileHasUnsavedChanges(currentFile);
             if (hasChanges) {
                 const confirmDiscard = await confirm(
-                    `文件 "${fileName}" 有未保存的更改，删除后将无法恢复，是否继续？`,
+                    t('fileMenu.deleteFile.unsavedMessage', { name: fileName }),
                     {
-                        title: '未保存的更改',
+                        title: t('fileMenu.deleteFile.unsavedTitle'),
                         kind: 'warning',
-                        okLabel: '继续删除',
-                        cancelLabel: '取消',
+                        okLabel: t('fileMenu.deleteFile.unsavedOk'),
+                        cancelLabel: t('common.cancel'),
                     }
                 );
                 if (!confirmDiscard) {
@@ -207,7 +208,7 @@ export function createFileMenuActions(options = {}) {
             await fileService.remove(currentFile);
         } catch (error) {
             console.error('删除文件失败:', error);
-            alert('删除文件失败: ' + (error?.message || error));
+            alert(t('fileMenu.deleteFile.error', { error: error?.message || error }));
             return;
         }
 
@@ -304,7 +305,7 @@ export function createFileMenuActions(options = {}) {
             await applyPathChange(currentFile, normalizedDestination);
         } catch (error) {
             console.error('移动文件失败:', error);
-            alert('移动文件失败: ' + (error?.message || error));
+            alert(t('fileMenu.moveFile.error', { error: error?.message || error }));
         }
     }
 
@@ -365,7 +366,7 @@ export function createFileMenuActions(options = {}) {
             return true;
         } catch (error) {
             console.error('重命名文件失败:', error);
-            alert('重命名文件失败: ' + (error?.message || error));
+            alert(t('fileMenu.renameFile.error', { error: error?.message || error }));
             return false;
         }
     }

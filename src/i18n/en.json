@@ -201,5 +201,21 @@
     "settings.kb.selectAllMatches": "Select All Matches",
 
     "about.description": "A minimal Markdown editor built with Tauri.",
-    "about.version": "Version {version}"
+    "about.version": "Version {version}",
+
+    "fileMenu.createFile.title": "Create File",
+    "fileMenu.createFile.error": "Failed to create file: {error}",
+    "fileMenu.overwrite.title": "Overwrite Confirmation",
+    "fileMenu.overwrite.message": "File \"{name}\" already exists. Overwriting will discard the original content. Continue?",
+    "fileMenu.overwrite.ok": "Overwrite",
+    "fileMenu.deleteFile.title": "Delete File",
+    "fileMenu.deleteFile.confirm": "Delete file \"{name}\"?",
+    "fileMenu.deleteFile.ok": "Delete",
+    "fileMenu.deleteFile.unsavedTitle": "Unsaved Changes",
+    "fileMenu.deleteFile.unsavedMessage": "File \"{name}\" has unsaved changes. Deleting cannot be undone. Continue?",
+    "fileMenu.deleteFile.unsavedOk": "Delete Anyway",
+    "fileMenu.deleteFile.error": "Failed to delete file: {error}",
+    "fileMenu.moveFile.error": "Failed to move file: {error}",
+    "fileMenu.renameFile.error": "Failed to rename file: {error}",
+    "common.cancel": "Cancel"
 }

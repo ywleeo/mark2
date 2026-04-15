@@ -201,5 +201,21 @@
     "settings.kb.selectAllMatches": "选中全部匹配",
 
     "about.description": "基于 Tauri 构建的极简 Markdown 编辑器。",
-    "about.version": "版本 {version}"
+    "about.version": "版本 {version}",
+
+    "fileMenu.createFile.title": "创建文件",
+    "fileMenu.createFile.error": "新建文件失败: {error}",
+    "fileMenu.overwrite.title": "覆盖确认",
+    "fileMenu.overwrite.message": "文件 \"{name}\" 已存在，覆盖后将丢失原内容，是否继续？",
+    "fileMenu.overwrite.ok": "覆盖",
+    "fileMenu.deleteFile.title": "删除文件",
+    "fileMenu.deleteFile.confirm": "确认删除文件 \"{name}\" 吗？",
+    "fileMenu.deleteFile.ok": "删除",
+    "fileMenu.deleteFile.unsavedTitle": "未保存的更改",
+    "fileMenu.deleteFile.unsavedMessage": "文件 \"{name}\" 有未保存的更改，删除后将无法恢复，是否继续？",
+    "fileMenu.deleteFile.unsavedOk": "继续删除",
+    "fileMenu.deleteFile.error": "删除文件失败: {error}",
+    "fileMenu.moveFile.error": "移动文件失败: {error}",
+    "fileMenu.renameFile.error": "重命名文件失败: {error}",
+    "common.cancel": "取消"
 }
