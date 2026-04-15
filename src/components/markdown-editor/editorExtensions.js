@@ -126,12 +126,12 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
                 };
             },
         }),
-        // Enter → 硬换行（段落内），Shift+Enter → 新段落
+        // Shift+Enter → 段落内硬换行；Enter 走 TipTap 默认（分段 / 列表项拆分）
         Extension.create({
             name: 'customEnterBehavior',
             addKeyboardShortcuts() {
                 return {
-                    'Enter': () => {
+                    'Shift-Enter': () => {
                         if (isEditorComposing(this.editor)) return false;
                         const { $from } = this.editor.state.selection;
                         if ($from.parent.type.name !== 'paragraph') return false;
@@ -140,10 +140,6 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
                             if (node.type.name === 'listItem' || node.type.name === 'taskItem') return false;
                         }
                         return this.editor.commands.setHardBreak();
-                    },
-                    'Shift-Enter': () => {
-                        if (isEditorComposing(this.editor)) return false;
-                        return this.editor.commands.splitBlock();
                     },
                 };
             },
