@@ -607,6 +607,11 @@ function formatNumber(value) {
     return num.toLocaleString('en-US');
 }
 
+// tooltip 生命周期兜底:anchor 被从 DOM 摘掉时(例如关闭 tab),
+// 没有 mouseleave 触发,通过 MutationObserver 主动 hide。
+let _tooltipAnchor = null;
+let _tooltipObserver = null;
+
 // 显示 tooltip
 function showTooltip(value, event) {
     const tooltip = createTooltipElement();
@@ -614,6 +619,13 @@ function showTooltip(value, event) {
     tooltip.style.display = 'block';
     tooltip.style.left = event.clientX + 10 + 'px';
     tooltip.style.top = event.clientY + 10 + 'px';
+    _tooltipAnchor = event?.currentTarget || event?.target || null;
+    if (_tooltipAnchor && !_tooltipObserver) {
+        _tooltipObserver = new MutationObserver(() => {
+            if (!_tooltipAnchor || !_tooltipAnchor.isConnected) hideTooltip();
+        });
+        _tooltipObserver.observe(document.body, { childList: true, subtree: true });
+    }
 }
 
 // 隐藏 tooltip
@@ -621,6 +633,11 @@ function hideTooltip() {
     const tooltip = document.getElementById('mermaid-chart-tooltip');
     if (tooltip) {
         tooltip.style.display = 'none';
+    }
+    _tooltipAnchor = null;
+    if (_tooltipObserver) {
+        _tooltipObserver.disconnect();
+        _tooltipObserver = null;
     }
 }
 
