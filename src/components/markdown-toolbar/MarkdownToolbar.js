@@ -1325,7 +1325,7 @@ export class MarkdownToolbar {
         document.body.appendChild(this.emojiPicker);
 
         // 绑定 emoji 点击事件
-        this.emojiPicker.addEventListener('click', (e) => {
+        addClickHandler(this.emojiPicker, (e) => {
             const emojiItem = e.target.closest('.markdown-toolbar-emoji-item');
             if (emojiItem) {
                 const emoji = emojiItem.textContent;

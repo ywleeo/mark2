@@ -1,3 +1,5 @@
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 const MIN_ZOOM_SCALE = 0.6;
 const MAX_ZOOM_SCALE = 2.4;
 const BASE_ROW_HEIGHT = 32;
@@ -142,7 +144,7 @@ export class SpreadsheetViewer {
             button.textContent = sheet?.name || `Sheet ${index + 1}`;
             button.setAttribute('role', 'tab');
             button.setAttribute('aria-selected', index === this.activeSheetIndex ? 'true' : 'false');
-            button.addEventListener('click', () => {
+            addClickHandler(button, () => {
                 if (this.activeSheetIndex !== index) {
                     this.activeSheetIndex = index;
                     this.renderSheetTabs();

@@ -4,6 +4,7 @@
  */
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { addClickHandler } from '../utils/PointerHelper.js';
 
 const CHECK_DELAY_MS = 5000;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
@@ -171,7 +172,7 @@ function showInfoToast({ title, hint = '', variant = 'info', autoHideMs = 0 }) {
         </div>
         ${closeBtn}
     `;
-    el.addEventListener('click', (e) => {
+    addClickHandler(el, (e) => {
         const action = e.target.closest('[data-action]')?.dataset.action;
         if (action === 'dismiss') dismissToast(el);
     });
@@ -199,7 +200,7 @@ function showUpdateReadyToast(version) {
             </svg>
         </button>
     `;
-    el.addEventListener('click', async (e) => {
+    addClickHandler(el, async (e) => {
         const action = e.target.closest('[data-action]')?.dataset.action;
         if (action === 'restart') {
             await applyPendingUpdate();

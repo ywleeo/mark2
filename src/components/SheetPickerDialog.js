@@ -2,6 +2,8 @@
  * Sheet 选择弹窗
  * 用于从多 Sheet 的 Excel 文件中选择要导入的 Sheet
  */
+import { addClickHandler } from '../utils/PointerHelper.js';
+
 export function showSheetPickerDialog(sheets) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
@@ -23,19 +25,19 @@ export function showSheetPickerDialog(sheets) {
             btn.type = 'button';
             btn.className = 'sheet-picker-dialog__sheet-btn';
             btn.textContent = sheet.name || `Sheet ${index + 1}`;
-            btn.addEventListener('click', () => {
+            addClickHandler(btn, () => {
                 cleanup();
                 resolve(index);
             });
             list.appendChild(btn);
         });
 
-        dialog.querySelector('.sheet-picker-dialog__cancel').addEventListener('click', () => {
+        addClickHandler(dialog.querySelector('.sheet-picker-dialog__cancel'), () => {
             cleanup();
             resolve(null);
         });
 
-        overlay.addEventListener('click', (e) => {
+        addClickHandler(overlay, (e) => {
             if (e.target === overlay) {
                 cleanup();
                 resolve(null);

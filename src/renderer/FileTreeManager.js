@@ -1,6 +1,7 @@
 import { getAppServices } from '../services/appServices.js';
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
 import { basename } from '../utils/pathUtils.js';
+import { addClickHandler } from '../utils/PointerHelper.js';
 
 export class FileTreeManager {
     constructor() {
@@ -55,7 +56,7 @@ export class FileTreeManager {
             item.textContent = fileName;
 
             if (fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
-                item.addEventListener('click', () => {
+                addClickHandler(item, () => {
                     this.onFileClick(entry);
                 });
             }

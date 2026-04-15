@@ -8,6 +8,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { listFonts } from '../api/filesystem.js';
+import { addClickHandler } from '../utils/PointerHelper.js';
 import { loadCoreModules } from './coreModules.js';
 import { t } from '../i18n/index.js';
 
@@ -156,14 +157,14 @@ export function createWindowLifecycle({
 
         // 点击链接用系统浏览器打开
         dialog.querySelectorAll('.about-link[data-url]').forEach(link => {
-            link.addEventListener('click', async (e) => {
+            addClickHandler(link, async (e) => {
                 e.preventDefault();
                 const { open } = await import('@tauri-apps/plugin-shell');
                 open(link.dataset.url);
             });
         });
 
-        overlay.addEventListener('click', (e) => {
+        addClickHandler(overlay, (e) => {
             if (e.target === overlay) closeDialog();
         });
 
