@@ -5,6 +5,7 @@ import {
     normalizeAiBaseUrl,
     startAiProxyStream,
 } from '../../api/aiProxy.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * 解析 provider 返回的错误载荷，提取统一错误信息。
@@ -38,23 +39,23 @@ function parseProviderErrorPayload(payload) {
  * @returns {string} 用户可读文案
  */
 function formatAiErrorMessage(rawMessage) {
-    const message = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || '未知错误');
+    const message = typeof rawMessage === 'string' ? rawMessage : String(rawMessage || t('ai.system.unknownError'));
     const parsed = parseProviderErrorPayload(message.replace(/^API 请求失败:\s*\d+\s*/u, '').trim()) || parseProviderErrorPayload(message);
 
     if (parsed?.type === 'CreditsError') {
-        return '当前 AI Provider 余额不足，请先充值后再试。';
+        return t('ai.error.insufficientBalance');
     }
     if (parsed?.type === 'authentication_error' || /invalid api key|incorrect api key|unauthorized|401/i.test(message)) {
-        return 'API Key 无效或已失效，请检查设置后重试。';
+        return t('ai.error.invalidKey');
     }
     if (parsed?.type === 'invalid_request_error' || /model.*not found|unknown model|does not exist/i.test(message)) {
-        return '当前模型不可用，请更换模型后重试。';
+        return t('ai.error.modelUnavailable');
     }
     if (/operation timed out|timed out|timeout/i.test(message)) {
-        return 'AI 请求超时，请稍后重试。';
+        return t('ai.error.timeout');
     }
     if (/load failed|network error|failed to fetch/i.test(message)) {
-        return '网络请求失败，请检查网络或稍后重试。';
+        return t('ai.error.network');
     }
     if (parsed?.message) {
         return parsed.message;
@@ -174,7 +175,7 @@ class AiService {
      */
     async testModel(provider, model) {
         if (!provider?.apiKey) {
-            return { success: false, model, duration: 0, error: '请填写 API Key' };
+            return { success: false, model, duration: 0, error: t('ai.error.apiKeyMissing') };
         }
         const baseUrl = normalizeAiBaseUrl(provider.baseUrl || 'https://api.openai.com/v1');
         const start = performance.now();
@@ -200,7 +201,7 @@ class AiService {
             return { success: true, model, duration, error: null };
         } catch (error) {
             const duration = Math.round(performance.now() - start);
-            const msg = formatAiErrorMessage(error.message || '连接失败');
+            const msg = formatAiErrorMessage(error.message || t('ai.error.connectFailed'));
             return { success: false, model, duration, error: msg };
         }
     }
@@ -224,7 +225,7 @@ class AiService {
 
     async fetchModels(provider) {
         if (!provider?.apiKey) {
-            throw new Error('请填写 API Key');
+            throw new Error(t('ai.error.apiKeyMissing'));
         }
         const baseUrl = normalizeAiBaseUrl(provider.baseUrl || 'https://api.openai.com/v1');
 
@@ -279,12 +280,12 @@ class AiService {
         const taskId = providedTaskId || this.generateTaskId();
 
         if (!requestOptions.messages || !Array.isArray(requestOptions.messages) || requestOptions.messages.length === 0) {
-            throw new Error('消息列表为空');
+            throw new Error(t('ai.error.emptyMessages'));
         }
 
         const apiKey = this.getActiveApiKey();
         if (!apiKey) {
-            throw new Error('请先配置 API Key');
+            throw new Error(t('ai.error.configApiKey'));
         }
 
         const task = {
@@ -391,7 +392,7 @@ class AiService {
                     onError: (error) => {
                         if (!streamResolved) {
                             streamResolved = true;
-                            reject(new Error(formatAiErrorMessage(error || '请求失败')));
+                            reject(new Error(formatAiErrorMessage(error || t('ai.error.requestFailed'))));
                         }
                     },
                     onEnd: () => {
@@ -433,7 +434,7 @@ class AiService {
                         id: taskId,
                     });
                 }
-                throw new Error('请求已取消');
+                throw new Error(t('ai.error.cancelled'));
             } else {
                 this.notify({
                     type: 'task-failed',
@@ -463,12 +464,12 @@ class AiService {
 
     async chat(options) {
         if (!options.messages || !Array.isArray(options.messages) || options.messages.length === 0) {
-            throw new Error('消息列表为空');
+            throw new Error(t('ai.error.emptyMessages'));
         }
 
         const apiKey = this.getActiveApiKey();
         if (!apiKey) {
-            throw new Error('请先配置 API Key');
+            throw new Error(t('ai.error.configApiKey'));
         }
 
         const baseUrl = this.getActiveBaseUrl();

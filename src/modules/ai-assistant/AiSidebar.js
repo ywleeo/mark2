@@ -11,6 +11,7 @@ import { addClickHandler } from '../../utils/PointerHelper.js';
 import { basename } from '../../utils/pathUtils.js';
 import { writeFile } from '../../api/filesystem.js';
 import { untitledFileManager } from '../untitledFileManager.js';
+import { t } from '../../i18n/index.js';
 
 const AI_SIDEBAR_STORAGE_KEYS = {
     width: 'mark2_ai_sidebar_width_v1',
@@ -27,28 +28,23 @@ const AI_SIDEBAR_MAX_WIDTH = 720;
 // 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
 
-// ── 工具中文标签 ──────────────────────────────────────────
-const TOOL_LABELS = {
-    get_document_info: '获取文档信息',
-    read_document_lines: '读取文档片段',
-    search_in_document: '搜索文档内容',
-    write_current_document: '修改当前文档',
-    read_file: '读取文件',
-    write_file: '写入文件',
-    delete_file: '删除文件',
-    rename_file: '重命名文件',
-    list_directory: '列出目录',
-    create_directory: '创建目录',
-};
+// 工具标签（按 toolName 从 i18n 查词条，未定义则返回 undefined 让调用方回退到 toolName）
+const TOOL_LABELS = new Proxy({}, {
+    get(_, toolName) {
+        const key = `ai.tool.${toolName}`;
+        const val = t(key);
+        return val === key ? undefined : val;
+    },
+});
 
 // 工具执行中的状态文字
-const TOOL_STATUS_RUNNING = {
-    write_current_document: '修改文件中',
-    write_file: '写入文件中',
-    delete_file: '删除文件中',
-    rename_file: '重命名中',
-    create_directory: '创建目录中',
-};
+const TOOL_STATUS_RUNNING = new Proxy({}, {
+    get(_, toolName) {
+        const key = `ai.toolRunning.${toolName}`;
+        const val = t(key);
+        return val === key ? undefined : val;
+    },
+});
 
 /**
  * 判断工具错误是否需要直接暴露给用户。
@@ -303,7 +299,7 @@ class AssistantCard {
         this.loadingEl.className = 'ai-message-content ai-message-loading';
         this.loadingTextEl = document.createElement('span');
         this.loadingTextEl.className = 'ai-loading-text';
-        this.loadingTextEl.textContent = '思考中...';
+        this.loadingTextEl.textContent = t('ai.generating.thinking');
         this.loadingEl.appendChild(this.loadingTextEl);
         this.bodyEl.appendChild(this.loadingEl);
 
@@ -326,7 +322,7 @@ class AssistantCard {
     /** 新一轮 LLM 迭代开始：重置 content box，让 loadingEl 显示在底部 */
     newContentBox() {
         this.currentContentEl = null;
-        this.loadingTextEl.textContent = '思考中...';
+        this.loadingTextEl.textContent = t('ai.generating.thinking');
         this.loadingEl.style.display = '';
         this.bodyEl.appendChild(this.loadingEl); // 移到最底部
         scrollToBottom(this.el);
@@ -334,11 +330,9 @@ class AssistantCard {
 
     /** 工具调用开始流式生成时：重新显示 loading 指示器 */
     showGenerating(toolName) {
-        const GENERATING_LABELS = {
-            write_current_document: '生成修改内容中...',
-            write_file: '生成文件内容中...',
-        };
-        this.loadingTextEl.textContent = GENERATING_LABELS[toolName] || '思考中...';
+        const key = `ai.generating.${toolName}`;
+        const val = t(key);
+        this.loadingTextEl.textContent = val === key ? t('ai.generating.thinking') : val;
         this.loadingEl.style.display = '';
         this.bodyEl.appendChild(this.loadingEl);
         scrollToBottom(this.el);
@@ -427,20 +421,20 @@ class AssistantCard {
         const statusEl = el.querySelector('.ai-tool-card-status');
         if (shouldShowToolError(result)) {
             el.classList.add('ai-tool-card-error');
-            statusEl.textContent = `失败: ${result.error}`;
+            statusEl.textContent = t('ai.status.fail', { error: result.error });
         } else if (result?.error) {
             el.classList.add('ai-tool-card-done');
-            statusEl.textContent = '完成';
+            statusEl.textContent = t('ai.status.done');
             console.warn('[AiSidebar] 工具执行失败，已交由 agent 自行处理', {
                 tool: name,
                 error: result.error,
             });
         } else if (result?.cancelled) {
             el.classList.add('ai-tool-card-cancelled');
-            statusEl.textContent = '已取消';
+            statusEl.textContent = t('ai.status.cancelled');
         } else {
             el.classList.add('ai-tool-card-done');
-            statusEl.textContent = '完成';
+            statusEl.textContent = t('ai.status.done');
         }
         scrollToBottom(this.el);
     }
@@ -452,7 +446,7 @@ class AssistantCard {
             this.currentContentEl.className = 'ai-message-content';
             this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
         }
-        this.currentContentEl.textContent = `错误: ${msg}`;
+        this.currentContentEl.textContent = t('ai.status.errorPrefix', { message: msg });
         this.currentContentEl.style.color = 'var(--ai-tool-error, #ef4444)';
     }
 
@@ -465,7 +459,7 @@ class AssistantCard {
             if (el.classList.contains('ai-tool-card-running')) {
                 el.classList.remove('ai-tool-card-running');
                 el.classList.add('ai-tool-card-done');
-                el.querySelector('.ai-tool-card-status').textContent = '完成';
+                el.querySelector('.ai-tool-card-status').textContent = t('ai.status.done');
             }
         }
         return new Promise((resolve) => {
@@ -485,8 +479,8 @@ class AssistantCard {
                 </div>
                 <div class="ai-diff-body"></div>
                 <div class="ai-diff-actions">
-                    ${hasChanges ? `<button class="ai-diff-apply-btn">应用修改</button>` : ''}
-                    <button class="ai-diff-cancel-btn">${hasChanges ? '取消' : '关闭'}</button>
+                    ${hasChanges ? `<button class="ai-diff-apply-btn">${t('ai.diff.apply')}</button>` : ''}
+                    <button class="ai-diff-cancel-btn">${hasChanges ? t('ai.cancel') : t('ai.diff.close')}</button>
                 </div>
             `;
 
@@ -495,7 +489,7 @@ class AssistantCard {
                 if (chunk.type === 'skip') {
                     const skip = document.createElement('div');
                     skip.className = 'ai-diff-skip';
-                    skip.textContent = `··· ${chunk.count} 行未改动 ···`;
+                    skip.textContent = t('ai.diff.skipLines', { count: chunk.count });
                     diffBodyEl.appendChild(skip);
                 } else {
                     const line = document.createElement('div');
@@ -545,11 +539,11 @@ class AssistantCard {
             const card = document.createElement('div');
             card.className = 'ai-confirm-card';
             card.innerHTML = `
-                <div class="ai-confirm-text">确认删除 <strong>${escapeHtml(fileName)}</strong>？</div>
+                <div class="ai-confirm-text">${t('ai.confirmDelete.prompt', { name: escapeHtml(fileName) })}</div>
                 <div class="ai-confirm-path">${escapeHtml(path)}</div>
                 <div class="ai-confirm-actions">
-                    <button class="ai-confirm-ok-btn">确认删除</button>
-                    <button class="ai-confirm-cancel-btn">取消</button>
+                    <button class="ai-confirm-ok-btn">${t('ai.confirmDelete.ok')}</button>
+                    <button class="ai-confirm-cancel-btn">${t('ai.cancel')}</button>
                 </div>
             `;
 
@@ -581,7 +575,7 @@ class AssistantCard {
         const parts = [];
         if (added) parts.push(`<span class="ai-diff-added">+${added}</span>`);
         if (deleted) parts.push(`<span class="ai-diff-deleted">-${deleted}</span>`);
-        return parts.join(' ') || '无变化';
+        return parts.join(' ') || t('ai.diff.noChange');
     }
 }
 
@@ -643,14 +637,17 @@ function appendCopyButton(containerEl) {
     const btn = document.createElement('button');
     btn.className = 'ai-message-copy-btn';
     btn.type = 'button';
-    btn.textContent = '复制';
+    const copyLabel = t('ai.copy');
+    const copiedLabel = t('ai.copied');
+    btn.textContent = copyLabel;
     addClickHandler(btn, () => {
-        const text = containerEl.textContent.replace(/复制$|已复制$/, '').trim();
+        const stripRe = new RegExp(`${copyLabel}$|${copiedLabel}$`);
+        const text = containerEl.textContent.replace(stripRe, '').trim();
         navigator.clipboard.writeText(text).then(() => {
-            btn.textContent = '已复制';
+            btn.textContent = copiedLabel;
             btn.classList.add('is-copied');
             setTimeout(() => {
-                btn.textContent = '复制';
+                btn.textContent = copyLabel;
                 btn.classList.remove('is-copied');
             }, 1500);
         });
@@ -921,7 +918,7 @@ export class AiSidebar {
         if (!shouldLeave) {
             return false;
         }
-        this._abortProcessingWithMessage('已因切换文档而停止执行');
+        this._abortProcessingWithMessage(t('ai.abort.switchDoc'));
         return true;
     }
 
@@ -931,14 +928,14 @@ export class AiSidebar {
      * @returns {Promise<boolean>} `true` 表示继续离开当前文档，`false` 表示留在原文档
      */
     async _confirmProcessingDocumentChange(nextPath) {
-        const nextLabel = nextPath ? basename(nextPath) : '未打开文件';
-        const currentLabel = this.processingPath ? basename(this.processingPath) : '当前文档';
-        const message = `AI 助手仍在处理“${currentLabel}”。\n\n切换到“${nextLabel}”会停止当前执行。\n\n点击“确定”继续切换，点击“取消”留在当前标签页。`;
+        const nextLabel = nextPath ? basename(nextPath) : t('ai.noFile');
+        const currentLabel = this.processingPath ? basename(this.processingPath) : t('ai.switchDoc.currentDocFallback');
+        const message = t('ai.switchDoc.message', { current: currentLabel, next: nextLabel });
 
         if (typeof this.confirm === 'function') {
             return await this.confirm(message, {
-                okText: '继续切换',
-                cancelText: '留在当前标签页',
+                okText: t('ai.switchDoc.ok'),
+                cancelText: t('ai.switchDoc.cancel'),
             });
         }
         if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
@@ -955,7 +952,7 @@ export class AiSidebar {
             this.fileNameEl.classList.remove('is-empty');
             this.fileNameEl.title = resolvedPath;
         } else {
-            this.fileNameEl.textContent = '未打开文件';
+            this.fileNameEl.textContent = t('ai.noFile');
             this.fileNameEl.classList.add('is-empty');
             this.fileNameEl.title = '';
         }
@@ -985,7 +982,7 @@ export class AiSidebar {
         if (!text) return;
 
         if (!aiService_hasConfig()) {
-            this._appendSystemMessage('请先在设置中配置 AI Provider 和 API Key');
+            this._appendSystemMessage(t('ai.system.configureFirst'));
             return;
         }
 
@@ -1022,7 +1019,7 @@ export class AiSidebar {
             onToolResult: ({ id, name, result }) => card.updateToolCard({ id, name, result }),
             onToolCallStreaming: ({ name }) => card.showGenerating(name),
             onError: (err) => {
-                card.setError(err.message || '未知错误');
+                card.setError(err.message || t('ai.system.unknownError'));
                 this._stopProcessing();
             },
         });
@@ -1049,7 +1046,7 @@ export class AiSidebar {
     }
 
     _handleCancel() {
-        this._abortProcessingWithMessage('已取消');
+        this._abortProcessingWithMessage(t('ai.abort.cancelled'));
     }
 
     _handleClear() {
@@ -1073,7 +1070,7 @@ export class AiSidebar {
             try {
                 const latestContent = this._getEditorContent();
                 if (typeof latestContent === 'string' && latestContent !== oldContent) {
-                    this._appendSystemMessage('当前文档在 AI 生成修改期间已发生变化，请重新生成修改。');
+                    this._appendSystemMessage(t('ai.system.docChangedDuringGen'));
                     return { applied: false };
                 }
                 if (untitledFileManager.isUntitledPath(path)) {
@@ -1083,7 +1080,7 @@ export class AiSidebar {
                 }
                 await this.reloadCurrentFile(path);
             } catch (err) {
-                this._appendSystemMessage(`写入文件失败: ${err.message}`);
+                this._appendSystemMessage(t('ai.system.writeFileFail', { error: err.message }));
                 return { applied: false };
             }
         }
