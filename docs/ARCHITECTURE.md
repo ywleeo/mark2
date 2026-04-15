@@ -91,7 +91,6 @@ src/
     features/           FeatureManager
     views/              ViewManager
     workspace/          WorkspaceManager
-    AppBridge.js        前后端桥接层
     DocumentIO.js       文档读写 IO
     EventBus.js         事件总线
   extensions/           TipTap 扩展（Mermaid、Math、CSV、Search 等）
@@ -307,7 +306,7 @@ menu / toolbar
 - `MediaViewer`
 - `UnsupportedViewer`
 - `SettingsDialog` / `KeybindingsSettings`
-- `TocPanel` / `TodoList`
+- `TocPanel`
 - `OpenFilesView`
 - `AppMenu`（Windows 专有前端菜单）
 - `FileMover` / `FileRenamer`
