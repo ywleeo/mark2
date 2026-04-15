@@ -216,6 +216,12 @@
     "fileMenu.deleteFile.unsavedOk": "继续删除",
     "fileMenu.deleteFile.error": "删除文件失败: {error}",
     "fileMenu.moveFile.error": "移动文件失败: {error}",
+    "fileMenu.moveFile.failTitle": "移动失败",
+    "fileMenu.moveFile.failMessage": "无法移动文件:\n{error}",
+    "fileMenu.reveal.failTitle": "操作失败",
+    "fileMenu.reveal.failMessage": "无法在 Finder 中打开:\n{error}",
+    "fileMenu.deleteFile.failTitle": "删除失败",
+    "fileMenu.deleteFile.failMessage": "删除文件失败:\n{error}",
     "fileMenu.renameFile.error": "重命名文件失败: {error}",
     "common.cancel": "取消"
 }

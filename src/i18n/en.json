@@ -216,6 +216,12 @@
     "fileMenu.deleteFile.unsavedOk": "Delete Anyway",
     "fileMenu.deleteFile.error": "Failed to delete file: {error}",
     "fileMenu.moveFile.error": "Failed to move file: {error}",
+    "fileMenu.moveFile.failTitle": "Move Failed",
+    "fileMenu.moveFile.failMessage": "Unable to move file:\n{error}",
+    "fileMenu.reveal.failTitle": "Operation Failed",
+    "fileMenu.reveal.failMessage": "Unable to reveal in Finder:\n{error}",
+    "fileMenu.deleteFile.failTitle": "Delete Failed",
+    "fileMenu.deleteFile.failMessage": "Failed to delete file:\n{error}",
     "fileMenu.renameFile.error": "Failed to rename file: {error}",
     "common.cancel": "Cancel"
 }

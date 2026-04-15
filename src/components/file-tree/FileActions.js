@@ -1,4 +1,5 @@
 import { rememberSecurityScopes } from '../../services/securityScopeService.js';
+import { t } from '../../i18n/index.js';
 
 export class FileActions {
     constructor(options = {}) {
@@ -73,7 +74,7 @@ export class FileActions {
             console.error('移动文件失败:', error);
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`无法移动文件:\n${error.message || error}`, { title: '移动失败', kind: 'error' });
+                await message(t('fileMenu.moveFile.failMessage', { error: error.message || error }), { title: t('fileMenu.moveFile.failTitle'), kind: 'error' });
             } catch {}
         }
     }
@@ -88,7 +89,7 @@ export class FileActions {
             console.error('打开 Finder 失败:', error);
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`无法在 Finder 中打开:\n${error.message || error}`, { title: '操作失败', kind: 'error' });
+                await message(t('fileMenu.reveal.failMessage', { error: error.message || error }), { title: t('fileMenu.reveal.failTitle'), kind: 'error' });
             } catch {}
         }
     }
@@ -102,11 +103,11 @@ export class FileActions {
                 import('@tauri-apps/api/path'),
             ]);
             const fileName = await pathModule.basename(normalized);
-            const shouldDelete = await confirm(`确认删除文件 "${fileName}" 吗？`, {
-                title: '删除文件',
+            const shouldDelete = await confirm(t('fileMenu.deleteFile.confirm', { name: fileName }), {
+                title: t('fileMenu.deleteFile.title'),
                 kind: 'warning',
-                okLabel: '删除',
-                cancelLabel: '取消',
+                okLabel: t('fileMenu.deleteFile.ok'),
+                cancelLabel: t('common.cancel'),
             });
             if (!shouldDelete) return;
 
@@ -133,7 +134,7 @@ export class FileActions {
             console.error('删除文件失败:', error);
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(`删除文件失败:\n${error.message || error}`, { title: '删除失败', kind: 'error' });
+                await message(t('fileMenu.deleteFile.failMessage', { error: error.message || error }), { title: t('fileMenu.deleteFile.failTitle'), kind: 'error' });
             } catch {}
         }
     }
