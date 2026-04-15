@@ -30,6 +30,7 @@ import { setupToolbarEvents } from './eventSetup.js';
 import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windowControls.js';
 import { AppMenu } from '../components/AppMenu.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
+import { EVENT_IDS } from '../core/eventIds.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -200,7 +201,7 @@ export function createAppBootstrap({
             tabHistoryManager,
         });
 
-        eventBus.emit('editor:ready', { markdownEditor: editor, codeEditor });
+        eventBus.emit(EVENT_IDS.EDITOR_READY, { markdownEditor: editor, codeEditor });
 
         const tabStateTrimmer = createTabStateTrimmer(() => editorRegistry.getMarkdownEditor());
         registerIdleCleanup(() => tabStateTrimmer.trim());
@@ -400,7 +401,7 @@ export function createAppBootstrap({
         loadAvailableFonts();
         updateWindowTitle();
 
-        eventBus.emit('app:initialized');
+        eventBus.emit(EVENT_IDS.APP_INITIALIZED);
         void updateExportMenuState();
         void updateRecentMenu();
         setupAutoUpdater();

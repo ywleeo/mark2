@@ -5,7 +5,7 @@ import texmath from 'markdown-it-texmath';
 import katex from 'katex';
 import { MarkdownParser, MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
-import { markdownItCjkEmphasis } from './markdownItCjkEmphasis.js';
+import { markdownItCjkEmphasis } from '../utils/markdownItCjkEmphasis.js';
 
 function listIsTight(tokens, i) {
     while (++i < tokens.length) {

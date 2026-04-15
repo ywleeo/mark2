@@ -1,4 +1,5 @@
 import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
+import { EVENT_IDS } from '../core/eventIds.js';
 
 function normalizeComparablePath(fileTree, value) {
     if (!value) {
@@ -354,7 +355,7 @@ export function createNavigationController({
      */
     function handleTabSelect(tab) {
         // 发出 tab 切换事件，用于通知其他模块（如 AI 工具栏）
-        eventBus?.emit('tab:switch', { tab });
+        eventBus?.emit(EVENT_IDS.TAB_SWITCH, { tab });
 
         if (!tab) {
             return;
