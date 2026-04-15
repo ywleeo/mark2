@@ -245,8 +245,8 @@ EXPLICIT_TAG=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --ver)
-            VERSION="$2"
-            TAG_NAME="v$2"
+            VERSION="${2#v}"
+            TAG_NAME="v${VERSION}"
             shift 2
             ;;
         --tag)
