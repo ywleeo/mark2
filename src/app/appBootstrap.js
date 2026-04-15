@@ -3,7 +3,7 @@
  * 包含应用初始化主流程和相关胶水函数。
  */
 
-import { MarkdownToolbarManager } from '../components/MarkdownToolbarManager.js';
+import { MarkdownToolbarManager } from '../components/markdown-toolbar/MarkdownToolbarManager.js';
 import { createMarkdownCodeMode } from '../modules/markdownCodeMode.js';
 import { createSvgCodeMode } from '../modules/svgCodeMode.js';
 import { createCsvTableMode } from '../modules/csvTableMode.js';

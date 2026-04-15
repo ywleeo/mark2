@@ -26,7 +26,7 @@ import { registerDocumentIO } from './api/document.js';
 import { createAppServices } from './services/appServices.js';
 import { createFileService } from './services/fileService.js';
 import { createRecentFilesService } from './services/recentFilesService.js';
-import { MarkdownToolbarManager } from './components/MarkdownToolbarManager.js';
+import { MarkdownToolbarManager } from './components/markdown-toolbar/MarkdownToolbarManager.js';
 import { createFileSession } from './modules/fileSession.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from './utils/workspaceState.js';
 import { createWorkspaceController } from './modules/workspaceController.js';

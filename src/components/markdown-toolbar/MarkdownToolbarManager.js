@@ -1,5 +1,5 @@
-import { MarkdownToolbar } from './markdown-toolbar/index.js';
-import { COMMAND_IDS } from '../core/commands/commandIds.js';
+import { MarkdownToolbar } from './index.js';
+import { COMMAND_IDS } from '../../core/commands/commandIds.js';
 
 /**
  * Markdown工具栏管理器
