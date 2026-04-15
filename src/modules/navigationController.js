@@ -1,5 +1,6 @@
 import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
 import { EVENT_IDS } from '../core/eventIds.js';
+import { t } from '../i18n/index.js';
 
 function normalizeComparablePath(fileTree, value) {
     if (!value) {
@@ -369,15 +370,15 @@ export function createNavigationController({
         if (!confirm) {
             return false;
         }
-        const fileName = (filePath ? basename(filePath) : '') || filePath || '当前文件';
+        const fileName = (filePath ? basename(filePath) : '') || filePath || '';
         try {
             return await confirm(
-                `保存 "${fileName}" 失败，是否放弃更改并关闭？`,
+                t('tabClose.saveFailed.message', { name: fileName }),
                 {
-                    title: '保存失败',
+                    title: t('tabClose.saveFailed.title'),
                     kind: 'warning',
-                    okLabel: '放弃并关闭',
-                    cancelLabel: '取消',
+                    okLabel: t('tabClose.saveFailed.discard'),
+                    cancelLabel: t('common.cancel'),
                 }
             );
         } catch (error) {
@@ -594,27 +595,29 @@ export function createNavigationController({
             const displayName = untitledFileManager?.getDisplayName?.(targetPath) || 'untitled.md';
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
+                const saveLabel = t('tabClose.untitled.save');
+                const cancelLabel = t('common.cancel');
                 const choice = await message(
-                    `"${displayName}" 尚未保存，是否保存？`,
+                    t('tabClose.untitled.message', { name: displayName }),
                     {
-                        title: '保存文件',
+                        title: t('tabClose.untitled.title'),
                         kind: 'warning',
                         buttons: {
-                            yes: '保存',
-                            no: '不保存',
-                            cancel: '取消',
+                            yes: saveLabel,
+                            no: t('tabClose.untitled.dontSave'),
+                            cancel: cancelLabel,
                         },
                     }
                 );
 
-                if (choice === '保存' || choice === 'Yes') {
+                if (choice === saveLabel || choice === 'Yes') {
                     // 调用 saveUntitledFile 弹出保存对话框
                     const saved = await saveUntitledFile?.(targetPath, content);
                     if (!saved) {
                         // 用户取消了保存对话框，不关闭 tab
                         return;
                     }
-                } else if (choice === '取消' || choice === 'Cancel') {
+                } else if (choice === cancelLabel || choice === 'Cancel') {
                     // 用户取消关闭，不移除 tab
                     return;
                 }
