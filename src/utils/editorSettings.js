@@ -1,6 +1,8 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { createStore } from '../services/storage.js';
 
-export const SETTINGS_STORAGE_KEY = 'mark2:editorSettings';
+const store = createStore('editor');
+store.migrateFrom('mark2:editorSettings', 'settings');
 
 const VALID_APPEARANCES = new Set(['light', 'dark', 'system']);
 
@@ -138,28 +140,13 @@ export function normalizeEditorSettings(candidate) {
     return prefs;
 }
 
-export function loadEditorSettings(storageKey = SETTINGS_STORAGE_KEY) {
-    try {
-        const stored = window.localStorage.getItem(storageKey);
-        if (!stored) {
-            return { ...defaultEditorSettings };
-        }
-
-        const parsed = JSON.parse(stored);
-        return normalizeEditorSettings(parsed);
-    } catch (error) {
-        console.warn('加载编辑器设置失败，使用默认值', error);
-        return { ...defaultEditorSettings };
-    }
+export function loadEditorSettings() {
+    const parsed = store.get('settings', null);
+    return parsed ? normalizeEditorSettings(parsed) : { ...defaultEditorSettings };
 }
 
-export function saveEditorSettings(settings, storageKey = SETTINGS_STORAGE_KEY) {
-    try {
-        const normalized = normalizeEditorSettings(settings);
-        window.localStorage.setItem(storageKey, JSON.stringify(normalized));
-    } catch (error) {
-        console.warn('保存编辑器设置失败', error);
-    }
+export function saveEditorSettings(settings) {
+    store.set('settings', normalizeEditorSettings(settings));
 }
 
 export function applyEditorSettings(settings) {

@@ -1,7 +1,8 @@
-const STORAGE_KEYS = {
-    WIDTH: 'cardSidebarWidth',
-    VISIBLE: 'cardSidebarVisible',
-};
+import { createStore } from '../../services/storage.js';
+
+const store = createStore('cardExport');
+store.migrateFrom('cardSidebarWidth', 'sidebarWidth', { parse: (raw) => Number(raw) });
+store.migrateFrom('cardSidebarVisible', 'sidebarVisible', { parse: (raw) => raw === '1' });
 
 const WIDTH_RANGE = {
     MIN: 320,
@@ -12,44 +13,9 @@ function clampWidth(value) {
     return Math.max(WIDTH_RANGE.MIN, Math.min(WIDTH_RANGE.MAX, value));
 }
 
-function loadNumber(key, fallback) {
-    try {
-        const raw = localStorage.getItem(key);
-        if (!raw) {
-            return fallback;
-        }
-        const parsed = Number(raw);
-        return Number.isFinite(parsed) ? parsed : fallback;
-    } catch (error) {
-        console.warn('[CardSidebar] 无法读取存储的宽度', error);
-        return fallback;
-    }
-}
-
-function loadBoolean(key, fallback) {
-    try {
-        const raw = localStorage.getItem(key);
-        if (raw === null || raw === undefined) {
-            return fallback;
-        }
-        return raw === '1';
-    } catch (error) {
-        console.warn('[CardSidebar] 无法读取可见性', error);
-        return fallback;
-    }
-}
-
-function persist(key, value) {
-    try {
-        localStorage.setItem(key, value);
-    } catch (error) {
-        console.warn('[CardSidebar] 无法保存设置', error);
-    }
-}
-
 export function createCardSidebarLayoutService() {
-    let width = clampWidth(loadNumber(STORAGE_KEYS.WIDTH, 420));
-    let visible = loadBoolean(STORAGE_KEYS.VISIBLE, false);
+    let width = clampWidth(Number(store.get('sidebarWidth', 420)) || 420);
+    let visible = Boolean(store.get('sidebarVisible', false));
     let listeners = [];
 
     function updateDOM() {
@@ -78,7 +44,7 @@ export function createCardSidebarLayoutService() {
             return;
         }
         width = next;
-        persist(STORAGE_KEYS.WIDTH, String(next));
+        store.set('sidebarWidth', next);
         notify();
     }
 
@@ -87,7 +53,7 @@ export function createCardSidebarLayoutService() {
             return;
         }
         visible = true;
-        persist(STORAGE_KEYS.VISIBLE, '1');
+        store.set('sidebarVisible', true);
         notify();
     }
 
@@ -96,7 +62,7 @@ export function createCardSidebarLayoutService() {
             return;
         }
         visible = false;
-        persist(STORAGE_KEYS.VISIBLE, '0');
+        store.set('sidebarVisible', false);
         notify();
     }
 

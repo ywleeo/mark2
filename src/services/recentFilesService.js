@@ -3,7 +3,11 @@
  * 使用时间 + 打开次数的权重算法进行排序
  */
 
-const RECENT_FILES_STORAGE_KEY = 'mark2:recentFiles';
+import { createStore } from './storage.js';
+
+const store = createStore('recentFiles');
+store.migrateFrom('mark2:recentFiles', 'items');
+
 const MAX_RECENT_ITEMS = 50; // 最多存储 50 个，但只显示前 10 个
 
 /**
@@ -41,40 +45,24 @@ function normalizePath(path) {
  * 从 localStorage 加载最近打开的文件列表
  */
 function loadRecentItems() {
-    try {
-        const raw = window.localStorage.getItem(RECENT_FILES_STORAGE_KEY);
-        if (!raw) {
-            return [];
-        }
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) {
-            return [];
-        }
-        return parsed.filter(item =>
-            item &&
-            typeof item === 'object' &&
-            normalizePath(item.path) &&
-            typeof item.lastOpenedAt === 'number' &&
-            typeof item.openCount === 'number' &&
-            (item.type === 'file' || item.type === 'folder')
-        );
-    } catch (error) {
-        console.warn('[recentFilesService] 加载最近文件失败', error);
-        return [];
-    }
+    const parsed = store.get('items', []);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(item =>
+        item &&
+        typeof item === 'object' &&
+        normalizePath(item.path) &&
+        typeof item.lastOpenedAt === 'number' &&
+        typeof item.openCount === 'number' &&
+        (item.type === 'file' || item.type === 'folder')
+    );
 }
 
 /**
- * 保存最近打开的文件列表到 localStorage
+ * 保存最近打开的文件列表到 storage
  */
 function saveRecentItems(items) {
-    try {
-        // 只保留前 MAX_RECENT_ITEMS 个
-        const toSave = items.slice(0, MAX_RECENT_ITEMS);
-        window.localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(toSave));
-    } catch (error) {
-        console.warn('[recentFilesService] 保存最近文件失败', error);
-    }
+    // 只保留前 MAX_RECENT_ITEMS 个
+    store.set('items', items.slice(0, MAX_RECENT_ITEMS));
 }
 
 /**
@@ -177,11 +165,7 @@ export function createRecentFilesService() {
      * 清除所有最近项
      */
     function clearAll() {
-        try {
-            window.localStorage.removeItem(RECENT_FILES_STORAGE_KEY);
-        } catch (error) {
-            console.warn('[recentFilesService] 清除最近文件失败', error);
-        }
+        store.remove('items');
     }
 
     /**

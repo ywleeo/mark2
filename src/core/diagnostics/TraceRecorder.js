@@ -3,7 +3,11 @@
  * 用于阶段 0/1 追踪关键链路，后续可以扩展为更完整的状态快照系统。
  */
 
-const TRACE_STORAGE_KEY = 'mark2_trace_enabled';
+import { createStore } from '../../services/storage.js';
+
+const store = createStore('diagnostics');
+store.migrateFrom('mark2_trace_enabled', 'traceEnabled', { parse: (raw) => raw === '1' });
+
 const TRACE_LIMIT = 200;
 
 /**
@@ -13,13 +17,7 @@ const TRACE_LIMIT = 200;
 export function createTraceRecorder() {
     const records = [];
 
-    const isEnabled = () => {
-        try {
-            return localStorage.getItem(TRACE_STORAGE_KEY) === '1';
-        } catch {
-            return false;
-        }
-    };
+    const isEnabled = () => Boolean(store.get('traceEnabled', false));
 
     return {
         /**

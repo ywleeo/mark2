@@ -5,17 +5,17 @@
  */
 
 import { createFileLogSink } from './FileLogSink.js';
+import { createStore } from '../../services/storage.js';
+
+const store = createStore('diagnostics');
+store.migrateFrom('mark2_debug_log_level', 'logLevel', { parse: 'raw' });
+store.migrateFrom('mark2_debug_domains', 'logDomains', { parse: 'raw' });
 
 const LOG_LEVELS = {
     debug: 10,
     info: 20,
     warn: 30,
     error: 40,
-};
-
-const STORAGE_KEYS = {
-    level: 'mark2_debug_log_level',
-    domains: 'mark2_debug_domains',
 };
 
 const fileLogSink = createFileLogSink();
@@ -25,13 +25,9 @@ const fileLogSink = createFileLogSink();
  * @returns {'debug'|'info'|'warn'|'error'}
  */
 function getConfiguredLevel() {
-    try {
-        const value = localStorage.getItem(STORAGE_KEYS.level);
-        if (value && Object.prototype.hasOwnProperty.call(LOG_LEVELS, value)) {
-            return value;
-        }
-    } catch {
-        // 忽略本地存储异常，回退到默认级别
+    const value = store.get('logLevel');
+    if (value && Object.prototype.hasOwnProperty.call(LOG_LEVELS, value)) {
+        return value;
     }
     return 'info';
 }
@@ -41,19 +37,13 @@ function getConfiguredLevel() {
  * @returns {Set<string>|null}
  */
 function getConfiguredDomains() {
-    try {
-        const value = localStorage.getItem(STORAGE_KEYS.domains);
-        if (!value) {
-            return null;
-        }
-        const domains = value
-            .split(',')
-            .map(item => item.trim())
-            .filter(Boolean);
-        return domains.length > 0 ? new Set(domains) : null;
-    } catch {
-        return null;
-    }
+    const value = store.get('logDomains');
+    if (!value) return null;
+    const domains = String(value)
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+    return domains.length > 0 ? new Set(domains) : null;
 }
 
 /**

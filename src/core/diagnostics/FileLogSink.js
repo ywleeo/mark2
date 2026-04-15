@@ -1,10 +1,8 @@
 import { appendLogEntries, getAppLogFilePath } from '../../api/filesystem.js';
+import { createStore } from '../../services/storage.js';
 
-/**
- * 文件日志本地开关键。
- * 默认启用；仅在显式写入 `0` 时关闭磁盘落盘。
- */
-export const FILE_LOG_STORAGE_KEY = 'mark2_debug_file_logging';
+const store = createStore('diagnostics');
+store.migrateFrom('mark2_debug_file_logging', 'fileLogging', { parse: (raw) => raw !== '0' });
 
 const FLUSH_DELAY_MS = 300;
 const MAX_BATCH_SIZE = 50;
@@ -74,11 +72,8 @@ function toSerializable(value, seen = new WeakSet(), depth = 0) {
  * @returns {boolean}
  */
 function isFileLoggingEnabled() {
-    try {
-        return localStorage.getItem(FILE_LOG_STORAGE_KEY) !== '0';
-    } catch {
-        return true;
-    }
+    const value = store.get('fileLogging');
+    return value == null ? true : Boolean(value);
 }
 
 /**

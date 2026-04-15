@@ -1,36 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 import { normalizeFsPath } from '../utils/pathUtils.js';
+import { createStore } from './storage.js';
 
-const STORAGE_KEY = 'mark2:securityScopes';
+const scopeStore = createStore('securityScopes');
+scopeStore.migrateFrom('mark2:securityScopes', 'bookmarks');
 
 function readStore() {
-    if (typeof window === 'undefined' || !window.localStorage) {
-        return {};
-    }
-    try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-            return {};
-        }
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-            return parsed;
-        }
-    } catch (error) {
-        console.warn('[securityScopeService] 读取缓存失败', error);
-    }
-    return {};
+    const parsed = scopeStore.get('bookmarks', {});
+    return (parsed && typeof parsed === 'object') ? parsed : {};
 }
 
 function writeStore(store) {
-    if (typeof window === 'undefined' || !window.localStorage) {
-        return;
-    }
-    try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    } catch (error) {
-        console.warn('[securityScopeService] 写入缓存失败', error);
-    }
+    scopeStore.set('bookmarks', store);
 }
 
 function normalizePath(path) {

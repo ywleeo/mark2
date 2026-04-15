@@ -5,31 +5,17 @@
  */
 
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { createStore } from '../services/storage.js';
 
-const STORAGE_KEYS = {
-    content:  'mark2_scratchpad_content',
-    position: 'mark2_scratchpad_position_v2',
-    size:     'mark2_scratchpad_size_v2',
-    visible:  'mark2_scratchpad_visible',
-};
+const store = createStore('scratchpad');
+store.migrateFrom('mark2_scratchpad_content', 'content', { parse: 'raw' });
+store.migrateFrom('mark2_scratchpad_position_v2', 'position');
+store.migrateFrom('mark2_scratchpad_size_v2', 'size');
+store.migrateFrom('mark2_scratchpad_visible', 'visible');
 
 const DEFAULT_SIZE     = { width: 300, height: 240 };
 const DEFAULT_POSITION = { right: 0, bottom: 28 };
 const SAVE_DEBOUNCE_MS = 400;
-
-function loadJson(key, fallback) {
-    try {
-        const raw = localStorage.getItem(key);
-        if (raw) return JSON.parse(raw);
-    } catch { /* ignore */ }
-    return fallback;
-}
-
-function saveJson(key, value) {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch { /* ignore */ }
-}
 
 export function createScratchpadPanel() {
     const panel        = document.getElementById('scratchpadPanel');
@@ -66,7 +52,7 @@ export function createScratchpadPanel() {
     function scheduleContentSave() {
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
-            localStorage.setItem(STORAGE_KEYS.content, textarea.value);
+            store.set('content', textarea.value);
         }, SAVE_DEBOUNCE_MS);
     }
 
@@ -76,7 +62,7 @@ export function createScratchpadPanel() {
         isVisible = true;
         panel.classList.add('is-visible');
         statusBtn?.classList.add('is-active');
-        if (persist) saveJson(STORAGE_KEYS.visible, true);
+        if (persist) store.set('visible', true);
         textarea.focus();
     }
 
@@ -84,7 +70,7 @@ export function createScratchpadPanel() {
         isVisible = false;
         panel.classList.remove('is-visible');
         statusBtn?.classList.remove('is-active');
-        if (persist) saveJson(STORAGE_KEYS.visible, false);
+        if (persist) store.set('visible', false);
     }
 
     function show()   { _show(); }
@@ -119,7 +105,7 @@ export function createScratchpadPanel() {
             panel.style.right  = newRight  + 'px';
             panel.style.bottom = newBottom + 'px';
 
-            saveJson(STORAGE_KEYS.position, { right: newRight, bottom: newBottom });
+            store.set('position', { right: newRight, bottom: newBottom });
         });
     }
 
@@ -145,17 +131,17 @@ export function createScratchpadPanel() {
             panel.style.width  = newW + 'px';
             panel.style.height = newH + 'px';
 
-            saveJson(STORAGE_KEYS.size, { width: newW, height: newH });
+            store.set('size', { width: newW, height: newH });
         });
     }
 
     // ── 初始化 ──
 
     function initialize() {
-        const content = localStorage.getItem(STORAGE_KEYS.content) ?? '';
-        const pos     = loadJson(STORAGE_KEYS.position, DEFAULT_POSITION);
-        const size    = loadJson(STORAGE_KEYS.size, DEFAULT_SIZE);
-        const visible = loadJson(STORAGE_KEYS.visible, false);
+        const content = store.get('content', '') ?? '';
+        const pos     = store.get('position', DEFAULT_POSITION);
+        const size    = store.get('size', DEFAULT_SIZE);
+        const visible = store.get('visible', false);
 
         textarea.value = content;
         applyPosition(pos);

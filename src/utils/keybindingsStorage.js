@@ -3,7 +3,11 @@
  * 存储格式：{ [commandId]: shortcut }
  */
 
-const STORAGE_KEY = 'mark2:keybindings';
+import { createStore } from '../services/storage.js';
+
+const store = createStore('keybindings');
+store.migrateFrom('mark2:keybindings', 'bindings');
+
 const KEYBINDINGS_UPDATED_EVENT = 'mark2:keybindings-updated';
 
 /**
@@ -11,28 +15,17 @@ const KEYBINDINGS_UPDATED_EVENT = 'mark2:keybindings-updated';
  * @returns {Object<string, string>} commandId → shortcut 映射
  */
 export function loadCustomKeybindings() {
-    try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (!stored) return {};
-        const parsed = JSON.parse(stored);
-        if (!parsed || typeof parsed !== 'object') return {};
-        return parsed;
-    } catch {
-        return {};
-    }
+    const parsed = store.get('bindings', {});
+    return (parsed && typeof parsed === 'object') ? parsed : {};
 }
 
 /**
  * 保存用户自定义快捷键。
- * 同时写入 localStorage（JS 侧使用）和 appDataDir 文件（Rust 菜单使用）。
+ * 同时写入 storage(JS 侧使用)和 appDataDir 文件(Rust 菜单使用)。
  * @param {Object<string, string>} keybindings - commandId → shortcut 映射
  */
 export async function saveCustomKeybindings(keybindings) {
-    try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(keybindings));
-    } catch (error) {
-        console.warn('保存自定义快捷键失败', error);
-    }
+    store.set('bindings', keybindings);
 
     // 同步到文件供 Rust 侧读取
     try {

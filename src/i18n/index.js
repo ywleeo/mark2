@@ -9,13 +9,16 @@
 
 import en from './en.json';
 import zhCN from './zh-CN.json';
+import { createStore } from '../services/storage.js';
 
-const STORAGE_KEY = 'mark2:locale';
+const store = createStore('i18n');
+store.migrateFrom('mark2:locale', 'locale', { parse: 'raw' });
+
 const SUPPORTED = { en, 'zh-CN': zhCN };
 const DEFAULT_LOCALE = 'en';
 
 // Auto-init on module load — must happen before any t() call from other modules
-const _stored = localStorage.getItem(STORAGE_KEY);
+const _stored = store.get('locale');
 const _initLocale = _stored && SUPPORTED[_stored] ? _stored : DEFAULT_LOCALE;
 let currentLocale = _initLocale;
 let currentMessages = SUPPORTED[_initLocale];
@@ -44,7 +47,7 @@ export function getLocale() {
 /** Persist new locale and reload the page. */
 export async function setLocale(locale) {
     if (!SUPPORTED[locale] || locale === currentLocale) return;
-    localStorage.setItem(STORAGE_KEY, locale);
+    store.set('locale', locale);
     await _syncLocaleFile(locale);
     try {
         const { invoke } = await import('@tauri-apps/api/core');

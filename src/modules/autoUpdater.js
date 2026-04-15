@@ -5,10 +5,13 @@
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { createStore } from '../services/storage.js';
+
+const store = createStore('autoUpdater');
+store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Number(raw) });
 
 const CHECK_DELAY_MS = 5000;
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
-const LAST_CHECK_KEY = 'autoUpdater:lastCheckAt';
 const DOWNLOAD_MAX_ATTEMPTS = 3;
 const DOWNLOAD_RETRY_DELAY_MS = 2000;
 
@@ -31,7 +34,7 @@ export function setupAutoUpdater() {
 
 function runScheduledCheck() {
     if (pendingUpdate) return; // 已有待安装更新，等用户重启
-    const last = Number(localStorage.getItem(LAST_CHECK_KEY)) || 0;
+    const last = Number(store.get('lastCheckAt', 0)) || 0;
     if (Date.now() - last < CHECK_INTERVAL_MS) return;
     checkAndDownload(false).catch(err => {
         console.warn('[AutoUpdater] 检查更新失败:', err);
@@ -67,7 +70,7 @@ export async function manualCheckUpdate() {
 
 async function checkAndDownload(manual) {
     const update = await check();
-    localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+    store.set('lastCheckAt', Date.now());
     if (!update) {
         console.log('[AutoUpdater] 当前已是最新版本');
         return false;

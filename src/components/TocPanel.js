@@ -1,5 +1,9 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t } from '../i18n/index.js';
+import { createStore } from '../services/storage.js';
+
+const store = createStore('toc');
+store.migrateFrom('toc-panel-width', 'width', { parse: (raw) => Number(raw) });
 
 /**
  * 目录面板组件
@@ -100,8 +104,8 @@ export class TocPanel {
         }
 
         // 恢复保存的宽度
-        const savedWidth = localStorage.getItem('toc-panel-width');
-        if (savedWidth) {
+        const savedWidth = store.get('width');
+        if (Number.isFinite(savedWidth)) {
             this.container.style.flexBasis = savedWidth + 'px';
         }
 
@@ -150,7 +154,7 @@ export class TocPanel {
             pointerId = null;
             document.body.classList.remove('toc-resizing');
             document.body.style.userSelect = '';
-            localStorage.setItem('toc-panel-width', this.container.getBoundingClientRect().width);
+            store.set('width', this.container.getBoundingClientRect().width);
         };
 
         const onDown = (e) => {

@@ -1,29 +1,7 @@
-import {
-    WORKSPACE_STATE_STORAGE_KEY,
-    createDefaultWorkspaceState,
-    normalizeWorkspaceState,
-} from '../utils/workspaceState.js';
+import { loadWorkspaceState } from '../utils/workspaceState.js';
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
-}
-
-function readWorkspaceState(storageKey) {
-    if (typeof window === 'undefined' || !window.localStorage) {
-        return createDefaultWorkspaceState();
-    }
-
-    try {
-        const raw = window.localStorage.getItem(storageKey);
-        if (!raw) {
-            return createDefaultWorkspaceState();
-        }
-        const parsed = JSON.parse(raw);
-        return normalizeWorkspaceState(parsed);
-    } catch (error) {
-        console.warn('[workspaceService] 读取 workspaceState 失败，使用默认值', error);
-        return createDefaultWorkspaceState();
-    }
 }
 
 function normalizeDirectory(path) {
@@ -42,7 +20,6 @@ function normalizeDirectory(path) {
 }
 
 export function createWorkspaceService(options = {}) {
-    const storageKey = options.storageKey || WORKSPACE_STATE_STORAGE_KEY;
     const getCurrentFileFn = typeof options.getCurrentFile === 'function'
         ? options.getCurrentFile
         : null;
@@ -59,12 +36,12 @@ export function createWorkspaceService(options = {}) {
             }
         }
 
-        const state = readWorkspaceState(storageKey);
+        const state = loadWorkspaceState();
         return isNonEmptyString(state.currentFile) ? state.currentFile.trim() : null;
     }
 
     function getWorkspaceState() {
-        return readWorkspaceState(storageKey);
+        return loadWorkspaceState();
     }
 
     function getWorkspaceRoots() {

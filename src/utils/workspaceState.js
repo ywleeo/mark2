@@ -1,6 +1,9 @@
 import { normalizeFsPath, getPathIdentityKey } from './pathUtils.js';
+import { createStore } from '../services/storage.js';
 
-export const WORKSPACE_STATE_STORAGE_KEY = 'mark2:workspaceState';
+const store = createStore('workspace');
+store.migrateFrom('mark2:workspaceState', 'state');
+
 const UNTITLED_PROTOCOL = 'untitled://';
 
 function isNonEmptyString(value) {
@@ -269,25 +272,11 @@ export function normalizeWorkspaceState(candidate) {
     return normalized;
 }
 
-export function loadWorkspaceState(storageKey = WORKSPACE_STATE_STORAGE_KEY) {
-    try {
-        const raw = window.localStorage.getItem(storageKey);
-        if (!raw) {
-            return createDefaultWorkspaceState();
-        }
-        const parsed = JSON.parse(raw);
-        return normalizeWorkspaceState(parsed);
-    } catch (error) {
-        console.warn('加载工作区状态失败，使用默认值', error);
-        return createDefaultWorkspaceState();
-    }
+export function loadWorkspaceState() {
+    const parsed = store.get('state', null);
+    return parsed ? normalizeWorkspaceState(parsed) : createDefaultWorkspaceState();
 }
 
-export function saveWorkspaceState(state, storageKey = WORKSPACE_STATE_STORAGE_KEY) {
-    try {
-        const normalized = normalizeWorkspaceState(state);
-        window.localStorage.setItem(storageKey, JSON.stringify(normalized));
-    } catch (error) {
-        console.warn('保存工作区状态失败', error);
-    }
+export function saveWorkspaceState(state) {
+    store.set('state', normalizeWorkspaceState(state));
 }

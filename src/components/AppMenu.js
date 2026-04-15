@@ -4,6 +4,7 @@
  */
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
+import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t } from '../i18n/index.js';
 
@@ -60,12 +61,7 @@ export class AppMenu {
     }
 
     _loadCustomBindings() {
-        try {
-            const stored = window.localStorage.getItem('mark2:keybindings');
-            return stored ? JSON.parse(stored) : {};
-        } catch {
-            return {};
-        }
+        return loadCustomKeybindings();
     }
 
     updateShortcuts() {
