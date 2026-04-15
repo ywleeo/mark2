@@ -4,6 +4,9 @@
     --terminal-height: 240px;
     --terminal-min-height: 100px;
     --terminal-max-height: 600px;
+    --terminal-width: 420px;
+    --terminal-min-width: 240px;
+    --terminal-max-width: 900px;
     --terminal-bg: #000000;
     --terminal-border: rgba(255, 255, 255, 0.1);
     --terminal-header-bg: #252526;
@@ -262,67 +265,98 @@ body.terminal-resizing {
     background: rgba(255, 255, 255, 0.3);
 }
 
-/* 设置 Popover */
+/* ── 设置 Popover ──
+ * 对齐 Settings 面板风格:--settings-surface / --settings-divider / 无边框 field。
+ * 三行: 字体 / 字号 / 位置, label 左 control 右, 行间有分隔线。
+ */
 .terminal-settings-popover {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 6px);
     right: 8px;
     z-index: 20;
-    width: 200px;
-    padding: 10px;
-    background: var(--terminal-header-bg);
-    border: 1px solid var(--terminal-border);
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    width: 272px;
+    padding: 4px 12px;
+    background: var(--settings-surface, #ffffff);
+    color: var(--settings-field-text, #1a1a1a);
+    border: 1px solid var(--settings-divider, rgba(0, 0, 0, 0.06));
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    font-size: 13px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+}
+
+:root[data-theme-appearance='dark'] .terminal-settings-popover {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .terminal-settings-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--settings-divider, rgba(0, 0, 0, 0.06));
+}
+
+.terminal-settings-row:last-child {
+    border-bottom: none;
 }
 
 .terminal-settings-label {
-    font-size: 12px;
-    color: var(--terminal-header-text);
+    font-size: 13px;
+    color: var(--settings-field-text, #1a1a1a);
     flex-shrink: 0;
 }
 
+/* 字体 <select>,被 Dropdown 组件接管后会复用 .dropdown__trigger 样式 */
 .terminal-settings-select {
-    flex: 1;
-    min-width: 0;
-    height: 24px;
-    padding: 0 4px;
-    font-size: 12px;
-    color: var(--terminal-header-text);
-    background: var(--terminal-bg);
-    border: 1px solid var(--terminal-border);
-    border-radius: 4px;
+    flex: 0 0 140px;
+    width: 140px;
+    min-height: 26px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--settings-field-text, #1a1a1a);
+    background: var(--settings-field-bg, #f5f5f4);
+    border: none;
+    border-radius: 6px;
     outline: none;
     cursor: pointer;
+    box-sizing: border-box;
 }
 
-.terminal-settings-select:focus {
-    border-color: rgba(76, 201, 255, 0.5);
+/* Dropdown 组件接管后给它一个固定宽度,保持和其他行对齐 */
+.terminal-settings-row .dropdown__trigger {
+    flex: 0 0 140px;
+    width: 140px;
+    min-height: 26px;
 }
 
-.terminal-settings-font-size {
-    display: flex;
+/* 同一行内并列多个控件(字号 stepper + 位置 segmented) */
+.terminal-settings-row-controls {
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
-.terminal-settings-size-btn {
+/* 字号 stepper */
+.terminal-settings-stepper {
+    display: inline-flex;
+    align-items: center;
+    background: var(--settings-field-bg, #f5f5f4);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 0;
+}
+
+.terminal-settings-stepper-btn {
     appearance: none;
-    border: 1px solid var(--terminal-border);
-    background: var(--terminal-bg);
-    color: var(--terminal-header-text);
+    border: none;
+    background: transparent;
+    color: var(--settings-field-text, #1a1a1a);
     width: 24px;
-    height: 24px;
+    height: 22px;
     border-radius: 4px;
     cursor: pointer;
     display: flex;
@@ -331,15 +365,199 @@ body.terminal-resizing {
     font-size: 14px;
     line-height: 1;
     padding: 0;
+    transition: background 0.12s ease;
 }
 
-.terminal-settings-size-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+.terminal-settings-stepper-btn:hover {
+    background: var(--settings-secondary-hover, rgba(0, 0, 0, 0.04));
 }
 
-.terminal-settings-size-value {
-    font-size: 12px;
-    color: var(--terminal-header-text);
-    min-width: 20px;
+.terminal-settings-stepper-value {
+    min-width: 26px;
     text-align: center;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--settings-field-text, #1a1a1a);
+}
+
+/* 位置 segmented 控件 */
+.terminal-settings-segmented {
+    display: inline-flex;
+    background: var(--settings-field-bg, #f5f5f4);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.terminal-settings-seg-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--settings-muted, #999);
+    width: 30px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.terminal-settings-seg-btn:hover {
+    color: var(--settings-field-text, #1a1a1a);
+}
+
+.terminal-settings-seg-btn.is-active {
+    background: var(--settings-surface, #ffffff);
+    color: var(--settings-field-text, #1a1a1a);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme-appearance='dark'] .terminal-settings-seg-btn.is-active {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+}
+
+.terminal-settings-seg-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* ── 右侧停靠布局 ──
+ * content-wrapper 的直接子元素是 tabBar / contentArea / statusBar / terminalPanel,
+ * 右侧停靠时用 grid 让 tabBar 与 statusBar 保持满宽,中间 contentArea 与
+ * terminalPanel 并排,避免简单地把 wrapper 改成 flex-row 把所有子节点都
+ * 推到一行。
+ */
+.content-wrapper[data-terminal-position="right"] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+        "tab   tab"
+        "main  term"
+        "stat  stat";
+}
+
+.content-wrapper[data-terminal-position="right"] #tabBar { grid-area: tab; }
+.content-wrapper[data-terminal-position="right"] #contentArea {
+    grid-area: main;
+    min-width: 0;
+    min-height: 0;
+}
+.content-wrapper[data-terminal-position="right"] #statusBar { grid-area: stat; }
+
+.content-wrapper[data-terminal-position="right"] .terminal-panel {
+    grid-area: term;
+    /* 保持内部 column 布局(header 在上,panes 在下) */
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    width: var(--terminal-width);
+    min-width: var(--terminal-min-width);
+    max-width: var(--terminal-max-width);
+    border-top: none;
+    border-left: 1px solid var(--terminal-border);
+}
+
+/* 右侧停靠时,多 pane 分栏改为上下排列 */
+.content-wrapper[data-terminal-position="right"] .terminal-panes {
+    flex-direction: column;
+}
+
+.content-wrapper[data-terminal-position="right"] .terminal-pane + .terminal-pane {
+    border-left: none;
+    border-top: 1px solid var(--terminal-border);
+}
+
+/* 右侧停靠时 resizer 变成垂直方向 */
+.content-wrapper[data-terminal-position="right"] .terminal-panel .terminal-resizer {
+    top: 0;
+    left: -3px;
+    right: auto;
+    width: 6px;
+    height: 100%;
+    cursor: ew-resize;
+}
+
+/* 横向调整大小状态 */
+body.terminal-resizing-x {
+    cursor: ew-resize;
+    user-select: none;
+}
+
+body.terminal-resizing-x .terminal-resizer {
+    background: var(--terminal-resizer-hover);
+}
+
+/* ── 命令历史浮层 ── */
+
+.terminal-history-popup {
+    position: fixed;
+    z-index: 1000;
+    min-width: 260px;
+    max-width: 520px;
+    padding: 4px;
+    background: var(--terminal-header-bg);
+    color: var(--terminal-header-text);
+    border: 1px solid var(--terminal-border);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    font-family: Menlo, Monaco, "SF Mono", monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow: hidden;
+}
+
+.terminal-history-popup.is-empty {
+    padding: 6px 10px;
+    min-width: 0;
+    opacity: 0.9;
+}
+
+.terminal-history-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.terminal-history-item.is-highlighted {
+    background: rgba(76, 201, 255, 0.18);
+}
+
+:root[data-theme-appearance='light'] .terminal-history-item.is-highlighted {
+    background: rgba(64, 120, 242, 0.15);
+}
+
+.terminal-history-key {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--terminal-header-text);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--terminal-border);
+    border-radius: 3px;
+    opacity: 0.8;
+}
+
+:root[data-theme-appearance='light'] .terminal-history-key {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.terminal-history-cmd {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }

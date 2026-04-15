@@ -41,6 +41,7 @@ export const COMMAND_IDS = Object.freeze({
     TOOLBAR_TOGGLE_MARKDOWN: 'toolbar.toggleMarkdown',
     FEATURE_CARD_EXPORT_OPEN: 'feature.cardExport.open',
     FEATURE_TERMINAL_TOGGLE: 'feature.terminal.toggle',
+    FEATURE_TERMINAL_SHOW_HISTORY: 'feature.terminal.showHistory',
     FEATURE_AI_TOGGLE: 'feature.ai.toggle',
     FEATURE_SCRATCHPAD_TOGGLE: 'feature.scratchpad.toggle',
     FEATURE_TOC_TOGGLE: 'feature.toc.toggle',

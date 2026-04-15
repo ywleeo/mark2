@@ -3,7 +3,7 @@
  * 将现有侧边栏和面板能力按统一协议注册到 FeatureManager。
  */
 
-import { createTerminalPanel } from '../modules/terminalPanel.js';
+import { createTerminalPanel } from '../modules/terminal/panel.js';
 import { createScratchpadPanel } from '../modules/scratchpadPanel.js';
 import { initCardExportSidebar } from '../modules/card-export/index.js';
 import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';

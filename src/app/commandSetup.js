@@ -75,6 +75,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, () => handlers.onToggleMarkdownToolbar?.(), '切换 Markdown 工具栏');
     register(COMMAND_IDS.FEATURE_CARD_EXPORT_OPEN, () => handlers.onOpenCardExport?.(), '打开卡片导出侧边栏');
     register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, () => handlers.onToggleTerminal?.(), '切换终端面板');
+    register(COMMAND_IDS.FEATURE_TERMINAL_SHOW_HISTORY, () => handlers.onToggleTerminalHistory?.(), '显示终端历史');
     register(COMMAND_IDS.FEATURE_AI_TOGGLE, () => handlers.onToggleAiSidebar?.(), '切换 AI 侧边栏');
     register(COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, () => handlers.onToggleScratchpad?.(), '切换便签');
     register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');
@@ -116,6 +117,7 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+B'],
     [COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, 'Mod+J'],
+    [COMMAND_IDS.FEATURE_TERMINAL_SHOW_HISTORY, 'Mod+Shift+H'],
     [COMMAND_IDS.FEATURE_AI_TOGGLE, 'Mod+Shift+A'],
     [COMMAND_IDS.FEATURE_TOC_TOGGLE, 'Mod+H'],
     [COMMAND_IDS.APP_SETTINGS, 'Mod+,'],

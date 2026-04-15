@@ -5,6 +5,7 @@
 
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { Dropdown } from '../../components/Dropdown.js';
+import { t } from '../../i18n/index.js';
 
 const SETTINGS_KEY = 'mark2_terminal_settings';
 const DEFAULT_SETTINGS = { fontFamily: 'Menlo', fontSize: 13 };
@@ -65,7 +66,7 @@ export function openSettingsPopover({
     popover.className = 'terminal-settings-popover';
     popover.innerHTML = `
         <div class="terminal-settings-row">
-            <label class="terminal-settings-label">字体</label>
+            <span class="terminal-settings-label">${t('terminal.settings.font')}</span>
             <select class="terminal-settings-select" data-field="fontFamily">
                 ${TERMINAL_FONTS.map(f =>
                     `<option value="${f.value}" ${f.value === settings.fontFamily ? 'selected' : ''}>${f.label}</option>`
@@ -73,27 +74,24 @@ export function openSettingsPopover({
             </select>
         </div>
         <div class="terminal-settings-row">
-            <div class="terminal-settings-group">
-                <label class="terminal-settings-label">字号</label>
-                <div class="terminal-settings-font-size">
-                    <button type="button" class="terminal-settings-size-btn" data-delta="-1">−</button>
-                    <span class="terminal-settings-size-value">${settings.fontSize}</span>
-                    <button type="button" class="terminal-settings-size-btn" data-delta="1">＋</button>
+            <span class="terminal-settings-label">${t('terminal.settings.fontSize')}</span>
+            <div class="terminal-settings-row-controls">
+                <div class="terminal-settings-stepper">
+                    <button type="button" class="terminal-settings-stepper-btn" data-delta="-1" aria-label="${t('terminal.settings.decreaseFontSize')}">−</button>
+                    <span class="terminal-settings-stepper-value">${settings.fontSize}</span>
+                    <button type="button" class="terminal-settings-stepper-btn" data-delta="1" aria-label="${t('terminal.settings.increaseFontSize')}">+</button>
                 </div>
-            </div>
-            <div class="terminal-settings-group">
-                <label class="terminal-settings-label">位置</label>
-                <div class="terminal-settings-position">
-                    <button type="button" class="terminal-settings-dock-btn ${currentPosition === 'bottom' ? 'is-active' : ''}" data-position="bottom" title="靠下">
+                <div class="terminal-settings-segmented" role="radiogroup" aria-label="${t('terminal.settings.position')}">
+                    <button type="button" class="terminal-settings-seg-btn ${currentPosition === 'bottom' ? 'is-active' : ''}" data-position="bottom" title="${t('terminal.settings.positionBottom')}" aria-label="${t('terminal.settings.positionBottom')}">
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <rect x="2.5" y="2.5" width="15" height="15" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-                            <rect x="2.5" y="12" width="15" height="5.5" fill="currentColor"/>
+                            <rect x="2.75" y="2.75" width="14.5" height="14.5" rx="2" stroke="currentColor" stroke-width="1.3"/>
+                            <rect x="2.75" y="12" width="14.5" height="5.25" fill="currentColor"/>
                         </svg>
                     </button>
-                    <button type="button" class="terminal-settings-dock-btn ${currentPosition === 'right' ? 'is-active' : ''}" data-position="right" title="靠右">
+                    <button type="button" class="terminal-settings-seg-btn ${currentPosition === 'right' ? 'is-active' : ''}" data-position="right" title="${t('terminal.settings.positionRight')}" aria-label="${t('terminal.settings.positionRight')}">
                         <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                            <rect x="2.5" y="2.5" width="15" height="15" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
-                            <rect x="12" y="2.5" width="5.5" height="15" fill="currentColor"/>
+                            <rect x="2.75" y="2.75" width="14.5" height="14.5" rx="2" stroke="currentColor" stroke-width="1.3"/>
+                            <rect x="12" y="2.75" width="5.25" height="14.5" fill="currentColor"/>
                         </svg>
                     </button>
                 </div>
@@ -107,11 +105,11 @@ export function openSettingsPopover({
         onChange?.();
     });
 
-    popover.querySelectorAll('.terminal-settings-dock-btn').forEach(btn => {
+    popover.querySelectorAll('.terminal-settings-seg-btn').forEach(btn => {
         addClickHandler(btn, () => {
             const pos = btn.dataset.position;
             onPositionChange?.(pos);
-            popover.querySelectorAll('.terminal-settings-dock-btn').forEach(b => {
+            popover.querySelectorAll('.terminal-settings-seg-btn').forEach(b => {
                 b.classList.toggle('is-active', b.dataset.position === pos);
             });
         });
@@ -123,7 +121,7 @@ export function openSettingsPopover({
             const newSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, settings.fontSize + delta));
             if (newSize === settings.fontSize) return;
             settings.fontSize = newSize;
-            popover.querySelector('.terminal-settings-size-value').textContent = newSize;
+            popover.querySelector('.terminal-settings-stepper-value').textContent = newSize;
             onChange?.();
         });
     });

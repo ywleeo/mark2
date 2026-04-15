@@ -5,6 +5,7 @@
  */
 
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { t } from '../../i18n/index.js';
 
 const MAX_HISTORY = 10;
 const commandHistory = [];
@@ -96,7 +97,7 @@ export function showHistoryPopup(pane, clientX, clientY, anchorTop = null) {
     if (commandHistory.length === 0) {
         const hint = document.createElement('div');
         hint.className = 'terminal-history-popup is-empty';
-        hint.textContent = '暂无历史命令';
+        hint.textContent = t('terminal.history.empty');
         hint.style.left = `${clientX}px`;
         hint.style.top = `${clientY}px`;
         document.body.appendChild(hint);

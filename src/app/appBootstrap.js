@@ -515,6 +515,10 @@ export function createAppBootstrap({
                     }
                     featureManager?.getFeatureApi?.('terminal')?.toggle?.();
                 },
+                onToggleTerminalHistory: () => {
+                    if (!isFeatureEnabled('terminal')) return;
+                    featureManager?.getFeatureApi?.('terminal')?.showHistory?.();
+                },
                 onToggleAiSidebar: () => featureManager?.getFeatureApi?.('ai-sidebar')?.toggle?.(),
                 onNewUntitled: handleCreateUntitled,
                 onNewFile: handleCreateNewFile,

@@ -22,6 +22,7 @@ import {
 
 import { isFeatureEnabled } from '../../config/features.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { t } from '../../i18n/index.js';
 
 const STORAGE_KEY = 'mark2_terminal_height';
 const WIDTH_KEY = 'mark2_terminal_width';
@@ -131,7 +132,7 @@ export function createTerminalPanel(options = {}) {
         tabEl.innerHTML = `
             <svg class="terminal-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
             <span class="terminal-tab-label">Terminal ${displayNum}</span>
-            <button type="button" class="terminal-tab-close" aria-label="关闭分栏">
+            <button type="button" class="terminal-tab-close" aria-label="${t('terminal.closePane')}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
         `;
