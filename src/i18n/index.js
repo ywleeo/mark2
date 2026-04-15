@@ -46,6 +46,12 @@ export async function setLocale(locale) {
     if (!SUPPORTED[locale] || locale === currentLocale) return;
     localStorage.setItem(STORAGE_KEY, locale);
     await _syncLocaleFile(locale);
+    try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('rebuild_menu');
+    } catch (e) {
+        console.warn('[i18n] rebuild_menu failed:', e);
+    }
     location.reload();
 }
 
