@@ -11,8 +11,6 @@ import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { setupAutoUpdater } from '../modules/autoUpdater.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
-import { restoreStoredSecurityScopes } from '../services/securityScopeService.js';
-import { setExportMenuEnabled } from '../api/native.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
 import { normalizeFsPath } from '../utils/pathUtils.js';
@@ -20,6 +18,7 @@ import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
 import { createCommandHandlers } from './commandHandlers.js';
+import { createBootstrapHelpers } from './bootstrapHelpers.js';
 import { isWindows } from '../utils/platform.js';
 import { registerCoreFeatures } from './featureSetup.js';
 import { registerCoreExports } from './exportSetup.js';
@@ -129,128 +128,32 @@ export function createAppBootstrap({
     confirm,
     eventBus,
 }) {
-    // ========== 导出菜单状态 ==========
-
-    async function updateExportMenuState() {
-        const currentFile = appState.getCurrentFile();
-        const activeViewMode = appState.getActiveViewMode();
-        const hasMarkdownFile = typeof currentFile === 'string' && isMarkdownFilePath(currentFile);
-        const shouldEnable = activeViewMode === 'markdown' && hasMarkdownFile;
-
-        if (appState.getExportMenuEnabledState() === shouldEnable) return;
-
-        appState.setExportMenuEnabledState(shouldEnable);
-        try {
-            await setExportMenuEnabled(shouldEnable);
-        } catch (error) {
-            console.warn('更新导出菜单状态失败:', error);
-        }
-    }
-
-    // ========== 清空活跃文件视图 ==========
-
-    function clearActiveFileView() {
-        documentManager?.clearActiveDocument?.();
-        appState.setHasUnsavedChanges(false);
-        handleToolbarOnFileChange(null);
-        handleCardSidebarOnFileChange(null);
-        documentSessions.closeActiveSession();
-        editorRegistry.clearAllContents();
-        editorRegistry.blurAll();
-        activateMarkdownView();
-        appState.getMarkdownCodeMode()?.reset();
-        updateWindowTitle();
-        persistWorkspaceState({ currentFile: null });
-        scheduleWorkspaceContextSync();
-        scheduleDocumentSnapshotSync();
-    }
-
-    // ========== 持久化工作区状态 ==========
-
-    function persistWorkspaceState(overrides = {}, options = {}) {
-        workspaceController?.persistWorkspaceState(overrides, options);
-        scheduleWorkspaceContextSync();
-        return workspaceManager?.getSnapshot?.();
-    }
-
-    // ========== Tab 重排序 ==========
-
-    function handleTabReorder(reorderPayload) {
-        if (!reorderPayload || !Array.isArray(reorderPayload.storageOrder)) return;
-        const fileTree = appState.getFileTree();
-        if (typeof fileTree?.reorderOpenFiles === 'function') {
-            fileTree.reorderOpenFiles(reorderPayload.storageOrder);
-            return;
-        }
-        fileTree?.restoreOpenFiles(reorderPayload.storageOrder);
-    }
-
-    // ========== 侧边栏状态变化 ==========
-
-    function handleSidebarStateChange(sidebarState) {
-        workspaceController?.handleSidebarStateChange(sidebarState);
-        return workspaceManager?.getSnapshot?.();
-    }
-
-    // ========== 运行脚本文件 ==========
-
-    async function handleRunFile(filePath) {
-        if (!filePath) return;
-        const lowerPath = filePath.toLowerCase();
-        let command = '';
-        if (lowerPath.endsWith('.sh')) {
-            command = `sh "${filePath}"`;
-        } else if (lowerPath.endsWith('.py')) {
-            command = `python3 "${filePath}"`;
-        } else {
-            return;
-        }
-        try {
-            await featureManager?.getFeatureApi?.('terminal')?.runCommand?.(command);
-        } catch (error) {
-            console.error('[Run] 执行命令失败:', error);
-        }
-    }
-
-    // ========== 恢复工作区状态 ==========
-
-    async function restoreWorkspaceStateFromStorage() {
-        if (!workspaceController) return;
-        try {
-            await restoreStoredSecurityScopes();
-        } catch (error) {
-            console.warn('[main] 恢复文件权限失败', error);
-        }
-        await workspaceController.restoreWorkspaceStateFromStorage();
-        scheduleWorkspaceContextSync();
-    }
-
-    // ========== 编辑器内容写入会话缓存 ==========
-
-    function saveCurrentEditorContentToCache() {
-        const currentFile = documentManager?.getActivePath?.() || appState.getCurrentFile();
-        const activeViewMode = appState.getActiveViewMode();
-        const editor = editorRegistry.getMarkdownEditor();
-        const codeEditor = editorRegistry.getCodeEditor();
-
-        if (currentFile && untitledFileManager.isUntitledPath(currentFile)) {
-            let content = '';
-            if (activeViewMode === 'markdown' && editor) {
-                content = editor.getMarkdown?.() || '';
-            } else if (activeViewMode === 'code' && codeEditor) {
-                content = codeEditor.getValue?.() || '';
-            }
-            untitledFileManager.setContent(currentFile, content);
-            return;
-        }
-
-        fileSession.saveCurrentEditorContentToCache({
-            currentFile,
-            activeViewMode,
-            editor,
-            codeEditor,
-        });
-    }
+    const {
+        updateExportMenuState,
+        clearActiveFileView,
+        persistWorkspaceState,
+        handleTabReorder,
+        handleSidebarStateChange,
+        handleRunFile,
+        restoreWorkspaceStateFromStorage,
+        saveCurrentEditorContentToCache,
+    } = createBootstrapHelpers({
+        appState,
+        documentManager,
+        workspaceManager,
+        workspaceController,
+        editorRegistry,
+        documentSessions,
+        fileSession,
+        untitledFileManager,
+        featureManager,
+        scheduleWorkspaceContextSync,
+        scheduleDocumentSnapshotSync,
+        updateWindowTitle,
+        activateMarkdownView,
+        handleToolbarOnFileChange,
+        handleCardSidebarOnFileChange,
+    });
 
     // ========== 主初始化流程 ==========
 
