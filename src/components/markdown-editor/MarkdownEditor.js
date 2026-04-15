@@ -1,7 +1,7 @@
 import { Editor } from '@tiptap/core';
 import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
 import { isSpreadsheetFilePath } from '../../utils/fileTypeUtils.js';
-import { createMarkdownParser, createMarkdownSerializer } from '../../utils/markdownPipeline.js';
+import { createMarkdownParser, createMarkdownSerializer } from '../../modules/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
