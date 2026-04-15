@@ -1,13 +1,16 @@
 /**
  * 终端设置:字体/字号/停靠位置。
- * 提供 localStorage 读写和弹出式设置面板工厂。
+ * 通过 services/storage 读写,提供弹出式设置面板工厂。
  */
 
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { Dropdown } from '../../components/Dropdown.js';
 import { t } from '../../i18n/index.js';
+import { createStore } from '../../services/storage.js';
 
-const SETTINGS_KEY = 'mark2_terminal_settings';
+const store = createStore('terminal');
+store.migrateFrom('mark2_terminal_settings', 'settings');
+
 const DEFAULT_SETTINGS = { fontFamily: 'Menlo', fontSize: 13 };
 
 const TERMINAL_FONTS = [
@@ -25,18 +28,12 @@ const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 24;
 
 export function loadTerminalSettings() {
-    try {
-        const stored = localStorage.getItem(SETTINGS_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            return { ...DEFAULT_SETTINGS, ...parsed };
-        }
-    } catch { /* ignore */ }
-    return { ...DEFAULT_SETTINGS };
+    const stored = store.get('settings');
+    return stored ? { ...DEFAULT_SETTINGS, ...stored } : { ...DEFAULT_SETTINGS };
 }
 
 export function saveTerminalSettings(settings) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    store.set('settings', settings);
 }
 
 /**

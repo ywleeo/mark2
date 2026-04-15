@@ -12,12 +12,12 @@ import { basename } from '../../utils/pathUtils.js';
 import { writeFile } from '../../api/filesystem.js';
 import { untitledFileManager } from '../untitledFileManager.js';
 import { t } from '../../i18n/index.js';
+import { createStore } from '../../services/storage.js';
 
-const AI_SIDEBAR_STORAGE_KEYS = {
-    width: 'mark2_ai_sidebar_width_v1',
-    chatHistory: 'mark2_ai_chat_history_v1',
-    agentMessages: 'mark2_ai_agent_messages_v1',
-};
+const store = createStore('ai');
+store.migrateFrom('mark2_ai_sidebar_width_v1', 'sidebarWidth', { parse: (raw) => Number(raw) });
+store.migrateFrom('mark2_ai_chat_history_v1', 'chatHistory');
+store.migrateFrom('mark2_ai_agent_messages_v1', 'agentMessages');
 
 const AGENT_MESSAGES_MAX_SIZE = 200_000; // localStorage 字符数上限
 
@@ -211,11 +211,7 @@ function clampSidebarWidth(width) {
  * @returns {number} 上次保存的宽度
  */
 function loadSidebarWidth() {
-    try {
-        return clampSidebarWidth(localStorage.getItem(AI_SIDEBAR_STORAGE_KEYS.width));
-    } catch {
-        return AI_SIDEBAR_DEFAULT_WIDTH;
-    }
+    return clampSidebarWidth(store.get('sidebarWidth', AI_SIDEBAR_DEFAULT_WIDTH));
 }
 
 /**
@@ -223,49 +219,37 @@ function loadSidebarWidth() {
  * @param {number} width - 需要保存的宽度
  */
 function saveSidebarWidth(width) {
-    try {
-        localStorage.setItem(AI_SIDEBAR_STORAGE_KEYS.width, String(clampSidebarWidth(width)));
-    } catch {
-        // 忽略本地存储异常，避免影响主功能
-    }
+    store.set('sidebarWidth', clampSidebarWidth(width));
 }
 
 // ── 聊天持久化 ──────────────────────────────────────────
 function saveChatHistory(history) {
-    try {
-        localStorage.setItem(AI_SIDEBAR_STORAGE_KEYS.chatHistory, JSON.stringify(history));
-    } catch { /* ignore */ }
+    store.set('chatHistory', history);
 }
 
 function loadChatHistory() {
-    try {
-        return JSON.parse(localStorage.getItem(AI_SIDEBAR_STORAGE_KEYS.chatHistory)) || [];
-    } catch { return []; }
+    return store.get('chatHistory', []) || [];
 }
 
 function saveAgentMessages(messages) {
     try {
         const json = JSON.stringify(messages);
         if (json.length <= AGENT_MESSAGES_MAX_SIZE) {
-            localStorage.setItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages, json);
+            store.set('agentMessages', messages);
         } else {
-            // 超限则丢弃 LLM 上下文，仅保留展示历史
-            localStorage.removeItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages);
+            // 超限则丢弃 LLM 上下文,仅保留展示历史
+            store.remove('agentMessages');
         }
     } catch { /* ignore */ }
 }
 
 function loadAgentMessages() {
-    try {
-        return JSON.parse(localStorage.getItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages)) || [];
-    } catch { return []; }
+    return store.get('agentMessages', []) || [];
 }
 
 function clearChatStorage() {
-    try {
-        localStorage.removeItem(AI_SIDEBAR_STORAGE_KEYS.chatHistory);
-        localStorage.removeItem(AI_SIDEBAR_STORAGE_KEYS.agentMessages);
-    } catch { /* ignore */ }
+    store.remove('chatHistory');
+    store.remove('agentMessages');
 }
 
 // ── 内联卡片：对话中的 assistant 消息 ────────────────────

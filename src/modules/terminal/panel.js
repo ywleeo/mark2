@@ -23,10 +23,13 @@ import {
 import { isFeatureEnabled } from '../../config/features.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { t } from '../../i18n/index.js';
+import { createStore } from '../../services/storage.js';
 
-const STORAGE_KEY = 'mark2_terminal_height';
-const WIDTH_KEY = 'mark2_terminal_width';
-const POSITION_KEY = 'mark2_terminal_position';
+const store = createStore('terminal');
+store.migrateFrom('mark2_terminal_height', 'height', { parse: (raw) => parseInt(raw, 10) });
+store.migrateFrom('mark2_terminal_width', 'width', { parse: (raw) => parseInt(raw, 10) });
+store.migrateFrom('mark2_terminal_position', 'position', { parse: 'raw' });
+
 const DEFAULT_HEIGHT = 240;
 const MIN_HEIGHT = 100;
 const MAX_HEIGHT = 600;
@@ -48,7 +51,7 @@ export function createTerminalPanel(options = {}) {
     let currentHeight = DEFAULT_HEIGHT;
     let currentWidth = DEFAULT_WIDTH;
     let currentPosition = (() => {
-        const saved = localStorage.getItem(POSITION_KEY);
+        const saved = store.get('position');
         return VALID_POSITIONS.includes(saved) ? saved : 'bottom';
     })();
     let resizeObserver = null;
@@ -74,13 +77,13 @@ export function createTerminalPanel(options = {}) {
         tabsContainer = panelElement.querySelector('.terminal-tabs');
         if (!panesContainer || !tabsContainer) return;
 
-        const savedHeight = localStorage.getItem(STORAGE_KEY);
-        if (savedHeight) {
-            currentHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, parseInt(savedHeight, 10)));
+        const savedHeight = store.get('height');
+        if (Number.isFinite(savedHeight)) {
+            currentHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, savedHeight));
         }
-        const savedWidth = localStorage.getItem(WIDTH_KEY);
-        if (savedWidth) {
-            currentWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, parseInt(savedWidth, 10)));
+        const savedWidth = store.get('width');
+        if (Number.isFinite(savedWidth)) {
+            currentWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, savedWidth));
         }
         applyPositionStyles();
 
@@ -392,7 +395,7 @@ export function createTerminalPanel(options = {}) {
     function setPosition(pos) {
         if (!VALID_POSITIONS.includes(pos) || pos === currentPosition) return;
         currentPosition = pos;
-        localStorage.setItem(POSITION_KEY, pos);
+        store.set('position', pos);
         applyPositionStyles();
         requestAnimationFrame(() => {
             fitAllPanes();
@@ -448,9 +451,9 @@ export function createTerminalPanel(options = {}) {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
             if (axis === 'y') {
-                localStorage.setItem(STORAGE_KEY, String(currentHeight));
+                store.set('height', currentHeight);
             } else {
-                localStorage.setItem(WIDTH_KEY, String(currentWidth));
+                store.set('width', currentWidth);
             }
             fitAllPanes();
         };

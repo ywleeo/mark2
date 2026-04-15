@@ -1,5 +1,11 @@
 import { MarkdownToolbar } from './index.js';
 import { COMMAND_IDS } from '../../core/commands/commandIds.js';
+import { createStore } from '../../services/storage.js';
+
+const store = createStore('toolbar');
+store.migrateFrom('markdown-toolbar-theme', 'theme', { parse: 'raw' });
+store.migrateFrom('markdown-toolbar-visible', 'visible', { parse: (raw) => raw === 'true' });
+store.migrateFrom('markdown-content-centered', 'contentCentered', { parse: (raw) => raw === 'true' });
 
 /**
  * Markdown工具栏管理器
@@ -467,13 +473,9 @@ export class MarkdownToolbarManager {
         }
 
         // 其次读取上次保存的主题
-        try {
-            const savedTheme = localStorage.getItem('markdown-toolbar-theme');
-            if (savedTheme === 'dark' || savedTheme === 'light') {
-                return savedTheme;
-            }
-        } catch (error) {
-            console.warn('MarkdownToolbarManager: failed to read saved theme', error);
+        const savedTheme = store.get('theme');
+        if (savedTheme === 'dark' || savedTheme === 'light') {
+            return savedTheme;
         }
 
         // 最后回退到系统主题
@@ -485,34 +487,22 @@ export class MarkdownToolbarManager {
      * 从设置中加载可见性
      */
     loadVisibility() {
-        try {
-            const saved = localStorage.getItem('markdown-toolbar-visible');
-            this.isVisible = saved !== null ? saved === 'true' : true;
-        } catch (error) {
-            console.warn('Failed to load toolbar visibility:', error);
-        }
+        const saved = store.get('visible');
+        this.isVisible = saved == null ? true : Boolean(saved);
     }
 
     /**
      * 保存可见性到设置
      */
     saveVisibility() {
-        try {
-            localStorage.setItem('markdown-toolbar-visible', this.isVisible.toString());
-        } catch (error) {
-            console.warn('Failed to save toolbar visibility:', error);
-        }
+        store.set('visible', this.isVisible);
     }
 
     /**
      * 保存主题到设置
      */
     saveTheme(theme) {
-        try {
-            localStorage.setItem('markdown-toolbar-theme', theme);
-        } catch (error) {
-            console.warn('Failed to save toolbar theme:', error);
-        }
+        store.set('theme', theme);
     }
 
     /**

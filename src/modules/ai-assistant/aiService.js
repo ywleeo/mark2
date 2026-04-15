@@ -6,6 +6,10 @@ import {
     startAiProxyStream,
 } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
+import { createStore } from '../../services/storage.js';
+
+const store = createStore('ai');
+store.migrateFrom('ai-config', 'config');
 
 /**
  * 解析 provider 返回的错误载荷，提取统一错误信息。
@@ -90,21 +94,12 @@ class AiService {
     // ── 配置管理 ──────────────────────────────────────────
 
     loadConfig() {
-        const stored = localStorage.getItem('ai-config');
-        let raw = {};
-        if (stored) {
-            try {
-                raw = JSON.parse(stored) || {};
-            } catch (error) {
-                console.warn('[aiService] 无法解析已保存的配置，使用默认值', error);
-            }
-        }
-        return this.normalizeConfig(raw);
+        return this.normalizeConfig(store.get('config', {}) || {});
     }
 
     saveConfig(config) {
         this.config = this.normalizeConfig(config);
-        localStorage.setItem('ai-config', JSON.stringify(this.config));
+        store.set('config', this.config);
         this.notify({ type: 'config', data: this.config });
         return this.config;
     }
