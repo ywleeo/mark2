@@ -80,6 +80,51 @@
     transform: rotate(-90deg);
 }
 
+/* 折叠 + 有内容时显示的小图标提示 */
+.section-has-items-hint {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    margin-left: 4px;
+    color: var(--text-secondary, #888);
+    opacity: 0;
+    transform: translateY(-2px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+
+.section-header.collapsed.has-items .section-has-items-hint {
+    display: inline-flex;
+    opacity: 0.75;
+    transform: translateY(0);
+}
+
+.section-header.collapsed.has-items:hover .section-has-items-hint {
+    opacity: 1;
+    color: var(--text-color, #333);
+}
+
+/* 三条横线依次呼吸，错开时间形成"有东西在下面"的节奏感 */
+.section-has-items-hint .hint-bar {
+    transform-origin: left center;
+    animation: section-hint-breathe 2.4s ease-in-out infinite;
+}
+.section-has-items-hint .hint-bar-1 { animation-delay: 0s; }
+.section-has-items-hint .hint-bar-2 { animation-delay: 0.2s; }
+.section-has-items-hint .hint-bar-3 { animation-delay: 0.4s; }
+
+@keyframes section-hint-breathe {
+    0%, 100% { opacity: 0.45; transform: scaleX(0.85); }
+    50%      { opacity: 1;    transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .section-has-items-hint .hint-bar { animation: none; }
+    .section-has-items-hint { transition: none; }
+}
+
 .section-action-btn {
     display: inline-flex;
     align-items: center;

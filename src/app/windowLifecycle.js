@@ -213,7 +213,10 @@ export function createWindowLifecycle({
 
     async function showWindow() {
         try {
-            await getCurrentWindow().show();
+            const win = getCurrentWindow();
+            await win.show();
+            // 显式 setFocus 确保 updater relaunch 等非用户触发启动场景也能前台显示
+            await win.setFocus();
         } catch { /* ignore */ }
     }
 

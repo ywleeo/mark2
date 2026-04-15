@@ -235,6 +235,13 @@ export class FileTreeRenderer {
             <div class="sidebar-section open-files-section">
                 <div class="section-header" id="openFilesHeader">
                     <span class="section-title">${t('sidebar.openFiles')}</span>
+                    <span class="section-has-items-hint" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                            <line class="hint-bar hint-bar-1" x1="2" y1="4"  x2="10" y2="4"/>
+                            <line class="hint-bar hint-bar-2" x1="2" y1="6.5" x2="9"  y2="6.5"/>
+                            <line class="hint-bar hint-bar-3" x1="2" y1="9"  x2="7"  y2="9"/>
+                        </svg>
+                    </span>
                     <div class="section-header-actions">
                         <span class="section-collapse-indicator" aria-hidden="true">
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -262,6 +269,13 @@ export class FileTreeRenderer {
             <div class="sidebar-section folders-section">
                 <div class="section-header" id="foldersHeader">
                     <span class="section-title">${t('sidebar.folders')}</span>
+                    <span class="section-has-items-hint" aria-hidden="true">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                            <line class="hint-bar hint-bar-1" x1="2" y1="4"  x2="10" y2="4"/>
+                            <line class="hint-bar hint-bar-2" x1="2" y1="6.5" x2="9"  y2="6.5"/>
+                            <line class="hint-bar hint-bar-3" x1="2" y1="9"  x2="7"  y2="9"/>
+                        </svg>
+                    </span>
                     <div class="section-header-actions">
                         <span class="section-collapse-indicator" aria-hidden="true">
                             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -285,6 +299,28 @@ export class FileTreeRenderer {
                 <div class="section-content" id="foldersContent"></div>
             </div>
         `;
+
+        this._observeSectionContent('openFilesContent', 'openFilesHeader');
+        this._observeSectionContent('foldersContent', 'foldersHeader');
+    }
+
+    /**
+     * 观察 section 内容变化，在有内容时给 header 添加 .has-items 类，
+     * 用于折叠状态下显示小圆点提示。
+     */
+    _observeSectionContent(contentId, headerId) {
+        const content = this.fileTree.container.querySelector(`#${contentId}`);
+        const header = this.fileTree.container.querySelector(`#${headerId}`);
+        if (!content || !header) return;
+
+        const sync = () => {
+            header.classList.toggle('has-items', content.children.length > 0);
+        };
+        sync();
+
+        const observer = new MutationObserver(sync);
+        observer.observe(content, { childList: true });
+        this.fileTree.cleanupFunctions.push(() => observer.disconnect());
     }
 
     /**

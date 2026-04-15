@@ -1,5 +1,15 @@
 {
   "app": {
     "windows": []
+  },
+  "bundle": {
+    "targets": ["nsis"]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://mark2app.com/api/app/version?platform=win"
+      ]
+    }
   }
 }

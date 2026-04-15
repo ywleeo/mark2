@@ -186,6 +186,7 @@
     "settings.kb.scratchpad": "Toggle Scratchpad",
     "settings.kb.terminal": "Toggle Terminal",
     "settings.kb.ai": "Toggle AI Assistant",
+    "settings.kb.toc": "Toggle Table of Contents",
     "settings.kb.settings": "Settings",
     "settings.kb.selectAllMatches": "Select All Matches",
 
