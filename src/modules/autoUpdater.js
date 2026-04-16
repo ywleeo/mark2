@@ -11,7 +11,7 @@ const store = createStore('autoUpdater');
 store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Number(raw) });
 
 const CHECK_DELAY_MS = 5000;
-const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1h
 const DOWNLOAD_MAX_ATTEMPTS = 3;
 const DOWNLOAD_RETRY_DELAY_MS = 2000;
 
