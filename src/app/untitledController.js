@@ -58,7 +58,7 @@ export function createUntitledController({
             if (editor) {
                 editor.prepareForDocument(null, untitledPath, untitledPath);
                 activateMarkdownView();
-                setTimeout(() => editor.focus?.(), 50);
+                await editor.loadFile(untitledPath, '', null, { tabId: untitledPath });
             }
         } else {
             const codeEditor = getCodeEditor();
