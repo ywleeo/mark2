@@ -3,6 +3,8 @@
  * 只负责按键与命令 ID 的映射，不实现任何业务行为。
  */
 
+import { isMac } from '../../utils/platform.js';
+
 /**
  * 规范化快捷键 token。
  * @param {string} token - 原始 token
@@ -75,7 +77,7 @@ function getEventKey(event) {
  */
 function matchesBinding(binding, event) {
     const requiresMod = binding.modifiers.mod;
-    const hasMod = Boolean(event.metaKey || event.ctrlKey);
+    const hasMod = isMac ? Boolean(event.metaKey) : Boolean(event.ctrlKey);
 
     if (requiresMod !== hasMod) {
         return false;

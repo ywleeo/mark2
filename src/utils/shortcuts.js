@@ -1,3 +1,5 @@
+import { isMac } from './platform.js';
+
 export function setupKeyboardShortcuts({
     onOpen,
     onSave,
@@ -13,7 +15,7 @@ export function setupKeyboardShortcuts({
     onToggleScratchpad,
 }) {
     const handler = async (event) => {
-        const isMeta = event.metaKey || event.ctrlKey;
+        const isMeta = isMac ? event.metaKey : event.ctrlKey;
         const key = typeof event.key === 'string' ? event.key.toLowerCase() : '';
 
         if (isMeta && key === 'o') {
