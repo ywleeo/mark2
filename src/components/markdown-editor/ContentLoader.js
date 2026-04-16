@@ -340,8 +340,7 @@ export class ContentLoader {
             if (!resolvedPath) continue;
 
             try {
-                // 不弹权限对话框，避免阻塞异步流程
-                const binary = await readBinaryFromFs(resolvedPath);
+                const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
                 const objectUrl = createImageObjectUrl(binary, resolvedPath);
                 if (!objectUrl) continue;
                 registerImageObjectUrl(objectUrl);
