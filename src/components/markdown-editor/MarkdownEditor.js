@@ -93,6 +93,10 @@ export class MarkdownEditor {
     // ─── 初始化 ────────────────────────────────────────────────────────────────
 
     init() {
+        // 延迟引用：parser 在 Editor 创建后才能实例化（依赖 schema），
+        // 但 clipboardTextParser 需要在 editorProps 中提前声明，所以用闭包桥接。
+        let mdParser = null;
+
         this.editor = new Editor({
             element: this.element,
             extensions: createEditorExtensions(this._lowlight, {
@@ -105,6 +109,11 @@ export class MarkdownEditor {
             parseOptions: { preserveWhitespace: 'full' },
             editorProps: {
                 attributes: { class: 'tiptap-editor', 'data-markdown-editor-host': 'true' },
+                clipboardTextParser(text, context, plain) {
+                    if (plain || !mdParser) return null;
+                    const doc = mdParser.parse(text);
+                    return doc?.content ?? null;
+                },
             },
             onCreate: () => this.codeCopyManager?.scheduleCodeBlockCopyUpdate(),
             onUpdate: () => {
@@ -119,6 +128,7 @@ export class MarkdownEditor {
         });
 
         const markdownParser = createMarkdownParser(this.editor.schema);
+        mdParser = markdownParser;
         const markdownSerializer = createMarkdownSerializer(this.editor.schema);
 
         // ── Feature managers ──
