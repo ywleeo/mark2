@@ -795,17 +795,29 @@ export class AiSidebar {
             this.inputEl.removeEventListener('keydown', onKeydown);
         });
 
-        // 自动滚动：用户向上滚动时暂停，滚回底部时恢复
+        // 自动滚动：用户向上滚动时暂停，停止滚动 5s 后自动恢复
         const listContainer = this.el.querySelector('.ai-conversation-list');
         if (listContainer) {
             listContainer._shouldAutoScroll = true;
             const BOTTOM_THRESHOLD = 40;
+            const AUTO_RESUME_DELAY = 5000;
+            let resumeTimer = null;
             const onScroll = () => {
                 const { scrollTop, scrollHeight, clientHeight } = listContainer;
-                listContainer._shouldAutoScroll = scrollHeight - scrollTop - clientHeight < BOTTOM_THRESHOLD;
+                const atBottom = scrollHeight - scrollTop - clientHeight < BOTTOM_THRESHOLD;
+                listContainer._shouldAutoScroll = atBottom;
+                clearTimeout(resumeTimer);
+                if (!atBottom) {
+                    resumeTimer = setTimeout(() => {
+                        listContainer._shouldAutoScroll = true;
+                    }, AUTO_RESUME_DELAY);
+                }
             };
             listContainer.addEventListener('scroll', onScroll);
-            this._cleanups.push(() => listContainer.removeEventListener('scroll', onScroll));
+            this._cleanups.push(() => {
+                listContainer.removeEventListener('scroll', onScroll);
+                clearTimeout(resumeTimer);
+            });
         }
     }
 
@@ -971,9 +983,6 @@ export class AiSidebar {
         }
 
         this.inputEl.value = '';
-        // 用户发送新消息时恢复自动滚动
-        const listContainer = this.el.querySelector('.ai-conversation-list');
-        if (listContainer) listContainer._shouldAutoScroll = true;
         this._appendUserMessage(text);
         this.processingPath = this.getAppState().getCurrentFile() || null;
         this.processingTabId = this.getAppState().getTabManager?.()?.activeTabId || null;
