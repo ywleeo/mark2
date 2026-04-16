@@ -485,6 +485,7 @@ export function createFileOperations({
             autoFocus = true,
             suppressMissingFileErrors = false,
         } = options;
+
         const session = documentSessions.beginSession(filePath);
         const sessionId = session?.id ?? null;
         logger?.info?.('loadFile:start', {
@@ -619,10 +620,9 @@ export function createFileOperations({
                     }
                 }
                 setHasUnsavedChanges(untitledContent.trim().length > 0);
-                await updateWindowTitle();
-                if (shouldAbort('untitled-title')) {
-                    return;
-                }
+                // 不 await updateWindowTitle：Tauri 的 win.setTitle() 会调用原生窗口 API，
+                // macOS 上可能导致 WebView 焦点丢失。标题更新不需要阻塞加载流程。
+                void updateWindowTitle();
                 markSessionReady();
                 logger?.info?.('loadFile:done', {
                     path: filePath,

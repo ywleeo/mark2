@@ -421,6 +421,7 @@ const untitledController = createUntitledController({
     activateCodeView,
     getUpdateWindowTitle: () => updateWindowTitle,
     getSaveCurrentEditorContentToCache: () => saveCurrentEditorContentToCache,
+    getLoadFile: () => loadFile,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
 });

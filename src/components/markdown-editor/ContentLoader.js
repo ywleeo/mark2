@@ -1,4 +1,3 @@
-import { EditorState } from '@tiptap/pm/state';
 import {
     createImageObjectUrl,
     drainImageObjectUrls,
@@ -156,13 +155,14 @@ export class ContentLoader {
                 } finally {
                     this.setUpdateSuppressed(false);
                 }
-                if (autoFocus) this.getEditor().commands.focus();
-
                 // 恢复的 EditorState 中 blob URL 可能已失效，异步重新解析（不阻塞 pipeline）
                 this._resolveImageNodes(sessionId).catch((err) => {
                     console.warn('[ContentLoader] tab 恢复后图片解析失败:', err);
                 });
                 this.onAfterLoad();
+
+                // 同步 focus 放在最后——不用 commands.focus()（内部 rAF 延迟）
+                if (autoFocus) this.getEditor().view.focus();
 
                 const searchBoxVisible = this.getSearchBoxManager()?.searchBox?.classList.contains('is-visible');
                 if (!searchBoxVisible && this.getEditor()?.commands?.clearSearch) {
@@ -192,7 +192,7 @@ export class ContentLoader {
 
     /**
      * 将 Markdown 文本加载到编辑器。
-     * resetHistory=true 时清空撤销历史（首次打开文件）。
+     * resetHistory=true 时使用 setContent 替换整个文档（首次打开文件）。
      */
     async setContent(markdown, shouldFocusStart = true, { resetHistory = false, preserveOriginalMarkdown = false } = {}) {
         const sessionId = this.currentSessionId;
@@ -237,22 +237,19 @@ export class ContentLoader {
                 editor.commands.setContent('');
             }
 
-            if (shouldFocusStart) {
-                editor.commands.focus('start');
-            } else if (previousSelection) {
+            this.getTrailingParagraphManager()?.ensure();
+
+            if (!shouldFocusStart && previousSelection) {
                 const docSize = Math.max(0, editor.state.doc?.content?.size ?? 0);
                 const clamp = (v) => Math.max(0, Math.min(Number.isFinite(v) ? v : 0, docSize));
                 editor.commands.setTextSelection({ from: clamp(previousSelection.from), to: clamp(previousSelection.to) });
             }
-
-            this.getTrailingParagraphManager()?.ensure();
         } finally {
             this.setUpdateSuppressed(false);
         }
 
         this.onContentChange();
         this.onAfterLoad();
-        if (resetHistory) this._resetUndoHistory();
 
         // 图片解析移到关键路径之外，不阻塞 loadPipeline
         this._resolveImageNodes(sessionId)
@@ -261,6 +258,13 @@ export class ContentLoader {
                 revokeUrls(staleUrls);
                 console.warn('[ContentLoader] 图片解析失败:', err);
             });
+
+        // 不用 TipTap 的 commands.focus('start')——它内部用 requestAnimationFrame
+        // 延迟执行 view.focus()，导致 focus 不是同步的最后一步。
+        // 直接用 ProseMirror 底层 API 同步 focus，与 CodeMirror 的 editor.focus() 对齐。
+        if (shouldFocusStart) {
+            editor.view.focus();
+        }
 
         return true;
     }
@@ -360,17 +364,6 @@ export class ContentLoader {
         } else if (changed) {
             revokeUrls(createdUrls);
         }
-    }
-
-    _resetUndoHistory() {
-        const editor = this.getEditor();
-        if (!editor?.view) return;
-        const { state } = editor;
-        editor.view.updateState(EditorState.create({
-            doc: state.doc,
-            plugins: state.plugins,
-            selection: state.selection,
-        }));
     }
 
     /**

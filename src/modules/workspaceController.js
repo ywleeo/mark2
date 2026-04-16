@@ -197,12 +197,17 @@ export function createWorkspaceController({
                 return;
             }
 
+            const content = untitledFileManager.getContent?.(path) || '';
+            // 空 untitled tab 不持久化——下次启动没必要恢复一个空编辑器
+            if (!content.trim()) {
+                return;
+            }
             snapshotMap.set(path, {
                 path,
                 label: typeof tab.label === 'string'
                     ? tab.label
                     : (untitledFileManager.getDisplayName?.(path) || path),
-                content: untitledFileManager.getContent?.(path) || '',
+                content,
                 hasChanges: untitledFileManager.hasUnsavedChanges?.(path) || false,
             });
         });
