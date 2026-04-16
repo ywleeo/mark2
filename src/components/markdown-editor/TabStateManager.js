@@ -68,7 +68,14 @@ export class TabStateManager {
         } = snapshot;
 
         if (editorState && savedMarkdown === currentMarkdown) {
-            editor.view.updateState(editorState);
+            try {
+                editor.view.updateState(editorState);
+            } catch (err) {
+                // EditorState 可能因插件变更而过期，丢弃并走 setContent 重建路径
+                console.warn('[TabStateManager] 恢复 EditorState 失败，丢弃缓存:', err);
+                this._states.delete(tabId);
+                return false;
+            }
             this._setOriginalMarkdown(originalMarkdown);
             this._setContentChanged(Boolean(contentChanged));
             const scrollContainer = this._getScrollContainer();

@@ -158,8 +158,10 @@ export class ContentLoader {
                 }
                 if (autoFocus) this.getEditor().commands.focus();
 
-                // 恢复的 EditorState 中 blob URL 可能已失效，需重新解析
-                await this._resolveImageNodes(sessionId);
+                // 恢复的 EditorState 中 blob URL 可能已失效，异步重新解析（不阻塞 pipeline）
+                this._resolveImageNodes(sessionId).catch((err) => {
+                    console.warn('[ContentLoader] tab 恢复后图片解析失败:', err);
+                });
                 this.onAfterLoad();
 
                 const searchBoxVisible = this.getSearchBoxManager()?.searchBox?.classList.contains('is-visible');
@@ -179,10 +181,11 @@ export class ContentLoader {
                 this.getSearchBoxManager()?.refreshSearchOnDocumentChange();
             }
         } finally {
+            // 无条件重置，防止 session 被替换后 isLoadingFile 永远为 true
             if (this.loadingSessionId === sessionId) {
                 this.loadingSessionId = null;
-                this.isLoadingFile = false;
             }
+            this.isLoadingFile = false;
             if (typeof onReady === 'function') requestAnimationFrame(() => onReady());
         }
     }
@@ -234,9 +237,6 @@ export class ContentLoader {
                 editor.commands.setContent('');
             }
 
-            await this._resolveImageNodes(sessionId);
-            revokeUrls(staleUrls);
-
             if (shouldFocusStart) {
                 editor.commands.focus('start');
             } else if (previousSelection) {
@@ -253,6 +253,14 @@ export class ContentLoader {
         this.onContentChange();
         this.onAfterLoad();
         if (resetHistory) this._resetUndoHistory();
+
+        // 图片解析移到关键路径之外，不阻塞 loadPipeline
+        this._resolveImageNodes(sessionId)
+            .then(() => revokeUrls(staleUrls))
+            .catch((err) => {
+                revokeUrls(staleUrls);
+                console.warn('[ContentLoader] 图片解析失败:', err);
+            });
 
         return true;
     }
@@ -306,9 +314,14 @@ export class ContentLoader {
 
         const tr = editor.state.tr;
         let changed = false;
+        const createdUrls = [];
 
         for (const { node, pos } of imageEntries) {
-            if (sessionId && sessionId !== this.currentSessionId) return;
+            if (sessionId && sessionId !== this.currentSessionId) {
+                // session 已切换，释放本次创建的 blob URL 并中断
+                revokeUrls(createdUrls);
+                return;
+            }
 
             const originalSrc = node.attrs?.dataOriginalSrc || node.attrs?.src || '';
             if (!originalSrc) continue;
@@ -327,10 +340,12 @@ export class ContentLoader {
             if (!resolvedPath) continue;
 
             try {
-                const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
+                // 不弹权限对话框，避免阻塞异步流程
+                const binary = await readBinaryFromFs(resolvedPath);
                 const objectUrl = createImageObjectUrl(binary, resolvedPath);
                 if (!objectUrl) continue;
                 registerImageObjectUrl(objectUrl);
+                createdUrls.push(objectUrl);
                 nextAttrs.src = objectUrl;
                 tr.setNodeMarkup(pos, null, nextAttrs);
                 changed = true;
@@ -339,9 +354,12 @@ export class ContentLoader {
             }
         }
 
-        if (changed) {
+        // dispatch 前再检查一次 session，防止往已切走的编辑器写入
+        if (changed && (!sessionId || sessionId === this.currentSessionId)) {
             tr.setMeta('addToHistory', false);
             editor.view.dispatch(tr);
+        } else if (changed) {
+            revokeUrls(createdUrls);
         }
     }
 

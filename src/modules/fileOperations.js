@@ -494,6 +494,7 @@ export function createFileOperations({
             forceReload,
             autoFocus,
         });
+        let preparedEditors = false;
         const shouldAbort = (phase) => {
             if (!sessionId) {
                 return false;
@@ -504,6 +505,11 @@ export function createFileOperations({
                     phase,
                     sessionId,
                 });
+                // prepareForDocument 已把编辑器置为 editable=false + 清空内容，
+                // abort 时恢复 editable，避免下一个 load 到来前编辑器卡在不可编辑状态。
+                if (preparedEditors) {
+                    try { getEditor()?.setEditable?.(true); } catch (_) { /* ignore */ }
+                }
                 return true;
             }
             return false;
@@ -588,6 +594,7 @@ export function createFileOperations({
             const unsupportedViewer = getUnsupportedViewer();
             editor?.prepareForDocument?.(session, filePath, tabId);
             codeEditor?.prepareForDocument?.(session, filePath, tabId);
+            preparedEditors = true;
             // 关闭旧文件可能仍在等待自动保存，提前清除避免写入到新文件
             editor?.clearAutoSaveTimer?.();
 
