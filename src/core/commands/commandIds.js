@@ -39,7 +39,6 @@ export const COMMAND_IDS = Object.freeze({
     VIEW_TOGGLE_STATUS_BAR: 'view.toggleStatusBar',
     VIEW_TOGGLE_SOURCE_MODE: 'view.toggleSourceMode',
     TOOLBAR_TOGGLE_MARKDOWN: 'toolbar.toggleMarkdown',
-    FEATURE_CARD_EXPORT_OPEN: 'feature.cardExport.open',
     FEATURE_TERMINAL_TOGGLE: 'feature.terminal.toggle',
     FEATURE_TERMINAL_SHOW_HISTORY: 'feature.terminal.showHistory',
     FEATURE_AI_TOGGLE: 'feature.ai.toggle',

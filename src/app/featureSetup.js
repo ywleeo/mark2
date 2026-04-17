@@ -5,7 +5,7 @@
 
 import { createTerminalPanel } from '../modules/terminal/panel.js';
 import { createScratchpadPanel } from '../modules/scratchpadPanel.js';
-import { initCardExportSidebar } from '../modules/card-export/index.js';
+import { initCardExport } from '../modules/card-export/index.js';
 import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';
 
 /**
@@ -26,12 +26,11 @@ export function registerCoreFeatures(options = {}) {
 
     register({
         id: 'card-export',
-        title: '卡片导出侧边栏',
-        contributes: { sidebar: true },
-        async mount() {
-            return await initCardExportSidebar();
+        title: '卡片导出',
+        mount() {
+            return initCardExport();
         },
-        async unmount(api) {
+        unmount(api) {
             api?.destroy?.();
         },
     });

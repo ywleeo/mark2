@@ -1,7 +1,7 @@
 /**
  * 卡片导出的底层渲染 pipeline。
  * 负责把预览 DOM 转成 PNG dataUrl:处理图片内联化、字号补偿、背景样式内联。
- * 不负责文件保存/状态展示,那些由 CardSidebar.handleExport 编排。
+ * 不负责文件保存/状态展示,那些由 CardExportFlow._handleExport 编排。
  */
 
 import { ensureToPng } from '../../app/coreModules.js';

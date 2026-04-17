@@ -265,7 +265,7 @@ const viewController = createViewController({
         void updateExportMenuState();
         handleToolbarOnViewModeChange(nextMode);
         if (nextMode !== 'markdown' && nextMode !== 'split') {
-            featureManager.getFeatureApi('card-export')?.hideSidebar?.();
+            featureManager.getFeatureApi('card-export')?.hide?.();
         }
         // TOC 仅在 markdown 视图下可用
         const tocBtn = document.getElementById('statusBarToc');
@@ -363,7 +363,6 @@ const toolbarController = createToolbarController({
 const {
     getToolbarEditorInstance,
     toggleMarkdownToolbar,
-    showCardExportSidebar,
     handleToolbarOnViewModeChange,
     handleToolbarOnFileChange,
     handleCardSidebarOnFileChange,
@@ -607,7 +606,6 @@ bootstrap = createAppBootstrap({
     syncToolbarWithCurrentContext,
     getToolbarEditorInstance,
     toggleMarkdownToolbar,
-    showCardExportSidebar,
     viewManager,
     activateMarkdownView,
     activateCodeView,

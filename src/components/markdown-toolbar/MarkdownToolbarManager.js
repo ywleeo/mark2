@@ -84,7 +84,6 @@ export class MarkdownToolbarManager {
                 'separator',
                 'clearFormatting',
                 'emoji',
-                'cardExport',
                 'separator',
                 'centerContent',
                 'copyMarkdown',
@@ -362,12 +361,6 @@ export class MarkdownToolbarManager {
                 this.copyMarkdown();
                 return;
             }
-            if (action === 'cardExport') {
-                if (this.dispatchCommand(COMMAND_IDS.FEATURE_CARD_EXPORT_OPEN, action)) {
-                    return;
-                }
-                this.onCardExport?.();
-            }
         });
     }
 
@@ -552,14 +545,6 @@ export class MarkdownToolbarManager {
      */
     setToggleViewModeCallback(callback) {
         this.onToggleViewMode = callback;
-    }
-
-    /**
-     * 设置卡片导出回调
-     * @param {Function} callback - 回调函数
-     */
-    setCardExportCallback(callback) {
-        this.onCardExport = callback;
     }
 
     /**

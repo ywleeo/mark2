@@ -1,22 +1,20 @@
-import { createCardSidebarLayoutService } from './layoutService.js';
-import { CardSidebar } from './CardSidebar.js';
+import { CardExportFlow } from './CardExportFlow.js';
+import { EditorContextMenu } from './EditorContextMenu.js';
 
-export async function initCardExportSidebar() {
-    const layoutService = createCardSidebarLayoutService();
-    const cardSidebar = new CardSidebar({ layoutService });
-    const sidebarElement = cardSidebar.render();
-    const searchBox = document.querySelector('.search-box');
-    if (searchBox?.parentNode) {
-        searchBox.parentNode.insertBefore(sidebarElement, searchBox);
-    } else {
-        document.body.appendChild(sidebarElement);
-    }
+export function initCardExport() {
+    const flow = new CardExportFlow();
+    flow.mount();
+
+    const contextMenu = new EditorContextMenu({
+        onGenerateCard: ({ text, html }) => flow.open({ text, html }),
+    });
 
     return {
-        showSidebar: () => cardSidebar.show(),
-        hideSidebar: () => cardSidebar.hide(),
-        toggleSidebar: () => cardSidebar.toggle(),
-        layoutService,
-        destroy: () => cardSidebar.destroy(),
+        open: ({ text, html }) => flow.open({ text, html }),
+        hide: () => flow.hide(),
+        destroy: () => {
+            flow.destroy();
+            contextMenu.destroy();
+        },
     };
 }

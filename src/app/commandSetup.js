@@ -73,7 +73,6 @@ export function registerCoreCommands(options = {}) {
         return await handlers.onToggleMarkdownCodeView?.();
     }, '切换源码视图');
     register(COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, () => handlers.onToggleMarkdownToolbar?.(), '切换 Markdown 工具栏');
-    register(COMMAND_IDS.FEATURE_CARD_EXPORT_OPEN, () => handlers.onOpenCardExport?.(), '打开卡片导出侧边栏');
     register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, () => handlers.onToggleTerminal?.(), '切换终端面板');
     register(COMMAND_IDS.FEATURE_TERMINAL_SHOW_HISTORY, () => handlers.onToggleTerminalHistory?.(), '显示终端历史');
     register(COMMAND_IDS.FEATURE_AI_TOGGLE, () => handlers.onToggleAiSidebar?.(), '切换 AI 侧边栏');

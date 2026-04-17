@@ -150,7 +150,6 @@ export function createCommandHandlers(deps) {
         onCloseTab: closeActiveTab,
         onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleCsvTableView: toggleCsvTableMode,
-        onOpenCardExport: showCardExportSidebar,
         onToggleScratchpad: () => featureManager?.getFeatureApi?.('scratchpad')?.toggle?.(),
         onToggleToc: () => appState.getMarkdownToolbarManager()?.toggleToc?.(),
         onCreateWorkspaceFile: ({ path }) => appState.getFileTree()?.createFileInFolder?.(path),

@@ -134,13 +134,6 @@ export const BUTTON_CONFIG = {
         </svg>`,
         title: t('toolbar.emoji')
     },
-    cardExport: {
-        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="5" width="16" height="14" rx="3"></rect>
-            <path d="M8 9H16M8 13H13"></path>
-        </svg>`,
-        title: t('toolbar.cardExport')
-    },
     copyMarkdown: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" />
@@ -191,7 +184,6 @@ export const DEFAULT_BUTTONS = [
     'codeBlock',
     'clearFormatting',
     'emoji',
-    'cardExport',
     'separator',
     'toggleViewMode'
 ];
