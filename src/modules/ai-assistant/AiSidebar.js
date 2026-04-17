@@ -61,6 +61,18 @@ function shouldShowToolError(result) {
     return Boolean(result.userActionRequired || result.blocking || result.fatal);
 }
 
+/** 格式化工具执行耗时：< 1s → "< 1s"，否则 "1.2s" / "5s" / "1m 3s" */
+function formatToolElapsed(startTime) {
+    const ms = Date.now() - startTime;
+    if (ms < 1000) return '< 1s';
+    const sec = ms / 1000;
+    if (sec < 10) return `${sec.toFixed(1)}s`;
+    if (sec < 60) return `${Math.round(sec)}s`;
+    const min = Math.floor(sec / 60);
+    const rem = Math.round(sec % 60);
+    return rem ? `${min}m ${rem}s` : `${min}m`;
+}
+
 // ── 简单行级 diff（LCS算法） ──────────────────────────────
 function diffLines(oldText, newText) {
     const a = oldText.split('\n');
@@ -254,7 +266,8 @@ function clearChatStorage() {
 
 // ── 内联卡片：对话中的 assistant 消息 ────────────────────
 class AssistantCard {
-    constructor(listEl) {
+    constructor(listEl, { onDelete } = {}) {
+        this.onDelete = onDelete;
         this.el = document.createElement('div');
         this.el.className = 'ai-message ai-message-assistant';
         this.el.innerHTML = `
@@ -374,10 +387,11 @@ class AssistantCard {
             this.currentContentEl.remove();
             this.currentContentEl = null;
         }
-        // 给所有文字内容块加复制按钮
-        this.bodyEl.querySelectorAll('.ai-message-content.ai-message-markdown').forEach(el => {
-            if (!el.querySelector('.ai-message-copy-btn')) appendCopyButton(el);
-        });
+        // 给整个消息容器加操作按钮
+        if (!this.el.querySelector('.ai-message-actions-bar')) {
+            const contentEls = this.bodyEl.querySelectorAll('.ai-message-content.ai-message-markdown');
+            if (contentEls.length > 0) appendMessageActions(this.el, this.bodyEl, { onDelete: this.onDelete });
+        }
     }
 
     addToolCard({ id, name }) {
@@ -392,23 +406,24 @@ class AssistantCard {
             <span class="ai-tool-card-status">${statusText}</span>
         `;
         this.bodyEl.insertBefore(card, this.loadingEl);
-        this.toolCards.set(id, { el: card });
+        this.toolCards.set(id, { el: card, startTime: Date.now() });
         scrollToBottom(this.el);
     }
 
     updateToolCard({ id, name, result }) {
         const entry = this.toolCards.get(id);
         if (!entry) return;
-        const { el } = entry;
+        const { el, startTime } = entry;
         el.classList.remove('ai-tool-card-running');
 
+        const elapsed = formatToolElapsed(startTime);
         const statusEl = el.querySelector('.ai-tool-card-status');
         if (shouldShowToolError(result)) {
             el.classList.add('ai-tool-card-error');
             statusEl.textContent = t('ai.status.fail', { error: result.error });
         } else if (result?.error) {
             el.classList.add('ai-tool-card-done');
-            statusEl.textContent = t('ai.status.done');
+            statusEl.textContent = elapsed;
             console.warn('[AiSidebar] 工具执行失败，已交由 agent 自行处理', {
                 tool: name,
                 error: result.error,
@@ -418,7 +433,7 @@ class AssistantCard {
             statusEl.textContent = t('ai.status.cancelled');
         } else {
             el.classList.add('ai-tool-card-done');
-            statusEl.textContent = t('ai.status.done');
+            statusEl.textContent = elapsed;
         }
         scrollToBottom(this.el);
     }
@@ -439,11 +454,11 @@ class AssistantCard {
      */
     addDiffCard({ path, oldContent, newContent }) {
         // diff 出现 = 内容已生成完毕，把 running 工具卡改为「完成」
-        for (const { el } of this.toolCards.values()) {
+        for (const { el, startTime } of this.toolCards.values()) {
             if (el.classList.contains('ai-tool-card-running')) {
                 el.classList.remove('ai-tool-card-running');
                 el.classList.add('ai-tool-card-done');
-                el.querySelector('.ai-tool-card-status').textContent = t('ai.status.done');
+                el.querySelector('.ai-tool-card-status').textContent = formatToolElapsed(startTime);
             }
         }
         return new Promise((resolve) => {
@@ -572,7 +587,7 @@ function escapeHtml(text) {
  * 从原始文本构造用户消息 DOM。
  * 全部走 createElement + textContent,避免从不可信数据拼 innerHTML。
  */
-function buildUserMessageElement(text) {
+function buildUserMessageElement(text, { onDelete } = {}) {
     const el = document.createElement('div');
     el.className = 'ai-message ai-message-user';
 
@@ -586,7 +601,7 @@ function buildUserMessageElement(text) {
     contentEl.textContent = text;
     el.appendChild(contentEl);
 
-    appendCopyButton(contentEl);
+    appendMessageActions(el, contentEl, { onDelete });
     return el;
 }
 
@@ -595,7 +610,7 @@ function buildUserMessageElement(text) {
  * 唯一的 innerHTML 来源是 md.render(),且 MarkdownIt 配置为 html: false,
  * 会把任何原始 HTML 标签当纯文本转义。
  */
-function buildAssistantMessageElement(markdown) {
+function buildAssistantMessageElement(markdown, { onDelete } = {}) {
     const el = document.createElement('div');
     el.className = 'ai-message ai-message-assistant';
 
@@ -613,30 +628,47 @@ function buildAssistantMessageElement(markdown) {
     bodyEl.appendChild(contentEl);
 
     el.appendChild(bodyEl);
-    appendCopyButton(contentEl);
+    appendMessageActions(el, bodyEl, { onDelete });
     return el;
 }
 
-function appendCopyButton(containerEl) {
-    const btn = document.createElement('button');
-    btn.className = 'ai-message-copy-btn';
-    btn.type = 'button';
-    const copyLabel = t('ai.copy');
-    const copiedLabel = t('ai.copied');
-    btn.textContent = copyLabel;
-    addClickHandler(btn, () => {
-        const stripRe = new RegExp(`${copyLabel}$|${copiedLabel}$`);
-        const text = containerEl.textContent.replace(stripRe, '').trim();
+const AI_COPY_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+const AI_COPY_CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+const AI_DELETE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>';
+
+function appendMessageActions(messageEl, copySourceEl, { onDelete } = {}) {
+    const bar = document.createElement('div');
+    bar.className = 'ai-message-actions-bar';
+
+    // copy
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'ai-msg-action-btn';
+    copyBtn.type = 'button';
+    copyBtn.innerHTML = AI_COPY_ICON;
+    addClickHandler(copyBtn, () => {
+        const text = copySourceEl.textContent.trim();
         navigator.clipboard.writeText(text).then(() => {
-            btn.textContent = copiedLabel;
-            btn.classList.add('is-copied');
+            copyBtn.innerHTML = AI_COPY_CHECK_ICON;
+            copyBtn.classList.add('is-copied');
             setTimeout(() => {
-                btn.textContent = copyLabel;
-                btn.classList.remove('is-copied');
+                copyBtn.innerHTML = AI_COPY_ICON;
+                copyBtn.classList.remove('is-copied');
             }, 1500);
         });
     });
-    containerEl.appendChild(btn);
+    bar.appendChild(copyBtn);
+
+    // delete
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ai-msg-action-btn ai-msg-delete-btn';
+    delBtn.type = 'button';
+    delBtn.innerHTML = AI_DELETE_ICON;
+    addClickHandler(delBtn, () => {
+        if (onDelete) onDelete(messageEl);
+    });
+    bar.appendChild(delBtn);
+
+    messageEl.appendChild(bar);
 }
 
 function scrollToBottom(refEl, force = false) {
@@ -716,10 +748,11 @@ export class AiSidebar {
         this.chatHistory = history;
         this.agentMessages = loadAgentMessages();
         this.emptyEl.style.display = 'none';
+        const onDelete = (msgEl) => this._deleteMessage(msgEl);
         for (const entry of history) {
             const el = entry.role === 'user'
-                ? buildUserMessageElement(entry.text || '')
-                : buildAssistantMessageElement(entry.markdown || '');
+                ? buildUserMessageElement(entry.text || '', { onDelete })
+                : buildAssistantMessageElement(entry.markdown || '', { onDelete });
             if (el) this.listEl.appendChild(el);
         }
         const listContainer = this.el.querySelector('.ai-conversation-list');
@@ -998,7 +1031,7 @@ export class AiSidebar {
 
         this.agentMessages.push({ role: 'user', content: text });
 
-        const card = new AssistantCard(this.listEl);
+        const card = new AssistantCard(this.listEl, { onDelete: (msgEl) => this._deleteMessage(msgEl) });
         this._activeCard = card;
         this.emptyEl.style.display = 'none';
 
@@ -1051,6 +1084,35 @@ export class AiSidebar {
         clearChatStorage();
     }
 
+    _deleteMessage(msgEl) {
+        if (this.isProcessing) return;
+        // 找到 DOM 索引（只算 .ai-message-user 和 .ai-message-assistant）
+        const allMsgEls = [...this.listEl.querySelectorAll('.ai-message-user, .ai-message-assistant')];
+        const idx = allMsgEls.indexOf(msgEl);
+        if (idx !== -1) this.chatHistory.splice(idx, 1);
+        msgEl.remove();
+        // 从 chatHistory 重建 agentMessages（最可靠）
+        this._rebuildAgentMessages();
+        this._persistChat();
+        if (!this.listEl.querySelector('.ai-message')) {
+            this.emptyEl.style.display = '';
+        }
+    }
+
+    _rebuildAgentMessages() {
+        // 保留 system prompt（第一条）
+        const system = this.agentMessages.find(m => m.role === 'system');
+        const rebuilt = system ? [system] : [];
+        for (const entry of this.chatHistory) {
+            if (entry.role === 'user') {
+                rebuilt.push({ role: 'user', content: entry.text || '' });
+            } else if (entry.role === 'assistant') {
+                rebuilt.push({ role: 'assistant', content: entry.markdown || '' });
+            }
+        }
+        this.agentMessages = rebuilt;
+    }
+
     // ── 工具回调 ──────────────────────────────────────────
 
     async _handleWriteCurrentDocument({ path, oldContent, newContent }) {
@@ -1091,7 +1153,7 @@ export class AiSidebar {
 
     _appendUserMessage(text) {
         this.emptyEl.style.display = 'none';
-        const el = buildUserMessageElement(text);
+        const el = buildUserMessageElement(text, { onDelete: (msgEl) => this._deleteMessage(msgEl) });
         this.listEl.appendChild(el);
         this.chatHistory.push({ role: 'user', text });
         scrollToBottom(el);

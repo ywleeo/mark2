@@ -261,36 +261,39 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     text-align: center;
 }
 
-/* ── 复制按钮 ─────────────────────────────── */
+/* ── 消息操作栏 ─────────────────────────────── */
 
-.ai-message-copy-btn {
-    display: block;
-    margin-left: auto;
-    margin-top: 4px;
-    opacity: 0;
-    padding: 2px 8px;
-    font-size: 11px;
+.ai-message-actions-bar {
+    display: flex;
+    align-self: flex-end;
+    gap: 2px;
+}
+
+.ai-msg-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
     color: var(--ai-text-secondary);
     background: none;
-    border: 1px solid var(--ai-border);
+    border: none;
     border-radius: 4px;
     cursor: pointer;
-    transition: opacity 0.15s;
-    line-height: 1.4;
 }
 
-.ai-message-content:hover .ai-message-copy-btn {
-    opacity: 1;
-}
-
-.ai-message-copy-btn:hover {
+.ai-msg-action-btn:hover {
     color: var(--ai-text);
     background: var(--ai-hover);
 }
 
-.ai-message-copy-btn.is-copied {
-    opacity: 1;
+.ai-msg-action-btn.is-copied {
     color: var(--ai-tool-done, #22c55e);
+}
+
+.ai-msg-delete-btn:hover {
+    color: #ef4444;
 }
 
 /* ── Markdown 渲染 ─────────────────────────────── */
