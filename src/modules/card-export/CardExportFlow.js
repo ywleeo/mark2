@@ -239,7 +239,8 @@ export class CardExportFlow {
         item.textEl.style.fontSize = '';
         item.textEl.style.fontWeight = '';
 
-        requestAnimationFrame(() => {
+        // 等待 Web Font 加载完毕再测量，否则 fallback 字体宽度不同会导致孤字漏检
+        document.fonts.ready.then(() => requestAnimationFrame(() => {
             const contentH = item.textEl.scrollHeight;
             if (maxH && contentH > 0 && contentH < maxH * 0.55) {
                 let finalSize = Math.min(baseSize * ((maxH * 0.72) / contentH), 36);
@@ -264,7 +265,7 @@ export class CardExportFlow {
                 }
             }
             this._applySmartLayout(item);
-        });
+        }));
     }
 
     // 检测末行是否只剩 1 个字符（读取 BoundingClientRect，只在 rAF 内调用）
