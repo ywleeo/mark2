@@ -15,7 +15,7 @@ export const PROVIDER_PRESETS = [
         id: 'qwen',
         name: '通义千问',
         baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        models: ['qwen3.5-plus', 'qwen3.5-omni', 'qwen3-max', 'qwen3-coder-plus', 'qwen3-coder-480b-a35b'],
+        models: ['qwen3.6-plus', 'qwen3.5-plus', 'qwen3-max', 'qwen3-coder-plus', 'qwen3-coder-480b-a35b'],
     },
     {
         id: 'minimax',
