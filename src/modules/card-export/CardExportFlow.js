@@ -238,9 +238,9 @@ export class CardExportFlow {
         const baseSize = item.tpl.baseFontSize || 13.5;
         item.textEl.style.fontSize = '';
         item.textEl.style.fontWeight = '';
+        item.textEl.style.textWrap = '';
 
-        // 等待 Web Font 加载完毕再测量，否则 fallback 字体宽度不同会导致孤字漏检
-        document.fonts.ready.then(() => requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
             const contentH = item.textEl.scrollHeight;
             if (maxH && contentH > 0 && contentH < maxH * 0.55) {
                 let finalSize = Math.min(baseSize * ((maxH * 0.72) / contentH), 36);
@@ -253,45 +253,18 @@ export class CardExportFlow {
                     item.textEl.style.fontSize = `${finalSize.toFixed(1)}px`;
                 }
 
-                // 末行只剩 1 个字时，缩小字号让其并入上一行
-                for (let i = 0; i < 6 && finalSize > baseSize; i++) {
-                    if (!this._isLastLineOneChar(item.textEl)) break;
-                    finalSize = Math.max(finalSize - 1, baseSize);
-                    item.textEl.style.fontSize = `${finalSize.toFixed(1)}px`;
-                }
-
                 if (finalSize > baseSize * 1.15) {
                     item.textEl.style.fontWeight = '600';
                 }
+
+                // 纯文本（无 <p>）放大后用 balance 均匀折行，避免孤字
+                // 有 <p> 的内容靠 CSS p:only-child/pretty 规则处理，不在此干预
+                if (!item.textEl.querySelector('p') && finalSize > baseSize * 1.2) {
+                    item.textEl.style.textWrap = 'balance';
+                }
             }
             this._applySmartLayout(item);
-        }));
-    }
-
-    // 检测末行是否只剩 1 个字符（读取 BoundingClientRect，只在 rAF 内调用）
-    _isLastLineOneChar(el) {
-        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
-        let lastNode = null;
-        while (walker.nextNode()) {
-            if (walker.currentNode.textContent.replace(/\s/g, '')) lastNode = walker.currentNode;
-        }
-        if (!lastNode) return false;
-
-        const raw = lastNode.textContent;
-        let lastIdx = raw.length - 1;
-        while (lastIdx >= 0 && /\s/.test(raw[lastIdx])) lastIdx--;
-        if (lastIdx < 1) return false;
-
-        const range = document.createRange();
-        range.setStart(lastNode, lastIdx);
-        range.setEnd(lastNode, lastIdx + 1);
-        const lastTop = range.getBoundingClientRect().top;
-
-        range.setStart(lastNode, lastIdx - 1);
-        range.setEnd(lastNode, lastIdx);
-        const prevTop = range.getBoundingClientRect().top;
-
-        return lastTop > prevTop + 2;
+        });
     }
 
     _handleCardClick(item) {
@@ -331,9 +304,14 @@ export class CardExportFlow {
         const model = aiService.getFastModel();
         if (!provider?.apiKey || !model) throw new Error('未配置 AI');
 
-        const prompt = tpl?.llmPrompt
-            ? `${tpl.llmPrompt}\n\n原文：\n${text}`
-            : `请将以下内容整理为适合图片卡片的简洁文案，输出 HTML，只使用 <p><strong><em><br> 标签，不超过150字：\n\n${text}`;
+        // 短内容（≤2自然行 且 ≤80字）不走风格化 prompt，只做标签包裹
+        const naturalLines = text.trim().split('\n').filter(l => l.trim()).length;
+        const isShort = naturalLines <= 2 && text.trim().length <= 80;
+        const prompt = isShort
+            ? `将以下文字重新排版为卡片 HTML，让它在视觉上更有节奏感。只使用 <p><strong><em><br> 标签。禁止添加、删减或改写任何文字。主动在语义完整的词语或短语边界处用 <br> 分行；用 <strong> 标记最重要的词，用 <em> 修饰意象或情绪词；只输出 HTML。\n\n${text}`
+            : tpl?.llmPrompt
+                ? `${tpl.llmPrompt}\n\n原文：\n${text}`
+                : `请将以下内容整理为适合图片卡片的简洁文案，输出 HTML，只使用 <p><strong><em><br> 标签，不超过150字：\n\n${text}`;
 
         let content = await this._callLLM(provider, model, [{ role: 'user', content: prompt }]);
 

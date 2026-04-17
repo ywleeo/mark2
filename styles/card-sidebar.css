@@ -560,35 +560,52 @@
     line-height: 1;
 }
 
-/* ====== 各模板 strong / em 专属颜色 ====== */
+/* ====== 各模板 strong / em 荧光笔高亮 ====== */
 
-/* warm-linen：em 金棕斜体，strong 深棕加粗 */
-.card-preview-card--warm-linen .card-preview-card__content em {
-    font-style: italic;
-    color: #b89a6a;
-    margin-right: 0.12em;
-}
+/* warm-linen：琥珀暖黄打底，em 浅染斜体 */
 .card-preview-card--warm-linen .card-preview-card__content strong {
     font-weight: 600;
-    color: #5c3d1e;
+    color: #4a2e0e;
+    background: rgba(196, 138, 40, 0.22);
+    border-radius: 3px;
+    padding: 0.04em 0.22em;
+}
+.card-preview-card--warm-linen .card-preview-card__content em {
+    font-style: italic;
+    color: #7a5228;
+    background: rgba(196, 138, 40, 0.1);
+    border-radius: 2px;
+    padding: 0.02em 0.15em;
 }
 
-/* gradient-blush：strong 深紫加粗，em 玫红斜体 */
+/* gradient-blush：玫紫高亮，em 粉红浅染 */
 .card-preview-card--gradient-blush .card-preview-card__content strong {
-    font-weight: 700;
-    color: #7c3aed;
+    font-weight: 600;
+    color: #5b21b6;
+    background: rgba(167, 139, 250, 0.32);
+    border-radius: 3px;
+    padding: 0.04em 0.22em;
 }
 .card-preview-card--gradient-blush .card-preview-card__content em {
     font-style: italic;
-    color: #db2777;
+    color: #9d174d;
+    background: rgba(251, 113, 133, 0.2);
+    border-radius: 2px;
+    padding: 0.02em 0.15em;
 }
 
-/* ink-stone：strong 金色加粗，em 淡金斜体 */
+/* ink-stone：金色荧光，em 淡金浅染 */
 .card-preview-card--ink-stone .card-preview-card__content strong {
     font-weight: 600;
-    color: #eab308;
+    color: #fef08a;
+    background: rgba(234, 179, 8, 0.25);
+    border-radius: 3px;
+    padding: 0.04em 0.22em;
 }
 .card-preview-card--ink-stone .card-preview-card__content em {
     font-style: normal;
-    color: rgba(234, 179, 8, 0.75);
+    color: rgba(253, 224, 71, 0.9);
+    background: rgba(234, 179, 8, 0.12);
+    border-radius: 2px;
+    padding: 0.02em 0.15em;
 }
