@@ -202,6 +202,11 @@ class AiService {
         return this.getFastProvider()?.apiKey || '';
     }
 
+    getTemperature() {
+        const map = { low: 0.3, medium: 0.7, high: 0.9 };
+        return map[this.config.preferences?.creativity] ?? 0.7;
+    }
+
     getFastBaseUrl() {
         return normalizeAiBaseUrl(this.getFastProvider()?.baseUrl || 'https://api.openai.com/v1');
     }
@@ -359,7 +364,7 @@ class AiService {
                     body: {
                         model: requestOptions.model || this.getActiveModel(),
                         messages: requestOptions.messages,
-                        temperature: requestOptions.temperature,
+                        temperature: requestOptions.temperature ?? this.getTemperature(),
                         stream: true,
                         ...(requestOptions.tools?.length ? { tools: requestOptions.tools } : {}),
                     },

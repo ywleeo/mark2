@@ -219,6 +219,17 @@
     border-bottom: none;
 }
 
+.settings-row--sub {
+    padding-left: 12px;
+    border-left: 2px solid var(--settings-divider);
+    margin-left: 4px;
+}
+
+.settings-row--sub .settings-row__label {
+    font-size: 12px;
+    color: var(--settings-muted);
+}
+
 .settings-row__label {
     font-size: 13px;
     font-weight: 400;

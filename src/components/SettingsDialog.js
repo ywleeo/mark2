@@ -190,17 +190,17 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.assistantModel')}</span>
                                 <select data-ref="assistantModelSelect" class="settings-row__control"></select>
                             </label>
-                            <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.fastModel')}</span>
-                                <select data-ref="fastModelSelect" class="settings-row__control"></select>
-                            </label>
-                            <label class="settings-row">
+                            <label class="settings-row settings-row--sub">
                                 <span class="settings-row__label">${t('settings.creativity')}</span>
                                 <select name="aiCreativity" class="settings-row__control">
                                     <option value="low">${t('settings.creativityLow')}</option>
                                     <option value="medium">${t('settings.creativityMedium')}</option>
                                     <option value="high">${t('settings.creativityHigh')}</option>
                                 </select>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.fastModel')}</span>
+                                <select data-ref="fastModelSelect" class="settings-row__control"></select>
                             </label>
                         </div>
                     </section>
