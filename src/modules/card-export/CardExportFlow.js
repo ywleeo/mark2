@@ -168,7 +168,7 @@ export class CardExportFlow {
             } else {
                 item.textEl.textContent = text;
             }
-            this._applySmartLayout(item);
+            this._applyFontScale(item);
             requestAnimationFrame(() => {
                 const overflows = item.tpl.contentMaxHeight
                     && item.textEl.scrollHeight > item.tpl.contentMaxHeight;
@@ -242,8 +242,16 @@ export class CardExportFlow {
         requestAnimationFrame(() => {
             const contentH = item.textEl.scrollHeight;
             if (maxH && contentH > 0 && contentH < maxH * 0.55) {
-                const finalSize = Math.min(baseSize * ((maxH * 0.72) / contentH), 36);
+                let finalSize = Math.min(baseSize * ((maxH * 0.72) / contentH), 36);
                 item.textEl.style.fontSize = `${finalSize.toFixed(1)}px`;
+
+                // 折行增多可能导致实际高度超出，按比例缩回
+                const scaledH = item.textEl.scrollHeight;
+                if (scaledH > maxH) {
+                    finalSize = finalSize * (maxH * 0.92 / scaledH);
+                    item.textEl.style.fontSize = `${finalSize.toFixed(1)}px`;
+                }
+
                 if (finalSize > baseSize * 1.15) {
                     item.textEl.style.fontWeight = '600';
                 }

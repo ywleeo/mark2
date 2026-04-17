@@ -1,3 +1,7 @@
+/* ====== 卡片字体 ====== */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+KuaiLe&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css');
+
 /* ====== 编辑器右键菜单 ====== */
 
 .editor-context-menu {
@@ -156,15 +160,15 @@
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(15, 23, 42, 0.14);
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: outline-color 0.15s ease;
 }
 .card-export-flow__item-preview:hover {
-    outline: 2px solid rgba(37, 99, 235, 0.35);
-    outline-offset: 2px;
+    outline-color: rgba(37, 99, 235, 0.35);
 }
 .card-export-flow__item.is-selected .card-export-flow__item-preview {
-    outline: 2px solid #2563eb;
-    outline-offset: 2px;
+    outline-color: #2563eb;
 }
 
 /* 导出捕获闪光 */
@@ -245,6 +249,8 @@
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__close:hover { background: rgba(255, 255, 255, 0.08); color: rgba(226, 232, 240, 0.9); }
 :root[data-theme-appearance='dark'] .card-export-flow__item-loading { background: rgba(17, 24, 39, 0.84); color: rgba(148, 163, 184, 0.8); }
+:root[data-theme-appearance='dark'] .card-export-flow__item-preview:hover { outline-color: rgba(148, 163, 184, 0.5); }
+:root[data-theme-appearance='dark'] .card-export-flow__item.is-selected .card-export-flow__item-preview { outline-color: #e2e8f0; }
 
 /* ====== 卡片预览 DOM 基础样式 ====== */
 
@@ -297,7 +303,7 @@
 .card-preview-card--ink-stone      .card-preview-card__content { max-height: 357px; } /* 453-50-46 */
 
 
-.card-preview-card__content p            { margin: 0.18em 0; }
+.card-preview-card__content p            { margin: 0.18em 0; text-wrap: pretty; }
 .card-preview-card__content p:first-child { margin-top: 0; }
 .card-preview-card__content p:last-child  { margin-bottom: 0; }
 .card-preview-card__content strong { font-weight: 700; }
@@ -339,7 +345,7 @@
 
 .card-preview-card--warm-linen .card-preview-card__content {
     color: #3d2e1a;
-    font-family: 'Georgia', 'STSong', 'Songti SC', serif;
+    font-family: 'LXGW WenKai', 'STSong', 'Songti SC', serif;
     font-size: 13.5px;
     line-height: 1.9;
     letter-spacing: 0.04em;
@@ -421,7 +427,7 @@
 
 .card-preview-card--gradient-blush .card-preview-card__content {
     color: #2d1b3d;
-    font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+    font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
     font-size: 14px;
     line-height: 1.82;
     letter-spacing: 0.02em;
@@ -487,7 +493,7 @@
 
 .card-preview-card--ink-stone .card-preview-card__content {
     color: rgba(248, 240, 220, 0.88);
-    font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+    font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
     font-size: 13.5px;
     line-height: 1.9;
     letter-spacing: 0.03em;
