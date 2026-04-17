@@ -252,12 +252,45 @@ export class CardExportFlow {
                     item.textEl.style.fontSize = `${finalSize.toFixed(1)}px`;
                 }
 
+                // 末行只剩 1 个字时，缩小字号让其并入上一行
+                for (let i = 0; i < 6 && finalSize > baseSize; i++) {
+                    if (!this._isLastLineOneChar(item.textEl)) break;
+                    finalSize = Math.max(finalSize - 1, baseSize);
+                    item.textEl.style.fontSize = `${finalSize.toFixed(1)}px`;
+                }
+
                 if (finalSize > baseSize * 1.15) {
                     item.textEl.style.fontWeight = '600';
                 }
             }
             this._applySmartLayout(item);
         });
+    }
+
+    // 检测末行是否只剩 1 个字符（读取 BoundingClientRect，只在 rAF 内调用）
+    _isLastLineOneChar(el) {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+        let lastNode = null;
+        while (walker.nextNode()) {
+            if (walker.currentNode.textContent.replace(/\s/g, '')) lastNode = walker.currentNode;
+        }
+        if (!lastNode) return false;
+
+        const raw = lastNode.textContent;
+        let lastIdx = raw.length - 1;
+        while (lastIdx >= 0 && /\s/.test(raw[lastIdx])) lastIdx--;
+        if (lastIdx < 1) return false;
+
+        const range = document.createRange();
+        range.setStart(lastNode, lastIdx);
+        range.setEnd(lastNode, lastIdx + 1);
+        const lastTop = range.getBoundingClientRect().top;
+
+        range.setStart(lastNode, lastIdx - 1);
+        range.setEnd(lastNode, lastIdx);
+        const prevTop = range.getBoundingClientRect().top;
+
+        return lastTop > prevTop + 2;
     }
 
     _handleCardClick(item) {
