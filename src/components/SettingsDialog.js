@@ -689,6 +689,7 @@ export class SettingsDialog {
             input.autocomplete = 'off';
             input.addEventListener('input', () => {
                 this.aiProviderKeys[preset.id] = input.value.trim();
+                this._refreshModelSelects();
             });
             row.appendChild(input);
 
@@ -707,6 +708,7 @@ export class SettingsDialog {
             fragment.appendChild(blank);
 
             PROVIDER_PRESETS.forEach(preset => {
+                if (!this.aiProviderKeys[preset.id]) return;
                 const group = document.createElement('optgroup');
                 group.label = preset.name;
                 preset.models.forEach(model => {
@@ -738,6 +740,18 @@ export class SettingsDialog {
             }
             this._dropdownMap.set(el, new Dropdown(el));
         }
+    }
+
+    _refreshModelSelects() {
+        const parseVal = (val) => {
+            const [providerId, ...rest] = (val || '').split('::');
+            const model = rest.join('::');
+            return providerId && model ? { providerId, model } : null;
+        };
+        this._renderModelSelects(
+            parseVal(this.assistantModelSelectEl?.value),
+            parseVal(this.fastModelSelectEl?.value),
+        );
     }
 
     escAttr(str) {
