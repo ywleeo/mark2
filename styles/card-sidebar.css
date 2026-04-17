@@ -295,7 +295,6 @@
     margin: 0;
     min-height: 0;
     flex: none;
-    text-wrap: balance;
 }
 
 /* 各模板内容区硬上限，防止溢出到装饰区域 */
@@ -305,6 +304,7 @@
 
 
 .card-preview-card__content p            { margin: 0.18em 0; text-wrap: pretty; }
+.card-preview-card__content p:only-child { text-wrap: balance; }
 .card-preview-card__content p:first-child { margin-top: 0; }
 .card-preview-card__content p:last-child  { margin-bottom: 0; }
 .card-preview-card__content strong { font-weight: 700; }
