@@ -279,5 +279,7 @@
     "fileMenu.deleteFile.failTitle": "删除失败",
     "fileMenu.deleteFile.failMessage": "删除文件失败:\n{error}",
     "fileMenu.renameFile.error": "重命名文件失败: {error}",
-    "common.cancel": "取消"
+    "common.cancel": "取消",
+    "contextMenu.generateCard": "生成卡片",
+    "cardExport.title": "卡片"
 }

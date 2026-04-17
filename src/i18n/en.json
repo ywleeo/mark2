@@ -279,5 +279,7 @@
     "fileMenu.deleteFile.failTitle": "Delete Failed",
     "fileMenu.deleteFile.failMessage": "Failed to delete file:\n{error}",
     "fileMenu.renameFile.error": "Failed to rename file: {error}",
-    "common.cancel": "Cancel"
+    "common.cancel": "Cancel",
+    "contextMenu.generateCard": "Generate Card",
+    "cardExport.title": "Card"
 }

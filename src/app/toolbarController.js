@@ -65,28 +65,6 @@ export function createToolbarController({
         }, 2000);
     }
 
-    function showCardExportSidebar() {
-        const sidebar = getCardExportSidebar();
-        if (!sidebar) {
-            console.warn('Card sidebar 未初始化');
-            return;
-        }
-
-        const currentFile = getCurrentFile();
-        if (!currentFile || !isMarkdownFilePath(currentFile)) {
-            console.log('Card sidebar 仅支持 Markdown 文件');
-            return;
-        }
-
-        const activeViewMode = getActiveViewMode();
-        if (activeViewMode !== 'markdown' && activeViewMode !== 'split') {
-            showModeWarning('卡片功能仅在 Markdown 预览模式下可用');
-            return;
-        }
-
-        sidebar.showSidebar?.();
-    }
-
     function syncToolbarWithCurrentContext(options = {}) {
         const markdownToolbarManager = getMarkdownToolbarManager();
         if (!markdownToolbarManager) return;
@@ -112,7 +90,6 @@ export function createToolbarController({
 
         const toggleMarkdownCodeMode = getToggleMarkdownCodeMode();
         markdownToolbarManager.setToggleViewModeCallback?.(toggleMarkdownCodeMode);
-        markdownToolbarManager.setCardExportCallback?.(() => showCardExportSidebar());
 
         if (!markdownToolbarManager.isInitialized) {
             markdownToolbarManager.initialize(targetEditor, editorType);
@@ -137,7 +114,6 @@ export function createToolbarController({
             markdownToolbarManager.executeCommand = executeCommand;
             const toggleMarkdownCodeMode = getToggleMarkdownCodeMode();
             markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
-            markdownToolbarManager.setCardExportCallback?.(() => showCardExportSidebar());
             markdownToolbarManager.toggle();
         } else {
             const services = getAppServices();
@@ -146,7 +122,6 @@ export function createToolbarController({
                 const newManager = new MarkdownToolbarManager(services, {
                     executeCommand,
                     onToggleViewMode: toggleMarkdownCodeMode,
-                    onCardExport: () => showCardExportSidebar(),
                     getEditorRegistry,
                 });
                 setMarkdownToolbarManager(newManager);
@@ -181,17 +156,16 @@ export function createToolbarController({
     }
 
     function handleCardSidebarOnFileChange(nextPath) {
-        const sidebar = getCardExportSidebar();
-        if (!sidebar) return;
+        const flow = getCardExportSidebar();
+        if (!flow) return;
         if (!nextPath || !isMarkdownFilePath(nextPath)) {
-            sidebar.hideSidebar?.();
+            flow.hide?.();
         }
     }
 
     return {
         getToolbarEditorInstance,
         toggleMarkdownToolbar,
-        showCardExportSidebar,
         handleToolbarOnViewModeChange,
         handleToolbarOnFileChange,
         handleCardSidebarOnFileChange,
