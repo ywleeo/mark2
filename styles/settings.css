@@ -221,8 +221,6 @@
 
 .settings-row--sub {
     padding-left: 12px;
-    border-left: 2px solid var(--settings-divider);
-    margin-left: 4px;
 }
 
 .settings-row--sub .settings-row__label {
