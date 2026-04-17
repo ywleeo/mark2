@@ -226,6 +226,10 @@
     "settings.modelsAvailable": "{success}/{total} models available",
     "settings.cancel": "Cancel",
     "settings.save": "Save",
+    "settings.apiKeys": "API Keys",
+    "settings.assistantModel": "Assistant Model",
+    "settings.fastModel": "Fast Model",
+    "settings.selectModel": "Select model",
 
     "settings.kb.title": "Keyboard Shortcuts",
     "settings.kb.resetAll": "Reset All",

@@ -7,6 +7,7 @@ import {
 } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
 import { createStore } from '../../services/storage.js';
+import { PROVIDER_PRESETS } from './providerPresets.js';
 
 const store = createStore('ai');
 store.migrateFrom('ai-config', 'config');
@@ -108,51 +109,76 @@ class AiService {
         return this.config;
     }
 
-    normalizeConfig(config) {
-        const providers = Array.isArray(config.providers) ? config.providers.map(p => ({
-            id: p.id || this.generateId(),
-            name: (p.name || '').trim() || 'Unnamed',
-            apiKey: p.apiKey || '',
-            baseUrl: normalizeAiBaseUrl((p.baseUrl || '').trim() || 'https://api.openai.com/v1'),
-            models: Array.isArray(p.models) ? p.models.filter(Boolean) : [],
-        })) : [];
-
-        let activeProviderId = config.activeProviderId || '';
-        let activeModel = config.activeModel || '';
-
-        // 确保 activeProviderId 指向存在的 provider
-        if (providers.length > 0 && !providers.find(p => p.id === activeProviderId)) {
-            activeProviderId = providers[0].id;
+    normalizeConfig(raw) {
+        // 兼容旧格式（有 activeProviderId 字段）→ 迁移到新格式
+        if (raw.activeProviderId !== undefined && raw.assistantModel === undefined) {
+            const oldProviders = Array.isArray(raw.providers) ? raw.providers : [];
+            const migratedProviders = [];
+            let migratedAssistant = null;
+            for (const op of oldProviders) {
+                const preset = PROVIDER_PRESETS.find(p =>
+                    normalizeAiBaseUrl(p.baseUrl) === normalizeAiBaseUrl(op.baseUrl || '')
+                );
+                if (preset && op.apiKey) {
+                    if (!migratedProviders.find(p => p.id === preset.id)) {
+                        migratedProviders.push({ id: preset.id, apiKey: op.apiKey });
+                    }
+                    if (op.id === raw.activeProviderId && raw.activeModel) {
+                        migratedAssistant = { providerId: preset.id, model: raw.activeModel };
+                    }
+                }
+            }
+            raw = {
+                providers: migratedProviders,
+                assistantModel: migratedAssistant,
+                fastModel: null,
+                preferences: raw.preferences,
+            };
         }
 
-        // 确保 activeModel 属于当前 provider
-        const activeProvider = providers.find(p => p.id === activeProviderId);
-        if (activeProvider && activeProvider.models.length > 0 && !activeProvider.models.includes(activeModel)) {
-            activeModel = activeProvider.models[0];
-        }
+        const providers = Array.isArray(raw.providers)
+            ? raw.providers
+                .filter(p => PROVIDER_PRESETS.some(pr => pr.id === p.id))
+                .map(p => ({ id: p.id, apiKey: p.apiKey || '' }))
+            : [];
+
+        const normalizeModelSlot = (slot) => {
+            if (!slot?.providerId || !slot?.model) return null;
+            if (!PROVIDER_PRESETS.some(p => p.id === slot.providerId)) return null;
+            return { providerId: slot.providerId, model: slot.model };
+        };
 
         return {
             providers,
-            activeProviderId,
-            activeModel,
+            assistantModel: normalizeModelSlot(raw.assistantModel),
+            fastModel: normalizeModelSlot(raw.fastModel),
             preferences: {
-                creativity: config.preferences?.creativity || 'medium',
+                creativity: raw.preferences?.creativity || 'medium',
             },
         };
+    }
+
+    // 合并 preset 定义和用户 apiKey
+    getProviderConfig(providerId) {
+        const preset = PROVIDER_PRESETS.find(p => p.id === providerId);
+        if (!preset) return null;
+        const userCfg = this.config.providers.find(p => p.id === providerId);
+        return { ...preset, apiKey: userCfg?.apiKey || '' };
     }
 
     generateId() {
         return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     }
 
-    // ── 便捷方法：获取当前激活的 provider 和 model ──────────
+    // ── 便捷方法：获取 assistantModel / fastModel ─────────────
 
     getActiveProvider() {
-        return this.config.providers.find(p => p.id === this.config.activeProviderId) || null;
+        const slot = this.config.assistantModel;
+        return slot ? this.getProviderConfig(slot.providerId) : null;
     }
 
     getActiveModel() {
-        return this.config.activeModel || '';
+        return this.config.assistantModel?.model || '';
     }
 
     getActiveApiKey() {
@@ -161,6 +187,23 @@ class AiService {
 
     getActiveBaseUrl() {
         return normalizeAiBaseUrl(this.getActiveProvider()?.baseUrl || 'https://api.openai.com/v1');
+    }
+
+    getFastProvider() {
+        const slot = this.config.fastModel;
+        return slot ? this.getProviderConfig(slot.providerId) : this.getActiveProvider();
+    }
+
+    getFastModel() {
+        return this.config.fastModel?.model || this.getActiveModel();
+    }
+
+    getFastApiKey() {
+        return this.getFastProvider()?.apiKey || '';
+    }
+
+    getFastBaseUrl() {
+        return normalizeAiBaseUrl(this.getFastProvider()?.baseUrl || 'https://api.openai.com/v1');
     }
 
     // ── 测试连通性 ───────────────────────────────────────

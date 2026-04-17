@@ -293,8 +293,8 @@ export class CardExportFlow {
     }
 
     async _formatWithLLM(text, tpl) {
-        const provider = aiService.getActiveProvider();
-        const model = aiService.getActiveModel();
+        const provider = aiService.getFastProvider();
+        const model = aiService.getFastModel();
         if (!provider?.apiKey || !model) throw new Error('未配置 AI');
 
         const prompt = tpl?.llmPrompt

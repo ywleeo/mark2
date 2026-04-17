@@ -860,6 +860,53 @@ input[type="number"]::-webkit-inner-spin-button {
 .ai-provider-test__result.is-success { color: #22c55e; }
 .ai-provider-test__result.is-error { color: #ef4444; }
 
+/* ── AI Keys 列表 ─────────────────────────────── */
+
+.settings-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--settings-muted);
+    padding: 0 0 6px;
+    margin-top: 2px;
+}
+
+.ai-keys-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.ai-key-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-key-row__name {
+    flex: 0 0 90px;
+    font-size: 12px;
+    color: var(--settings-label);
+}
+
+.ai-key-row__input {
+    flex: 1;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: var(--settings-input-bg, var(--settings-bg));
+    border: 1px solid var(--settings-border);
+    border-radius: 5px;
+    color: var(--settings-text);
+    outline: none;
+}
+
+.ai-key-row__input:focus {
+    border-color: var(--settings-focus-border, #2563eb);
+}
+
 /* ── 快捷键设置 ─────────────────────────────── */
 
 .keybindings-header {

@@ -226,6 +226,10 @@
     "settings.modelsAvailable": "{success}/{total} 个模型可用",
     "settings.cancel": "取消",
     "settings.save": "保存",
+    "settings.apiKeys": "API Key",
+    "settings.assistantModel": "对话模型",
+    "settings.fastModel": "快速模型",
+    "settings.selectModel": "选择模型",
 
     "settings.kb.title": "快捷键",
     "settings.kb.resetAll": "全部重置",
