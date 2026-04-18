@@ -1,5 +1,5 @@
 import { Extension } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import { Plugin, TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
@@ -175,24 +175,30 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
                 };
             },
         }),
-        // 空 block 的 IME 拼音双插 bug 修复（同空表格单元格处理方式）
-        // 光标进入空 paragraph/heading 时插零宽空格，序列化时由 serializeMarkdown 统一清除
+        // 空 code block 的 IME 拼音双插 bug 修复
+        // 用 appendTransaction 拦截每个事务：一旦 selection 落在空 codeBlock（含 input rule 刚创建的那一瞬），
+        // 立即追加一个 \u200B 占位，让 ProseMirror 在 composition 开始前就有文本节点可替换。
+        // \u200B 在序列化时由 MarkdownPreprocessor.serializeMarkdown 统一清除，不会写入 .md。
+        // 只处理 codeBlock：paragraph/heading 会破坏 markdown input rules。
         Extension.create({
-            name: 'imeEmptyBlockFix',
-            onSelectionUpdate() {
-                const { state, view } = this.editor;
-                const { $from } = state.selection;
-                const parent = $from.parent;
-                if (!['paragraph', 'heading'].includes(parent.type.name)) return;
-                if (parent.content.size !== 0) return;
-                // 表格单元格已由 TableBubbleToolbar 处理，跳过
-                for (let d = $from.depth; d > 0; d--) {
-                    const name = $from.node(d).type.name;
-                    if (name === 'tableCell' || name === 'tableHeader') return;
-                }
-                const tr = state.tr.insert($from.pos, state.schema.text('\u200B'));
-                tr.setMeta('addToHistory', false);
-                view.dispatch(tr);
+            name: 'imeEmptyCodeBlockFix',
+            addProseMirrorPlugins() {
+                return [
+                    new Plugin({
+                        appendTransaction(transactions, oldState, newState) {
+                            const docChanged = transactions.some(tr => tr.docChanged);
+                            const selChanged = !oldState.selection.eq(newState.selection);
+                            if (!docChanged && !selChanged) return null;
+                            const { $from, empty } = newState.selection;
+                            if (!empty) return null;
+                            if ($from.parent.type.name !== 'codeBlock') return null;
+                            if ($from.parent.content.size !== 0) return null;
+                            return newState.tr
+                                .insert($from.pos, newState.schema.text('\u200B'))
+                                .setMeta('addToHistory', false);
+                        },
+                    }),
+                ];
             },
         }),
         // Tab → 缩进列表项，或插入 4 个空格
