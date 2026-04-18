@@ -727,3 +727,88 @@
 .view-pane.markdown-pane.is-active.csv-table-mode {
     overflow-x: auto !important;
 }
+
+/* ====== 美化排版 loading mask ====== */
+
+.beautify-mask {
+    position: fixed;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    cursor: wait;
+}
+
+.beautify-mask.is-visible { opacity: 1; }
+
+.beautify-mask__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 28px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    font-size: 13px;
+    color: var(--text-color, #222);
+}
+
+.beautify-mask__spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-top-color: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    animation: beautify-spin 0.8s linear infinite;
+}
+
+@keyframes beautify-spin { to { transform: rotate(360deg); } }
+
+.beautify-mask__cancel {
+    margin-top: 4px;
+    padding: 5px 16px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    background: transparent;
+    font-size: 12px;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.65;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.beautify-mask__cancel:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme-appearance='dark'] .beautify-mask {
+    background: rgba(15, 20, 35, 0.45);
+}
+
+:root[data-theme-appearance='dark'] .beautify-mask__inner {
+    background: rgba(30, 37, 53, 0.95);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme-appearance='dark'] .beautify-mask__spinner {
+    border-color: rgba(255, 255, 255, 0.15);
+    border-top-color: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme-appearance='dark'] .beautify-mask__cancel {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme-appearance='dark'] .beautify-mask__cancel:hover {
+    background: rgba(255, 255, 255, 0.06);
+}

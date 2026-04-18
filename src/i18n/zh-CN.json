@@ -294,5 +294,12 @@
     "fileMenu.renameFile.error": "重命名文件失败: {error}",
     "common.cancel": "取消",
     "contextMenu.generateCard": "生成卡片",
+    "contextMenu.beautifyMarkdown": "美化排版",
+    "beautify.loading": "正在美化排版...",
+    "beautify.error.tooManyLines": "选中内容超过 {max} 行（当前 {current} 行），请缩小选区后再试",
+    "beautify.error.noConfig": "未配置 Fast Model，请在 AI 设置中配置后使用",
+    "beautify.error.apiFailed": "AI 请求失败 ({status})",
+    "beautify.error.noContent": "AI 未返回有效内容",
+    "beautify.error.generic": "美化排版失败",
     "cardExport.title": "卡片"
 }

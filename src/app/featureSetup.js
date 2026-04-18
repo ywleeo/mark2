@@ -28,7 +28,9 @@ export function registerCoreFeatures(options = {}) {
         id: 'card-export',
         title: '卡片导出',
         mount() {
-            return initCardExport();
+            return initCardExport({
+                getMarkdownEditor: () => context.getEditorRegistry?.()?.getMarkdownEditor?.(),
+            });
         },
         unmount(api) {
             api?.destroy?.();

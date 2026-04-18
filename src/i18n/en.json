@@ -294,5 +294,12 @@
     "fileMenu.renameFile.error": "Failed to rename file: {error}",
     "common.cancel": "Cancel",
     "contextMenu.generateCard": "Generate Card",
+    "contextMenu.beautifyMarkdown": "Beautify Formatting",
+    "beautify.loading": "Beautifying...",
+    "beautify.error.tooManyLines": "Selection exceeds {max} lines ({current} lines), please select less content",
+    "beautify.error.noConfig": "Fast Model not configured, please set it up in AI settings",
+    "beautify.error.apiFailed": "AI request failed ({status})",
+    "beautify.error.noContent": "AI returned no content",
+    "beautify.error.generic": "Beautify failed",
     "cardExport.title": "Card"
 }

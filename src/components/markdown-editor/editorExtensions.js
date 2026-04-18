@@ -175,6 +175,26 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
                 };
             },
         }),
+        // 空 block 的 IME 拼音双插 bug 修复（同空表格单元格处理方式）
+        // 光标进入空 paragraph/heading 时插零宽空格，序列化时由 serializeMarkdown 统一清除
+        Extension.create({
+            name: 'imeEmptyBlockFix',
+            onSelectionUpdate() {
+                const { state, view } = this.editor;
+                const { $from } = state.selection;
+                const parent = $from.parent;
+                if (!['paragraph', 'heading'].includes(parent.type.name)) return;
+                if (parent.content.size !== 0) return;
+                // 表格单元格已由 TableBubbleToolbar 处理，跳过
+                for (let d = $from.depth; d > 0; d--) {
+                    const name = $from.node(d).type.name;
+                    if (name === 'tableCell' || name === 'tableHeader') return;
+                }
+                const tr = state.tr.insert($from.pos, state.schema.text('\u200B'));
+                tr.setMeta('addToHistory', false);
+                view.dispatch(tr);
+            },
+        }),
         // Tab → 缩进列表项，或插入 4 个空格
         Extension.create({
             name: 'tabIndent',

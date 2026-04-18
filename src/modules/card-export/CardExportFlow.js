@@ -517,12 +517,21 @@ export class CardExportFlow {
         let current = [];
 
         for (const node of nodes) {
+            const tag = node.tagName?.toLowerCase();
+
             // h1 always gets its own solo page
-            if (node.tagName?.toLowerCase() === 'h1') {
+            if (tag === 'h1') {
                 if (current.length) { pages.push(current.join('')); current = []; }
                 pages.push(node.outerHTML);
                 continue;
             }
+
+            // h2-h6 must appear at the top of a card — flush preceding content first
+            if (/^h[2-6]$/.test(tag) && current.length > 0) {
+                pages.push(current.join(''));
+                current = [];
+            }
+
             current.push(node.outerHTML);
             measureContent.innerHTML = current.join('');
             if (measureContent.scrollHeight > maxH && current.length > 1) {

@@ -411,6 +411,19 @@ export class MarkdownEditor {
 
     replaceSelectionWithAIContent(markdown) { this.insertAIContent(markdown); }
 
+    replaceRangeWithMarkdown(from, to, markdown) {
+        if (!this.editor || typeof markdown !== 'string') return;
+        const processed = preprocessMarkdown(markdown);
+        const parsed = this.contentLoader.markdownParser?.parse(processed) ?? null;
+        this.editor.chain().focus()
+            .setTextSelection({ from, to })
+            .deleteSelection()
+            .insertContent(parsed ? parsed.content : markdown)
+            .run();
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
+    }
+
     insertAfterSelectionWithAIContent(markdown) {
         if (!this.editor) return;
         const withSep = '\n\n### 🤖 生成内容\n\n' + (markdown ?? '') + '\n\n---\n\n';
