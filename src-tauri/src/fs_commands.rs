@@ -235,6 +235,16 @@ pub fn create_directory(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+    }
+    fs::write(&path, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn ipc_health_check() -> Result<(), String> {
     Ok(())
 }

@@ -201,6 +201,7 @@ fn main() {
             fs_commands::delete_entry,
             fs_commands::rename_entry,
             fs_commands::create_directory,
+            fs_commands::write_binary_file,
             fs_commands::ipc_health_check,
             fs_commands::list_fonts,
             fs_commands::capture_screenshot,
