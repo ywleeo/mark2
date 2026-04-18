@@ -7,16 +7,17 @@ export const CARD_TEMPLATES = [
         baseFontSize: 13.5,
         maxLines: 7,
         charsPerLine: 18, // 276px / ~14px per char
-        llmPrompt: `将以下原文转为卡片 HTML，风格：文艺暖色，文艺优雅，像散文或诗句，有情感厚度。
+        styleDesc: '文艺暖色，文艺优雅，像散文或诗句，有情感厚度',
+        layoutHint: '每个意群或诗句单独一个 <p>，<em> 标记诗意意象词，<strong> 标记情感最重的核心短语（全文最多1-2处）',
+        llmPrompt: `将以下原文排版为卡片 HTML，风格：文艺暖色，文艺优雅，像散文或诗句，有情感厚度。
 
 【内容规则】
-- 原文 7 行以内：字字保留，禁止改写、删减、添加任何文字，只加排版标签
-- 原文超过 7 行：在保持核心意思的前提下提炼，压缩至 7 行以内
+- 字字保留，禁止改写、删减、添加任何文字，只加排版标签
 
 【排版规则】
 - 每个意群或诗句单独一个 <p>，让每行短而有节奏感
 - <em> 标记诗意、意象类词汇
-- <strong> 标记情感最重的核心短语（全文最多 1-2 处）
+- <strong> 标记情感最重的核心短语（全文最多1-2处）
 
 示例：
 <p>真正的平静，</p>
@@ -41,15 +42,16 @@ export const CARD_TEMPLATES = [
         baseFontSize: 14,
         maxLines: 9,
         charsPerLine: 19, // 284px / ~14.3px per char
-        llmPrompt: `将以下原文转为卡片 HTML，风格：现代粉紫，现代活泼，有温度，适合分享观点和生活感悟。
+        styleDesc: '现代粉紫，现代活泼，有温度，适合分享观点和生活感悟',
+        layoutHint: '短句长句交替增加节奏感，<strong> 标记关键词和最想让人记住的短语（3-5处），<em> 修饰细腻的情绪或感受词',
+        llmPrompt: `将以下原文排版为卡片 HTML，风格：现代粉紫，现代活泼，有温度，适合分享观点和生活感悟。
 
 【内容规则】
-- 原文 9 行以内：字字保留，禁止改写、删减、添加任何文字，只加排版标签
-- 原文超过 9 行：在保持核心意思的前提下提炼，压缩至 9 行以内
+- 字字保留，禁止改写、删减、添加任何文字，只加排版标签
 
 【排版规则】
 - 每个观点或层次单独一个 <p>，短句+长句交替增加节奏感
-- <strong> 标记关键词和最想让人记住的短语（3-5 处）
+- <strong> 标记关键词和最想让人记住的短语（3-5处）
 - <em> 修饰细腻的情绪或感受词
 
 示例：
@@ -74,16 +76,17 @@ export const CARD_TEMPLATES = [
         baseFontSize: 13.5,
         maxLines: 9,
         charsPerLine: 19, // 280px / ~13.9px per char
-        llmPrompt: `将以下原文转为卡片 HTML，风格：深色墨石，深沉凝练，有哲思和力量感，每个字都要有分量。
+        styleDesc: '深色墨石，深沉凝练，有哲思和力量感',
+        layoutHint: '每个独立的思想单独一个 <p>，句子要短留白要多，<strong> 标记核心论断（1-3处），<em> 强调关键概念（1-2处）',
+        llmPrompt: `将以下原文排版为卡片 HTML，风格：深色墨石，深沉凝练，有哲思和力量感，每个字都要有分量。
 
 【内容规则】
-- 原文 9 行以内：字字保留，禁止改写、删减、添加任何文字，只加排版标签
-- 原文超过 9 行：在保持核心意思的前提下提炼，压缩至 9 行以内
+- 字字保留，禁止改写、删减、添加任何文字，只加排版标签
 
 【排版规则】
 - 每个独立的思想单独一个 <p>，句子要短，留白要多
-- <strong> 标记核心论断（1-3 处，要有重量感）
-- <em> 强调关键概念（1-2 处）
+- <strong> 标记核心论断（1-3处，要有重量感）
+- <em> 强调关键概念（1-2处）
 
 示例：
 <p>繁华中寻得宁静，</p>
@@ -98,6 +101,68 @@ export const CARD_TEMPLATES = [
             { class: 'card-deco card-deco--is-header-text', content: 'Note' },
             { class: 'card-deco card-deco--is-footer', content: `${new Date().toLocaleDateString('zh-CN')} \u00b7 mark\u00b2` },
             { class: 'card-deco card-deco--is-mark', content: '\u2767' },
+        ],
+    },
+    {
+        id: 'hand-note',
+        color: '#fffdf0',
+        theme: 'light',
+        contentMaxHeight: 330, // 453 - padding(56+67)
+        baseFontSize: 17,
+        maxLines: 7,
+        charsPerLine: 14,
+        styleDesc: '手写可爱，温暖有趣，像撕下来的便签页',
+        layoutHint: '每个意群单独一个 <p>，短句分行增加节奏感，<em> 修饰俏皮或可爱的词',
+        llmPrompt: `将以下原文排版为卡片 HTML，风格：手写可爱便签，温暖有趣，像撕下来的笔记页。
+
+【内容规则】
+- 字字保留，禁止改写、删减、添加任何文字，只加排版标签
+
+【排版规则】
+- 每个意群单独一个 <p>，短句分行增加节奏感
+- <strong> 标记最想强调的词或短语（2-4处）
+- <em> 修饰俏皮、可爱、轻巧的词
+
+示例：
+<p>生活嘛，</p>
+<p>就是<strong>一边狼狈</strong>，</p>
+<p>一边<em>心存期待</em>。</p>
+
+只输出 HTML，不加任何说明或代码块标记。`,
+        buildDecorations: () => [
+            { class: 'card-deco card-deco--hn-tape', content: '' },
+            { class: 'card-deco card-deco--hn-star-tr', content: '\u2726' },
+            { class: 'card-deco card-deco--hn-star-bl', content: '\u2727' },
+            { class: 'card-deco card-deco--hn-author', content: 'mark\u00b2 \u00b7 \u968f\u624b\u8bb0 \u2665' },
+        ],
+    },
+    {
+        id: 'code-night',
+        color: '#0d1117',
+        theme: 'dark',
+        codeMode: true,
+        noLLM: true,
+        contentMaxHeight: 383, // 453 - padding(50+20)
+        baseFontSize: 11.5,
+        maxLines: 20,
+        charsPerLine: 38,
+        styleDesc: '深色代码编辑器，适合分享代码片段',
+        layoutHint: '整段代码用 <pre> 包裹，<strong> 标记关键字/函数名，<em> 标记注释',
+        llmPrompt: `将以下代码片段排版为卡片 HTML，风格：深色代码编辑器。
+
+【内容规则】
+- 保留全部代码内容，字符、缩进、换行一律不改
+
+【排版规则】
+- 用 <pre> 包裹整个代码块，保留原始缩进和换行
+- <strong> 标记关键字、函数名（如 def、class、const、function、return、import 等）
+- <em> 标记注释行或注释内容（如 # ... 或 // ... 或 /* ... */）
+- 只使用 <pre><strong><em> 标签
+
+只输出 HTML，不加任何说明或代码块标记。`,
+        buildDecorations: () => [
+            { class: 'card-deco card-deco--cn-chrome', content: '' },
+            { class: 'card-deco card-deco--cn-footer', content: `mark\u00b2 \u00b7 ${new Date().toLocaleDateString('zh-CN')}` },
         ],
     },
 ];
