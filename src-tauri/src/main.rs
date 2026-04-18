@@ -149,6 +149,20 @@ fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
     app.clipboard().read_text().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn activate_app(app: AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = app.run_on_main_thread(|| unsafe {
+            use objc2_app_kit::NSApplication;
+            use objc2::MainThreadMarker;
+            let mtm = MainThreadMarker::new_unchecked();
+            let ns_app = NSApplication::sharedApplication(mtm);
+            ns_app.activateIgnoringOtherApps(true);
+        });
+    }
+}
+
 fn main() {
     std::env::set_var("TOKIO_WORKER_THREADS", "4");
 
@@ -211,6 +225,7 @@ fn main() {
             ai_proxy::ai_proxy_start_stream,
             ai_proxy::ai_proxy_cancel_stream,
             read_clipboard_text,
+            activate_app,
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {

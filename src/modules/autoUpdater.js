@@ -21,7 +21,10 @@ let pendingUpdateVersion = null; // 待安装的版本号
 
 export function setupAutoUpdater() {
     setTimeout(() => {
-        runScheduledCheck();
+        if (pendingUpdate) return;
+        checkAndDownload(false).catch(err => {
+            console.warn('[AutoUpdater] 启动检查更新失败:', err);
+        });
     }, CHECK_DELAY_MS);
 
     // 窗口重新激活时基于时间戳补检查，规避休眠导致定时器失效

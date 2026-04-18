@@ -126,6 +126,37 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
                 };
             },
         }),
+        // Ctrl-a/e → code block 内行首/行尾（macOS emacs 风格）
+        Extension.create({
+            name: 'codeBlockLineNavigation',
+            addKeyboardShortcuts() {
+                return {
+                    'Ctrl-a': ({ editor }) => {
+                        const { state, view } = editor;
+                        const { $from } = state.selection;
+                        if ($from.parent.type.name !== 'codeBlock') return false;
+                        const text = $from.parent.textContent;
+                        const lineStart = text.lastIndexOf('\n', $from.parentOffset - 1) + 1;
+                        view.dispatch(state.tr.setSelection(
+                            TextSelection.create(state.doc, $from.start() + lineStart)
+                        ));
+                        return true;
+                    },
+                    'Ctrl-e': ({ editor }) => {
+                        const { state, view } = editor;
+                        const { $from } = state.selection;
+                        if ($from.parent.type.name !== 'codeBlock') return false;
+                        const text = $from.parent.textContent;
+                        const next = text.indexOf('\n', $from.parentOffset);
+                        const lineEnd = next === -1 ? text.length : next;
+                        view.dispatch(state.tr.setSelection(
+                            TextSelection.create(state.doc, $from.start() + lineEnd)
+                        ));
+                        return true;
+                    },
+                };
+            },
+        }),
         // Shift+Enter → 段落内硬换行；Enter 走 TipTap 默认（分段 / 列表项拆分）
         Extension.create({
             name: 'customEnterBehavior',
