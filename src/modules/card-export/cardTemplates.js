@@ -6,6 +6,7 @@ export const CARD_TEMPLATES = [
         contentMaxHeight: 309, // 453 - padding(54+90)
         baseFontSize: 13.5,
         maxLines: 7,
+        charsPerLine: 18, // 276px / ~14px per char
         llmPrompt: `将以下原文转为卡片 HTML，风格：文艺暖色，文艺优雅，像散文或诗句，有情感厚度。
 
 【内容规则】
@@ -39,6 +40,7 @@ export const CARD_TEMPLATES = [
         contentMaxHeight: 349, // 453 - padding(58+46)
         baseFontSize: 14,
         maxLines: 9,
+        charsPerLine: 19, // 284px / ~14.3px per char
         llmPrompt: `将以下原文转为卡片 HTML，风格：现代粉紫，现代活泼，有温度，适合分享观点和生活感悟。
 
 【内容规则】
@@ -71,6 +73,7 @@ export const CARD_TEMPLATES = [
         contentMaxHeight: 357, // 453 - padding(50+46)
         baseFontSize: 13.5,
         maxLines: 9,
+        charsPerLine: 19, // 280px / ~13.9px per char
         llmPrompt: `将以下原文转为卡片 HTML，风格：深色墨石，深沉凝练，有哲思和力量感，每个字都要有分量。
 
 【内容规则】

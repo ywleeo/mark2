@@ -163,6 +163,7 @@ export class CardExportFlow {
             item.errorEl.classList.add('hidden');
             item.textEl.style.fontSize = '';
             item.textEl.style.fontWeight = '';
+            item.textEl.classList.remove('is-ai-formatted');
             if (html) {
                 item.textEl.innerHTML = this._sanitizeRaw(html);
             } else {
@@ -227,6 +228,24 @@ export class CardExportFlow {
         return div.innerHTML;
     }
 
+    // 合并 LLM 生成的独立数字行（如 <p>2.</p><p>内容</p> → <p>2. 内容</p>）
+    // 并去掉 HTML 前面的非标签说明文字
+    _postProcessLLMHtml(html) {
+        // 修复 LLM 偶发的漏 < 问题，如 em> → <em>、/strong> → </strong>
+        html = html.replace(/(?<![<\/\w])(\/?(?:em|strong|br|p))>/g, '<$1>');
+
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        const paras = [...div.querySelectorAll('p')];
+        for (let i = 0; i < paras.length - 1; i++) {
+            if (/^\d+\.\s*$/.test(paras[i].textContent.trim())) {
+                paras[i].innerHTML = paras[i].textContent.trim() + ' ' + paras[i + 1].innerHTML;
+                paras[i + 1].remove();
+            }
+        }
+        return div.innerHTML;
+    }
+
     _applySmartLayout(item) {
         const body = item.cardEl.querySelector('.card-preview-card__body');
         if (body) body.style.justifyContent = 'center';
@@ -284,6 +303,7 @@ export class CardExportFlow {
         try {
             const html = await this._formatWithLLM(this._selectedText, item.tpl);
             item.textEl.innerHTML = this._sanitizeLLMHtml(html);
+            item.textEl.classList.add('is-ai-formatted');
             item.state = 'done';
             item.root.classList.remove('is-active');
             item.root.classList.add('is-done');
@@ -292,6 +312,7 @@ export class CardExportFlow {
             console.warn('[CardExportFlow] LLM 处理失败', err);
             item.state = 'error';
             item.root.classList.remove('is-active');
+            item.errorEl.querySelector('span:first-child').textContent = err?.message || 'AI 处理失败';
             item.errorEl.classList.remove('hidden');
         } finally {
             item.loadingEl.classList.add('hidden');
@@ -304,23 +325,26 @@ export class CardExportFlow {
         const model = aiService.getFastModel();
         if (!provider?.apiKey || !model) throw new Error('未配置 AI');
 
-        // 短内容（≤2自然行 且 ≤80字）不走风格化 prompt，只做标签包裹
         const naturalLines = text.trim().split('\n').filter(l => l.trim()).length;
         const isShort = naturalLines <= 2 && text.trim().length <= 80;
+        const lineHint = tpl?.charsPerLine
+            ? `\n\n【行宽限制】每行最多容纳约 ${tpl.charsPerLine} 个汉字（含标点、英文字母按半字宽计）。句子超过此长度时，务必主动在语义完整处用 <br> 断行，禁止依赖浏览器自动折行。`
+            : '';
         const prompt = isShort
-            ? `将以下文字重新排版为卡片 HTML，让它在视觉上更有节奏感。只使用 <p><strong><em><br> 标签。禁止添加、删减或改写任何文字。主动在语义完整的词语或短语边界处用 <br> 分行；用 <strong> 标记最重要的词，用 <em> 修饰意象或情绪词；只输出 HTML。\n\n${text}`
+            ? `将以下文字重新排版为卡片 HTML，让它在视觉上更有节奏感。只使用 <p><strong><em><br> 标签。禁止添加、删减或改写任何文字。主动在语义完整的词语或短语边界处用 <br> 分行；用 <strong> 标记最重要的词，用 <em> 修饰意象或情绪词。\n\n${text}`
             : tpl?.llmPrompt
-                ? `${tpl.llmPrompt}\n\n原文：\n${text}`
-                : `请将以下内容整理为适合图片卡片的简洁文案，输出 HTML，只使用 <p><strong><em><br> 标签，不超过150字：\n\n${text}`;
+                ? `${tpl.llmPrompt}${lineHint}\n\n原文：\n${text}`
+                : `请将以下内容整理为适合图片卡片的简洁文案，使用 <p><strong><em><br> 标签排版，不超过150字。${lineHint}\n\n${text}`;
 
         let content = await this._callLLM(provider, model, [{ role: 'user', content: prompt }]);
+        content = this._postProcessLLMHtml(content);
 
-        // 超行时让 LLM 自己压缩，保持语义完整
         if (tpl?.maxLines) {
             const actual = (content.match(/<p/gi) || []).length;
             if (actual > tpl.maxLines) {
-                const retryPrompt = `以下卡片文案共 ${actual} 行（每个 <p> 算一行），超过了上限 ${tpl.maxLines} 行。请在保持语义完整、内容连贯的前提下，压缩为不超过 ${tpl.maxLines} 行。只输出 HTML，不加任何说明。\n\n${content}`;
+                const retryPrompt = `以下卡片文案共 ${actual} 行（每个 <p> 算一行），超过了上限 ${tpl.maxLines} 行。请在保持语义完整、内容连贯的前提下，压缩为不超过 ${tpl.maxLines} 行。\n\n${content}`;
                 content = await this._callLLM(provider, model, [{ role: 'user', content: retryPrompt }]);
+                content = this._postProcessLLMHtml(content);
             }
         }
 
@@ -328,29 +352,61 @@ export class CardExportFlow {
     }
 
     async _callLLM(provider, model, messages) {
+        const tool = {
+            type: 'function',
+            function: {
+                name: 'format_card_content',
+                description: '输出格式化后的卡片 HTML',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        html: { type: 'string', description: '格式化后的 HTML，只使用 <p><strong><em><br> 标签' },
+                    },
+                    required: ['html'],
+                },
+            },
+        };
+
         const res = await aiProxyJsonRequest({
             method: 'POST',
             url: `${provider.baseUrl}/chat/completions`,
             apiKey: provider.apiKey,
-            body: { model, messages, max_tokens: 4096, temperature: 0.5 },
+            body: {
+                model,
+                messages,
+                tools: [tool],
+                tool_choice: { type: 'function', function: { name: 'format_card_content' } },
+                max_tokens: 4096,
+                temperature: 0.5,
+            },
             timeoutMs: 30000,
         });
 
         if (res.status < 200 || res.status >= 300) {
-            throw new Error(`API 错误 ${res.status}: ${res.body}`);
+            const errData = (() => { try { return JSON.parse(res.body || '{}'); } catch { return {}; } })();
+            const errMsg = errData.error?.message || res.body || '';
+            if (/tool|function/i.test(errMsg)) {
+                throw new Error('当前模型不支持 Function Call，请在 AI 设置中切换支持工具调用的模型（如 GPT-4o、Claude 3.5、DeepSeek-V3 等）');
+            }
+            throw new Error(`API 错误 ${res.status}: ${errMsg}`);
         }
 
         const data = JSON.parse(res.body || '{}');
-        const msg = data.choices?.[0]?.message || {};
-        let content = msg.content?.trim() || '';
+        const msg = data.choices?.[0]?.message;
+        const toolCall = msg?.tool_calls?.find(tc => tc.function?.name === 'format_card_content');
 
-        if (!content && msg.reasoning_content) {
-            const match = msg.reasoning_content.match(/(<(?:p|strong|em|br)[^>]*>[\s\S]+)/i);
-            content = match?.[1]?.trim() || '';
+        if (toolCall) {
+            try {
+                const args = JSON.parse(toolCall.function.arguments || '{}');
+                const html = args.html?.trim();
+                if (html) return html;
+            } catch {
+                throw new Error('解析 Function Call 返回值失败');
+            }
         }
 
-        if (!content) throw new Error('LLM 返回空结果');
-        return content.replace(/^```(?:html)?\s*/i, '').replace(/\s*```$/, '').trim();
+        // tool_calls 缺失 → 模型忽略了 tool_choice，不支持工具调用
+        throw new Error('当前模型不支持 Function Call，请在 AI 设置中切换支持工具调用的模型（如 GPT-4o、Claude 3.5、DeepSeek-V3 等）');
     }
 
     async _handleExport(item) {

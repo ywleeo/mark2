@@ -158,7 +158,7 @@ fn activate_app(app: AppHandle) {
             use objc2::MainThreadMarker;
             let mtm = MainThreadMarker::new_unchecked();
             let ns_app = NSApplication::sharedApplication(mtm);
-            ns_app.activateIgnoringOtherApps(true);
+            ns_app.activate();
         });
     }
 }
