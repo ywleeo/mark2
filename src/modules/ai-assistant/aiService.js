@@ -136,15 +136,33 @@ class AiService {
             };
         }
 
+        const presetIds = new Set(PROVIDER_PRESETS.map(p => p.id));
         const providers = Array.isArray(raw.providers)
             ? raw.providers
-                .filter(p => PROVIDER_PRESETS.some(pr => pr.id === p.id))
-                .map(p => ({ id: p.id, apiKey: p.apiKey || '' }))
+                .filter(p => p.id && (presetIds.has(p.id) || (p.isCustom && p.name && p.baseUrl)))
+                .map(p => {
+                    if (p.isCustom) {
+                        return {
+                            id: p.id,
+                            name: String(p.name || ''),
+                            baseUrl: String(p.baseUrl || ''),
+                            apiKey: String(p.apiKey || ''),
+                            models: Array.isArray(p.models) ? p.models.filter(m => typeof m === 'string' && m.trim()) : [],
+                            isCustom: true,
+                        };
+                    }
+                    const entry = { id: p.id, apiKey: p.apiKey || '' };
+                    if (Array.isArray(p.fetchedModels) && p.fetchedModels.length) {
+                        entry.fetchedModels = p.fetchedModels.filter(m => typeof m === 'string' && m.trim());
+                    }
+                    return entry;
+                })
             : [];
 
         const normalizeModelSlot = (slot) => {
             if (!slot?.providerId || !slot?.model) return null;
-            if (!PROVIDER_PRESETS.some(p => p.id === slot.providerId)) return null;
+            const valid = presetIds.has(slot.providerId) || providers.some(p => p.id === slot.providerId && p.isCustom);
+            if (!valid) return null;
             return { providerId: slot.providerId, model: slot.model };
         };
 
@@ -158,12 +176,15 @@ class AiService {
         };
     }
 
-    // 合并 preset 定义和用户 apiKey
+    // 合并 preset 定义和用户 apiKey，或返回自定义 provider
     getProviderConfig(providerId) {
         const preset = PROVIDER_PRESETS.find(p => p.id === providerId);
-        if (!preset) return null;
-        const userCfg = this.config.providers.find(p => p.id === providerId);
-        return { ...preset, apiKey: userCfg?.apiKey || '' };
+        if (preset) {
+            const userCfg = this.config.providers.find(p => p.id === providerId);
+            return { ...preset, apiKey: userCfg?.apiKey || '' };
+        }
+        const custom = this.config.providers.find(p => p.id === providerId && p.isCustom);
+        return custom ? { ...custom } : null;
     }
 
     generateId() {

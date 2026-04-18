@@ -916,6 +916,232 @@ input[type="number"]::-webkit-inner-spin-button {
     border-color: var(--settings-focus-border, #2563eb);
 }
 
+.ai-key-row__fetch {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--settings-muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.12s, background 0.12s;
+}
+
+.ai-key-row__fetch:hover {
+    color: var(--settings-secondary-text);
+    background: var(--settings-ghost-hover-bg);
+}
+
+.ai-key-row__fetch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Provider card (自定义 provider) ─────────────────────────────── */
+
+.ai-provider-card {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 10px;
+    background: var(--settings-ghost-bg);
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 7px;
+}
+
+.ai-provider-card__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-provider-card__name-input {
+    flex: 1;
+    height: 22px;
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--settings-text);
+    outline: none;
+    font-family: inherit;
+    min-width: 0;
+}
+
+.ai-provider-card__name-input:focus {
+    background: var(--settings-field-bg);
+    border-color: var(--settings-ghost-border);
+}
+
+.ai-provider-card__badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: var(--settings-field-bg);
+    color: var(--settings-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ai-provider-card__remove {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--settings-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.12s, background 0.12s;
+}
+
+.ai-provider-card__remove:hover {
+    color: var(--settings-danger);
+    background: var(--settings-danger-ghost-bg);
+}
+
+.ai-provider-card__input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: var(--settings-input-bg, var(--settings-bg));
+    border: 1px solid var(--settings-border);
+    border-radius: 5px;
+    color: var(--settings-text);
+    outline: none;
+    font-family: inherit;
+}
+
+.ai-provider-card__input:focus {
+    border-color: var(--settings-focus-border, #2563eb);
+}
+
+/* ── Add Provider 按钮 ─────────────────────────────── */
+
+.ai-add-provider-btn {
+    width: 100%;
+    padding: 6px 12px;
+    background: none;
+    border: 1px dashed var(--settings-ghost-border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--settings-muted);
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    font-family: inherit;
+}
+
+.ai-add-provider-btn:hover {
+    border-color: var(--settings-ghost-hover-border);
+    color: var(--settings-secondary-text);
+    background: var(--settings-ghost-hover-bg);
+}
+
+/* ── Add Provider 内联表单 ─────────────────────────────── */
+
+.ai-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    background: var(--settings-ghost-bg);
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 7px;
+}
+
+.ai-add-form__select {
+    width: 100%;
+    height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: var(--settings-field-bg);
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 5px;
+    color: var(--settings-field-text);
+    outline: none;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.ai-add-form__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ai-add-form__input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 12px;
+    background: var(--settings-input-bg, var(--settings-bg));
+    border: 1px solid var(--settings-border);
+    border-radius: 5px;
+    color: var(--settings-text);
+    outline: none;
+    font-family: inherit;
+}
+
+.ai-add-form__input:focus {
+    border-color: var(--settings-focus-border, #2563eb);
+}
+
+.ai-add-form__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.ai-add-form__btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.12s;
+}
+
+.ai-add-form__btn--primary {
+    background: var(--settings-primary);
+    color: var(--settings-primary-text);
+}
+
+.ai-add-form__btn--primary:hover {
+    background: var(--settings-primary-hover);
+}
+
+.ai-add-form__btn--secondary {
+    background: transparent;
+    color: var(--settings-secondary-text);
+}
+
+.ai-add-form__btn--secondary:hover {
+    background: var(--settings-secondary-hover);
+}
+
 /* ── 快捷键设置 ─────────────────────────────── */
 
 .keybindings-header {

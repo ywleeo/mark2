@@ -243,7 +243,7 @@ export class SettingsDialog {
         this.aiKeysListEl = this.root.querySelector('[data-ref="aiKeysList"]');
         this.assistantModelSelectEl = this.root.querySelector('[data-ref="assistantModelSelect"]');
         this.fastModelSelectEl = this.root.querySelector('[data-ref="fastModelSelect"]');
-        this.aiProviderKeys = {}; // { providerId: apiKey }
+        this.aiConfiguredProviders = []; // [{ id, apiKey, isCustom?, name?, baseUrl?, models? }]
 
         // 快捷键设置
         this.keybindingsContainerEl = this.root.querySelector('[data-ref="keybindingsContainer"]');
@@ -396,10 +396,7 @@ export class SettingsDialog {
         this._setSelectValue(this.codeFontWeightSelect, String(editorPrefs.codeFontWeight || 400));
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
-        this.aiProviderKeys = {};
-        for (const p of (aiConfig.providers || [])) {
-            if (p.id && p.apiKey) this.aiProviderKeys[p.id] = p.apiKey;
-        }
+        this.aiConfiguredProviders = (aiConfig.providers || []).map(p => ({ ...p }));
         this._setSelectValue(this.aiCreativitySelect, aiConfig.preferences?.creativity || 'medium');
         this._renderAiKeysList();
         this._renderModelSelects(aiConfig.assistantModel, aiConfig.fastModel);
@@ -492,9 +489,14 @@ export class SettingsDialog {
         };
 
         // AI 助手设置
-        const providers = Object.entries(this.aiProviderKeys)
-            .filter(([, key]) => key.trim())
-            .map(([id, apiKey]) => ({ id, apiKey: apiKey.trim() }));
+        const providers = this.aiConfiguredProviders
+            .filter(p => p.apiKey?.trim())
+            .map(p => {
+                if (p.isCustom) return { id: p.id, name: p.name, baseUrl: p.baseUrl, apiKey: p.apiKey.trim(), models: p.models, isCustom: true };
+                const entry = { id: p.id, apiKey: p.apiKey.trim() };
+                if (p.fetchedModels?.length) entry.fetchedModels = p.fetchedModels;
+                return entry;
+            });
         const parseModelSlot = (val) => {
             const [providerId, ...rest] = (val || '').split('::');
             const model = rest.join('::');
@@ -672,29 +674,264 @@ export class SettingsDialog {
         if (!this.aiKeysListEl) return;
         this.aiKeysListEl.innerHTML = '';
 
-        PROVIDER_PRESETS.forEach(preset => {
-            const row = document.createElement('div');
-            row.className = 'ai-key-row';
+        this.aiConfiguredProviders.forEach((provider, index) => {
+            this.aiKeysListEl.appendChild(this._buildProviderRow(provider, index));
+        });
 
-            const label = document.createElement('span');
-            label.className = 'ai-key-row__name';
-            label.textContent = preset.name;
-            row.appendChild(label);
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'ai-add-provider-btn';
+        addBtn.textContent = t('settings.addProvider');
+        const cleanup = addClickHandler(addBtn, () => this._showAddProviderForm(addBtn));
+        this.cleanupFunctions.push(cleanup);
+        this.aiKeysListEl.appendChild(addBtn);
+    }
 
-            const input = document.createElement('input');
-            input.type = 'password';
-            input.className = 'ai-key-row__input';
-            input.placeholder = 'API Key';
-            input.value = this.aiProviderKeys[preset.id] || '';
-            input.autocomplete = 'off';
-            input.addEventListener('input', () => {
-                this.aiProviderKeys[preset.id] = input.value.trim();
+    _buildProviderRow(provider, index) {
+        const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
+
+        if (provider.isCustom) {
+            const card = document.createElement('div');
+            card.className = 'ai-provider-card ai-provider-card--custom';
+
+            const header = document.createElement('div');
+            header.className = 'ai-provider-card__header';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'ai-provider-card__name-input';
+            nameInput.value = provider.name || '';
+            nameInput.placeholder = t('settings.providerNamePlaceholder');
+            nameInput.addEventListener('input', () => { this.aiConfiguredProviders[index].name = nameInput.value; });
+
+            const badge = document.createElement('span');
+            badge.className = 'ai-provider-card__badge';
+            badge.textContent = t('settings.customProvider');
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ai-provider-card__remove';
+            removeBtn.textContent = '✕';
+            const c = addClickHandler(removeBtn, () => {
+                this.aiConfiguredProviders.splice(index, 1);
+                this._renderAiKeysList();
                 this._refreshModelSelects();
             });
-            row.appendChild(input);
+            this.cleanupFunctions.push(c);
 
-            this.aiKeysListEl.appendChild(row);
+            header.appendChild(nameInput);
+            header.appendChild(badge);
+            header.appendChild(removeBtn);
+            card.appendChild(header);
+
+            const urlInput = document.createElement('input');
+            urlInput.type = 'text';
+            urlInput.className = 'ai-provider-card__input';
+            urlInput.value = provider.baseUrl || '';
+            urlInput.placeholder = t('settings.baseUrlPlaceholder');
+            urlInput.addEventListener('input', () => { this.aiConfiguredProviders[index].baseUrl = urlInput.value.trim(); });
+            card.appendChild(urlInput);
+
+            const keyInput = document.createElement('input');
+            keyInput.type = 'password';
+            keyInput.className = 'ai-provider-card__input';
+            keyInput.value = provider.apiKey || '';
+            keyInput.placeholder = t('settings.apiKey');
+            keyInput.autocomplete = 'off';
+            keyInput.addEventListener('input', () => {
+                this.aiConfiguredProviders[index].apiKey = keyInput.value.trim();
+                this._refreshModelSelects();
+            });
+            card.appendChild(keyInput);
+
+            const modelsInput = document.createElement('input');
+            modelsInput.type = 'text';
+            modelsInput.className = 'ai-provider-card__input';
+            modelsInput.value = (provider.models || []).join(', ');
+            modelsInput.placeholder = t('settings.modelsPlaceholder');
+            modelsInput.addEventListener('input', () => {
+                this.aiConfiguredProviders[index].models = modelsInput.value.split(',').map(m => m.trim()).filter(Boolean);
+                this._refreshModelSelects();
+            });
+            card.appendChild(modelsInput);
+
+            return card;
+        }
+
+        // Preset provider row
+        const row = document.createElement('div');
+        row.className = 'ai-key-row';
+
+        const label = document.createElement('span');
+        label.className = 'ai-key-row__name';
+        label.textContent = preset?.name || provider.id;
+        row.appendChild(label);
+
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.className = 'ai-key-row__input';
+        input.placeholder = 'API Key';
+        input.value = provider.apiKey || '';
+        input.autocomplete = 'off';
+        input.addEventListener('input', () => {
+            this.aiConfiguredProviders[index].apiKey = input.value.trim();
+            this._refreshModelSelects();
         });
+        row.appendChild(input);
+
+        const fetchBtn = document.createElement('button');
+        fetchBtn.type = 'button';
+        fetchBtn.className = 'ai-key-row__fetch';
+        fetchBtn.title = t('settings.fetchList');
+        fetchBtn.textContent = '↻';
+        fetchBtn.dataset.fetchIndex = String(index);
+        const cf = addClickHandler(fetchBtn, () => this._fetchProviderModels(index));
+        this.cleanupFunctions.push(cf);
+        row.appendChild(fetchBtn);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'ai-provider-card__remove';
+        removeBtn.textContent = '✕';
+        const c = addClickHandler(removeBtn, () => {
+            this.aiConfiguredProviders.splice(index, 1);
+            this._renderAiKeysList();
+            this._refreshModelSelects();
+        });
+        this.cleanupFunctions.push(c);
+        row.appendChild(removeBtn);
+
+        return row;
+    }
+
+    _showAddProviderForm(addBtn) {
+        const existing = this.aiKeysListEl.querySelector('.ai-add-form');
+        if (existing) { existing.remove(); return; }
+
+        const addedIds = new Set(this.aiConfiguredProviders.map(p => p.id));
+        const availablePresets = PROVIDER_PRESETS.filter(p => !addedIds.has(p.id));
+
+        const form = document.createElement('div');
+        form.className = 'ai-add-form';
+
+        const providerSelect = document.createElement('select');
+        providerSelect.className = 'ai-add-form__select';
+
+        const blankOpt = document.createElement('option');
+        blankOpt.value = '';
+        blankOpt.textContent = t('settings.selectProvider');
+        providerSelect.appendChild(blankOpt);
+
+        availablePresets.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            providerSelect.appendChild(opt);
+        });
+
+        const customOpt = document.createElement('option');
+        customOpt.value = '__custom__';
+        customOpt.textContent = t('settings.customProvider');
+        providerSelect.appendChild(customOpt);
+
+        form.appendChild(providerSelect);
+
+        const fieldsEl = document.createElement('div');
+        fieldsEl.className = 'ai-add-form__fields';
+        form.appendChild(fieldsEl);
+
+        const actions = document.createElement('div');
+        actions.className = 'ai-add-form__actions';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'ai-add-form__btn ai-add-form__btn--secondary';
+        cancelBtn.textContent = t('settings.cancel');
+        const c1 = addClickHandler(cancelBtn, () => form.remove());
+        this.cleanupFunctions.push(c1);
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'ai-add-form__btn ai-add-form__btn--primary';
+        confirmBtn.textContent = t('settings.add');
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(confirmBtn);
+        form.appendChild(actions);
+
+        const renderFields = (selectedId) => {
+            fieldsEl.innerHTML = '';
+            if (!selectedId) return;
+
+            if (selectedId === '__custom__') {
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'ai-add-form__input';
+                nameInput.placeholder = t('settings.providerNamePlaceholder');
+                nameInput.dataset.field = 'name';
+                fieldsEl.appendChild(nameInput);
+
+                const urlInput = document.createElement('input');
+                urlInput.type = 'text';
+                urlInput.className = 'ai-add-form__input';
+                urlInput.placeholder = t('settings.baseUrlPlaceholder');
+                urlInput.dataset.field = 'baseUrl';
+                fieldsEl.appendChild(urlInput);
+            }
+
+            const keyInput = document.createElement('input');
+            keyInput.type = 'password';
+            keyInput.className = 'ai-add-form__input';
+            keyInput.placeholder = t('settings.apiKey');
+            keyInput.autocomplete = 'off';
+            keyInput.dataset.field = 'apiKey';
+            fieldsEl.appendChild(keyInput);
+
+            if (selectedId === '__custom__') {
+                const modelsInput = document.createElement('input');
+                modelsInput.type = 'text';
+                modelsInput.className = 'ai-add-form__input';
+                modelsInput.placeholder = t('settings.modelsPlaceholder');
+                modelsInput.dataset.field = 'models';
+                fieldsEl.appendChild(modelsInput);
+            }
+        };
+
+        providerSelect.addEventListener('change', () => renderFields(providerSelect.value));
+
+        const c2 = addClickHandler(confirmBtn, () => {
+            const selectedId = providerSelect.value;
+            if (!selectedId) return;
+
+            const getField = (name) => fieldsEl.querySelector(`[data-field="${name}"]`)?.value?.trim() || '';
+
+            if (selectedId === '__custom__') {
+                const name = getField('name');
+                const baseUrl = getField('baseUrl');
+                if (!name || !baseUrl) return;
+                this.aiConfiguredProviders.push({
+                    id: `custom_${Date.now().toString(36)}`,
+                    name,
+                    baseUrl,
+                    apiKey: getField('apiKey'),
+                    models: getField('models').split(',').map(m => m.trim()).filter(Boolean),
+                    isCustom: true,
+                });
+            } else {
+                const apiKey = getField('apiKey');
+                this.aiConfiguredProviders.push({ id: selectedId, apiKey });
+                this._renderAiKeysList();
+                this._refreshModelSelects();
+                if (apiKey) this._fetchProviderModels(this.aiConfiguredProviders.length - 1);
+                return;
+            }
+
+            this._renderAiKeysList();
+            this._refreshModelSelects();
+        });
+        this.cleanupFunctions.push(c2);
+
+        addBtn.parentNode.insertBefore(form, addBtn);
     }
 
     _renderModelSelects(assistantModel, fastModel) {
@@ -707,13 +944,20 @@ export class SettingsDialog {
             blank.textContent = '— ' + t('settings.selectModel') + ' —';
             fragment.appendChild(blank);
 
-            PROVIDER_PRESETS.forEach(preset => {
-                if (!this.aiProviderKeys[preset.id]) return;
+            this.aiConfiguredProviders.forEach(provider => {
+                if (!provider.apiKey) return;
+                const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
+                const models = provider.isCustom
+                    ? (provider.models || [])
+                    : (provider.fetchedModels?.length ? provider.fetchedModels : (preset?.models || []));
+                const name = provider.isCustom ? provider.name : (preset?.name || provider.id);
+                if (models.length === 0) return;
+
                 const group = document.createElement('optgroup');
-                group.label = preset.name;
-                preset.models.forEach(model => {
+                group.label = name;
+                models.forEach(model => {
                     const opt = document.createElement('option');
-                    opt.value = `${preset.id}::${model}`;
+                    opt.value = `${provider.id}::${model}`;
                     opt.textContent = model;
                     if (opt.value === currentVal) opt.selected = true;
                     group.appendChild(opt);
@@ -732,7 +976,6 @@ export class SettingsDialog {
         this.fastModelSelectEl.innerHTML = '';
         this.fastModelSelectEl.appendChild(buildOptions(fastVal));
 
-        // 这两个 select 在 open() 时才填充选项，需在填充后单独重建 Dropdown
         for (const el of [this.assistantModelSelectEl, this.fastModelSelectEl]) {
             if (this._dropdownMap.has(el)) {
                 try { this._dropdownMap.get(el).destroy(); } catch (_) {}
@@ -752,6 +995,30 @@ export class SettingsDialog {
             parseVal(this.assistantModelSelectEl?.value),
             parseVal(this.fastModelSelectEl?.value),
         );
+    }
+
+    async _fetchProviderModels(index) {
+        const provider = this.aiConfiguredProviders[index];
+        if (!provider || provider.isCustom || !provider.apiKey) return;
+
+        const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
+        if (!preset) return;
+
+        const btn = this.aiKeysListEl?.querySelector(`[data-fetch-index="${index}"]`);
+        if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+        try {
+            const service = await getAiService();
+            const models = await service.fetchModels({ ...preset, apiKey: provider.apiKey });
+            if (models.length > 0) {
+                this.aiConfiguredProviders[index].fetchedModels = models;
+                this._refreshModelSelects();
+            }
+        } catch (e) {
+            console.warn('[Settings] 获取模型列表失败:', e.message);
+        } finally {
+            if (btn) { btn.textContent = '↻'; btn.disabled = false; }
+        }
     }
 
     escAttr(str) {
