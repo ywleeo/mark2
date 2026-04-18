@@ -1,6 +1,5 @@
 /* ====== 卡片字体 ====== */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+KuaiLe&family=Shadows+Into+Light&family=Long+Cang&display=swap');
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css');
 
 /* ====== 编辑器右键菜单 ====== */
 
@@ -440,7 +439,7 @@
 
 .card-preview-card--warm-linen .card-preview-card__content {
     color: #3d2e1a;
-    font-family: 'LXGW WenKai', 'STSong', 'Songti SC', serif;
+    font-family: 'STKaiti', 'Kaiti SC', 'KaiTi', '楷体', 'DFKai-SB', serif;
     font-size: 13.5px;
     line-height: 1.9;
     letter-spacing: 0.04em;
