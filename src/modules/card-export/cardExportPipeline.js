@@ -1,14 +1,12 @@
 /**
  * 卡片导出的底层渲染 pipeline。
- * 负责把预览 DOM 转成 PNG dataUrl:处理图片内联化、字号补偿、背景样式内联。
+ * 负责把预览 DOM 转成 PNG dataUrl:处理图片内联化、背景样式内联。
  * 不负责文件保存/状态展示,那些由 CardExportFlow._handleExport 编排。
  *
  * 渲染器：modern-screenshot（SVG foreignObject 方案，内部做 font used detection，
  * 只 embed 实际用到的 @font-face 分片，避免 Google Fonts unicode-range 分片全量
  * embed 导致的 dataUrl 膨胀和 document.fonts 泄漏）。
  */
-
-const EXPORT_FONT_SCALE = 1.02;
 
 let _domToPng = null;
 async function ensureDomToPng() {
@@ -24,7 +22,6 @@ async function ensureDomToPng() {
  *
  * @param {Object} params
  * @param {HTMLElement} params.cardElement - 卡片根节点
- * @param {HTMLElement} params.cardTextElement - 文本节点,用于字号补偿
  * @param {HTMLElement} params.previewInner - 预览容器,用于 capturing 动画 class
  * @param {number} params.width - 目标输出宽度(像素)
  * @param {number} params.previewRenderedWidth - 预览当前实际宽度
@@ -44,15 +41,6 @@ export async function renderCardToDataUrl({
     const sourceWidth = previewRenderedWidth || cardElement.clientWidth || width;
     const scale = width / sourceWidth;
 
-    const contentNode = cardTextElement;
-    const originalInline = contentNode
-        ? {
-            fontSize: contentNode.style.fontSize,
-            lineHeight: contentNode.style.lineHeight,
-            letterSpacing: contentNode.style.letterSpacing,
-        }
-        : null;
-
     const bgElement = cardElement.querySelector('.card-preview-card__background');
     const originalBgInline = bgElement
         ? {
@@ -71,21 +59,6 @@ export async function renderCardToDataUrl({
 
         await prepareImagesForExport(cardElement, imgSrcBackup);
 
-        if (contentNode && EXPORT_FONT_SCALE !== 1) {
-            const computed = window.getComputedStyle(contentNode);
-            const baseFontSize = parseFloat(computed.fontSize) || 16;
-            const parsedLineHeight = parseFloat(computed.lineHeight);
-            const baseLineHeight = Number.isFinite(parsedLineHeight)
-                ? parsedLineHeight
-                : baseFontSize * 1.6;
-            const parsedLetterSpacing = parseFloat(computed.letterSpacing);
-            const baseLetterSpacing = Number.isFinite(parsedLetterSpacing) ? parsedLetterSpacing : 0;
-
-            contentNode.style.fontSize = `${baseFontSize * EXPORT_FONT_SCALE}px`;
-            contentNode.style.lineHeight = `${baseLineHeight * EXPORT_FONT_SCALE}px`;
-            contentNode.style.letterSpacing = `${baseLetterSpacing * EXPORT_FONT_SCALE}px`;
-        }
-
         embedInlineStyles(cardElement);
 
         await document.fonts?.ready;
@@ -96,11 +69,6 @@ export async function renderCardToDataUrl({
             scale,
         });
     } finally {
-        if (contentNode && originalInline) {
-            contentNode.style.fontSize = originalInline.fontSize;
-            contentNode.style.lineHeight = originalInline.lineHeight;
-            contentNode.style.letterSpacing = originalInline.letterSpacing;
-        }
         if (bgElement && originalBgInline) {
             bgElement.style.background = originalBgInline.background;
             bgElement.style.boxShadow = originalBgInline.boxShadow;

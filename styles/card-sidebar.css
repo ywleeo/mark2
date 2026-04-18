@@ -364,10 +364,7 @@
 .card-preview-card--code-night     .card-preview-card__content { max-height: 383px; } /* 453-50-20 */
 
 
-.card-preview-card__content p            { margin: 0.18em 0; text-wrap: pretty; }
-.card-preview-card__content p:only-child { text-wrap: balance; }
-/* LLM 美化后禁用 balance/pretty，完全尊重 LLM 的排版结构 */
-.card-preview-card__content.is-ai-formatted p { text-wrap: auto; }
+.card-preview-card__content p            { margin: 0.18em 0; }
 .card-preview-card__content p:first-child { margin-top: 0; }
 .card-preview-card__content p:last-child  { margin-bottom: 0; }
 .card-preview-card__content strong { font-weight: 700; }
@@ -825,6 +822,12 @@
 .card-preview-card--code-night .card-preview-card__content p {
     margin: 0;
     white-space: pre-wrap;
+}
+
+/* monospace 下数字 marker 需要更大 padding 才不会被裁 */
+.card-preview-card--code-night .card-preview-card__content ul,
+.card-preview-card--code-night .card-preview-card__content ol {
+    padding-left: 2.6em;
 }
 
 /* 窗口 chrome 条 */

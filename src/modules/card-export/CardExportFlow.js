@@ -468,7 +468,6 @@ export class CardExportFlow {
                 const targetPath = await join(dir, filename);
                 const dataUrl = await renderCardToDataUrl({
                     cardElement: item.cardEl,
-                    cardTextElement: item.textEl,
                     previewInner: item.previewWrap,
                     width: EXPORT_WIDTH,
                     previewRenderedWidth: DISPLAY_WIDTH,
@@ -830,7 +829,6 @@ ${clean}`;
         const baseSize = item.tpl.baseFontSize || 13.5;
         item.textEl.style.fontSize = '';
         item.textEl.style.fontWeight = '';
-        item.textEl.style.textWrap = '';
 
         requestAnimationFrame(() => {
             const contentH = item.textEl.scrollHeight;
@@ -846,10 +844,6 @@ ${clean}`;
 
                 if (finalSize > baseSize * 1.15) {
                     item.textEl.style.fontWeight = '600';
-                }
-
-                if (!item.textEl.querySelector('p') && finalSize > baseSize * 1.2) {
-                    item.textEl.style.textWrap = 'balance';
                 }
             }
             this._applySmartLayout(item);
@@ -870,7 +864,6 @@ ${clean}`;
 
             const dataUrl = await renderCardToDataUrl({
                 cardElement: item.cardEl,
-                cardTextElement: item.textEl,
                 previewInner: item.previewWrap,
                 width: EXPORT_WIDTH,
                 previewRenderedWidth: DISPLAY_WIDTH,
