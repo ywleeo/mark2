@@ -646,7 +646,10 @@ function appendMessageActions(messageEl, copySourceEl, { onDelete } = {}) {
     copyBtn.type = 'button';
     copyBtn.innerHTML = AI_COPY_ICON;
     addClickHandler(copyBtn, () => {
-        const text = copySourceEl.textContent.trim();
+        const markdownEls = copySourceEl.querySelectorAll?.('.ai-message-content.ai-message-markdown');
+        const text = markdownEls?.length
+            ? [...markdownEls].map(el => el.textContent).join('\n\n').trim()
+            : copySourceEl.textContent.trim();
         navigator.clipboard.writeText(text).then(() => {
             copyBtn.innerHTML = AI_COPY_CHECK_ICON;
             copyBtn.classList.add('is-copied');
@@ -709,6 +712,7 @@ export class AiSidebar {
         this.closeBtn = this.el.querySelector('.ai-sidebar-close-btn');
         this.fileNameEl = this.el.querySelector('.ai-context-file-name');
         this.resizeHandleEl = this.el.querySelector('.ai-sidebar-resize-handle');
+        this.autoEditCheckboxEl = this.el.querySelector('.ai-auto-edit-checkbox');
 
         // 对话历史（仅用于 LLM，含 system/user/assistant/tool 消息）
         this.agentMessages = [];
@@ -721,6 +725,14 @@ export class AiSidebar {
 
         // 当前活跃的 assistant 卡片（用于关联 diff/confirm 到正确的卡片）
         this._activeCard = null;
+
+        // auto-edit 开关状态
+        this.autoEdit = store.get('autoEdit', false);
+        this.autoEditStateEl = this.el.querySelector('.ai-auto-edit-state');
+        if (this.autoEditCheckboxEl) {
+            this.autoEditCheckboxEl.checked = this.autoEdit;
+            this._updateAutoEditState();
+        }
 
         // 事件清理函数集合
         this._cleanups = [];
@@ -798,6 +810,16 @@ export class AiSidebar {
             addClickHandler(this.clearBtn, () => this._handleClear()),
             addClickHandler(this.closeBtn, () => this.hide()),
         );
+
+        if (this.autoEditCheckboxEl) {
+            const onAutoEditChange = () => {
+                this.autoEdit = this.autoEditCheckboxEl.checked;
+                store.set('autoEdit', this.autoEdit);
+                this._updateAutoEditState();
+            };
+            this.autoEditCheckboxEl.addEventListener('change', onAutoEditChange);
+            this._cleanups.push(() => this.autoEditCheckboxEl.removeEventListener('change', onAutoEditChange));
+        }
 
         this._isComposing = false;
         this._compositionJustEnded = false;
@@ -973,6 +995,11 @@ export class AiSidebar {
         return true;
     }
 
+    _updateAutoEditState() {
+        if (!this.autoEditStateEl) return;
+        this.autoEditStateEl.textContent = this.autoEdit ? t('ai.autoEdit.on') : t('ai.autoEdit.off');
+    }
+
     _updateContextBar(path) {
         const resolvedPath = path ?? this.getAppState().getCurrentFile();
         if (resolvedPath) {
@@ -1119,6 +1146,26 @@ export class AiSidebar {
         const card = this._activeCard;
         if (!card) return { applied: false };
 
+        if (this.autoEdit) {
+            try {
+                const latestContent = this._getEditorContent();
+                if (typeof latestContent === 'string' && latestContent !== oldContent) {
+                    this._appendSystemMessage(t('ai.system.docChangedDuringGen'));
+                    return { applied: false };
+                }
+                if (untitledFileManager.isUntitledPath(path)) {
+                    untitledFileManager.setContent(path, newContent);
+                } else {
+                    await writeFile(path, newContent);
+                }
+                await this.reloadCurrentFile(path);
+                return { applied: true };
+            } catch (err) {
+                this._appendSystemMessage(t('ai.system.writeFileFail', { error: err.message }));
+                return { applied: false };
+            }
+        }
+
         const result = await card.addDiffCard({ path, oldContent, newContent });
 
         if (result.applied) {
@@ -1232,7 +1279,7 @@ export class AiSidebar {
 3. 完成操作
 
 ## 注意事项
-- 不要一次读取超过需要的内容，大文件用 read_document_lines 分块或用 search_in_document 定位
+- 优先一次读取足够多的内容（500 行以内可以一次读完），超长文档再用 read_document_lines 分块或 search_in_document 定位
 - 如果任务是改整篇稿子、通篇润色、重写全文，调用 write_current_document 时用 mode=rewrite_full
 - 如果任务只修改你刚读取的某一段，调用 write_current_document 时用 mode=replace_range，并直接复用读取结果里的 start_line、end_line、document_version
 - replace_range 时同时传 source_excerpt，内容就是你刚读取到的原片段正文；如果文档已变化，系统会用它在最新文档中自动重定位

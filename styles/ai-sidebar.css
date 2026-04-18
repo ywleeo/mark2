@@ -549,6 +549,62 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     flex-shrink: 0;
 }
 
+.ai-sidebar-options {
+    display: flex;
+    align-items: center;
+    padding: 0 2px 6px;
+}
+
+.ai-auto-edit-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px 2px 6px;
+    border-radius: 20px;
+    border: 1px solid var(--ai-input-border);
+    font-size: 11px;
+    color: var(--ai-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.ai-auto-edit-chip::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ai-input-border);
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.ai-auto-edit-chip:hover {
+    border-color: var(--ai-input-focus-border);
+    color: var(--ai-text);
+}
+
+.ai-auto-edit-chip:has(.ai-auto-edit-checkbox:checked) {
+    border-color: var(--ai-input-focus-border);
+    color: var(--ai-text);
+}
+
+.ai-auto-edit-chip:has(.ai-auto-edit-checkbox:checked)::before {
+    background: var(--ai-tool-done);
+}
+
+.ai-auto-edit-checkbox {
+    display: none;
+}
+
+.ai-auto-edit-state {
+    opacity: 0.5;
+}
+
+.ai-auto-edit-chip:has(.ai-auto-edit-checkbox:checked) .ai-auto-edit-state {
+    opacity: 1;
+}
+
 .ai-sidebar-input-wrapper {
     display: flex;
     align-items: flex-end;
