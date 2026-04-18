@@ -1,6 +1,5 @@
 let constructorsPromise = null;
 let cachedConstructors = null;
-let toPngRenderer = null;
 
 async function loadCoreModuleConstructors() {
     if (!constructorsPromise) {
@@ -52,12 +51,4 @@ async function loadCoreModuleConstructors() {
 
 export async function loadCoreModules() {
     return await loadCoreModuleConstructors();
-}
-
-export async function ensureToPng() {
-    if (!toPngRenderer) {
-        const module = await import('html-to-image');
-        toPngRenderer = module.toPng;
-    }
-    return toPngRenderer;
 }

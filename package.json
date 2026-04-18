@@ -69,6 +69,7 @@
     "markdown-it-task-lists": "^2.1.1",
     "markdown-it-texmath": "^1.0.0",
     "mermaid": "^11.12.1",
+    "modern-screenshot": "^4.7.0",
     "pagedjs": "^0.4.3",
     "pdfjs-dist": "^4.6.82",
     "prettier": "^3.8.1",

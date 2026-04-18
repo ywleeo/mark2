@@ -5,7 +5,7 @@ import { buildDefaultCardImagePath } from '../../utils/exportUtils.js';
 import { pickPaths } from '../../api/filesystem.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { CARD_TEMPLATES } from './cardTemplates.js';
-import { renderCardToDataUrl, warmFontCache } from './cardExportPipeline.js';
+import { renderCardToDataUrl } from './cardExportPipeline.js';
 import { aiService } from '../ai-assistant/aiService.js';
 import { aiProxyJsonRequest } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
@@ -395,10 +395,6 @@ export class CardExportFlow {
         this._normalActions.style.display = 'none';
         this._expandActions.style.display = '';
         this._expandAiBtn.disabled = !!tpl.noLLM;
-
-        // 后台预热字体缓存，让第一张导出不再等待 CDN 字体 fetch
-        const sampleCard = this._expandItems[0]?.cardEl;
-        if (sampleCard) warmFontCache(sampleCard).catch(() => {});
     }
 
     _exitExpandMode() {

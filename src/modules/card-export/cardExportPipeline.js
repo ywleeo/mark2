@@ -2,36 +2,21 @@
  * 卡片导出的底层渲染 pipeline。
  * 负责把预览 DOM 转成 PNG dataUrl:处理图片内联化、字号补偿、背景样式内联。
  * 不负责文件保存/状态展示,那些由 CardExportFlow._handleExport 编排。
+ *
+ * 渲染器：modern-screenshot（SVG foreignObject 方案，内部做 font used detection，
+ * 只 embed 实际用到的 @font-face 分片，避免 Google Fonts unicode-range 分片全量
+ * embed 导致的 dataUrl 膨胀和 document.fonts 泄漏）。
  */
-
-import { ensureToPng } from '../../app/coreModules.js';
 
 const EXPORT_FONT_SCALE = 1.02;
 
-// 字体 CSS 缓存 — 首次导出时从 CDN/本地 fetch，后续复用，避免每张都重新下载
-let _fontEmbedCSSCache = null;
-let _fontEmbedCSSPromise = null;
-
-/**
- * 预取并缓存字体 embed CSS（可在进入 expand 模式时后台预热）。
- * 多次调用安全：只会实际 fetch 一次。
- */
-export async function warmFontCache(sampleNode) {
-    if (_fontEmbedCSSCache !== null) return;
-    if (_fontEmbedCSSPromise) return _fontEmbedCSSPromise;
-    const { getFontEmbedCSS } = await import('html-to-image');
-    _fontEmbedCSSPromise = getFontEmbedCSS(sampleNode, { cacheBust: false })
-        .then(css => { _fontEmbedCSSCache = css || ''; return _fontEmbedCSSCache; })
-        .catch(() => {
-            _fontEmbedCSSCache = '';  // 标记"已尝试但失败"，不再重试
-            _fontEmbedCSSPromise = null;
-        });
-    return _fontEmbedCSSPromise;
-}
-
-async function getOrFetchFontEmbedCSS(cardElement) {
-    if (_fontEmbedCSSCache !== null) return _fontEmbedCSSCache || null;
-    return warmFontCache(cardElement);
+let _domToPng = null;
+async function ensureDomToPng() {
+    if (!_domToPng) {
+        const mod = await import('modern-screenshot');
+        _domToPng = mod.domToPng;
+    }
+    return _domToPng;
 }
 
 /**
@@ -57,7 +42,6 @@ export async function renderCardToDataUrl({
     }
 
     const sourceWidth = previewRenderedWidth || cardElement.clientWidth || width;
-    // 直接以预览 DOM 排版,导出时只放大像素密度,保证折行一致
     const scale = width / sourceWidth;
 
     const contentNode = cardTextElement;
@@ -69,7 +53,6 @@ export async function renderCardToDataUrl({
         }
         : null;
 
-    // 保存背景元素原始内联样式
     const bgElement = cardElement.querySelector('.card-preview-card__background');
     const originalBgInline = bgElement
         ? {
@@ -81,14 +64,11 @@ export async function renderCardToDataUrl({
         }
         : null;
 
-    // 保存图片原始 src,用于导出后恢复
     const imgSrcBackup = new Map();
 
     try {
-        // 闪光效果遮盖样式变化(放在父容器上,避免被导出)
         previewInner.classList.add('is-capturing');
 
-        // 预处理图片:移除无效图片,转换 blob URL 为 data URL
         await prepareImagesForExport(cardElement, imgSrcBackup);
 
         if (contentNode && EXPORT_FONT_SCALE !== 1) {
@@ -106,22 +86,14 @@ export async function renderCardToDataUrl({
             contentNode.style.letterSpacing = `${baseLetterSpacing * EXPORT_FONT_SCALE}px`;
         }
 
-        // 把背景样式转为内联样式(导出需要)
         embedInlineStyles(cardElement);
 
         await document.fonts?.ready;
 
-        // 字体 embed CSS 首次从 CDN/本地 fetch，后续复用缓存，避免每张重新下载（数 MB）
-        const [toPng, fontEmbedCSS] = await Promise.all([
-            ensureToPng(),
-            getOrFetchFontEmbedCSS(cardElement),
-        ]);
-
-        return await toPng(cardElement, {
+        const domToPng = await ensureDomToPng();
+        return await domToPng(cardElement, {
             backgroundColor: '#ffffff',
-            pixelRatio: scale,
-            cacheBust: false,
-            ...(fontEmbedCSS ? { fontEmbedCSS } : {}),
+            scale,
         });
     } finally {
         if (contentNode && originalInline) {
@@ -129,7 +101,6 @@ export async function renderCardToDataUrl({
             contentNode.style.lineHeight = originalInline.lineHeight;
             contentNode.style.letterSpacing = originalInline.letterSpacing;
         }
-        // 恢复背景元素原始内联样式
         if (bgElement && originalBgInline) {
             bgElement.style.background = originalBgInline.background;
             bgElement.style.boxShadow = originalBgInline.boxShadow;
@@ -137,7 +108,6 @@ export async function renderCardToDataUrl({
             bgElement.style.border = originalBgInline.border;
             bgElement.style.boxSizing = originalBgInline.boxSizing;
         }
-        // 恢复图片状态
         for (const [img, backup] of imgSrcBackup) {
             if (backup.type === 'removed') {
                 backup.parent?.insertBefore(img, backup.nextSibling);
@@ -145,7 +115,6 @@ export async function renderCardToDataUrl({
                 img.src = backup.value;
             }
         }
-        // 闪光恢复动画
         previewInner.classList.remove('is-capturing');
         previewInner.classList.add('is-capture-done');
         setTimeout(() => {
@@ -164,14 +133,12 @@ async function prepareImagesForExport(cardElement, backupMap) {
     const promises = [];
 
     for (const img of imgs) {
-        // 移除空 src 或 ProseMirror 占位符图片
         if (!img.src || img.classList.contains('ProseMirror-separator')) {
             backupMap.set(img, { type: 'removed', parent: img.parentNode, nextSibling: img.nextSibling });
             img.remove();
             continue;
         }
 
-        // 转换 blob URL 为 data URL
         if (img.src.startsWith('blob:')) {
             backupMap.set(img, { type: 'src', value: img.src });
 
@@ -199,7 +166,7 @@ async function prepareImagesForExport(cardElement, backupMap) {
 }
 
 /**
- * 把 CSS 类样式转为内联样式(html-to-image 导出需要)。
+ * 把 CSS 类样式转为内联样式(SVG foreignObject 导出需要)。
  * frame 样式的 inset box-shadow 用 border 代替。
  */
 function embedInlineStyles(cardNode) {
@@ -211,7 +178,6 @@ function embedInlineStyles(cardNode) {
     const computed = window.getComputedStyle(bgElement);
     bgElement.style.background = computed.background;
     bgElement.style.opacity = computed.opacity;
-    // html-to-image 不支持 inset box-shadow,frame 样式用 border 代替
     if (bgElement.classList.contains('card-preview-card__background--frame')) {
         bgElement.style.border = '10px solid #de7e7e';
         bgElement.style.boxSizing = 'border-box';
