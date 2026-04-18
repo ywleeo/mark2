@@ -3,6 +3,11 @@ import { getBundledStyles, getThemeStyles } from '../config/bundled-styles.js';
 import { detectMimeType, resolveImagePath } from './imageResolver.js';
 import { getAppServices } from '../services/appServices.js';
 
+// 截图四周留白 —— 避免内容贴边
+const PNG_PAD_X = 48;
+const PNG_PAD_TOP = 40;
+const PNG_PAD_BOTTOM = 28;
+
 export function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
     const year = date.getFullYear();
@@ -104,13 +109,13 @@ function applyCenteredExportStyles({
     scrollWidth,
 }) {
     const viewportWidth = viewElement.clientWidth || 1000;
-    const containerWidth = Math.max(scrollWidth, viewportWidth);
+    const containerWidth = Math.max(scrollWidth, viewportWidth) + PNG_PAD_X * 2;
 
     captureContainer.style.width = `${containerWidth}px`;
     wrapper.style.width = `${containerWidth}px`;
 
     // 居中模式：用 block + margin auto 代替 flex 居中，
-    // 避免 html-to-image 在 foreignObject 中渲染 flex 时产生异常空白
+    // 避免 SVG foreignObject 渲染 flex 时产生异常空白
     clone.style.display = 'block';
     clone.style.maxWidth = '800px';
     clone.style.width = '100%';
@@ -175,7 +180,7 @@ function buildExportFooter({ isCentered }) {
     brandingWrapper.style.display = 'flex';
     brandingWrapper.style.justifyContent = 'flex-end';
     brandingWrapper.style.paddingRight = '30px';
-    brandingWrapper.style.paddingTop = '25px';
+    brandingWrapper.style.paddingTop = '42px';
 
     const brandingLabel = document.createElement('span');
     brandingLabel.textContent = 'MARK2';
@@ -231,6 +236,8 @@ export async function captureViewContent() {
         )
     );
 
+    const outerWidth = scrollWidth + PNG_PAD_X * 2;
+
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
     wrapper.style.left = '-100000px';
@@ -238,7 +245,7 @@ export async function captureViewContent() {
     wrapper.style.padding = '0';
     wrapper.style.margin = '0';
     wrapper.style.background = backgroundColor;
-    wrapper.style.width = `${scrollWidth}px`;
+    wrapper.style.width = `${outerWidth}px`;
     wrapper.style.pointerEvents = 'none';
     wrapper.style.zIndex = '-1';
 
@@ -254,9 +261,9 @@ export async function captureViewContent() {
 
     const captureContainer = document.createElement('div');
     captureContainer.style.display = 'block';
-    captureContainer.style.width = `${scrollWidth}px`;
+    captureContainer.style.width = `${outerWidth}px`;
     captureContainer.style.boxSizing = 'border-box';
-    captureContainer.style.paddingBottom = '15px';
+    captureContainer.style.padding = `${PNG_PAD_TOP}px ${PNG_PAD_X}px ${PNG_PAD_BOTTOM}px`;
 
     const centeredPane = document.querySelector('.view-pane.markdown-pane.content-centered');
     const isCentered = centeredPane !== null;
@@ -284,11 +291,20 @@ export async function captureViewContent() {
 
     try {
         await document.fonts?.ready;
-        const { toPng } = await import('html-to-image');
-        return await toPng(captureContainer, {
+
+        // SVG foreignObject 序列化后的 dataUrl 过大时 WebKit 会拒绝加载，
+        // 实测 ~12000px 高度就逼近阈值。超限直接提示用户改用 PDF 导出。
+        const totalHeight = captureContainer.offsetHeight;
+        if (totalHeight > 12000) {
+            throw new Error(
+                `内容过长（${totalHeight}px），超出单张 PNG 导出上限。建议改用 PDF 导出，或将文档拆分后再导出。`
+            );
+        }
+
+        const { domToPng } = await import('modern-screenshot');
+        return await domToPng(captureContainer, {
             backgroundColor,
-            pixelRatio: scale,
-            cacheBust: true,
+            scale,
         });
     } finally {
         if (wrapper.parentNode) {
