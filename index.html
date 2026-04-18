@@ -209,23 +209,28 @@
             </div>
         </div>
         <div class="ai-sidebar-chat-input">
-            <div class="ai-sidebar-options">
-                <label class="ai-auto-edit-chip">
-                    <input type="checkbox" class="ai-auto-edit-checkbox">
-                    <span data-i18n="ai.autoEdit.label">Auto Edit</span>
-                    <span class="ai-auto-edit-state" data-i18n="ai.autoEdit.off">Off</span>
-                </label>
-            </div>
             <div class="ai-sidebar-input-wrapper">
                 <textarea class="ai-sidebar-input-field" placeholder="Message..." rows="1"></textarea>
-                <button type="button" class="ai-sidebar-cancel-btn" style="display:none">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
-                </button>
-                <button type="button" class="ai-sidebar-send-btn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
-                    </svg>
-                </button>
+                <div class="ai-sidebar-input-footer">
+                    <div class="ai-sidebar-options">
+                        <label class="ai-auto-edit-chip">
+                            <input type="checkbox" class="ai-auto-edit-checkbox">
+                            <span data-i18n="ai.autoEdit.label">Auto Edit</span>
+                            <span class="ai-auto-edit-state" data-i18n="ai.autoEdit.off">Off</span>
+                        </label>
+                        <select class="ai-model-select"></select>
+                    </div>
+                    <div class="ai-sidebar-input-actions">
+                        <button type="button" class="ai-sidebar-cancel-btn" style="display:none">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+                        </button>
+                        <button type="button" class="ai-sidebar-send-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

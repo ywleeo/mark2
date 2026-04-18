@@ -713,6 +713,7 @@ export class AiSidebar {
         this.fileNameEl = this.el.querySelector('.ai-context-file-name');
         this.resizeHandleEl = this.el.querySelector('.ai-sidebar-resize-handle');
         this.autoEditCheckboxEl = this.el.querySelector('.ai-auto-edit-checkbox');
+        this.modelSelectEl = this.el.querySelector('.ai-model-select');
 
         // 对话历史（仅用于 LLM，含 system/user/assistant/tool 消息）
         this.agentMessages = [];
@@ -740,6 +741,7 @@ export class AiSidebar {
         this._setupToolExecutor();
         this._restoreSidebarWidth();
         this._bindEvents();
+        this._initModelSelect();
         this._bindFileChangeListener();
         this._bindResizeHandle();
         this._updateContextBar();
@@ -998,6 +1000,84 @@ export class AiSidebar {
     _updateAutoEditState() {
         if (!this.autoEditStateEl) return;
         this.autoEditStateEl.textContent = this.autoEdit ? t('ai.autoEdit.on') : t('ai.autoEdit.off');
+    }
+
+    _initModelSelect() {
+        if (!this.modelSelectEl) return;
+        this._populateModelSelect();
+
+        const onChange = () => {
+            const val = this.modelSelectEl.value;
+            if (!val) return;
+            const sep = val.indexOf('::');
+            if (sep === -1) return;
+            const providerId = val.slice(0, sep);
+            const model = val.slice(sep + 2);
+            const cfg = aiService.getConfig();
+            aiService.saveConfig({ ...cfg, assistantModel: { providerId, model } });
+        };
+        this.modelSelectEl.addEventListener('change', onChange);
+        this._cleanups.push(() => this.modelSelectEl.removeEventListener('change', onChange));
+
+        const unsub = aiService.subscribe((event) => {
+            if (event.type === 'config') this._populateModelSelect();
+        });
+        this._cleanups.push(unsub);
+    }
+
+    _populateModelSelect() {
+        if (!this.modelSelectEl) return;
+        const cfg = aiService.getConfig();
+        const slot = cfg.assistantModel;
+        const providers = cfg.providers ?? [];
+
+        this.modelSelectEl.innerHTML = '';
+
+        // 收集所有有 apiKey 的 provider 的模型
+        const configured = providers.filter(p => p.apiKey);
+        if (!configured.length) {
+            const opt = document.createElement('option');
+            opt.textContent = t('ai.model.noConfig');
+            this.modelSelectEl.appendChild(opt);
+            this.modelSelectEl.disabled = true;
+            return;
+        }
+
+        this.modelSelectEl.disabled = false;
+        const currentVal = slot ? `${slot.providerId}::${slot.model}` : '';
+        let currentFound = false;
+
+        for (const p of configured) {
+            const providerCfg = aiService.getProviderConfig(p.id);
+            const models = (p.fetchedModels?.length ? p.fetchedModels : null)
+                ?? providerCfg?.models ?? [];
+            if (!models.length) continue;
+
+            const group = document.createElement('optgroup');
+            group.label = providerCfg?.name || p.id;
+
+            for (const model of models) {
+                const val = `${p.id}::${model}`;
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = model;
+                if (val === currentVal) {
+                    opt.selected = true;
+                    currentFound = true;
+                }
+                group.appendChild(opt);
+            }
+            this.modelSelectEl.appendChild(group);
+        }
+
+        // 当前选中的模型不在任何列表里时，单独补一个
+        if (!currentFound && slot?.model) {
+            const opt = document.createElement('option');
+            opt.value = currentVal;
+            opt.textContent = slot.model;
+            opt.selected = true;
+            this.modelSelectEl.insertBefore(opt, this.modelSelectEl.firstChild);
+        }
     }
 
     _updateContextBar(path) {

@@ -549,48 +549,73 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     flex-shrink: 0;
 }
 
+.ai-sidebar-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    background: var(--ai-input-bg);
+    border: 1px solid var(--ai-input-border);
+    border-radius: 12px;
+    padding: 10px 8px 6px 14px;
+    transition: border-color 0.15s;
+}
+
+.ai-sidebar-input-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 4px;
+}
+
 .ai-sidebar-options {
     display: flex;
     align-items: center;
-    padding: 0 2px 6px;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ai-sidebar-input-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
 }
 
 .ai-auto-edit-chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 2px 8px 2px 6px;
-    border-radius: 20px;
-    border: 1px solid var(--ai-input-border);
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 6px;
     font-size: 11px;
     color: var(--ai-text-secondary);
     cursor: pointer;
     user-select: none;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    transition: color 0.15s, background 0.15s;
 }
 
 .ai-auto-edit-chip::before {
     content: '';
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
-    background: var(--ai-input-border);
+    background: currentColor;
+    opacity: 0.3;
     flex-shrink: 0;
-    transition: background 0.15s;
+    transition: opacity 0.15s, background 0.15s;
 }
 
 .ai-auto-edit-chip:hover {
-    border-color: var(--ai-input-focus-border);
+    background: var(--ai-hover);
     color: var(--ai-text);
 }
 
 .ai-auto-edit-chip:has(.ai-auto-edit-checkbox:checked) {
-    border-color: var(--ai-input-focus-border);
     color: var(--ai-text);
 }
 
 .ai-auto-edit-chip:has(.ai-auto-edit-checkbox:checked)::before {
     background: var(--ai-tool-done);
+    opacity: 1;
 }
 
 .ai-auto-edit-checkbox {
@@ -602,18 +627,34 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
 }
 
 .ai-auto-edit-chip:has(.ai-auto-edit-checkbox:checked) .ai-auto-edit-state {
-    opacity: 1;
+    opacity: 0.7;
 }
 
-.ai-sidebar-input-wrapper {
-    display: flex;
-    align-items: flex-end;
-    gap: 6px;
-    background: var(--ai-input-bg);
-    border: 1px solid var(--ai-input-border);
-    border-radius: 12px;
-    padding: 6px 6px 6px 14px;
-    transition: border-color 0.15s;
+.ai-model-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--ai-text-secondary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    max-width: 130px;
+    outline: none;
+    overflow: hidden;
+    padding: 3px 18px 3px 6px;
+    text-overflow: ellipsis;
+    transition: color 0.15s, background 0.15s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5' viewBox='0 0 9 5'%3E%3Cpath d='M1 1l3.5 3L8 1' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 5px center;
+}
+
+.ai-model-select:hover,
+.ai-model-select:focus {
+    background-color: var(--ai-hover);
+    color: var(--ai-text);
 }
 
 .ai-sidebar-input-wrapper:focus-within {
@@ -689,8 +730,6 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     background: var(--ai-hover);
 }
 
-/* 隐藏旧的 actions 容器 */
-.ai-sidebar-input-actions { display: none; }
 
 /* ── Diff 卡片 ─────────────────────────────── */
 
