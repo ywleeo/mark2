@@ -29,6 +29,7 @@ export function applyHtmlLocale() {
         ['.ai-sidebar-input-field', 'placeholder', 'ai.placeholder'],
         ['.ai-sidebar-cancel-btn', 'title', 'ai.cancel'],
         ['.ai-sidebar-send-btn', 'title', 'ai.send'],
+        ['.ai-auto-edit-chip [data-i18n="ai.autoEdit.label"]', 'textContent', 'ai.autoEdit.label'],
         ['.scratchpad-title', 'textContent', 'scratchpad.title'],
         ['.scratchpad-textarea', 'placeholder', 'scratchpad.placeholder'],
         ['.scratchpad-close-btn', 'title', 'scratchpad.close'],
