@@ -346,12 +346,15 @@
 
 /* 防止 block 元素出现滚动条，长内容统一折行 */
 .card-preview-card__content pre,
-.card-preview-card__content blockquote,
-.card-preview-card__content ul,
-.card-preview-card__content ol {
+.card-preview-card__content blockquote {
     overflow: hidden;
     word-break: break-word;
     white-space: pre-wrap;
+}
+.card-preview-card__content ul,
+.card-preview-card__content ol {
+    overflow: visible;
+    word-break: break-word;
 }
 
 /* 各模板内容区硬上限，防止溢出到装饰区域 */
@@ -398,7 +401,7 @@
     opacity: 0.72;
 }
 .card-preview-card__content ul,
-.card-preview-card__content ol { margin: 0.1em 0; padding-left: 1.3em; }
+.card-preview-card__content ol { margin: 0.1em 0; padding-left: 1.6em; }
 .card-preview-card__content li { margin: 0.08em 0; }
 
 .card-preview-card__footer {

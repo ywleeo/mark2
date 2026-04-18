@@ -8,6 +8,32 @@ import { ensureToPng } from '../../app/coreModules.js';
 
 const EXPORT_FONT_SCALE = 1.02;
 
+// 字体 CSS 缓存 — 首次导出时从 CDN/本地 fetch，后续复用，避免每张都重新下载
+let _fontEmbedCSSCache = null;
+let _fontEmbedCSSPromise = null;
+
+/**
+ * 预取并缓存字体 embed CSS（可在进入 expand 模式时后台预热）。
+ * 多次调用安全：只会实际 fetch 一次。
+ */
+export async function warmFontCache(sampleNode) {
+    if (_fontEmbedCSSCache !== null) return;
+    if (_fontEmbedCSSPromise) return _fontEmbedCSSPromise;
+    const { getFontEmbedCSS } = await import('html-to-image');
+    _fontEmbedCSSPromise = getFontEmbedCSS(sampleNode, { cacheBust: false })
+        .then(css => { _fontEmbedCSSCache = css || ''; return _fontEmbedCSSCache; })
+        .catch(() => {
+            _fontEmbedCSSCache = '';  // 标记"已尝试但失败"，不再重试
+            _fontEmbedCSSPromise = null;
+        });
+    return _fontEmbedCSSPromise;
+}
+
+async function getOrFetchFontEmbedCSS(cardElement) {
+    if (_fontEmbedCSSCache !== null) return _fontEmbedCSSCache || null;
+    return warmFontCache(cardElement);
+}
+
 /**
  * 把 cardElement 渲染成 PNG dataUrl。
  *
@@ -85,11 +111,17 @@ export async function renderCardToDataUrl({
 
         await document.fonts?.ready;
 
-        const toPng = await ensureToPng();
+        // 字体 embed CSS 首次从 CDN/本地 fetch，后续复用缓存，避免每张重新下载（数 MB）
+        const [toPng, fontEmbedCSS] = await Promise.all([
+            ensureToPng(),
+            getOrFetchFontEmbedCSS(cardElement),
+        ]);
+
         return await toPng(cardElement, {
             backgroundColor: '#ffffff',
             pixelRatio: scale,
-            cacheBust: true,
+            cacheBust: false,
+            ...(fontEmbedCSS ? { fontEmbedCSS } : {}),
         });
     } finally {
         if (contentNode && originalInline) {
