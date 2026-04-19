@@ -99,10 +99,7 @@ export class MarkdownEditor {
 
         this.editor = new Editor({
             element: this.element,
-            extensions: createEditorExtensions(this._lowlight, {
-                onUndo: () => this.callbacks.onUndoRequest?.(),
-                onRedo: () => this.callbacks.onRedoRequest?.(),
-            }),
+            extensions: createEditorExtensions(this._lowlight),
             content: '',
             editable: false,
             autofocus: false,
@@ -116,8 +113,15 @@ export class MarkdownEditor {
                 },
             },
             onCreate: () => this.codeCopyManager?.scheduleCodeBlockCopyUpdate(),
-            onUpdate: () => {
+            onSelectionUpdate: () => {
                 if (this.suppressUpdateEvent) return;
+                this._syncTabHistorySelection();
+            },
+            onUpdate: ({ transaction }) => {
+                if (this.suppressUpdateEvent) return;
+                // 明确声明不进历史的 transaction（TrailingParagraph / IME \u200B / 图片异步解析等内部变更）
+                // 不应污染 undo 历史，否则会错误重置合并窗口
+                if (transaction?.getMeta?.('addToHistory') === false) return;
                 this.contentLoader.contentChanged = true;
                 this._recordTabHistory();
                 this.callbacks.onContentChange?.();
@@ -186,6 +190,7 @@ export class MarkdownEditor {
             getSearchBoxManager: () => this.searchBoxManager,
             getCodeCopyManager: () => this.codeCopyManager,
             getTrailingParagraphManager: () => this.trailingParagraphManager,
+            getScrollContainer: () => this.getScrollContainer(),
             getSaveManager: () => this.saveManager,
             getFocusManager: () => this.focusManager,
             documentSessions: this._documentSessions,
@@ -359,15 +364,19 @@ export class MarkdownEditor {
     undo()                                      { return this.callbacks.onUndoRequest?.() ?? false; }
     redo()                                      { return this.callbacks.onRedoRequest?.() ?? false; }
 
-    async applyHistoryContent(markdown) {
+    async applyHistoryContent(historyEntry) {
+        const markdown = typeof historyEntry === 'string'
+            ? historyEntry
+            : historyEntry?.content;
+        if (typeof markdown !== 'string') return false;
         this.suppressUpdateEvent = true;
         try {
             const applied = await this.contentLoader.setContent(markdown, false, {
                 resetHistory: false,
                 preserveOriginalMarkdown: true,
+                selection: historyEntry?.selection ?? null,
             });
-            if (!applied) return false;
-            return true;
+            return applied;
         } finally {
             this.suppressUpdateEvent = false;
         }
@@ -472,7 +481,9 @@ export class MarkdownEditor {
     _syncTabHistory() {
         const tabId = this.getCurrentTabId();
         if (!tabId || !this._tabHistoryManager) return;
-        this._tabHistoryManager.syncContent(tabId, this.getMarkdown());
+        this._tabHistoryManager.syncContent(tabId, this.getMarkdown(), {
+            selection: this._getHistorySelection(),
+        });
     }
 
     /**
@@ -481,7 +492,32 @@ export class MarkdownEditor {
     _recordTabHistory() {
         const tabId = this.getCurrentTabId();
         if (!tabId || !this._tabHistoryManager) return;
-        this._tabHistoryManager.recordChange(tabId, this.getMarkdown(), { source: 'markdown' });
+        this._tabHistoryManager.recordChange(tabId, this.getMarkdown(), {
+            source: 'markdown',
+            selection: this._getHistorySelection(),
+        });
+    }
+
+    /**
+     * 同步当前历史项的 Markdown 选区，不产生新的 undo entry。
+     */
+    _syncTabHistorySelection() {
+        const tabId = this.getCurrentTabId();
+        if (!tabId || !this._tabHistoryManager) return;
+        this._tabHistoryManager.updateSelection(tabId, this._getHistorySelection());
+    }
+
+    /**
+     * 读取当前 TipTap 选区，用于和文本快照一起进入共享历史。
+     */
+    _getHistorySelection() {
+        const selection = this.editor?.state?.selection;
+        if (!selection) return null;
+        return {
+            type: 'markdown',
+            from: selection.from,
+            to: selection.to,
+        };
     }
 
     // 源码滚动同步
@@ -512,9 +548,32 @@ export class MarkdownEditor {
     }
 
     getScrollContainer() {
+        const editorDom = this.editor?.view?.dom ?? null;
+        const scrollContainer = this._findScrollableAncestor(editorDom);
+        if (scrollContainer) return scrollContainer;
         if (this.editor?.view?.scrollDOM) return this.editor.view.scrollDOM;
-        if (this.editor?.view?.dom?.parentElement) return this.editor.view.dom.parentElement;
+        if (editorDom?.parentElement) return editorDom.parentElement;
         return this.element?.parentElement ?? this.element;
+    }
+
+    /**
+     * 从编辑器 DOM 向上查找真实滚动容器。
+     * TipTap 的 scrollDOM 在当前布局中是 overflow: visible 的内部节点，真正滚动发生在 view-pane。
+     */
+    _findScrollableAncestor(startElement) {
+        let element = startElement;
+        while (element && element !== document?.body && element !== document?.documentElement) {
+            const style = typeof window !== 'undefined' && window.getComputedStyle
+                ? window.getComputedStyle(element)
+                : null;
+            const overflowY = style?.overflowY ?? '';
+            const canScroll = /(auto|scroll|overlay)/.test(overflowY);
+            if (canScroll && element.scrollHeight > element.clientHeight) {
+                return element;
+            }
+            element = element.parentElement;
+        }
+        return null;
     }
 
     // ─── 生命周期 ──────────────────────────────────────────────────────────────

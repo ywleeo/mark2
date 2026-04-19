@@ -21,12 +21,10 @@ import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugi
 
 /**
  * 返回 MarkdownEditor 所需的 TipTap 扩展列表。
+ * undo/redo 快捷键由全局 KeybindingManager 接管，不在扩展层注册。
  * @param {object} lowlight - createConfiguredLowlight() 实例
- * @param {Object} [historyHandlers] - 共享历史快捷键处理器
- * @param {Function|null} [historyHandlers.onUndo] - undo 回调
- * @param {Function|null} [historyHandlers.onRedo] - redo 回调
  */
-export function createEditorExtensions(lowlight, historyHandlers = {}) {
+export function createEditorExtensions(lowlight) {
     /**
      * 判断编辑器当前是否处于输入法组合输入中。
      * 组合态下应尽量让原生 IME 处理按键，避免自定义快捷键污染候选确认流程。
@@ -77,25 +75,12 @@ export function createEditorExtensions(lowlight, historyHandlers = {}) {
         HtmlInline,
         AiEditHighlight,
         // Cmd+B：选中文本加粗时自动补空格，避免中文场景粘连
+        // 注意：undo/redo 快捷键统一交给全局 KeybindingManager 处理，
+        // 不在此扩展注册 Mod-z/Mod-Shift-z/Mod-y，否则会与 document 层 handler 双触发
         Extension.create({
             name: 'boldAutoSpace',
             addKeyboardShortcuts() {
                 return {
-                    'Mod-z': () => {
-                        if (isEditorComposing(this.editor)) return false;
-                        if (typeof historyHandlers.onUndo !== 'function') return false;
-                        return historyHandlers.onUndo() !== false;
-                    },
-                    'Mod-Shift-z': () => {
-                        if (isEditorComposing(this.editor)) return false;
-                        if (typeof historyHandlers.onRedo !== 'function') return false;
-                        return historyHandlers.onRedo() !== false;
-                    },
-                    'Mod-y': () => {
-                        if (isEditorComposing(this.editor)) return false;
-                        if (typeof historyHandlers.onRedo !== 'function') return false;
-                        return historyHandlers.onRedo() !== false;
-                    },
                     'Mod-b': () => {
                         if (isEditorComposing(this.editor)) return false;
                         const { state } = this.editor;

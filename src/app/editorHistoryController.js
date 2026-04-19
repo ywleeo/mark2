@@ -22,19 +22,19 @@ export function createEditorHistoryController({
         const tabId = getCurrentTabId?.();
         if (!tabId || !tabHistoryManager) return false;
 
-        const nextContent = action === 'undo'
+        const historyEntry = action === 'undo'
             ? tabHistoryManager.undo(tabId)
             : tabHistoryManager.redo(tabId);
-        if (typeof nextContent !== 'string') return false;
+        if (!historyEntry || typeof historyEntry.content !== 'string') return false;
 
         const editor = getMarkdownEditor();
         const codeEditor = getCodeEditor();
         const activeViewMode = getActiveViewMode();
         if (activeViewMode === 'code') {
-            return codeEditor?.applyHistoryContent?.(nextContent) ?? false;
+            return codeEditor?.applyHistoryContent?.(historyEntry) ?? false;
         }
         if (activeViewMode === 'markdown' || activeViewMode === 'split') {
-            return editor?.applyHistoryContent?.(nextContent) ?? false;
+            return editor?.applyHistoryContent?.(historyEntry) ?? false;
         }
         return false;
     }

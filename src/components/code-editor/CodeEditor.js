@@ -193,18 +193,8 @@ export class CodeEditor {
                 bracketMatching(),
                 foldGutter(),
                 keymap.of([
-                    {
-                        key: 'Mod-z',
-                        run: () => this.callbacks.onUndoRequest?.() !== false,
-                    },
-                    {
-                        key: 'Mod-Shift-z',
-                        run: () => this.callbacks.onRedoRequest?.() !== false,
-                    },
-                    {
-                        key: 'Mod-y',
-                        run: () => this.callbacks.onRedoRequest?.() !== false,
-                    },
+                    // undo/redo 由全局 KeybindingManager 统一分发，CodeMirror 层不再注册
+                    // 以免与 document 层 handler 双触发
                     ...defaultKeymap,
                     ...foldKeymap,
                     indentWithTab,
@@ -262,6 +252,8 @@ export class CodeEditor {
                 this.callbacks.onContentChange?.();
                 this.notifyContentMutation();
                 this.scheduleAutoSave();
+            } else if (update.selectionSet && !this.suppressChange) {
+                this._syncTabHistorySelection();
             }
         });
 
@@ -880,16 +872,25 @@ export class CodeEditor {
 
     redo() { return this.callbacks.onRedoRequest?.() ?? false; }
 
-    applyHistoryContent(content) {
+    applyHistoryContent(historyEntry) {
         if (!this.editor) return false;
+        const content = typeof historyEntry === 'string'
+            ? historyEntry
+            : historyEntry?.content;
         const nextContent = typeof content === 'string' ? content : '';
         const selection = this.editor.state.selection.main;
-        const nextPos = Math.min(selection.head, nextContent.length);
+        const historySelection = historyEntry?.selection?.type === 'code'
+            ? historyEntry.selection
+            : null;
+        const clamp = (value) => Math.max(0, Math.min(Number.isFinite(value) ? value : 0, nextContent.length));
+        const nextSelection = historySelection
+            ? { anchor: clamp(historySelection.anchor), head: clamp(historySelection.head) }
+            : { anchor: clamp(selection.head) };
         this.suppressChange = true;
         try {
             this.editor.dispatch({
                 changes: { from: 0, to: this.editor.state.doc.length, insert: nextContent },
-                selection: { anchor: nextPos },
+                selection: nextSelection,
             });
             this.isDirty = nextContent !== this.baseContent;
         } finally {
@@ -904,7 +905,9 @@ export class CodeEditor {
      */
     _syncTabHistory(content = this.getValue()) {
         if (!this.currentTabId || !this.tabHistoryManager) return;
-        this.tabHistoryManager.syncContent(this.currentTabId, content);
+        this.tabHistoryManager.syncContent(this.currentTabId, content, {
+            selection: this._getHistorySelection(),
+        });
     }
 
     /**
@@ -912,7 +915,31 @@ export class CodeEditor {
      */
     _recordTabHistory(content = this.getValue()) {
         if (!this.currentTabId || !this.tabHistoryManager) return;
-        this.tabHistoryManager.recordChange(this.currentTabId, content, { source: 'code' });
+        this.tabHistoryManager.recordChange(this.currentTabId, content, {
+            source: 'code',
+            selection: this._getHistorySelection(),
+        });
+    }
+
+    /**
+     * 同步当前历史项的 CodeMirror 选区，不产生新的 undo entry。
+     */
+    _syncTabHistorySelection() {
+        if (!this.currentTabId || !this.tabHistoryManager) return;
+        this.tabHistoryManager.updateSelection(this.currentTabId, this._getHistorySelection());
+    }
+
+    /**
+     * 读取当前 CodeMirror 选区，用于和文本快照一起进入共享历史。
+     */
+    _getHistorySelection() {
+        const selection = this.editor?.state?.selection?.main;
+        if (!selection) return null;
+        return {
+            type: 'code',
+            anchor: selection.anchor,
+            head: selection.head,
+        };
     }
 
     // --- AI Stream ---

@@ -124,7 +124,7 @@ export class AppMenu {
                 id: 'view',
                 label: t('menu.view'),
                 submenu: [
-                    { id: 'toggle-sidebar', label: t('menu.toggleSidebar'), shortcut: 'Ctrl+B', command: COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, menuId: 'toggle-sidebar' },
+                    { id: 'toggle-sidebar', label: t('menu.toggleSidebar'), shortcut: 'Ctrl+\\', command: COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, menuId: 'toggle-sidebar' },
                     { id: 'toggle-status-bar', label: t('menu.toggleStatusBar'), command: COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR },
                     { id: 'toggle-toolbar', label: t('menu.toggleToolbar'), command: COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, menuId: 'toggle-markdown-toolbar' },
                     { id: 'sep1', separator: true },

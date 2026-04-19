@@ -1,3 +1,4 @@
+import { Selection, TextSelection } from '@tiptap/pm/state';
 import {
     createImageObjectUrl,
     drainImageObjectUrls,
@@ -10,6 +11,41 @@ import {
 } from '../../utils/imageResolver.js';
 import { ensureMarkdownTrailingEmptyLine } from '../../utils/markdownFormatting.js';
 import { preprocessMarkdown, serializeMarkdown } from './MarkdownPreprocessor.js';
+
+/**
+ * 创建安全的 ProseMirror selection。
+ * 历史里保存的位置可能因为 Markdown 重新解析后落到非文本节点边界，失败时退回到最近合法位置。
+ */
+function createSafeTextSelection(doc, from, to) {
+    try {
+        return TextSelection.create(doc, from, to);
+    } catch (_) {
+        const safePos = Math.max(0, Math.min(Number.isFinite(from) ? from : 0, doc.content.size));
+        return Selection.near(doc.resolve(safePos));
+    }
+}
+
+/**
+ * 将当前 selection 所在行滚动到容器中间。
+ * ProseMirror 的 scrollIntoView 只保证可见，history 恢复需要更稳定的居中定位。
+ */
+function centerEditorSelection(editor, scrollContainer) {
+    if (!editor?.view || !scrollContainer) return;
+    try {
+        const { from } = editor.state.selection;
+        const coords = editor.view.coordsAtPos(from);
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const caretCenter = coords.top + ((coords.bottom - coords.top) / 2);
+        const targetTop = scrollContainer.scrollTop
+            + caretCenter
+            - containerRect.top
+            - (scrollContainer.clientHeight / 2);
+        const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        scrollContainer.scrollTop = Math.max(0, Math.min(targetTop, maxScrollTop));
+    } catch (_) {
+        // selection 可能位于刚重建的非文本节点边界；这种情况保持当前滚动即可。
+    }
+}
 
 /**
  * 管理文档内容的加载、解析和序列化。
@@ -28,6 +64,7 @@ import { preprocessMarkdown, serializeMarkdown } from './MarkdownPreprocessor.js
  *   getSearchBoxManager()  — SearchBoxManager 实例
  *   getCodeCopyManager()   — CodeCopyManager 实例
  *   getTrailingParagraphManager() — TrailingParagraphManager 实例
+ *   getScrollContainer()   — Markdown 真实滚动容器
  *   getSaveManager()       — SaveManager 实例
  *   getFocusManager()      — FocusManager 实例
  *   documentSessions       — 文档会话管理对象（可选）
@@ -45,6 +82,7 @@ export class ContentLoader {
         getSearchBoxManager,
         getCodeCopyManager,
         getTrailingParagraphManager,
+        getScrollContainer,
         getSaveManager,
         getFocusManager,
         documentSessions = null,
@@ -60,6 +98,7 @@ export class ContentLoader {
         this.getSearchBoxManager = getSearchBoxManager;
         this.getCodeCopyManager = getCodeCopyManager;
         this.getTrailingParagraphManager = getTrailingParagraphManager;
+        this.getScrollContainer = getScrollContainer;
         this.getSaveManager = getSaveManager;
         this.getFocusManager = getFocusManager;
         this.documentSessions = documentSessions;
@@ -194,7 +233,7 @@ export class ContentLoader {
      * 将 Markdown 文本加载到编辑器。
      * resetHistory=true 时使用 setContent 替换整个文档（首次打开文件）。
      */
-    async setContent(markdown, shouldFocusStart = true, { resetHistory = false, preserveOriginalMarkdown = false } = {}) {
+    async setContent(markdown, shouldFocusStart = true, { resetHistory = false, preserveOriginalMarkdown = false, selection = null } = {}) {
         const sessionId = this.currentSessionId;
         const normalizedMarkdown = ensureMarkdownTrailingEmptyLine(
             typeof markdown === 'string' ? markdown : ''
@@ -208,9 +247,13 @@ export class ContentLoader {
         this.getSaveManager()?.clearAutoSaveTimer();
 
         const staleUrls = drainImageObjectUrls();
-        const previousSelection = (!shouldFocusStart && this.getEditor()?.state?.selection)
-            ? { from: this.getEditor().state.selection.from, to: this.getEditor().state.selection.to }
+        const historySelection = selection?.type === 'markdown'
+            ? { from: selection.from, to: selection.to }
             : null;
+        const previousSelection = historySelection
+            || ((!shouldFocusStart && this.getEditor()?.state?.selection)
+                ? { from: this.getEditor().state.selection.from, to: this.getEditor().state.selection.to }
+                : null);
 
         const processed = preprocessMarkdown(normalizedMarkdown);
         const parsedDoc = this.markdownParser?.parse(processed) ?? null;
@@ -228,22 +271,31 @@ export class ContentLoader {
                     editor.commands.setContent(parsedDoc);
                 } else {
                     // 替换内容但不污染 undo 历史（tab 切换 / CodeMirror↔TipTap）
+                    // 一次 tr 内完成 replaceWith + setSelection：避免两次 dispatch 之间
+                    // PM selection 短暂落在文末、让 DOMObserver 误用该位置回写 state
                     const { state, view } = editor;
                     const tr = state.tr.replaceWith(0, state.doc.content.size, parsedDoc.content);
+                    let shouldCenterHistorySelection = false;
+                    if (!shouldFocusStart && previousSelection) {
+                        const nextDocSize = tr.doc.content.size;
+                        const clamp = (v) => Math.max(0, Math.min(Number.isFinite(v) ? v : 0, nextDocSize));
+                        const from = clamp(previousSelection.from);
+                        const to = clamp(previousSelection.to);
+                        tr.setSelection(createSafeTextSelection(tr.doc, from, to));
+                        shouldCenterHistorySelection = Boolean(historySelection);
+                    }
                     tr.setMeta('addToHistory', false);
                     view.dispatch(tr);
+                    if (shouldCenterHistorySelection) {
+                        const center = () => centerEditorSelection(editor, this.getScrollContainer?.());
+                        typeof requestAnimationFrame === 'function' ? requestAnimationFrame(center) : center();
+                    }
                 }
             } else {
                 editor.commands.setContent('');
             }
 
             this.getTrailingParagraphManager()?.ensure();
-
-            if (!shouldFocusStart && previousSelection) {
-                const docSize = Math.max(0, editor.state.doc?.content?.size ?? 0);
-                const clamp = (v) => Math.max(0, Math.min(Number.isFinite(v) ? v : 0, docSize));
-                editor.commands.setTextSelection({ from: clamp(previousSelection.from), to: clamp(previousSelection.to) });
-            }
         } finally {
             this.setUpdateSuppressed(false);
         }
