@@ -13,6 +13,7 @@ mod menu;
 mod pty;
 mod security_scope;
 mod spreadsheet;
+mod vault;
 mod window_state;
 
 use serde::{Deserialize, Serialize};
@@ -185,6 +186,7 @@ fn main() {
         .manage(DocumentState::default())
         .manage(ai_proxy::AiProxyState::default())
         .manage(pty::PtyState::default())
+        .manage(vault::commands::VaultState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -234,6 +236,14 @@ fn main() {
             activate_app,
             default_handler::get_default_app_status,
             default_handler::set_as_default_app,
+            vault::commands::vault_list,
+            vault::commands::vault_get_value,
+            vault::commands::vault_add,
+            vault::commands::vault_update,
+            vault::commands::vault_delete,
+            vault::commands::vault_mark_used,
+            vault::commands::vault_generate_password,
+            vault::commands::vault_copy_to_clipboard,
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {

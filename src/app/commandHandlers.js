@@ -54,6 +54,8 @@ export function createCommandHandlers(deps) {
         // recent
         handleRecentItemClick,
         clearRecent,
+        // vault
+        toggleVault,
     } = deps;
 
     // ── cut / copy / paste 共享的 editor 选择逻辑 ──
@@ -166,5 +168,6 @@ export function createCommandHandlers(deps) {
         onRecentItemClick: handleRecentItemClick,
         onClearRecent: clearRecent,
         onCheckUpdate: manualCheckUpdate,
+        onToggleVault: toggleVault,
     };
 }

@@ -29,6 +29,7 @@ import { setupStatusBar, setupFileTree, setupTabManager } from './componentSetup
 import { setupToolbarEvents } from './eventSetup.js';
 import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windowControls.js';
 import { AppMenu } from '../components/AppMenu.js';
+import { VaultPanel } from '../components/VaultPanel.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
 import { EVENT_IDS } from '../core/eventIds.js';
 
@@ -330,6 +331,16 @@ export function createAppBootstrap({
             settingsDialog.setAvailableFonts(availableFontFamilies);
         }
 
+        let vaultPanel = null;
+        const toggleVault = () => {
+            if (!vaultPanel) vaultPanel = new VaultPanel();
+            vaultPanel.toggle();
+        };
+        appState.setCleanupFunction('vaultPanel', () => {
+            vaultPanel?.destroy?.();
+            vaultPanel = null;
+        });
+
         appState.setCleanupFunction('commandContributions', registerCoreCommands({
             commandManager,
             handlers: createCommandHandlers({
@@ -362,6 +373,7 @@ export function createAppBootstrap({
                 handleRunFile,
                 handleRecentItemClick,
                 clearRecent,
+                toggleVault,
             }),
         }));
 

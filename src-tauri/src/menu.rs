@@ -37,6 +37,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("move", "移动到...");
         m.insert("delete", "删除");
         m.insert("settings", "设置...");
+        m.insert("vault-open", "保险箱");
         m.insert("undo", "撤销");
         m.insert("redo", "重做");
         m.insert("toggle-sidebar", "切换侧边栏");
@@ -66,6 +67,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("move", "Move To...");
         m.insert("delete", "Delete");
         m.insert("settings", "Settings...");
+        m.insert("vault-open", "Vault");
         m.insert("undo", "Undo");
         m.insert("redo", "Redo");
         m.insert("toggle-sidebar", "Toggle Sidebar");
@@ -102,6 +104,7 @@ fn command_to_menu_ids() -> HashMap<&'static str, Vec<&'static str>> {
     m.insert("editor.redo", vec!["redo"]);
     m.insert("view.toggleSourceMode", vec!["toggle-markdown-code-view"]);
     m.insert("app.quit", vec!["app-quit"]);
+    m.insert("feature.vault.toggle", vec!["vault-open"]);
     m
 }
 
@@ -345,6 +348,10 @@ fn build_menu(
         .accelerator(get_accelerator("settings", "CmdOrCtrl+,", custom_accel))
         .build(handle)?;
 
+    let vault_item = MenuItemBuilder::with_id("vault-open", l["vault-open"])
+        .accelerator(get_accelerator("vault-open", "CmdOrCtrl+Shift+K", custom_accel))
+        .build(handle)?;
+
     let export_image_item = MenuItemBuilder::with_id("export-image", l["export-image"])
         .accelerator(get_accelerator("export-image", "CmdOrCtrl+Shift+C", custom_accel))
         .build(handle)?;
@@ -387,6 +394,7 @@ fn build_menu(
         .item(&check_update_item)
         .separator()
         .item(&settings_item)
+        .item(&vault_item)
         .separator()
         .item(&quit_item)
         .build()?;
