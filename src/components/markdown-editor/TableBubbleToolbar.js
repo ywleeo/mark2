@@ -146,17 +146,52 @@ export class TableBubbleToolbar {
 
     _executeAction(action) {
         if (!this._editor) return;
+        // prosemirror-tables 会拒绝把表格删到空，所以只剩一行/一列时直接删整表
+        const deleteRowSafe = () => {
+            const { rows, cols } = this._getCurrentTableShape();
+            if (rows <= 1 || cols === 0) {
+                this._editor.chain().focus().deleteTable().run();
+            } else {
+                this._editor.chain().focus().deleteRow().run();
+            }
+        };
+        const deleteColumnSafe = () => {
+            const { rows, cols } = this._getCurrentTableShape();
+            if (cols <= 1 || rows === 0) {
+                this._editor.chain().focus().deleteTable().run();
+            } else {
+                this._editor.chain().focus().deleteColumn().run();
+            }
+        };
         const commands = {
             addRowBefore:    () => this._editor.chain().focus().addRowBefore().run(),
             addRowAfter:     () => this._editor.chain().focus().addRowAfter().run(),
-            deleteRow:       () => this._editor.chain().focus().deleteRow().run(),
+            deleteRow:       deleteRowSafe,
             addColumnBefore: () => this._editor.chain().focus().addColumnBefore().run(),
             addColumnAfter:  () => this._editor.chain().focus().addColumnAfter().run(),
-            deleteColumn:    () => this._editor.chain().focus().deleteColumn().run(),
+            deleteColumn:    deleteColumnSafe,
             deleteTable:     () => this._editor.chain().focus().deleteTable().run(),
         };
         commands[action]?.();
         setTimeout(() => this._fillEmptyTableCells(), 10);
+    }
+
+    /**
+     * 取当前光标所在表格的行列数。找不到表格返回 { rows: 0, cols: 0 }。
+     */
+    _getCurrentTableShape() {
+        const { state } = this._editor;
+        const { $from } = state.selection;
+        for (let d = $from.depth; d > 0; d--) {
+            const node = $from.node(d);
+            if (node.type.name === 'table') {
+                const rows = node.childCount;
+                const firstRow = rows > 0 ? node.child(0) : null;
+                const cols = firstRow ? firstRow.childCount : 0;
+                return { rows, cols };
+            }
+        }
+        return { rows: 0, cols: 0 };
     }
 
     /**
