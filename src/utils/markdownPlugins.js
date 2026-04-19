@@ -8,6 +8,7 @@ import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import { addTaskListRules } from './taskListTurndown.js';
 import { addMermaidRules, isMermaidNode, mermaidReplacement } from './mermaidTurndown.js';
+import { proxifyImageUrl, shouldProxy } from './imageProxy.js';
 
 // 任务列表类型常量
 export const TASK_ITEM_TYPE = 'taskItem';
@@ -50,7 +51,18 @@ export const MarkdownImage = Node.create({
         ];
     },
     renderHTML({ HTMLAttributes }) {
-        return ['img', mergeAttributes(HTMLAttributes)];
+        const attrs = { ...HTMLAttributes };
+        // 外链 http(s) 图片走 Rust 代理，绕开 CDN 的 CORS/Referer 防盗链；
+        // 仅在没预先改写过（如 markdown-it 渲染时已改写）时才处理新粘贴/插入的图片。
+        const src = attrs.src;
+        if (shouldProxy(src)) {
+            attrs.src = proxifyImageUrl(src);
+            if (!attrs['data-original-src']) {
+                attrs['data-original-src'] = src;
+            }
+        }
+        // referrerpolicy=no-referrer 绕开图床的 referer 防盗链（常见于微信图床等）
+        return ['img', mergeAttributes(attrs, { referrerpolicy: 'no-referrer' })];
     },
 });
 
@@ -163,6 +175,25 @@ export function createConfiguredMarkdownIt() {
 
     md.renderer.rules.fence = trimCodeRenderer(md.renderer.rules.fence);
     md.renderer.rules.code_block = trimCodeRenderer(md.renderer.rules.code_block);
+
+    // 给所有图片加 referrerpolicy=no-referrer，绕开图床的 referer 防盗链
+    // 外链 http(s) 图片 src 改写到 img-proxy://, 原始 URL 存在 data-original-src 供 turndown 写回
+    const defaultImageRenderer = md.renderer.rules.image || ((tokens, idx, options, env, self) =>
+        self.renderToken(tokens, idx, options));
+    md.renderer.rules.image = function(tokens, idx, options, env, self) {
+        const token = tokens[idx];
+        token.attrSet('referrerpolicy', 'no-referrer');
+
+        const srcIdx = token.attrIndex('src');
+        if (srcIdx >= 0) {
+            const src = token.attrs[srcIdx][1];
+            if (shouldProxy(src)) {
+                token.attrs[srcIdx][1] = proxifyImageUrl(src);
+                token.attrSet('data-original-src', src);
+            }
+        }
+        return defaultImageRenderer(tokens, idx, options, env, self);
+    };
 
     md.use(texmath, {
         engine: katex,

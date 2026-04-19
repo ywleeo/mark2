@@ -6,6 +6,7 @@ mod macos_security;
 
 mod ai_proxy;
 mod fs_commands;
+mod image_proxy;
 mod media_stream;
 mod menu;
 mod pty;
@@ -175,6 +176,9 @@ fn main() {
                     .body(format!("stream error: {}", e).into_bytes())
                     .unwrap()
             })
+        })
+        .register_asynchronous_uri_scheme_protocol("img-proxy", |_app, request, responder| {
+            image_proxy::handle(request, responder);
         })
         .manage(WorkspaceState::default())
         .manage(DocumentState::default())

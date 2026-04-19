@@ -675,16 +675,26 @@ async function embedImagesAsBase64(element) {
                 return;
             }
 
-            // 外部图片：http/https（src 或 originalSrc）
-            const httpSrc = /^https?:\/\//i.test(src) ? src : (/^https?:\/\//i.test(originalSrc) ? originalSrc : null);
-            if (httpSrc) {
-                const response = await fetch(httpSrc);
-                if (!response.ok) return;
-                const blob = await response.blob();
-                const base64 = await blobToBase64(blob);
-                await setImageSrcAndWaitLoad(img, base64);
-                return;
+            // 外部图片：优先用当前 src (可能是 img-proxy:// 代理 URL, 绕 CORS),
+            // 失败再回退到 originalSrc 直接请求。
+            const fetchCandidates = [];
+            if (/^(https?|img-proxy):/i.test(src)) fetchCandidates.push(src);
+            if (originalSrc && originalSrc !== src && /^https?:/i.test(originalSrc)) {
+                fetchCandidates.push(originalSrc);
             }
+            for (const candidate of fetchCandidates) {
+                try {
+                    const response = await fetch(candidate);
+                    if (!response.ok) continue;
+                    const blob = await response.blob();
+                    const base64 = await blobToBase64(blob);
+                    await setImageSrcAndWaitLoad(img, base64);
+                    return;
+                } catch (_err) {
+                    // 尝试下一个候选
+                }
+            }
+            if (fetchCandidates.length > 0) return;
 
             // 无效图片：设置透明占位符避免加载错误
             const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
