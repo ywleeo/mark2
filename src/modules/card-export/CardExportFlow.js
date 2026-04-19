@@ -490,8 +490,6 @@ export class CardExportFlow {
     }
 
     _rawSplit(tpl) {
-        if (tpl.codeMode) return this._rawSplitCode(tpl);
-
         const maxH = tpl.contentMaxHeight;
         const baseHtml = this._sanitizeRaw(this._selectedHtml);
         if (!maxH) return [baseHtml || this._selectedText];
@@ -513,98 +511,38 @@ export class CardExportFlow {
         document.body.appendChild(measureCard);
 
         const pages = [];
-        let current = [];
+        let current = []; // { tag, html }
+
+        const renderCurrent = () => current.map(n => n.html).join('');
 
         for (const node of nodes) {
             const tag = node.tagName?.toLowerCase();
 
             // h1 always gets its own solo page
             if (tag === 'h1') {
-                if (current.length) { pages.push(current.join('')); current = []; }
+                if (current.length) { pages.push(renderCurrent()); current = []; }
                 pages.push(node.outerHTML);
                 continue;
             }
 
-            // h2-h6 must appear at the top of a card — flush preceding content first
-            if (/^h[2-6]$/.test(tag) && current.length > 0) {
-                pages.push(current.join(''));
-                current = [];
-            }
-
-            current.push(node.outerHTML);
-            measureContent.innerHTML = current.join('');
+            current.push({ tag, html: node.outerHTML });
+            measureContent.innerHTML = renderCurrent();
             if (measureContent.scrollHeight > maxH && current.length > 1) {
-                current.pop();
-                pages.push(current.join(''));
-                current = [node.outerHTML];
-                measureContent.innerHTML = current.join('');
+                const overflowed = current.pop();
+                // Orphan guard: carry trailing h2-h6 run to the next page with the overflowed node
+                const carry = [];
+                while (current.length && /^h[2-6]$/.test(current[current.length - 1].tag)) {
+                    carry.unshift(current.pop());
+                }
+                if (current.length) pages.push(renderCurrent());
+                current = [...carry, overflowed];
+                measureContent.innerHTML = renderCurrent();
             }
         }
-        if (current.length) pages.push(current.join(''));
+        if (current.length) pages.push(renderCurrent());
 
         document.body.removeChild(measureCard);
         return pages.length ? pages : [baseHtml || this._selectedText];
-    }
-
-    _rawSplitCode(tpl) {
-        // Use the fully rendered HTML (preserves syntax highlighting classes)
-        const html = this._sanitizeRaw(this._selectedHtml);
-        if (!html) return [html || this._selectedText];
-
-        const div = document.createElement('div');
-        div.innerHTML = html;
-        const nodes = [...div.children];
-        if (!nodes.length) return [html];
-
-        // Split at heading boundaries when headings exist
-        const hasHeadings = nodes.some(n => /^h[1-6]$/.test(n.tagName?.toLowerCase()));
-        if (hasHeadings) {
-            const pages = [];
-            let current = [];
-            for (const node of nodes) {
-                const tag = node.tagName?.toLowerCase();
-                if (tag === 'h1') {
-                    // h1 solo page
-                    if (current.length) { pages.push(current.map(n => n.outerHTML).join('')); current = []; }
-                    pages.push(node.outerHTML);
-                } else {
-                    // h2-h6 starts a new group with following content
-                    if (/^h[2-6]$/.test(tag) && current.length > 0) {
-                        pages.push(current.map(n => n.outerHTML).join(''));
-                        current = [];
-                    }
-                    current.push(node);
-                }
-            }
-            if (current.length) pages.push(current.map(n => n.outerHTML).join(''));
-            return pages;
-        }
-
-        // No headings: height-based split
-        const maxH = tpl.contentMaxHeight;
-        if (!maxH) return [html];
-
-        const measureCard = this._buildCardDOM(tpl);
-        const measureContent = measureCard.querySelector('.card-preview-card__content');
-        measureCard.style.cssText = `position:fixed;left:-10000px;top:0;width:${DISPLAY_WIDTH}px;height:${DISPLAY_HEIGHT}px;visibility:hidden;pointer-events:none;`;
-        document.body.appendChild(measureCard);
-
-        const pages = [];
-        let current = [];
-        for (const node of nodes) {
-            current.push(node.outerHTML);
-            measureContent.innerHTML = current.join('');
-            if (measureContent.scrollHeight > maxH && current.length > 1) {
-                current.pop();
-                pages.push(current.join(''));
-                current = [node.outerHTML];
-                measureContent.innerHTML = current.join('');
-            }
-        }
-        if (current.length) pages.push(current.join(''));
-        document.body.removeChild(measureCard);
-
-        return pages.length ? pages : [html];
     }
 
     // ── LLM formatting ────────────────────────────────────────
