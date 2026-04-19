@@ -301,5 +301,13 @@
     "beautify.error.apiFailed": "AI request failed ({status})",
     "beautify.error.noContent": "AI returned no content",
     "beautify.error.generic": "Beautify failed",
-    "cardExport.title": "Card"
+    "cardExport.title": "Card",
+
+    "table.addRowBefore": "Insert Row Above",
+    "table.addRowAfter": "Insert Row Below",
+    "table.addColumnBefore": "Insert Column Left",
+    "table.addColumnAfter": "Insert Column Right",
+    "table.deleteRow": "Delete Row",
+    "table.deleteColumn": "Delete Column",
+    "table.deleteTable": "Delete Table"
 }

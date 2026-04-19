@@ -1,5 +1,6 @@
 import { Node } from '@tiptap/core';
 import { parseCsvToSpreadsheetData, stringifyCSV } from '../utils/csvParser.js';
+import { t } from '../i18n/index.js';
 
 function parseCsv(text) {
     const data = parseCsvToSpreadsheetData(text || '');
@@ -17,13 +18,13 @@ function normalizeCols(rows) {
 }
 
 const MENU_ITEMS = [
-    { action: 'addRowBefore', label: '上方插入行' },
-    { action: 'addRowAfter',  label: '下方插入行' },
-    { action: 'addColBefore', label: '左侧插入列' },
-    { action: 'addColAfter',  label: '右侧插入列' },
+    { action: 'addRowBefore', i18nKey: 'table.addRowBefore' },
+    { action: 'addRowAfter',  i18nKey: 'table.addRowAfter' },
+    { action: 'addColBefore', i18nKey: 'table.addColumnBefore' },
+    { action: 'addColAfter',  i18nKey: 'table.addColumnAfter' },
     { separator: true },
-    { action: 'deleteRow', label: '删除当前行', danger: true },
-    { action: 'deleteCol', label: '删除当前列', danger: true },
+    { action: 'deleteRow', i18nKey: 'table.deleteRow', danger: true },
+    { action: 'deleteCol', i18nKey: 'table.deleteColumn', danger: true },
 ];
 
 class CsvContextMenu {
@@ -54,7 +55,7 @@ class CsvContextMenu {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'csv-context-menu__item' + (item.danger ? ' csv-context-menu__item--danger' : '');
-            btn.textContent = item.label;
+            btn.textContent = t(item.i18nKey);
             btn.addEventListener('mousedown', e => {
                 e.preventDefault();
                 e.stopPropagation();

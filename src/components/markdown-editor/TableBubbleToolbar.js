@@ -3,16 +3,18 @@
  * 负责表格的行列操作菜单以及 IME 空单元格补全逻辑
  */
 
+import { t } from '../../i18n/index.js';
+
 const TABLE_MENU_ITEMS = [
-    { action: 'addRowBefore',    label: '上方插入行' },
-    { action: 'addRowAfter',     label: '下方插入行' },
-    { action: 'addColumnBefore', label: '左侧插入列' },
-    { action: 'addColumnAfter',  label: '右侧插入列' },
+    { action: 'addRowBefore',    i18nKey: 'table.addRowBefore' },
+    { action: 'addRowAfter',     i18nKey: 'table.addRowAfter' },
+    { action: 'addColumnBefore', i18nKey: 'table.addColumnBefore' },
+    { action: 'addColumnAfter',  i18nKey: 'table.addColumnAfter' },
     { separator: true },
-    { action: 'deleteRow',    label: '删除当前行',   danger: true },
-    { action: 'deleteColumn', label: '删除当前列',   danger: true },
+    { action: 'deleteRow',    i18nKey: 'table.deleteRow',    danger: true },
+    { action: 'deleteColumn', i18nKey: 'table.deleteColumn', danger: true },
     { separator: true },
-    { action: 'deleteTable',  label: '删除整个表格', danger: true },
+    { action: 'deleteTable',  i18nKey: 'table.deleteTable',  danger: true },
 ];
 
 export class TableBubbleToolbar {
@@ -106,7 +108,7 @@ export class TableBubbleToolbar {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'csv-context-menu__item' + (item.danger ? ' csv-context-menu__item--danger' : '');
-            btn.textContent = item.label;
+            btn.textContent = t(item.i18nKey);
             btn.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 e.stopPropagation();

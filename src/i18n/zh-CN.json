@@ -301,5 +301,13 @@
     "beautify.error.apiFailed": "AI 请求失败 ({status})",
     "beautify.error.noContent": "AI 未返回有效内容",
     "beautify.error.generic": "美化排版失败",
-    "cardExport.title": "卡片"
+    "cardExport.title": "卡片",
+
+    "table.addRowBefore": "上方插入行",
+    "table.addRowAfter": "下方插入行",
+    "table.addColumnBefore": "左侧插入列",
+    "table.addColumnAfter": "右侧插入列",
+    "table.deleteRow": "删除当前行",
+    "table.deleteColumn": "删除当前列",
+    "table.deleteTable": "删除整个表格"
 }
