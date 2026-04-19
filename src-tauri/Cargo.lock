@@ -2807,6 +2807,7 @@ dependencies = [
  "axum-server",
  "base64 0.21.7",
  "calamine",
+ "core-foundation 0.9.4",
  "font-kit",
  "futures-util",
  "objc2",

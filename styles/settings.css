@@ -251,6 +251,81 @@
     box-sizing: border-box;
 }
 
+.settings-row--default-app {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.settings-default-app-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-default-app-exts {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    min-width: 0;
+}
+
+.settings-default-app-ext {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    background: var(--settings-field-bg);
+    color: var(--settings-muted);
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.settings-default-app-ext--on {
+    background: rgba(22, 163, 74, 0.12);
+    color: #16a34a;
+}
+
+:root[data-theme-appearance='dark'] .settings-default-app-ext--on {
+    background: rgba(74, 222, 128, 0.14);
+    color: #4ade80;
+}
+
+.settings-default-app-ext--on::before {
+    content: '✓';
+    margin-right: 3px;
+    font-size: 10px;
+}
+
+.settings-default-app-btn {
+    flex: 0 0 auto;
+    min-width: 110px;
+    padding: 5px 14px;
+    border: none;
+    border-radius: 6px;
+    background: var(--settings-field-bg);
+    color: var(--settings-field-text);
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.settings-default-app-btn:hover:not(:disabled) {
+    background: var(--settings-secondary-hover);
+}
+
+.settings-default-app-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.settings-default-app-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 /* ── 表单控件 — 极简 ─────────────────────────────── */
 
 .settings-row__control,

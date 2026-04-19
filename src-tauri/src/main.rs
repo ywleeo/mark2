@@ -5,6 +5,7 @@
 mod macos_security;
 
 mod ai_proxy;
+mod default_handler;
 mod fs_commands;
 mod image_proxy;
 mod media_stream;
@@ -231,6 +232,8 @@ fn main() {
             ai_proxy::ai_proxy_cancel_stream,
             read_clipboard_text,
             activate_app,
+            default_handler::get_default_app_status,
+            default_handler::set_as_default_app,
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {

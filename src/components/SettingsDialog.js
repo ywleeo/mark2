@@ -4,6 +4,10 @@ import { t, getLocale, setLocale } from '../i18n/index.js';
 import { KeybindingsSettings } from './KeybindingsSettings.js';
 import { saveCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { PROVIDER_PRESETS } from '../modules/ai-assistant/providerPresets.js';
+import { invoke } from '@tauri-apps/api/core';
+import { isMac } from '../utils/platform.js';
+
+const DEFAULT_APP_EXTENSIONS = ['md', 'markdown', 'mkd', 'txt', 'json'];
 
 // 动态导入 aiService（避免循环依赖）
 let aiService = null;
@@ -87,6 +91,15 @@ export class SettingsDialog {
                                     <option value="zh-CN">中文</option>
                                 </select>
                             </label>
+                            ${isMac ? `
+                            <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
+                                <span class="settings-row__label">${t('settings.defaultApp')}</span>
+                                <div class="settings-default-app-actions">
+                                    <div class="settings-default-app-exts" data-ref="defaultAppExts"></div>
+                                    <button type="button" class="settings-default-app-btn" data-ref="defaultAppBtn">…</button>
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                     </section>
 
@@ -249,6 +262,14 @@ export class SettingsDialog {
         this.keybindingsContainerEl = this.root.querySelector('[data-ref="keybindingsContainer"]');
         this.keybindingsSettings = null;
 
+        // 默认应用按钮（仅 macOS 渲染）
+        this.defaultAppBtn = this.root.querySelector('[data-ref="defaultAppBtn"]');
+        this.defaultAppExtsEl = this.root.querySelector('[data-ref="defaultAppExts"]');
+        if (this.defaultAppBtn) {
+            const cleanup = addClickHandler(this.defaultAppBtn, () => this._onDefaultAppClick());
+            this.cleanupFunctions.push(cleanup);
+        }
+
         // 按钮
         this.cancelButton = this.form.querySelector('[data-action="cancel"]');
         this.saveButton = this.form.querySelector('button[type="submit"]');
@@ -409,6 +430,9 @@ export class SettingsDialog {
             container: this.keybindingsContainerEl,
         });
 
+        // 默认打开方式状态查询（异步，不阻塞 open）
+        this._refreshDefaultAppStatus();
+
         // 重置到第一个 tab
         this.switchTab('general');
 
@@ -418,6 +442,58 @@ export class SettingsDialog {
 
         this.root.classList.remove('hidden');
         this.isOpen = true;
+    }
+
+    async _refreshDefaultAppStatus() {
+        if (!this.defaultAppBtn) return;
+        try {
+            const status = await invoke('get_default_app_status', { extensions: DEFAULT_APP_EXTENSIONS });
+            this._renderDefaultAppExts(status);
+            const allSet = status.length > 0 && status.every(s => s.isSelf);
+            if (allSet) {
+                this.defaultAppBtn.textContent = t('settings.defaultAppAllSet');
+                this.defaultAppBtn.dataset.state = 'done';
+                this.defaultAppBtn.disabled = true;
+            } else {
+                this.defaultAppBtn.textContent = t('settings.defaultAppSet');
+                this.defaultAppBtn.dataset.state = 'pending';
+                this.defaultAppBtn.disabled = false;
+            }
+        } catch (error) {
+            console.warn('[Settings] get_default_app_status failed:', error);
+            this._renderDefaultAppExts(DEFAULT_APP_EXTENSIONS.map(ext => ({ extension: ext, isSelf: false })));
+            this.defaultAppBtn.textContent = t('settings.defaultAppSet');
+            this.defaultAppBtn.dataset.state = 'pending';
+            this.defaultAppBtn.disabled = false;
+        }
+    }
+
+    _renderDefaultAppExts(status) {
+        if (!this.defaultAppExtsEl) return;
+        this.defaultAppExtsEl.innerHTML = '';
+        status.forEach(s => {
+            const chip = document.createElement('span');
+            chip.className = s.isSelf
+                ? 'settings-default-app-ext settings-default-app-ext--on'
+                : 'settings-default-app-ext settings-default-app-ext--off';
+            chip.textContent = `.${s.extension}`;
+            this.defaultAppExtsEl.appendChild(chip);
+        });
+    }
+
+    async _onDefaultAppClick() {
+        if (!this.defaultAppBtn || this.defaultAppBtn.disabled) return;
+        this.defaultAppBtn.disabled = true;
+        try {
+            const results = await invoke('set_as_default_app', { extensions: DEFAULT_APP_EXTENSIONS });
+            const failed = Array.isArray(results) ? results.filter(r => !r.success) : [];
+            if (failed.length > 0) {
+                console.warn('[Settings] some extensions failed to set default:', failed);
+            }
+        } catch (error) {
+            console.warn('[Settings] set_as_default_app failed:', error);
+        }
+        await this._refreshDefaultAppStatus();
     }
 
     async loadAiConfig() {

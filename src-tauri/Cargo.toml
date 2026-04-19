@@ -37,3 +37,4 @@ tauri-plugin-process = "2.3"
 objc2 = { version = "0.6", features = ["std"] }
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL", "NSData", "NSError", "NSFileManager", "NSDate", "NSRunLoop", "NSGeometry"] }
 objc2-app-kit = { version = "0.3", features = ["NSOpenPanel", "NSSavePanel", "NSPanel", "NSWindow", "NSResponder", "NSApplication", "NSRunningApplication"] }
+core-foundation = "0.9"
