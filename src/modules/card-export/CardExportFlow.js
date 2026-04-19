@@ -511,35 +511,34 @@ export class CardExportFlow {
         document.body.appendChild(measureCard);
 
         const pages = [];
-        let current = []; // { tag, html }
-
-        const renderCurrent = () => current.map(n => n.html).join('');
+        let current = [];
 
         for (const node of nodes) {
             const tag = node.tagName?.toLowerCase();
 
             // h1 always gets its own solo page
             if (tag === 'h1') {
-                if (current.length) { pages.push(renderCurrent()); current = []; }
+                if (current.length) { pages.push(current.join('')); current = []; }
                 pages.push(node.outerHTML);
                 continue;
             }
 
-            current.push({ tag, html: node.outerHTML });
-            measureContent.innerHTML = renderCurrent();
+            // h2-h6 must start at the top of a page — flush preceding content first
+            if (/^h[2-6]$/.test(tag) && current.length > 0) {
+                pages.push(current.join(''));
+                current = [];
+            }
+
+            current.push(node.outerHTML);
+            measureContent.innerHTML = current.join('');
             if (measureContent.scrollHeight > maxH && current.length > 1) {
-                const overflowed = current.pop();
-                // Orphan guard: carry trailing h2-h6 run to the next page with the overflowed node
-                const carry = [];
-                while (current.length && /^h[2-6]$/.test(current[current.length - 1].tag)) {
-                    carry.unshift(current.pop());
-                }
-                if (current.length) pages.push(renderCurrent());
-                current = [...carry, overflowed];
-                measureContent.innerHTML = renderCurrent();
+                current.pop();
+                pages.push(current.join(''));
+                current = [node.outerHTML];
+                measureContent.innerHTML = current.join('');
             }
         }
-        if (current.length) pages.push(renderCurrent());
+        if (current.length) pages.push(current.join(''));
 
         document.body.removeChild(measureCard);
         return pages.length ? pages : [baseHtml || this._selectedText];
