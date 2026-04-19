@@ -1,6 +1,7 @@
 /**
  * 处理粘贴行为：
  * - 剪贴板图片数据（截图等）→ 保存为文件 + ![](assets/xxx.png)
+ * - 文本形式的图片 URL → 直接插入图片节点
  * - 图片文件路径 → ![](path) Markdown 语法
  * - 其他文件路径 → [filename](path) 链接语法
  */
@@ -40,6 +41,19 @@ export class ImagePasteHandler {
             if (!path || typeof path !== 'string') return false;
             const lower = path.toLowerCase();
             return IMAGE_EXTENSIONS.some(ext => lower.endsWith(ext));
+        };
+
+        const isImageUrl = (text) => {
+            if (!text || typeof text !== 'string') return false;
+            const trimmed = text.trim();
+            if (!/^https?:\/\//i.test(trimmed) || /\s/.test(trimmed)) return false;
+            try {
+                const url = new URL(trimmed);
+                const pathname = url.pathname.toLowerCase();
+                return IMAGE_EXTENSIONS.some(ext => pathname.endsWith(ext));
+            } catch {
+                return false;
+            }
         };
 
         const getFallbackFileName = (path) => basename(path) || '文件';
@@ -125,7 +139,21 @@ export class ImagePasteHandler {
                 }
             }
 
-            // 2. 处理从文件管理器复制的文件路径
+            // 2. 文本形式的图片 URL → 直接作为图片节点插入
+            // 必须 stopImmediatePropagation 阻止 ProseMirror 的 bubble handler（它会把 URL 解析成 autolink）
+            const pastedText = event.clipboardData?.getData('text/plain');
+            if (isImageUrl(pastedText)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const url = pastedText.trim();
+                editor.chain().focus().insertContent({
+                    type: 'image',
+                    attrs: { src: url, dataOriginalSrc: url },
+                }).run();
+                return;
+            }
+
+            // 3. 处理从文件管理器复制的文件路径
             try {
                 const filePaths = await invoke('read_clipboard_file_paths');
                 if (!filePaths || filePaths.length === 0) return;
@@ -183,12 +211,14 @@ export class ImagePasteHandler {
         };
 
         this._editorDom = editorDom;
-        editorDom.addEventListener('paste', this._handler);
+        // capture phase 注册：保证比 ProseMirror 的 bubble handler 更早触发，
+        // 这样 URL 分支可以 stopImmediatePropagation 抢先拦截。
+        editorDom.addEventListener('paste', this._handler, true);
     }
 
     destroy() {
         if (this._editorDom && this._handler) {
-            this._editorDom.removeEventListener('paste', this._handler);
+            this._editorDom.removeEventListener('paste', this._handler, true);
         }
         this._handler = null;
         this._editorDom = null;
