@@ -364,58 +364,67 @@ export class ContentLoader {
 
         const imageEntries = [];
         doc.descendants((node, pos) => {
-            if (node.type?.name === 'image') imageEntries.push({ node, pos });
+            if (node.type?.name === 'image') {
+                imageEntries.push({
+                    pos,
+                    originalSrc: node.attrs?.dataOriginalSrc || node.attrs?.src || '',
+                });
+            }
         });
         if (imageEntries.length === 0) return;
 
-        const tr = editor.state.tr;
-        let changed = false;
-        const createdUrls = [];
+        const loadedFilePath = this.loadedFilePath;
+        const isSessionStale = () => sessionId && sessionId !== this.currentSessionId;
 
-        for (const { node, pos } of imageEntries) {
-            if (sessionId && sessionId !== this.currentSessionId) {
-                // session 已切换，释放本次创建的 blob URL 并中断
-                revokeUrls(createdUrls);
+        // 并行读取、每张读完立即 dispatch：一张慢图不会拖住其它图的显示。
+        // image 是 leaf 节点，setNodeMarkup 不改变 doc.size，所以多次 dispatch 互不影响彼此的 pos。
+        await Promise.all(imageEntries.map(async ({ pos, originalSrc }) => {
+            if (!originalSrc || isSessionStale()) return;
+
+            let objectUrl = null;
+            if (!isExternalImageSrc(originalSrc)) {
+                const resolvedPath = resolveImagePath(originalSrc, loadedFilePath);
+                if (!resolvedPath) return;
+                try {
+                    const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
+                    if (isSessionStale()) return;
+                    objectUrl = createImageObjectUrl(binary, resolvedPath);
+                    if (!objectUrl) return;
+                    registerImageObjectUrl(objectUrl);
+                } catch (error) {
+                    console.error('读取图片失败:', { resolvedPath, error });
+                    return;
+                }
+            }
+
+            if (isSessionStale()) {
+                if (objectUrl) revokeUrls([objectUrl]);
                 return;
             }
 
-            const originalSrc = node.attrs?.dataOriginalSrc || node.attrs?.src || '';
-            if (!originalSrc) continue;
-
-            const nextAttrs = { ...node.attrs, dataOriginalSrc: originalSrc };
-
-            if (isExternalImageSrc(originalSrc)) {
-                if (node.attrs?.dataOriginalSrc !== originalSrc) {
-                    tr.setNodeMarkup(pos, null, nextAttrs);
-                    changed = true;
-                }
-                continue;
+            // 用户可能在读图期间编辑了文档，dispatch 前校验 pos 处仍是原图片节点
+            const currentDoc = editor.state.doc;
+            const currentNode = pos <= currentDoc.content.size ? currentDoc.nodeAt(pos) : null;
+            const currentOriginal = currentNode?.attrs?.dataOriginalSrc || currentNode?.attrs?.src;
+            if (currentNode?.type?.name !== 'image' || currentOriginal !== originalSrc) {
+                if (objectUrl) revokeUrls([objectUrl]);
+                return;
             }
 
-            const resolvedPath = resolveImagePath(originalSrc, this.loadedFilePath);
-            if (!resolvedPath) continue;
+            const nextAttrs = { ...currentNode.attrs, dataOriginalSrc: originalSrc };
+            if (objectUrl) nextAttrs.src = objectUrl;
 
-            try {
-                const binary = await readBinaryFromFs(resolvedPath, { requestAccessOnError: true });
-                const objectUrl = createImageObjectUrl(binary, resolvedPath);
-                if (!objectUrl) continue;
-                registerImageObjectUrl(objectUrl);
-                createdUrls.push(objectUrl);
-                nextAttrs.src = objectUrl;
-                tr.setNodeMarkup(pos, null, nextAttrs);
-                changed = true;
-            } catch (error) {
-                console.error('读取图片失败:', { resolvedPath, error });
+            const srcChanged = nextAttrs.src !== currentNode.attrs.src;
+            const originalChanged = currentNode.attrs?.dataOriginalSrc !== originalSrc;
+            if (!srcChanged && !originalChanged) {
+                if (objectUrl) revokeUrls([objectUrl]);
+                return;
             }
-        }
 
-        // dispatch 前再检查一次 session，防止往已切走的编辑器写入
-        if (changed && (!sessionId || sessionId === this.currentSessionId)) {
+            const tr = editor.state.tr.setNodeMarkup(pos, null, nextAttrs);
             tr.setMeta('addToHistory', false);
             editor.view.dispatch(tr);
-        } else if (changed) {
-            revokeUrls(createdUrls);
-        }
+        }));
     }
 
     /**
