@@ -10,7 +10,6 @@ export class FileTreeState {
 
         // 回调函数
         this.onStateChange = callbacks.onStateChange;
-        this.onOpenFilesChange = callbacks.onOpenFilesChange;
 
         // ========== 核心状态 ==========
         this.rootPaths = new Set();
@@ -223,80 +222,9 @@ export class FileTreeState {
         return Boolean(currentIdentity) && currentIdentity === targetIdentity;
     }
 
-    // ========== Open Files 管理 ==========
-
-    /**
-     * 添加文件到打开列表
-     */
-    addOpenFile(path) {
-        const normalizedPath = this.fileTree.normalizePath(path);
-        if (!normalizedPath) return false;
-
-        if (this.isInOpenList(normalizedPath)) {
-            return false; // 已存在
-        }
-
-        this.openFiles.push(normalizedPath);
-        this.emitOpenFilesChange();
-        return true;
-    }
-
-    /**
-     * 从打开列表中移除文件
-     */
-    removeOpenFile(path) {
-        const index = this.findOpenFileIndex(path);
-
-        if (index > -1) {
-            this.openFiles.splice(index, 1);
-            this.emitOpenFilesChange();
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * 替换打开文件列表中的路径（用于重命名）
-     */
-    replaceOpenFilePath(oldPath, newPath) {
-        const normalizedOld = this.fileTree.normalizePath(oldPath);
-        const normalizedNew = this.fileTree.normalizePath(newPath);
-        const oldIdentity = this.getPathIdentity(normalizedOld);
-        const newIdentity = this.getPathIdentity(normalizedNew);
-
-        if (!normalizedOld || !normalizedNew) {
-            return false;
-        }
-        if (!oldIdentity || !newIdentity || oldIdentity === newIdentity) {
-            return false;
-        }
-
-        const index = this.findOpenFileIndex(normalizedOld);
-        if (index === -1) {
-            // 如果不在打开列表中，但是当前文件，也需要更新
-            if (this.isCurrentFile(normalizedOld)) {
-                this.currentFile = normalizedNew;
-                return true;
-            }
-            return false;
-        }
-
-        // 移除旧路径，在同位置插入新路径，避免重复
-        const filtered = this.openFiles.filter(
-            (path, idx) => this.getPathIdentity(path) !== oldIdentity && (this.getPathIdentity(path) !== newIdentity || idx === index)
-        );
-        const insertPosition = Math.min(index, filtered.length);
-        filtered.splice(insertPosition, 0, normalizedNew);
-        this.openFiles = filtered;
-
-        // 更新当前文件
-        if (this.isCurrentFile(normalizedOld)) {
-            this.currentFile = normalizedNew;
-        }
-
-        this.emitOpenFilesChange();
-        return true;
-    }
+    // ========== Open Files 查询 ==========
+    // 注意：openFiles 的写入由 OpenFileManager 从 DocumentManager 事件派生，
+    // 不再在这里直接提供 add/remove/replace 方法。
 
     /**
      * 检查文件是否在打开列表中
@@ -418,15 +346,6 @@ export class FileTreeState {
     emitStateChange() {
         if (typeof this.onStateChange === 'function') {
             this.onStateChange(this.getPersistedState());
-        }
-    }
-
-    /**
-     * 触发打开文件列表变更事件
-     */
-    emitOpenFilesChange() {
-        if (typeof this.onOpenFilesChange === 'function') {
-            this.onOpenFilesChange([...this.openFiles]);
         }
     }
 

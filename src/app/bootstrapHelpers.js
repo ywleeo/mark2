@@ -65,16 +65,6 @@ export function createBootstrapHelpers(deps) {
         scheduleDocumentSnapshotSync();
     }
 
-    function handleTabReorder(reorderPayload) {
-        if (!reorderPayload || !Array.isArray(reorderPayload.storageOrder)) return;
-        const fileTree = appState.getFileTree();
-        if (typeof fileTree?.reorderOpenFiles === 'function') {
-            fileTree.reorderOpenFiles(reorderPayload.storageOrder);
-            return;
-        }
-        fileTree?.restoreOpenFiles(reorderPayload.storageOrder);
-    }
-
     function handleSidebarStateChange(sidebarState) {
         workspaceController?.handleSidebarStateChange(sidebarState);
         return workspaceManager?.getSnapshot?.();
@@ -138,7 +128,6 @@ export function createBootstrapHelpers(deps) {
         updateExportMenuState,
         clearActiveFileView,
         persistWorkspaceState,
-        handleTabReorder,
         handleSidebarStateChange,
         handleRunFile,
         restoreWorkspaceStateFromStorage,

@@ -7,6 +7,7 @@ export function createWorkspaceController({
     fileService,
     workspaceManager,
     untitledFileManager,
+    documentManager = null,
 }) {
     if (typeof getCurrentFile !== 'function') {
         throw new Error('workspaceController 需要提供 getCurrentFile');
@@ -184,15 +185,14 @@ export function createWorkspaceController({
     }
 
     /**
-     * 从 tabManager 和 untitledFileManager 采集可持久化的 untitled tab 数据
+     * 从 documentManager 和 untitledFileManager 采集可持久化的 untitled tab 数据
      */
     function collectUntitledTabsForPersistence() {
-        const tabManager = getTabManager();
-        const tabs = Array.isArray(tabManager?.fileTabs) ? tabManager.fileTabs : [];
+        const openDocs = documentManager?.getOpenDocuments?.() || [];
         const snapshotMap = new Map();
 
-        tabs.forEach((tab) => {
-            const path = typeof tab?.path === 'string' ? tab.path : null;
+        openDocs.forEach((doc) => {
+            const path = typeof doc?.path === 'string' ? doc.path : null;
             if (!path || !untitledFileManager.isUntitledPath(path)) {
                 return;
             }
@@ -204,8 +204,8 @@ export function createWorkspaceController({
             }
             snapshotMap.set(path, {
                 path,
-                label: typeof tab.label === 'string'
-                    ? tab.label
+                label: typeof doc.label === 'string'
+                    ? doc.label
                     : (untitledFileManager.getDisplayName?.(path) || path),
                 content,
                 hasChanges: untitledFileManager.hasUnsavedChanges?.(path) || false,
@@ -418,15 +418,21 @@ export function createWorkspaceController({
 
         // 恢复 untitled 内容和 tab 列表（Sublime 类似 hot-exit）
         untitledFileManager.restoreFromSnapshot?.(sanitizedUntitledTabs);
-        if (tabManager && Array.isArray(tabManager.fileTabs)) {
-            tabManager.fileTabs = tabManager.fileTabs.filter(tab => !untitledFileManager.isUntitledPath(tab.path));
-            tabManager.fileTabs.push(...sanitizedUntitledTabs.map(tab => ({
-                id: tab.path,
-                type: 'file',
-                path: tab.path,
+        // 先清理 dm 中已有的 untitled 文档（rehydrate 场景下应当是空）
+        for (const existingPath of documentManager.getOpenPaths?.() || []) {
+            if (untitledFileManager.isUntitledPath(existingPath)) {
+                documentManager.closeDocument(existingPath);
+            }
+        }
+        for (const tab of sanitizedUntitledTabs) {
+            documentManager.openDocument(tab.path, {
+                kind: 'untitled',
+                tabId: tab.path,
                 label: tab.label,
-            })));
-            tabManager.render?.();
+                viewMode: 'markdown',
+                dirty: Boolean(tab.hasChanges),
+                activate: false,
+            });
         }
         if (sanitizedSharedTabPath) {
             tabManager?.showSharedTab?.(sanitizedSharedTabPath);

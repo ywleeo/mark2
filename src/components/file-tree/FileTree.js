@@ -60,7 +60,7 @@ export class FileTree {
         this.pendingRefreshPaths = new Set();
         this.labelResizeObserver = null;
 
-        this.state = new FileTreeState(this, { onStateChange, onOpenFilesChange });
+        this.state = new FileTreeState(this, { onStateChange });
         this.renderer = new FileTreeRenderer(this);
         this.events = new FileTreeEvents(this);
 
@@ -350,6 +350,7 @@ export class FileTree {
 
     // ========== 开放文件管理（委托 OpenFileManager）==========
 
+    bindDocumentManager(dm) { return this.openFileManager.bindDocumentManager(dm); }
     addToOpenFiles(path) { return this.openFileManager.add(path); }
     replaceOpenFilePath(oldPath, newPath) { return this.openFileManager.replacePath(oldPath, newPath); }
     renderOpenFiles(options) { return this.openFileManager.render(options); }
@@ -629,6 +630,7 @@ export class FileTree {
         this.watcher?.dispose();
         this.openFilesView?.dispose();
         this.contextMenu?.dispose();
+        this.openFileManager?.dispose();
         this.labelResizeObserver?.disconnect?.();
         this.labelResizeObserver = null;
         this.cancelRenaming();

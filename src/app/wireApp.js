@@ -231,7 +231,6 @@ function persistWorkspaceState(...args) { return bootstrap.persistWorkspaceState
 function clearActiveFileView() { return bootstrap.clearActiveFileView(); }
 function saveCurrentEditorContentToCache() { return bootstrap.saveCurrentEditorContentToCache(); }
 async function updateExportMenuState() { return bootstrap.updateExportMenuState(); }
-function handleTabReorder(p) { return bootstrap.handleTabReorder(p); }
 function handleSidebarStateChange(s) { return bootstrap.handleSidebarStateChange(s); }
 async function handleRunFile(f) { return bootstrap.handleRunFile(f); }
 
@@ -399,15 +398,14 @@ const workspaceController = createWorkspaceController({
     fileService: appServices.file,
     workspaceManager,
     untitledFileManager,
+    documentManager,
 });
 
 // ========== Untitled 控制器（在 fileOperations 前创建，避免 TDZ）==========
 const untitledController = createUntitledController({
     getTabManager: () => appState.getTabManager(),
     getCurrentFile: () => getActiveDocumentPath(),
-    setCurrentFile: (v, meta) => setActiveDocumentPath(v, meta),
     documentManager,
-    setHasUnsavedChanges: (v) => appState.setHasUnsavedChanges(v),
     getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getFileTree: () => appState.getFileTree(),

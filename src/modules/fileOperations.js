@@ -572,12 +572,15 @@ export function createFileOperations({
             const tabId = providedTabId
                 || (hasPersistentTab ? normalizedTargetPath : null);
 
+            const isUntitled = Boolean(untitledFileManager?.isUntitledPath?.(filePath));
             setCurrentFile(filePath, {
                 tabId,
-                kind: untitledFileManager?.isUntitledPath?.(filePath) ? 'untitled' : 'file',
+                kind: isUntitled ? 'untitled' : 'file',
                 viewMode: initialViewMode,
                 sessionId,
                 dirty: false,
+                // pinned=true → 作为 file tab 展示；pinned=false → 作为 shared tab 临时预览
+                pinned: hasPersistentTab || isUntitled,
             });
             logger?.info?.('loadFile:setCurrentFile', {
                 path: filePath,

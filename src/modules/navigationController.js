@@ -330,13 +330,13 @@ export function createNavigationController({
     }
 
     function handleOpenFilesChange(openFilePaths) {
+        // fileTree 与 tabManager 都订阅 DocumentManager，无需再做桥接。
+        // 这里只负责同步 sidebar 选中态与持久化。
         const tabManager = getTabManager();
         const fileTree = getFileTree();
         const canonicalOpenFilePaths = getCanonicalOpenFilePaths(fileTree, Array.isArray(openFilePaths) ? openFilePaths : []);
         const canonicalCurrentFile = normalizeComparablePath(fileTree, fileTree?.currentFile || null) || null;
-        tabManager?.syncFileTabs(canonicalOpenFilePaths, canonicalCurrentFile);
 
-        // 同步 sidebar 选中状态（syncFileTabs 已设置 activeTabId，这里需要同步 sidebar）
         const activeTab = tabManager?.getAllTabs().find(t => t.id === tabManager.activeTabId);
         if (activeTab?.path) {
             fileTree?.selectFile?.(activeTab.path, { autoFocus: false, silent: true });
@@ -425,20 +425,14 @@ export function createNavigationController({
 
             const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
 
-            // 先更新 TabManager 状态，再触发 fileTree 操作
-            // 这样 fileTree.closeFile 触发的 syncFileTabs 看到的是已处理好的状态（no-op）
+            // dm 是真源：TabManager.removeFileTab → dm.closeDocument → fileTree/tabManager 双方自行派生
             tabManager?.removeFileTab(targetPath);
             if (wasActive) {
                 tabManager?.setActiveTab(fallbackTab?.id || null, { silent: true, force: true });
-            }
-
-            fileTree?.closeFile(tab.path, { suppressActivate: wasActive });
-
-            if (wasActive) {
                 await activateTabTransition(fallbackTab, { autoFocus: true });
             }
+
             documentSessions.closeSessionForPath(targetPath);
-            documentManager?.closeDocument?.(targetPath);
             const codeEditor = getCodeEditor();
             const markdownEditor = getEditor();
             codeEditor?.forgetViewStateForTab?.(normalizedTarget);

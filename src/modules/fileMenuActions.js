@@ -239,13 +239,12 @@ export function createFileMenuActions(options = {}) {
         fileSession.clearEntry(currentFile);
         fileTree?.stopWatchingFile?.(currentFile);
         documentSessions.closeSessionForPath(currentFile);
+        // dm.closeDocument 会派生清理 fileTree.openFiles 与 tabManager.fileTabs
         documentManager.closeDocument(currentFile);
 
         if (wasOpenInList) {
             setHasUnsavedChanges(false);
-            tabManager?.removeFileTab?.(currentFile);
             tabManager?.setActiveTab?.(fallbackTab?.id || null, { silent: true, force: true });
-            fileTree.closeFile(currentFile, { suppressActivate: true });
             await activateTabTransition(fallbackTab, { autoFocus: true });
             void updateWindowTitle();
             return;

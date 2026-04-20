@@ -86,6 +86,7 @@ export function setupStatusBar({
 export function setupFileTree({
     FileTreeCtor,
     appState,
+    documentManager = null,
     executeCommand,
     beforeFileSelect,
     handleFileSelect,
@@ -130,6 +131,10 @@ export function setupFileTree({
         documentSessions,
     });
 
+    if (documentManager && typeof fileTree.bindDocumentManager === 'function') {
+        fileTree.bindDocumentManager(documentManager);
+    }
+
     appState.setFileTree(fileTree);
     return fileTree;
 }
@@ -142,12 +147,12 @@ export function setupFileTree({
 export function setupTabManager({
     TabManagerCtor,
     appState,
+    documentManager = null,
     beforeTabSelect,
     handleTabSelect,
     handleTabClose,
     handleTabRenameConfirm,
     handleTabRenameCancel,
-    handleTabReorder,
     handleCreateUntitled,
 }) {
     const tabBarElement = document.getElementById('tabBar');
@@ -157,9 +162,12 @@ export function setupTabManager({
         onTabClose: handleTabClose,
         onRenameConfirm: handleTabRenameConfirm,
         onRenameCancel: handleTabRenameCancel,
-        onTabReorder: handleTabReorder,
         onCreateUntitled: handleCreateUntitled,
     });
+
+    if (documentManager && typeof tabManager.bindDocumentManager === 'function') {
+        tabManager.bindDocumentManager(documentManager);
+    }
 
     appState.setTabManager(tabManager);
     return tabManager;

@@ -12,6 +12,8 @@ export class TabManager {
         this.sharedTab = null;
         this.fileTabs = [];
         this.activeTabId = null;
+        this.documentManager = null;
+        this._dmUnsub = null;
         this.cleanupFunctions = [];
         this.persistentCleanups = [];
         this.renamingTabId = null;
@@ -66,6 +68,75 @@ export class TabManager {
     }
 
     /**
+     * 绑定 DocumentManager，将 fileTabs / activeTabId 托管为派生状态。
+     * 绑定后，TabManager 对外的 mutation 方法会转发到 dm 作为真源，
+     * 渲染则由 dm 事件驱动。shared tab 仍由 TabManager 独立管理。
+     * @param {Object} dm - DocumentManager 实例
+     */
+    bindDocumentManager(dm) {
+        if (this._dmUnsub) {
+            this._dmUnsub();
+            this._dmUnsub = null;
+        }
+        this.documentManager = dm || null;
+        if (!dm) {
+            return;
+        }
+        this._dmUnsub = dm.subscribe?.((event) => this._onDocumentEvent(event)) || null;
+        this._rebuildFromDocumentManager();
+    }
+
+    _onDocumentEvent(event) {
+        if (!event || !event.type) return;
+        const relevant = ['open', 'close', 'activate', 'rename', 'reorder', 'update'];
+        if (!relevant.includes(event.type)) return;
+        // 同步重建，避免调用方读 fileTabs 时看到过期状态（microtask 延迟会出问题）
+        this._rebuildFromDocumentManager();
+    }
+
+    _rebuildFromDocumentManager() {
+        const dm = this.documentManager;
+        if (!dm) return;
+        const openDocs = typeof dm.getOpenDocuments === 'function' ? dm.getOpenDocuments() : [];
+        const activePath = typeof dm.getActivePath === 'function' ? dm.getActivePath() : null;
+
+        const existingByPath = new Map(this.fileTabs.map(tab => [tab.path, tab]));
+        this.fileTabs = openDocs.map(doc => {
+            const existing = existingByPath.get(doc.path);
+            const fallbackLabel = basename(doc.path) || doc.path;
+            return {
+                id: doc.path,
+                type: 'file',
+                path: doc.path,
+                label: doc.label || existing?.label || fallbackLabel,
+            };
+        });
+
+        if (this.sharedTab && openDocs.some(d => d.path === this.sharedTab.path)) {
+            this.sharedTab = null;
+        }
+
+        if (activePath && this.fileTabs.some(tab => tab.path === activePath)) {
+            // 激活的是 pinned 文档（存在于 fileTabs 中）
+            this.activeTabId = activePath;
+        } else if (this.sharedTab && (
+            this.activeTabId === this.sharedTabId
+            || (activePath && this.sharedTab.path === activePath)
+        )) {
+            // 激活的是当前 shared tab 预览：保持/同步为 sharedTabId
+            this.activeTabId = this.sharedTabId;
+        } else {
+            // 清理悬挂的 activeTabId（防止指向已关闭 tab 导致 UI 无高亮）
+            const stillExists = this.getAllTabs().some(tab => tab.id === this.activeTabId);
+            if (!stillExists) {
+                this.activeTabId = null;
+            }
+        }
+
+        this.render();
+    }
+
+    /**
      * 显示 shared 预览 tab。
      * shared tab 只负责承载“未固定”的临时预览，不直接参与持久 openFiles 管理。
      * @param {string|null} path - shared tab 对应路径
@@ -112,79 +183,9 @@ export class TabManager {
         if (index === -1) {
             return null;
         }
-        const [removed] = this.fileTabs.splice(index, 1);
-        this.render();
+        const removed = this.fileTabs[index];
+        this.documentManager.closeDocument(path);
         return removed;
-    }
-
-    syncFileTabs(openFilePaths = [], activePath = null) {
-        // sharedTab 被加入 open list 时提升为 file tab
-        const promotedSharedTabPath = this.sharedTab?.path || null;
-        const wasSharedTabActive = this.activeTabId === this.sharedTabId;
-        if (this.sharedTab && openFilePaths.includes(this.sharedTab.path)) {
-            this.sharedTab = null;
-        }
-
-        const newPathSet = new Set(openFilePaths);
-
-        // 移除已关闭的 managed tab（从后往前遍历，避免 splice 影响索引）
-        // 只有被移除的 tab 恰好是 active 时，才更新 activeTabId
-        for (let i = this.fileTabs.length - 1; i >= 0; i--) {
-            const tab = this.fileTabs[i];
-            if (tab.path && tab.path.startsWith('untitled://')) continue; // untitled 不受 fileTree 管理
-            if (newPathSet.has(tab.path)) continue;
-
-            const wasActive = tab.id === this.activeTabId;
-            this.fileTabs.splice(i, 1);
-
-            if (wasActive) {
-                // 优先选相邻 tab（下一个，然后上一个），不影响其他 tab
-                const fallback = this.fileTabs[i] || this.fileTabs[i - 1] || this.sharedTab || null;
-                this.activeTabId = fallback ? fallback.id : null;
-                this.updateActiveState();
-            }
-        }
-
-        // 添加新打开的 tab（用 unshift 保证最新的显示在最左边）
-        const currentPaths = new Set(
-            this.fileTabs
-                .filter(tab => !tab.path || !tab.path.startsWith('untitled://'))
-                .map(tab => tab.path)
-        );
-        for (const path of openFilePaths) {
-            if (currentPaths.has(path)) continue;
-            const fileName = basename(path) || path;
-            this.fileTabs.unshift({ id: path, type: 'file', path, label: fileName });
-        }
-
-        // shared tab 提升成 file tab 后，需要把 active id 同步到真实 file tab，
-        // 否则 activeTabId 会停留在 shared-preview，UI 上看起来没有激活 tab。
-        if (wasSharedTabActive && promotedSharedTabPath && openFilePaths.includes(promotedSharedTabPath)) {
-            this.activeTabId = promotedSharedTabPath;
-            this.updateActiveState();
-        }
-
-        // 更新现有 tab 的标签名（文件重命名场景）
-        for (const tab of this.fileTabs) {
-            if (tab.path && !tab.path.startsWith('untitled://') && newPathSet.has(tab.path)) {
-                tab.label = basename(tab.path) || tab.path;
-            }
-        }
-
-        // 只有在没有 active tab 时才自动选择（不干扰已有的 active 状态）
-        if (!this.activeTabId) {
-            const allTabs = this.getAllTabs();
-            if (allTabs.length > 0) {
-                let targetId = null;
-                if (activePath) {
-                    const target = allTabs.find(t => t.path === activePath);
-                    if (target) targetId = target.id;
-                }
-                this.setActiveTab(targetId || allTabs[0].id, { silent: true });
-            }
-        }
-
-        this.render();
     }
 
     setActiveFileTab(path, options = {}) {
@@ -217,6 +218,10 @@ export class TabManager {
 
         this.activeTabId = tabId;
         this.updateActiveState();
+
+        // 说明：不再在此处同步 dm.activateDocument / clearActiveDocument。
+        // dm 的激活状态由业务层（navigationController/performLoad/showSharedTab 等）显式维护，
+        // 以避免 silent 路径提前更新 appState.currentFile 导致 activateTabTransition 错误跳过加载。
 
         if (!options.silent) {
             this.callbacks.onTabSelect?.(targetTab);
@@ -416,23 +421,6 @@ export class TabManager {
         this.container.appendChild(newTabBtn);
 
         this.updateActiveState();
-    }
-
-    dispose() {
-        this.cancelPointerDrag();
-        // 清理所有事件监听器
-        this.cleanupFunctions.forEach(cleanup => {
-            if (typeof cleanup === 'function') {
-                cleanup();
-            }
-        });
-        this.cleanupFunctions = [];
-        this.persistentCleanups.forEach(cleanup => {
-            if (typeof cleanup === 'function') {
-                cleanup();
-            }
-        });
-        this.persistentCleanups = [];
     }
 
     startRenamingTab(tabId) {
@@ -809,15 +797,12 @@ export class TabManager {
             targetIndex = this.fileTabs.length;
         }
 
-        const [movedTab] = this.fileTabs.splice(currentIndex, 1);
-        this.fileTabs.splice(targetIndex, 0, movedTab);
-        this.render();
-        const displayOrder = this.fileTabs.map(tab => tab.path);
-        const storageOrder = [...displayOrder].reverse();
-        this.callbacks.onTabReorder?.({
-            displayOrder,
-            storageOrder,
-        });
+        const nextTabs = this.fileTabs.slice();
+        const [movedTab] = nextTabs.splice(currentIndex, 1);
+        nextTabs.splice(targetIndex, 0, movedTab);
+
+        // dm 'reorder' 事件会驱动 fileTree/tabManager 重新派生 + 触发持久化
+        this.documentManager.reorderDocuments(nextTabs.map(tab => tab.path));
     }
 
     updateTabPath(oldPath, newPath, newLabel = null) {
@@ -825,38 +810,44 @@ export class TabManager {
             return;
         }
 
-        let hasChanges = false;
+        const label = newLabel ?? (basename(newPath) || newPath);
+        let sharedChanged = false;
         if (this.sharedTab && this.sharedTab.path === oldPath) {
-            const label = newLabel ?? (basename(newPath) || newPath);
             this.sharedTab = {
                 ...this.sharedTab,
                 path: newPath,
                 label,
             };
-            hasChanges = true;
+            sharedChanged = true;
         }
 
-        this.fileTabs = this.fileTabs.map(tab => {
-            if (tab.path !== oldPath) {
-                return tab;
+        if (this.documentManager.getDocumentByPath?.(oldPath)) {
+            this.documentManager.renameDocument(oldPath, newPath, { label });
+            if (sharedChanged) this.render();
+            return;
+        }
+
+        if (sharedChanged) this.render();
+    }
+
+    dispose() {
+        if (this._dmUnsub) {
+            this._dmUnsub();
+            this._dmUnsub = null;
+        }
+        this.documentManager = null;
+        this.cancelPointerDrag();
+        this.cleanupFunctions.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
             }
-            const label = newLabel ?? (basename(newPath) || newPath);
-            hasChanges = true;
-            return {
-                ...tab,
-                id: newPath,
-                path: newPath,
-                label,
-            };
         });
-
-        if (this.activeTabId === oldPath) {
-            this.activeTabId = newPath;
-            hasChanges = true;
-        }
-
-        if (hasChanges) {
-            this.render();
-        }
+        this.cleanupFunctions = [];
+        this.persistentCleanups.forEach(cleanup => {
+            if (typeof cleanup === 'function') {
+                cleanup();
+            }
+        });
+        this.persistentCleanups = [];
     }
 }

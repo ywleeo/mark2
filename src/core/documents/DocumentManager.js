@@ -52,8 +52,61 @@ export function createDocumentManager(options = {}) {
     } = options;
 
     const documents = new Map();
+    const openOrder = [];
+    const listeners = new Set();
     let activeDocumentPath = null;
     let lastActiveSnapshot = null;
+
+    /**
+     * 发送事件给所有订阅者。
+     * 订阅方回调中抛出的异常会被捕获并降级为日志。
+     */
+    function emit(event) {
+        if (!event || !event.type) return;
+        for (const listener of Array.from(listeners)) {
+            try {
+                listener(event);
+            } catch (error) {
+                logger?.warn?.('documentManager listener error', error);
+            }
+        }
+    }
+
+    function ensureOrderEntry(path, atStart = false) {
+        if (!openOrder.includes(path)) {
+            if (atStart) {
+                openOrder.unshift(path);
+            } else {
+                openOrder.push(path);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function removeOrderEntry(path) {
+        const idx = openOrder.indexOf(path);
+        if (idx !== -1) {
+            openOrder.splice(idx, 1);
+            return true;
+        }
+        return false;
+    }
+
+    function toPublicDocument(doc) {
+        if (!doc) return null;
+        return {
+            path: doc.path,
+            tabId: doc.tabId,
+            kind: doc.kind,
+            viewMode: doc.viewMode,
+            dirty: Boolean(doc.dirty),
+            active: Boolean(doc.active),
+            sessionId: doc.sessionId,
+            label: doc.label || null,
+            pinned: doc.pinned !== false,
+        };
+    }
 
     /**
      * 将活动文档状态同步到 AppState 兼容层。
@@ -98,6 +151,10 @@ export function createDocumentManager(options = {}) {
             dirty: patch.dirty ?? existing?.dirty ?? false,
             active: patch.active ?? existing?.active ?? false,
             sessionId: patch.sessionId ?? existing?.sessionId ?? null,
+            label: patch.label ?? existing?.label ?? null,
+            // pinned=true 代表"固定打开"（file tab 或 untitled）；
+            // pinned=false 代表"临时预览"（shared tab），不会进入 openOrder
+            pinned: patch.pinned ?? existing?.pinned ?? true,
         };
         documents.set(normalizedPath, nextDocument);
         return nextDocument;
@@ -118,16 +175,55 @@ export function createDocumentManager(options = {}) {
 
             const previousDocument = documents.get(normalizedPath);
             const nextDocument = ensureDocument(normalizedPath, options);
+            // 仅 pinned 文档进入 openOrder（file tab 列表）。
+            // unpinned → 只在 documents 中存在（供 markDirty / 内容管理），不会作为 file tab 渲染。
+            // 如果之前是 unpinned 现在变 pinned，也要补进 openOrder
+            const previouslyPinned = previousDocument ? previousDocument.pinned !== false : false;
+            const isNowPinned = nextDocument.pinned !== false;
+            let isNewOpen = false;
+            if (isNowPinned) {
+                isNewOpen = ensureOrderEntry(normalizedPath, options.atStart === true);
+                if (!previouslyPinned && previousDocument) {
+                    isNewOpen = true;
+                }
+            } else {
+                removeOrderEntry(normalizedPath);
+            }
+            // 对于 unpinned 文档（shared tab 预览）：同一时间只保留一个
+            if (!isNowPinned) {
+                for (const [otherPath, otherDoc] of documents) {
+                    if (otherPath === normalizedPath) continue;
+                    if (otherDoc.pinned === false) {
+                        documents.delete(otherPath);
+                    }
+                }
+            }
+            let previousActivePath = null;
             if (options.activate !== false) {
                 if (activeDocumentPath && activeDocumentPath !== normalizedPath) {
                     const previous = documents.get(activeDocumentPath);
                     if (previous) {
                         previous.active = false;
                     }
+                    previousActivePath = activeDocumentPath;
                 }
                 activeDocumentPath = normalizedPath;
                 nextDocument.active = true;
                 syncActiveDocumentToAppState();
+            }
+
+            if (isNewOpen || !previousDocument) {
+                emit({ type: 'open', path: normalizedPath, document: toPublicDocument(nextDocument) });
+            } else {
+                emit({ type: 'update', path: normalizedPath, document: toPublicDocument(nextDocument) });
+            }
+            if (options.activate !== false) {
+                emit({
+                    type: 'activate',
+                    path: normalizedPath,
+                    previousPath: previousActivePath,
+                    document: toPublicDocument(nextDocument),
+                });
             }
 
             const logPayload = {
@@ -179,11 +275,13 @@ export function createDocumentManager(options = {}) {
                 return null;
             }
 
+            let previousActivePath = null;
             if (activeDocumentPath && activeDocumentPath !== normalizedPath) {
                 const previous = documents.get(activeDocumentPath);
                 if (previous) {
                     previous.active = false;
                 }
+                previousActivePath = activeDocumentPath;
             }
 
             activeDocumentPath = normalizedPath;
@@ -203,6 +301,12 @@ export function createDocumentManager(options = {}) {
                 sessionId: existing.sessionId,
             });
             traceRecorder?.record?.('documents', 'activate', { path: normalizedPath });
+            emit({
+                type: 'activate',
+                path: normalizedPath,
+                previousPath: previousActivePath,
+                document: toPublicDocument(existing),
+            });
             return existing;
         },
 
@@ -216,20 +320,45 @@ export function createDocumentManager(options = {}) {
         renameDocument(oldPath, newPath, patch = {}) {
             const normalizedOld = normalizeDocumentPath(normalizePath, oldPath);
             const normalizedNew = normalizeDocumentPath(normalizePath, newPath);
-            if (!normalizedOld || !normalizedNew) {
-                return null;
+            if (!normalizedOld || !normalizedNew || normalizedOld === normalizedNew) {
+                return documents.get(normalizedNew) || null;
             }
+
             const existing = documents.get(normalizedOld);
+            if (!existing) {
+                // 已重命名过：幂等短路。若带 patch 则合并到 newPath 并 emit update。
+                // active 由 activate/close 等流程维护，不接受来自 patch 的覆盖。
+                const already = documents.get(normalizedNew);
+                if (already && patch) {
+                    const { active: _active, ...safePatch } = patch;
+                    if (Object.keys(safePatch).length > 0) {
+                        Object.assign(already, safePatch, {
+                            id: normalizedNew,
+                            path: normalizedNew,
+                            tabId: safePatch.tabId ?? already.tabId ?? normalizedNew,
+                        });
+                        emit({ type: 'update', path: normalizedNew, document: toPublicDocument(already) });
+                    }
+                }
+                return already || null;
+            }
+
             const nextDocument = {
-                ...(existing || {}),
+                ...existing,
                 ...patch,
                 id: normalizedNew,
                 path: normalizedNew,
-                tabId: patch.tabId ?? existing?.tabId ?? normalizedNew,
+                tabId: patch.tabId ?? existing.tabId ?? normalizedNew,
             };
 
             documents.delete(normalizedOld);
             documents.set(normalizedNew, nextDocument);
+
+            // 仅当旧路径在 openOrder（pinned）时迁移位置，unpinned 文档不进 openOrder
+            const orderIdx = openOrder.indexOf(normalizedOld);
+            if (orderIdx !== -1) {
+                openOrder[orderIdx] = normalizedNew;
+            }
 
             if (activeDocumentPath === normalizedOld) {
                 activeDocumentPath = normalizedNew;
@@ -241,6 +370,12 @@ export function createDocumentManager(options = {}) {
             traceRecorder?.record?.('documents', 'rename', {
                 oldPath: normalizedOld,
                 newPath: normalizedNew,
+            });
+            emit({
+                type: 'rename',
+                oldPath: normalizedOld,
+                newPath: normalizedNew,
+                document: toPublicDocument(nextDocument),
             });
             return nextDocument;
         },
@@ -273,6 +408,12 @@ export function createDocumentManager(options = {}) {
                 path: normalizedPath,
                 dirty: nextDirty,
             });
+            emit({
+                type: 'dirty',
+                path: normalizedPath,
+                dirty: nextDirty,
+                document: toPublicDocument(document),
+            });
         },
 
         /**
@@ -294,6 +435,11 @@ export function createDocumentManager(options = {}) {
                 path: normalizedPath,
                 patch,
             });
+            emit({
+                type: 'update',
+                path: normalizedPath,
+                document: toPublicDocument(document),
+            });
             return document;
         },
 
@@ -307,7 +453,9 @@ export function createDocumentManager(options = {}) {
                 return;
             }
             const wasActive = activeDocumentPath === normalizedPath;
+            const existing = documents.get(normalizedPath);
             documents.delete(normalizedPath);
+            const removedFromOrder = removeOrderEntry(normalizedPath);
             if (wasActive) {
                 activeDocumentPath = null;
                 syncActiveDocumentToAppState();
@@ -317,12 +465,24 @@ export function createDocumentManager(options = {}) {
                 wasActive,
             });
             traceRecorder?.record?.('documents', 'close', { path: normalizedPath });
+            if (existing || removedFromOrder) {
+                emit({
+                    type: 'close',
+                    path: normalizedPath,
+                    wasActive,
+                    document: toPublicDocument(existing),
+                });
+            }
+            if (wasActive) {
+                emit({ type: 'activate', path: null, previousPath: normalizedPath, document: null });
+            }
         },
 
         /**
          * 清空当前激活文档。
          */
         clearActiveDocument() {
+            const previousActivePath = activeDocumentPath;
             if (activeDocumentPath) {
                 const activeDocument = documents.get(activeDocumentPath);
                 if (activeDocument) {
@@ -333,6 +493,9 @@ export function createDocumentManager(options = {}) {
             syncActiveDocumentToAppState();
             logger?.info?.('clearActiveDocument', {});
             traceRecorder?.record?.('documents', 'clear-active', {});
+            if (previousActivePath) {
+                emit({ type: 'activate', path: null, previousPath: previousActivePath, document: null });
+            }
         },
 
         /**
@@ -359,6 +522,66 @@ export function createDocumentManager(options = {}) {
         getDocumentByPath(path) {
             const normalizedPath = normalizeDocumentPath(normalizePath, path);
             return normalizedPath ? documents.get(normalizedPath) || null : null;
+        },
+
+        /**
+         * 订阅 DocumentManager 事件。
+         * 事件类型：open / close / activate / rename / dirty / update / reorder
+         * @param {Function} listener
+         * @returns {Function} 取消订阅函数
+         */
+        subscribe(listener) {
+            if (typeof listener !== 'function') {
+                return () => {};
+            }
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+        },
+
+        /**
+         * 获取当前所有打开文档路径（按打开顺序）。
+         * @returns {string[]}
+         */
+        getOpenPaths() {
+            return openOrder.slice();
+        },
+
+        /**
+         * 获取所有打开文档的快照（按打开顺序）。
+         * @returns {Array<Object>}
+         */
+        getOpenDocuments() {
+            return openOrder
+                .map(path => documents.get(path))
+                .filter(Boolean)
+                .map(toPublicDocument);
+        },
+
+        /**
+         * 重新排序打开的文档（用于 tab 拖拽）。
+         * @param {string[]} nextOrder - 新顺序
+         */
+        reorderDocuments(nextOrder) {
+            if (!Array.isArray(nextOrder)) {
+                return;
+            }
+            const normalized = nextOrder
+                .map(path => normalizeDocumentPath(normalizePath, path))
+                .filter(Boolean)
+                .filter(path => documents.has(path));
+            const currentSet = new Set(openOrder);
+            const nextSet = new Set(normalized);
+            if (normalized.length !== openOrder.length
+                || !openOrder.every(path => nextSet.has(path))
+                || !normalized.every(path => currentSet.has(path))) {
+                logger?.warn?.('reorderDocuments 顺序与已打开文档不匹配，已忽略');
+                return;
+            }
+            const same = openOrder.every((path, idx) => path === normalized[idx]);
+            if (same) return;
+            openOrder.splice(0, openOrder.length, ...normalized);
+            logger?.info?.('reorderDocuments', { order: normalized });
+            emit({ type: 'reorder', order: normalized.slice() });
         },
     };
 }

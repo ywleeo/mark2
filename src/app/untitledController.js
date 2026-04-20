@@ -6,9 +6,7 @@
 export function createUntitledController({
     getTabManager,
     getCurrentFile,
-    setCurrentFile,
     documentManager,
-    setHasUnsavedChanges,
     getMarkdownEditor,
     getCodeEditor,
     getFileTree,
@@ -32,31 +30,24 @@ export function createUntitledController({
         const untitledPath = untitledFileManager.createUntitledFile(ext);
         const displayName = untitledFileManager.getDisplayName(untitledPath);
 
-        const tabManager = getTabManager();
-        if (tabManager) {
-            tabManager.fileTabs.push({
-                id: untitledPath,
-                type: 'file',
-                path: untitledPath,
-                label: displayName,
-            });
-            tabManager.setActiveTab(untitledPath, { silent: true });
-            // 延迟 render 到下一帧：render() 会重建整个 tab bar DOM，
-            // 如果在 pointerup 回调里同步执行，浏览器后续的 click 事件
-            // 会打到重建后的 tab 元素上，触发一次多余的 setActiveTab → loadFile，
-            // 其 prepareForDocument → forceBlur() 会偷走新 tab 的焦点。
-            requestAnimationFrame(() => {
-                tabManager.render();
-                // 触控板轻点（tap）时，浏览器可能在 DOM 重建后异步调整焦点
-                // （focusout 无 JS 调用栈），用 setTimeout(0) 在布局完成后补救。
-                setTimeout(() => {
-                    const ed = getMarkdownEditor()?.editor;
-                    if (ed?.view && !ed.view.hasFocus() && !ed.isDestroyed) {
-                        ed.view.focus();
-                    }
-                }, 0);
-            });
-        }
+        // 真源走 documentManager：派生事件会驱动 TabManager 重建 fileTabs 并渲染
+        documentManager.openDocument(untitledPath, {
+            kind: 'untitled',
+            tabId: untitledPath,
+            viewMode: isMarkdown ? 'markdown' : 'code',
+            label: displayName,
+            activate: true,
+        });
+        // 延迟 render 到下一帧，避免 pointerup 回调里重建 DOM 导致焦点丢失
+        requestAnimationFrame(() => {
+            getTabManager()?.render();
+            setTimeout(() => {
+                const ed = getMarkdownEditor()?.editor;
+                if (ed?.view && !ed.view.hasFocus() && !ed.isDestroyed) {
+                    ed.view.focus();
+                }
+            }, 0);
+        });
 
         // 通过 fileOps.loadFile pipeline 加载，确保与其他加载（如关闭 tab 时的
         // fallback 加载）串行化，避免竞态导致焦点丢失。
@@ -82,42 +73,25 @@ export function createUntitledController({
         untitledFileManager.setContent(untitledPath, content);
         const displayName = untitledFileManager.getDisplayName(untitledPath);
 
-        const tabManager = getTabManager();
-        if (tabManager) {
-            tabManager.fileTabs.push({
-                id: untitledPath,
-                type: 'file',
-                path: untitledPath,
-                label: displayName,
-            });
-            tabManager.setActiveTab(untitledPath, { silent: true });
-            // 延迟 render 到下一帧：render() 会重建整个 tab bar DOM，
-            // 如果在 pointerup 回调里同步执行，浏览器后续的 click 事件
-            // 会打到重建后的 tab 元素上，触发一次多余的 setActiveTab → loadFile，
-            // 其 prepareForDocument → forceBlur() 会偷走新 tab 的焦点。
-            requestAnimationFrame(() => {
-                tabManager.render();
-                // 触控板轻点（tap）时，浏览器可能在 DOM 重建后异步调整焦点
-                // （focusout 无 JS 调用栈），用 setTimeout(0) 在布局完成后补救。
-                setTimeout(() => {
-                    const ed = getMarkdownEditor()?.editor;
-                    if (ed?.view && !ed.view.hasFocus() && !ed.isDestroyed) {
-                        ed.view.focus();
-                    }
-                }, 0);
-            });
-        }
-
-        setCurrentFile(untitledPath);
-        documentManager?.openDocument?.(untitledPath, {
+        documentManager.openDocument(untitledPath, {
             activate: true,
             kind: 'import',
             tabId: untitledPath,
             viewMode: 'markdown',
+            label: displayName,
             dirty: content.length > 0,
         });
-        setHasUnsavedChanges(content.length > 0);
+        requestAnimationFrame(() => {
+            getTabManager()?.render();
+            setTimeout(() => {
+                const ed = getMarkdownEditor()?.editor;
+                if (ed?.view && !ed.view.hasFocus() && !ed.isDestroyed) {
+                    ed.view.focus();
+                }
+            }, 0);
+        });
 
+        // dm.openDocument(activate:true, dirty:...) 已经同步 appState.currentFile 与 hasUnsavedChanges
         const editor = getMarkdownEditor();
         if (editor) {
             // 让 ContentLoader 进入正确状态：保存上一个 tab 的状态，
@@ -169,22 +143,15 @@ export function createUntitledController({
     }
 
     async function convertUntitledToRealFile(untitledPath, realPath) {
-        const tabManager = getTabManager();
         const fileTree = getFileTree();
         const currentFile = getCurrentFile();
 
         untitledFileManager.removeUntitledFile(untitledPath);
 
-        if (tabManager && Array.isArray(tabManager.fileTabs)) {
-            const tabIndex = tabManager.fileTabs.findIndex(tab => tab.path === untitledPath);
-            if (tabIndex !== -1) {
-                tabManager.fileTabs.splice(tabIndex, 1);
-                tabManager.render();
-            }
-        }
+        // dm.closeDocument 会派生清理 fileTree.openFiles 与 tabManager.fileTabs
+        documentManager.closeDocument(untitledPath);
 
         documentSessions.closeSessionForPath(untitledPath);
-        documentManager?.closeDocument?.(untitledPath);
         const editor = getMarkdownEditor();
         const codeEditor = getCodeEditor();
         editor?.forgetViewStateForTab?.(untitledPath);

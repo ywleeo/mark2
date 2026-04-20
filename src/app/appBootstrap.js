@@ -134,7 +134,6 @@ export function createAppBootstrap({
         updateExportMenuState,
         clearActiveFileView,
         persistWorkspaceState,
-        handleTabReorder,
         handleSidebarStateChange,
         handleRunFile,
         restoreWorkspaceStateFromStorage,
@@ -261,6 +260,7 @@ export function createAppBootstrap({
         const fileTree = setupFileTree({
             FileTreeCtor: coreModules.FileTree,
             appState,
+            documentManager,
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
             beforeFileSelect: async (targetPath) => {
                 return await featureManager?.getFeatureApi?.('ai-sidebar')?.confirmBeforeDocumentChange?.(targetPath) ?? true;
@@ -280,6 +280,7 @@ export function createAppBootstrap({
         setupTabManager({
             TabManagerCtor: coreModules.TabManager,
             appState,
+            documentManager,
             beforeTabSelect: async (targetTab) => {
                 return await featureManager?.getFeatureApi?.('ai-sidebar')?.confirmBeforeDocumentChange?.(targetTab?.path || null) ?? true;
             },
@@ -287,7 +288,6 @@ export function createAppBootstrap({
             handleTabClose,
             handleTabRenameConfirm,
             handleTabRenameCancel,
-            handleTabReorder,
             handleCreateUntitled,
         });
 
@@ -460,7 +460,6 @@ export function createAppBootstrap({
         clearActiveFileView,
         persistWorkspaceState,
         updateExportMenuState,
-        handleTabReorder,
         handleSidebarStateChange,
         handleRunFile,
     };

@@ -1,6 +1,20 @@
 import { getPathIdentityKey } from '../../utils/pathUtils.js';
 import { getViewModeForPath } from '../../utils/fileTypeUtils.js';
 
+const UNTITLED_PREFIX = 'untitled://';
+
+function isUntitledPath(path) {
+    return typeof path === 'string' && path.startsWith(UNTITLED_PREFIX);
+}
+
+/**
+ * OpenFileManager
+ * 文件树「已打开文件」区段的视图与交互层。
+ *
+ * 真源：DocumentManager。本类的所有 add/close/reorder/replacePath/restore
+ * 都委托给 dm，不再直接维护 state.openFiles。dm 的 open/close/rename/reorder
+ * 事件回流，驱动 state.openFiles + watch/unwatch + 渲染。
+ */
 export class OpenFileManager {
     constructor(options = {}) {
         const {
@@ -26,6 +40,95 @@ export class OpenFileManager {
         this.onFileSelect = onFileSelect;
         this.onOpenFilesChange = onOpenFilesChange;
         this.onPathRenamed = onPathRenamed;
+
+        this.documentManager = null;
+        this._dmUnsub = null;
+    }
+
+    /**
+     * 绑定 DocumentManager。绑定后所有改动都走 dm，state.openFiles 由 dm 事件派生。
+     * @param {Object} dm - DocumentManager 实例
+     */
+    bindDocumentManager(dm) {
+        if (this._dmUnsub) {
+            this._dmUnsub();
+            this._dmUnsub = null;
+        }
+        this.documentManager = dm || null;
+        if (!dm) return;
+        this._dmUnsub = dm.subscribe?.((event) => this._onDocumentEvent(event)) || null;
+        this._syncFromDocumentManager();
+    }
+
+    _requireDm() {
+        if (!this.documentManager) {
+            throw new Error('OpenFileManager 未绑定 DocumentManager');
+        }
+        return this.documentManager;
+    }
+
+    /**
+     * 从 dm.openOrder 派生出 fileTree 视角的文件列表（剔除 untitled 与未 pinned 项）。
+     */
+    _filterOpenPathsFromDm() {
+        const dm = this.documentManager;
+        if (!dm) return [];
+        const paths = dm.getOpenPaths();
+        return paths.filter((p) => {
+            if (isUntitledPath(p)) return false;
+            const doc = dm.getDocumentByPath?.(p);
+            // dm.openOrder 只包含 pinned，但保险起见再校验一次
+            return !doc || doc.pinned !== false;
+        });
+    }
+
+    _onDocumentEvent(event) {
+        if (!event || !event.type) return;
+        const relevant = ['open', 'close', 'rename', 'reorder'];
+        if (!relevant.includes(event.type)) return;
+        // 仅响应 pinned 文件相关事件
+        if (event.type === 'open' && event.document?.pinned === false) return;
+        if (event.path && isUntitledPath(event.path)) return;
+        if (event.oldPath && isUntitledPath(event.oldPath)
+            && event.newPath && isUntitledPath(event.newPath)) return;
+        this._syncFromDocumentManager();
+    }
+
+    /**
+     * 用 dm 当前快照重建 state.openFiles，并补/撤 watchFile。
+     */
+    _syncFromDocumentManager() {
+        const next = this._filterOpenPathsFromDm();
+        const prev = this.state.openFiles.slice();
+        const prevSet = new Set(prev.map((p) => getPathIdentityKey(p)).filter(Boolean));
+        const nextSet = new Set(next.map((p) => getPathIdentityKey(p)).filter(Boolean));
+
+        // 新增：开始监听
+        next.forEach((p) => {
+            const key = getPathIdentityKey(p);
+            if (!key || prevSet.has(key)) return;
+            const viewMode = getViewModeForPath(p);
+            if (viewMode === 'markdown' || viewMode === 'code') {
+                this.watchFile(p).catch((err) => {
+                    console.error('监听文件失败:', err);
+                });
+            }
+        });
+
+        // 移除：停止监听
+        prev.forEach((p) => {
+            const key = getPathIdentityKey(p);
+            if (!key || nextSet.has(key)) return;
+            this.stopWatchingFile(p);
+        });
+
+        const isSame = prev.length === next.length
+            && prev.every((p, i) => p === next[i]);
+        this.state.openFiles = next;
+        this.render();
+        if (!isSame) {
+            this.onOpenFilesChange?.([...next]);
+        }
     }
 
     getOpenFilePaths() {
@@ -33,30 +136,30 @@ export class OpenFileManager {
     }
 
     add(path) {
+        const dm = this._requireDm();
         const normalized = this.normalizePath(path);
         if (!normalized) return;
         if (this.state.isInOpenList(normalized)) return;
-
-        this.state.addOpenFile(normalized);
-        this.render();
-        const viewMode = getViewModeForPath(normalized);
-        if (viewMode === 'markdown' || viewMode === 'code') {
-            this.watchFile(normalized).catch(error => {
-                console.error('监听文件失败:', error);
-            });
-        }
+        dm.openDocument(normalized, {
+            kind: 'file',
+            tabId: normalized,
+            pinned: true,
+            activate: false,
+            atStart: false,
+        });
     }
 
     close(path, options = {}) {
+        const dm = this._requireDm();
         const normalizedTarget = this.normalizePath(path);
         const targetIdentity = getPathIdentityKey(normalizedTarget);
         const index = this.state.findOpenFileIndex(normalizedTarget);
         if (index === -1) return;
 
         const wasActive = Boolean(targetIdentity) && this.state.isCurrentFile(normalizedTarget);
-        this.state.removeOpenFile(normalizedTarget);
-        this.render();
-        this.stopWatchingFile(normalizedTarget);
+
+        // dm 事件会同步 state.openFiles 并停止 watch
+        dm.closeDocument(normalizedTarget);
 
         if (wasActive) {
             const fallbackIndex = Math.min(index, this.state.openFiles.length - 1);
@@ -65,9 +168,6 @@ export class OpenFileManager {
                 this.selectFile(fallback);
             } else if (!fallback) {
                 this.clearSelection();
-                // suppressActivate 场景下，外层通常会立即切到 untitled/shared fallback。
-                // 这里如果先发 onFileSelect(null)，会把视图清空成中间态，导致最后一个 untitled
-                // 回退时短暂显示空白内容。
                 if (!options.suppressActivate) {
                     this.onFileSelect?.(null);
                 }
@@ -76,6 +176,7 @@ export class OpenFileManager {
     }
 
     replacePath(oldPath, newPath) {
+        const dm = this._requireDm();
         const normalizedOld = this.normalizePath(oldPath);
         const normalizedNew = this.normalizePath(newPath);
         const oldIdentity = getPathIdentityKey(normalizedOld);
@@ -85,35 +186,28 @@ export class OpenFileManager {
         if (!oldIdentity || !newIdentity || oldIdentity === newIdentity) return;
 
         const index = this.state.findOpenFileIndex(normalizedOld);
-        this.stopWatchingFile(normalizedOld);
 
         if (index === -1) {
+            // 不在 file tab 列表里：仅同步 currentFile + 重启 watch
             if (this.state.isCurrentFile(normalizedOld)) {
                 this.state.currentFile = normalizedNew;
             }
-            this.watchFile(normalizedNew).catch(error => {
-                console.error('监听文件失败:', error);
-            });
+            this.stopWatchingFile(normalizedOld);
+            const viewMode = getViewModeForPath(normalizedNew);
+            if (viewMode === 'markdown' || viewMode === 'code') {
+                this.watchFile(normalizedNew).catch((err) => {
+                    console.error('监听文件失败:', err);
+                });
+            }
             return;
         }
 
-        const filtered = this.state.openFiles.filter(
-            (path, idx) => getPathIdentityKey(path) !== oldIdentity
-                && (getPathIdentityKey(path) !== newIdentity || idx === index)
-        );
-        const insertPosition = Math.min(index, filtered.length);
-        filtered.splice(insertPosition, 0, normalizedNew);
-        this.state.openFiles = filtered;
-
+        // 在 file tab 列表里：dm 改名 → 事件回流同步
+        this.stopWatchingFile(normalizedOld);
+        dm.renameDocument(normalizedOld, normalizedNew);
         if (this.state.isCurrentFile(normalizedOld)) {
             this.state.currentFile = normalizedNew;
         }
-
-        this.render();
-        this.watchFile(normalizedNew).catch(error => {
-            console.error('监听文件失败:', error);
-        });
-        this.onOpenFilesChange?.([...this.state.openFiles]);
     }
 
     render(options = {}) {
@@ -125,68 +219,100 @@ export class OpenFileManager {
     }
 
     restore(paths = []) {
+        const dm = this._requireDm();
         const normalized = [];
         const seen = new Set();
 
         paths.forEach((path) => {
-            const normalizedPath = this.normalizePath(path);
-            const identityKey = getPathIdentityKey(normalizedPath);
-            if (!normalizedPath || !identityKey || seen.has(identityKey)) return;
-            seen.add(identityKey);
-            normalized.push(normalizedPath);
+            const np = this.normalizePath(path);
+            const key = getPathIdentityKey(np);
+            if (!np || !key || seen.has(key)) return;
+            seen.add(key);
+            normalized.push(np);
         });
 
-        this.state.openFiles.forEach((path) => {
-            const existingPath = this.normalizePath(path);
-            const existingIdentity = getPathIdentityKey(existingPath);
-            if (existingPath && existingIdentity && !seen.has(existingIdentity)) {
-                this.stopWatchingFile(existingPath);
+        // 关闭 dm 中目前 fileTree 视角下、但不在 restore 列表里的文件文档
+        const currentInDm = this._filterOpenPathsFromDm();
+        currentInDm.forEach((p) => {
+            const key = getPathIdentityKey(p);
+            if (!key || !seen.has(key)) {
+                dm.closeDocument(p);
             }
         });
 
-        this.state.openFiles = normalized;
+        // 批量 open（已存在则会被识别为 update，atStart=false 维持顺序）
+        normalized.forEach((p) => {
+            dm.openDocument(p, {
+                kind: 'file',
+                tabId: p,
+                pinned: true,
+                activate: false,
+                atStart: false,
+            });
+        });
+
+        // currentFile 校正
         const normalizedCurrent = this.normalizePath(this.state.currentFile);
         if (normalizedCurrent) {
             const currentIdentity = getPathIdentityKey(normalizedCurrent);
-            const restoredCurrent = normalized.find((path) => getPathIdentityKey(path) === currentIdentity) || null;
+            const restoredCurrent = normalized.find(
+                (p) => getPathIdentityKey(p) === currentIdentity,
+            ) || null;
             this.state.currentFile = restoredCurrent || normalizedCurrent;
         }
-        this.render();
-        this.onOpenFilesChange?.([...this.state.openFiles]);
+
+        // 兜底：dm 已是最终状态，主动 sync 一次保证 watch / render / emit 已同步
+        this._syncFromDocumentManager();
     }
 
     reorder(paths = []) {
         if (!Array.isArray(paths) || paths.length === 0) return;
+        const dm = this._requireDm();
+
+        const dmPaths = dm.getOpenPaths();
+        const dmFilePaths = dmPaths.filter((p) => !isUntitledPath(p));
+        const dmFileSet = new Set(dmFilePaths.map((p) => getPathIdentityKey(p)).filter(Boolean));
 
         const seen = new Set();
-        const existing = new Set(this.state.openFiles.map((path) => getPathIdentityKey(path)).filter(Boolean));
-        const normalized = [];
-
-        paths.forEach((path) => {
-            const normalizedPath = this.normalizePath(path);
-            const identityKey = getPathIdentityKey(normalizedPath);
-            if (!normalizedPath || !identityKey || seen.has(identityKey) || !existing.has(identityKey)) return;
-            seen.add(identityKey);
-            normalized.push(normalizedPath);
-            existing.delete(identityKey);
+        const incoming = [];
+        paths.forEach((p) => {
+            const np = this.normalizePath(p);
+            const key = getPathIdentityKey(np);
+            if (!np || !key || seen.has(key) || !dmFileSet.has(key)) return;
+            seen.add(key);
+            incoming.push(np);
         });
 
-        if (normalized.length === 0) return;
+        if (incoming.length === 0) return;
 
-        if (existing.size > 0) {
-            this.state.openFiles.forEach((path) => {
-                const identityKey = getPathIdentityKey(path);
-                if (!identityKey || !seen.has(identityKey)) normalized.push(path);
-            });
+        // 未提及的现存文件按原顺序追加在末尾
+        dmFilePaths.forEach((p) => {
+            const key = getPathIdentityKey(p);
+            if (key && !seen.has(key)) {
+                incoming.push(p);
+                seen.add(key);
+            }
+        });
+
+        const isSame = incoming.length === dmFilePaths.length
+            && incoming.every((p, i) => p === dmFilePaths[i]);
+        if (isSame) return;
+
+        // 合并 untitled 与文件：保持 untitled 在 dm.openOrder 的相对位置
+        const merged = [];
+        const fileIter = incoming[Symbol.iterator]();
+        for (const p of dmPaths) {
+            if (isUntitledPath(p)) {
+                merged.push(p);
+            } else {
+                const next = fileIter.next();
+                if (!next.done) merged.push(next.value);
+            }
         }
+        // 理论上 fileIter 已耗尽，保险起见追加剩余
+        for (const next of fileIter) merged.push(next);
 
-        const isSameOrder = normalized.length === this.state.openFiles.length
-            && normalized.every((path, index) => this.state.openFiles[index] === path);
-        if (isSameOrder) return;
-
-        this.state.openFiles = normalized;
-        this.render({ skipWatch: true });
-        this.onOpenFilesChange?.([...this.state.openFiles]);
+        dm.reorderDocuments(merged);
     }
 
     handleMoveSuccess(sourcePath, destinationPath, meta = {}) {
@@ -226,5 +352,13 @@ export class OpenFileManager {
                 console.warn('处理文件夹移动回调失败:', error);
             }
         });
+    }
+
+    dispose() {
+        if (this._dmUnsub) {
+            this._dmUnsub();
+            this._dmUnsub = null;
+        }
+        this.documentManager = null;
     }
 }
