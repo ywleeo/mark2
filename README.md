@@ -103,6 +103,8 @@ npm run tauri:build
 - [PDF.js](https://mozilla.github.io/pdf.js/)
 - [Mermaid](https://mermaid.js.org/)
 - [xterm.js](https://xtermjs.org/)
+- [Paged.js](https://pagedjs.org/)
+- [modern-screenshot](https://github.com/qq15725/modern-screenshot)
 
 ## 项目文档
 
