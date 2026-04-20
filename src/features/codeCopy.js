@@ -367,7 +367,8 @@ export class CodeCopyManager {
             return;
         }
 
-        const text = codeElement.textContent ?? '';
+        // 清除 IME 空 codeBlock 修复插入的 \u200B 占位符（见 editorExtensions.js 的 imeEmptyCodeBlockFix）
+        const text = (codeElement.textContent ?? '').replace(/\u200B/g, '');
         if (!text) {
             this.applyCopyButtonFeedback(button, 'error');
             return;
