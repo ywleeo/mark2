@@ -17,7 +17,7 @@ import { createAppServices } from '../services/appServices.js';
 import { createFileService } from '../services/fileService.js';
 import { createRecentFilesService } from '../services/recentFilesService.js';
 import { MarkdownToolbarManager } from '../components/markdown-toolbar/MarkdownToolbarManager.js';
-import { createFileSession } from '../modules/fileSession.js';
+import { createDocumentRegistry } from '../core/documents/DocumentRegistry.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from '../utils/workspaceState.js';
 import { createWorkspaceController } from '../modules/workspaceController.js';
 import { createNavigationController } from '../modules/navigationController.js';
@@ -122,7 +122,7 @@ console.log('Mark2 Tauri 版本已启动');
 
 // ========== 服务层实例 ==========
 const recentFilesService = createRecentFilesService();
-const fileSession = createFileSession({
+const fileSession = createDocumentRegistry({
     fileService: ensureFileService(),
     getViewModeForPath,
     isCsvFilePath,

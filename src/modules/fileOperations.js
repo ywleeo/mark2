@@ -319,7 +319,8 @@ export function createFileOperations({
             if (result) {
                 setHasUnsavedChanges(false);
                 documentManager?.markDirty?.(currentFile, false);
-                fileSession.clearEntry(currentFile);
+                saveCurrentEditorContentToCache();
+                await fileSession.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
                 logger?.info?.('saveCurrentFile:done', {
                     path: currentFile,
@@ -358,7 +359,8 @@ export function createFileOperations({
                 codeEditor.markSaved();
                 setHasUnsavedChanges(false);
                 documentManager?.markDirty?.(currentFile, false);
-                fileSession.clearEntry(currentFile);
+                saveCurrentEditorContentToCache();
+                await fileSession.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
                 logger?.info?.('saveCurrentFile:done', {
                     path: currentFile,

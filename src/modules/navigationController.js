@@ -517,6 +517,9 @@ export function createNavigationController({
             }
         }
 
+        if (typeof fileSession.isDirty === 'function') {
+            return fileSession.isDirty(filePath);
+        }
         const cached = fileSession.getCachedEntry(filePath);
         return cached ? cached.hasChanges : false;
     }
