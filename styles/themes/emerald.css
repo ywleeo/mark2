@@ -71,7 +71,6 @@
 .tiptap-editor[data-theme-appearance='light'] strong,
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) b,
 .tiptap-editor[data-theme-appearance='light'] b{
-    background-color: rgba(76, 149, 201, 0.15);
     padding: 0 2px;
     border-radius: 2px;
 }
@@ -217,7 +216,6 @@
 .tiptap-editor[data-theme-appearance='dark'] strong,
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) b,
 .tiptap-editor[data-theme-appearance='dark'] b{
-    background-color: rgba(214, 214, 214, 0.09);
     color: #a4edff;
     padding: 0 2px;
     border-radius: 2px;
