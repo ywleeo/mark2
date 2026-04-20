@@ -10,6 +10,7 @@ export function createCodeRenderer() {
                 filePath,
                 session,
                 fileData,
+                doc,
                 editorRegistry,
                 detectLanguageForPath,
                 view,
@@ -29,15 +30,25 @@ export function createCodeRenderer() {
             view?.activate?.('code', { skipScrollSync: true });
             markdownEditor?.clear?.();
             const language = detectLanguageForPath?.(filePath) || null;
-            await codeEditor.show(filePath, fileData.content, language, session, {
-                autoFocus: shouldAutoFocus,
-                tabId,
-            });
-            restoreScrollPosition?.(filePath, 'code');
 
-            if (fileData.hasChanges) {
-                codeEditor.isDirty = true;
+            if (doc && typeof codeEditor.attachDocument === 'function') {
+                await codeEditor.attachDocument(doc, {
+                    session,
+                    tabId,
+                    autoFocus: shouldAutoFocus,
+                    language,
+                });
+            } else {
+                await codeEditor.show(filePath, fileData.content, language, session, {
+                    autoFocus: shouldAutoFocus,
+                    tabId,
+                });
+                if (fileData.hasChanges) {
+                    codeEditor.isDirty = true;
+                }
             }
+
+            restoreScrollPosition?.(filePath, 'code');
             markdownEditor?.refreshSearch?.();
 
             setHasUnsavedChanges?.(fileData.hasChanges);

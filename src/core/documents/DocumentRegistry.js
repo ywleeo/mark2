@@ -301,6 +301,22 @@ export function createDocumentRegistry({
     }
 
     /**
+     * 获取指定路径的 DocumentModel,若不存在则通过 getFileContent 懒加载。
+     * 仅对可编辑的文本类视图(markdown/code)返回 Document;二进制/媒体类返回 null。
+     * 调用方可通过返回值驱动视图 attachDocument 流程。
+     *
+     * 注意:当前 acquire 未启用 refCount 计数;tab 关闭仍用 clearEntry 销毁 Document,
+     * 多视图共享场景(Phase 4+)再引入 release。
+     */
+    async function acquireDocument(path, options = {}) {
+        if (!path) return null;
+        const existing = documents.get(path);
+        if (existing) return existing;
+        await getFileContent(path, options);
+        return documents.get(path) || null;
+    }
+
+    /**
      * 查询某路径的 dirty 状态,跨 active editor 也能回答。
      */
     function isDirty(path) {
@@ -345,6 +361,7 @@ export function createDocumentRegistry({
         renameEntry,
         // 新增 API(DocumentModel 通道)
         getDocument,
+        acquireDocument,
         isDirty,
         markSaved,
         registerInMemoryDocument,

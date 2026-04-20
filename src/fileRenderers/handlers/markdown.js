@@ -10,6 +10,7 @@ export function createMarkdownRenderer() {
                 filePath,
                 session,
                 fileData,
+                doc,
                 editorRegistry,
                 view,
                 restoreMarkdownScrollPosition,
@@ -24,15 +25,24 @@ export function createMarkdownRenderer() {
             }
 
             view?.activate?.('markdown', { skipScrollSync: true });
-            await editor.loadFile(session, filePath, fileData.content, {
-                autoFocus: shouldAutoFocus,
-                onReady: () => restoreMarkdownScrollPosition?.(filePath),
-            });
 
-            if (fileData.hasChanges) {
-                editor.contentChanged = true;
-                if (fileData.originalContent) {
-                    editor.originalMarkdown = fileData.originalContent;
+            if (doc && typeof editor.attachDocument === 'function') {
+                await editor.attachDocument(doc, {
+                    session,
+                    tabId: ctx.tabId ?? null,
+                    autoFocus: shouldAutoFocus,
+                    onReady: () => restoreMarkdownScrollPosition?.(filePath),
+                });
+            } else {
+                await editor.loadFile(session, filePath, fileData.content, {
+                    autoFocus: shouldAutoFocus,
+                    onReady: () => restoreMarkdownScrollPosition?.(filePath),
+                });
+                if (fileData.hasChanges) {
+                    editor.contentChanged = true;
+                    if (fileData.originalContent) {
+                        editor.originalMarkdown = fileData.originalContent;
+                    }
                 }
             }
 

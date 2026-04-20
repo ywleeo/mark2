@@ -729,6 +729,7 @@ export function createFileOperations({
             if (shouldAbort('after-read')) {
                 return;
             }
+            const doc = fileSession.getDocument?.(filePath) ?? null;
             const targetViewMode = fileData.viewMode || initialViewMode;
             // 判断是否应该自动聚焦编辑器：
             // 只有在 markdown 和 code 编辑器之间切换时才自动聚焦
@@ -775,6 +776,7 @@ export function createFileOperations({
                 filePath,
                 session,
                 fileData,
+                doc,
                 editorRegistry: {
                     getMarkdownEditor: () => editor,
                     getCodeEditor: () => codeEditor,

@@ -80,6 +80,8 @@ export class MarkdownEditor {
         this._mermaidRenderFrame = null;
         this._plainPasteUnlisten = null;
         this._lowlight = createConfiguredLowlight();
+        this._currentDocument = null;
+        this._docUnsub = null;
         this._documentSessions = options?.documentSessions ?? null;
         this._autoSaveDelayMs = options.autoSaveDelayMs;
         this._tabHistoryManager = options?.tabHistoryManager ?? null;
@@ -307,6 +309,55 @@ export class MarkdownEditor {
             }
             return result;
         });
+    }
+
+    /**
+     * 统一视图入口:基于 DocumentModel 绑定当前编辑器。
+     * 内部仍复用 prepareForDocument + loadFile,只是把 filePath/content/dirty 基线
+     * 集中从 doc 读取,顺带订阅 reload/rename 事件。
+     */
+    async attachDocument(doc, options = {}) {
+        if (!doc) return false;
+        const { session = null, tabId = null, autoFocus = true, onReady = null } = options;
+        const filePath = doc.uri;
+        const content = doc.getContent();
+
+        this.prepareForDocument(session, filePath, tabId);
+        const result = await this.loadFile(session, filePath, content, { autoFocus, tabId, onReady });
+
+        // 跨 tab 保留的 dirty:恢复编辑器侧 originalMarkdown 基线
+        if (doc.dirty && this.contentLoader) {
+            const origFromDoc = doc.getOriginalContent();
+            if (typeof origFromDoc === 'string') {
+                this.contentLoader.originalMarkdown = origFromDoc;
+            }
+            this.contentLoader.contentChanged = true;
+        }
+
+        this._bindDocument(doc);
+        return result;
+    }
+
+    detachDocument() {
+        this._docUnsub?.();
+        this._docUnsub = null;
+        this._currentDocument = null;
+    }
+
+    _bindDocument(doc) {
+        if (this._docUnsub) this._docUnsub();
+        this._currentDocument = doc;
+        this._docUnsub = doc.subscribe((event) => this._handleDocumentEvent(event));
+    }
+
+    _handleDocumentEvent(event) {
+        if (!event || !this._currentDocument) return;
+        if (event.type === 'reload') {
+            const nextContent = this._currentDocument.getContent();
+            void this.contentLoader?.setContent?.(nextContent, false, { resetHistory: true });
+        } else if (event.type === 'rename') {
+            this.renameDocumentPath(event.oldUri, event.newUri);
+        }
     }
     setContent(markdown, focus, opts)           {
         return this.contentLoader.setContent(markdown, focus, opts).then(result => {
@@ -596,6 +647,7 @@ export class MarkdownEditor {
     }
 
     destroy() {
+        this.detachDocument();
         this.trailingParagraphManager?.destroy();
         this.trailingParagraphManager = null;
 

@@ -116,6 +116,9 @@ export class CodeEditor {
             this.baseFontSize
         );
 
+        this._currentDocument = null;
+        this._docUnsub = null;
+
         // 保存时自动格式化
         this.formatOnSave = options.formatOnSave ?? true;
 
@@ -389,6 +392,63 @@ export class CodeEditor {
 
         if (this.loadingSessionId === sessionId) {
             this.loadingSessionId = null;
+        }
+    }
+
+    /**
+     * 统一视图入口:基于 DocumentModel 绑定当前编辑器。
+     * 内部复用 prepareForDocument + show,补齐 dirty 基线恢复和订阅。
+     */
+    async attachDocument(doc, options = {}) {
+        if (!doc) return false;
+        const { session = null, tabId = null, autoFocus = true, language = null } = options;
+        const filePath = doc.uri;
+        const content = doc.getContent();
+
+        this.prepareForDocument(session, filePath, tabId);
+        await this.show(filePath, content, language, session, { autoFocus, tabId });
+
+        // 跨 tab 保留的 dirty:恢复 baseContent 为磁盘原文,避免下一次 diff 误判
+        if (doc.dirty) {
+            const origFromDoc = doc.getOriginalContent();
+            if (typeof origFromDoc === 'string') {
+                this.baseContent = origFromDoc;
+            }
+            this.isDirty = true;
+        }
+
+        this._bindDocument(doc);
+        return true;
+    }
+
+    detachDocument() {
+        this._docUnsub?.();
+        this._docUnsub = null;
+        this._currentDocument = null;
+    }
+
+    _bindDocument(doc) {
+        if (this._docUnsub) this._docUnsub();
+        this._currentDocument = doc;
+        this._docUnsub = doc.subscribe((event) => this._handleDocumentEvent(event));
+    }
+
+    _handleDocumentEvent(event) {
+        if (!event || !this._currentDocument) return;
+        if (event.type === 'reload' && this.editor) {
+            const nextContent = this._currentDocument.getContent();
+            if (typeof nextContent !== 'string') return;
+            this.suppressChange = true;
+            this.editor.dispatch({
+                changes: { from: 0, to: this.editor.state.doc.length, insert: nextContent }
+            });
+            this.suppressChange = false;
+            this.baseContent = nextContent;
+            this.isDirty = false;
+        } else if (event.type === 'rename') {
+            if (this.currentFile === event.oldUri) {
+                this.currentFile = event.newUri;
+            }
         }
     }
 
@@ -777,6 +837,7 @@ export class CodeEditor {
     }
 
     dispose() {
+        this.detachDocument();
         this.cancelAutoSave();
         if (this.pendingLayoutFrame !== null) {
             cancelAnimationFrame(this.pendingLayoutFrame);
