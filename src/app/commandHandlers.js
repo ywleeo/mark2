@@ -131,6 +131,7 @@ export function createCommandHandlers(deps) {
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
         onToggleTheme: () => toggleAppTheme(appState),
         onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
+        onCopyPlainText: () => appState.getMarkdownToolbarManager()?.copyPlainText?.(),
         onToggleTerminal: () => {
             if (!isFeatureEnabled('terminal')) {
                 alert(getMASLimitationMessage('terminal'));

@@ -635,6 +635,37 @@ export class MarkdownToolbarManager {
         }
     }
 
+    async copyPlainText() {
+        try {
+            // 优先用浏览器级选区——快捷键触发时最可靠
+            const selectedText = window.getSelection()?.toString() ?? '';
+            if (selectedText.trim()) {
+                await navigator.clipboard.writeText(selectedText.trim());
+                return;
+            }
+
+            // 无选区：整篇内容，需要 strip markdown
+            if (this.editorType === 'tiptap') {
+                const mdEditor = this._getEditorRegistry?.()?.getMarkdownEditor?.();
+                let markdown = '';
+                if (mdEditor && typeof mdEditor.getMarkdown === 'function') {
+                    markdown = mdEditor.getMarkdown();
+                } else if (this.rawEditorInstance && typeof this.rawEditorInstance.getMarkdown === 'function') {
+                    markdown = this.rawEditorInstance.getMarkdown();
+                }
+                if (markdown) await navigator.clipboard.writeText(_stripMarkdown(markdown));
+
+            } else if (this.editorType === 'codemirror') {
+                const view = this.editorInstance;
+                if (!view) return;
+                const raw = this.rawEditorInstance?.getValue?.() ?? view.state.doc.toString();
+                if (raw) await navigator.clipboard.writeText(_stripMarkdown(raw));
+            }
+        } catch (error) {
+            console.error('复制纯文本失败:', error);
+        }
+    }
+
     /**
      * 显示复制成功的视觉反馈
      */
@@ -655,4 +686,38 @@ export class MarkdownToolbarManager {
             }, 2000);
         }
     }
+}
+
+function _stripMarkdown(md) {
+    let t = md;
+    // 代码块：保留内容，去掉围栏和语言标记
+    t = t.replace(/^```[\w]*\n([\s\S]*?)^```/gm, '$1');
+    // 标题：去掉 # 并在前后各加一个空行，保证与正文之间有间距
+    t = t.replace(/^#{1,6}\s+(.+)$/gm, '\n$1\n');
+    // 粗斜体 / 粗体 / 斜体 / 删除线
+    t = t.replace(/(\*{1,3}|_{1,3})([\s\S]+?)\1/g, '$2');
+    t = t.replace(/~~(.+?)~~/g, '$1');
+    // 行内代码
+    t = t.replace(/`([^`\n]+)`/g, '$1');
+    // 图片（丢弃 alt，避免噪音）
+    t = t.replace(/!\[[^\]]*\]\([^\)]*\)/g, '');
+    // 链接：保留文字
+    t = t.replace(/\[([^\]]+)\]\([^\)]*\)/g, '$1');
+    // 引用块
+    t = t.replace(/^>\s?/gm, '');
+    // 分割线
+    t = t.replace(/^[-*_]{3,}\s*$/gm, '');
+    // 任务列表复选框
+    t = t.replace(/^\s*-\s+\[[ xX]\]\s*/gm, '');
+    // 无序列表标记
+    t = t.replace(/^\s*[-*+]\s+/gm, '');
+    // 有序列表标记
+    t = t.replace(/^\s*\d+\.\s+/gm, '');
+    // HTML 标签
+    t = t.replace(/<[^>]+>/g, '');
+    // 段落之间保证有空行（相邻非空行之间插入空行，零宽断言避免跳行问题）
+    t = t.replace(/(?<=[^\n])\n(?=[^\n])/g, '\n\n');
+    // 连续 3 个以上空行压缩为 1 个空行
+    t = t.replace(/\n{3,}/g, '\n\n');
+    return t.trim();
 }

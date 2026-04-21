@@ -51,6 +51,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, () => handlers.onNewUntitled?.(), '新建临时文档');
     register(COMMAND_IDS.DOCUMENT_NEW_FILE, () => handlers.onNewFile?.(), '创建文件');
     register(COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, () => handlers.onCopyMarkdown?.(), '复制 Markdown 文本');
+    register(COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT, () => handlers.onCopyPlainText?.(), '复制纯文本');
     register(COMMAND_IDS.DOCUMENT_DELETE, () => handlers.onDeleteActiveFile?.(), '删除当前文件');
     register(COMMAND_IDS.DOCUMENT_MOVE, () => handlers.onMoveActiveFile?.(), '移动当前文件');
     register(COMMAND_IDS.DOCUMENT_RENAME, () => handlers.onRenameActiveFile?.(), '重命名当前文件');
@@ -116,6 +117,7 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.EDITOR_FIND, 'Mod+F'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],
+    [COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT, 'Mod+Shift+C'],
     [COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, 'Mod+Shift+Space'],
     [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+\\'],

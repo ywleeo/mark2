@@ -362,7 +362,6 @@ fn build_menu(
         .build(handle)?;
 
     let export_image_item = MenuItemBuilder::with_id("export-image", l["export-image"])
-        .accelerator(get_accelerator("export-image", "CmdOrCtrl+Shift+C", custom_accel))
         .build(handle)?;
 
     let export_image_mobile_item =
