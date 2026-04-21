@@ -45,7 +45,7 @@ export function createAppBootstrap({
     editorRegistry,
     tabHistoryManager,
     documentSessions,
-    fileSession,
+    documentRegistry,
     untitledFileManager,
     appServices,
     workspaceController,
@@ -145,7 +145,7 @@ export function createAppBootstrap({
         workspaceController,
         editorRegistry,
         documentSessions,
-        fileSession,
+        documentRegistry,
         untitledFileManager,
         featureManager,
         scheduleWorkspaceContextSync,
@@ -179,7 +179,7 @@ export function createAppBootstrap({
         const editorCallbacks = createEditorCallbacks({
             editorRegistry,
             appState,
-            fileSession,
+            documentRegistry,
             documentManager,
             normalizeFsPath,
             updateWindowTitle,
@@ -308,7 +308,7 @@ export function createAppBootstrap({
                     suppressMissingFileErrors: true,
                 });
             },
-            fileSession,
+            documentRegistry,
             documentSessions,
         });
         appState.setFileWatcherController(fileWatcherController);
@@ -432,7 +432,7 @@ export function createAppBootstrap({
             getFileTree: () => appState.getFileTree(),
             normalizePath: normalizeFsPath,
             fileService: appServices.file,
-            fileSession,
+            documentRegistry,
             getEditor: () => editorRegistry.getMarkdownEditor(),
             getCodeEditor: () => editorRegistry.getCodeEditor(),
             getCurrentFile: () => appState.getCurrentFile(),

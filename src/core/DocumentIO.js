@@ -185,7 +185,7 @@ export function createDocumentIO(options = {}) {
         getActiveViewMode,
         setHasUnsavedChanges,
         saveCurrentEditorContentToCache,
-        fileSession,
+        documentRegistry,
         updateWindowTitle,
         persistWorkspaceState,
     } = options;
@@ -223,8 +223,8 @@ export function createDocumentIO(options = {}) {
                 : codeEditor.getValue?.();
         }
 
-        if (!content && fileSession?.getCachedEntry) {
-            const cached = fileSession.getCachedEntry(filePath);
+        if (!content && documentRegistry?.getCachedEntry) {
+            const cached = documentRegistry.getCachedEntry(filePath);
             if (cached?.content) {
                 content = cached.content;
             }

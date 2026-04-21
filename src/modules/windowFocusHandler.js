@@ -16,7 +16,7 @@ import { confirm } from '@tauri-apps/plugin-dialog';
  * @param {Function} options.getCurrentFile - 获取当前文件路径
  * @param {Function} options.getActiveViewMode - 获取当前视图模式
  * @param {Function} options.scheduleLoadFile - 刷新文件的函数
- * @param {Object} options.fileSession - 文件会话（用于清除缓存）
+ * @param {Object} options.documentRegistry - 文档注册表（用于清除内容缓存）
  */
 export function createWindowFocusHandler(options = {}) {
     const {
@@ -28,7 +28,7 @@ export function createWindowFocusHandler(options = {}) {
         getCurrentFile,
         getActiveViewMode,
         scheduleLoadFile,
-        fileSession,
+        documentRegistry,
     } = options;
 
     let unlisten = null;
@@ -63,7 +63,7 @@ export function createWindowFocusHandler(options = {}) {
             return false;
         }
 
-        const cached = fileSession?.getCachedEntry?.(normalized);
+        const cached = documentRegistry?.getCachedEntry?.(normalized);
         if (cached?.hasChanges) {
             return true;
         }
@@ -120,13 +120,13 @@ export function createWindowFocusHandler(options = {}) {
             const latestModifiedTime = await getFileModifiedTime(normalized);
             if (latestModifiedTime === null) {
                 fileModifiedTimeCache.delete(normalized);
-                fileSession?.clearEntry?.(normalized);
+                documentRegistry?.clearEntry?.(normalized);
                 continue;
             }
 
             const previousModifiedTime = fileModifiedTimeCache.get(normalized);
             if (previousModifiedTime === undefined) {
-                const cachedEntry = fileSession?.getCachedEntry?.(normalized);
+                const cachedEntry = documentRegistry?.getCachedEntry?.(normalized);
                 const cachedModifiedTime = cachedEntry?.modifiedTime ?? null;
                 if (cachedModifiedTime !== null && cachedModifiedTime !== latestModifiedTime) {
                     const isActive = currentNormalized === normalized;
@@ -148,7 +148,7 @@ export function createWindowFocusHandler(options = {}) {
                         if (isActive && typeof scheduleLoadFile === 'function') {
                             await scheduleLoadFile(normalized);
                         } else {
-                            fileSession?.clearEntry?.(normalized);
+                            documentRegistry?.clearEntry?.(normalized);
                         }
                     }
                 }
@@ -184,7 +184,7 @@ export function createWindowFocusHandler(options = {}) {
                 if (isActive && typeof scheduleLoadFile === 'function') {
                     await scheduleLoadFile(normalized);
                 } else {
-                    fileSession?.clearEntry?.(normalized);
+                    documentRegistry?.clearEntry?.(normalized);
                 }
             }
         }

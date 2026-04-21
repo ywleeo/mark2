@@ -39,7 +39,7 @@ export function createNavigationController({
     documentManager,
     clearActiveFileView,
     loadFile,
-    fileSession,
+    documentRegistry,
     persistWorkspaceState,
     saveFile,
     getActiveViewMode,
@@ -72,8 +72,8 @@ export function createNavigationController({
     if (typeof loadFile !== 'function') {
         throw new Error('navigationController 需要提供 loadFile');
     }
-    if (!fileSession) {
-        throw new Error('navigationController 需要提供 fileSession');
+    if (!documentRegistry) {
+        throw new Error('navigationController 需要提供 documentRegistry');
     }
     if (typeof persistWorkspaceState !== 'function') {
         throw new Error('navigationController 需要提供 persistWorkspaceState');
@@ -266,9 +266,8 @@ export function createNavigationController({
         }
 
         try {
-            const newFileWillUseSharedTab = !fileTree?.isInOpenList?.(filePath)
-                && !(untitledFileManager?.isUntitledPath?.(filePath) && tabManager?.fileTabs?.some(t => t.path === filePath));
-            const isCurrentFileInSharedTab = previousFile && !fileTree?.isInOpenList?.(previousFile);
+            const newFileWillUseSharedTab = documentManager?.getDocumentByPath?.(filePath)?.pinned !== true;
+            const isCurrentFileInSharedTab = previousFile && documentManager?.getDocumentByPath?.(previousFile)?.pinned !== true;
 
             saveCurrentEditorContentToCache();
 
@@ -287,7 +286,7 @@ export function createNavigationController({
             const currentFileAfterLoad = getCurrentFile?.();
             const wasImportedAsUntitled = currentFileAfterLoad !== filePath
                 && untitledFileManager?.isUntitledPath?.(currentFileAfterLoad)
-                && tabManager?.fileTabs?.some(tab => tab.path === currentFileAfterLoad);
+                && documentManager?.getDocumentByPath?.(currentFileAfterLoad)?.pinned === true;
             if (wasImportedAsUntitled) {
                 // 文件已作为 untitled 导入，直接激活 untitled tab，不更新 shared tab
                 tabManager?.setActiveTab(currentFileAfterLoad, { silent: true });
@@ -299,15 +298,12 @@ export function createNavigationController({
                 return;
             }
 
-            const isOpenTab = fileTree?.isInOpenList?.(filePath);
-            // untitled 文件已经在 fileTabs 中，直接激活
-            const isUntitledInFileTabs = untitledFileManager?.isUntitledPath?.(filePath)
-                && tabManager?.fileTabs?.some(tab => tab.path === filePath);
+            const isOpenTab = documentManager?.getDocumentByPath?.(filePath)?.pinned === true;
 
             if (isOpeningFromLink) {
                 tabManager?.showSharedTab(filePath);
                 isOpeningFromLink = false;
-            } else if (isOpenTab || isUntitledInFileTabs) {
+            } else if (isOpenTab) {
                 tabManager?.setActiveFileTab(filePath, { silent: true });
             } else {
                 tabManager?.showSharedTab(filePath);
@@ -315,9 +311,7 @@ export function createNavigationController({
             logger?.info?.('handleFileSelect:done', {
                 filePath,
                 resolvedPath: getCurrentFile?.(),
-                tabStrategy: isOpeningFromLink
-                    ? 'shared-from-link'
-                    : (isOpenTab || isUntitledInFileTabs ? 'existing-tab' : 'shared-tab'),
+                tabStrategy: isOpeningFromLink ? 'shared-from-link' : (isOpenTab ? 'existing-tab' : 'shared-tab'),
             });
         } catch (error) {
             console.error('文件选择失败，保持当前 tab 状态', { filePath, error });
@@ -437,7 +431,7 @@ export function createNavigationController({
             const markdownEditor = getEditor();
             codeEditor?.forgetViewStateForTab?.(normalizedTarget);
             markdownEditor?.forgetViewStateForTab?.(normalizedTarget);
-            fileSession.clearEntry(targetPath);
+            documentRegistry.clearEntry(targetPath);
             return;
         }
 
@@ -465,7 +459,7 @@ export function createNavigationController({
                     }
                 }
 
-                if (!fileTree?.isInOpenList(targetPath)) {
+                if (documentManager?.getDocumentByPath?.(targetPath)?.pinned !== true) {
                     fileTree?.stopWatchingFile(targetPath);
                 }
                 documentSessions.closeSessionForPath(targetPath);
@@ -474,7 +468,7 @@ export function createNavigationController({
                 const markdownEditor = getEditor();
                 codeEditor?.forgetViewStateForTab?.(tab.id || null);
                 markdownEditor?.forgetViewStateForTab?.(tab.id || null);
-                fileSession.clearEntry(targetPath);
+                documentRegistry.clearEntry(targetPath);
             }
 
             // shared tab 的移除与后续激活拆开，统一交给事务层提交。
@@ -511,10 +505,10 @@ export function createNavigationController({
             }
         }
 
-        if (typeof fileSession.isDirty === 'function') {
-            return fileSession.isDirty(filePath);
+        if (typeof documentRegistry.isDirty === 'function') {
+            return documentRegistry.isDirty(filePath);
         }
-        const cached = fileSession.getCachedEntry(filePath);
+        const cached = documentRegistry.getCachedEntry(filePath);
         return cached ? cached.hasChanges : false;
     }
 
@@ -646,7 +640,7 @@ export function createNavigationController({
         const markdownEditor = getEditor();
         codeEditor?.forgetViewStateForTab?.(targetPath);
         markdownEditor?.forgetViewStateForTab?.(targetPath);
-        fileSession.clearEntry(targetPath);
+        documentRegistry.clearEntry(targetPath);
     }
 
     function setupLinkNavigationListener() {

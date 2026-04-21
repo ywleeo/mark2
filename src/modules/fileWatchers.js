@@ -6,7 +6,7 @@ export function createFileWatcherController({
     getEditor,
     getCodeEditor,
     scheduleLoadFile,
-    fileSession,
+    documentRegistry,
     documentSessions,
 }) {
     const folderRefreshTimers = new Map();
@@ -73,7 +73,7 @@ export function createFileWatcherController({
         const activeViewMode = getActiveViewMode();
         const isCodeActive = (activeViewMode === 'code' || activeViewMode === 'html') && currentFilePath === normalizedPath;
 
-        const cachedEntry = fileSession?.getCachedEntry?.(normalizedPath);
+        const cachedEntry = documentRegistry?.getCachedEntry?.(normalizedPath);
         const hasCachedChanges = cachedEntry?.hasChanges;
 
         if (isMarkdownActive && typeof editor?.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
@@ -138,12 +138,12 @@ export function createFileWatcherController({
             const isActiveFile = currentFilePath === normalizedPath;
 
             if (!isTrackedOpenFile && !isActiveFile) {
-                fileSession.clearEntry(normalizedPath);
+                documentRegistry.clearEntry(normalizedPath);
                 return;
             }
 
             if (!isActiveFile) {
-                fileSession.clearEntry(normalizedPath);
+                documentRegistry.clearEntry(normalizedPath);
                 return;
             }
 

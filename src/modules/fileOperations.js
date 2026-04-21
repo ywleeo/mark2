@@ -66,7 +66,7 @@ export function createFileOperations({
     documentManager,
     getActiveViewMode,
     setHasUnsavedChanges,
-    fileSession,
+    documentRegistry,
     documentSessions,
     detectLanguageForPath,
     viewManager,
@@ -99,7 +99,7 @@ export function createFileOperations({
     if (typeof setCurrentFile !== 'function') throw new Error('fileOperations 需要 setCurrentFile');
     if (typeof getActiveViewMode !== 'function') throw new Error('fileOperations 需要 getActiveViewMode');
     if (typeof setHasUnsavedChanges !== 'function') throw new Error('fileOperations 需要 setHasUnsavedChanges');
-    if (!fileSession) throw new Error('fileOperations 需要 fileSession');
+    if (!documentRegistry) throw new Error('fileOperations 需要 documentRegistry');
     if (!documentSessions || typeof documentSessions.beginSession !== 'function') {
         throw new Error('fileOperations 需要 documentSessions');
     }
@@ -320,7 +320,7 @@ export function createFileOperations({
                 setHasUnsavedChanges(false);
                 documentManager?.markDirty?.(currentFile, false);
                 saveCurrentEditorContentToCache();
-                await fileSession.refreshModifiedTime?.(currentFile);
+                await documentRegistry.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
                 logger?.info?.('saveCurrentFile:done', {
                     path: currentFile,
@@ -360,7 +360,7 @@ export function createFileOperations({
                 setHasUnsavedChanges(false);
                 documentManager?.markDirty?.(currentFile, false);
                 saveCurrentEditorContentToCache();
-                await fileSession.refreshModifiedTime?.(currentFile);
+                await documentRegistry.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
                 logger?.info?.('saveCurrentFile:done', {
                     path: currentFile,
@@ -437,7 +437,7 @@ export function createFileOperations({
 
         const requestedKey = getIdentityKeyForPath(filePath);
         const currentKey = getIdentityKeyForPath(currentFile);
-        const cached = fileSession.getCachedEntry(filePath);
+        const cached = documentRegistry.getCachedEntry(filePath);
 
         if (requestedKey && currentKey && requestedKey === currentKey) {
             return await saveCurrentFile();
@@ -457,7 +457,7 @@ export function createFileOperations({
                 documentSessions.markLocalWrite(localWriteKey);
             }
             await fileService.writeText(filePath, cached.content);
-            fileSession.clearEntry(filePath);
+            documentRegistry.clearEntry(filePath);
             logger?.info?.('saveFile:done', {
                 requestedPath: filePath,
                 writer: 'cached-session',
@@ -533,7 +533,7 @@ export function createFileOperations({
                 const statusBar = getStatusBarController?.();
                 statusBar?.showProgress?.('正在读取文件…');
                 try {
-                    const fileData = await fileSession.getFileContent(filePath, { skipCache: forceReload });
+                    const fileData = await documentRegistry.getFileContent(filePath, { skipCache: forceReload });
                     if (shouldAbort('import-read')) return;
                     await renderer?.load({
                         filePath,
@@ -567,7 +567,7 @@ export function createFileOperations({
                 ? options.tabId
                 : null;
             const hasPersistentTab = normalizedTargetPath
-                ? Boolean(fileTree?.isInOpenList?.(normalizedTargetPath))
+                ? documentManager?.getDocumentByPath?.(normalizedTargetPath)?.pinned === true
                 : false;
             const tabId = providedTabId
                 || (hasPersistentTab ? normalizedTargetPath : null);
@@ -728,11 +728,11 @@ export function createFileOperations({
                 return;
             }
 
-            const fileData = await fileSession.getFileContent(filePath, { skipCache: forceReload });
+            const fileData = await documentRegistry.getFileContent(filePath, { skipCache: forceReload });
             if (shouldAbort('after-read')) {
                 return;
             }
-            const doc = fileSession.getDocument?.(filePath) ?? null;
+            const doc = await documentRegistry.acquireDocument?.(filePath) ?? null;
             const targetViewMode = fileData.viewMode || initialViewMode;
             // 判断是否应该自动聚焦编辑器：
             // 只有在 markdown 和 code 编辑器之间切换时才自动聚焦
@@ -855,8 +855,8 @@ export function createFileOperations({
                 documentSessions.closeSession(sessionId);
             }
             // 如果读取失败，清理缓存，避免下次仍然返回旧内容
-            if (fileSession?.clearEntry && filePath) {
-                fileSession.clearEntry(filePath);
+            if (documentRegistry?.clearEntry && filePath) {
+                documentRegistry.clearEntry(filePath);
             }
 
             if (suppressMissingFileErrors && isMissingFileError(error)) {

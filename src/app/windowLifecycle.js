@@ -15,7 +15,7 @@ import { t } from '../i18n/index.js';
 export function createWindowLifecycle({
     appState,
     editorRegistry,
-    fileSession,
+    documentRegistry,
     untitledFileManager,
     getViewManager,
     getTerminalPanel,
@@ -293,7 +293,7 @@ export function createWindowLifecycle({
         const tp = getTerminalPanel();
         if (tp?.destroy) tp.destroy();
 
-        fileSession.clearAll();
+        documentRegistry.clearAll();
 
         const fileTree = appState.getFileTree();
         fileTree?.dispose?.();

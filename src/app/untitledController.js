@@ -13,7 +13,7 @@ export function createUntitledController({
     getFileService,
     untitledFileManager,
     documentSessions,
-    fileSession,
+    documentRegistry,
     normalizeFsPath,
     activateMarkdownView,
     activateCodeView,
@@ -156,7 +156,7 @@ export function createUntitledController({
         const codeEditor = getCodeEditor();
         editor?.forgetViewStateForTab?.(untitledPath);
         codeEditor?.forgetViewStateForTab?.(untitledPath);
-        fileSession.clearEntry(untitledPath);
+        documentRegistry.clearEntry(untitledPath);
 
         if (currentFile === untitledPath) {
             fileTree?.addToOpenFiles?.(realPath);

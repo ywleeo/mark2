@@ -16,7 +16,7 @@ export function createFileMenuActions(options = {}) {
         clearActiveFileView,
         updateWindowTitle,
         persistWorkspaceState,
-        fileSession,
+        documentRegistry,
         documentManager,
         getFileTree,
         getTabManager,
@@ -62,8 +62,8 @@ export function createFileMenuActions(options = {}) {
     if (typeof persistWorkspaceState !== 'function') {
         throw new Error('createFileMenuActions 需要提供 persistWorkspaceState');
     }
-    if (!fileSession || typeof fileSession.renameEntry !== 'function') {
-        throw new Error('createFileMenuActions 需要提供支持 renameEntry 的 fileSession');
+    if (!documentRegistry || typeof documentRegistry.renameEntry !== 'function') {
+        throw new Error('createFileMenuActions 需要提供支持 renameEntry 的 documentRegistry');
     }
     if (!documentManager || typeof documentManager.renameDocument !== 'function') {
         throw new Error('createFileMenuActions 需要提供 documentManager');
@@ -153,7 +153,7 @@ export function createFileMenuActions(options = {}) {
             }
 
             await fileService.writeText(normalizedPath, '');
-            fileSession.clearEntry(normalizedPath);
+            documentRegistry.clearEntry(normalizedPath);
 
             const fileTree = getFileTree();
             if (fileTree) {
@@ -236,7 +236,7 @@ export function createFileMenuActions(options = {}) {
         const wasOpenInList = fileTree?.isInOpenList?.(currentFile);
         const wasSharedTab = tabManager?.sharedTab?.path === currentFile;
 
-        fileSession.clearEntry(currentFile);
+        documentRegistry.clearEntry(currentFile);
         fileTree?.stopWatchingFile?.(currentFile);
         documentSessions.closeSessionForPath(currentFile);
         // dm.closeDocument 会派生清理 fileTree.openFiles 与 tabManager.fileTabs
@@ -385,7 +385,7 @@ export function createFileMenuActions(options = {}) {
             ? options.tabLabel
             : (basename(normalizedNew) || normalizedNew);
 
-        fileSession.renameEntry(normalizedOld, normalizedNew);
+        documentRegistry.renameEntry(normalizedOld, normalizedNew);
 
         const tabManager = getTabManager();
         tabManager?.updateTabPath(normalizedOld, normalizedNew, tabLabel);

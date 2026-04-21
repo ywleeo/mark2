@@ -13,7 +13,7 @@ import { ZOOM_DEFAULT } from './viewController.js';
 export function createEditorCallbacks({
     editorRegistry,
     appState,
-    fileSession,
+    documentRegistry,
     documentManager,
     normalizeFsPath,
     updateWindowTitle,
@@ -52,14 +52,14 @@ export function createEditorCallbacks({
             const codeEditor = editorRegistry.getCodeEditor();
             const activeViewMode = appState.getActiveViewMode();
 
-            fileSession.saveCurrentEditorContentToCache({
+            documentRegistry.saveCurrentEditorContentToCache({
                 currentFile: targetPath,
                 activeViewMode,
                 editor,
                 codeEditor,
             });
 
-            const modifiedTime = await fileSession.refreshModifiedTime?.(targetPath);
+            const modifiedTime = await documentRegistry.refreshModifiedTime?.(targetPath);
             await onFileSaved?.(targetPath, modifiedTime);
             if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
                 documentManager?.markDirty?.(targetPath, false);

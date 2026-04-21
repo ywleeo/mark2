@@ -122,7 +122,7 @@ console.log('Mark2 Tauri 版本已启动');
 
 // ========== 服务层实例 ==========
 const recentFilesService = createRecentFilesService();
-const fileSession = createDocumentRegistry({
+const documentRegistry = createDocumentRegistry({
     fileService: ensureFileService(),
     getViewModeForPath,
     isCsvFilePath,
@@ -206,7 +206,7 @@ const {
 const windowLifecycle = createWindowLifecycle({
     appState,
     editorRegistry,
-    fileSession,
+    documentRegistry,
     untitledFileManager,
     getViewManager: () => viewManager,
     getTerminalPanel: () => featureManager.getFeatureApi('terminal'),
@@ -318,7 +318,7 @@ const editorActions = createEditorActions({
     saveCurrentEditorContentToCache: () => { saveCurrentEditorContentToCache(); },
     persistWorkspaceState,
     updateWindowTitle,
-    fileSession,
+    documentRegistry,
     getImageViewer: () => editorRegistry.getImageViewer(),
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getFileService: () => appServices?.file,
@@ -377,7 +377,7 @@ const documentIO = createDocumentIO({
     getActiveViewMode: () => appState.getActiveViewMode(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
     saveCurrentEditorContentToCache,
-    fileSession,
+    documentRegistry,
     updateWindowTitle,
     persistWorkspaceState,
 });
@@ -412,7 +412,7 @@ const untitledController = createUntitledController({
     getFileService: () => appServices.file,
     untitledFileManager,
     documentSessions,
-    fileSession,
+    documentRegistry,
     normalizeFsPath,
     activateMarkdownView,
     activateCodeView,
@@ -460,7 +460,7 @@ const {
     documentManager,
     getActiveViewMode: () => appState.getActiveViewMode(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
-    fileSession,
+    documentRegistry,
     documentSessions,
     detectLanguageForPath,
     viewManager,
@@ -501,7 +501,7 @@ const {
     documentManager,
     clearActiveFileView,
     loadFile,
-    fileSession,
+    documentRegistry,
     persistWorkspaceState,
     saveFile,
     getActiveViewMode: () => appState.getActiveViewMode(),
@@ -542,7 +542,7 @@ const {
     clearActiveFileView,
     updateWindowTitle,
     persistWorkspaceState,
-    fileSession,
+    documentRegistry,
     documentManager,
     getFileTree: () => appState.getFileTree(),
     getTabManager: () => appState.getTabManager(),
@@ -584,7 +584,7 @@ bootstrap = createAppBootstrap({
     editorRegistry,
     tabHistoryManager,
     documentSessions,
-    fileSession,
+    documentRegistry,
     untitledFileManager,
     appServices,
     workspaceController,

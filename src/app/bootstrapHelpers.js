@@ -16,7 +16,7 @@ export function createBootstrapHelpers(deps) {
         workspaceController,
         editorRegistry,
         documentSessions,
-        fileSession,
+        documentRegistry,
         untitledFileManager,
         featureManager,
         scheduleWorkspaceContextSync,
@@ -116,7 +116,7 @@ export function createBootstrapHelpers(deps) {
             return;
         }
 
-        fileSession.saveCurrentEditorContentToCache({
+        documentRegistry.saveCurrentEditorContentToCache({
             currentFile,
             activeViewMode,
             editor,

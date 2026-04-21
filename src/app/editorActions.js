@@ -11,7 +11,7 @@ export function createEditorActions({
     saveCurrentEditorContentToCache,
     persistWorkspaceState,
     updateWindowTitle,
-    fileSession,
+    documentRegistry,
     getImageViewer,
     getSpreadsheetViewer,
     getFileService,
@@ -223,11 +223,11 @@ export function createEditorActions({
         }
 
         const readFromSession = async () => {
-            if (!fileSession?.getFileContent) {
+            if (!documentRegistry?.getFileContent) {
                 return '';
             }
             try {
-                const data = await fileSession.getFileContent(activeFile);
+                const data = await documentRegistry.getFileContent(activeFile);
                 return normalize(data?.content ?? '');
             } catch (_error) {
                 return '';
