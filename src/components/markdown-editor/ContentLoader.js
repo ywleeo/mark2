@@ -10,7 +10,7 @@ import {
     revokeUrls,
 } from '../../utils/imageResolver.js';
 import { ensureMarkdownTrailingEmptyLine } from '../../utils/markdownFormatting.js';
-import { preprocessMarkdown, serializeMarkdown } from './MarkdownPreprocessor.js';
+import { extractFrontmatter, preprocessMarkdown, serializeMarkdown } from './MarkdownPreprocessor.js';
 
 /**
  * 创建安全的 ProseMirror selection。
@@ -88,6 +88,7 @@ export class ContentLoader {
         documentSessions = null,
         onContentChange,
         onAfterLoad,
+        applyDocumentMeta = null,
     }) {
         this.getEditor = getEditor;
         this.markdownParser = markdownParser;
@@ -104,6 +105,7 @@ export class ContentLoader {
         this.documentSessions = documentSessions;
         this.onContentChange = onContentChange ?? (() => {});
         this.onAfterLoad = onAfterLoad ?? (() => {});
+        this.applyDocumentMeta = applyDocumentMeta;
 
         // 文档状态（由本模块拥有）
         this.loadedFilePath = null;
@@ -113,6 +115,7 @@ export class ContentLoader {
         this.loadingSessionId = null;
         this.isLoadingFile = false;
         this.currentTabId = null;
+        this._frontmatterRaw = '';
     }
 
     // ─── 公开 API ──────────────────────────────────────────────────────────────
@@ -187,6 +190,11 @@ export class ContentLoader {
                 typeof content === 'string' ? content : ''
             );
 
+            // 提取并应用 frontmatter 排版配置（两条路径都需要）
+            const { meta: fmMeta, raw: fmRaw } = extractFrontmatter(normalizedContent);
+            this._frontmatterRaw = fmRaw;
+            this.applyDocumentMeta?.(fmMeta);
+
             // 优先尝试恢复标签页保存的状态（含撤销历史）
             if (nextTabId && this.getTabStateManager()?.restore(nextTabId, normalizedContent)) {
                 this.setUpdateSuppressed(true);
@@ -258,7 +266,8 @@ export class ContentLoader {
                 ? { from: this.getEditor().state.selection.from, to: this.getEditor().state.selection.to }
                 : null);
 
-        const processed = preprocessMarkdown(normalizedMarkdown);
+        const { body: bodyForParse } = extractFrontmatter(normalizedMarkdown);
+        const processed = preprocessMarkdown(bodyForParse);
         const parsedDoc = this.markdownParser?.parse(processed) ?? null;
 
         if (sessionId && sessionId !== this.currentSessionId) return false;
@@ -326,12 +335,16 @@ export class ContentLoader {
 
     /** 获取当前 Markdown 内容（未变更时直接返回原始缓存） */
     getMarkdown() {
-        return serializeMarkdown({
+        const body = serializeMarkdown({
             contentChanged: this.contentChanged,
             originalMarkdown: this.originalMarkdown,
             markdownSerializer: this.markdownSerializer,
             editor: this.getEditor(),
         });
+        if (this.contentChanged && this._frontmatterRaw) {
+            return this._frontmatterRaw + '\n' + body;
+        }
+        return body;
     }
 
     /** 释放图片资源 */
@@ -347,6 +360,8 @@ export class ContentLoader {
         this.originalMarkdown = '';
         this.contentChanged = false;
         this.isLoadingFile = false;
+        this._frontmatterRaw = '';
+        this.applyDocumentMeta?.({});
         this.getSaveManager()?.clearAutoSaveTimer();
     }
 

@@ -201,6 +201,7 @@ export class MarkdownEditor {
                 this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
                 this.scheduleMermaidRender();
             },
+            applyDocumentMeta: (meta) => this._applyDocumentMeta(meta),
         });
 
         this.saveManager = new SaveManager({
@@ -281,6 +282,24 @@ export class MarkdownEditor {
             this.editor.setEditable(true);
             this.suppressUpdateEvent = false;
         }, true);
+    }
+
+    _applyDocumentMeta(meta) {
+        const container = this.element?.parentElement;
+        if (!container) return;
+        const PROPS = [
+            ['font-size',       '--editor-font-size',       v => `${parseFloat(v)}px`],
+            ['line-height',     '--editor-line-height',     v => v],
+            ['letter-spacing',  '--editor-letter-spacing',  v => v],
+        ];
+        for (const [key, cssVar, transform] of PROPS) {
+            const val = meta[key];
+            if (val !== undefined && val !== '') {
+                container.style.setProperty(cssVar, transform(val));
+            } else {
+                container.style.removeProperty(cssVar);
+            }
+        }
     }
 
     setupImageClickHandler() {

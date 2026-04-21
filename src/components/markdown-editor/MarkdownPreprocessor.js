@@ -1,6 +1,42 @@
 import { ensureMarkdownTrailingEmptyLine } from '../../utils/markdownFormatting.js';
 
 /**
+ * 解析文件头部的 YAML frontmatter（仅当第一行为 `---` 时触发）。
+ * 返回 { body, meta, raw }：body 是去掉 frontmatter 的正文，meta 是键值对，raw 是原始 frontmatter 块（含 --- 分隔符）。
+ */
+export function extractFrontmatter(markdown) {
+    if (!markdown || !markdown.startsWith('---\n')) {
+        return { body: markdown || '', meta: {}, raw: '' };
+    }
+    // 闭合 --- 必须是独立行（后接 \n 或字符串结尾），避免误匹配 ---abc 这类内容
+    let endIdx = -1;
+    let searchFrom = 3;
+    while (true) {
+        const idx = markdown.indexOf('\n---', searchFrom);
+        if (idx === -1) break;
+        const charAfter = markdown[idx + 4];
+        if (charAfter === '\n' || charAfter === '\r' || charAfter === undefined) { endIdx = idx; break; }
+        searchFrom = idx + 1;
+    }
+    if (endIdx === -1) return { body: markdown, meta: {}, raw: '' };
+
+    const raw = markdown.slice(0, endIdx + 4);
+    const afterClose = markdown.slice(endIdx + 4);
+    const body = afterClose.startsWith('\n') ? afterClose.slice(1) : afterClose;
+
+    const meta = {};
+    for (const line of markdown.slice(4, endIdx).split('\n')) {
+        const colon = line.indexOf(':');
+        if (colon === -1) continue;
+        const key = line.slice(0, colon).trim();
+        const val = line.slice(colon + 1).trim();
+        if (key) meta[key] = val;
+    }
+
+    return { body, meta, raw };
+}
+
+/**
  * 预处理加粗标记：将多星号组合转换为 HTML strong/em 标签。
  * 纯函数，无副作用。
  */
