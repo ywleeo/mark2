@@ -17,6 +17,7 @@ import { normalizeFsPath } from '../utils/pathUtils.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
+import { restoreKeybindingsFromFileIfNeeded } from '../utils/keybindingsStorage.js';
 import { createCommandHandlers } from './commandHandlers.js';
 import { createBootstrapHelpers } from './bootstrapHelpers.js';
 import { isWindows } from '../utils/platform.js';
@@ -381,6 +382,7 @@ export function createAppBootstrap({
             }),
         }));
 
+        await restoreKeybindingsFromFileIfNeeded();
         appState.setCleanupFunction('keybindingManager', registerDefaultKeybindings({
             keybindingManager,
         }));

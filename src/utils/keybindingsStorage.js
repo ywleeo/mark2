@@ -20,6 +20,28 @@ export function loadCustomKeybindings() {
 }
 
 /**
+ * 从 appDataDir/keybindings.json 恢复快捷键到 localStorage（若 localStorage 为空）。
+ * 解决 Windows 更新后 WebView2 localStorage 被清空、但文件仍存在的情况。
+ * Mac 上也作为兜底机制。
+ */
+export async function restoreKeybindingsFromFileIfNeeded() {
+    const current = loadCustomKeybindings();
+    if (Object.keys(current).length > 0) return;
+    try {
+        const { appDataDir, join } = await import('@tauri-apps/api/path');
+        const { readTextFile } = await import('@tauri-apps/plugin-fs');
+        const filePath = await join(await appDataDir(), 'keybindings.json');
+        const content = await readTextFile(filePath);
+        const keybindings = JSON.parse(content);
+        if (keybindings && typeof keybindings === 'object' && Object.keys(keybindings).length > 0) {
+            store.set('bindings', keybindings);
+        }
+    } catch {
+        // 文件不存在或解析失败，正常情况，忽略
+    }
+}
+
+/**
  * 保存用户自定义快捷键。
  * 同时写入 storage(JS 侧使用)和 appDataDir 文件(Rust 菜单使用)。
  * @param {Object<string, string>} keybindings - commandId → shortcut 映射
