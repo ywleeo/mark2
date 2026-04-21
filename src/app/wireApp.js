@@ -435,6 +435,7 @@ const {
     openFileOnly,
     openFolderOnly,
     saveCurrentFile,
+    saveCurrentFileAs,
     saveFile,
     loadFile,
 } = createFileOperations({
@@ -647,6 +648,7 @@ bootstrap = createAppBootstrap({
     openFileOnly,
     openFolderOnly,
     saveCurrentFile,
+    saveCurrentFileAs,
     loadFile,
     handleCreateUntitled,
     saveUntitledFile,

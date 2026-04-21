@@ -96,6 +96,7 @@ export class AppMenu {
                     { id: 'open-folder', label: t('menu.openFolder'), command: COMMAND_IDS.APP_OPEN_FOLDER },
                     { id: 'sep1', separator: true },
                     { id: 'save', label: t('menu.save'), shortcut: 'Ctrl+S', command: COMMAND_IDS.DOCUMENT_SAVE },
+                    { id: 'save-as', label: t('menu.saveAs'), shortcut: 'Ctrl+Shift+S', command: COMMAND_IDS.DOCUMENT_SAVE_AS },
                     { id: 'sep2', separator: true },
                     { id: 'export-image', label: t('menu.exportImage'), command: COMMAND_IDS.EXPORT_IMAGE, menuId: 'export-image' },
                     { id: 'export-pdf', label: t('menu.exportPdf'), command: COMMAND_IDS.EXPORT_PDF, menuId: 'export-pdf' },

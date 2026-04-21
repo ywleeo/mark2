@@ -36,6 +36,7 @@ export function createCommandHandlers(deps) {
         openFileOnly,
         openFolderOnly,
         saveCurrentFile,
+        saveCurrentFileAs,
         closeActiveTab,
         // editor history
         handleUndoCommand,
@@ -149,6 +150,7 @@ export function createCommandHandlers(deps) {
         onFind: () => editorRegistry.getMarkdownEditor()?.showSearch?.(),
         onSelectSearchMatches: () => editorRegistry.getMarkdownEditor()?.selectAllSearchMatches?.(),
         onSave: saveCurrentFile,
+        onSaveAs: saveCurrentFileAs,
         onCloseTab: closeActiveTab,
         onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleCsvTableView: toggleCsvTableMode,

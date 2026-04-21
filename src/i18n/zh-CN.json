@@ -7,6 +7,7 @@
     "menu.openFile": "打开文件...",
     "menu.openFolder": "打开文件夹...",
     "menu.save": "保存",
+    "menu.saveAs": "另存为…",
     "menu.exportImage": "导出为图片",
     "menu.exportPdf": "导出为 PDF",
     "menu.rename": "重命名",

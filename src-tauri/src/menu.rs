@@ -33,6 +33,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export", "导出");
         m.insert("export-image", "导出为图片...");
         m.insert("export-pdf", "导出为 PDF...");
+        m.insert("save-as", "另存为…");
         m.insert("rename", "重命名...");
         m.insert("move", "移动到...");
         m.insert("delete", "删除");
@@ -63,6 +64,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export", "Export");
         m.insert("export-image", "Export as Image...");
         m.insert("export-pdf", "Export as PDF...");
+        m.insert("save-as", "Save As...");
         m.insert("rename", "Rename...");
         m.insert("move", "Move To...");
         m.insert("delete", "Delete");
@@ -408,6 +410,10 @@ fn build_menu(
         .accelerator(get_accelerator("file-new", "CmdOrCtrl+N", custom_accel))
         .build(handle)?;
 
+    let save_as_item = MenuItemBuilder::with_id("file-save-as", l["save-as"])
+        .accelerator(get_accelerator("file-save-as", "CmdOrCtrl+Shift+S", custom_accel))
+        .build(handle)?;
+
     let rename_file_item = MenuItemBuilder::with_id("file-rename", l["rename"]).build(handle)?;
     let move_file_item = MenuItemBuilder::with_id("file-move", l["move"]).build(handle)?;
     let delete_file_item = MenuItemBuilder::with_id("file-delete", l["delete"])
@@ -430,6 +436,8 @@ fn build_menu(
         .item(&open_recent_submenu);
 
     let file_menu = file_menu_builder
+        .separator()
+        .item(&save_as_item)
         .separator()
         .item(&export_submenu)
         .separator()

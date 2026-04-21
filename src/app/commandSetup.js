@@ -46,6 +46,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.EDITOR_PASTE, () => handlers.onPaste?.(), '粘贴');
     register(COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, () => handlers.onSelectSearchMatches?.(), '选中全部搜索结果');
     register(COMMAND_IDS.DOCUMENT_SAVE, () => handlers.onSave?.(), '保存当前文档');
+    register(COMMAND_IDS.DOCUMENT_SAVE_AS, () => handlers.onSaveAs?.(), '另存为');
     register(COMMAND_IDS.DOCUMENT_CLOSE_TAB, () => handlers.onCloseTab?.(), '关闭当前标签');
     register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, () => handlers.onNewUntitled?.(), '新建临时文档');
     register(COMMAND_IDS.DOCUMENT_NEW_FILE, () => handlers.onNewFile?.(), '创建文件');
@@ -107,6 +108,7 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.EDITOR_REDO, 'Mod+Shift+Z'],
     [COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, 'Mod+Shift+L'],
     [COMMAND_IDS.DOCUMENT_SAVE, 'Mod+S'],
+    [COMMAND_IDS.DOCUMENT_SAVE_AS, 'Mod+Shift+S'],
     [COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, 'Mod+E'],
     [COMMAND_IDS.DOCUMENT_NEW_UNTITLED, 'Mod+T'],
     [COMMAND_IDS.DOCUMENT_CLOSE_TAB, 'Mod+W'],

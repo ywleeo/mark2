@@ -7,6 +7,7 @@
     "menu.openFile": "Open File...",
     "menu.openFolder": "Open Folder...",
     "menu.save": "Save",
+    "menu.saveAs": "Save As...",
     "menu.exportImage": "Export as Image",
     "menu.exportPdf": "Export as PDF",
     "menu.rename": "Rename",

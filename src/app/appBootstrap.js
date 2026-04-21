@@ -122,6 +122,7 @@ export function createAppBootstrap({
     openFileOnly,
     openFolderOnly,
     saveCurrentFile,
+    saveCurrentFileAs,
     loadFile,
     // untitledController 导出
     handleCreateUntitled,
@@ -361,6 +362,7 @@ export function createAppBootstrap({
                 openFileOnly,
                 openFolderOnly,
                 saveCurrentFile,
+                saveCurrentFileAs,
                 closeActiveTab,
                 handleUndoCommand,
                 handleRedoCommand,

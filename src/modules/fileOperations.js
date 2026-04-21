@@ -280,6 +280,58 @@ export function createFileOperations({
         }
     }
 
+    async function saveCurrentFileAs() {
+        const currentFile = getCurrentFile();
+        if (!currentFile || untitledFileManager?.isUntitledPath?.(currentFile)) {
+            return saveCurrentFile();
+        }
+
+        const editor = getEditor();
+        const codeEditor = getCodeEditor();
+        const activeViewMode = getActiveViewMode();
+
+        let content = '';
+        if (activeViewMode === 'markdown' && editor) {
+            content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'code' && codeEditor) {
+            content = codeEditor.getValue?.() || '';
+        } else {
+            return false;
+        }
+
+        try {
+            const { save } = await import('@tauri-apps/plugin-dialog');
+            const targetPath = await save({
+                title: '另存为',
+                defaultPath: currentFile,
+                filters: [
+                    { name: 'Markdown', extensions: ['md'] },
+                    { name: 'Text', extensions: ['txt'] },
+                    { name: 'JSON', extensions: ['json'] },
+                    { name: 'YAML', extensions: ['yaml', 'yml'] },
+                    { name: 'JavaScript', extensions: ['js', 'jsx'] },
+                    { name: 'TypeScript', extensions: ['ts', 'tsx'] },
+                    { name: 'Python', extensions: ['py'] },
+                    { name: 'Shell', extensions: ['sh'] },
+                    { name: 'HTML', extensions: ['html'] },
+                    { name: 'CSS', extensions: ['css', 'scss'] },
+                    { name: 'Go', extensions: ['go'] },
+                    { name: 'Rust', extensions: ['rs'] },
+                    { name: 'Java', extensions: ['java'] },
+                    { name: 'C / C++', extensions: ['c', 'cpp', 'h'] },
+                    { name: 'SQL', extensions: ['sql'] },
+                    { name: 'TOML', extensions: ['toml'] },
+                ],
+            });
+            if (!targetPath) return false;
+            await fileService.writeText(targetPath, content);
+            return true;
+        } catch (err) {
+            console.error('[SaveAs] 另存为失败:', err);
+            return false;
+        }
+    }
+
     async function saveCurrentFile() {
         const currentFile = getCurrentFile();
         if (!currentFile) {
@@ -902,6 +954,7 @@ export function createFileOperations({
         openFileOnly,
         openFolderOnly,
         saveCurrentFile,
+        saveCurrentFileAs,
         saveFile,
         loadFile,
     };

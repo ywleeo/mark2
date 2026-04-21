@@ -20,6 +20,7 @@ export const COMMAND_IDS = Object.freeze({
     EDITOR_PASTE: 'editor.paste',
     EDITOR_SELECT_SEARCH_MATCHES: 'editor.selectSearchMatches',
     DOCUMENT_SAVE: 'document.save',
+    DOCUMENT_SAVE_AS: 'document.saveAs',
     DOCUMENT_CLOSE_TAB: 'document.closeTab',
     DOCUMENT_NEW_UNTITLED: 'document.newUntitled',
     DOCUMENT_NEW_FILE: 'document.newFile',
