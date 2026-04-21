@@ -3,13 +3,14 @@
  * 将现有图片/PDF 导出实现注册到 ExportManager。
  */
 
-import { exportCurrentViewToImage, exportCurrentViewToPdf } from '../modules/menuExports.js';
+import { exportCurrentViewToImage, exportCurrentViewToMobileImage, exportCurrentViewToPdf } from '../modules/menuExports.js';
 
 /**
  * 导出能力 ID 常量。
  */
 export const EXPORT_IDS = Object.freeze({
     CURRENT_VIEW_IMAGE: 'currentView.image',
+    CURRENT_VIEW_IMAGE_MOBILE: 'currentView.image.mobile',
     CURRENT_VIEW_PDF: 'currentView.pdf',
 });
 
@@ -35,6 +36,13 @@ export function registerCoreExports(options = {}) {
             statusBarController: context.getStatusBarController?.(),
         }),
         '导出当前视图为图片'
+    );
+    register(
+        EXPORT_IDS.CURRENT_VIEW_IMAGE_MOBILE,
+        () => exportCurrentViewToMobileImage({
+            statusBarController: context.getStatusBarController?.(),
+        }),
+        '导出为手机图片'
     );
     register(
         EXPORT_IDS.CURRENT_VIEW_PDF,

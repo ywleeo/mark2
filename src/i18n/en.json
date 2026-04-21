@@ -9,6 +9,7 @@
     "menu.save": "Save",
     "menu.saveAs": "Save As...",
     "menu.exportImage": "Export as Image",
+    "menu.exportImageMobile": "Export for Mobile",
     "menu.exportPdf": "Export as PDF",
     "menu.rename": "Rename",
     "menu.moveTo": "Move To...",

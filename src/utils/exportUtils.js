@@ -8,6 +8,12 @@ const PNG_PAD_X = 48;
 const PNG_PAD_TOP = 40;
 const PNG_PAD_BOTTOM = 28;
 
+// 手机图导出参数（429px 逻辑宽，@3x 输出 1287px）
+const MOBILE_TOTAL_WIDTH = 429;
+const MOBILE_PAD_X = 2;
+const MOBILE_PAD_TOP = 44;
+const MOBILE_PAD_BOTTOM = 28;
+
 export function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
     const year = date.getFullYear();
@@ -206,7 +212,8 @@ function buildExportFooter({ isCentered }) {
 }
 
 
-export async function captureViewContent() {
+export async function captureViewContent(options = {}) {
+    const isMobile = !!options.mobile;
     const viewElement = document.getElementById('viewContent');
     if (!viewElement) {
         throw new Error('无法找到 viewContent 元素');
@@ -226,7 +233,11 @@ export async function captureViewContent() {
         getBackground(viewElement) ||
         bodyBackground ||
         '#ffffff';
-    const scale = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+
+    const padX = isMobile ? MOBILE_PAD_X : PNG_PAD_X;
+    const padTop = isMobile ? MOBILE_PAD_TOP : PNG_PAD_TOP;
+    const padBottom = isMobile ? MOBILE_PAD_BOTTOM : PNG_PAD_BOTTOM;
+    const scale = isMobile ? 3 : Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
 
     const scrollWidth = Math.ceil(
         Math.max(
@@ -236,7 +247,8 @@ export async function captureViewContent() {
         )
     );
 
-    const outerWidth = scrollWidth + PNG_PAD_X * 2;
+    const contentWidth = isMobile ? MOBILE_TOTAL_WIDTH - padX * 2 : scrollWidth;
+    const outerWidth = isMobile ? MOBILE_TOTAL_WIDTH : scrollWidth + padX * 2;
 
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
@@ -253,7 +265,8 @@ export async function captureViewContent() {
     await embedImagesAsBase64(clone);
     clone.style.paddingBottom = '0px';
     clone.style.marginBottom = '0px';
-    clone.style.width = `${scrollWidth}px`;
+    clone.style.width = `${contentWidth}px`;
+    clone.style.maxWidth = `${contentWidth}px`;
     clone.style.boxSizing = 'border-box';
 
     // 隐藏不需要导出的 UI 元素
@@ -263,11 +276,26 @@ export async function captureViewContent() {
     captureContainer.style.display = 'block';
     captureContainer.style.width = `${outerWidth}px`;
     captureContainer.style.boxSizing = 'border-box';
-    captureContainer.style.padding = `${PNG_PAD_TOP}px ${PNG_PAD_X}px ${PNG_PAD_BOTTOM}px`;
+    captureContainer.style.padding = `${padTop}px ${padX}px ${padBottom}px`;
 
     const centeredPane = document.querySelector('.view-pane.markdown-pane.content-centered');
-    const isCentered = centeredPane !== null;
-    if (isCentered) {
+    const isCentered = !isMobile && centeredPane !== null;
+
+    if (isMobile) {
+        clone.style.display = 'block';
+        const tiptapEditor = clone.querySelector('.tiptap-editor');
+        if (tiptapEditor) {
+            tiptapEditor.style.maxWidth = `${contentWidth}px`;
+            tiptapEditor.style.width = '100%';
+            tiptapEditor.style.minHeight = 'auto';
+            tiptapEditor.style.height = 'auto';
+        }
+        const markdownContent = clone.querySelector('.markdown-content');
+        if (markdownContent) {
+            markdownContent.style.minHeight = 'auto';
+            markdownContent.style.height = 'auto';
+        }
+    } else if (isCentered) {
         applyCenteredExportStyles({
             viewElement,
             captureContainer,

@@ -32,6 +32,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("open-recent", "最近打开");
         m.insert("export", "导出");
         m.insert("export-image", "导出为图片...");
+        m.insert("export-image-mobile", "导出为手机图片...");
         m.insert("export-pdf", "导出为 PDF...");
         m.insert("save-as", "另存为…");
         m.insert("rename", "重命名...");
@@ -63,6 +64,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("open-recent", "Open Recent");
         m.insert("export", "Export");
         m.insert("export-image", "Export as Image...");
+        m.insert("export-image-mobile", "Export for Mobile...");
         m.insert("export-pdf", "Export as PDF...");
         m.insert("save-as", "Save As...");
         m.insert("rename", "Rename...");
@@ -174,6 +176,7 @@ fn get_accelerator(
 
 pub struct ExportMenuHandles {
     image: MenuItem<Wry>,
+    image_mobile: MenuItem<Wry>,
     pdf: MenuItem<Wry>,
 }
 
@@ -182,9 +185,9 @@ pub struct ExportMenuState {
 }
 
 impl ExportMenuState {
-    pub fn new(image: MenuItem<Wry>, pdf: MenuItem<Wry>) -> Self {
+    pub fn new(image: MenuItem<Wry>, image_mobile: MenuItem<Wry>, pdf: MenuItem<Wry>) -> Self {
         Self {
-            handles: Mutex::new(ExportMenuHandles { image, pdf }),
+            handles: Mutex::new(ExportMenuHandles { image, image_mobile, pdf }),
         }
     }
 }
@@ -249,6 +252,10 @@ pub fn set_export_menu_enabled(
         .map_err(|_| "failed to lock export menu state")?;
     handles
         .image
+        .set_enabled(enabled)
+        .map_err(|e| e.to_string())?;
+    handles
+        .image_mobile
         .set_enabled(enabled)
         .map_err(|e| e.to_string())?;
     handles
@@ -324,11 +331,11 @@ pub fn update_recent_menu(
 }
 
 /// 构建菜单栏（初始化和重建共用）。
-/// 返回 (menu_bar, export_image, export_pdf, recent_submenu)。
+/// 返回 (menu_bar, export_image, export_image_mobile, export_pdf, recent_submenu)。
 fn build_menu(
     handle: &AppHandle,
     custom_accel: &HashMap<String, String>,
-) -> Result<(Menu<Wry>, MenuItem<Wry>, MenuItem<Wry>, Submenu<Wry>), Box<dyn std::error::Error>> {
+) -> Result<(Menu<Wry>, MenuItem<Wry>, MenuItem<Wry>, MenuItem<Wry>, Submenu<Wry>), Box<dyn std::error::Error>> {
     let locale = read_locale_from_handle(handle);
     let l = menu_labels(&locale);
 
@@ -357,6 +364,9 @@ fn build_menu(
     let export_image_item = MenuItemBuilder::with_id("export-image", l["export-image"])
         .accelerator(get_accelerator("export-image", "CmdOrCtrl+Shift+C", custom_accel))
         .build(handle)?;
+
+    let export_image_mobile_item =
+        MenuItemBuilder::with_id("export-image-mobile", l["export-image-mobile"]).build(handle)?;
 
     let export_pdf_item = MenuItemBuilder::with_id("export-pdf", l["export-pdf"])
         .accelerator(get_accelerator("export-pdf", "CmdOrCtrl+Shift+P", custom_accel))
@@ -403,6 +413,7 @@ fn build_menu(
 
     let export_submenu = SubmenuBuilder::new(handle, l["export"])
         .item(&export_image_item)
+        .item(&export_image_mobile_item)
         .item(&export_pdf_item)
         .build()?;
 
@@ -490,17 +501,18 @@ fn build_menu(
         .item(&edit_menu)
         .build()?;
 
-    Ok((menu_bar, export_image_item, export_pdf_item, open_recent_submenu))
+    Ok((menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu))
 }
 
 pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle().clone();
     let custom_accel = load_custom_accelerators(&handle);
-    let (menu_bar, export_image_item, export_pdf_item, open_recent_submenu) =
+    let (menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu) =
         build_menu(&handle, &custom_accel)?;
 
     app.manage(ExportMenuState::new(
         export_image_item,
+        export_image_mobile_item,
         export_pdf_item,
     ));
 
@@ -528,7 +540,7 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 #[tauri::command]
 pub fn rebuild_menu(app: AppHandle) -> Result<(), String> {
     let custom_accel = load_custom_accelerators(&app);
-    let (menu_bar, export_image_item, export_pdf_item, open_recent_submenu) =
+    let (menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu) =
         build_menu(&app, &custom_accel).map_err(|e| e.to_string())?;
 
     // 更新 ExportMenuState 的引用
@@ -536,6 +548,7 @@ pub fn rebuild_menu(app: AppHandle) -> Result<(), String> {
         if let Ok(mut handles) = state.handles.lock() {
             *handles = ExportMenuHandles {
                 image: export_image_item,
+                image_mobile: export_image_mobile_item,
                 pdf: export_pdf_item,
             };
         }

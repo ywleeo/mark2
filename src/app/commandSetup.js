@@ -81,6 +81,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');
     register(COMMAND_IDS.FEATURE_VAULT_TOGGLE, () => handlers.onToggleVault?.(), '切换保险箱');
     register(COMMAND_IDS.EXPORT_IMAGE, () => handlers.onExportImage?.(), '导出图片');
+    register(COMMAND_IDS.EXPORT_IMAGE_MOBILE, () => handlers.onExportImageMobile?.(), '导出手机图片');
     register(COMMAND_IDS.EXPORT_PDF, () => handlers.onExportPdf?.(), '导出 PDF');
     register(COMMAND_IDS.RECENT_OPEN_ENTRY, (payload = {}) => handlers.onRecentItemClick?.(payload.index), '打开最近项目');
     register(COMMAND_IDS.RECENT_CLEAR, () => handlers.onClearRecent?.(), '清空最近项目');

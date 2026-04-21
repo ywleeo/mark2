@@ -1,11 +1,12 @@
 import { save, message } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
-import { join, tempDir } from '@tauri-apps/api/path';
+import { desktopDir, join, tempDir } from '@tauri-apps/api/path';
 import {
     buildDefaultScreenshotPath,
     captureViewContent,
     collectContentForPdf,
+    formatTimestampForFilename,
 } from '../utils/exportUtils.js';
 import { captureScreenshot } from '../api/native.js';
 
@@ -52,6 +53,48 @@ export async function exportCurrentViewToImage({ statusBarController }) {
         if (progressShown) {
             statusBarController?.hideProgress?.();
         }
+    }
+}
+
+export async function exportCurrentViewToMobileImage({ statusBarController }) {
+    let progressShown = false;
+    try {
+        const timestamp = formatTimestampForFilename(new Date());
+        const fileName = `Mark2-Mobile-${timestamp}.png`;
+        let defaultPath = fileName;
+        try {
+            const desktop = await desktopDir();
+            if (desktop) defaultPath = await join(desktop, fileName);
+        } catch (_) {}
+
+        const targetPath = await save({
+            title: '保存手机图片',
+            filters: [{ name: 'PNG 图片', extensions: ['png'] }],
+            defaultPath,
+        });
+        if (!targetPath) return;
+
+        statusBarController?.showProgress?.('正在导出手机图片…');
+        progressShown = true;
+
+        const dataUrl = await captureViewContent({ mobile: true });
+        await captureScreenshot(targetPath, dataUrl);
+
+        statusBarController?.showProgress?.('手机图片已保存：' + targetPath, { state: 'success' });
+        statusBarController?.hideProgress?.({ delay: 2200 });
+        progressShown = false;
+    } catch (error) {
+        console.error('生成手机图片失败', error);
+        if (progressShown) {
+            statusBarController?.hideProgress?.();
+            progressShown = false;
+        }
+        await message('生成手机图片失败: ' + (error?.message || String(error)), {
+            title: '导出失败',
+            kind: 'error',
+        });
+    } finally {
+        if (progressShown) statusBarController?.hideProgress?.();
     }
 }
 

@@ -36,6 +36,7 @@ export async function registerMenuListeners(handlers) {
     await register('menu-settings', COMMAND_IDS.APP_SETTINGS);
     await register('menu-vault-open', COMMAND_IDS.FEATURE_VAULT_TOGGLE);
     await register('menu-export-image', COMMAND_IDS.EXPORT_IMAGE);
+    await register('menu-export-image-mobile', COMMAND_IDS.EXPORT_IMAGE_MOBILE);
     await register('menu-export-pdf', COMMAND_IDS.EXPORT_PDF);
     await register('menu-toggle-sidebar', COMMAND_IDS.VIEW_TOGGLE_SIDEBAR);
     await register('menu-toggle-status-bar', COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR);

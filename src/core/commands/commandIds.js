@@ -47,6 +47,7 @@ export const COMMAND_IDS = Object.freeze({
     FEATURE_TOC_TOGGLE: 'feature.toc.toggle',
     FEATURE_VAULT_TOGGLE: 'feature.vault.toggle',
     EXPORT_IMAGE: 'export.currentView.image',
+    EXPORT_IMAGE_MOBILE: 'export.currentView.image.mobile',
     EXPORT_PDF: 'export.currentView.pdf',
     RECENT_OPEN_ENTRY: 'recent.openEntry',
     RECENT_CLEAR: 'recent.clear',

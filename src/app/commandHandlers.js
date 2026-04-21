@@ -123,6 +123,7 @@ export function createCommandHandlers(deps) {
         onOpenFolder: openFolderOnly,
         onSettings: openSettingsDialog,
         onExportImage: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_IMAGE),
+        onExportImageMobile: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_IMAGE_MOBILE),
         onExportPdf: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_PDF),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
