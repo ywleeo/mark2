@@ -447,7 +447,18 @@ export class MarkdownEditor {
         if (!this.editor) return '';
         const { state } = this.editor;
         if (!state || state.selection.empty) return '';
-        return state.doc.textBetween(state.selection.from, state.selection.to, '\n');
+        const { from, to } = state.selection;
+        const serializer = this.contentLoader?.markdownSerializer;
+        if (serializer) {
+            try {
+                const slice = state.doc.slice(from, to);
+                const doc = state.schema.nodes.doc.create(null, slice.content);
+                return serializer.serialize(doc).replace(/​/g, '').trim();
+            } catch {
+                // 选区跨越块边界序列化失败时，退回纯文本
+            }
+        }
+        return state.doc.textBetween(from, to, '\n');
     }
 
     // AI 内容插入

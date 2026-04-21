@@ -594,38 +594,40 @@ export class MarkdownToolbarManager {
     }
 
     /**
-     * 复制 markdown 内容到剪贴板
+     * 复制 markdown 内容到剪贴板。
+     * 有选区时复制选中内容的 markdown 原文，无选区时复制整篇。
      */
     async copyMarkdown() {
         try {
             let markdown = '';
 
-            // 获取 markdown 内容
             if (this.editorType === 'tiptap') {
-                // TipTap 编辑器 - 需要从全局的 markdownEditor 实例获取 markdown
-                // 因为 getMarkdown() 方法在 MarkdownEditor 上，而不是在 TipTap 编辑器上
                 const mdEditor = this._getEditorRegistry?.()?.getMarkdownEditor?.();
-                if (mdEditor && typeof mdEditor.getMarkdown === 'function') {
-                    markdown = mdEditor.getMarkdown();
-                } else if (this.rawEditorInstance && typeof this.rawEditorInstance.getMarkdown === 'function') {
+                if (mdEditor) {
+                    // 优先复制选中内容的 markdown
+                    const selected = mdEditor.getSelectedMarkdown?.();
+                    markdown = selected || mdEditor.getMarkdown?.() || '';
+                } else if (this.rawEditorInstance?.getMarkdown) {
                     markdown = this.rawEditorInstance.getMarkdown();
-                } else if (this.editorInstance && typeof this.editorInstance.getMarkdown === 'function') {
+                } else if (this.editorInstance?.getMarkdown) {
                     markdown = this.editorInstance.getMarkdown();
                 } else {
                     return;
                 }
             } else if (this.editorType === 'codemirror') {
-                // CodeMirror 编辑器 - 直接获取文本内容
-                if (this.rawEditorInstance && typeof this.rawEditorInstance.getValue === 'function') {
+                // CodeMirror：选中文本即为 markdown/code 原文
+                const selected = window.getSelection()?.toString() ?? '';
+                if (selected.trim()) {
+                    markdown = selected;
+                } else if (this.rawEditorInstance?.getValue) {
                     markdown = this.rawEditorInstance.getValue();
-                } else if (this.editorInstance && typeof this.editorInstance.getValue === 'function') {
+                } else if (this.editorInstance?.getValue) {
                     markdown = this.editorInstance.getValue();
                 } else {
                     return;
                 }
             }
 
-            // 复制到剪贴板
             if (markdown) {
                 await navigator.clipboard.writeText(markdown);
                 this.showCopyFeedback();
