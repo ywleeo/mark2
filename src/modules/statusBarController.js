@@ -65,15 +65,12 @@ export function createStatusBarController({
         progressHideTimer = null;
 
         statusBarProgressElement.classList.add('is-active');
-        statusBarProgressElement.classList.remove('is-success', 'is-error', 'is-dirty');
+        statusBarProgressElement.classList.remove('is-success', 'is-error');
         if (state === 'success') {
             statusBarProgressElement.classList.add('is-success');
         }
         if (state === 'error') {
             statusBarProgressElement.classList.add('is-error');
-        }
-        if (state === 'dirty') {
-            statusBarProgressElement.classList.add('is-dirty');
         }
         statusBarProgressElement.removeAttribute('aria-hidden');
 
@@ -90,7 +87,7 @@ export function createStatusBarController({
         }
 
         const clearState = () => {
-            statusBarProgressElement.classList.remove('is-active', 'is-success', 'is-error', 'is-dirty');
+            statusBarProgressElement.classList.remove('is-active', 'is-success', 'is-error');
             statusBarProgressElement.setAttribute('aria-hidden', 'true');
             if (statusBarProgressTextElement) {
                 statusBarProgressTextElement.textContent = '';
@@ -124,8 +121,6 @@ export function createStatusBarController({
             statusBarFilePathElement.textContent = '未打开文件';
             statusBarFilePathElement.removeAttribute('title');
         }
-        statusBarFilePathElement.classList.toggle('is-dirty', Boolean(isDirty));
-
         let statsText = '';
         if (typeof wordCount === 'object' && wordCount !== null) {
             // Markdown 文件：显示字数统计

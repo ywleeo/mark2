@@ -554,6 +554,14 @@ export function createFileOperations({
             const previousViewMode = getActiveViewMode();
             if (previousFile) {
                 rememberMarkdownScrollPosition(previousFile, previousViewMode);
+                // untitled 文件切换：离开前把编辑器当前内容同步到 untitledFileManager，
+                // 确保切回时 TabStateManager.restore() 能做内容匹配。
+                if (previousFile !== filePath && untitledFileManager?.isUntitledPath?.(previousFile)) {
+                    const savedContent = previousViewMode === 'code'
+                        ? (getCodeEditor()?.getValue?.() ?? '')
+                        : (getEditor()?.getMarkdown?.() ?? '');
+                    untitledFileManager.setContent?.(previousFile, savedContent);
+                }
             }
             if (previousFile !== filePath) {
                 const markdownCodeMode = getMarkdownCodeMode();
@@ -578,7 +586,7 @@ export function createFileOperations({
                 kind: isUntitled ? 'untitled' : 'file',
                 viewMode: initialViewMode,
                 sessionId,
-                dirty: false,
+                // 不传 dirty，保留 DM 中文件已有的 dirty 状态（切回 dirty tab 时不丢失原点）
                 // pinned=true → 作为 file tab 展示；pinned=false → 作为 shared tab 临时预览
                 pinned: hasPersistentTab || isUntitled,
             });
@@ -624,7 +632,10 @@ export function createFileOperations({
                         }
                     }
                 }
-                setHasUnsavedChanges(untitledContent.trim().length > 0);
+                // untitled 文件永远未保存到磁盘，始终为 dirty 状态。
+                // editor.loadFile 内部会调用 onContentChange → markDirty(false)，这里强制覆盖回 true。
+                documentManager?.markDirty?.(filePath, true);
+                setHasUnsavedChanges(true);
                 // 不 await updateWindowTitle：Tauri 的 win.setTitle() 会调用原生窗口 API，
                 // macOS 上可能导致 WebView 焦点丢失。标题更新不需要阻塞加载流程。
                 void updateWindowTitle();

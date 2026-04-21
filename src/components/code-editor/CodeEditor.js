@@ -408,13 +408,14 @@ export class CodeEditor {
         this.prepareForDocument(session, filePath, tabId);
         await this.show(filePath, content, language, session, { autoFocus, tabId });
 
-        // 跨 tab 保留的 dirty:恢复 baseContent 为磁盘原文,避免下一次 diff 误判
+        // 跨 tab 保留的 dirty:恢复 baseContent 为磁盘原文，并同步到 DM
         if (doc.dirty) {
             const origFromDoc = doc.getOriginalContent();
             if (typeof origFromDoc === 'string') {
                 this.baseContent = origFromDoc;
             }
             this.isDirty = true;
+            this.callbacks?.onContentChange?.();
         }
 
         this._bindDocument(doc);

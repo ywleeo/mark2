@@ -325,13 +325,14 @@ export class MarkdownEditor {
         this.prepareForDocument(session, filePath, tabId);
         const result = await this.loadFile(session, filePath, content, { autoFocus, tabId, onReady });
 
-        // 跨 tab 保留的 dirty:恢复编辑器侧 originalMarkdown 基线
+        // 跨 tab 保留的 dirty:恢复编辑器侧 originalMarkdown 基线，并同步到 DM
         if (doc.dirty && this.contentLoader) {
             const origFromDoc = doc.getOriginalContent();
             if (typeof origFromDoc === 'string') {
                 this.contentLoader.originalMarkdown = origFromDoc;
             }
             this.contentLoader.contentChanged = true;
+            this.callbacks.onContentChange?.();
         }
 
         this._bindDocument(doc);

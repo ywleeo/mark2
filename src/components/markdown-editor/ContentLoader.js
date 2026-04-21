@@ -125,7 +125,6 @@ export class ContentLoader {
         const sessionId = session?.id ?? null;
         const isFileSwitching = this.loadedFilePath !== filePath;
         const previousTabId = this.currentTabId;
-
         if (previousTabId) {
             this.getTabStateManager()?.save(previousTabId);
         }
@@ -156,7 +155,9 @@ export class ContentLoader {
         }
 
         this.getCodeCopyManager()?.hideCodeCopyButton({ immediate: true });
-        this.onContentChange();
+        // 不在此处调用 onContentChange：prepareForDocument 只是重置编辑器状态，
+        // 不应把 contentChanged=false 传播到 DM 清掉 dirty 标记。
+        // dirty 同步由 loadPipeline/attachDocument 加载完成后负责。
     }
 
     /** 加载文件内容，支持标签页状态恢复。 */
@@ -199,6 +200,8 @@ export class ContentLoader {
                     console.warn('[ContentLoader] tab 恢复后图片解析失败:', err);
                 });
                 this.onAfterLoad();
+                // tab 状态恢复后同步 dirty 到 DM（prepareForDocument 不再调用 onContentChange）
+                this.onContentChange();
 
                 // 同步 focus 放在最后——不用 commands.focus()（内部 rAF 延迟）
                 if (autoFocus) this.getEditor().view.focus();

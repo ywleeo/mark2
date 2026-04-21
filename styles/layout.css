@@ -80,6 +80,7 @@
     --tab-active-text-color: rgba(252, 254, 255, 0.96);
     --tab-close-color: rgba(226, 232, 240, 0.55);
     --tab-close-hover-color: rgba(252, 254, 255, 0.92);
+    --tab-dirty-color: rgba(255, 140, 70, 0.9);
     --tab-rename-border: rgba(164, 180, 205, 0.5);
     --tab-rename-bg: rgba(26, 35, 51, 0.95);
     --tab-rename-text: rgba(252, 254, 255, 0.95);
@@ -458,11 +459,39 @@ body.sidebar-resizing .sidebar-resizer::before {
     padding: 0;
     margin: 0;
     cursor: pointer;
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
     color: var(--tab-close-color, rgba(21, 23, 26, 0.4));
     transition: color 0.15s ease;
 }
 
 .tab-close:hover {
+    color: var(--tab-close-hover-color, rgba(21, 23, 26, 0.85));
+}
+
+/* Dirty indicator: dot by default, × on hover */
+.tab.is-dirty .tab-close {
+    font-size: 0;
+    color: var(--tab-dirty-color, rgba(220, 100, 40, 0.85));
+}
+
+.tab.is-dirty .tab-close::before {
+    content: '●';
+    font-size: 9px;
+    display: inline-block;
+}
+
+.tab.is-dirty:hover .tab-close {
+    font-size: 13px;
+    color: var(--tab-close-color, rgba(21, 23, 26, 0.4));
+}
+
+.tab.is-dirty:hover .tab-close::before {
+    content: none;
+}
+
+.tab.is-dirty:hover .tab-close:hover {
     color: var(--tab-close-hover-color, rgba(21, 23, 26, 0.85));
 }
 
@@ -544,17 +573,6 @@ body.is-status-bar-hidden .status-bar {
     text-overflow: ellipsis;
 }
 
-.status-item-path.is-dirty::before {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #f59e0b;
-    margin-right: 6px;
-    vertical-align: middle;
-    flex-shrink: 0;
-}
 
 .status-item-word-count,
 .status-item-last-modified {
@@ -641,9 +659,6 @@ body.is-status-bar-hidden .status-bar {
     font-size: 12px;
 }
 
-.status-item-progress.is-dirty .status-progress-indicator {
-    display: none;
-}
 
 .status-item-progress.is-success .status-progress-indicator::before {
     content: '✓';

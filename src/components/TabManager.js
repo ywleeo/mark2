@@ -88,7 +88,7 @@ export class TabManager {
 
     _onDocumentEvent(event) {
         if (!event || !event.type) return;
-        const relevant = ['open', 'close', 'activate', 'rename', 'reorder', 'update'];
+        const relevant = ['open', 'close', 'activate', 'rename', 'reorder', 'update', 'dirty'];
         if (!relevant.includes(event.type)) return;
         // 同步重建，避免调用方读 fileTabs 时看到过期状态（microtask 延迟会出问题）
         this._rebuildFromDocumentManager();
@@ -109,6 +109,7 @@ export class TabManager {
                 type: 'file',
                 path: doc.path,
                 label: doc.label || existing?.label || fallbackLabel,
+                dirty: Boolean(doc.dirty),
             };
         });
 
@@ -275,6 +276,7 @@ export class TabManager {
         tabs.forEach(tab => {
             const tabElement = document.createElement('div');
             tabElement.className = 'tab';
+            if (tab.dirty) tabElement.classList.add('is-dirty');
             tabElement.dataset.tabId = tab.id;
             tabElement.dataset.tabType = tab.type;
 
