@@ -43,6 +43,7 @@ export class OpenFileManager {
 
         this.documentManager = null;
         this._dmUnsub = null;
+        this._isRestoring = false;
     }
 
     /**
@@ -83,6 +84,7 @@ export class OpenFileManager {
     }
 
     _onDocumentEvent(event) {
+        if (this._isRestoring) return;
         if (!event || !event.type) return;
         const relevant = ['open', 'close', 'rename', 'reorder'];
         if (!relevant.includes(event.type)) return;
@@ -96,24 +98,29 @@ export class OpenFileManager {
 
     /**
      * 用 dm 当前快照重建 state.openFiles，并补/撤 watchFile。
+     * @param {Object} [options]
+     * @param {boolean} [options.skipWatch] 跳过 watchFile（restore 阶段用，避免启动时批量建立 watcher）
      */
-    _syncFromDocumentManager() {
+    _syncFromDocumentManager(options = {}) {
+        const { skipWatch = false } = options;
         const next = this._filterOpenPathsFromDm();
         const prev = this.state.openFiles.slice();
         const prevSet = new Set(prev.map((p) => getPathIdentityKey(p)).filter(Boolean));
         const nextSet = new Set(next.map((p) => getPathIdentityKey(p)).filter(Boolean));
 
         // 新增：开始监听
-        next.forEach((p) => {
-            const key = getPathIdentityKey(p);
-            if (!key || prevSet.has(key)) return;
-            const viewMode = getViewModeForPath(p);
-            if (viewMode === 'markdown' || viewMode === 'code') {
-                this.watchFile(p).catch((err) => {
-                    console.error('监听文件失败:', err);
-                });
-            }
-        });
+        if (!skipWatch) {
+            next.forEach((p) => {
+                const key = getPathIdentityKey(p);
+                if (!key || prevSet.has(key)) return;
+                const viewMode = getViewModeForPath(p);
+                if (viewMode === 'markdown' || viewMode === 'code') {
+                    this.watchFile(p).catch((err) => {
+                        console.error('监听文件失败:', err);
+                    });
+                }
+            });
+        }
 
         // 移除：停止监听
         prev.forEach((p) => {
@@ -231,25 +238,31 @@ export class OpenFileManager {
             normalized.push(np);
         });
 
-        // 关闭 dm 中目前 fileTree 视角下、但不在 restore 列表里的文件文档
-        const currentInDm = this._filterOpenPathsFromDm();
-        currentInDm.forEach((p) => {
-            const key = getPathIdentityKey(p);
-            if (!key || !seen.has(key)) {
-                dm.closeDocument(p);
-            }
-        });
-
-        // 批量 open（已存在则会被识别为 update，atStart=false 维持顺序）
-        normalized.forEach((p) => {
-            dm.openDocument(p, {
-                kind: 'file',
-                tabId: p,
-                pinned: true,
-                activate: false,
-                atStart: false,
+        // 批量 close/open 期间挂起事件回调，避免触发 N 次 _syncFromDocumentManager
+        this._isRestoring = true;
+        try {
+            // 关闭 dm 中目前 fileTree 视角下、但不在 restore 列表里的文件文档
+            const currentInDm = this._filterOpenPathsFromDm();
+            currentInDm.forEach((p) => {
+                const key = getPathIdentityKey(p);
+                if (!key || !seen.has(key)) {
+                    dm.closeDocument(p);
+                }
             });
-        });
+
+            // 批量 open（已存在则会被识别为 update，atStart=false 维持顺序）
+            normalized.forEach((p) => {
+                dm.openDocument(p, {
+                    kind: 'file',
+                    tabId: p,
+                    pinned: true,
+                    activate: false,
+                    atStart: false,
+                });
+            });
+        } finally {
+            this._isRestoring = false;
+        }
 
         // currentFile 校正
         const normalizedCurrent = this.normalizePath(this.state.currentFile);
@@ -261,8 +274,9 @@ export class OpenFileManager {
             this.state.currentFile = restoredCurrent || normalizedCurrent;
         }
 
-        // 兜底：dm 已是最终状态，主动 sync 一次保证 watch / render / emit 已同步
-        this._syncFromDocumentManager();
+        // 兜底：dm 已是最终状态，主动 sync 一次保证 render / emit 已同步。
+        // 跳过 watchFile（与 v1.7.0 restore 行为一致），watcher 在文件首次加载时按需建立。
+        this._syncFromDocumentManager({ skipWatch: true });
     }
 
     reorder(paths = []) {
