@@ -48,6 +48,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.DOCUMENT_SAVE, () => handlers.onSave?.(), '保存当前文档');
     register(COMMAND_IDS.DOCUMENT_SAVE_AS, () => handlers.onSaveAs?.(), '另存为');
     register(COMMAND_IDS.DOCUMENT_CLOSE_TAB, () => handlers.onCloseTab?.(), '关闭当前标签');
+    register(COMMAND_IDS.DOCUMENT_REOPEN_TAB, () => handlers.onReopenTab?.(), '撤销关闭标签');
     register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, () => handlers.onNewUntitled?.(), '新建临时文档');
     register(COMMAND_IDS.DOCUMENT_NEW_FILE, () => handlers.onNewFile?.(), '创建文件');
     register(COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, () => handlers.onCopyMarkdown?.(), '复制 Markdown 文本');
@@ -114,6 +115,7 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, 'Mod+E'],
     [COMMAND_IDS.DOCUMENT_NEW_UNTITLED, 'Mod+T'],
     [COMMAND_IDS.DOCUMENT_CLOSE_TAB, 'Mod+W'],
+    [COMMAND_IDS.DOCUMENT_REOPEN_TAB, 'Mod+Shift+T'],
     [COMMAND_IDS.EDITOR_FIND, 'Mod+F'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],

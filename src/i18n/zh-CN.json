@@ -255,6 +255,7 @@
     "settings.kb.find": "查找",
     "settings.kb.newTab": "新建标签页",
     "settings.kb.closeTab": "关闭标签页",
+    "settings.kb.reopenTab": "撤销关闭标签页",
     "settings.kb.toggleSourceMode": "切换源码模式",
     "settings.kb.toggleSidebar": "切换侧边栏",
     "settings.kb.delete": "删除文件",

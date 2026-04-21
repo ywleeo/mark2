@@ -490,6 +490,7 @@ const {
     handleTabClose,
     checkFileHasUnsavedChanges,
     closeActiveTab,
+    reopenLastClosedTab,
     setupLinkNavigationListener,
     activateTabTransition,
 } = createNavigationController({
@@ -629,6 +630,7 @@ bootstrap = createAppBootstrap({
     handleTabClose,
     checkFileHasUnsavedChanges,
     closeActiveTab,
+    reopenLastClosedTab,
     setupLinkNavigationListener,
     handleCreateNewFile,
     handleDeleteActiveFile,

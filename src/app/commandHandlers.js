@@ -38,6 +38,7 @@ export function createCommandHandlers(deps) {
         saveCurrentFile,
         saveCurrentFileAs,
         closeActiveTab,
+        reopenLastClosedTab,
         // editor history
         handleUndoCommand,
         handleRedoCommand,
@@ -154,6 +155,7 @@ export function createCommandHandlers(deps) {
         onSave: saveCurrentFile,
         onSaveAs: saveCurrentFileAs,
         onCloseTab: closeActiveTab,
+        onReopenTab: reopenLastClosedTab,
         onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleCsvTableView: toggleCsvTableMode,
         onToggleScratchpad: () => featureManager?.getFeatureApi?.('scratchpad')?.toggle?.(),

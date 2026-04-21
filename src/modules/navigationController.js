@@ -92,6 +92,7 @@ export function createNavigationController({
     }
 
     let isOpeningFromLink = false;
+    const closedTabsStack = [];
 
     /**
      * 从当前 TabManager 快照中计算关闭某个 tab 后的备选 tab。
@@ -419,6 +420,9 @@ export function createNavigationController({
 
             const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
 
+            closedTabsStack.push({ path: targetPath, type: 'file' });
+            if (closedTabsStack.length > 20) closedTabsStack.shift();
+
             // dm 是真源：TabManager.removeFileTab → dm.closeDocument → fileTree/tabManager 双方自行派生
             tabManager?.removeFileTab(targetPath);
             if (wasActive) {
@@ -458,6 +462,9 @@ export function createNavigationController({
                         return;
                     }
                 }
+
+                closedTabsStack.push({ path: targetPath, type: 'shared' });
+                if (closedTabsStack.length > 20) closedTabsStack.shift();
 
                 if (documentManager?.getDocumentByPath?.(targetPath)?.pinned !== true) {
                     fileTree?.stopWatchingFile(targetPath);
@@ -552,6 +559,17 @@ export function createNavigationController({
             return;
         }
         await tabManager.handleTabClose(tabManager.activeTabId);
+    }
+
+    async function reopenLastClosedTab() {
+        if (closedTabsStack.length === 0) return;
+        const { path, type } = closedTabsStack.pop();
+        const fileTree = getFileTree();
+        if (type === 'file') {
+            fileTree?.addToOpenFiles?.(path);
+        }
+        fileTree?.selectFile?.(path, { autoFocus: true, silent: true });
+        await handleFileSelect(path, { autoFocus: true });
     }
 
     /**
@@ -680,6 +698,7 @@ export function createNavigationController({
         handleTabClose,
         checkFileHasUnsavedChanges,
         closeActiveTab,
+        reopenLastClosedTab,
         setupLinkNavigationListener,
         activateTabTransition,
         resolveFallbackTab,

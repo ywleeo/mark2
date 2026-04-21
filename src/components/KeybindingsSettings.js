@@ -42,6 +42,7 @@ const COMMAND_LABELS = {
     [COMMAND_IDS.EDITOR_FIND]: 'settings.kb.find',
     [COMMAND_IDS.DOCUMENT_NEW_UNTITLED]: 'settings.kb.newTab',
     [COMMAND_IDS.DOCUMENT_CLOSE_TAB]: 'settings.kb.closeTab',
+    [COMMAND_IDS.DOCUMENT_REOPEN_TAB]: 'settings.kb.reopenTab',
     [COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE]: 'settings.kb.toggleSourceMode',
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR]: 'settings.kb.toggleSidebar',
     [COMMAND_IDS.DOCUMENT_DELETE]: 'settings.kb.delete',

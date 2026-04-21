@@ -255,6 +255,7 @@
     "settings.kb.find": "Find",
     "settings.kb.newTab": "New Tab",
     "settings.kb.closeTab": "Close Tab",
+    "settings.kb.reopenTab": "Reopen Closed Tab",
     "settings.kb.toggleSourceMode": "Toggle Source Mode",
     "settings.kb.toggleSidebar": "Toggle Sidebar",
     "settings.kb.delete": "Delete File",

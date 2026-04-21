@@ -98,6 +98,7 @@ export function createAppBootstrap({
     handleTabClose,
     checkFileHasUnsavedChanges,
     closeActiveTab,
+    reopenLastClosedTab,
     setupLinkNavigationListener,
     activateTabTransition,
     // fileMenuActions 导出
@@ -364,6 +365,7 @@ export function createAppBootstrap({
                 saveCurrentFile,
                 saveCurrentFileAs,
                 closeActiveTab,
+                reopenLastClosedTab,
                 handleUndoCommand,
                 handleRedoCommand,
                 handleCreateNewFile,
