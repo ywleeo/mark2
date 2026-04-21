@@ -108,7 +108,7 @@ export const CARD_TEMPLATES = [
         color: '#fffdf0',
         theme: 'light',
         contentMaxHeight: 330, // 453 - padding(56+67)
-        baseFontSize: 17,
+        baseFontSize: 15,
         maxLines: 7,
         charsPerLine: 14,
         styleDesc: '手写可爱，温暖有趣，像撕下来的便签页',

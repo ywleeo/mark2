@@ -1,5 +1,5 @@
 /* ====== 卡片字体 ====== */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+KuaiLe&family=Shadows+Into+Light&family=Long+Cang&display=swap');
+/* Google Fonts 在侧边栏打开时异步注入，避免阻塞启动（见 CardSidebar 组件） */
 
 /* ====== 编辑器右键菜单 ====== */
 
