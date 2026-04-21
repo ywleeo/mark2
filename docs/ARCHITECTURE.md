@@ -86,7 +86,7 @@ src/
   core/
     commands/           CommandManager、KeybindingManager
     diagnostics/        Logger、TraceRecorder、文件日志
-    documents/          DocumentManager
+    documents/          DocumentManager（tab 真源）、DocumentModel（内容真源）、DocumentRegistry（替代 fileSession）
     export/             ExportManager
     features/           FeatureManager
     views/              ViewManager
@@ -135,38 +135,58 @@ src-tauri/
 
 ### 1. DocumentManager
 
-`DocumentManager` 承接文档生命周期真源。
+`DocumentManager` 承接文档生命周期真源，同时是 **tab 列表的唯一真源**。
 
 它维护：
 
 - 当前激活文档路径
-- tabId、path、viewMode、sessionId 的关联关系
-- `open / activate / rename / close`
-- `dirty` 状态
-- 保存链路使用的 active path
+- 文档实体（path、tabId、kind、viewMode、dirty、pinned）
+- `openOrder` — 打开文档的顺序列表，file tab 列表由此派生
+- `pinned` — 区分 file tab（`true`）与 shared 预览 tab（`false`，不进 openOrder）
+- `open / activate / rename / close / markDirty / reorder`
+- 事件订阅（`open / close / activate / rename / dirty / update / reorder`）
+
+`TabManager` 和 `OpenFileManager` 都订阅 DocumentManager 事件，作为纯派生渲染层。
 
 典型主链：
 
 ```text
 handleFileSelect
-  -> DocumentManager.openDocument / syncActiveDocument
+  -> DocumentManager.openDocument / activateDocument
   -> fileOperations.loadFile
   -> saveCurrentFile 读取 active path
 ```
 
+### 1b. DocumentModel / DocumentRegistry
+
+`DocumentModel` 是单一文档的内存内容真源。
+
+它持有：
+
+- 权威内容（`_content`）与磁盘基线（`_originalContent`）
+- `dirty` 由两者比较派生，不允许外部直接写
+- 引用计数（`acquire / release`），为多视图共享做准备
+- 事件通知（`change / save / reload / rename`）
+
+`DocumentRegistry` 替代已删除的 `fileSession`，负责：
+
+- 对 markdown/code 类文件按需创建 `DocumentModel`
+- 对二进制文件维持轻量 cache
+- 保持原 fileSession 的 API 形状，调用方无需改动
+
+编辑器（`MarkdownEditor` / `CodeEditor`）通过 `attachDocument(doc)` 统一接入 DocumentModel，dirty 基线从 doc 读取，不再依赖外部拼装的 `fileData`。
+
 ### 2. WorkspaceManager
 
-`WorkspaceManager` 承接工作区级快照。
+`WorkspaceManager` 承接工作区级快照的持久化与恢复。
 
 它维护：
 
-- `openFiles`
-- `sharedTabPath`
-- `currentFile`
-- sidebar 状态
-- workspace restore / persist
+- workspace 快照字段（`openFiles`、`sharedTabPath`、`currentFile`、sidebar 状态）
+- 应用启动时从快照向 `DocumentManager` 还原文档列表
+- workspace persist（将 DocumentManager 的当前 openOrder 写回快照）
 
-它支撑应用恢复、tab 集合恢复、shared tab 恢复和 sidebar 状态恢复。
+注意：运行时 tab 列表的真源是 `DocumentManager`，WorkspaceManager 只在启动和持久化时介入。
 
 ### 3. ViewManager
 
@@ -248,6 +268,7 @@ menu / toolbar
 当前已经纳入：
 
 - `currentView.image`
+- `currentView.image.mobile`
 - `currentView.pdf`
 
 ### 8. app 装配层
@@ -277,7 +298,7 @@ menu / toolbar
 - `statusBarController` — 状态栏控制
 - `untitledFileManager` — untitled 文件管理
 - `fileWatchers` / `fileDropController` — 文件监听与拖拽
-- `documentSessionManager` / `fileSession` — 文档会话管理
+- `documentSessionManager` — 文档会话管理（本地写入抑制、watcher 事件过滤）
 - `menuExports` / `menuListeners` — 菜单导出与监听
 - `windowFocusHandler` — 窗口焦点处理
 - `markdownCodeMode` / `svgCodeMode` / `csvTableMode` — 视图模式切换
@@ -294,8 +315,9 @@ menu / toolbar
 
 这一层包括：
 
-- `TabManager`
-- `file-tree/`（FileTree、FileTreeState、FileTreeRenderer、FileActions、FileCreator、FolderLoader 等）
+- `TabManager`（纯派生渲染层，订阅 DocumentManager 事件重建 tab 列表，不再双写状态）
+- `file-tree/`（FileTree、FileTreeState、FileTreeRenderer、FileActions、FileCreator、FolderLoader、OpenFileManager 等）
+  — `OpenFileManager` 订阅 DocumentManager 事件，派生 open files 列表渲染
 - `FileTreeContextMenu`
 - `markdown-editor/`（MarkdownEditor、ContentLoader、SaveManager、LinkHandler、ImagePasteHandler、AiStreamManager 等）
 - `markdown-toolbar/`（MarkdownToolbar、toolbarConfig）
