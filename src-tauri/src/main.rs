@@ -169,7 +169,40 @@ fn activate_app(app: AppHandle) {
 fn main() {
     std::env::set_var("TOKIO_WORKER_THREADS", "4");
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // Windows/Linux：单实例支持 — 从外部打开文件时复用已有进程而不是新起一个
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+        let file_paths: Vec<String> = argv
+            .into_iter()
+            .skip(1)
+            .filter(|arg| !arg.starts_with('-'))
+            .filter(|arg| std::path::Path::new(arg).exists())
+            .collect();
+
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+            if !file_paths.is_empty() {
+                let payload = OpenedFilesPayload { paths: file_paths.clone() };
+                if window.emit("files-opened", payload).is_ok() {
+                    return;
+                }
+            }
+        }
+
+        if !file_paths.is_empty() {
+            if let Some(state) = app.try_state::<OpenedFilesState>() {
+                if let Ok(mut guard) = state.paths.lock() {
+                    guard.extend(file_paths);
+                }
+            }
+        }
+    }));
+
+    builder
         .register_uri_scheme_protocol("stream", |_, request| {
             media_stream::build_stream_response(&request).unwrap_or_else(|e| {
                 Response::builder()

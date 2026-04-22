@@ -36,6 +36,9 @@ aes-gcm = "0.10"
 rand = "0.8"
 uuid = { version = "1", features = ["v4"] }
 
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.6", features = ["std"] }
 objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL", "NSData", "NSError", "NSFileManager", "NSDate", "NSRunLoop", "NSGeometry"] }
