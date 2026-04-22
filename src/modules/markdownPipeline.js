@@ -328,6 +328,12 @@ export function createMarkdownParser(schema) {
 
             const content = tok.content || '';
 
+            // <br> 识别为 hardBreak，支持标题/段落内折行
+            if (hardBreakType && /^<br\s*\/?\s*>$/i.test(content)) {
+                state.addNode(hardBreakType, null);
+                return;
+            }
+
             // 检测结束标签
             const closeTag = parseHtmlCloseTag(content);
             if (closeTag) {
@@ -570,7 +576,12 @@ export function createMarkdownSerializer(schema) {
         hardBreak(state, node, parent, index) {
             for (let i = index + 1; i < parent.childCount; i += 1) {
                 if (parent.child(i).type !== node.type) {
-                    state.write('\n');
+                    // ATX 标题不能跨行，改用 <br> 保留折行
+                    if (parent.type.name === 'heading') {
+                        state.write('<br>');
+                    } else {
+                        state.write('\n');
+                    }
                     return;
                 }
             }
