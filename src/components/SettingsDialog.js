@@ -911,6 +911,7 @@ export class SettingsDialog {
         providerSelect.appendChild(customOpt);
 
         form.appendChild(providerSelect);
+        const providerDropdown = new Dropdown(providerSelect);
 
         const fieldsEl = document.createElement('div');
         fieldsEl.className = 'ai-add-form__fields';
@@ -923,7 +924,7 @@ export class SettingsDialog {
         cancelBtn.type = 'button';
         cancelBtn.className = 'ai-add-form__btn ai-add-form__btn--secondary';
         cancelBtn.textContent = t('settings.cancel');
-        const c1 = addClickHandler(cancelBtn, () => form.remove());
+        const c1 = addClickHandler(cancelBtn, () => { providerDropdown.destroy(); form.remove(); });
         this.cleanupFunctions.push(c1);
 
         const confirmBtn = document.createElement('button');
@@ -996,12 +997,14 @@ export class SettingsDialog {
             } else {
                 const apiKey = getField('apiKey');
                 this.aiConfiguredProviders.push({ id: selectedId, apiKey });
+                providerDropdown.destroy();
                 this._renderAiKeysList();
                 this._refreshModelSelects();
                 if (apiKey) this._fetchProviderModels(this.aiConfiguredProviders.length - 1);
                 return;
             }
 
+            providerDropdown.destroy();
             this._renderAiKeysList();
             this._refreshModelSelects();
         });
