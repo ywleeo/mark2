@@ -480,6 +480,7 @@ const {
     saveUntitledFile,
     importAsUntitled: handleImportAsUntitled,
     getStatusBarController: () => appState.getStatusBarController(),
+    getTabManager: () => appState.getTabManager(),
 });
 
 // ========== 导航控制器 ==========

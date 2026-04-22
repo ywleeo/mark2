@@ -1,5 +1,5 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
-import { getPathIdentityKey } from '../utils/pathUtils.js';
+import { getPathIdentityKey, basename } from '../utils/pathUtils.js';
 import { isSpreadsheetFilePath, isCsvFilePath } from '../utils/fileTypeUtils.js';
 
 let sharedExternalDropOpener = null;
@@ -85,6 +85,7 @@ export function createFileOperations({
     saveUntitledFile,
     importAsUntitled,
     getStatusBarController,
+    getTabManager,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -530,6 +531,113 @@ export function createFileOperations({
         }
     }
 
+    /**
+     * 检测到磁盘文件丢失（外部重命名/删除）时，把对应的 tab 转换成临时文件（untitled），
+     * 保留当前内容、保留 tab 顺序。之后该 tab 的所有行为（保存=另存为、不再读盘、不再监听）
+     * 都走 untitled 流程。
+     * @param {string} filePath 已丢失的真实路径
+     * @returns {string|null} 转换后的 untitled 路径；不需要/无法转换时返回 null
+     */
+    function convertMissingFileToUntitled(filePath) {
+        if (!filePath) return null;
+        if (untitledFileManager?.isUntitledPath?.(filePath)) return null;
+        const normalizedOld = normalizeFsPath(filePath) || filePath;
+        const doc = documentManager?.getDocumentByPath?.(normalizedOld);
+        if (!doc) return null;
+
+        const name = basename(normalizedOld) || 'untitled.md';
+        const isCurrentFile = normalizeFsPath(getCurrentFile()) === normalizedOld;
+
+        const editor = getEditor();
+        const codeEditor = getCodeEditor();
+        const activeViewMode = getActiveViewMode();
+
+        // 获取内容：优先编辑器实时内容，回退到 documentRegistry 缓存
+        let content = '';
+        if (isCurrentFile) {
+            if (activeViewMode === 'markdown' && editor) {
+                content = editor.getMarkdown?.() || '';
+            } else if (activeViewMode === 'code' && codeEditor) {
+                content = codeEditor.getValue?.() || '';
+            }
+        }
+        if (!content) {
+            const cached = documentRegistry?.getCachedEntry?.(normalizedOld);
+            if (cached && typeof cached.content === 'string') {
+                content = cached.content;
+            }
+        }
+
+        // 创建 untitled 路径
+        const untitledPath = untitledFileManager.createImportFile(name);
+        untitledFileManager.setContent(untitledPath, content);
+
+        // 迁移各组件内的路径引用（与 fileMenuActions.applyPathChange 一致的迁移步骤）
+        documentRegistry?.renameEntry?.(normalizedOld, untitledPath);
+        documentSessions?.updateSessionPath?.(normalizedOld, untitledPath);
+
+        const tabManager = typeof getTabManager === 'function' ? getTabManager() : null;
+        // 注意：updateTabPath 内部会调用 documentManager.renameDocument（不带 patch），
+        // 这里调用是为了同步 sharedTab 的 path/label。下一步 renameDocument 第二次调用时
+        // 因 documents 中已无 oldPath，会走幂等分支并合并我们传的 patch。
+        tabManager?.updateTabPath?.(normalizedOld, untitledPath, name);
+
+        const fileTree = getFileTree?.();
+        fileTree?.replaceOpenFilePath?.(normalizedOld, untitledPath);
+        // 停止对旧路径的文件监听，避免后续事件触发 stale reload 把编辑器清空
+        fileTree?.stopWatchingFile?.(normalizedOld);
+
+        editor?.renameDocumentPath?.(normalizedOld, untitledPath);
+        editor?.renameViewStateForTab?.(normalizedOld, untitledPath);
+        if (codeEditor && codeEditor.currentFile === normalizedOld) {
+            codeEditor.currentFile = untitledPath;
+        }
+        codeEditor?.renameViewStateForTab?.(normalizedOld, untitledPath);
+
+        const wasShared = doc.pinned === false;
+
+        // DocumentManager 真源更新：kind 改成 untitled、保留 dirty、强制 pin
+        // shared tab 转换后需要单独提升为 pinned（rename 不会自动加入 openOrder）
+        documentManager.renameDocument(normalizedOld, untitledPath, {
+            kind: 'untitled',
+            viewMode: activeViewMode,
+            tabId: untitledPath,
+            label: name,
+            dirty: content.length > 0,
+            pinned: true,
+        });
+        if (wasShared) {
+            // 把 shared 提升为 pinned 文件 tab，加入 openOrder
+            documentManager.openDocument(untitledPath, {
+                pinned: true,
+                activate: isCurrentFile,
+                kind: 'untitled',
+                viewMode: activeViewMode,
+                tabId: untitledPath,
+                label: name,
+                dirty: content.length > 0,
+            });
+        }
+
+        if (isCurrentFile) {
+            setCurrentFile(untitledPath, {
+                tabId: untitledPath,
+                kind: 'untitled',
+                viewMode: activeViewMode,
+                pinned: true,
+            });
+        }
+
+        logger?.info?.('convertMissingFileToUntitled', {
+            oldPath: normalizedOld,
+            untitledPath,
+            isCurrentFile,
+            contentLength: content.length,
+        });
+
+        return untitledPath;
+    }
+
     let loadPipeline = Promise.resolve();
 
     async function performLoad(filePath, options = {}) {
@@ -922,8 +1030,27 @@ export function createFileOperations({
                 documentRegistry.clearEntry(filePath);
             }
 
-            if (suppressMissingFileErrors && isMissingFileError(error)) {
-                return;
+            if (isMissingFileError(error)) {
+                // 已打开的文档：文件被外部重命名/删除 → 转换为 untitled 保留内容
+                if (filePath && documentManager?.getDocumentByPath?.(filePath)) {
+                    const untitledPath = convertMissingFileToUntitled(filePath);
+                    logger?.warn?.('loadFile:missing', {
+                        path: filePath,
+                        sessionId,
+                        untitledPath,
+                    });
+                    if (untitledPath) {
+                        // 异步触发对新 untitled 路径的加载，让编辑器显示保留的内容
+                        queueMicrotask(() => {
+                            loadFile(untitledPath, { tabId: untitledPath, autoFocus: false }).catch(() => {});
+                        });
+                    }
+                    return;
+                }
+                // 未打开的文档（如 stale 最近文件）：按调用方意愿决定是否静默
+                if (suppressMissingFileErrors) {
+                    return;
+                }
             }
 
             const readableMessage = getReadableErrorMessage(error);
