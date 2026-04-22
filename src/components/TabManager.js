@@ -117,6 +117,11 @@ export class TabManager {
             this.sharedTab = null;
         }
 
+        if (this.sharedTab) {
+            const sharedDoc = dm.getDocumentByPath?.(this.sharedTab.path);
+            this.sharedTab.dirty = Boolean(sharedDoc?.dirty);
+        }
+
         if (activePath && this.fileTabs.some(tab => tab.path === activePath)) {
             // 激活的是 pinned 文档（存在于 fileTabs 中）
             this.activeTabId = activePath;
