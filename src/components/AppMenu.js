@@ -166,6 +166,9 @@ export class AppMenu {
             }
         };
         window.addEventListener('storage', this._onStorage);
+
+        // 初始化完成后立即应用自定义快捷键（首次渲染用的是硬编码默认值）
+        this.updateShortcuts();
     }
 
     _renderMenuItem(item) {
