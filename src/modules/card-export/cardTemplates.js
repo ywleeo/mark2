@@ -137,6 +137,19 @@ export const CARD_TEMPLATES = [
         ],
     },
     {
+        id: 'song-paper',
+        color: '#faf8f2',
+        theme: 'light',
+        contentMaxHeight: 347, // 453 - padding(56+50)
+        baseFontSize: 14,
+        buildDecorations: () => [
+            { class: 'card-deco card-deco--sp-topline', content: '' },
+            { class: 'card-deco card-deco--sp-label', content: '随手记 · NOTE' },
+            { class: 'card-deco card-deco--sp-seal', content: '' },
+            { class: 'card-deco card-deco--sp-author', content: `mark² · ${new Date().toLocaleDateString('zh-CN')}` },
+        ],
+    },
+    {
         id: 'code-night',
         color: '#0d1117',
         theme: 'dark',

@@ -324,6 +324,7 @@
 .card-preview-card--gradient-blush .card-preview-card__content { max-height: 349px; } /* 453-58-46 */
 .card-preview-card--ink-stone      .card-preview-card__content { max-height: 357px; } /* 453-50-46 */
 .card-preview-card--hand-note      .card-preview-card__content { max-height: 330px; } /* 453-56-67 */
+.card-preview-card--song-paper     .card-preview-card__content { max-height: 347px; } /* 453-56-50 */
 .card-preview-card--code-night     .card-preview-card__content { max-height: 383px; } /* 453-50-20 */
 
 
@@ -362,6 +363,13 @@
 .card-preview-card__content ul,
 .card-preview-card__content ol { margin: 0.1em 0; padding-left: 1.6em; }
 .card-preview-card__content li { margin: 0.08em 0; }
+.card-preview-card__content hr {
+    border: none;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.22;
+    margin: 0.7em 0;
+}
 
 .card-preview-card__footer {
     position: absolute;
@@ -747,6 +755,122 @@
     background: rgba(255, 220, 60, 0.45);
     border-radius: 3px;
     padding: 0.02em 0.18em;
+}
+
+/* ========================================
+   模板 6：宋风纸本 (song-paper)
+   背景：近白宣纸 #faf8f2，宋体，粉色标题与点缀
+   ======================================== */
+
+.card-preview-card__background--song-paper {
+    background: #faf8f2;
+}
+
+.card-preview-card--song-paper .card-preview-card__body {
+    padding: 56px 32px 50px;
+    justify-content: center;
+}
+
+.card-preview-card--song-paper .card-preview-card__content {
+    color: #1f1b16;
+    font-family: 'Noto Serif SC', 'Source Han Serif SC', 'STSong', 'Songti SC', 'SimSun', serif;
+    font-size: 14px;
+    line-height: 1.88;
+    letter-spacing: 0.03em;
+    flex: none;
+}
+
+/* 标题粉色 */
+.card-preview-card--song-paper .card-preview-card__content h1,
+.card-preview-card--song-paper .card-preview-card__content h2,
+.card-preview-card--song-paper .card-preview-card__content h3,
+.card-preview-card--song-paper .card-preview-card__content h4,
+.card-preview-card--song-paper .card-preview-card__content h5,
+.card-preview-card--song-paper .card-preview-card__content h6 {
+    color: #d6336c;
+    font-family: inherit;
+    letter-spacing: 0.04em;
+}
+
+/* blockquote 配色 */
+.card-preview-card--song-paper .card-preview-card__content blockquote {
+    border-left-color: rgba(214, 51, 108, 0.35);
+    color: #5a4638;
+    opacity: 0.9;
+}
+
+/* 顶部短粉线 */
+.card-deco--sp-topline {
+    top: 26px;
+    left: 32px;
+    width: 42px;
+    height: 2px;
+    background: linear-gradient(90deg, #d6336c, rgba(214, 51, 108, 0.1));
+    border-radius: 1px;
+}
+
+/* 标签文字 */
+.card-deco--sp-label {
+    top: 21px;
+    right: 32px;
+    font-size: 9px;
+    color: rgba(214, 51, 108, 0.75);
+    letter-spacing: 0.22em;
+    font-weight: 500;
+    font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
+}
+
+/* 右下角方印 */
+.card-deco--sp-seal {
+    bottom: 46px;
+    right: 30px;
+    width: 14px;
+    height: 14px;
+    border: 1.2px solid rgba(214, 51, 108, 0.55);
+    border-radius: 1px;
+}
+.card-deco--sp-seal::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    background: rgba(214, 51, 108, 0.2);
+    border-radius: 0.5px;
+}
+
+/* 底部署名 */
+.card-deco--sp-author {
+    bottom: 22px;
+    left: 32px;
+    font-size: 9px;
+    color: rgba(120, 90, 70, 0.65);
+    letter-spacing: 0.14em;
+    font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
+}
+
+/* strong：粉色 + 淡粉底 */
+.card-preview-card--song-paper .card-preview-card__content strong {
+    font-weight: 700;
+    color: #be185d;
+    background: rgba(236, 72, 153, 0.12);
+    border-radius: 2px;
+    padding: 0.04em 0.22em;
+}
+
+/* em：暖褐斜体浅染 */
+.card-preview-card--song-paper .card-preview-card__content em {
+    font-style: italic;
+    color: #7a5228;
+    background: rgba(160, 110, 60, 0.08);
+    border-radius: 2px;
+    padding: 0.02em 0.15em;
+}
+
+/* 分割线：粉色渐隐 */
+.card-preview-card--song-paper .card-preview-card__content hr {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(214, 51, 108, 0.45), transparent);
+    opacity: 1;
+    margin: 0.9em 0;
 }
 
 /* ========================================

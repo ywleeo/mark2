@@ -471,7 +471,7 @@ export class CardExportFlow {
         const div = document.createElement('div');
         div.innerHTML = html;
         div.querySelectorAll('script, style, img, video, audio, iframe').forEach(el => el.remove());
-        const kept = new Set(['p', 'br', 'strong', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        const kept = new Set(['p', 'br', 'hr', 'strong', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
             'blockquote', 'ul', 'ol', 'li', 'code', 'pre']);
         const walk = (node) => {
             for (const child of [...node.childNodes]) {
