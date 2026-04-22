@@ -1,4 +1,4 @@
-import { basename } from '../utils/pathUtils.js';
+import { basename, dirname } from '../utils/pathUtils.js';
 import { createCompactFileNameElement, scheduleCompactFileNameRefresh } from '../utils/fileNameDisplay.js';
 
 export class FileRenamer {
@@ -207,9 +207,9 @@ export class FileRenamer {
             throw new Error('文件服务未就绪，无法重命名');
         }
 
-        const separator = '/';
-        const parentDir = normalizedSource.substring(0, normalizedSource.lastIndexOf(separator));
-        const rawDestination = parentDir ? `${parentDir}${separator}${nextLabel}` : nextLabel;
+        const parentDir = dirname(normalizedSource);
+        const sep = normalizedSource.includes('\\') ? '\\' : '/';
+        const rawDestination = parentDir ? `${parentDir}${sep}${nextLabel}` : nextLabel;
         const normalizedDestination = this.normalizePath?.(rawDestination) || rawDestination;
         if (normalizedDestination === normalizedSource) {
             return;
@@ -219,7 +219,7 @@ export class FileRenamer {
         if (parentDir) {
             this._markLocalWrite(parentDir);
         }
-        const destinationParent = normalizedDestination.substring(0, normalizedDestination.lastIndexOf(separator));
+        const destinationParent = dirname(normalizedDestination);
         if (destinationParent && destinationParent !== parentDir) {
             this._markLocalWrite(destinationParent);
         }

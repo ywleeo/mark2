@@ -611,7 +611,8 @@ export class FileTree {
         if (!normalized) return false;
         const activePath = this.renamer?.getRenamingPath?.() || this.folderRenamer.getRenamingPath();
         if (!activePath) return false;
-        return activePath === normalized || activePath.startsWith(`${normalized}/`);
+        const sep = normalized.includes('\\') ? '\\' : '/';
+        return activePath === normalized || activePath.startsWith(`${normalized}${sep}`);
     }
 
     flushPendingRefresh() {
