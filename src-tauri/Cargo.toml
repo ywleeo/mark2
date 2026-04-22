@@ -1,6 +1,6 @@
 [package]
 name = "mark2-tauri"
-version = "1.7.23"
+version = "1.7.24"
 edition = "2021"
 rust-version = "1.77.2"
 
