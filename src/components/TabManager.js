@@ -252,11 +252,36 @@ export class TabManager {
 
     updateActiveState() {
         if (!this.container) return;
+        let activeEl = null;
         this.container.querySelectorAll('.tab').forEach(tabElement => {
             if (tabElement.dataset.tabId === this.activeTabId) {
                 tabElement.classList.add('active');
+                activeEl = tabElement;
             } else {
                 tabElement.classList.remove('active');
+            }
+        });
+        this.scrollActiveTabIntoView(activeEl);
+    }
+
+    scrollActiveTabIntoView(activeEl) {
+        if (!activeEl || !this.container) return;
+        if (this.isDraggingTabs || this.pointerDragState) return;
+        // 布局完成后再滚动，避免 render 后尺寸未就绪
+        requestAnimationFrame(() => {
+            if (!activeEl.isConnected) return;
+            const c = this.container;
+            // 末尾的 + 按钮是 position: sticky，会悬浮在右侧遮挡 tab，需扣掉其宽度
+            const newTabBtn = c.querySelector('.tab-new-btn');
+            const trailing = newTabBtn ? newTabBtn.offsetWidth : 0;
+            const left = activeEl.offsetLeft;
+            const right = left + activeEl.offsetWidth;
+            const viewLeft = c.scrollLeft;
+            const viewRight = viewLeft + c.clientWidth - trailing;
+            if (left < viewLeft) {
+                c.scrollTo({ left: left, behavior: 'smooth' });
+            } else if (right > viewRight) {
+                c.scrollTo({ left: right - (c.clientWidth - trailing), behavior: 'smooth' });
             }
         });
     }
@@ -403,6 +428,12 @@ export class TabManager {
                     this.setActiveTab(tab.id);
                 });
                 this.cleanupFunctions.push(cleanup2);
+
+                const suppressContextMenu = (e) => e.preventDefault();
+                tabElement.addEventListener('contextmenu', suppressContextMenu);
+                this.cleanupFunctions.push(() => {
+                    tabElement.removeEventListener('contextmenu', suppressContextMenu);
+                });
 
                 if (tab.type === 'file') {
                     this.enableTabDragging(tabElement, tab);
