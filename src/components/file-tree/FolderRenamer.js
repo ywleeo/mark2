@@ -1,4 +1,4 @@
-import { basename } from '../../utils/pathUtils.js';
+import { basename, dirname } from '../../utils/pathUtils.js';
 
 export class FolderRenamer {
     constructor(options = {}) {
@@ -172,10 +172,9 @@ export class FolderRenamer {
         if (!normalizedSource) return;
 
         const fileService = this.getFileService?.();
-        const separator = '/';
-        const lastSlashIndex = normalizedSource.lastIndexOf(separator);
-        const parentDir = lastSlashIndex >= 0 ? normalizedSource.substring(0, lastSlashIndex) : '';
-        const destinationPath = parentDir ? `${parentDir}${separator}${nextLabel}` : nextLabel;
+        const parentDir = dirname(normalizedSource);
+        const sep = normalizedSource.includes('\\') ? '\\' : '/';
+        const destinationPath = parentDir ? `${parentDir}${sep}${nextLabel}` : nextLabel;
         const normalizedDestination = this.normalizePath?.(destinationPath);
         if (!normalizedDestination || normalizedDestination === normalizedSource) {
             return;
