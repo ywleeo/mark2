@@ -431,10 +431,18 @@ export class CardExportFlow {
                 continue;
             }
 
-            // h2-h6 must start at the top of a page — flush preceding content first
+            // h2-h6 must start at the top of a page — flush preceding content first.
+            // 例外：current 仅剩 1 个普通段落（多为上一页溢出后留下的孤儿），
+            // 允许 h 跟它合页，避免单段孤儿。后续测量若放不下，会回退到常规拆页。
             if (item.kind === 'block' && /^h[2-6]$/.test(item.tag) && current.length > 0) {
-                pages.push(itemsToHtml(current));
-                current = [];
+                const only = current[0];
+                const isOrphanBlock = current.length === 1
+                    && only.kind === 'block'
+                    && !/^h[1-6]$/.test(only.tag);
+                if (!isOrphanBlock) {
+                    pages.push(itemsToHtml(current));
+                    current = [];
+                }
             }
 
             current.push(item);
