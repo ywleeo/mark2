@@ -123,11 +123,9 @@
     text-overflow: ellipsis;
 }
 
-.card-export-flow__ai-btn,
 .card-export-flow__expand-btn,
 .card-export-flow__export-btn,
 .card-export-flow__back-btn,
-.card-export-flow__expand-ai-btn,
 .card-export-flow__download-all-btn,
 .card-export-flow__close {
     display: inline-flex;
@@ -142,26 +140,20 @@
     color: rgba(15, 23, 42, 0.4);
     transition: background 0.15s, color 0.15s;
 }
-.card-export-flow__ai-btn:hover:not(:disabled),
 .card-export-flow__expand-btn:hover:not(:disabled),
 .card-export-flow__export-btn:hover:not(:disabled),
 .card-export-flow__back-btn:hover,
-.card-export-flow__expand-ai-btn:hover:not(:disabled),
 .card-export-flow__download-all-btn:hover:not(:disabled),
 .card-export-flow__close:hover {
     background: rgba(15, 23, 42, 0.06);
     color: rgba(15, 23, 42, 0.8);
 }
-.card-export-flow__ai-btn:disabled,
 .card-export-flow__expand-btn:disabled,
 .card-export-flow__export-btn:disabled,
-.card-export-flow__expand-ai-btn:disabled,
 .card-export-flow__download-all-btn:disabled {
     opacity: 0.3;
     cursor: default;
 }
-.card-export-flow__ai-btn:not(:disabled),
-.card-export-flow__expand-ai-btn:not(:disabled) { color: #7c3aed; }
 .card-export-flow__export-btn:not(:disabled) { color: #2563eb; }
 .card-export-flow__expand-btn:not(:disabled) { color: #0891b2; }
 .card-export-flow__download-all-btn:not(:disabled) { color: #059669; }
@@ -236,29 +228,6 @@
 }
 .card-export-flow__item-loading.hidden { display: none; }
 
-.card-export-flow__item-error {
-    position: absolute;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(4px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    font-size: 11px;
-    color: rgba(15, 23, 42, 0.5);
-    z-index: 10;
-    border-radius: 8px;
-    cursor: pointer;
-}
-.card-export-flow__item-error.hidden { display: none; }
-.card-export-flow__item-retry {
-    font-size: 11px;
-    color: #2563eb;
-    font-weight: 600;
-}
-
 .card-export-flow__spinner {
     width: 20px;
     height: 20px;
@@ -274,23 +243,17 @@
 :root[data-theme-appearance='dark'] .card-export-flow__panel { background: #111827; border-top-color: rgba(148, 163, 184, 0.15); }
 :root[data-theme-appearance='dark'] .card-export-flow__header { border-bottom-color: rgba(148, 163, 184, 0.1); }
 :root[data-theme-appearance='dark'] .card-export-flow__title { color: rgba(226, 232, 240, 0.6); }
-:root[data-theme-appearance='dark'] .card-export-flow__ai-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__expand-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__back-btn,
-:root[data-theme-appearance='dark'] .card-export-flow__expand-ai-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__close { color: rgba(148, 163, 184, 0.6); }
-:root[data-theme-appearance='dark'] .card-export-flow__ai-btn:not(:disabled),
-:root[data-theme-appearance='dark'] .card-export-flow__expand-ai-btn:not(:disabled) { color: #a78bfa; }
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn:not(:disabled) { color: #60a5fa; }
 :root[data-theme-appearance='dark'] .card-export-flow__expand-btn:not(:disabled) { color: #22d3ee; }
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn:not(:disabled) { color: #34d399; }
-:root[data-theme-appearance='dark'] .card-export-flow__ai-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__expand-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__back-btn:hover,
-:root[data-theme-appearance='dark'] .card-export-flow__expand-ai-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__close:hover { background: rgba(255, 255, 255, 0.08); color: rgba(226, 232, 240, 0.9); }
 :root[data-theme-appearance='dark'] .card-export-flow__page-label { color: rgba(148, 163, 184, 0.35); }
