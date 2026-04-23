@@ -152,18 +152,23 @@ fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
     app.clipboard().read_text().map_err(|e| e.to_string())
 }
 
+/// macOS 专用重启：走 LaunchServices（open -n）让新进程被系统登记为前台 app，
+/// 避免 plugin-process relaunch 直接 spawn 二进制导致窗口不前置、需手动点 dock 的问题。
+/// 非 macOS 平台直接退出——前端仅在 macOS 调用此命令，其他平台继续用 plugin-process relaunch。
 #[tauri::command]
-fn activate_app(app: AppHandle) {
+fn relaunch_via_open(app: AppHandle) {
     #[cfg(target_os = "macos")]
-    {
-        let _ = app.run_on_main_thread(|| unsafe {
-            use objc2_app_kit::NSApplication;
-            use objc2::MainThreadMarker;
-            let mtm = MainThreadMarker::new_unchecked();
-            let ns_app = NSApplication::sharedApplication(mtm);
-            ns_app.activate();
-        });
+    if let Ok(exe) = std::env::current_exe() {
+        // .../Mark2.app/Contents/MacOS/mark2 → .../Mark2.app
+        if let Some(app_bundle) = exe.ancestors().nth(3) {
+            let _ = std::process::Command::new("/usr/bin/open")
+                .arg("-n")
+                .arg(app_bundle)
+                .spawn();
+            std::thread::sleep(std::time::Duration::from_millis(600));
+        }
     }
+    app.exit(0);
 }
 
 fn main() {
@@ -266,7 +271,7 @@ fn main() {
             ai_proxy::ai_proxy_start_stream,
             ai_proxy::ai_proxy_cancel_stream,
             read_clipboard_text,
-            activate_app,
+            relaunch_via_open,
             default_handler::get_default_app_status,
             default_handler::set_as_default_app,
             vault::commands::vault_list,

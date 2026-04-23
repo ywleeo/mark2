@@ -217,9 +217,6 @@ export function createWindowLifecycle({
             const win = getCurrentWindow();
             await win.show();
             await win.setFocus();
-            // relaunch 等非用户触发场景下，setFocus 不足以穿透 macOS 的防抢焦点机制
-            // 需要 NSApp.activateIgnoringOtherApps(true) 强制前台
-            await invoke('activate_app');
         } catch { /* ignore */ }
     }
 

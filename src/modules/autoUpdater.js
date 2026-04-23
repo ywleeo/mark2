@@ -4,8 +4,10 @@
  */
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { invoke } from '@tauri-apps/api/core';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { createStore } from '../services/storage.js';
+import { isMac } from '../utils/platform.js';
 
 const store = createStore('autoUpdater');
 store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Number(raw) });
@@ -122,7 +124,13 @@ async function applyPendingUpdate() {
         console.log('[AutoUpdater] 开始 install()');
         await pendingUpdate.install();
         console.log('[AutoUpdater] install() 完成,开始 relaunch()');
-        await relaunch();
+        // macOS 上 plugin-process 的 relaunch() 直接 spawn 二进制，不走 LaunchServices，
+        // 导致新进程窗口不前置、需手动点 dock。改走 Rust 侧 `open -n` 让系统正常登记前台 app。
+        if (isMac) {
+            await invoke('relaunch_via_open');
+        } else {
+            await relaunch();
+        }
         console.log('[AutoUpdater] relaunch() 已调用');
     } catch (err) {
         console.warn('[AutoUpdater] 安装/重启失败:', err);
