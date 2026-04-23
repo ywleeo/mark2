@@ -295,6 +295,7 @@ body.sidebar-resizing {
     overflow: visible;
     flex-shrink: 0;
     background: var(--sidebar-bg, #f5f6f8);
+    border-right: 1px solid var(--border-color, #ddd);
 }
 
 body.is-sidebar-hidden #sidebar,
@@ -353,6 +354,8 @@ body.sidebar-resizing .sidebar-resizer::before {
     -webkit-app-region: drag;
     scrollbar-width: none;
     background: var(--sidebar-bg, #f5f6f8);
+    padding-bottom: 1px;
+    box-shadow: inset 0 -1px 0 var(--border-color, #ddd);
 }
 
 .tab-bar.tab-dragging {
@@ -396,11 +399,10 @@ body.sidebar-resizing .sidebar-resizer::before {
 }
 
 .tab.active {
-    background: var(--tab-border-accent, #ffffff);
-    /* border: 1px solid; */
-    /* border-color: var(--tab-active-border-color, #6be275); */
-    border-bottom-color: transparent;  /* 保持 1px solid，但颜色透明 */
+    background: var(--content-bg, #fdfdfd);
     color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
+    bottom: -1px;
+    z-index: 1;
 }
 
 .tab-label {
