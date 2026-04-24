@@ -83,6 +83,10 @@ export class AgentLoop {
 
                 // 将 assistant 响应加入历史
                 const assistantMsg = { role: 'assistant', content: result.content || null };
+                if (result.thinking) {
+                    // DeepSeek V4 thinking 模式要求 reasoning_content 必须回传
+                    assistantMsg.reasoning_content = result.thinking;
+                }
                 if (result.toolCalls?.length) {
                     assistantMsg.tool_calls = result.toolCalls;
                 }
