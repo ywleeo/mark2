@@ -127,6 +127,8 @@
 .card-export-flow__export-btn,
 .card-export-flow__back-btn,
 .card-export-flow__download-all-btn,
+.card-export-flow__font-down-btn,
+.card-export-flow__font-up-btn,
 .card-export-flow__close {
     display: inline-flex;
     align-items: center;
@@ -144,19 +146,25 @@
 .card-export-flow__export-btn:hover:not(:disabled),
 .card-export-flow__back-btn:hover,
 .card-export-flow__download-all-btn:hover:not(:disabled),
+.card-export-flow__font-down-btn:hover:not(:disabled),
+.card-export-flow__font-up-btn:hover:not(:disabled),
 .card-export-flow__close:hover {
     background: rgba(15, 23, 42, 0.06);
     color: rgba(15, 23, 42, 0.8);
 }
 .card-export-flow__expand-btn:disabled,
 .card-export-flow__export-btn:disabled,
-.card-export-flow__download-all-btn:disabled {
+.card-export-flow__download-all-btn:disabled,
+.card-export-flow__font-down-btn:disabled,
+.card-export-flow__font-up-btn:disabled {
     opacity: 0.3;
     cursor: default;
 }
 .card-export-flow__export-btn:not(:disabled) { color: #2563eb; }
 .card-export-flow__expand-btn:not(:disabled) { color: #0891b2; }
 .card-export-flow__download-all-btn:not(:disabled) { color: #059669; }
+.card-export-flow__font-down-btn:not(:disabled),
+.card-export-flow__font-up-btn:not(:disabled) { color: #7c3aed; }
 
 .card-export-flow__page-label {
     text-align: center;
@@ -247,14 +255,20 @@
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__back-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn,
+:root[data-theme-appearance='dark'] .card-export-flow__font-down-btn,
+:root[data-theme-appearance='dark'] .card-export-flow__font-up-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__close { color: rgba(148, 163, 184, 0.6); }
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn:not(:disabled) { color: #60a5fa; }
 :root[data-theme-appearance='dark'] .card-export-flow__expand-btn:not(:disabled) { color: #22d3ee; }
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn:not(:disabled) { color: #34d399; }
+:root[data-theme-appearance='dark'] .card-export-flow__font-down-btn:not(:disabled),
+:root[data-theme-appearance='dark'] .card-export-flow__font-up-btn:not(:disabled) { color: #a78bfa; }
 :root[data-theme-appearance='dark'] .card-export-flow__expand-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__back-btn:hover,
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn:hover:not(:disabled),
+:root[data-theme-appearance='dark'] .card-export-flow__font-down-btn:hover:not(:disabled),
+:root[data-theme-appearance='dark'] .card-export-flow__font-up-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__close:hover { background: rgba(255, 255, 255, 0.08); color: rgba(226, 232, 240, 0.9); }
 :root[data-theme-appearance='dark'] .card-export-flow__page-label { color: rgba(148, 163, 184, 0.35); }
 :root[data-theme-appearance='dark'] .card-export-flow__item-loading { background: rgba(17, 24, 39, 0.84); color: rgba(148, 163, 184, 0.8); }

@@ -26,7 +26,12 @@ export class CardExportFlow {
         this._expandMode = false;
         this._expandTpl = null;
         this._expandItems = [];
+        this._expandFontSize = null; // current font size in expand mode (not persisted)
     }
+
+    static FONT_MIN = 10;
+    static FONT_MAX = 24;
+    static FONT_STEP = 1;
 
     mount() {
         const el = document.createElement('div');
@@ -65,6 +70,18 @@ export class CardExportFlow {
                             </button>
                         </div>
                         <div class="cef-expand-actions" style="display:none">
+                            <button type="button" class="card-export-flow__font-down-btn" aria-label="减小字号">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M2.5 12L5.5 4l3 8M3.7 9.5h3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10.5 8h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="card-export-flow__font-up-btn" aria-label="放大字号">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M2.5 12L5.5 4l3 8M3.7 9.5h3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10.5 8h4M12.5 6v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                                </svg>
+                            </button>
                             <button type="button" class="card-export-flow__download-all-btn" aria-label="下载全部">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path d="M5 2v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -93,6 +110,8 @@ export class CardExportFlow {
         this._expandBtn = el.querySelector('.card-export-flow__expand-btn');
         this._exportBtn = el.querySelector('.card-export-flow__export-btn');
         this._downloadAllBtn = el.querySelector('.card-export-flow__download-all-btn');
+        this._fontDownBtn = el.querySelector('.card-export-flow__font-down-btn');
+        this._fontUpBtn = el.querySelector('.card-export-flow__font-up-btn');
         this._normalActions = el.querySelector('.cef-normal-actions');
         this._expandActions = el.querySelector('.cef-expand-actions');
 
@@ -111,6 +130,8 @@ export class CardExportFlow {
             addClickHandler(this._expandBtn, () => this._handleExpandClick()),
             addClickHandler(this._exportBtn, () => { if (this._selectedItem) this._handleExport(this._selectedItem); }),
             addClickHandler(this._downloadAllBtn, () => this._handleDownloadAll()),
+            addClickHandler(this._fontDownBtn, () => this._changeFontSize(-CardExportFlow.FONT_STEP)),
+            addClickHandler(this._fontUpBtn, () => this._changeFontSize(+CardExportFlow.FONT_STEP)),
             addClickHandler(this._backBtn, () => this._exitExpandMode()),
             ...Array.from(el.querySelectorAll('.card-export-flow__close')).map(btn =>
                 addClickHandler(btn, () => this.hide())
@@ -179,8 +200,9 @@ export class CardExportFlow {
         const textEl = cardEl.querySelector('.card-preview-card__content');
         // code mode: preserve syntax highlighting classes; 其他模板做轻度清理
         textEl.innerHTML = tpl.codeMode ? html : this._sanitizeRawForCard(html);
-        // Expand cards use uniform base font size — no auto-scaling across cards
-        textEl.style.fontSize = `${tpl.baseFontSize || 13.5}px`;
+        // Expand cards use a uniform font size (controlled by header A-/A+); no per-card auto-scaling
+        const fontSize = this._expandFontSize ?? tpl.baseFontSize ?? 13.5;
+        textEl.style.fontSize = `${fontSize}px`;
         requestAnimationFrame(() => this._applySmartLayout({ cardEl, textEl, tpl }));
 
         return { root, previewWrap, cardEl, textEl, loadingEl, html };
@@ -272,8 +294,37 @@ export class CardExportFlow {
     _handleExpandClick() {
         const item = this._selectedItem;
         if (!item) return;
-        const pages = this._rawSplit(item.tpl);
+        // 每次打开 expand 都重置为模板默认字号（不持久化）
+        this._expandFontSize = Math.round(item.tpl.baseFontSize || 13.5);
+        const pages = this._rawSplit(item.tpl, this._expandFontSize);
         if (pages.length) this._enterExpandMode(pages, item.tpl);
+    }
+
+    _changeFontSize(delta) {
+        if (!this._expandMode) return;
+        const next = Math.max(
+            CardExportFlow.FONT_MIN,
+            Math.min(CardExportFlow.FONT_MAX, this._expandFontSize + delta)
+        );
+        if (next === this._expandFontSize) return;
+        this._expandFontSize = next;
+        this._rebuildExpand();
+    }
+
+    _rebuildExpand() {
+        if (!this._expandMode || !this._expandTpl) return;
+        const tpl = this._expandTpl;
+        const pages = this._rawSplit(tpl, this._expandFontSize);
+        this._expandItems.forEach(i => i.root.remove());
+        this._expandItems = pages.map((html, i) => this._buildExpandItem(html, tpl, i, pages.length));
+        this._expandItems.forEach(i => this.stripEl.appendChild(i.root));
+        this._updateFontButtons();
+    }
+
+    _updateFontButtons() {
+        if (!this._fontDownBtn) return;
+        this._fontDownBtn.disabled = this._expandFontSize <= CardExportFlow.FONT_MIN;
+        this._fontUpBtn.disabled = this._expandFontSize >= CardExportFlow.FONT_MAX;
     }
 
     _enterExpandMode(pages, tpl) {
@@ -292,11 +343,13 @@ export class CardExportFlow {
         this._backBtn.style.display = '';
         this._normalActions.style.display = 'none';
         this._expandActions.style.display = '';
+        this._updateFontButtons();
     }
 
     _exitExpandMode() {
         this._expandMode = false;
         this._expandTpl = null;
+        this._expandFontSize = null;
 
         // Remove expand cards
         this._expandItems.forEach(i => i.root.remove());
@@ -355,7 +408,7 @@ export class CardExportFlow {
         return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    _rawSplit(tpl) {
+    _rawSplit(tpl, fontSize = null) {
         const maxH = tpl.contentMaxHeight;
         const baseHtml = this._sanitizeRaw(this._selectedHtml);
         if (!maxH) return [baseHtml || this._selectedText];
@@ -414,10 +467,11 @@ export class CardExportFlow {
             return out;
         };
 
-        // Hidden measurement card
+        // Hidden measurement card — match font size to actual rendered expand cards
         const measureCard = this._buildCardDOM(tpl);
         const measureContent = measureCard.querySelector('.card-preview-card__content');
         measureCard.style.cssText = `position:fixed;left:-10000px;top:0;width:${DISPLAY_WIDTH}px;height:${DISPLAY_HEIGHT}px;visibility:hidden;pointer-events:none;`;
+        if (fontSize != null) measureContent.style.fontSize = `${fontSize}px`;
         document.body.appendChild(measureCard);
 
         const pages = [];
@@ -431,10 +485,11 @@ export class CardExportFlow {
                 continue;
             }
 
-            // h2-h6 must start at the top of a page — flush preceding content first.
+            // h2 must start at the top of a page — flush preceding content first.
             // 例外：current 仅剩 1 个普通段落（多为上一页溢出后留下的孤儿），
-            // 允许 h 跟它合页，避免单段孤儿。后续测量若放不下，会回退到常规拆页。
-            if (item.kind === 'block' && /^h[2-6]$/.test(item.tag) && current.length > 0) {
+            // 允许 h2 跟它合页，避免单段孤儿。后续测量若放不下，会回退到常规拆页。
+            // h3-h6 不强制换页，按高度自然流动；多个小节能合并就合并到一页。
+            if (item.kind === 'block' && item.tag === 'h2' && current.length > 0) {
                 const only = current[0];
                 const isOrphanBlock = current.length === 1
                     && only.kind === 'block'
@@ -449,8 +504,32 @@ export class CardExportFlow {
             measureContent.innerHTML = itemsToHtml(current);
             if (measureContent.scrollHeight > maxH && current.length > 1) {
                 current.pop();
+                // 防孤儿标题：若当前页尾部是 h2-h6（或紧跟其后的 <hr> 分割线），
+                // 把它们一起带到下一页，避免标题视觉上成为页面最后一行。
+                const carry = [];
+                while (current.length > 0) {
+                    const last = current[current.length - 1];
+                    const isHeading = last.kind === 'block' && /^h[2-6]$/.test(last.tag);
+                    const isHr = last.kind === 'block' && last.tag === 'hr';
+                    if (isHeading || isHr) {
+                        carry.unshift(current.pop());
+                    } else {
+                        break;
+                    }
+                }
+                // 仅当 carry 真包含标题时才搬走；否则尾部只是 content 后的 <hr>，回填本页
+                const carryHasHeading = carry.some(c => /^h[2-6]$/.test(c.tag));
+                if (!carryHasHeading) {
+                    current.push(...carry);
+                    carry.length = 0;
+                }
+                if (current.length === 0) {
+                    // current 全部是标题（含可能的 hr）：保留以避免空页（极端边界情况）
+                    current = carry;
+                    carry.length = 0;
+                }
                 pages.push(itemsToHtml(current));
-                current = [item];
+                current = [...carry, item];
                 measureContent.innerHTML = itemsToHtml(current);
             }
         }
