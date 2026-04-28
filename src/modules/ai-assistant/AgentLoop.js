@@ -115,6 +115,7 @@ export class AgentLoop {
                 }
 
                 // 串行执行工具（避免并发的确认弹窗冲突）
+                const respondedIds = new Set();
                 for (const toolCall of result.toolCalls) {
                     if (this.aborted) break;
 
@@ -145,9 +146,24 @@ export class AgentLoop {
                         tool_call_id: toolCall.id,
                         content: JSON.stringify(toolResult),
                     });
+                    respondedIds.add(toolCall.id);
                 }
 
-                if (this.aborted) break;
+                // 用户中途 stop 时，给未应答的 tool_calls 补一条 cancelled 占位应答。
+                // 否则 history 里 assistant.tool_calls 数 > tool 应答数，下次请求会被
+                // server 拒（OpenAI 协议：每个 tool_call 必须有对应 tool 应答）。
+                if (this.aborted) {
+                    for (const tc of result.toolCalls) {
+                        if (!respondedIds.has(tc.id)) {
+                            history.push({
+                                role: 'tool',
+                                tool_call_id: tc.id,
+                                content: JSON.stringify({ error: 'cancelled by user' }),
+                            });
+                        }
+                    }
+                    break;
+                }
             }
         } catch (err) {
             if (!this.aborted) {
