@@ -44,7 +44,6 @@ export function createAppBootstrap({
     exportManager,
     workspaceManager,
     editorRegistry,
-    tabHistoryManager,
     documentSessions,
     documentRegistry,
     untitledFileManager,
@@ -116,8 +115,6 @@ export function createAppBootstrap({
     clearRecent,
     // editorHistoryController 导出
     handleSettingsSubmit,
-    handleUndoCommand,
-    handleRedoCommand,
     // fileOperations 导出
     openPathsFromSelection,
     openFileOrFolder,
@@ -187,8 +184,6 @@ export function createAppBootstrap({
             normalizeFsPath,
             updateWindowTitle,
             scheduleDocumentSnapshotSync,
-            onUndoRequest: handleUndoCommand,
-            onRedoRequest: handleRedoCommand,
             onFileSaved: async (filePath, modifiedTime) => {
                 await windowFocusHandler?.syncFileModifiedTime?.(filePath, modifiedTime);
             },
@@ -201,7 +196,6 @@ export function createAppBootstrap({
             editorCallbacks,
             documentSessions,
             setContentZoom,
-            tabHistoryManager,
         });
 
         eventBus.emit(EVENT_IDS.EDITOR_READY, { markdownEditor: editor, codeEditor });
@@ -367,8 +361,6 @@ export function createAppBootstrap({
                 saveCurrentFileAs,
                 closeActiveTab,
                 reopenLastClosedTab,
-                handleUndoCommand,
-                handleRedoCommand,
                 handleCreateNewFile,
                 handleCreateUntitled,
                 handleDeleteActiveFile,

@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, TextSelection } from '@tiptap/pm/state';
+import { closeHistory } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
@@ -21,7 +22,7 @@ import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugi
 
 /**
  * 返回 MarkdownEditor 所需的 TipTap 扩展列表。
- * undo/redo 快捷键由全局 KeybindingManager 接管，不在扩展层注册。
+ * undo/redo 由 StarterKit 内置 History 扩展处理，按 tab 维护各自历史。
  * @param {object} lowlight - createConfiguredLowlight() 实例
  */
 export function createEditorExtensions(lowlight) {
@@ -42,7 +43,8 @@ export function createEditorExtensions(lowlight) {
             link: false,
             trailingNode: false,
             hardBreak: { keepMarks: true },
-            history: false,
+            // 关闭时间切分：完全依赖 historyGroupSplitter 按字符（换行/空格/标点）切分
+            history: { newGroupDelay: Number.MAX_SAFE_INTEGER },
         }),
         Link.configure({
             openOnClick: false,
@@ -158,6 +160,58 @@ export function createEditorExtensions(lowlight) {
                         return this.editor.commands.setHardBreak();
                     },
                 };
+            },
+        }),
+        // Sublime 风格 undo 切分：插入了换行/空格/标点的 transaction 关闭当前 history group，
+        // 让 "abc⏎123⏎" / "hello world" / "a, b" 这类输入按词边界逐段撤回。
+        // IME（拼音输入法）合成期间不切分，避免汉字逐字成 group。
+        Extension.create({
+            name: 'historyGroupSplitter',
+            addProseMirrorPlugins() {
+                const SPLIT_CHAR = /[\s\p{P}]/u;
+                let pmView = null;
+                let imeGuardUntil = 0;
+                return [
+                    new Plugin({
+                        view(editorView) {
+                            pmView = editorView;
+                            return { destroy() { pmView = null; } };
+                        },
+                        props: {
+                            handleDOMEvents: {
+                                // composition 结束后给一个短暂窗口：IME commit 紧随其后的 transaction
+                                // 此时 view.composing 已变 false，再切分会把汉字 commit 误切
+                                compositionend() {
+                                    imeGuardUntil = Date.now() + 50;
+                                    return false;
+                                },
+                            },
+                        },
+                        appendTransaction(transactions, _oldState, newState) {
+                            const lastTr = transactions[transactions.length - 1];
+                            if (!lastTr || !lastTr.docChanged) return null;
+                            if (lastTr.getMeta('addToHistory') === false) return null;
+                            if (pmView?.composing) return null;
+                            if (Date.now() < imeGuardUntil) return null;
+                            let shouldSplit = false;
+                            for (const step of lastTr.steps) {
+                                const slice = step.slice;
+                                if (!slice || slice.size === 0) continue;
+                                const text = slice.content.textBetween(0, slice.content.size, '\n', '');
+                                if (text && SPLIT_CHAR.test(text)) {
+                                    shouldSplit = true;
+                                    break;
+                                }
+                                if (slice.openStart > 0 || slice.openEnd > 0) {
+                                    shouldSplit = true;
+                                    break;
+                                }
+                            }
+                            if (!shouldSplit) return null;
+                            return closeHistory(newState.tr);
+                        },
+                    }),
+                ];
             },
         }),
         // 空 code block 的 IME 拼音双插 bug 修复

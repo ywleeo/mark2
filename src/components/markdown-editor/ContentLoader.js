@@ -1,4 +1,4 @@
-import { Selection, TextSelection } from '@tiptap/pm/state';
+import { EditorState, Selection, TextSelection } from '@tiptap/pm/state';
 import {
     createImageObjectUrl,
     drainImageObjectUrls,
@@ -22,28 +22,6 @@ function createSafeTextSelection(doc, from, to) {
     } catch (_) {
         const safePos = Math.max(0, Math.min(Number.isFinite(from) ? from : 0, doc.content.size));
         return Selection.near(doc.resolve(safePos));
-    }
-}
-
-/**
- * 将当前 selection 所在行滚动到容器中间。
- * ProseMirror 的 scrollIntoView 只保证可见，history 恢复需要更稳定的居中定位。
- */
-function centerEditorSelection(editor, scrollContainer) {
-    if (!editor?.view || !scrollContainer) return;
-    try {
-        const { from } = editor.state.selection;
-        const coords = editor.view.coordsAtPos(from);
-        const containerRect = scrollContainer.getBoundingClientRect();
-        const caretCenter = coords.top + ((coords.bottom - coords.top) / 2);
-        const targetTop = scrollContainer.scrollTop
-            + caretCenter
-            - containerRect.top
-            - (scrollContainer.clientHeight / 2);
-        const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
-        scrollContainer.scrollTop = Math.max(0, Math.min(targetTop, maxScrollTop));
-    } catch (_) {
-        // selection 可能位于刚重建的非文本节点边界；这种情况保持当前滚动即可。
     }
 }
 
@@ -151,7 +129,13 @@ export class ContentLoader {
             if (isFileSwitching) {
                 this.getFocusManager()?.forceBlur();
                 editor.setEditable(false);
-                editor.commands.setContent('');
+                // 切文件时用 fresh EditorState 替换：清空内容、重置 history plugin、清空所有 plugin 状态
+                // 避免任何加载阶段的 transaction 污染 undo 栈
+                const freshState = EditorState.create({
+                    schema: editor.state.schema,
+                    plugins: editor.state.plugins,
+                });
+                editor.view.updateState(freshState);
             }
         } finally {
             this.setUpdateSuppressed(false);
@@ -242,29 +226,22 @@ export class ContentLoader {
 
     /**
      * 将 Markdown 文本加载到编辑器。
-     * resetHistory=true 时使用 setContent 替换整个文档（首次打开文件）。
+     * 文档替换始终不进入 undo 历史，避免 undo 撤回到加载前的空文档。
+     * resetHistory 参数仅作语义保留（两种路径已统一为 addToHistory: false）。
      */
-    async setContent(markdown, shouldFocusStart = true, { resetHistory = false, preserveOriginalMarkdown = false, selection = null } = {}) {
+    async setContent(markdown, shouldFocusStart = true, { resetHistory = false } = {}) {
         const sessionId = this.currentSessionId;
         const normalizedMarkdown = ensureMarkdownTrailingEmptyLine(
             typeof markdown === 'string' ? markdown : ''
         );
-        if (!preserveOriginalMarkdown) {
-            this.originalMarkdown = normalizedMarkdown;
-            this.contentChanged = false;
-        } else {
-            this.contentChanged = normalizedMarkdown !== this.originalMarkdown;
-        }
+        this.originalMarkdown = normalizedMarkdown;
+        this.contentChanged = false;
         this.getSaveManager()?.clearAutoSaveTimer();
 
         const staleUrls = drainImageObjectUrls();
-        const historySelection = selection?.type === 'markdown'
-            ? { from: selection.from, to: selection.to }
+        const previousSelection = (!shouldFocusStart && !resetHistory && this.getEditor()?.state?.selection)
+            ? { from: this.getEditor().state.selection.from, to: this.getEditor().state.selection.to }
             : null;
-        const previousSelection = historySelection
-            || ((!shouldFocusStart && this.getEditor()?.state?.selection)
-                ? { from: this.getEditor().state.selection.from, to: this.getEditor().state.selection.to }
-                : null);
 
         const { body: bodyForParse } = extractFrontmatter(normalizedMarkdown);
         const processed = preprocessMarkdown(bodyForParse);
@@ -278,34 +255,21 @@ export class ContentLoader {
         this.setUpdateSuppressed(true);
         try {
             editor.setEditable(true);
-            if (parsedDoc) {
-                if (resetHistory) {
-                    editor.commands.setContent(parsedDoc);
-                } else {
-                    // 替换内容但不污染 undo 历史（tab 切换 / CodeMirror↔TipTap）
-                    // 一次 tr 内完成 replaceWith + setSelection：避免两次 dispatch 之间
-                    // PM selection 短暂落在文末、让 DOMObserver 误用该位置回写 state
-                    const { state, view } = editor;
-                    const tr = state.tr.replaceWith(0, state.doc.content.size, parsedDoc.content);
-                    let shouldCenterHistorySelection = false;
-                    if (!shouldFocusStart && previousSelection) {
-                        const nextDocSize = tr.doc.content.size;
-                        const clamp = (v) => Math.max(0, Math.min(Number.isFinite(v) ? v : 0, nextDocSize));
-                        const from = clamp(previousSelection.from);
-                        const to = clamp(previousSelection.to);
-                        tr.setSelection(createSafeTextSelection(tr.doc, from, to));
-                        shouldCenterHistorySelection = Boolean(historySelection);
-                    }
-                    tr.setMeta('addToHistory', false);
-                    view.dispatch(tr);
-                    if (shouldCenterHistorySelection) {
-                        const center = () => centerEditorSelection(editor, this.getScrollContainer?.());
-                        typeof requestAnimationFrame === 'function' ? requestAnimationFrame(center) : center();
-                    }
-                }
+            const { state, view } = editor;
+            const replacement = parsedDoc?.content ?? null;
+            const tr = state.tr;
+            if (replacement) {
+                tr.replaceWith(0, state.doc.content.size, replacement);
             } else {
-                editor.commands.setContent('');
+                tr.delete(0, state.doc.content.size);
             }
+            if (previousSelection) {
+                const nextDocSize = tr.doc.content.size;
+                const clamp = (v) => Math.max(0, Math.min(Number.isFinite(v) ? v : 0, nextDocSize));
+                tr.setSelection(createSafeTextSelection(tr.doc, clamp(previousSelection.from), clamp(previousSelection.to)));
+            }
+            tr.setMeta('addToHistory', false);
+            view.dispatch(tr);
 
             this.getTrailingParagraphManager()?.ensure();
         } finally {

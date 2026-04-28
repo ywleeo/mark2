@@ -1,6 +1,5 @@
 /**
- * 编辑器历史命令（undo/redo）和设置提交。
- * 历史命令按当前 tab 的活动视图路由，不再依赖编辑器焦点。
+ * 编辑器设置提交控制器。
  */
 import {
     applyEditorSettings,
@@ -9,44 +8,11 @@ import {
 } from '../utils/editorSettings.js';
 
 export function createEditorHistoryController({
-    getMarkdownEditor,
     getCodeEditor,
-    getCurrentTabId,
-    getActiveViewMode,
-    tabHistoryManager,
     getEditorSettings,
     setEditorSettings,
     reloadKeybindings,
 }) {
-    function invokeEditorHistoryAction(action) {
-        const tabId = getCurrentTabId?.();
-        if (!tabId || !tabHistoryManager) return false;
-
-        const historyEntry = action === 'undo'
-            ? tabHistoryManager.undo(tabId)
-            : tabHistoryManager.redo(tabId);
-        if (!historyEntry || typeof historyEntry.content !== 'string') return false;
-
-        const editor = getMarkdownEditor();
-        const codeEditor = getCodeEditor();
-        const activeViewMode = getActiveViewMode();
-        if (activeViewMode === 'code') {
-            return codeEditor?.applyHistoryContent?.(historyEntry) ?? false;
-        }
-        if (activeViewMode === 'markdown' || activeViewMode === 'split') {
-            return editor?.applyHistoryContent?.(historyEntry) ?? false;
-        }
-        return false;
-    }
-
-    function handleUndoCommand() {
-        return invokeEditorHistoryAction('undo');
-    }
-
-    function handleRedoCommand() {
-        return invokeEditorHistoryAction('redo');
-    }
-
     async function handleSettingsSubmit(nextSettings) {
         const currentSettings = getEditorSettings();
         const merged = { ...currentSettings, ...nextSettings };
@@ -60,7 +26,5 @@ export function createEditorHistoryController({
 
     return {
         handleSettingsSubmit,
-        handleUndoCommand,
-        handleRedoCommand,
     };
 }

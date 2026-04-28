@@ -43,7 +43,6 @@ import { createLayoutControls } from './layoutControls.js';
 import { createWorkspaceSyncController, createDocumentSnapshotSyncController } from './syncControllers.js';
 import { AppState } from '../state/AppState.js';
 import { EditorRegistry } from '../state/EditorRegistry.js';
-import { TabHistoryManager } from '../state/TabHistoryManager.js';
 import { createEditorHistoryController } from './editorHistoryController.js';
 import { createToolbarController } from './toolbarController.js';
 import { invalidateMermaidTheme } from '../utils/mermaidRenderer.js';
@@ -70,7 +69,6 @@ export function wireApp() {
 const appState = new AppState();
 const editorRegistry = new EditorRegistry();
 const rendererRegistry = new RendererRegistry();
-const tabHistoryManager = new TabHistoryManager();
 const traceRecorder = createTraceRecorder();
 const documentLogger = createLogger('documents');
 const commandLogger = createLogger('commands');
@@ -179,13 +177,9 @@ const documentSnapshotSyncController = createDocumentSnapshotSyncController({
 const { scheduleWorkspaceContextSync } = workspaceSyncController;
 const { scheduleDocumentSnapshotSync } = documentSnapshotSyncController;
 
-// ========== 编辑器历史控制器（早创建，供 windowLifecycle 延迟引用）==========
+// ========== 编辑器设置控制器（早创建，供 windowLifecycle 延迟引用）==========
 const editorHistoryController = createEditorHistoryController({
-    getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
-    getCurrentTabId: () => getActiveDocumentPath(),
-    getActiveViewMode: () => appState.getActiveViewMode(),
-    tabHistoryManager,
     getEditorSettings: () => appState.getEditorSettings(),
     setEditorSettings: (s) => appState.setEditorSettings(s),
     reloadKeybindings: () => {
@@ -196,11 +190,7 @@ const editorHistoryController = createEditorHistoryController({
         });
     },
 });
-const {
-    handleSettingsSubmit,
-    handleUndoCommand,
-    handleRedoCommand,
-} = editorHistoryController;
+const { handleSettingsSubmit } = editorHistoryController;
 
 // ========== 窗口生命周期（早创建，使 updateWindowTitle 在所有 controller 创建前可用）==========
 const windowLifecycle = createWindowLifecycle({
@@ -585,7 +575,6 @@ bootstrap = createAppBootstrap({
     exportManager,
     workspaceManager,
     editorRegistry,
-    tabHistoryManager,
     documentSessions,
     documentRegistry,
     untitledFileManager,
@@ -644,8 +633,6 @@ bootstrap = createAppBootstrap({
     handleRecentItemClick,
     clearRecent,
     handleSettingsSubmit,
-    handleUndoCommand,
-    handleRedoCommand,
     openPathsFromSelection,
     openFileOrFolder,
     openFileOnly,

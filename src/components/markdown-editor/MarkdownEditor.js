@@ -84,7 +84,6 @@ export class MarkdownEditor {
         this._docUnsub = null;
         this._documentSessions = options?.documentSessions ?? null;
         this._autoSaveDelayMs = options.autoSaveDelayMs;
-        this._tabHistoryManager = options?.tabHistoryManager ?? null;
         this._getDocumentFilePath = typeof options?.getCurrentFile === 'function'
             ? options.getCurrentFile
             : null;
@@ -115,17 +114,12 @@ export class MarkdownEditor {
                 },
             },
             onCreate: () => this.codeCopyManager?.scheduleCodeBlockCopyUpdate(),
-            onSelectionUpdate: () => {
-                if (this.suppressUpdateEvent) return;
-                this._syncTabHistorySelection();
-            },
             onUpdate: ({ transaction }) => {
                 if (this.suppressUpdateEvent) return;
                 // 明确声明不进历史的 transaction（TrailingParagraph / IME \u200B / 图片异步解析等内部变更）
                 // 不应污染 undo 历史，否则会错误重置合并窗口
                 if (transaction?.getMeta?.('addToHistory') === false) return;
                 this.contentLoader.contentChanged = true;
-                this._recordTabHistory();
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
                 this.saveManager?.scheduleAutoSave();
@@ -322,12 +316,7 @@ export class MarkdownEditor {
     prepareForDocument(session, filePath, tabId) { return this.contentLoader.prepareForDocument(session, filePath, tabId); }
     loadFile(...args)                            {
         this.viewElement.classList.remove('csv-table-mode');
-        return this.contentLoader.loadFile(...args).then(result => {
-            if (result !== false) {
-                this._syncTabHistory();
-            }
-            return result;
-        });
+        return this.contentLoader.loadFile(...args);
     }
 
     /**
@@ -380,12 +369,7 @@ export class MarkdownEditor {
         }
     }
     setContent(markdown, focus, opts)           {
-        return this.contentLoader.setContent(markdown, focus, opts).then(result => {
-            if (result !== false) {
-                this._syncTabHistory();
-            }
-            return result;
-        });
+        return this.contentLoader.setContent(markdown, focus, opts);
     }
     getMarkdown()                               { return this.contentLoader.getMarkdown(); }
 
@@ -432,26 +416,8 @@ export class MarkdownEditor {
     blur()                                      { this.editor?.commands?.blur?.() ?? this.editor?.view?.dom?.blur?.(); }
 
     // 编辑
-    undo()                                      { return this.callbacks.onUndoRequest?.() ?? false; }
-    redo()                                      { return this.callbacks.onRedoRequest?.() ?? false; }
-
-    async applyHistoryContent(historyEntry) {
-        const markdown = typeof historyEntry === 'string'
-            ? historyEntry
-            : historyEntry?.content;
-        if (typeof markdown !== 'string') return false;
-        this.suppressUpdateEvent = true;
-        try {
-            const applied = await this.contentLoader.setContent(markdown, false, {
-                resetHistory: false,
-                preserveOriginalMarkdown: true,
-                selection: historyEntry?.selection ?? null,
-            });
-            return applied;
-        } finally {
-            this.suppressUpdateEvent = false;
-        }
-    }
+    undo()                                      { return this.editor?.commands?.undo?.() ?? false; }
+    redo()                                      { return this.editor?.commands?.redo?.() ?? false; }
 
     insertTextAtCursor(text) {
         if (!this.editor || !text) return;
@@ -556,51 +522,6 @@ export class MarkdownEditor {
     renameViewStateForTab(oldId, newId)         { return this.tabStateManager.rename(oldId, newId); }
     getCurrentTabId()                           { return this.contentLoader.currentTabId; }
     trimStaleViewStates(maxAge)                 { return this.tabStateManager.trimStaleEditorStates(maxAge, this.getCurrentTabId()); }
-
-    /**
-     * 将当前内容同步到 tab 共享历史。
-     */
-    _syncTabHistory() {
-        const tabId = this.getCurrentTabId();
-        if (!tabId || !this._tabHistoryManager) return;
-        this._tabHistoryManager.syncContent(tabId, this.getMarkdown(), {
-            selection: this._getHistorySelection(),
-        });
-    }
-
-    /**
-     * 记录一次来自 Markdown 视图的用户修改。
-     */
-    _recordTabHistory() {
-        const tabId = this.getCurrentTabId();
-        if (!tabId || !this._tabHistoryManager) return;
-        this._tabHistoryManager.recordChange(tabId, this.getMarkdown(), {
-            source: 'markdown',
-            selection: this._getHistorySelection(),
-        });
-    }
-
-    /**
-     * 同步当前历史项的 Markdown 选区，不产生新的 undo entry。
-     */
-    _syncTabHistorySelection() {
-        const tabId = this.getCurrentTabId();
-        if (!tabId || !this._tabHistoryManager) return;
-        this._tabHistoryManager.updateSelection(tabId, this._getHistorySelection());
-    }
-
-    /**
-     * 读取当前 TipTap 选区，用于和文本快照一起进入共享历史。
-     */
-    _getHistorySelection() {
-        const selection = this.editor?.state?.selection;
-        if (!selection) return null;
-        return {
-            type: 'markdown',
-            from: selection.from,
-            to: selection.to,
-        };
-    }
 
     // 源码滚动同步
     getSelectionSourcepos()                     { return this.sourceScrollManager.getSelectionSourcepos(); }

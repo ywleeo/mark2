@@ -19,12 +19,8 @@ export function createEditorCallbacks({
     updateWindowTitle,
     scheduleDocumentSnapshotSync,
     onFileSaved,
-    onUndoRequest,
-    onRedoRequest,
 }) {
     return {
-        onUndoRequest,
-        onRedoRequest,
         onContentChange: () => {
             const editor = editorRegistry.getMarkdownEditor();
             const codeEditor = editorRegistry.getCodeEditor();
@@ -85,7 +81,6 @@ export function setupEditors({
     editorCallbacks,
     documentSessions,
     setContentZoom,
-    tabHistoryManager,
 }) {
     const {
         MarkdownEditor,
@@ -100,7 +95,6 @@ export function setupEditors({
     // 初始化 Markdown 编辑器
     const editor = new MarkdownEditor(appState.getPaneElement('markdown'), editorCallbacks, {
         documentSessions,
-        tabHistoryManager,
         getCurrentFile: () => appState.getCurrentFile(),
     });
     editorRegistry.register('markdown', editor);
@@ -108,7 +102,6 @@ export function setupEditors({
     // 初始化代码编辑器
     const codeEditor = new CodeEditor(appState.getPaneElement('code'), editorCallbacks, {
         documentSessions,
-        tabHistoryManager,
     });
     editorRegistry.register('code', codeEditor);
     codeEditor.applyPreferences?.(appState.getEditorSettings());

@@ -39,9 +39,6 @@ export function createCommandHandlers(deps) {
         saveCurrentFileAs,
         closeActiveTab,
         reopenLastClosedTab,
-        // editor history
-        handleUndoCommand,
-        handleRedoCommand,
         handleSettingsSubmit: _unusedHandleSettingsSubmit, // reserved for future
         // file menu actions
         handleCreateNewFile,
@@ -74,8 +71,8 @@ export function createCommandHandlers(deps) {
             const { getCurrentWindow } = await import('@tauri-apps/api/window');
             await getCurrentWindow().close();
         },
-        onUndo: handleUndoCommand,
-        onRedo: handleRedoCommand,
+        onUndo: () => getActiveEditor()?.undo?.() ?? false,
+        onRedo: () => getActiveEditor()?.redo?.() ?? false,
         onSelectAll: () => editorRegistry.getMarkdownEditor()?.selectAll?.(),
         onCut: async () => {
             const editor = getActiveEditor();

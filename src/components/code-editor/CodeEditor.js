@@ -1,6 +1,6 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
 import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
-import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo, isolateHistory } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
@@ -52,6 +52,22 @@ function normalizeTableBreaks(text) {
     return result.join('\n');
 }
 
+// Sublime 风格 undo 切分：插入了换行/空格/标点的 transaction 强制开启新 history group，
+// 让 "abc⏎123⏎" / "hello world" / "a, b" 这类输入按词边界逐段撤回。
+// IME（拼音输入法）合成的 transaction（userEvent='input.type.compose'）不切分。
+const SPLIT_CHAR = /[\s\p{P}]/u;
+const isolateHistoryOnSplit = EditorState.transactionExtender.of((tr) => {
+    if (!tr.docChanged) return null;
+    if (tr.isUserEvent('input.type.compose')) return null;
+    let shouldSplit = false;
+    tr.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
+        if (shouldSplit) return;
+        if (inserted.length === 0) return;
+        if (SPLIT_CHAR.test(inserted.toString())) shouldSplit = true;
+    });
+    return shouldSplit ? { annotations: isolateHistory.of('after') } : null;
+});
+
 // Search decoration infrastructure
 const setSearchDecorations = StateEffect.define();
 const searchDecorationField = StateField.define({
@@ -85,7 +101,6 @@ export class CodeEditor {
         this.pendingLayoutFrame = null;
         this.preferences = null;
         this.documentSessions = options?.documentSessions || null;
-        this.tabHistoryManager = options?.tabHistoryManager || null;
         this.currentSessionId = null;
         this.loadingSessionId = null;
         this.currentTabId = null;
@@ -195,9 +210,11 @@ export class CodeEditor {
                 indentOnInput(),
                 bracketMatching(),
                 foldGutter(),
+                // 关闭时间切分：完全依赖 isolateHistoryOnSplit 按字符（换行/空格/标点）切分
+                history({ newGroupDelay: Number.MAX_SAFE_INTEGER }),
+                isolateHistoryOnSplit,
                 keymap.of([
-                    // undo/redo 由全局 KeybindingManager 统一分发，CodeMirror 层不再注册
-                    // 以免与 document 层 handler 双触发
+                    ...historyKeymap,
                     ...defaultKeymap,
                     ...foldKeymap,
                     indentWithTab,
@@ -251,12 +268,9 @@ export class CodeEditor {
             if (update.docChanged && !this.suppressChange) {
                 const currentContent = update.state.doc.toString();
                 this.isDirty = currentContent !== this.baseContent;
-                this._recordTabHistory(currentContent);
                 this.callbacks.onContentChange?.();
                 this.notifyContentMutation();
                 this.scheduleAutoSave();
-            } else if (update.selectionSet && !this.suppressChange) {
-                this._syncTabHistorySelection();
             }
         });
 
@@ -387,8 +401,6 @@ export class CodeEditor {
         if (autoFocus === true) {
             this.editor.focus();
         }
-
-        this._syncTabHistory(normalizedContent);
 
         if (this.loadingSessionId === sessionId) {
             this.loadingSessionId = null;
@@ -930,78 +942,18 @@ export class CodeEditor {
         });
     }
 
-    undo() { return this.callbacks.onUndoRequest?.() ?? false; }
-
-    redo() { return this.callbacks.onRedoRequest?.() ?? false; }
-
-    applyHistoryContent(historyEntry) {
-        if (!this.editor) return false;
-        const content = typeof historyEntry === 'string'
-            ? historyEntry
-            : historyEntry?.content;
-        const nextContent = typeof content === 'string' ? content : '';
-        const selection = this.editor.state.selection.main;
-        const historySelection = historyEntry?.selection?.type === 'code'
-            ? historyEntry.selection
-            : null;
-        const clamp = (value) => Math.max(0, Math.min(Number.isFinite(value) ? value : 0, nextContent.length));
-        const nextSelection = historySelection
-            ? { anchor: clamp(historySelection.anchor), head: clamp(historySelection.head) }
-            : { anchor: clamp(selection.head) };
-        this.suppressChange = true;
-        try {
-            this.editor.dispatch({
-                changes: { from: 0, to: this.editor.state.doc.length, insert: nextContent },
-                selection: nextSelection,
-            });
-            this.isDirty = nextContent !== this.baseContent;
-        } finally {
-            this.suppressChange = false;
-        }
-        this.callbacks.onContentChange?.();
-        return true;
+    undo() {
+        const view = this.editor;
+        if (!view) return false;
+        view.focus();
+        return undo({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
     }
 
-    /**
-     * 将当前内容同步到 tab 共享历史。
-     */
-    _syncTabHistory(content = this.getValue()) {
-        if (!this.currentTabId || !this.tabHistoryManager) return;
-        this.tabHistoryManager.syncContent(this.currentTabId, content, {
-            selection: this._getHistorySelection(),
-        });
-    }
-
-    /**
-     * 记录一次来自代码视图的用户修改。
-     */
-    _recordTabHistory(content = this.getValue()) {
-        if (!this.currentTabId || !this.tabHistoryManager) return;
-        this.tabHistoryManager.recordChange(this.currentTabId, content, {
-            source: 'code',
-            selection: this._getHistorySelection(),
-        });
-    }
-
-    /**
-     * 同步当前历史项的 CodeMirror 选区，不产生新的 undo entry。
-     */
-    _syncTabHistorySelection() {
-        if (!this.currentTabId || !this.tabHistoryManager) return;
-        this.tabHistoryManager.updateSelection(this.currentTabId, this._getHistorySelection());
-    }
-
-    /**
-     * 读取当前 CodeMirror 选区，用于和文本快照一起进入共享历史。
-     */
-    _getHistorySelection() {
-        const selection = this.editor?.state?.selection?.main;
-        if (!selection) return null;
-        return {
-            type: 'code',
-            anchor: selection.anchor,
-            head: selection.head,
-        };
+    redo() {
+        const view = this.editor;
+        if (!view) return false;
+        view.focus();
+        return redo({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
     }
 
     // --- AI Stream ---
