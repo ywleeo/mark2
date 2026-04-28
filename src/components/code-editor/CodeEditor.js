@@ -1249,6 +1249,32 @@ export class CodeEditor {
         return { applied: true, total };
     }
 
+    replaceCurrentSearchMatch(replacementText) {
+        if (!this.editor || !this.searchMatches || this.searchMatches.length === 0 || this.currentMatchIndex < 0) {
+            return { replaced: 0, total: this.searchMatches?.length || 0, current: this.currentMatchIndex };
+        }
+
+        const replacement = typeof replacementText === 'string' ? replacementText : '';
+        const match = this.searchMatches[this.currentMatchIndex];
+
+        this.editor.focus();
+        this.editor.dispatch({
+            changes: { from: match._from, to: match._to, insert: replacement }
+        });
+
+        // dispatch 同步触发 onDidChangeContent → SearchBoxManager.handleContentMutated → refreshSearchMatches
+        // 此时 this.searchMatches 已基于新内容刷新，原 index 自然落到下一个匹配
+        if (this.searchMatches && this.searchMatches.length > 0 && this.currentMatchIndex >= 0) {
+            this.scrollToMatch(this.currentMatchIndex);
+        }
+
+        return {
+            replaced: 1,
+            total: this.searchMatches?.length || 0,
+            current: this.currentMatchIndex
+        };
+    }
+
     replaceAllSearchMatches(replacementText) {
         if (!this.editor || !this.searchMatches || this.searchMatches.length === 0) {
             return { replaced: 0 };

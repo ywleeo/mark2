@@ -1,6 +1,7 @@
 // 查找框功能模块
 import { searchPluginKey } from '../extensions/SearchExtension.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { t } from '../i18n/index.js';
 
 // 查找框管理类
 export class SearchBoxManager {
@@ -57,6 +58,8 @@ export class SearchBoxManager {
         const nextBtn = this.searchBox.querySelector('.next-btn');
         const closeBtn = this.searchBox.querySelector('.close-btn');
         const multiBtn = this.searchBox.querySelector('.multi-btn');
+        const replaceBtn = this.searchBox.querySelector('.replace-btn');
+        const toggleReplaceBtn = this.searchBox.querySelector('.toggle-replace-btn');
 
         if (!this.searchInput || !this.replaceInput || !closeBtn || !prevBtn || !nextBtn || !multiBtn) return;
 
@@ -76,7 +79,15 @@ export class SearchBoxManager {
 
         this.replaceInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                this.selectAllMatches();
+                if (e.metaKey || e.ctrlKey) {
+                    // Cmd/Ctrl+Enter: 全部替换
+                    e.preventDefault();
+                    this.selectAllMatches();
+                } else {
+                    // Enter: 替换当前
+                    e.preventDefault();
+                    this.replaceCurrentMatch();
+                }
             } else if (e.key === 'Escape') {
                 this.hideSearch();
             }
@@ -97,14 +108,39 @@ export class SearchBoxManager {
         const multiBtnCleanup = addClickHandler(multiBtn, () => this.selectAllMatches());
 
         this.cleanupFunctions.push(closeBtnCleanup, prevBtnCleanup, nextBtnCleanup, multiBtnCleanup);
+
+        if (replaceBtn) {
+            const replaceBtnCleanup = addClickHandler(replaceBtn, () => this.replaceCurrentMatch());
+            this.cleanupFunctions.push(replaceBtnCleanup);
+        }
+
+        if (toggleReplaceBtn) {
+            const toggleCleanup = addClickHandler(toggleReplaceBtn, () => this.toggleReplaceRow());
+            this.cleanupFunctions.push(toggleCleanup);
+        }
     }
 
-    // 显示查找框
-    showSearch() {
+    // 显示查找框（withReplace 显式传入时切换替换行；不传则保留上次状态）
+    showSearch(withReplace) {
         if (!this.searchBox) return;
         this.searchBox.classList.add('is-visible');
+        if (typeof withReplace === 'boolean') {
+            this.searchBox.classList.toggle('is-find-only', !withReplace);
+        }
         this.searchInput?.focus();
         this.searchInput?.select();
+    }
+
+    // 切换替换行展开/收起
+    toggleReplaceRow() {
+        if (!this.searchBox) return;
+        const willShow = this.searchBox.classList.contains('is-find-only');
+        this.searchBox.classList.toggle('is-find-only', !willShow);
+        if (willShow) {
+            this.replaceInput?.focus();
+        } else {
+            this.searchInput?.focus();
+        }
     }
 
     // 隐藏查找框
@@ -176,16 +212,73 @@ export class SearchBoxManager {
         }
     }
 
+    // 替换当前匹配（一处），随后跳到下一个
+    replaceCurrentMatch() {
+        if (!this.searchBox?.classList.contains('is-visible')) return;
+
+        const searchTerm = this.searchInput?.value || '';
+        if (!searchTerm) {
+            this.showInfoMessage(t('search.tipEmpty'));
+            return;
+        }
+
+        const { type, editor } = this.getActiveEditor();
+        if (!editor) return;
+
+        const replaceText = this.replaceInput?.value ?? '';
+
+        if (type === 'code') {
+            if (typeof editor.replaceCurrentSearchMatch === 'function') {
+                const result = editor.replaceCurrentSearchMatch(replaceText);
+                if (!result || result.replaced === 0) {
+                    this.showInfoMessage(t('search.noMatches'));
+                }
+            }
+            return;
+        }
+
+        // markdown：直接对 currentIndex 那一段做替换，再跳到下一个
+        const replaced = this.replaceCurrentMarkdownMatch(replaceText);
+        if (!replaced) {
+            this.showInfoMessage(t('search.noMatches'));
+        }
+    }
+
+    replaceCurrentMarkdownMatch(replacementText = '') {
+        if (!this.editor) return false;
+
+        const pluginState = searchPluginKey.getState(this.editor.state);
+        const results = pluginState?.results || [];
+        const currentIndex = pluginState?.currentIndex ?? -1;
+        if (currentIndex < 0 || !results[currentIndex]) return false;
+
+        const { from, to } = results[currentIndex];
+        const replacement = typeof replacementText === 'string'
+            ? replacementText
+            : String(replacementText ?? '');
+
+        const { state, view } = this.editor;
+        if (!state || !view) return false;
+
+        const tr = state.tr.insertText(replacement, from, to);
+        view.dispatch(tr);
+        this.editor.commands.focus();
+        // 跳到下一个匹配
+        this.editor.commands.nextSearchResult?.();
+        this.updateSearchInfo();
+        return true;
+    }
+
     // 批量选中所有匹配（多光标编辑）
     selectAllMatches() {
         if (!this.searchBox?.classList.contains('is-visible')) {
-            this.showInfoMessage('请先使用 ⌘+F 打开查找');
+            this.showInfoMessage(t('search.tipOpenFirst'));
             return;
         }
 
         const searchTerm = this.searchInput?.value || '';
         if (!searchTerm) {
-            this.showInfoMessage('请输入关键词');
+            this.showInfoMessage(t('search.tipEmpty'));
             return;
         }
 
@@ -199,9 +292,9 @@ export class SearchBoxManager {
             if (typeof editor.replaceAllSearchMatches === 'function') {
                 const result = editor.replaceAllSearchMatches(replaceText);
                 if (result?.replaced > 0) {
-                    this.showInfoMessage(replaceText ? `已替换 ${result.replaced} 处` : `已删除 ${result.replaced} 处`);
+                    this.showInfoMessage(t(replaceText ? 'search.replaced' : 'search.deleted', { n: result.replaced }));
                 } else {
-                    this.showInfoMessage('无结果');
+                    this.showInfoMessage(t('search.noMatches'));
                 }
             }
             return;
@@ -210,9 +303,9 @@ export class SearchBoxManager {
         const replaceText = this.replaceInput?.value ?? '';
         const replacedCount = this.replaceMarkdownMatches(replaceText);
         if (replacedCount > 0) {
-            this.showInfoMessage(replaceText ? `已替换 ${replacedCount} 处` : `已删除 ${replacedCount} 处`);
+            this.showInfoMessage(t(replaceText ? 'search.replaced' : 'search.deleted', { n: replacedCount }));
         } else {
-            this.showInfoMessage('无结果');
+            this.showInfoMessage(t('search.noMatches'));
         }
     }
 
@@ -259,7 +352,7 @@ export class SearchBoxManager {
             const total = pluginState.results.length;
             this.searchInfo.textContent = `${current} / ${total}`;
         } else if (this.searchInput?.value) {
-            this.searchInfo.textContent = '无结果';
+            this.searchInfo.textContent = t('search.noMatches');
         } else {
             this.searchInfo.textContent = '';
         }
@@ -273,7 +366,7 @@ export class SearchBoxManager {
             const current = result.current + 1;
             this.searchInfo.textContent = `${current} / ${result.total}`;
         } else if (this.searchInput?.value) {
-            this.searchInfo.textContent = '无结果';
+            this.searchInfo.textContent = t('search.noMatches');
         } else {
             this.searchInfo.textContent = '';
         }

@@ -125,6 +125,40 @@
             </div>
         </div>
 
+        <!-- 搜索 / 替换工具栏（贴在 status bar 上方） -->
+        <div class="search-box is-find-only">
+            <div class="search-row">
+                <input type="text" class="search-input" placeholder="查找">
+                <button class="search-button toggle-replace-btn" title="切换替换栏 (⌘⌥F)" aria-label="切换替换栏">
+                    <span class="search-button-label">替换</span>
+                </button>
+                <input type="text" class="replace-input" placeholder="替换为">
+                <span class="search-info"></span>
+                <button class="search-button prev-btn" title="上一个 (⇧⏎)" aria-label="上一个">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <polyline points="6 15 12 9 18 15"/>
+                    </svg>
+                </button>
+                <button class="search-button next-btn" title="下一个 (⏎)" aria-label="下一个">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <button class="search-button replace-btn" title="替换当前 (⏎)" aria-label="替换当前">
+                    <span class="search-button-label">替换</span>
+                </button>
+                <button class="search-button multi-btn" title="全部替换 (⌘⏎)" aria-label="全部替换">
+                    <span class="search-button-label">全部</span>
+                </button>
+                <button class="search-button close-btn" title="关闭 (Esc)" aria-label="关闭">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                        <line x1="6" y1="18" x2="18" y2="6"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
         <!-- 状态栏 -->
         <div id="statusBar" class="status-bar" role="status" aria-live="polite">
             <div id="statusBarPath" class="status-item status-item-path"></div>
@@ -252,22 +286,6 @@
         <div class="scratchpad-body">
             <textarea class="scratchpad-textarea" placeholder="随手记..."></textarea>
         </div>
-    </div>
-
-    <!-- 搜索框 -->
-    <div class="search-box">
-        <input type="text" class="search-input" placeholder="查找...">
-        <input type="text" class="replace-input" placeholder="替换为...">
-        <span class="search-info"></span>
-        <button class="search-button multi-btn" title="批量选中 / 全部替换（⌘+Shift+L）" aria-label="批量选中 / 全部替换">
-            <svg viewBox="0 0 24 24" class="multi-icon" aria-hidden="true" focusable="false">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-        </button>
-        <button class="search-button prev-btn" title="上一个">↑</button>
-        <button class="search-button next-btn" title="下一个">↓</button>
-        <button class="search-button close-btn" title="关闭">×</button>
     </div>
 
     <script type="module" src="/src/main.js"></script>

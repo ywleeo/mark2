@@ -1,38 +1,44 @@
-/* 查找框容器 */
+/* 查找/替换工具栏（贴在 status bar 上方，挤压内容区） */
 .search-box {
-    position: fixed;
-    bottom: 35px;
-    right: 10px;
-    background: var(--search-box-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--search-box-border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    box-shadow: var(--search-box-shadow);
-    z-index: 1000;
+    flex: 0 0 auto;
     display: none;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    background: var(--search-box-bg);
+    border-top: 1px solid var(--search-box-border);
+    -webkit-app-region: no-drag;
 }
 
 .search-box.is-visible {
     display: flex;
 }
 
+.search-box.is-find-only .replace-input,
+.search-box.is-find-only .replace-btn,
+.search-box.is-find-only .multi-btn {
+    display: none;
+}
+
+.search-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    min-height: 28px;
+}
+
 .search-box .search-input,
 .search-box .replace-input {
-    flex: 1;
-    min-width: 180px;
-    padding: 7px 12px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 2px 8px;
     background: var(--search-input-bg);
     border: 1px solid var(--search-input-border);
-    border-radius: 6px;
-    font-size: 14px;
+    border-radius: 3px;
+    font-size: 12px;
+    line-height: 1.5;
     color: var(--search-input-text);
     outline: none;
-    transition: all 0.2s;
+    transition: background 0.15s, border-color 0.15s;
 }
 
 .search-box .search-input:focus,
@@ -46,74 +52,72 @@
     color: var(--search-input-placeholder);
 }
 
-.search-box .replace-input {
-    flex: 0 0 auto;
-    min-width: 160px;
-}
-
 .search-info {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--search-info-text);
     user-select: none;
-    min-width: 50px;
+    min-width: 42px;
     text-align: center;
-    font-weight: 500;
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
 }
 
+/* 扁平按钮：透明背景，hover 时显示底色（对齐 terminal-action-btn / ai-sidebar 风格） */
 .search-button {
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    background: var(--search-button-bg);
-    border: 1px solid var(--search-button-border);
-    border-radius: 6px;
-    font-size: 16px;
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0 5px;
+    height: 22px;
+    min-width: 22px;
+    border-radius: 3px;
     color: var(--search-button-text);
     cursor: pointer;
-    transition: all 0.2s;
     user-select: none;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 3px;
     line-height: 1;
+    flex: 0 0 auto;
+    transition: background 0.15s, color 0.15s;
 }
 
-.search-button.multi-btn {
-    padding: 0 6px;
-}
-
-.search-button .multi-icon {
-    width: 16px;
-    height: 16px;
-}
-
-.search-button .multi-icon path,
-.search-button .multi-icon polyline {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
 .search-button:hover {
-    background: var(--search-button-bg-hover);
-    border-color: var(--search-button-border-hover);
+    background: var(--search-button-hover-bg);
+    color: var(--search-button-text-hover);
 }
 
 .search-button:active {
-    background: var(--search-button-bg-active);
+    background: var(--search-button-active-bg);
 }
 
-.search-button.close-btn {
-    background: var(--search-close-btn-bg);
-    border: 1px solid var(--search-close-btn-border);
-    font-size: 18px;
-    color: var(--search-close-btn-text);
+.search-button svg {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
 }
 
-.search-button.close-btn:hover {
-    background: var(--search-close-btn-bg-hover);
-    color: var(--search-close-btn-text-hover);
+.search-button-label {
+    font-size: 11px;
+    line-height: 1;
+    padding: 0 1px;
+}
+
+/* 替换模式开关：紧贴 search-input 右侧的文字 toggle，激活时高亮 */
+.search-button.toggle-replace-btn {
+    margin-left: -2px;
+    padding: 0 8px;
+}
+
+.search-box:not(.is-find-only) .toggle-replace-btn {
+    background: var(--search-toggle-active-bg);
+    color: var(--search-toggle-active-text);
+}
+
+.search-box:not(.is-find-only) .toggle-replace-btn:hover {
+    background: var(--search-toggle-active-hover-bg);
+    color: var(--search-toggle-active-text);
 }
 
 /* 搜索结果高亮 */
@@ -129,63 +133,53 @@
 }
 
 /* ============================================================================
-   Dark Mode 深色模式
+   Dark Mode
    ============================================================================ */
 [data-theme-appearance="dark"] {
-    --search-box-bg: rgba(30, 30, 30, 0.2);
-    --search-box-border: rgba(255, 255, 255, 0.2);
-    --search-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --search-box-bg: rgba(40, 42, 48, 0.96);
+    --search-box-border: rgba(255, 255, 255, 0.08);
 
-    --search-input-bg: rgba(255, 255, 255, 0.15);
-    --search-input-bg-focus: rgba(255, 255, 255, 0.25);
-    --search-input-border: rgba(255, 255, 255, 0.01);
-    --search-input-border-focus: rgba(255, 255, 255, 0.5);
-    --search-input-text: rgba(255, 255, 255, 0.95);
-    --search-input-placeholder: rgba(255, 255, 255, 0.4);
+    --search-input-bg: rgba(255, 255, 255, 0.06);
+    --search-input-bg-focus: rgba(255, 255, 255, 0.1);
+    --search-input-border: rgba(255, 255, 255, 0.08);
+    --search-input-border-focus: rgba(120, 170, 255, 0.5);
+    --search-input-text: rgba(255, 255, 255, 0.92);
+    --search-input-placeholder: rgba(255, 255, 255, 0.35);
 
-    --search-info-text: rgba(255, 255, 255, 0.85);
+    --search-info-text: rgba(255, 255, 255, 0.55);
 
-    --search-button-bg: rgba(255, 255, 255, 0.2);
-    --search-button-bg-hover: rgba(255, 255, 255, 0.3);
-    --search-button-bg-active: rgba(255, 255, 255, 0.4);
-    --search-button-border: rgba(255, 255, 255, 0.3);
-    --search-button-border-hover: rgba(255, 255, 255, 0.4);
-    --search-button-text: rgba(255, 255, 255, 0.9);
+    --search-button-text: rgba(255, 255, 255, 0.65);
+    --search-button-text-hover: rgba(255, 255, 255, 0.95);
+    --search-button-hover-bg: rgba(255, 255, 255, 0.08);
+    --search-button-active-bg: rgba(255, 255, 255, 0.14);
 
-    --search-close-btn-bg: rgba(255, 255, 255, 0.15);
-    --search-close-btn-bg-hover: rgba(255, 255, 255, 0.25);
-    --search-close-btn-border: rgba(255, 255, 255, 0.2);
-    --search-close-btn-text: rgba(255, 255, 255, 0.8);
-    --search-close-btn-text-hover: rgba(255, 255, 255, 0.95);
+    --search-toggle-active-bg: rgba(120, 170, 255, 0.22);
+    --search-toggle-active-hover-bg: rgba(120, 170, 255, 0.3);
+    --search-toggle-active-text: rgba(180, 210, 255, 1);
 }
 
 /* ============================================================================
-   Light Mode 浅色模式
+   Light Mode
    ============================================================================ */
 [data-theme-appearance="light"] {
-    --search-box-bg: rgba(255, 255, 255, 0.2);
-    --search-box-border: rgba(0, 0, 0, 0.15);
-    --search-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --search-box-bg: rgba(245, 246, 248, 0.98);
+    --search-box-border: rgba(15, 23, 42, 0.08);
 
-    --search-input-bg: rgba(0, 0, 0, 0.05);
+    --search-input-bg: rgba(255, 255, 255, 1);
     --search-input-bg-focus: rgba(255, 255, 255, 1);
-    --search-input-border: rgba(0, 0, 0, 0.01);
-    --search-input-border-focus: rgba(0, 0, 0, 0.3);
-    --search-input-text: rgba(0, 0, 0, 0.9);
-    --search-input-placeholder: rgba(0, 0, 0, 0.4);
+    --search-input-border: rgba(15, 23, 42, 0.12);
+    --search-input-border-focus: rgba(30, 100, 200, 0.5);
+    --search-input-text: rgba(15, 23, 42, 0.92);
+    --search-input-placeholder: rgba(15, 23, 42, 0.4);
 
-    --search-info-text: rgba(0, 0, 0, 0.7);
+    --search-info-text: rgba(15, 23, 42, 0.55);
 
-    --search-button-bg: rgba(0, 0, 0, 0.08);
-    --search-button-bg-hover: rgba(0, 0, 0, 0.12);
-    --search-button-bg-active: rgba(0, 0, 0, 0.18);
-    --search-button-border: rgba(0, 0, 0, 0.15);
-    --search-button-border-hover: rgba(0, 0, 0, 0.25);
-    --search-button-text: rgba(0, 0, 0, 0.75);
+    --search-button-text: rgba(15, 23, 42, 0.6);
+    --search-button-text-hover: rgba(15, 23, 42, 0.95);
+    --search-button-hover-bg: rgba(15, 23, 42, 0.06);
+    --search-button-active-bg: rgba(15, 23, 42, 0.1);
 
-    --search-close-btn-bg: rgba(0, 0, 0, 0.05);
-    --search-close-btn-bg-hover: rgba(0, 0, 0, 0.1);
-    --search-close-btn-border: rgba(0, 0, 0, 0.12);
-    --search-close-btn-text: rgba(0, 0, 0, 0.6);
-    --search-close-btn-text-hover: rgba(0, 0, 0, 0.85);
+    --search-toggle-active-bg: rgba(30, 100, 200, 0.14);
+    --search-toggle-active-hover-bg: rgba(30, 100, 200, 0.2);
+    --search-toggle-active-text: rgba(30, 100, 200, 1);
 }
