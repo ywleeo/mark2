@@ -88,7 +88,24 @@ export class AgentLoop {
                     assistantMsg.reasoning_content = result.thinking;
                 }
                 if (result.toolCalls?.length) {
-                    assistantMsg.tool_calls = result.toolCalls;
+                    // OpenAI 协议要求 function.arguments 必须是合法 JSON 字符串。
+                    // MiniMax 等部分 provider 在无参 tool call 时会漏发 arguments delta，
+                    // 累积出空串回传会被 server 拒：
+                    // "invalid function arguments json string, tool_call_id:..."
+                    assistantMsg.tool_calls = result.toolCalls.map(tc => {
+                        let args = tc?.function?.arguments;
+                        if (typeof args !== 'string' || args === '') {
+                            args = '{}';
+                        } else {
+                            try {
+                                JSON.parse(args);
+                            } catch {
+                                console.warn('[AgentLoop] tool_call arguments not valid JSON, fallback to {}:', tc?.id, args);
+                                args = '{}';
+                            }
+                        }
+                        return { ...tc, function: { ...tc.function, arguments: args } };
+                    });
                 }
                 history.push(assistantMsg);
 
