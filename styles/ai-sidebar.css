@@ -662,7 +662,8 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
 }
 
 .ai-sidebar-input-field {
-    flex: 1;
+    flex: 0 0 auto;
+    width: 100%;
     min-height: 20px;
     max-height: 160px;
     padding: 4px 0;
@@ -674,7 +675,8 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     resize: none;
     outline: none;
     line-height: 1.5;
-    field-sizing: content;
+    overflow-y: hidden;
+    box-sizing: border-box;
 }
 
 .ai-sidebar-input-field::placeholder {

@@ -846,10 +846,17 @@ export class AiSidebar {
         this.inputEl.addEventListener('compositionstart', onCompositionStart);
         this.inputEl.addEventListener('compositionend', onCompositionEnd);
         this.inputEl.addEventListener('keydown', onKeydown);
+
+        // 自动撑高：跟随内容增高，达到 max-height 后内部滚动
+        const onAutoResize = () => this._autoResizeInput();
+        this.inputEl.addEventListener('input', onAutoResize);
+        this._autoResizeInput();
+
         this._cleanups.push(() => {
             this.inputEl.removeEventListener('compositionstart', onCompositionStart);
             this.inputEl.removeEventListener('compositionend', onCompositionEnd);
             this.inputEl.removeEventListener('keydown', onKeydown);
+            this.inputEl.removeEventListener('input', onAutoResize);
         });
 
         // 自动滚动：用户向上滚动时暂停，停止滚动 5s 后自动恢复
@@ -1002,6 +1009,20 @@ export class AiSidebar {
         this.autoEditStateEl.textContent = this.autoEdit ? t('ai.autoEdit.on') : t('ai.autoEdit.off');
     }
 
+    _autoResizeInput() {
+        const el = this.inputEl;
+        if (!el) return;
+        // 先 collapse 再读 scrollHeight,否则只能"长高"不能"变矮"
+        el.style.height = 'auto';
+        const cs = getComputedStyle(el);
+        const maxH = parseFloat(cs.maxHeight) || 160;
+        const minH = parseFloat(cs.minHeight) || 20;
+        const sh = el.scrollHeight;
+        const next = Math.max(minH, Math.min(sh, maxH));
+        el.style.height = next + 'px';
+        el.style.overflowY = sh > maxH ? 'auto' : 'hidden';
+    }
+
     _initModelSelect() {
         if (!this.modelSelectEl) return;
         this._populateModelSelect();
@@ -1123,6 +1144,7 @@ export class AiSidebar {
         }
 
         this.inputEl.value = '';
+        this._autoResizeInput();
         this._appendUserMessage(text);
         this.processingPath = this.getAppState().getCurrentFile() || null;
         this.processingTabId = this.getAppState().getTabManager?.()?.activeTabId || null;
