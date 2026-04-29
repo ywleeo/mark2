@@ -201,6 +201,87 @@ sync_github_release_ref() {
     git -C "${REPO_ROOT}" push origin "${tag_name}"
 }
 
+# 基于上一版本到当前 tag 的 commit 历史，生成分组的 release note。
+# 入参：tag_name（如 v1.7.27）、输出文件路径
+generate_release_notes() {
+    local tag_name="$1"
+    local out_file="$2"
+    local prev_tag commits repo_slug compare_url
+
+    # 取语义版本最大的、且不等于当前 tag 的 v* tag 作为对比基准
+    prev_tag="$(git -C "${REPO_ROOT}" tag --list 'v*' --sort=-v:refname \
+        | awk -v cur="${tag_name}" '$0 != cur { print; exit }')"
+
+    if [[ -z "${prev_tag}" ]]; then
+        printf '首个 GitHub 发布\n' > "${out_file}"
+        return 0
+    fi
+
+    # %H<TAB>%s，HEAD 兼容当前 tag 尚未打到本地的极端情况
+    local commits
+    commits="$(git -C "${REPO_ROOT}" log "${prev_tag}..HEAD" \
+        --no-merges --pretty=format:'%H%x09%s' 2>/dev/null || true)"
+
+    RELEASE_NOTES_RAW="${commits}" python3 - "${out_file}" "${prev_tag}" "${tag_name}" <<'PY'
+import os
+import re
+import sys
+
+out_path, prev_tag, cur_tag = sys.argv[1], sys.argv[2], sys.argv[3]
+raw = os.environ.get('RELEASE_NOTES_RAW', '')
+
+# 分组顺序固定，左侧为 conventional 前缀
+groups = [
+    ('feat', '新功能'),
+    ('fix', '修复'),
+    ('perf', '性能'),
+    ('refactor', '重构'),
+    ('style', '样式'),
+    ('docs', '文档'),
+    ('chore', '杂项'),
+    ('_other', '其他'),
+]
+buckets = {key: [] for key, _ in groups}
+
+prefix_re = re.compile(r'^(feat|fix|perf|refactor|style|docs|chore)(?:\([^)]*\))?:\s*(.+)$')
+version_re = re.compile(r'^v\d+\.\d+\.\d+(?:[-+].+)?$')
+
+for line in raw.splitlines():
+    if not line.strip():
+        continue
+    sha, _, subject = line.partition('\t')
+    subject = subject.strip()
+    if not subject or version_re.match(subject):
+        continue
+    short = sha[:7]
+    m = prefix_re.match(subject)
+    if m:
+        buckets[m.group(1)].append(f"- {m.group(2)} ({short})")
+    else:
+        buckets['_other'].append(f"- {subject} ({short})")
+
+sections = []
+for key, title in groups:
+    items = buckets[key]
+    if items:
+        sections.append(f"## {title}\n\n" + "\n".join(items))
+
+with open(out_path, 'w', encoding='utf-8') as f:
+    if sections:
+        f.write("\n\n".join(sections))
+        f.write("\n")
+    else:
+        f.write("本次发布无业务变更\n")
+PY
+
+    # compare 链接（取不到 owner/repo 就跳过，不阻断发版）
+    if repo_slug="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)" \
+        && [[ -n "${repo_slug}" ]]; then
+        compare_url="https://github.com/${repo_slug}/compare/${prev_tag}...${tag_name}"
+        printf '\n**完整变更**：%s\n' "${compare_url}" >> "${out_file}"
+    fi
+}
+
 # 确保 GitHub Release 存在，便于 workflow 上传产物。
 ensure_release_exists() {
     local tag_name="$1"
@@ -210,8 +291,15 @@ ensure_release_exists() {
         return 0
     fi
 
+    local notes_file
+    notes_file="$(mktemp -t mark2-release-notes.XXXXXX)"
+    trap 'rm -f "${notes_file}"' RETURN
+
+    log "Generating release notes for ${tag_name}"
+    generate_release_notes "${tag_name}" "${notes_file}"
+
     log "Creating GitHub release ${tag_name}"
-    gh release create "${tag_name}" --title "Mark2 ${version}" --notes "Automated GitHub release for ${tag_name}."
+    gh release create "${tag_name}" --title "Mark2 ${version}" --notes-file "${notes_file}"
 }
 
 # 手动重跑两个 GitHub workflow。
