@@ -1,5 +1,5 @@
 import { Extension } from '@tiptap/core';
-import { Plugin, TextSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
@@ -43,8 +43,9 @@ export function createEditorExtensions(lowlight) {
             link: false,
             trailingNode: false,
             hardBreak: { keepMarks: true },
-            // 关闭时间切分：完全依赖 historyGroupSplitter 按字符（换行/空格/标点）切分
-            history: { newGroupDelay: Number.MAX_SAFE_INTEGER },
+            // 字符切分（historyGroupSplitter）+ 时间切分（newGroupDelay）双重兜底，
+            // 避免一长串无标点输入变成单一 group。值取默认 500ms
+            history: { newGroupDelay: 500 },
         }),
         Link.configure({
             openOnClick: false,
@@ -162,53 +163,56 @@ export function createEditorExtensions(lowlight) {
                 };
             },
         }),
-        // Sublime 风格 undo 切分：插入了换行/空格/标点的 transaction 关闭当前 history group，
-        // 让 "abc⏎123⏎" / "hello world" / "a, b" 这类输入按词边界逐段撤回。
-        // IME（拼音输入法）合成期间不切分，避免汉字逐字成 group。
+        // Sublime 风格 undo 切分：插入了换行/空格/标点的 transaction 之后关闭当前 history group。
+        // 注意：prosemirror-history 会忽略带 appendedTransaction meta 的 tr（plugin appendTransaction 返回的 tr 自带此 meta），
+        // 所以 closeHistory 必须从 view 层手动 dispatch（不走 appendTransaction 钩子）。
         Extension.create({
             name: 'historyGroupSplitter',
             addProseMirrorPlugins() {
                 const SPLIT_CHAR = /[\s\p{P}]/u;
-                let pmView = null;
-                let imeGuardUntil = 0;
+                const splitterKey = new PluginKey('historyGroupSplitter');
                 return [
                     new Plugin({
-                        view(editorView) {
-                            pmView = editorView;
-                            return { destroy() { pmView = null; } };
-                        },
-                        props: {
-                            handleDOMEvents: {
-                                // composition 结束后给一个短暂窗口：IME commit 紧随其后的 transaction
-                                // 此时 view.composing 已变 false，再切分会把汉字 commit 误切
-                                compositionend() {
-                                    imeGuardUntil = Date.now() + 50;
-                                    return false;
-                                },
+                        key: splitterKey,
+                        state: {
+                            init: () => ({ pendingClose: false }),
+                            apply(tr, value) {
+                                // 我们手动 dispatch 的 close tr 上携带这个 meta，借此重置 pendingClose
+                                const reset = tr.getMeta(splitterKey);
+                                if (reset) return reset;
+                                if (!tr.docChanged) return value;
+                                if (tr.getMeta('addToHistory') === false) return value;
+                                for (const step of tr.steps) {
+                                    const slice = step.slice;
+                                    if (!slice || slice.size === 0) continue;
+                                    const text = slice.content.textBetween(0, slice.content.size, '\n', '');
+                                    if (text && SPLIT_CHAR.test(text)) return { pendingClose: true };
+                                    if (slice.openStart > 0 || slice.openEnd > 0) return { pendingClose: true };
+                                }
+                                return value;
                             },
                         },
-                        appendTransaction(transactions, _oldState, newState) {
-                            const lastTr = transactions[transactions.length - 1];
-                            if (!lastTr || !lastTr.docChanged) return null;
-                            if (lastTr.getMeta('addToHistory') === false) return null;
-                            if (pmView?.composing) return null;
-                            if (Date.now() < imeGuardUntil) return null;
-                            let shouldSplit = false;
-                            for (const step of lastTr.steps) {
-                                const slice = step.slice;
-                                if (!slice || slice.size === 0) continue;
-                                const text = slice.content.textBetween(0, slice.content.size, '\n', '');
-                                if (text && SPLIT_CHAR.test(text)) {
-                                    shouldSplit = true;
-                                    break;
-                                }
-                                if (slice.openStart > 0 || slice.openEnd > 0) {
-                                    shouldSplit = true;
-                                    break;
-                                }
-                            }
-                            if (!shouldSplit) return null;
-                            return closeHistory(newState.tr);
+                        view(editorView) {
+                            let imeGuardUntil = 0;
+                            const onCompEnd = () => { imeGuardUntil = Date.now() + 50; };
+                            editorView.dom.addEventListener('compositionend', onCompEnd);
+                            return {
+                                update(view) {
+                                    const { pendingClose } = splitterKey.getState(view.state);
+                                    if (!pendingClose) return;
+                                    if (view.composing || Date.now() < imeGuardUntil) return;
+                                    queueMicrotask(() => {
+                                        if (view.isDestroyed) return;
+                                        const cur = splitterKey.getState(view.state);
+                                        if (!cur.pendingClose) return;
+                                        const tr = closeHistory(view.state.tr).setMeta(splitterKey, { pendingClose: false });
+                                        view.dispatch(tr);
+                                    });
+                                },
+                                destroy() {
+                                    editorView.dom.removeEventListener('compositionend', onCompEnd);
+                                },
+                            };
                         },
                     }),
                 ];

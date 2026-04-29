@@ -210,8 +210,9 @@ export class CodeEditor {
                 indentOnInput(),
                 bracketMatching(),
                 foldGutter(),
-                // 关闭时间切分：完全依赖 isolateHistoryOnSplit 按字符（换行/空格/标点）切分
-                history({ newGroupDelay: Number.MAX_SAFE_INTEGER }),
+                // 字符切分（isolateHistoryOnSplit）+ 时间切分（newGroupDelay）双重兜底，
+                // 避免一长串无标点输入变成单一 group。值取默认 500ms
+                history({ newGroupDelay: 500 }),
                 isolateHistoryOnSplit,
                 keymap.of([
                     ...historyKeymap,
