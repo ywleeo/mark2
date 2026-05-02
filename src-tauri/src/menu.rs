@@ -53,6 +53,38 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("about", "关于 Mark2");
         m.insert("quit", "退出 Mark2");
         m.insert("clear-recent", "清除最近记录");
+    } else if locale == "zh-TW" {
+        m.insert("file", "檔案");
+        m.insert("edit", "編輯");
+        m.insert("view", "檢視");
+        m.insert("new", "新增...");
+        m.insert("open", "開啟...");
+        m.insert("open-file", "開啟檔案...");
+        m.insert("open-folder", "開啟資料夾...");
+        m.insert("open-recent", "最近開啟");
+        m.insert("export", "匯出");
+        m.insert("export-image", "匯出為圖片...");
+        m.insert("export-image-mobile", "匯出為手機圖片...");
+        m.insert("export-pdf", "匯出為 PDF...");
+        m.insert("save-as", "另存新檔...");
+        m.insert("rename", "重新命名...");
+        m.insert("move", "移動到...");
+        m.insert("delete", "刪除");
+        m.insert("settings", "設定...");
+        m.insert("vault-open", "保險箱");
+        m.insert("undo", "復原");
+        m.insert("redo", "重做");
+        m.insert("toggle-sidebar", "切換側邊欄");
+        m.insert("toggle-status-bar", "切換狀態列");
+        m.insert("markdown-toolbar", "Markdown 工具列");
+        m.insert("terminal", "終端機");
+        m.insert("ai-assistant", "AI 助理");
+        m.insert("toggle-theme", "切換深色/淺色模式");
+        m.insert("toggle-code-mode", "切換 Markdown 程式碼模式");
+        m.insert("check-update", "檢查更新...");
+        m.insert("about", "關於 Mark2");
+        m.insert("quit", "結束 Mark2");
+        m.insert("clear-recent", "清除最近記錄");
     } else {
         m.insert("file", "File");
         m.insert("edit", "Edit");
@@ -163,11 +195,7 @@ fn load_custom_accelerators(handle: &AppHandle) -> HashMap<String, String> {
 }
 
 /// 获取某个菜单项的 accelerator：优先用自定义，否则用默认值。
-fn get_accelerator(
-    menu_id: &str,
-    default: &str,
-    custom: &HashMap<String, String>,
-) -> String {
+fn get_accelerator(menu_id: &str, default: &str, custom: &HashMap<String, String>) -> String {
     custom
         .get(menu_id)
         .cloned()
@@ -187,7 +215,11 @@ pub struct ExportMenuState {
 impl ExportMenuState {
     pub fn new(image: MenuItem<Wry>, image_mobile: MenuItem<Wry>, pdf: MenuItem<Wry>) -> Self {
         Self {
-            handles: Mutex::new(ExportMenuHandles { image, image_mobile, pdf }),
+            handles: Mutex::new(ExportMenuHandles {
+                image,
+                image_mobile,
+                pdf,
+            }),
         }
     }
 }
@@ -335,7 +367,16 @@ pub fn update_recent_menu(
 fn build_menu(
     handle: &AppHandle,
     custom_accel: &HashMap<String, String>,
-) -> Result<(Menu<Wry>, MenuItem<Wry>, MenuItem<Wry>, MenuItem<Wry>, Submenu<Wry>), Box<dyn std::error::Error>> {
+) -> Result<
+    (
+        Menu<Wry>,
+        MenuItem<Wry>,
+        MenuItem<Wry>,
+        MenuItem<Wry>,
+        Submenu<Wry>,
+    ),
+    Box<dyn std::error::Error>,
+> {
     let locale = read_locale_from_handle(handle);
     let l = menu_labels(&locale);
 
@@ -358,21 +399,33 @@ fn build_menu(
         .build(handle)?;
 
     let vault_item = MenuItemBuilder::with_id("vault-open", l["vault-open"])
-        .accelerator(get_accelerator("vault-open", "CmdOrCtrl+Shift+K", custom_accel))
+        .accelerator(get_accelerator(
+            "vault-open",
+            "CmdOrCtrl+Shift+K",
+            custom_accel,
+        ))
         .build(handle)?;
 
-    let export_image_item = MenuItemBuilder::with_id("export-image", l["export-image"])
-        .build(handle)?;
+    let export_image_item =
+        MenuItemBuilder::with_id("export-image", l["export-image"]).build(handle)?;
 
     let export_image_mobile_item =
         MenuItemBuilder::with_id("export-image-mobile", l["export-image-mobile"]).build(handle)?;
 
     let export_pdf_item = MenuItemBuilder::with_id("export-pdf", l["export-pdf"])
-        .accelerator(get_accelerator("export-pdf", "CmdOrCtrl+Shift+P", custom_accel))
+        .accelerator(get_accelerator(
+            "export-pdf",
+            "CmdOrCtrl+Shift+P",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", l["toggle-sidebar"])
-        .accelerator(get_accelerator("toggle-sidebar", "CmdOrCtrl+\\", custom_accel))
+        .accelerator(get_accelerator(
+            "toggle-sidebar",
+            "CmdOrCtrl+\\",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let toggle_status_bar_item =
@@ -380,21 +433,34 @@ fn build_menu(
 
     let toggle_markdown_toolbar_item =
         MenuItemBuilder::with_id("toggle-markdown-toolbar", l["markdown-toolbar"])
-            .accelerator(get_accelerator("toggle-markdown-toolbar", "CmdOrCtrl+Shift+T", custom_accel))
+            .accelerator(get_accelerator(
+                "toggle-markdown-toolbar",
+                "CmdOrCtrl+Shift+T",
+                custom_accel,
+            ))
             .build(handle)?;
 
     let toggle_terminal_item = MenuItemBuilder::with_id("toggle-terminal", l["terminal"])
-        .accelerator(get_accelerator("toggle-terminal", "CmdOrCtrl+J", custom_accel))
+        .accelerator(get_accelerator(
+            "toggle-terminal",
+            "CmdOrCtrl+J",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let toggle_ai_sidebar_item = MenuItemBuilder::with_id("toggle-ai-sidebar", l["ai-assistant"])
-        .accelerator(get_accelerator("toggle-ai-sidebar", "CmdOrCtrl+Shift+A", custom_accel))
+        .accelerator(get_accelerator(
+            "toggle-ai-sidebar",
+            "CmdOrCtrl+Shift+A",
+            custom_accel,
+        ))
         .build(handle)?;
 
-    let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"])
-        .build(handle)?;
+    let toggle_theme_item =
+        MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"]).build(handle)?;
 
-    let check_update_item = MenuItemBuilder::with_id("check-update", l["check-update"]).build(handle)?;
+    let check_update_item =
+        MenuItemBuilder::with_id("check-update", l["check-update"]).build(handle)?;
     let about_item = MenuItemBuilder::with_id("about", l["about"]).build(handle)?;
     let quit_item = MenuItemBuilder::with_id("app-quit", l["quit"])
         .accelerator(get_accelerator("app-quit", "CmdOrCtrl+Q", custom_accel))
@@ -421,13 +487,21 @@ fn build_menu(
         .build(handle)?;
 
     let save_as_item = MenuItemBuilder::with_id("file-save-as", l["save-as"])
-        .accelerator(get_accelerator("file-save-as", "CmdOrCtrl+Shift+S", custom_accel))
+        .accelerator(get_accelerator(
+            "file-save-as",
+            "CmdOrCtrl+Shift+S",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let rename_file_item = MenuItemBuilder::with_id("file-rename", l["rename"]).build(handle)?;
     let move_file_item = MenuItemBuilder::with_id("file-move", l["move"]).build(handle)?;
     let delete_file_item = MenuItemBuilder::with_id("file-delete", l["delete"])
-        .accelerator(get_accelerator("file-delete", "CmdOrCtrl+Delete", custom_accel))
+        .accelerator(get_accelerator(
+            "file-delete",
+            "CmdOrCtrl+Delete",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let open_recent_submenu = SubmenuBuilder::new(handle, l["open-recent"]).build()?;
@@ -478,7 +552,11 @@ fn build_menu(
     let select_all_item = PredefinedMenuItem::select_all(handle, None)?;
     let markdown_code_mode_item =
         MenuItemBuilder::with_id("toggle-markdown-code-view", l["toggle-code-mode"])
-            .accelerator(get_accelerator("toggle-markdown-code-view", "CmdOrCtrl+E", custom_accel))
+            .accelerator(get_accelerator(
+                "toggle-markdown-code-view",
+                "CmdOrCtrl+E",
+                custom_accel,
+            ))
             .build(handle)?;
 
     let edit_menu = SubmenuBuilder::new(handle, l["edit"])
@@ -500,14 +578,25 @@ fn build_menu(
         .item(&edit_menu)
         .build()?;
 
-    Ok((menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu))
+    Ok((
+        menu_bar,
+        export_image_item,
+        export_image_mobile_item,
+        export_pdf_item,
+        open_recent_submenu,
+    ))
 }
 
 pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle().clone();
     let custom_accel = load_custom_accelerators(&handle);
-    let (menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu) =
-        build_menu(&handle, &custom_accel)?;
+    let (
+        menu_bar,
+        export_image_item,
+        export_image_mobile_item,
+        export_pdf_item,
+        open_recent_submenu,
+    ) = build_menu(&handle, &custom_accel)?;
 
     app.manage(ExportMenuState::new(
         export_image_item,
@@ -539,8 +628,13 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 #[tauri::command]
 pub fn rebuild_menu(app: AppHandle) -> Result<(), String> {
     let custom_accel = load_custom_accelerators(&app);
-    let (menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu) =
-        build_menu(&app, &custom_accel).map_err(|e| e.to_string())?;
+    let (
+        menu_bar,
+        export_image_item,
+        export_image_mobile_item,
+        export_pdf_item,
+        open_recent_submenu,
+    ) = build_menu(&app, &custom_accel).map_err(|e| e.to_string())?;
 
     // 更新 ExportMenuState 的引用
     if let Some(state) = app.try_state::<ExportMenuState>() {
