@@ -368,35 +368,50 @@ export class ImageModal {
             if (!src) return;
 
             const { save } = await import('@tauri-apps/plugin-dialog');
-            const isSvg = src.startsWith('data:image/svg+xml');
+            const isSvgSrc = src.startsWith('data:image/svg+xml');
 
-            // for non-data-URL images, convert to PNG data URL via canvas
-            let dataUrl = src;
-            if (!src.startsWith('data:')) {
-                const canvas = document.createElement('canvas');
-                canvas.width = this._cachedW;
-                canvas.height = this._cachedH;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(this.img, 0, 0);
-                dataUrl = canvas.toDataURL('image/png');
-            }
+            // SVG 源默认导 PNG（更通用），同时允许保存为 SVG 原文件
+            const filters = isSvgSrc
+                ? [
+                    { name: 'PNG Image', extensions: ['png'] },
+                    { name: 'SVG Image', extensions: ['svg'] },
+                ]
+                : [{ name: 'PNG Image', extensions: ['png'] }];
 
-            const ext = isSvg ? 'svg' : 'png';
             const targetPath = await save({
                 title: 'Save Image',
-                filters: [{ name: `${ext.toUpperCase()} Image`, extensions: [ext] }],
-                defaultPath: `image.${ext}`,
+                filters,
+                defaultPath: 'image.png',
             });
             if (!targetPath) return;
 
-            if (isSvg) {
-                const payload = decodeURIComponent(dataUrl.substring(dataUrl.indexOf(',') + 1));
+            const wantSvg = targetPath.toLowerCase().endsWith('.svg');
+
+            if (wantSvg && isSvgSrc) {
+                // 保存 SVG 原文件
+                let payload = decodeURIComponent(src.substring(src.indexOf(',') + 1));
+                if (!payload.startsWith('<?xml')) {
+                    payload = `<?xml version="1.0" encoding="UTF-8"?>\n${payload}`;
+                }
                 const { writeTextFile } = await import('@tauri-apps/plugin-fs');
                 await writeTextFile(targetPath, payload);
-            } else {
-                const { invoke } = await import('@tauri-apps/api/core');
-                await invoke('capture_screenshot', { destination: targetPath, imageData: dataUrl });
+                return;
             }
+
+            // 走 PNG：把当前显示的图（SVG 或位图）画到 canvas 再导出
+            const baseW = this._cachedW || this.img.naturalWidth || 800;
+            const baseH = this._cachedH || this.img.naturalHeight || 600;
+            const scale = 2; // 高分屏 2x 输出，避免糊
+            const canvas = document.createElement('canvas');
+            canvas.width = baseW * scale;
+            canvas.height = baseH * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(scale, scale);
+            ctx.drawImage(this.img, 0, 0, baseW, baseH);
+            const dataUrl = canvas.toDataURL('image/png');
+
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('capture_screenshot', { destination: targetPath, imageData: dataUrl });
         } catch (err) {
             console.error('[ImageModal] download failed:', err);
         }

@@ -78,6 +78,21 @@ async function loadMermaid() {
                         rankSpacing: 50,
                         htmlLabels: true,
                     },
+                    sequence: {
+                        // actor 框尺寸：默认 150x65 太大
+                        width: 120,
+                        height: 50,
+                        actorMargin: 60,
+                        boxMargin: 8,
+                        boxTextMargin: 4,
+                        noteMargin: 10,
+                        messageMargin: 32,
+                        actorFontSize: 13,
+                        actorFontWeight: 500,
+                        messageFontSize: 12,
+                        noteFontSize: 11,
+                        noteAlign: 'center',
+                    },
                     xyChart: {
                         width: 800,
                         height: 450,
@@ -111,8 +126,10 @@ const FLOWCHART_PALETTES = [
  * 自动美化流程图：给 subgraph 和节点分配不同配色
  */
 function polishFlowchart(svgElement) {
+    const allNodes = svgElement.querySelectorAll('.node');
+    if (allNodes.length === 0) return; // 不是 flowchart
+
     const clusters = svgElement.querySelectorAll('.cluster');
-    if (clusters.length === 0) return;
 
     // 收集每个 cluster 的范围和配色
     const clusterInfos = [];
@@ -166,7 +183,6 @@ function polishFlowchart(svgElement) {
     });
 
     // 节点不在 cluster DOM 内部，按位置匹配到 cluster
-    const allNodes = svgElement.querySelectorAll('.node');
     for (const node of allNodes) {
         const shape = node.querySelector('rect, polygon, circle');
         if (!shape) continue;
@@ -212,6 +228,153 @@ function polishFlowchart(svgElement) {
         const rect = cluster.querySelector('rect');
         if (rect) rect.style.setProperty('stroke-width', '1.5px', 'important');
     }
+}
+
+/**
+ * 美化 sequence diagram：复用 flowchart 配色，让 actor/note/labelBox 与 flowchart node 风格一致
+ */
+function polishSequence(svgElement) {
+    const actorRects = svgElement.querySelectorAll('rect.actor, g.actor rect');
+    if (actorRects.length === 0) return;
+
+    const blue   = FLOWCHART_PALETTES[0]; // actor
+    const purple = FLOWCHART_PALETTES[1]; // labelBox (par/loop)
+    const yellow = FLOWCHART_PALETTES[2]; // note
+
+    const centerTextInRect = (rect, text) => {
+        if (!rect || !text) return;
+        const rectY = parseFloat(rect.getAttribute('y') || 0);
+        const rectH = parseFloat(rect.getAttribute('height') || 0);
+        const rectCenterY = rectY + rectH / 2;
+        try {
+            const b = text.getBBox();
+            if (!b) return;
+            const textCenterY = b.y + b.height / 2;
+            const offset = rectCenterY - textCenterY;
+            if (Math.abs(offset) < 0.5) return;
+            const prev = text.getAttribute('transform') || '';
+            text.setAttribute('transform', `${prev} translate(0, ${offset.toFixed(2)})`.trim());
+        } catch (_) { /* getBBox 偶尔抛错，忽略 */ }
+    };
+
+    // ── actor 框（顶部矩形，含底部镜像）──
+    actorRects.forEach(rect => {
+        rect.style.fill = blue.nodeBg;
+        rect.style.stroke = blue.nodeBorder;
+        rect.style.strokeWidth = '1.5px';
+        rect.setAttribute('rx', '6');
+        rect.setAttribute('ry', '6');
+
+        const text = rect.parentNode?.querySelector?.('text.actor');
+        centerTextInRect(rect, text);
+    });
+    svgElement.querySelectorAll('text.actor').forEach(t => {
+        t.style.fill = blue.text;
+        t.style.fontWeight = '500';
+    });
+
+    // actor 之间的虚线竖线
+    svgElement.querySelectorAll('line.actor-line').forEach(l => {
+        l.style.stroke = '#94a3b8';
+        l.style.strokeWidth = '1px';
+        l.setAttribute('stroke-dasharray', '4 4');
+    });
+
+    // ── note 框 ──
+    svgElement.querySelectorAll('rect.note, g.note rect').forEach(rect => {
+        rect.style.fill = yellow.nodeBg;
+        rect.style.stroke = yellow.nodeBorder;
+        rect.style.strokeWidth = '1px';
+        rect.setAttribute('rx', '4');
+        rect.setAttribute('ry', '4');
+
+        // note 文字垂直居中
+        const group = rect.parentNode;
+        if (!group) return;
+        const texts = group.querySelectorAll('text.noteText, text');
+        if (texts.length === 0) return;
+        const rectY = parseFloat(rect.getAttribute('y') || 0);
+        const rectH = parseFloat(rect.getAttribute('height') || 0);
+        const rectCenterY = rectY + rectH / 2;
+        let minY = Infinity, maxY = -Infinity;
+        texts.forEach(t => {
+            try {
+                const b = t.getBBox();
+                if (!b) return;
+                if (b.y < minY) minY = b.y;
+                if (b.y + b.height > maxY) maxY = b.y + b.height;
+            } catch (_) {}
+        });
+        if (minY === Infinity) return;
+        const textCenterY = (minY + maxY) / 2;
+        const offset = rectCenterY - textCenterY;
+        if (Math.abs(offset) < 0.5) return;
+        texts.forEach(t => {
+            const prev = t.getAttribute('transform') || '';
+            t.setAttribute('transform', `${prev} translate(0, ${offset.toFixed(2)})`.trim());
+        });
+    });
+    svgElement.querySelectorAll('text.noteText, g.note text').forEach(t => {
+        t.style.fill = yellow.text;
+    });
+
+    // ── par/loop/alt 标签框 ──
+    svgElement.querySelectorAll('rect.labelBox, polygon.labelBox').forEach(el => {
+        el.style.fill = purple.nodeBg;
+        el.style.stroke = purple.nodeBorder;
+        el.style.strokeWidth = '1px';
+        if (el.tagName === 'rect') {
+            el.setAttribute('rx', '3');
+            el.setAttribute('ry', '3');
+        }
+    });
+    svgElement.querySelectorAll('text.labelText').forEach(t => {
+        t.style.fill = purple.label;
+        t.style.fontWeight = '600';
+    });
+    svgElement.querySelectorAll('text.loopText, .loopLine + text, .loopLine ~ text').forEach(t => {
+        t.style.fill = purple.text;
+    });
+    svgElement.querySelectorAll('line.loopLine').forEach(l => {
+        l.style.stroke = purple.nodeBorder;
+        l.style.strokeWidth = '1px';
+    });
+
+    // ── 消息箭头 ──
+    svgElement.querySelectorAll('line.messageLine0, path.messageLine0').forEach(p => {
+        p.style.stroke = '#64748b';
+        p.style.strokeWidth = '1.6px';
+    });
+    svgElement.querySelectorAll('line.messageLine1, path.messageLine1').forEach(p => {
+        p.style.stroke = '#64748b';
+        p.style.strokeWidth = '1.6px';
+        p.setAttribute('stroke-dasharray', '5 4');
+    });
+    svgElement.querySelectorAll('text.messageText').forEach(t => {
+        t.style.fill = '#475569';
+    });
+
+    // ── autonumber 圆圈 ──
+    svgElement.querySelectorAll('circle').forEach(c => {
+        const parent = c.parentNode;
+        if (parent?.querySelector?.('text.sequenceNumber')) {
+            c.style.fill = blue.nodeBorder;
+            c.style.stroke = blue.nodeBorder;
+        }
+    });
+    svgElement.querySelectorAll('text.sequenceNumber').forEach(t => {
+        t.style.fill = '#ffffff';
+        t.style.fontWeight = '600';
+    });
+
+    // ── 激活条 ──
+    svgElement.querySelectorAll('rect.activation0, rect.activation1, rect.activation2').forEach(rect => {
+        rect.style.fill = blue.bg;
+        rect.style.stroke = blue.nodeBorder;
+        rect.style.strokeWidth = '0.8px';
+        rect.setAttribute('rx', '2');
+        rect.setAttribute('ry', '2');
+    });
 }
 
 /**
@@ -795,6 +958,7 @@ async function renderSingleMermaid(element) {
         if (svgElement) {
             stripSvgBackground(svgElement);
             polishFlowchart(svgElement);
+            polishSequence(svgElement);
             thinAxisTicks(svgElement);
             const polished = polishXYChart(svgElement, code) || svgElement;
             addTooltipsToNodes(polished, code);
@@ -825,6 +989,7 @@ async function renderSingleMermaid(element) {
             // 移除 mermaid 内部的背景矩形
             stripSvgBackground(svgElement);
             polishFlowchart(svgElement);
+            polishSequence(svgElement);
             thinAxisTicks(svgElement);
             const polished = polishXYChart(svgElement, code) || svgElement;
 
