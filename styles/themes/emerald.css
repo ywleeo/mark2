@@ -27,6 +27,7 @@
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) code,
 .tiptap-editor[data-theme-appearance='light'] code{
     color: #6366f1;
+    background-color: #f3f4f6;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) blockquote,
@@ -171,7 +172,8 @@
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) code,
 .tiptap-editor[data-theme-appearance='dark'] code{
-    color: #ffffff;
+    color: #a5b4fc;
+    background-color: rgba(139, 241, 155, 0.12);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) blockquote,
