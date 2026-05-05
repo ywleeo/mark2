@@ -9,7 +9,7 @@ import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { ImageModal } from '../ImageModal.js';
 import { listen } from '@tauri-apps/api/event';
 import { addClickHandler } from '../../utils/PointerHelper.js';
-import { preprocessMarkdown } from './MarkdownPreprocessor.js';
+import { extractFrontmatter, preprocessMarkdown } from './MarkdownPreprocessor.js';
 import { createEditorExtensions } from './editorExtensions.js';
 import { ContentLoader } from './ContentLoader.js';
 import { TrailingParagraphManager } from './TrailingParagraphManager.js';
@@ -107,9 +107,24 @@ export class MarkdownEditor {
             parseOptions: { preserveWhitespace: 'full' },
             editorProps: {
                 attributes: { class: 'tiptap-editor', 'data-markdown-editor-host': 'true' },
-                clipboardTextParser(text, context, plain) {
+                clipboardTextParser: (text, context, plain) => {
                     if (plain || !mdParser) return null;
-                    const doc = mdParser.parse(text);
+                    let bodyText = text;
+                    // 仅当粘贴到空文档开头、且当前无 frontmatter 时剥离粘贴文本的 frontmatter，
+                    // 避免被解析成 hr / setext heading；其他场景按普通 markdown 渲染。
+                    const editor = this.editor;
+                    const docSize = editor?.state?.doc?.content?.size ?? 0;
+                    const pastePos = context?.pos ?? -1;
+                    const isAtDocStart = pastePos >= 0 && pastePos <= 1 && docSize <= 2;
+                    const hasExistingFrontmatter = !!this.contentLoader?._frontmatterRaw;
+                    if (isAtDocStart && !hasExistingFrontmatter) {
+                        const { body, raw } = extractFrontmatter(text);
+                        if (raw && this.contentLoader) {
+                            this.contentLoader._frontmatterRaw = raw;
+                            bodyText = body;
+                        }
+                    }
+                    const doc = mdParser.parse(bodyText);
                     return doc?.content ?? null;
                 },
             },
