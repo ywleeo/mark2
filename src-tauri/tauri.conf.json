@@ -1,6 +1,6 @@
 {
   "productName": "Mark2",
-  "version": "1.7.26",
+  "version": "1.7.27",
   "identifier": "cc.altron.mark2",
   "build": {
     "beforeDevCommand": "npm run dev",
