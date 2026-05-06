@@ -64,6 +64,14 @@ export class FocusManager {
             if (!editor?.isEditable || !this.getCurrentFile()) return;
             if (!markdownContent.contains(event.target)) return;
 
+            // 落在 .markdown-content 左右 padding（编辑器宿主之外）的点击不处理，
+            // 否则会触发 focus('start') 把光标拉到文首、滚动条跳回顶部。
+            const host = markdownContent.querySelector('[data-markdown-editor-host]');
+            if (host) {
+                const rect = host.getBoundingClientRect();
+                if (event.clientX < rect.left || event.clientX > rect.right) return;
+            }
+
             const isInsideEditor = event.target.closest('[data-markdown-editor-host]') !== null;
             const isEmpty = this.isContentEmpty();
             if (!isInsideEditor || (isInsideEditor && isEmpty)) {
