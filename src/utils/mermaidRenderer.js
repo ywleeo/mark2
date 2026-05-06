@@ -4,6 +4,13 @@ let mermaidInstance = null;
 // 内存缓存：code hash -> svg string（包含主题标识）
 const svgCache = new Map();
 
+// 把 mermaid 输出 SVG 中的 width="" / height="" 空属性清理掉。
+// WebKit 在校验 SVG 属性时对空字符串值会报 console error，需要在注入 DOM 前剔除。
+function stripEmptyDimensionAttrs(svgString) {
+    if (!svgString) return svgString;
+    return svgString.replace(/\s(width|height)\s*=\s*(["'])\s*\2/gi, '');
+}
+
 // 简单 hash 函数
 function hashCode(str) {
     let hash = 0;
@@ -976,11 +983,14 @@ async function renderSingleMermaid(element) {
             `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         element.setAttribute('data-mermaid-id', uniqueId);
         const { svg } = await mermaid.render(uniqueId, code);
-        element.innerHTML = svg;
+        // mermaid 某些图（quadrant/pie/xychart）输出的 SVG 含 width=""/height="" 空属性，
+        // WebKit 校验 SVG 属性时会报 "Invalid value for <svg> attribute"，先剔除。
+        const cleanedSvg = stripEmptyDimensionAttrs(svg);
+        element.innerHTML = cleanedSvg;
         const svgElement = element.querySelector('svg');
         if (svgElement) {
-            svgElement.removeAttribute('width');
-            svgElement.removeAttribute('height');
+            // 不再主动 remove width/height — mermaid 已经用 style="max-width" + viewBox
+            // 控制响应式尺寸，多余的 attribute 操作反而会触发 WebKit 的属性校验告警。
             svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             svgElement.style.overflow = 'visible';
             svgElement.style.display = 'block';
@@ -1002,7 +1012,7 @@ async function renderSingleMermaid(element) {
 
         // 渲染完成后获取实际高度，存入缓存
         const height = element.offsetHeight;
-        svgCache.set(cacheKey, { svg, height });
+        svgCache.set(cacheKey, { svg: cleanedSvg, height });
     } catch (error) {
         console.warn('[MermaidRenderer] 渲染失败', error);
         element.setAttribute('data-processed', 'true');
