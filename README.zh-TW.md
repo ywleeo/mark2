@@ -1,4 +1,4 @@
-[简体中文](README.md) | **繁體中文**
+[简体中文](README.md) | **繁體中文** | [English](README.en.md)
 
 # Mark2
 
