@@ -322,92 +322,144 @@ export function createMarkdownParser(schema) {
 
     if (parser.tokenHandlers.html_inline) {
         parser.tokenHandlers.html_inline = (state, tok) => {
-            if (shouldSkipInlineHtml(tok.content)) {
-                return;
-            }
+            // 单条 inline HTML 解析失败时，吞掉异常、跳过本块；不让一个坏标签拖崩整篇 markdown
+            try {
+                if (shouldSkipInlineHtml(tok.content)) {
+                    return;
+                }
 
-            const content = tok.content || '';
+                const content = tok.content || '';
 
-            // <br> 识别为 hardBreak，支持标题/段落内折行
-            if (hardBreakType && /^<br\s*\/?\s*>$/i.test(content)) {
-                state.addNode(hardBreakType, null);
-                return;
-            }
+                // <br> 识别为 hardBreak，支持标题/段落内折行
+                if (hardBreakType && /^<br\s*\/?\s*>$/i.test(content)) {
+                    state.addNode(hardBreakType, null);
+                    return;
+                }
 
-            // 检测结束标签
-            const closeTag = parseHtmlCloseTag(content);
-            if (closeTag) {
-                // 找到匹配的开始标签并关闭 mark
-                for (let i = htmlMarkStack.length - 1; i >= 0; i--) {
-                    if (htmlMarkStack[i].tag === closeTag) {
-                        const markInfo = htmlMarkStack.splice(i, 1)[0];
-                        state.closeMark(markInfo.mark);
-                        break;
+                // 检测结束标签
+                const closeTag = parseHtmlCloseTag(content);
+                if (closeTag) {
+                    // 找到匹配的开始标签并关闭 mark
+                    for (let i = htmlMarkStack.length - 1; i >= 0; i--) {
+                        if (htmlMarkStack[i].tag === closeTag) {
+                            const markInfo = htmlMarkStack.splice(i, 1)[0];
+                            state.closeMark(markInfo.mark);
+                            break;
+                        }
                     }
-                }
-                return;
-            }
-
-            // 检测开始标签
-            const openTag = parseHtmlOpenTag(content);
-            if (openTag) {
-                const { tag, attrs } = openTag;
-                // 优先使用 htmlSpan（如果是 span 标签），否则用 htmlInline
-                let markType = null;
-                let markAttrs = {};
-
-                if (tag === 'span' && htmlSpanMark) {
-                    markType = htmlSpanMark;
-                    markAttrs = {
-                        style: attrs.style || null,
-                        class: attrs.class || null,
-                        id: attrs.id || null,
-                    };
-                } else if (htmlInlineMark) {
-                    markType = htmlInlineMark;
-                    markAttrs = {
-                        tag,
-                        style: attrs.style || null,
-                        class: attrs.class || null,
-                        id: attrs.id || null,
-                    };
+                    return;
                 }
 
-                if (markType) {
-                    const mark = markType.create(markAttrs);
-                    htmlMarkStack.push({ tag, mark });
-                    state.openMark(mark);
+                // 检测开始标签
+                const openTag = parseHtmlOpenTag(content);
+                if (openTag) {
+                    const { tag, attrs } = openTag;
+                    // 优先使用 htmlSpan（如果是 span 标签），否则用 htmlInline
+                    let markType = null;
+                    let markAttrs = {};
+
+                    if (tag === 'span' && htmlSpanMark) {
+                        markType = htmlSpanMark;
+                        markAttrs = {
+                            style: attrs.style || null,
+                            class: attrs.class || null,
+                            id: attrs.id || null,
+                        };
+                    } else if (htmlInlineMark) {
+                        markType = htmlInlineMark;
+                        markAttrs = {
+                            tag,
+                            style: attrs.style || null,
+                            class: attrs.class || null,
+                            id: attrs.id || null,
+                        };
+                    }
+
+                    if (markType) {
+                        const mark = markType.create(markAttrs);
+                        htmlMarkStack.push({ tag, mark });
+                        state.openMark(mark);
+                    }
+                    return;
                 }
-                return;
-            }
 
-            // 其他 HTML（如注释、自闭合标签等），尝试提取文本
-            const inlineText = extractInlineText(content);
-            if (inlineText) {
-                state.addText(inlineText);
-                return;
-            }
+                // 其他 HTML（如注释、自闭合标签等），尝试提取文本
+                const inlineText = extractInlineText(content);
+                if (inlineText) {
+                    state.addText(inlineText);
+                    return;
+                }
 
-            // 回退：尝试解析为 HTML fragment
-            const slice = parseHtmlFragment(schema, content, false);
-            if (!slice) {
-                return;
+                // 回退：尝试解析为 HTML fragment
+                const slice = parseHtmlFragment(schema, content, false);
+                if (!slice) {
+                    return;
+                }
+                slice.content.forEach(node => {
+                    try {
+                        // 单个节点 push 失败也不影响其他兄弟节点
+                        state.push(applyMarksToInline(node, state.top().marks));
+                    } catch (err) {
+                        console.warn('[markdown] push html_inline node failed:', err);
+                    }
+                });
+            } catch (err) {
+                console.warn('[markdown] html_inline handler failed:', err, tok.content);
             }
-            slice.content.forEach(node => {
-                state.push(applyMarksToInline(node, state.top().marks));
-            });
         };
     }
 
     if (parser.tokenHandlers.html_block) {
         parser.tokenHandlers.html_block = (state, tok) => {
-            const slice = parseHtmlFragment(schema, tok.content || '', true);
-            if (!slice) {
+            const content = tok.content || '';
+            let slice = null;
+            try {
+                slice = parseHtmlFragment(schema, content, true);
+            } catch (err) {
+                console.warn('[markdown] html_block parse failed:', err);
+            }
+
+            // schema 不认识的 block 标签（<center>/<details>/<summary>/<font> 等），
+            // DOMParser 会降级到子节点，常常吐出纯 inline 内容；
+            // 直接 push 到 doc 会让 doc.create() 校验失败、整篇 markdown 解析崩溃 → 编辑器空白。
+            // 这里把连续的 inline 节点缓冲后包一层 paragraph 再下发。
+            let inlineBuffer = [];
+            const flushInline = () => {
+                if (inlineBuffer.length === 0 || !paragraphType) {
+                    inlineBuffer = [];
+                    return;
+                }
+                try {
+                    state.openNode(paragraphType, null);
+                    inlineBuffer.forEach(n => state.push(n));
+                    state.closeNode();
+                } catch (err) {
+                    console.warn('[markdown] flush inline html_block nodes failed:', err);
+                }
+                inlineBuffer = [];
+            };
+
+            if (slice && slice.content.size > 0) {
+                slice.content.forEach(node => {
+                    if (node.isInline) {
+                        inlineBuffer.push(node);
+                    } else {
+                        flushInline();
+                        try { state.push(node); }
+                        catch (err) { console.warn('[markdown] push html_block node failed:', err); }
+                    }
+                });
+                flushInline();
                 return;
             }
-            slice.content.forEach(node => {
-                state.push(node);
-            });
+
+            // 解析不到任何可用节点，把原文当作纯文本兜底，避免内容丢失
+            const fallback = extractInlineText(content).trim();
+            if (fallback && paragraphType) {
+                state.openNode(paragraphType, null);
+                state.addText(fallback);
+                state.closeNode();
+            }
         };
     }
 
@@ -425,7 +477,37 @@ export function createMarkdownParser(schema) {
         };
     }
 
+    // 终极兜底：parse 不论怎么爆都不允许返回空 doc，否则编辑器会一片空白。
+    // 抛错时把原 markdown 作为 codeBlock 整段塞进去，至少让用户看到内容并意识到出了问题。
+    const originalParse = parser.parse.bind(parser);
+    parser.parse = (markdown) => {
+        try {
+            return originalParse(markdown);
+        } catch (err) {
+            console.error('[markdown] parser.parse threw, falling back to verbatim doc:', err);
+            return buildFallbackDoc(schema, markdown);
+        }
+    };
+
     return parser;
+}
+
+/**
+ * 构造一个把原 markdown 全文塞进 codeBlock 的兜底 doc。
+ * 用在 parser.parse 抛错时——保证编辑器不会因为解析失败而空白。
+ */
+function buildFallbackDoc(schema, markdown) {
+    const docType = schema.nodes.doc;
+    const codeBlockType = schema.nodes.codeBlock;
+    const paragraphType = schema.nodes.paragraph;
+    const text = typeof markdown === 'string' ? markdown : '';
+    if (codeBlockType && text) {
+        return docType.create(null, codeBlockType.create(null, schema.text(text)));
+    }
+    if (paragraphType) {
+        return docType.create(null, text ? paragraphType.create(null, schema.text(text)) : paragraphType.create());
+    }
+    return docType.create();
 }
 
 function escapeHtmlAttribute(value) {
