@@ -24,8 +24,8 @@
     background: #f8fafc;
 }
 
-[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) code,
-.tiptap-editor[data-theme-appearance='light'] code{
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
+.tiptap-editor[data-theme-appearance='light'] :not(pre) > code{
     color: #6366f1;
     background-color: #f3f4f6;
 }
@@ -170,8 +170,8 @@
     background: rgba(62, 62, 62, 0.21);
 }
 
-[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) code,
-.tiptap-editor[data-theme-appearance='dark'] code{
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
+.tiptap-editor[data-theme-appearance='dark'] :not(pre) > code{
     color: #a5b4fc;
     background-color: rgba(139, 241, 155, 0.12);
 }
