@@ -14,6 +14,8 @@ store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Nu
 
 const CHECK_DELAY_MS = 5000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1h
+// 退避间隔：2s / 5s / 10s，给 DNS 重建、连接恢复留够时间
+const CHECK_RETRY_DELAYS_MS = [2000, 5000, 10000];
 const DOWNLOAD_MAX_ATTEMPTS = 3;
 const DOWNLOAD_RETRY_DELAY_MS = 2000;
 
@@ -51,7 +53,7 @@ function runScheduledCheck() {
  * - 检查中：loading toast
  * - 无新版本：短暂提示后自动消失
  * - 发现新版本：loading toast 变成下载中，下载完成后变成就绪浮层
- * - 出错：错误 toast，用户可关闭
+ * - 出错：静默重试已在 checkWithRetry 内处理；最终失败时静默关掉 toast，不打扰用户
  */
 export async function manualCheckUpdate() {
     if (pendingUpdate) {
@@ -65,16 +67,35 @@ export async function manualCheckUpdate() {
             showInfoToast({ title: '当前已是最新版本', variant: 'info', autoHideMs: 2500 });
         }
     } catch (err) {
-        showInfoToast({
-            title: '检查更新失败',
-            hint: err?.message || String(err),
-            variant: 'error'
-        });
+        console.warn('[AutoUpdater] 手动检查更新失败（已静默）:', err);
+        replaceToast();
     }
 }
 
+/**
+ * 包一层重试：网络瞬时抖动不抛错给上层。
+ * 共 4 次尝试，失败后退避 2s / 5s / 10s 再重试。
+ */
+async function checkWithRetry() {
+    const delays = CHECK_RETRY_DELAYS_MS;
+    const total = delays.length + 1;
+    let lastErr;
+    for (let attempt = 0; attempt < total; attempt++) {
+        if (attempt > 0) {
+            await new Promise(r => setTimeout(r, delays[attempt - 1]));
+        }
+        try {
+            return await check();
+        } catch (err) {
+            lastErr = err;
+            console.warn(`[AutoUpdater] check 失败(第${attempt + 1}/${total}次):`, err);
+        }
+    }
+    throw lastErr;
+}
+
 async function checkAndDownload(manual) {
-    const update = await check();
+    const update = await checkWithRetry();
     store.set('lastCheckAt', Date.now());
     if (!update) {
         console.log('[AutoUpdater] 当前已是最新版本');
