@@ -232,6 +232,9 @@ export function createEditorExtensions(lowlight) {
                             const docChanged = transactions.some(tr => tr.docChanged);
                             const selChanged = !oldState.selection.eq(newState.selection);
                             if (!docChanged && !selChanged) return null;
+                            // \u7528\u6237\u5728\u5220\u9664\u65F6\u4E0D\u8981\u56DE\u586B \u200B\uFF0C\u5426\u5219\u7A7A codeBlock \u6C38\u8FDC\u5220\u4E0D\u6389\uFF1A
+                            // Backspace \u5220\u6389 \u200B \u2192 \u6B64\u5904\u53C8\u8865\u4E00\u4E2A \u2192 \u6B7B\u5FAA\u73AF
+                            if (newState.doc.content.size < oldState.doc.content.size) return null;
                             const { $from, empty } = newState.selection;
                             if (!empty) return null;
                             if ($from.parent.type.name !== 'codeBlock') return null;
