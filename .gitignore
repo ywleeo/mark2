@@ -1,6 +1,7 @@
 .DS_Store
 /target
 node_modules
+/server
 /src-tauri/target
 /dist
 /test-workspace
