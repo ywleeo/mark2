@@ -9,12 +9,13 @@
 
 import en from './en.json';
 import zhCN from './zh-CN.json';
+import zhTW from './zh-TW.json';
 import { createStore } from '../services/storage.js';
 
 const store = createStore('i18n');
 store.migrateFrom('mark2:locale', 'locale', { parse: 'raw' });
 
-const SUPPORTED = { en, 'zh-CN': zhCN };
+const SUPPORTED = { en, 'zh-CN': zhCN, 'zh-TW': zhTW };
 const DEFAULT_LOCALE = 'en';
 
 // Auto-init on module load — must happen before any t() call from other modules

@@ -53,6 +53,38 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("about", "关于 Mark2");
         m.insert("quit", "退出 Mark2");
         m.insert("clear-recent", "清除最近记录");
+    } else if locale == "zh-TW" {
+        m.insert("file", "檔案");
+        m.insert("edit", "編輯");
+        m.insert("view", "檢視");
+        m.insert("new", "新增...");
+        m.insert("open", "開啟...");
+        m.insert("open-file", "開啟檔案...");
+        m.insert("open-folder", "開啟資料夾...");
+        m.insert("open-recent", "最近開啟");
+        m.insert("export", "匯出");
+        m.insert("export-image", "匯出為圖片...");
+        m.insert("export-image-mobile", "匯出為手機圖片...");
+        m.insert("export-pdf", "匯出為 PDF...");
+        m.insert("save-as", "另存新檔...");
+        m.insert("rename", "重新命名...");
+        m.insert("move", "移動到...");
+        m.insert("delete", "刪除");
+        m.insert("settings", "設定...");
+        m.insert("vault-open", "保險箱");
+        m.insert("undo", "復原");
+        m.insert("redo", "重做");
+        m.insert("toggle-sidebar", "切換側邊欄");
+        m.insert("toggle-status-bar", "切換狀態列");
+        m.insert("markdown-toolbar", "Markdown 工具列");
+        m.insert("terminal", "終端機");
+        m.insert("ai-assistant", "AI 助理");
+        m.insert("toggle-theme", "切換深色/淺色模式");
+        m.insert("toggle-code-mode", "切換 Markdown 程式碼模式");
+        m.insert("check-update", "檢查更新...");
+        m.insert("about", "關於 Mark2");
+        m.insert("quit", "結束 Mark2");
+        m.insert("clear-recent", "清除最近記錄");
     } else {
         m.insert("file", "File");
         m.insert("edit", "Edit");

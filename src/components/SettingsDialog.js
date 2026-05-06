@@ -88,7 +88,8 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.language')}</span>
                                 <select name="language" class="settings-row__control">
                                     <option value="en">English</option>
-                                    <option value="zh-CN">中文</option>
+                                    <option value="zh-CN">简体中文</option>
+                                    <option value="zh-TW">繁體中文</option>
                                 </select>
                             </label>
                             ${isMac ? `

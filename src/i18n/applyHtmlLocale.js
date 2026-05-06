@@ -5,7 +5,8 @@
 import { t, getLocale } from './index.js';
 
 export function applyHtmlLocale() {
-    document.documentElement.lang = getLocale() === 'zh-CN' ? 'zh-CN' : 'en';
+    const locale = getLocale();
+    document.documentElement.lang = (locale === 'zh-CN' || locale === 'zh-TW') ? locale : 'en';
 
     // aria-label / title mappings  —  selector → [attribute, i18n key]
     const attrs = [
