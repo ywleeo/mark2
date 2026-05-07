@@ -199,13 +199,13 @@ export const TOOL_DEFINITIONS = [
         type: 'function',
         function: {
             name: 'create_files',
-            description: '批量创建/覆盖多个文件（一次调用最多 1000 个）。用于初始化目录结构、批量生成文件等。每项 content 省略时创建空文件。父目录不存在会自动创建。',
+            description: '批量创建/覆盖多个文件（一次调用最多 1000 个）。提供两种模式（二选一）：\n1) 文件名/内容各不相同时用 files：显式列出每项 {path, content}。\n2) 文件名有规律或大批量同内容时用 pattern：只描述规则（目录 + 名字模板 + 数量），工具内部展开成路径。强烈推荐 pattern：避免 LLM 输出几十 KB 的 JSON 列表导致超时或截断。',
             parameters: {
                 type: 'object',
                 properties: {
                     files: {
                         type: 'array',
-                        description: '要创建的文件列表',
+                        description: '显式文件列表。仅当文件路径或内容各不相同、且数量较小（建议 ≤ 50）时使用。',
                         items: {
                             type: 'object',
                             properties: {
@@ -215,8 +215,20 @@ export const TOOL_DEFINITIONS = [
                             required: ['path'],
                         },
                     },
+                    pattern: {
+                        type: 'object',
+                        description: '模板模式：批量生成名字有规律的文件。例如要建 001.md ~ 900.md，用 {directory:"tmp01", name_template:"{i}.md", count:900, padding:3}',
+                        properties: {
+                            directory: { type: 'string', description: '目标目录。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                            name_template: { type: 'string', description: '文件名模板，{i} 会被序号替换。例：{i}.md / note-{i}.txt' },
+                            count: { type: 'integer', description: '生成多少个文件（≤ 1000）' },
+                            start: { type: 'integer', description: '起始序号，默认 1' },
+                            padding: { type: 'integer', description: '序号 zero-pad 位数，默认 0（不补零）。例：3 → 001、002' },
+                            content: { type: 'string', description: '每个文件的内容；省略或空字符串则创建空文件' },
+                        },
+                        required: ['directory', 'name_template', 'count'],
+                    },
                 },
-                required: ['files'],
             },
         },
     },
@@ -525,24 +537,62 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'create_files': {
                 try {
-                    const list = Array.isArray(args.files) ? args.files : [];
-                    if (list.length === 0) {
-                        return { error: 'files 不能为空' };
-                    }
-                    if (list.length > CREATE_FILES_MAX) {
-                        return { error: `一次最多创建 ${CREATE_FILES_MAX} 个文件，当前 ${list.length}` };
+                    let items = null;
+                    const hasFiles = Array.isArray(args.files) && args.files.length > 0;
+                    const hasPattern = args.pattern && typeof args.pattern === 'object';
+
+                    if (hasFiles && hasPattern) {
+                        return { error: 'create_files 只能用 files 或 pattern 之一，不能同时传' };
                     }
 
-                    // 先把路径都解析了，路径错误立刻报，不要写到一半失败
-                    const items = list.map((entry, idx) => {
-                        if (!entry || typeof entry.path !== 'string' || !entry.path.trim()) {
-                            throw new Error(`第 ${idx + 1} 项缺少合法 path`);
+                    if (hasFiles) {
+                        const list = args.files;
+                        if (list.length > CREATE_FILES_MAX) {
+                            return { error: `一次最多创建 ${CREATE_FILES_MAX} 个文件，当前 ${list.length}` };
                         }
-                        return {
-                            path: resolveRelativePath(entry.path),
-                            content: typeof entry.content === 'string' ? entry.content : '',
-                        };
-                    });
+                        items = list.map((entry, idx) => {
+                            if (!entry || typeof entry.path !== 'string' || !entry.path.trim()) {
+                                throw new Error(`第 ${idx + 1} 项缺少合法 path`);
+                            }
+                            return {
+                                path: resolveRelativePath(entry.path),
+                                content: typeof entry.content === 'string' ? entry.content : '',
+                            };
+                        });
+                    } else if (hasPattern) {
+                        const p = args.pattern;
+                        const directory = typeof p.directory === 'string' ? p.directory.trim() : '';
+                        const nameTemplate = typeof p.name_template === 'string' ? p.name_template : '';
+                        const count = Number(p.count);
+                        const start = Number.isFinite(Number(p.start)) ? Number(p.start) : 1;
+                        const padding = Number.isFinite(Number(p.padding)) && Number(p.padding) >= 0
+                            ? Math.floor(Number(p.padding))
+                            : 0;
+                        const content = typeof p.content === 'string' ? p.content : '';
+
+                        if (!directory) return { error: 'pattern.directory 不能为空' };
+                        if (!nameTemplate) return { error: 'pattern.name_template 不能为空' };
+                        if (!nameTemplate.includes('{i}')) {
+                            return { error: 'pattern.name_template 必须包含 {i} 占位，否则会重复覆盖同一个文件' };
+                        }
+                        if (!Number.isFinite(count) || count <= 0 || Math.floor(count) !== count) {
+                            return { error: 'pattern.count 必须是正整数' };
+                        }
+                        if (count > CREATE_FILES_MAX) {
+                            return { error: `一次最多创建 ${CREATE_FILES_MAX} 个文件，当前 ${count}` };
+                        }
+
+                        const dirResolved = resolveRelativePath(directory);
+                        items = new Array(count);
+                        for (let k = 0; k < count; k++) {
+                            const idx = start + k;
+                            const indexStr = padding > 0 ? String(idx).padStart(padding, '0') : String(idx);
+                            const name = nameTemplate.replace(/\{i\}/g, indexStr);
+                            items[k] = { path: joinAgentPath(dirResolved, name), content };
+                        }
+                    } else {
+                        return { error: 'create_files 需要传 files 或 pattern 之一' };
+                    }
 
                     const results = await runWithConcurrency(items, async (item) => {
                         try {
@@ -553,11 +603,11 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
                         }
                     }, CREATE_FILES_CONCURRENCY);
 
-                    const created = results.filter((r) => r.ok).map((r) => r.path);
+                    const created_count = results.reduce((acc, r) => acc + (r.ok ? 1 : 0), 0);
                     const failed = results.filter((r) => !r.ok).map((r) => ({ path: r.path, error: r.error }));
                     return {
                         total: items.length,
-                        created_count: created.length,
+                        created_count,
                         failed_count: failed.length,
                         failed: failed.slice(0, 20), // 最多回传 20 条失败详情，避免上下文炸
                     };
