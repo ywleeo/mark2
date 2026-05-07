@@ -101,7 +101,6 @@ export class FileTree {
             getRootPaths: () => this.state.getRootPaths(),
             isRootPath: (path) => this.state.isRootPath(path),
             loadFolder: (path) => this.loadFolder(path),
-            getExpandedFolderPaths: () => this.getExpandedFolderPaths(),
         });
 
         this.mover = new FileMover({

@@ -94,7 +94,20 @@ export async function isDirectory(path) {
 export async function listDirectory(path) {
     ensurePath(path, 'listDirectory');
     const entries = await invoke('read_dir', { path });
-    return Array.isArray(entries) ? entries : [];
+    if (!Array.isArray(entries)) return [];
+    // Rust 端返回 { path, name, isDir }；做一次防御性归一化，兼容历史调用方拿到对象数组
+    return entries
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null;
+            const entryPath = typeof entry.path === 'string' ? entry.path : '';
+            if (!entryPath) return null;
+            return {
+                path: entryPath,
+                name: typeof entry.name === 'string' && entry.name ? entry.name : entryPath.split(/[/\\]/).pop() || entryPath,
+                isDir: !!entry.isDir,
+            };
+        })
+        .filter(Boolean);
 }
 
 export async function pickPaths(options) {

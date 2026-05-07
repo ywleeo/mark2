@@ -199,6 +199,7 @@ export class FolderLoader {
 
         const fragment = document.createDocumentFragment();
         const expandedFolders = this.state.expandedFolders;
+        const deferredLoads = [];
 
         for (const entry of entries) {
             const name = basename(entry.path);
@@ -215,7 +216,8 @@ export class FolderLoader {
                     if (children) {
                         children.classList.add('expanded');
                         children.style.display = 'block';
-                        await this.loadFolderChildren(entry.path, children);
+                        // 把递归加载延后到空闲帧，避免在首屏一次性下钻 N 层
+                        deferredLoads.push({ path: entry.path, children, key: childKey });
                     }
                 }
             } else {
@@ -226,6 +228,39 @@ export class FolderLoader {
 
         childrenContainer.replaceChildren(fragment);
         scheduleCompactFileNameRefresh(childrenContainer);
+
+        if (deferredLoads.length > 0) {
+            this._scheduleDeferredChildren(deferredLoads);
+        }
+    }
+
+    _scheduleDeferredChildren(jobs) {
+        const idle = typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+            ? window.requestIdleCallback.bind(window)
+            : (cb) => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 0);
+
+        const runNext = () => {
+            const job = jobs.shift();
+            if (!job) return;
+            idle(async () => {
+                // 任何时候都可能：用户已经把这个父目录折叠掉、或刷新使容器脱离 DOM
+                if (!this.state.expandedFolders.has(job.key) || !job.children.isConnected) {
+                    runNext();
+                    return;
+                }
+                try {
+                    await this.loadFolderChildren(job.path, job.children);
+                    // 子目录加载完才能确认对应文件是否在 DOM 里，重应用一次选中态
+                    this.renderer?.reapplyCurrentFileSelection?.();
+                } catch (error) {
+                    console.error('惰性展开子目录失败:', { path: job.path, error });
+                } finally {
+                    runNext();
+                }
+            }, { timeout: 200 });
+        };
+
+        runNext();
     }
 
     async toggleFolder(path, folderElement = null) {

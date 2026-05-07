@@ -31,6 +31,14 @@ pub struct LogEntryPayload {
     pub context: serde_json::Value,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirEntryInfo {
+    pub path: String,
+    pub name: String,
+    pub is_dir: bool,
+}
+
 /**
  * 返回统一日志文件路径。
  * 当前先收敛到单文件，后续如需按日期切分可在此处扩展。
@@ -193,16 +201,28 @@ pub fn get_app_log_file_path(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn read_dir(path: String) -> Result<Vec<String>, String> {
-    let entries = fs::read_dir(&path)
-        .map_err(|e| e.to_string())?
-        .filter_map(|entry| {
-            entry
-                .ok()
-                .and_then(|e| e.path().to_str().map(|s| s.to_string()))
-        })
-        .collect();
-    Ok(entries)
+pub fn read_dir(path: String) -> Result<Vec<DirEntryInfo>, String> {
+    let iter = fs::read_dir(&path).map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for entry in iter.flatten() {
+        let path_buf = entry.path();
+        let path_str = match path_buf.to_str() {
+            Some(s) => s.to_string(),
+            None => continue,
+        };
+        let name = entry.file_name().to_string_lossy().to_string();
+        // file_type() 不跟随符号链接，并由 readdir 的 d_type 直接得到，避免对每个条目额外 stat
+        let is_dir = match entry.file_type() {
+            Ok(ft) => ft.is_dir(),
+            Err(_) => continue,
+        };
+        result.push(DirEntryInfo {
+            path: path_str,
+            name,
+            is_dir,
+        });
+    }
+    Ok(result)
 }
 
 #[tauri::command]

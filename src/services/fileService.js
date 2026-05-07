@@ -101,22 +101,17 @@ export function createFileService() {
     async function list(path) {
         ensurePath(path, 'list');
         const rawEntries = await filesystem.listDirectory(path);
-        const entries = await Promise.all(
-            rawEntries.map(async (entryPath) => {
-                const isDir = await filesystem.isDirectory(entryPath);
-                return {
-                    path: entryPath,
-                    name: extractName(entryPath),
-                    type: isDir ? 'directory' : 'file',
-                };
-            })
-        );
+        const entries = rawEntries.map((entry) => ({
+            path: entry.path,
+            name: entry.name || extractName(entry.path),
+            type: entry.isDir ? 'directory' : 'file',
+        }));
 
         return {
             path,
             entries,
-            directories: entries.filter(item => item.type === 'directory'),
-            files: entries.filter(item => item.type === 'file'),
+            directories: entries.filter((item) => item.type === 'directory'),
+            files: entries.filter((item) => item.type === 'file'),
         };
     }
 

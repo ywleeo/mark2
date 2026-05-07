@@ -1,8 +1,6 @@
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
-const FOLDER_POLL_MIN_INTERVAL_MS = 1500;
-const FOLDER_POLL_MAX_INTERVAL_MS = 5000;
-const FOLDER_POLL_RESUME_THRESHOLD_MS = 10000;
+const FOLDER_WATCH_DEBOUNCE_MS = 200;
 
 export class FileWatcher {
     constructor(options = {}) {
@@ -25,7 +23,6 @@ export class FileWatcher {
         this.getRootPaths = getRootPaths;
         this.isRootPath = isRootPath;
         this.loadFolder = loadFolder;
-        this.getExpandedFolderPaths = options.getExpandedFolderPaths;
 
         this.folderWatchers = new Map();
         this.fileWatchers = new Map();
@@ -37,86 +34,55 @@ export class FileWatcher {
             return;
         }
 
-        const watcherState = {
-            timer: null,
-            signature: null,
-            inFlight: false,
-            lastTickAt: 0,
-            nextDelay: FOLDER_POLL_MIN_INTERVAL_MS,
-        };
+        // 占位，避免并发调用同时建两个监听
+        this.folderWatchers.set(normalizedPath, { unwatch: null });
 
-        const scheduleNext = () => {
-            if (watcherState.timer) {
-                clearTimeout(watcherState.timer);
+        try {
+            const { watch } = await import('@tauri-apps/plugin-fs');
+            const unwatch = await watch(
+                normalizedPath,
+                (event) => {
+                    this.onFolderChange?.(normalizedPath, event);
+                },
+                { recursive: true, delayMs: FOLDER_WATCH_DEBOUNCE_MS }
+            );
+
+            // 监听过程中可能已被 stopWatchingFolder 清理
+            if (!this.folderWatchers.has(normalizedPath)) {
+                try { unwatch(); } catch (_) { /* noop */ }
+                return;
             }
-            watcherState.timer = setTimeout(poll, watcherState.nextDelay);
-        };
-
-        const poll = async () => {
-            const now = Date.now();
-            const lastTick = watcherState.lastTickAt;
-            watcherState.lastTickAt = now;
-            if (watcherState.inFlight) return;
-            watcherState.inFlight = true;
-            try {
-                const signature = await this.buildFolderSignature(normalizedPath);
-                if (watcherState.signature === null) {
-                    watcherState.signature = signature;
-                    watcherState.nextDelay = FOLDER_POLL_MIN_INTERVAL_MS;
-                    return;
-                }
-                if (signature !== watcherState.signature || (lastTick && now - lastTick > FOLDER_POLL_RESUME_THRESHOLD_MS)) {
-                    watcherState.signature = signature;
-                    this.onFolderChange?.(normalizedPath, { type: 'poll', paths: [normalizedPath] });
-                    watcherState.nextDelay = FOLDER_POLL_MIN_INTERVAL_MS;
-                } else {
-                    watcherState.nextDelay = Math.min(
-                        FOLDER_POLL_MAX_INTERVAL_MS,
-                        Math.round(watcherState.nextDelay * 1.5)
-                    );
-                }
-            } catch (error) {
-                console.warn('目录轮询失败:', { path: normalizedPath, error });
-                watcherState.nextDelay = FOLDER_POLL_MIN_INTERVAL_MS;
-            } finally {
-                watcherState.inFlight = false;
-                if (document.hidden) {
-                    watcherState.nextDelay = Math.max(watcherState.nextDelay, FOLDER_POLL_MAX_INTERVAL_MS);
-                }
-                scheduleNext();
-            }
-        };
-
-        await poll();
-        this.folderWatchers.set(normalizedPath, watcherState);
+            this.folderWatchers.set(normalizedPath, { unwatch });
+        } catch (error) {
+            this.folderWatchers.delete(normalizedPath);
+            console.error('目录监听启动失败:', { path: normalizedPath, error });
+        }
     }
 
     stopWatchingFolder(path = null) {
+        const disposeOne = (state) => {
+            const unwatch = state?.unwatch;
+            if (typeof unwatch === 'function') {
+                try {
+                    unwatch();
+                } catch (error) {
+                    console.error('停止目录监听失败:', error);
+                }
+            }
+        };
+
         if (path) {
             const normalizedPath = this.normalizePath?.(path);
             if (!normalizedPath) return;
             const state = this.folderWatchers.get(normalizedPath);
-            if (state?.timer) {
-                try {
-                    clearTimeout(state.timer);
-                } catch (error) {
-                    console.error('停止目录监听失败:', error);
-                }
+            if (state) {
+                disposeOne(state);
                 this.folderWatchers.delete(normalizedPath);
             }
             return;
         }
 
-        this.folderWatchers.forEach((state, watchedPath) => {
-            if (!state?.timer) {
-                return;
-            }
-            try {
-                clearTimeout(state.timer);
-            } catch (error) {
-                console.error('停止目录监听失败:', { watchedPath, error });
-            }
-        });
+        this.folderWatchers.forEach((state) => disposeOne(state));
         this.folderWatchers.clear();
     }
 
@@ -313,44 +279,6 @@ export class FileWatcher {
         }
 
         await this.loadFolder?.(normalizedPath);
-    }
-
-    async buildFolderSignature(rootPath) {
-        const fileService = this.ensureFileService?.();
-        if (!fileService || typeof fileService.list !== 'function') {
-            return `${rootPath}|no-service`;
-        }
-
-        const expanded = typeof this.getExpandedFolderPaths === 'function'
-            ? this.getExpandedFolderPaths()
-            : [];
-
-        const normalizedExpanded = expanded
-            .map((path) => this.normalizePath?.(path) || path)
-            .filter(Boolean);
-
-        const watchedPaths = new Set([rootPath]);
-        normalizedExpanded.forEach((path) => {
-            if (path === rootPath || path.startsWith(`${rootPath}/`) || path.startsWith(`${rootPath}\\`)) {
-                watchedPaths.add(path);
-            }
-        });
-
-        const snapshots = [];
-        for (const path of watchedPaths) {
-            try {
-                const { entries = [] } = await fileService.list(path);
-                const normalizedEntries = entries
-                    .map((entry) => `${entry.type || 'file'}:${entry.name || ''}`)
-                    .sort()
-                    .join(',');
-                snapshots.push(`${path}|${normalizedEntries}`);
-            } catch (error) {
-                snapshots.push(`${path}|error`);
-            }
-        }
-
-        return snapshots.sort().join('\n');
     }
 
     dispose() {
