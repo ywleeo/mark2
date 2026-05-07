@@ -57,17 +57,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>cc.altron.mark2.url</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>mark2</string>
-			</array>
-		</dict>
-	</array>
 	<key>CFBundleExecutable</key>
 	<string>mark2-tauri</string>
 	<key>CFBundleIconFile</key>
@@ -86,9 +75,20 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.27</string>
+	<string>1.7.28</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>cc.altron.mark2.url</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mark2</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>1.7.27</string>
+	<string>1.7.28</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>

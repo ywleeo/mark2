@@ -1,6 +1,6 @@
 {
   "productName": "Mark2",
-  "version": "1.7.27",
+  "version": "1.7.28",
   "identifier": "cc.altron.mark2",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -23,7 +23,9 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["mark2"]
+        "schemes": [
+          "mark2"
+        ]
       }
     },
     "updater": {
