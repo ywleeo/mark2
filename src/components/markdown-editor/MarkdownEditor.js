@@ -387,6 +387,8 @@ export class MarkdownEditor {
         return this.contentLoader.setContent(markdown, focus, opts);
     }
     getMarkdown()                               { return this.contentLoader.getMarkdown(); }
+    /** 是否正在加载中（任何阶段没收尾），saveCache 等读取路径用它过滤 in-flight 状态 */
+    isLoading()                                 { return !!this.contentLoader?.isLoadingFile; }
 
     // 保存
     save(options)                               { return this.saveManager?.save(options) ?? Promise.resolve(false); }

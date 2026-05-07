@@ -267,6 +267,8 @@ export function createAppBootstrap({
             detectLanguageForPath,
             isMarkdownFilePath,
             view: viewManager.createViewProtocol(),
+            saveCurrentEditorContentToCache,
+            getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
         });
         appState.setMarkdownCodeMode(markdownCodeMode);
 
@@ -277,6 +279,8 @@ export function createAppBootstrap({
             isCsvFilePath,
             view: viewManager.createViewProtocol(),
             detectLanguageForPath,
+            saveCurrentEditorContentToCache,
+            getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
         });
         appState.setCsvTableMode(csvTableMode);
 

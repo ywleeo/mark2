@@ -2,6 +2,8 @@ export function createMarkdownCodeMode({
     detectLanguageForPath,
     isMarkdownFilePath,
     view,
+    saveCurrentEditorContentToCache = null,
+    getFileContent = null,
 }) {
     if (typeof detectLanguageForPath !== 'function') {
         throw new Error('createMarkdownCodeMode 需要提供 detectLanguageForPath');
@@ -14,6 +16,32 @@ export function createMarkdownCodeMode({
     }
 
     let toggleState = null;
+
+    /**
+     * 从 DocumentModel 拿"权威"内容。先 saveCache 把当前编辑器同步过来（带身份校验，
+     * 拿不到就跳过保存——比如另一个 tab 残留），然后从 DocumentModel 读。
+     * 这样切换不再依赖编辑器内存，杜绝跨 tab 内容污染。
+     */
+    async function loadAuthoritativeContent({ currentFile, activeViewMode, editor, codeEditor, fallback }) {
+        if (typeof saveCurrentEditorContentToCache === 'function') {
+            try {
+                saveCurrentEditorContentToCache({ currentFile, activeViewMode, editor, codeEditor });
+            } catch (error) {
+                console.warn('[markdownCodeMode] saveCache 失败，仍尝试从 DM 读取', error);
+            }
+        }
+        if (typeof getFileContent === 'function') {
+            try {
+                const fileData = await getFileContent(currentFile);
+                if (fileData && typeof fileData.content === 'string') {
+                    return { content: fileData.content, hasChanges: !!fileData.hasChanges };
+                }
+            } catch (error) {
+                console.warn('[markdownCodeMode] getFileContent 失败，回退到内存内容', error);
+            }
+        }
+        return { content: typeof fallback === 'string' ? fallback : '', hasChanges: false };
+    }
 
     async function toggle({
         currentFile,
@@ -29,14 +57,22 @@ export function createMarkdownCodeMode({
         }
 
         if (activeViewMode === 'markdown') {
-            const markdownContent = editor.getMarkdown() || '';
-            const hadUnsavedChanges = editor.hasUnsavedChanges?.() || false;
+            // 编辑器只有真的装着 currentFile 才信任它的内存内容做 fallback
+            const editorMatchesFile = editor.currentFile === currentFile && !editor.isLoading?.();
+            const inMemoryFallback = editorMatchesFile ? (editor.getMarkdown() || '') : '';
+            const { content: markdownContent, hasChanges } = await loadAuthoritativeContent({
+                currentFile,
+                activeViewMode: 'markdown',
+                editor,
+                codeEditor,
+                fallback: inMemoryFallback,
+            });
 
-            // 获取光标所在行
-            const pos = editor.getCurrentSourcePosition?.();
+            // 光标位置同样只在编辑器装的就是当前文件时才取
+            const pos = editorMatchesFile ? editor.getCurrentSourcePosition?.() : null;
 
             toggleState = {
-                originalMarkdown: editor.originalMarkdown,
+                originalMarkdown: editorMatchesFile ? editor.originalMarkdown : markdownContent,
             };
 
             editor?.saveViewStateForTab?.(currentFile);
@@ -54,7 +90,7 @@ export function createMarkdownCodeMode({
                 });
             }
 
-            if (hadUnsavedChanges) {
+            if (hasChanges) {
                 codeEditor.isDirty = true;
                 codeEditor.callbacks?.onContentChange?.();
             } else {
@@ -64,18 +100,26 @@ export function createMarkdownCodeMode({
             return {
                 changed: true,
                 nextViewMode: 'code',
-                hasUnsavedChanges: hadUnsavedChanges,
+                hasUnsavedChanges: hasChanges,
             };
         }
 
         if (activeViewMode === 'code') {
-            const codeContent = typeof codeEditor.getValueForSave === 'function'
-                ? codeEditor.getValueForSave()
-                : codeEditor.getValue();
-            const hadUnsavedChanges = codeEditor.hasUnsavedChanges?.() || false;
+            const codeMatchesFile = codeEditor.currentFile === currentFile && !codeEditor.isLoading?.();
+            const inMemoryFallback = codeMatchesFile
+                ? (typeof codeEditor.getValueForSave === 'function'
+                    ? codeEditor.getValueForSave()
+                    : codeEditor.getValue())
+                : '';
+            const { content: codeContent, hasChanges } = await loadAuthoritativeContent({
+                currentFile,
+                activeViewMode: 'code',
+                editor,
+                codeEditor,
+                fallback: inMemoryFallback,
+            });
 
-            // 获取光标所在行
-            const pos = codeEditor.getCurrentPosition?.();
+            const pos = codeMatchesFile ? codeEditor.getCurrentPosition?.() : null;
 
             codeEditor?.saveViewStateForTab?.(currentFile);
             view.activate('markdown');
@@ -97,11 +141,11 @@ export function createMarkdownCodeMode({
                 });
             }
 
-            if (hadUnsavedChanges && toggleState?.originalMarkdown !== undefined) {
+            if (hasChanges && toggleState?.originalMarkdown !== undefined) {
                 editor.originalMarkdown = toggleState.originalMarkdown;
             }
 
-            editor.contentChanged = hadUnsavedChanges;
+            editor.contentChanged = hasChanges;
             toggleState = null;
 
             codeEditor.markSaved();
@@ -109,7 +153,7 @@ export function createMarkdownCodeMode({
             return {
                 changed: true,
                 nextViewMode: 'markdown',
-                hasUnsavedChanges: hadUnsavedChanges,
+                hasUnsavedChanges: hasChanges,
             };
         }
 

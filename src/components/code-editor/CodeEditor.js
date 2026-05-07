@@ -615,6 +615,11 @@ export class CodeEditor {
         return this.editor ? this.editor.state.doc.toString() : '';
     }
 
+    /** 是否正在加载中，saveCache 等读取路径用它过滤 in-flight 状态 */
+    isLoading() {
+        return this.loadingSessionId !== null;
+    }
+
     /**
      * 同步版本：保存前预处理（JSON 格式化、Markdown 尾部空行）
      * 外部调用方（DocumentIO、fileOperations 等）依赖此方法

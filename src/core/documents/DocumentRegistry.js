@@ -91,11 +91,18 @@ export function createDocumentRegistry({
         let originalContent;
         let hasChanges = false;
 
+        // 关键守卫：编辑器实例必须确实装载着 currentFile 且不在加载中，
+        // 否则我们读到的是其他 tab 残留 / 加载中的半成品 DOM，会把错误内容写入 DocumentModel。
+        // 这里 silently 跳过即可——真实属于 currentFile 的 saveCache 调用一定会随后到来。
         if (activeViewMode === 'markdown' && editor) {
+            if (editor.currentFile !== currentFile) return;
+            if (typeof editor.isLoading === 'function' && editor.isLoading()) return;
             content = editor.getMarkdown();
             originalContent = editor.originalMarkdown;
             hasChanges = editor.hasUnsavedChanges();
         } else if (activeViewMode === 'code' && codeEditor) {
+            if (codeEditor.currentFile !== currentFile) return;
+            if (typeof codeEditor.isLoading === 'function' && codeEditor.isLoading()) return;
             content = typeof codeEditor.getValueForSave === 'function'
                 ? codeEditor.getValueForSave()
                 : codeEditor.getValue();
