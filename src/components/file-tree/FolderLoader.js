@@ -208,47 +208,91 @@ export class FolderLoader {
             ? prefetchedEntries
             : await this.readDirectory(path);
 
-        // 内容签名短路：条目未变化时不重建 DOM，避免窗口聚焦时整棵树闪一下
+        // ─── 快速路径：内容签名未变 + 容器已有内容 → 完全不动 DOM ───
         const newSignature = this._computeEntriesSignature(entries);
         const oldSignature = this._childrenSignatures.get(childrenContainer);
-        if (oldSignature !== undefined
-            && oldSignature === newSignature
-            && childrenContainer.children.length > 0) {
+        const hasExistingChildren = childrenContainer.children.length > 0;
+        if (hasExistingChildren && oldSignature === newSignature) {
             return;
         }
 
-        const fragment = document.createDocumentFragment();
+        // ─── 增量更新：复用旧节点（保留展开/选中/滚动状态），只新建/删除/重排必要的部分 ───
+        const oldNodes = new Map();
+        for (const child of Array.from(childrenContainer.children)) {
+            const key = child.dataset?.path;
+            if (key) oldNodes.set(key, child);
+        }
+
         const expandedFolders = this.state.expandedFolders;
         const deferredLoads = [];
+        const nextOrder = new Array(entries.length);
+        const newlyCreated = [];
 
-        for (const entry of entries) {
-            const name = basename(entry.path);
+        for (let i = 0; i < entries.length; i++) {
+            const entry = entries[i];
+            const expectedClass = entry.isDir ? 'tree-folder' : 'tree-file';
+            let node = oldNodes.get(entry.path);
+            // 同 path 但类型变了（极少见但合法：rm file → mkdir 同名）也要重建
+            if (node && !node.classList.contains(expectedClass)) {
+                node = null;
+            }
 
-            if (entry.isDir) {
-                const folderItem = this.renderer.createFolderItem(name, entry.path, [], false, path);
-                fragment.appendChild(folderItem);
-
-                const childKey = folderItem.dataset.nodeKey;
-                if (childKey && expandedFolders.has(childKey)) {
-                    const header = folderItem.querySelector('.tree-folder-header');
-                    const children = folderItem.querySelector('.tree-folder-children');
-                    header?.classList.add('expanded');
-                    if (children) {
-                        children.classList.add('expanded');
-                        children.style.display = 'block';
-                        // 把递归加载延后到空闲帧，避免在首屏一次性下钻 N 层
-                        deferredLoads.push({ path: entry.path, children, key: childKey });
-                    }
-                }
+            if (node) {
+                oldNodes.delete(entry.path); // 标记为已复用
             } else {
-                const fileItem = this.renderer.createFileItem(name, entry.path);
-                fragment.appendChild(fileItem);
+                const name = basename(entry.path);
+                if (entry.isDir) {
+                    node = this.renderer.createFolderItem(name, entry.path, [], false, path);
+                    const childKey = node.dataset.nodeKey;
+                    if (childKey && expandedFolders.has(childKey)) {
+                        const header = node.querySelector('.tree-folder-header');
+                        const children = node.querySelector('.tree-folder-children');
+                        header?.classList.add('expanded');
+                        if (children) {
+                            children.classList.add('expanded');
+                            children.style.display = 'block';
+                            // 把递归加载延后到空闲帧，避免在首屏一次性下钻 N 层
+                            deferredLoads.push({ path: entry.path, children, key: childKey });
+                        }
+                    }
+                } else {
+                    node = this.renderer.createFileItem(name, entry.path);
+                }
+                newlyCreated.push(node);
+            }
+            nextOrder[i] = node;
+        }
+
+        // 删除：oldNodes 里剩下的 = 新列表里没有的条目
+        for (const removed of oldNodes.values()) {
+            removed.remove();
+        }
+
+        // 重排：仅在顺序/数量与当前 DOM 不一致时调整。appendChild 对已存在节点是
+        // "移动"操作，不会重建，也不破坏节点状态（hover/focus/expand 等）。
+        const currentChildren = childrenContainer.children;
+        let needsReorder = currentChildren.length !== nextOrder.length;
+        if (!needsReorder) {
+            for (let i = 0; i < nextOrder.length; i++) {
+                if (currentChildren[i] !== nextOrder[i]) { needsReorder = true; break; }
+            }
+        }
+        if (needsReorder) {
+            for (let i = 0; i < nextOrder.length; i++) {
+                const target = nextOrder[i];
+                const current = currentChildren[i];
+                if (current !== target) {
+                    childrenContainer.insertBefore(target, current || null);
+                }
             }
         }
 
-        childrenContainer.replaceChildren(fragment);
         this._childrenSignatures.set(childrenContainer, newSignature);
-        scheduleCompactFileNameRefresh(childrenContainer);
+
+        // 只对新建节点刷新名字截断（旧节点已计算过）
+        if (newlyCreated.length > 0) {
+            scheduleCompactFileNameRefresh(childrenContainer);
+        }
 
         if (deferredLoads.length > 0) {
             this._scheduleDeferredChildren(deferredLoads);
