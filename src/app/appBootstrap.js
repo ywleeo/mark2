@@ -16,7 +16,7 @@ import { bootstrapCloudPlugins } from '../modules/ai-assistant/cloudProviderRegi
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
-import { normalizeFsPath } from '../utils/pathUtils.js';
+import { normalizeFsPath, dirname } from '../utils/pathUtils.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
@@ -230,7 +230,30 @@ export function createAppBootstrap({
                     });
                 },
                 confirm,
-                getWorkspaceCwd: () => appState.getFileTree()?.rootPaths?.[0] || null,
+                getWorkspaceCwd: () => {
+                    // rootPaths 是 Set，必须先转数组；优先用包含当前 tab 文件的最近 root，
+                    // 否则用文件所在目录，再退到第一个 root，避免 cwd 落到进程默认目录
+                    const fileTree = appState.getFileTree();
+                    if (!fileTree) return null;
+                    const rootPaths = typeof fileTree.getRootPaths === 'function'
+                        ? fileTree.getRootPaths()
+                        : Array.from(fileTree.rootPaths || []);
+                    const currentFile = appState.getCurrentFile?.();
+                    if (currentFile) {
+                        let best = null;
+                        for (const root of rootPaths) {
+                            if (!root) continue;
+                            if (currentFile === root
+                                || currentFile.startsWith(`${root}/`)
+                                || currentFile.startsWith(`${root}\\`)) {
+                                if (!best || root.length > best.length) best = root;
+                            }
+                        }
+                        if (best) return best;
+                        return dirname(currentFile) || null;
+                    }
+                    return rootPaths[0] || null;
+                },
             },
         }));
         appState.setCleanupFunction('featureManager', () => {
