@@ -195,7 +195,49 @@ export const TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        type: 'function',
+        function: {
+            name: 'create_files',
+            description: '批量创建/覆盖多个文件（一次调用最多 1000 个）。用于初始化目录结构、批量生成文件等。每项 content 省略时创建空文件。父目录不存在会自动创建。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    files: {
+                        type: 'array',
+                        description: '要创建的文件列表',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                                content: { type: 'string', description: '文件内容；省略或空字符串则创建空文件' },
+                            },
+                            required: ['path'],
+                        },
+                    },
+                },
+                required: ['files'],
+            },
+        },
+    },
 ];
+
+const CREATE_FILES_MAX = 1000;
+const CREATE_FILES_CONCURRENCY = 32;
+
+async function runWithConcurrency(items, fn, concurrency) {
+    const results = new Array(items.length);
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+        while (true) {
+            const i = cursor++;
+            if (i >= items.length) return;
+            results[i] = await fn(items[i], i);
+        }
+    });
+    await Promise.all(workers);
+    return results;
+}
 
 // ── 内部辅助 ─────────────────────────────────────────────────
 
@@ -478,6 +520,49 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
                     return { success: true, path };
                 } catch (err) {
                     return { error: `创建目录失败: ${err.message}` };
+                }
+            }
+
+            case 'create_files': {
+                try {
+                    const list = Array.isArray(args.files) ? args.files : [];
+                    if (list.length === 0) {
+                        return { error: 'files 不能为空' };
+                    }
+                    if (list.length > CREATE_FILES_MAX) {
+                        return { error: `一次最多创建 ${CREATE_FILES_MAX} 个文件，当前 ${list.length}` };
+                    }
+
+                    // 先把路径都解析了，路径错误立刻报，不要写到一半失败
+                    const items = list.map((entry, idx) => {
+                        if (!entry || typeof entry.path !== 'string' || !entry.path.trim()) {
+                            throw new Error(`第 ${idx + 1} 项缺少合法 path`);
+                        }
+                        return {
+                            path: resolveRelativePath(entry.path),
+                            content: typeof entry.content === 'string' ? entry.content : '',
+                        };
+                    });
+
+                    const results = await runWithConcurrency(items, async (item) => {
+                        try {
+                            await writeFile(item.path, item.content);
+                            return { path: item.path, ok: true };
+                        } catch (err) {
+                            return { path: item.path, ok: false, error: err?.message || String(err) };
+                        }
+                    }, CREATE_FILES_CONCURRENCY);
+
+                    const created = results.filter((r) => r.ok).map((r) => r.path);
+                    const failed = results.filter((r) => !r.ok).map((r) => ({ path: r.path, error: r.error }));
+                    return {
+                        total: items.length,
+                        created_count: created.length,
+                        failed_count: failed.length,
+                        failed: failed.slice(0, 20), // 最多回传 20 条失败详情，避免上下文炸
+                    };
+                } catch (err) {
+                    return { error: `批量创建失败: ${err.message}` };
                 }
             }
 
