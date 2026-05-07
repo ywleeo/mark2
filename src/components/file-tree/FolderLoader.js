@@ -182,6 +182,8 @@ export class FolderLoader {
             }
 
             await this.loadFolderChildren(rootPath, children, entries);
+            // root header 的名字 label 不在 children 容器内，需要单独触发一次刷新
+            scheduleCompactFileNameRefresh(rootItem);
             await this.watchFolder(rootPath);
         } catch (error) {
             console.error('读取文件夹失败:', error);
