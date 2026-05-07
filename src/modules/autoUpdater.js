@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { createStore } from '../services/storage.js';
 import { isMac } from '../utils/platform.js';
+import { t } from '../i18n/index.js';
 
 const store = createStore('autoUpdater');
 store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Number(raw) });
@@ -60,11 +61,11 @@ export async function manualCheckUpdate() {
         showUpdateReadyToast(pendingUpdateVersion);
         return;
     }
-    showInfoToast({ title: '正在检查更新…', variant: 'loading' });
+    showInfoToast({ title: t('updater.checking'), variant: 'loading' });
     try {
         const hasUpdate = await checkAndDownload(true);
         if (!hasUpdate) {
-            showInfoToast({ title: '当前已是最新版本', variant: 'info', autoHideMs: 2500 });
+            showInfoToast({ title: t('updater.upToDate'), variant: 'info', autoHideMs: 2500 });
         }
     } catch (err) {
         console.warn('[AutoUpdater] 手动检查更新失败（已静默）:', err);
@@ -104,7 +105,7 @@ async function checkAndDownload(manual) {
 
     console.log(`[AutoUpdater] 发现新版本: ${update.version},开始后台下载`);
     if (manual) {
-        showInfoToast({ title: `正在下载新版本 ${update.version}…`, variant: 'loading' });
+        showInfoToast({ title: t('updater.downloading', { version: update.version }), variant: 'loading' });
     }
 
     await downloadWithRetry(update);
@@ -156,7 +157,7 @@ async function applyPendingUpdate() {
     } catch (err) {
         console.warn('[AutoUpdater] 安装/重启失败:', err);
         showInfoToast({
-            title: '更新安装失败',
+            title: t('updater.installFailed'),
             hint: err?.message || String(err),
             variant: 'error'
         });
@@ -194,7 +195,7 @@ function showInfoToast({ title, hint = '', variant = 'info', autoHideMs = 0 }) {
     el.className = `updater-toast updater-toast--${variant}`;
     const spinner = variant === 'loading' ? '<div class="updater-toast__spinner"></div>' : '';
     const closeBtn = variant === 'error' ? `
-        <button type="button" class="updater-toast__close" data-action="dismiss" aria-label="关闭">
+        <button type="button" class="updater-toast__close" data-action="dismiss" aria-label="${escapeHtml(t('updater.close'))}">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                 <path d="M3 3 L11 11 M11 3 L3 11"/>
             </svg>
@@ -225,11 +226,11 @@ function showUpdateReadyToast(version) {
     el.className = 'updater-toast updater-toast--ready';
     el.innerHTML = `
         <div class="updater-toast__body">
-            <div class="updater-toast__title">新版本 ${escapeHtml(version)} 已就绪</div>
-            <div class="updater-toast__hint">点击重启以完成更新</div>
+            <div class="updater-toast__title">${escapeHtml(t('updater.ready.title', { version }))}</div>
+            <div class="updater-toast__hint">${escapeHtml(t('updater.ready.hint'))}</div>
         </div>
-        <button type="button" class="updater-toast__btn" data-action="restart">立即重启</button>
-        <button type="button" class="updater-toast__close" data-action="dismiss" aria-label="稍后">
+        <button type="button" class="updater-toast__btn" data-action="restart">${escapeHtml(t('updater.restart'))}</button>
+        <button type="button" class="updater-toast__close" data-action="dismiss" aria-label="${escapeHtml(t('updater.dismissLater'))}">
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                 <path d="M3 3 L11 11 M11 3 L3 11"/>
             </svg>

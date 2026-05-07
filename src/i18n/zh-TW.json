@@ -368,5 +368,15 @@
   "vault.field.url": "URL",
   "vault.confirmDelete": "確定刪除「{name}」嗎？此操作無法復原。",
   "vault.confirmDeleteTitle": "刪除條目",
-  "vault.nameRequired": "請填寫名稱"
+  "vault.nameRequired": "請填寫名稱",
+
+  "updater.checking": "正在檢查更新…",
+  "updater.upToDate": "目前已是最新版本",
+  "updater.downloading": "正在下載新版本 {version}…",
+  "updater.installFailed": "更新安裝失敗",
+  "updater.ready.title": "新版本 {version} 已就緒",
+  "updater.ready.hint": "點擊重啟以完成更新",
+  "updater.restart": "立即重啟",
+  "updater.dismissLater": "稍後",
+  "updater.close": "關閉"
 }

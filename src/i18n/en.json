@@ -369,5 +369,15 @@
     "vault.field.url": "URL",
     "vault.confirmDelete": "Delete \"{name}\"? This cannot be undone.",
     "vault.confirmDeleteTitle": "Delete Entry",
-    "vault.nameRequired": "Name is required"
+    "vault.nameRequired": "Name is required",
+
+    "updater.checking": "Checking for updates…",
+    "updater.upToDate": "You're up to date",
+    "updater.downloading": "Downloading version {version}…",
+    "updater.installFailed": "Update installation failed",
+    "updater.ready.title": "Version {version} is ready",
+    "updater.ready.hint": "Click restart to finish the update",
+    "updater.restart": "Restart now",
+    "updater.dismissLater": "Later",
+    "updater.close": "Close"
 }

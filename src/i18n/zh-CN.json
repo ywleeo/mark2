@@ -369,5 +369,15 @@
     "vault.field.url": "URL",
     "vault.confirmDelete": "确定删除「{name}」吗？此操作不可恢复。",
     "vault.confirmDeleteTitle": "删除条目",
-    "vault.nameRequired": "请填写名称"
+    "vault.nameRequired": "请填写名称",
+
+    "updater.checking": "正在检查更新…",
+    "updater.upToDate": "当前已是最新版本",
+    "updater.downloading": "正在下载新版本 {version}…",
+    "updater.installFailed": "更新安装失败",
+    "updater.ready.title": "新版本 {version} 已就绪",
+    "updater.ready.hint": "点击重启以完成更新",
+    "updater.restart": "立即重启",
+    "updater.dismissLater": "稍后",
+    "updater.close": "关闭"
 }
