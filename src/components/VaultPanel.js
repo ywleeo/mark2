@@ -86,6 +86,7 @@ export class VaultPanel {
         this.isOpen = false;
         this.entries = [];
         this.search = '';
+        this.activeTab = 'account'; // 'account' | 'api-key'，跨 open 复用
         this.mode = 'list'; // 'list' | 'edit'
         this.editing = null;
         this._editReveal = new Set();
@@ -185,14 +186,22 @@ export class VaultPanel {
     _renderList() {
         this._disposeDynamic();
         const filtered = this.entries
+            .filter((e) => e.kind === this.activeTab)
             .filter((e) => matchSearch(e, this.search))
             .sort((a, b) => (b.lastUsedAt || b.updatedAt) - (a.lastUsedAt || a.updatedAt));
+
+        const tabsHtml = KINDS.map((k) => {
+            const labelKey = k === 'api-key' ? 'apiKey' : k;
+            const isActive = k === this.activeTab;
+            return `<button type="button" class="vault-tab${isActive ? ' is-active' : ''}" data-tab="${k}">${escapeHtml(t(`vault.tab.${labelKey}`))}</button>`;
+        }).join('');
 
         this.bodyEl.innerHTML = `
             <header class="vault-head">
                 <h2 id="vaultTitle" class="vault-title">${t('vault.title')}</h2>
                 <button type="button" class="vault-btn vault-btn--primary" data-ref="newBtn">+ ${t('vault.new')}</button>
             </header>
+            <div class="vault-tabs" role="tablist">${tabsHtml}</div>
             <div class="vault-search-row">
                 <input type="text" class="vault-search" data-ref="search" placeholder="${t('vault.searchPlaceholder')}" value="${escapeHtml(this.search)}" />
             </div>
@@ -202,6 +211,15 @@ export class VaultPanel {
                     : filtered.map((e) => this._entryCardHtml(e)).join('')}
             </div>
         `;
+
+        this.bodyEl.querySelectorAll('[data-tab]').forEach((btn) => {
+            this._bind(addClickHandler(btn, () => {
+                const next = btn.dataset.tab;
+                if (!next || next === this.activeTab) return;
+                this.activeTab = next;
+                this._renderList();
+            }));
+        });
 
         const searchEl = this.bodyEl.querySelector('[data-ref="search"]');
         if (searchEl) {
@@ -311,7 +329,7 @@ export class VaultPanel {
 
     // ── 编辑 ──
     _startCreate() {
-        this.editing = { id: null, kind: 'api-key', name: '', key: '', username: '', password: '', url: '' };
+        this.editing = { id: null, kind: this.activeTab, name: '', key: '', username: '', password: '', url: '' };
         this._editReveal = new Set();
         this.mode = 'edit';
         this._render();
@@ -499,6 +517,10 @@ export class VaultPanel {
         try {
             if (e.id) await vaultUpdate(e.id, input);
             else await vaultAdd(input);
+            // 保存后切到与该条目 kind 匹配的 tab，让用户能立刻看到
+            if (KINDS.includes(input.kind)) {
+                this.activeTab = input.kind;
+            }
             this.editing = null;
             this.mode = 'list';
             await this._reload();

@@ -96,6 +96,41 @@
     gap: 6px;
 }
 
+/* ── Tab 栏 ─────────────────────────────── */
+
+.vault-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 24px 8px;
+    flex-shrink: 0;
+}
+
+.vault-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--settings-field-text, #999);
+    padding: 6px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.vault-tab:hover:not(.is-active) {
+    background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme-appearance='dark'] .vault-tab:hover:not(.is-active) {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.vault-tab.is-active {
+    background: var(--settings-field-bg, rgba(0, 0, 0, 0.06));
+    color: var(--settings-field-text, inherit);
+    font-weight: 500;
+}
+
 /* ── 搜索行 ─────────────────────────────── */
 
 .vault-search-row {

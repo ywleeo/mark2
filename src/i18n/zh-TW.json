@@ -360,6 +360,8 @@
   "vault.kind": "類型",
   "vault.kind.apiKey": "API Key",
   "vault.kind.account": "帳戶密碼",
+  "vault.tab.apiKey": "API Key",
+  "vault.tab.account": "帳戶密碼",
   "vault.field.key": "Key",
   "vault.field.account": "帳號",
   "vault.field.password": "密碼",

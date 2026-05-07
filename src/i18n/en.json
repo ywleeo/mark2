@@ -361,6 +361,8 @@
     "vault.kind": "Kind",
     "vault.kind.apiKey": "API Key",
     "vault.kind.account": "Account",
+    "vault.tab.apiKey": "API Keys",
+    "vault.tab.account": "Accounts",
     "vault.field.key": "Key",
     "vault.field.account": "Username",
     "vault.field.password": "Password",
