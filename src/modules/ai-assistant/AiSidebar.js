@@ -294,7 +294,7 @@ class AssistantCard {
         this.thinkingFullEl = this.el.querySelector('.ai-message-thinking-full');
         this.thinkingToggleEl = this.el.querySelector('.ai-message-thinking-toggle');
         this.bodyEl = this.el.querySelector('.ai-message-body');
-        this.toolCards = new Map(); // id -> {el}
+        this.toolCards = new Map(); // id -> {el, startTime, segment}
 
         // 唯一的 loading 指示器，始终 append 在 bodyEl 末尾
         this.loadingEl = document.createElement('div');
@@ -311,6 +311,9 @@ class AssistantCard {
         this.inlineThinkingText = '';
         // 记录每个 content box 对应的 markdown 源,用于持久化(不存渲染后的 HTML)
         this.markdownSegments = [];
+        // 按 DOM 出现顺序记录每段（markdown / tool），用于会话恢复时还原原顺序
+        this.bodySegments = [];
+        this.currentMarkdownSegment = null;
 
         addClickHandler(this.thinkingToggleEl, () => this._toggleThinking());
     }
@@ -324,6 +327,7 @@ class AssistantCard {
     /** 新一轮 LLM 迭代开始：重置 content box，让 loadingEl 显示在底部 */
     newContentBox() {
         this.currentContentEl = null;
+        this.currentMarkdownSegment = null;
         this.loadingTextEl.textContent = t('ai.generating.thinking');
         this.loadingEl.style.display = '';
         this.bodyEl.appendChild(this.loadingEl); // 移到最底部
@@ -356,10 +360,15 @@ class AssistantCard {
             this.bodyEl.insertBefore(this.currentContentEl, this.loadingEl);
             this.loadingEl.style.display = 'none';
             this.markdownSegments.push('');
+            this.currentMarkdownSegment = { type: 'markdown', content: '' };
+            this.bodySegments.push(this.currentMarkdownSegment);
         }
         this.currentContentEl.innerHTML = md.render(parsed.content);
         if (this.markdownSegments.length > 0) {
             this.markdownSegments[this.markdownSegments.length - 1] = parsed.content;
+        }
+        if (this.currentMarkdownSegment) {
+            this.currentMarkdownSegment.content = parsed.content;
         }
         this.inlineThinkingText = parsed.thinking;
         this._renderThinking();
@@ -411,24 +420,38 @@ class AssistantCard {
             <span class="ai-tool-card-status">${statusText}</span>
         `;
         this.bodyEl.insertBefore(card, this.loadingEl);
-        this.toolCards.set(id, { el: card, startTime: Date.now() });
+        const segment = { type: 'tool', name, status: 'running', durationMs: 0, error: null };
+        this.bodySegments.push(segment);
+        this.toolCards.set(id, { el: card, startTime: Date.now(), segment });
+        // 一旦进入工具调用阶段，下次 markdown 文本应当作为新的段落显示
+        this.currentContentEl = null;
+        this.currentMarkdownSegment = null;
         scrollToBottom(this.el);
     }
 
     updateToolCard({ id, name, result }) {
         const entry = this.toolCards.get(id);
         if (!entry) return;
-        const { el, startTime } = entry;
+        const { el, startTime, segment } = entry;
         el.classList.remove('ai-tool-card-running');
 
         const elapsed = formatToolElapsed(startTime);
         const statusEl = el.querySelector('.ai-tool-card-status');
+        if (segment) segment.durationMs = Date.now() - startTime;
         if (shouldShowToolError(result)) {
             el.classList.add('ai-tool-card-error');
             statusEl.textContent = t('ai.status.fail', { error: result.error });
+            if (segment) {
+                segment.status = 'error';
+                segment.error = result.error || null;
+            }
         } else if (result?.error) {
             el.classList.add('ai-tool-card-done');
             statusEl.textContent = elapsed;
+            if (segment) {
+                segment.status = 'done';
+                segment.error = result.error;
+            }
             console.warn('[AiSidebar] 工具执行失败，已交由 agent 自行处理', {
                 tool: name,
                 error: result.error,
@@ -436,11 +459,42 @@ class AssistantCard {
         } else if (result?.cancelled) {
             el.classList.add('ai-tool-card-cancelled');
             statusEl.textContent = t('ai.status.cancelled');
+            if (segment) segment.status = 'cancelled';
         } else {
             el.classList.add('ai-tool-card-done');
             statusEl.textContent = elapsed;
+            if (segment) segment.status = 'done';
         }
         scrollToBottom(this.el);
+    }
+
+    /**
+     * 取持久化快照，按 DOM 顺序保留 thinking + markdown / tool 段。
+     * 不持久化具体工具结果数据，只留状态与耗时（避免把大文件读取结果撑爆 localStorage）。
+     */
+    getPersistSnapshot() {
+        const thinking = mergeThinkingText(this.streamThinkingText, this.inlineThinkingText) || '';
+        const segments = this.bodySegments
+            .map((seg) => {
+                if (!seg) return null;
+                if (seg.type === 'markdown') {
+                    const content = typeof seg.content === 'string' ? seg.content : '';
+                    if (!content.trim()) return null;
+                    return { type: 'markdown', content };
+                }
+                if (seg.type === 'tool') {
+                    return {
+                        type: 'tool',
+                        name: seg.name,
+                        status: seg.status || 'done',
+                        durationMs: seg.durationMs || 0,
+                        error: seg.error || null,
+                    };
+                }
+                return null;
+            })
+            .filter(Boolean);
+        return { v: 2, thinking, segments };
     }
 
     setError(msg) {
@@ -611,11 +665,108 @@ function buildUserMessageElement(text, { onDelete } = {}) {
 }
 
 /**
- * 从原始 markdown 构造助手消息 DOM。
+ * 从 chatHistory 条目里提取拼接后的 markdown 文本（兼容 v1 / v2 结构）。
+ * 用于 _rebuildAgentMessages 把展示历史回灌成 LLM 上下文。
+ */
+function getEntryMarkdown(entry) {
+    if (!entry) return '';
+    if (Array.isArray(entry.segments)) {
+        return entry.segments
+            .filter((s) => s && s.type === 'markdown' && typeof s.content === 'string')
+            .map((s) => s.content)
+            .join('\n\n')
+            .trim();
+    }
+    return entry.markdown || '';
+}
+
+/** 创建一个折叠的 thinking 区块（与实时卡片样式一致） */
+function buildThinkingBlock(text) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ai-message-thinking is-collapsed';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'ai-message-thinking-toggle';
+    toggle.type = 'button';
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Thinking';
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'ai-thinking-expand';
+    iconSpan.textContent = '›';
+    toggle.appendChild(labelSpan);
+    toggle.appendChild(iconSpan);
+
+    const previewEl = document.createElement('div');
+    previewEl.className = 'ai-message-thinking-preview';
+    previewEl.textContent = text.slice(0, 120);
+
+    const fullEl = document.createElement('div');
+    fullEl.className = 'ai-message-thinking-full';
+    fullEl.textContent = text;
+
+    wrap.appendChild(toggle);
+    wrap.appendChild(previewEl);
+    wrap.appendChild(fullEl);
+
+    addClickHandler(toggle, () => {
+        const collapsed = wrap.classList.toggle('is-collapsed');
+        iconSpan.textContent = collapsed ? '›' : '‹';
+    });
+
+    return wrap;
+}
+
+/** 重建一个工具卡片 DOM（最终态，仅展示状态/耗时/错误） */
+function buildToolCardElement(segment) {
+    const card = document.createElement('div');
+    const status = segment?.status || 'done';
+    const cls = status === 'error'
+        ? 'ai-tool-card-error'
+        : status === 'cancelled'
+            ? 'ai-tool-card-cancelled'
+            : 'ai-tool-card-done';
+    card.className = `ai-tool-card ${cls}`;
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'ai-tool-card-icon';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ai-tool-card-name';
+    nameSpan.textContent = TOOL_LABELS[segment?.name] || segment?.name || '';
+    const statusSpan = document.createElement('span');
+    statusSpan.className = 'ai-tool-card-status';
+    if (status === 'error') {
+        statusSpan.textContent = t('ai.status.fail', { error: segment?.error || '' });
+    } else if (status === 'cancelled') {
+        statusSpan.textContent = t('ai.status.cancelled');
+    } else {
+        statusSpan.textContent = formatPersistedToolElapsed(segment?.durationMs);
+    }
+    card.appendChild(iconSpan);
+    card.appendChild(nameSpan);
+    card.appendChild(statusSpan);
+    return card;
+}
+
+function formatPersistedToolElapsed(ms) {
+    const dur = typeof ms === 'number' && ms > 0 ? ms : 0;
+    if (dur < 1000) return '< 1s';
+    const sec = dur / 1000;
+    if (sec < 10) return `${sec.toFixed(1)}s`;
+    if (sec < 60) return `${Math.round(sec)}s`;
+    const min = Math.floor(sec / 60);
+    const rem = Math.round(sec % 60);
+    return rem ? `${min}m ${rem}s` : `${min}m`;
+}
+
+/**
+ * 从原始 markdown 或 v2 快照构造助手消息 DOM。
  * 唯一的 innerHTML 来源是 md.render(),且 MarkdownIt 配置为 html: false,
  * 会把任何原始 HTML 标签当纯文本转义。
  */
-function buildAssistantMessageElement(markdown, { onDelete } = {}) {
+function buildAssistantMessageElement(input, { onDelete } = {}) {
+    // 兼容旧调用：传字符串 → 当作纯 markdown
+    const entry = typeof input === 'string' ? { markdown: input } : (input || {});
+
     const el = document.createElement('div');
     el.className = 'ai-message ai-message-assistant';
 
@@ -624,13 +775,33 @@ function buildAssistantMessageElement(markdown, { onDelete } = {}) {
     roleEl.textContent = 'AI';
     el.appendChild(roleEl);
 
+    if (typeof entry.thinking === 'string' && entry.thinking.trim()) {
+        el.appendChild(buildThinkingBlock(entry.thinking));
+    }
+
     const bodyEl = document.createElement('div');
     bodyEl.className = 'ai-message-body';
 
-    const contentEl = document.createElement('div');
-    contentEl.className = 'ai-message-content ai-message-markdown';
-    contentEl.innerHTML = md.render(markdown || '');
-    bodyEl.appendChild(contentEl);
+    if (Array.isArray(entry.segments) && entry.segments.length > 0) {
+        for (const seg of entry.segments) {
+            if (!seg) continue;
+            if (seg.type === 'markdown') {
+                const content = typeof seg.content === 'string' ? seg.content : '';
+                if (!content.trim()) continue;
+                const mdEl = document.createElement('div');
+                mdEl.className = 'ai-message-content ai-message-markdown';
+                mdEl.innerHTML = md.render(content);
+                bodyEl.appendChild(mdEl);
+            } else if (seg.type === 'tool') {
+                bodyEl.appendChild(buildToolCardElement(seg));
+            }
+        }
+    } else {
+        const contentEl = document.createElement('div');
+        contentEl.className = 'ai-message-content ai-message-markdown';
+        contentEl.innerHTML = md.render(entry.markdown || '');
+        bodyEl.appendChild(contentEl);
+    }
 
     el.appendChild(bodyEl);
     appendMessageActions(el, bodyEl, { onDelete });
@@ -771,7 +942,7 @@ export class AiSidebar {
         for (const entry of history) {
             const el = entry.role === 'user'
                 ? buildUserMessageElement(entry.text || '', { onDelete })
-                : buildAssistantMessageElement(entry.markdown || '', { onDelete });
+                : buildAssistantMessageElement(entry, { onDelete });
             if (el) this.listEl.appendChild(el);
         }
         const listContainer = this.el.querySelector('.ai-conversation-list');
@@ -1204,10 +1375,12 @@ export class AiSidebar {
             const updatedMessages = await this.agentLoop.run(this.agentMessages);
             this.agentMessages = updatedMessages;
             card.done();
-            // 持久化原始 markdown 源,重新加载时再走 md.render,避免把渲染后的 HTML 存进 localStorage
-            const markdownParts = card.markdownSegments.filter(s => typeof s === 'string' && s.trim());
-            if (markdownParts.length) {
-                this.chatHistory.push({ role: 'assistant', markdown: markdownParts.join('\n\n') });
+            // 按 DOM 顺序持久化 thinking + 各段（markdown / tool 状态），仅存源数据避免 HTML 进 localStorage
+            const snapshot = card.getPersistSnapshot();
+            const hasContent = (snapshot.thinking && snapshot.thinking.trim())
+                || snapshot.segments.some((s) => s.type === 'tool' || (s.type === 'markdown' && s.content.trim()));
+            if (hasContent) {
+                this.chatHistory.push({ role: 'assistant', ...snapshot });
             }
             this._persistChat();
         } catch {
@@ -1257,7 +1430,7 @@ export class AiSidebar {
             if (entry.role === 'user') {
                 rebuilt.push({ role: 'user', content: entry.text || '' });
             } else if (entry.role === 'assistant') {
-                rebuilt.push({ role: 'assistant', content: entry.markdown || '' });
+                rebuilt.push({ role: 'assistant', content: getEntryMarkdown(entry) });
             }
         }
         this.agentMessages = rebuilt;
