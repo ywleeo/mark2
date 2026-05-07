@@ -30,6 +30,15 @@ export class FolderLoader {
         this.shouldDefer = shouldDefer;
         this.onRefreshDeferred = onRefreshDeferred;
         this.onBeforeRefresh = onBeforeRefresh;
+
+        // 记录每个 children 容器上次填充的内容签名，签名未变就跳过 DOM 重建，
+        // 避免窗口聚焦/watcher 等无差别 refresh 触发整棵树闪一下。
+        this._childrenSignatures = new WeakMap();
+    }
+
+    _computeEntriesSignature(entries) {
+        if (!Array.isArray(entries) || entries.length === 0) return '';
+        return entries.map((e) => `${e.isDir ? 'd' : 'f'}:${e.path}`).join('\n');
     }
 
     _captureScrollPositions() {
@@ -199,6 +208,15 @@ export class FolderLoader {
             ? prefetchedEntries
             : await this.readDirectory(path);
 
+        // 内容签名短路：条目未变化时不重建 DOM，避免窗口聚焦时整棵树闪一下
+        const newSignature = this._computeEntriesSignature(entries);
+        const oldSignature = this._childrenSignatures.get(childrenContainer);
+        if (oldSignature !== undefined
+            && oldSignature === newSignature
+            && childrenContainer.children.length > 0) {
+            return;
+        }
+
         const fragment = document.createDocumentFragment();
         const expandedFolders = this.state.expandedFolders;
         const deferredLoads = [];
@@ -229,6 +247,7 @@ export class FolderLoader {
         }
 
         childrenContainer.replaceChildren(fragment);
+        this._childrenSignatures.set(childrenContainer, newSignature);
         scheduleCompactFileNameRefresh(childrenContainer);
 
         if (deferredLoads.length > 0) {
