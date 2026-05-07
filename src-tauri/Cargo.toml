@@ -32,6 +32,8 @@ portable-pty = "0.8"
 rfd = "0.15"
 tauri-plugin-updater = "2.9"
 tauri-plugin-process = "2.3"
+tauri-plugin-deep-link = "2"
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native-sync-persistent"] }
 aes-gcm = "0.10"
 rand = "0.8"
 uuid = { version = "1", features = ["v4"] }

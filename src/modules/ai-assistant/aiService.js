@@ -8,6 +8,27 @@ import {
 import { t } from '../../i18n/index.js';
 import { createStore } from '../../services/storage.js';
 import { PROVIDER_PRESETS } from './providerPresets.js';
+import {
+    getCloudProvider,
+    listCloudProviders,
+    subscribeRegistry,
+} from './cloudProviderRegistry.js';
+
+/**
+ * Cloud provider 运行时解析：通过 plugin 接口拿凭据，合并 preset 默认值。
+ */
+function resolveCloudProvider(plugin) {
+    const cred = plugin.getCredentials() || {};
+    const models = (Array.isArray(cred.models) && cred.models.length > 0)
+        ? cred.models
+        : plugin.preset.models;
+    return {
+        ...plugin.preset,
+        baseUrl: cred.baseUrl || plugin.preset.baseUrl || '',
+        apiKey: plugin.isAvailable() ? (cred.apiKey || '') : '',
+        models,
+    };
+}
 
 const store = createStore('ai');
 store.migrateFrom('ai-config', 'config');
@@ -90,6 +111,51 @@ class AiService {
         this.listeners = new Set();
         this.activeTasks = new Map();
         this.config = this.loadConfig();
+        // cloud plugin 注册 / 登录态变化 / profile 拉取等都广播到 registry
+        subscribeRegistry(() => this.ensureCloudDefaults());
+    }
+
+    /**
+     * 对所有 cloud plugin 自动维护 model 默认值：
+     * - 登录后：对应槽位为空时自动填 plugin 第一个 model（一般是 fast）
+     * - 登出后：清掉指向该 plugin 的槽位，避免下拉里残留 "孤立 option"
+     * 永远不覆盖用户已选的非 cloud 槽位。
+     */
+    ensureCloudDefaults() {
+        for (const plugin of listCloudProviders()) {
+            if (!plugin.isAvailable()) {
+                const next = { ...this.config };
+                let dirty = false;
+                if (next.assistantModel?.providerId === plugin.id) {
+                    next.assistantModel = null;
+                    dirty = true;
+                }
+                if (next.fastModel?.providerId === plugin.id) {
+                    next.fastModel = null;
+                    dirty = true;
+                }
+                if (dirty) this.saveConfig(next);
+                continue;
+            }
+            const cred = plugin.getCredentials() || {};
+            const ids = (Array.isArray(cred.models) && cred.models.length > 0)
+                ? cred.models
+                : (plugin.preset.models || []);
+            if (ids.length === 0) continue;
+            const fast = ids.includes('fast') ? 'fast' : ids[0];
+
+            const next = { ...this.config };
+            let dirty = false;
+            if (!next.assistantModel?.providerId) {
+                next.assistantModel = { providerId: plugin.id, model: fast };
+                dirty = true;
+            }
+            if (!next.fastModel?.providerId) {
+                next.fastModel = { providerId: plugin.id, model: fast };
+                dirty = true;
+            }
+            if (dirty) this.saveConfig(next);
+        }
     }
 
     // ── 配置管理 ──────────────────────────────────────────
@@ -176,8 +242,12 @@ class AiService {
         };
     }
 
-    // 合并 preset 定义和用户 apiKey，或返回自定义 provider
+    // 合并 preset 定义和用户 apiKey，或返回自定义 provider；cloud plugin 走运行时解析
     getProviderConfig(providerId) {
+        const cloudPlugin = getCloudProvider(providerId);
+        if (cloudPlugin) {
+            return resolveCloudProvider(cloudPlugin);
+        }
         const preset = PROVIDER_PRESETS.find(p => p.id === providerId);
         if (preset) {
             const userCfg = this.config.providers.find(p => p.id === providerId);

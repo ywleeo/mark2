@@ -6,6 +6,11 @@
 import MarkdownIt from 'markdown-it';
 import { aiService } from './aiService.js';
 import { AgentLoop } from './AgentLoop.js';
+import {
+    getCloudProvider,
+    listCloudProviders,
+    subscribeRegistry,
+} from './cloudProviderRegistry.js';
 import { TOOL_DEFINITIONS, createToolExecutor } from './AgentTools.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { basename } from '../../utils/pathUtils.js';
@@ -1044,6 +1049,10 @@ export class AiSidebar {
             if (event.type === 'config') this._populateModelSelect();
         });
         this._cleanups.push(unsub);
+
+        // cloud plugin 登录态 / profiles 变化也需要重渲下拉
+        const unsubCloud = subscribeRegistry(() => this._populateModelSelect());
+        this._cleanups.push(unsubCloud);
     }
 
     _populateModelSelect() {
@@ -1054,8 +1063,20 @@ export class AiSidebar {
 
         this.modelSelectEl.innerHTML = '';
 
-        // 收集所有有 apiKey 的 provider 的模型
-        const configured = providers.filter(p => p.apiKey);
+        // 收集所有可用的 provider 的模型：
+        // - 普通 provider：要求填了 apiKey
+        // - cloud plugin：仅在 plugin.isAvailable() 时可见，不可用时即使 cfg 里残留也过滤
+        const configured = providers.filter(p => {
+            const cloudPlugin = getCloudProvider(p.id);
+            if (cloudPlugin) return cloudPlugin.isAvailable();
+            return !!p.apiKey;
+        });
+        // 已可用的 cloud plugin 自动注入到下拉（无需用户在 ai-keys 里手动添加）
+        for (const plugin of listCloudProviders()) {
+            if (plugin.isAvailable() && !configured.some(p => p.id === plugin.id)) {
+                configured.unshift({ id: plugin.id, apiKey: '' });
+            }
+        }
         if (!configured.length) {
             const opt = document.createElement('option');
             opt.textContent = t('ai.model.noConfig');

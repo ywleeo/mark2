@@ -18,6 +18,10 @@ export const features = {
 
     // 内置终端 - MAS 版本禁用（沙盒无法执行 PTY）
     terminal: !MAS_BUILD,
+
+    // mark2 Cloud 账户（登录、云端 AI 接入）— 联调阶段，未上线前先关闭
+    // 关闭后：Settings 不显示账户行，model 下拉里没有 mark2 Cloud 选项，启动也不读 keyring
+    cloudAccount: false,
 };
 
 // 获取功能是否可用

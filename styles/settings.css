@@ -944,6 +944,96 @@ input[type="number"]::-webkit-inner-spin-button {
 .ai-provider-test__result.is-success { color: #22c55e; }
 .ai-provider-test__result.is-error { color: #ef4444; }
 
+/* ── mark2 云账户行（AI tab 第一行） ───────────── */
+
+.cloud-account-row {
+    margin-bottom: 18px;
+}
+
+.cloud-account-body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    background: var(--settings-input-bg, var(--settings-bg));
+    border: 1px solid var(--settings-border);
+    border-radius: 6px;
+    font-size: 12.5px;
+    color: var(--settings-label);
+}
+
+.cloud-account-text {
+    flex: 1 1 200px;
+    color: var(--settings-muted);
+}
+
+.cloud-account-info {
+    flex: 1 1 200px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.cloud-account-email {
+    font-weight: 500;
+    color: var(--settings-label);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cloud-account-plan {
+    font-size: 11px;
+    color: var(--settings-muted);
+}
+
+.cloud-account-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.cloud-account-actions .btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    height: 28px;
+    line-height: 20px;
+}
+
+.cloud-account-error {
+    flex-basis: 100%;
+    margin-bottom: 6px;
+    padding: 6px 10px;
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+    border-radius: 4px;
+    font-size: 11.5px;
+}
+
+.cloud-account-dev-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 0;
+    padding: 0 4px;
+    font-size: 11.5px;
+    color: var(--settings-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.cloud-account-dev-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.cloud-account-dev-toggle__hint {
+    font-size: 11px;
+    opacity: 0.75;
+}
+
 /* ── AI Keys 列表 ─────────────────────────────── */
 
 .settings-section-label {

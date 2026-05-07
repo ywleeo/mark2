@@ -57,6 +57,17 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>cc.altron.mark2.url</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mark2</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>mark2-tauri</string>
 	<key>CFBundleIconFile</key>

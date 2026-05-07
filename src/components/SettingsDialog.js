@@ -4,6 +4,11 @@ import { t, getLocale, setLocale } from '../i18n/index.js';
 import { KeybindingsSettings } from './KeybindingsSettings.js';
 import { saveCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { PROVIDER_PRESETS } from '../modules/ai-assistant/providerPresets.js';
+import {
+    getCloudProvider,
+    listCloudProviders,
+    subscribeRegistry,
+} from '../modules/ai-assistant/cloudProviderRegistry.js';
 import { invoke } from '@tauri-apps/api/core';
 import { isMac } from '../utils/platform.js';
 
@@ -196,6 +201,8 @@ export class SettingsDialog {
 
                     <!-- AI 助手设置 -->
                     <section class="settings-body hidden" data-tab-content="ai">
+                        <div data-ref="cloudAccountSlot"></div>
+
                         <div class="settings-section-label">${t('settings.apiKeys')}</div>
                         <div class="ai-keys-list" data-ref="aiKeysList"></div>
 
@@ -258,6 +265,31 @@ export class SettingsDialog {
         this.assistantModelSelectEl = this.root.querySelector('[data-ref="assistantModelSelect"]');
         this.fastModelSelectEl = this.root.querySelector('[data-ref="fastModelSelect"]');
         this.aiConfiguredProviders = []; // [{ id, apiKey, isCustom?, name?, baseUrl?, models? }]
+
+        // Cloud plugin 入口：每个 plugin 的 mountSettingsSlot 都把自己的 UI 插到这里
+        this.cloudAccountSlot = this.root.querySelector('[data-ref="cloudAccountSlot"]');
+        if (this.cloudAccountSlot) {
+            for (const plugin of listCloudProviders()) {
+                if (typeof plugin.mountSettingsSlot === 'function') {
+                    const destroy = plugin.mountSettingsSlot(this.cloudAccountSlot);
+                    if (typeof destroy === 'function') this.cleanupFunctions.push(destroy);
+                }
+            }
+        }
+
+        // cloud plugin 状态 / AI 配置变化时刷新 model 下拉
+        const refreshModels = () => {
+            if (!this.isOpen) return;
+            void this._refreshAiModelSelectsFromService();
+        };
+        this._cloudUnsub = subscribeRegistry(refreshModels);
+        this.cleanupFunctions.push(() => this._cloudUnsub && this._cloudUnsub());
+        getAiService().then((svc) => {
+            const unsub = svc.subscribe((event) => {
+                if (event.type === 'config') refreshModels();
+            });
+            this.cleanupFunctions.push(unsub);
+        }).catch(() => {});
 
         // 快捷键设置
         this.keybindingsContainerEl = this.root.querySelector('[data-ref="keybindingsContainer"]');
@@ -418,7 +450,10 @@ export class SettingsDialog {
         this._setSelectValue(this.codeFontWeightSelect, String(editorPrefs.codeFontWeight || 400));
         // AI 助手设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
-        this.aiConfiguredProviders = (aiConfig.providers || []).map(p => ({ ...p }));
+        // 过滤掉 cloud plugin（由登录态自动接入，不应出现在用户配置列表）
+        this.aiConfiguredProviders = (aiConfig.providers || [])
+            .filter(p => !getCloudProvider(p.id))
+            .map(p => ({ ...p }));
         this._setSelectValue(this.aiCreativitySelect, aiConfig.preferences?.creativity || 'medium');
         this._renderAiKeysList();
         this._renderModelSelects(aiConfig.assistantModel, aiConfig.fastModel);
@@ -495,6 +530,16 @@ export class SettingsDialog {
             console.warn('[Settings] set_as_default_app failed:', error);
         }
         await this._refreshDefaultAppStatus();
+    }
+
+    async _refreshAiModelSelectsFromService() {
+        const cfg = await this.loadAiConfig();
+        // cloud plugin 由 registry 自动接入，不写入 user config 列表
+        this.aiConfiguredProviders = (cfg.providers || [])
+            .filter(p => !getCloudProvider(p.id))
+            .map(p => ({ ...p }));
+        this._renderAiKeysList();
+        this._renderModelSelects(cfg.assistantModel, cfg.fastModel);
     }
 
     async loadAiConfig() {
@@ -886,6 +931,7 @@ export class SettingsDialog {
         if (existing) { existing.remove(); return; }
 
         const addedIds = new Set(this.aiConfiguredProviders.map(p => p.id));
+        // PROVIDER_PRESETS 不含 cloud（cloud 由 registry 接入），直接按 id 去重即可
         const availablePresets = PROVIDER_PRESETS.filter(p => !addedIds.has(p.id));
 
         const form = document.createElement('div');
@@ -1024,12 +1070,33 @@ export class SettingsDialog {
             blank.textContent = '— ' + t('settings.selectModel') + ' —';
             fragment.appendChild(blank);
 
-            this.aiConfiguredProviders.forEach(provider => {
-                if (!provider.apiKey) return;
-                const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
-                const models = provider.isCustom
-                    ? (provider.models || [])
-                    : (provider.fetchedModels?.length ? provider.fetchedModels : (preset?.models || []));
+            // 已可用的 cloud plugin 自动注入（无需用户在 ai-keys 列表里手动加）
+            const enriched = [...this.aiConfiguredProviders];
+            for (const plugin of listCloudProviders()) {
+                if (plugin.isAvailable() && !enriched.some(p => p.id === plugin.id)) {
+                    enriched.unshift({ id: plugin.id, apiKey: '' });
+                }
+            }
+            enriched.forEach(provider => {
+                const cloudPlugin = getCloudProvider(provider.id);
+                const preset = cloudPlugin?.preset || PROVIDER_PRESETS.find(p => p.id === provider.id);
+                // cloud plugin：仅可用时显示，model 列表来自 plugin 凭据；普通 provider 要求填了 apiKey
+                if (cloudPlugin) {
+                    if (!cloudPlugin.isAvailable()) return;
+                } else if (!provider.apiKey) {
+                    return;
+                }
+                let models;
+                if (cloudPlugin) {
+                    const cred = cloudPlugin.getCredentials() || {};
+                    models = (Array.isArray(cred.models) && cred.models.length > 0)
+                        ? cred.models
+                        : (preset?.models || []);
+                } else {
+                    models = provider.isCustom
+                        ? (provider.models || [])
+                        : (provider.fetchedModels?.length ? provider.fetchedModels : (preset?.models || []));
+                }
                 const name = provider.isCustom ? provider.name : (preset?.name || provider.id);
                 if (models.length === 0) return;
 

@@ -5,6 +5,7 @@
 mod macos_security;
 
 mod ai_proxy;
+mod cloud_keyring;
 mod default_handler;
 mod fs_commands;
 mod image_proxy;
@@ -232,6 +233,7 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![
             fs_commands::open_path_in_browser,
             fs_commands::is_directory,
@@ -282,6 +284,9 @@ fn main() {
             vault::commands::vault_mark_used,
             vault::commands::vault_generate_password,
             vault::commands::vault_copy_to_clipboard,
+            cloud_keyring::cloud_keyring_set,
+            cloud_keyring::cloud_keyring_get,
+            cloud_keyring::cloud_keyring_delete,
         ])
         .manage(OpenedFilesState::default())
         .setup(|app| {
@@ -380,6 +385,23 @@ fn main() {
             win.listen("tauri://resize", move |_| { on_resize(); });
             let on_move = schedule_save.clone();
             win.listen("tauri://move", move |_| { on_move(); });
+
+            // ── Deep link 监听（mark2://auth/callback?exchange_code=...） ──
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let dl_handle = handle.clone();
+                app.deep_link().on_open_url(move |event| {
+                    let urls: Vec<String> = event.urls().iter().map(|u| u.to_string()).collect();
+                    if urls.is_empty() {
+                        return;
+                    }
+                    if let Some(window) = dl_handle.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        let _ = window.emit("cloud-deep-link", urls);
+                    }
+                });
+            }
 
             // ── Windows: 读取命令行参数中的文件路径 ──
             #[cfg(target_os = "windows")]

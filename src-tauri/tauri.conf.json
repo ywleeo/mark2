@@ -21,6 +21,11 @@
     "withGlobalTauri": true
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["mark2"]
+      }
+    },
     "updater": {
       "endpoints": [
         "https://mark2app.com/api/app/version?platform=mac"

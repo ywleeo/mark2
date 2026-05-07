@@ -10,6 +10,9 @@ import { createCsvTableMode } from '../modules/csvTableMode.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { setupAutoUpdater } from '../modules/autoUpdater.js';
+// Cloud provider plugins：每个 plugin 在自己的 import 副作用里自注册到 cloudProviderRegistry
+import '../modules/cloud-account/plugin.js';
+import { bootstrapCloudPlugins } from '../modules/ai-assistant/cloudProviderRegistry.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
@@ -415,6 +418,7 @@ export function createAppBootstrap({
         void updateExportMenuState();
         void updateRecentMenu();
         setupAutoUpdater();
+        bootstrapCloudPlugins();
 
         const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
