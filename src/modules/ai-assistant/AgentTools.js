@@ -10,6 +10,7 @@
 import { readFile, writeFile, deleteEntry, renameEntry, listDirectory, createDirectory } from '../../api/filesystem.js';
 import { getFileInfo, readFileChunk } from './fileReaders.js';
 import { getDocumentVersion, relocateRangeByExcerpt, replaceDocumentRange, rewriteFullDocument } from './DocumentPatchService.js';
+import { dirname } from '../../utils/pathUtils.js';
 
 export const TOOL_DEFINITIONS = [
     // ── 当前文档：信息 / 分块读 / 搜索 / 写入 ──────────────
@@ -82,7 +83,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件的绝对路径' },
+                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
                 },
                 required: ['path'],
             },
@@ -96,7 +97,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件的绝对路径' },
+                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
                     start: { type: 'integer', description: '起始位置（含），从 1 开始。对应各格式的页/幻灯片/行/段落编号' },
                     end: { type: 'integer', description: '结束位置（含）' },
                     sheet: { type: 'string', description: 'Excel 专用：工作表名称。省略则读取第一个 sheet' },
@@ -113,7 +114,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件的绝对路径' },
+                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
                 },
                 required: ['path'],
             },
@@ -127,7 +128,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件的绝对路径' },
+                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
                     content: { type: 'string', description: '要写入的内容' },
                 },
                 required: ['path', 'content'],
@@ -145,7 +146,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '目录的绝对路径' },
+                    path: { type: 'string', description: '目录路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
                 },
                 required: ['path'],
             },
@@ -159,7 +160,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '要删除的文件或目录的绝对路径' },
+                    path: { type: 'string', description: '要删除的文件或目录路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
                 },
                 required: ['path'],
             },
@@ -173,8 +174,8 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    old_path: { type: 'string', description: '当前绝对路径' },
-                    new_path: { type: 'string', description: '新绝对路径' },
+                    old_path: { type: 'string', description: '当前路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                    new_path: { type: 'string', description: '新路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
                 },
                 required: ['old_path', 'new_path'],
             },
@@ -188,7 +189,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '新目录的绝对路径' },
+                    path: { type: 'string', description: '新目录路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
                 },
                 required: ['path'],
             },
@@ -203,6 +204,22 @@ function getLines(content) {
     return content.endsWith('\n')
         ? content.slice(0, -1).split('\n')
         : content.split('\n');
+}
+
+function isAbsolutePath(p) {
+    if (typeof p !== 'string' || !p) return false;
+    if (p.startsWith('/')) return true;                    // POSIX
+    if (/^[a-zA-Z]:[\\/]/.test(p)) return true;            // Windows 盘符
+    if (/^\\\\/.test(p) || /^\/\//.test(p)) return true;   // UNC
+    return false;
+}
+
+function joinAgentPath(base, rel) {
+    const useBackslash = base.includes('\\') && !base.includes('/');
+    const sep = useBackslash ? '\\' : '/';
+    const trimmedBase = base.replace(/[/\\]+$/, '');
+    const cleanedRel = rel.replace(/^[/\\]+/, '');
+    return `${trimmedBase}${sep}${cleanedRel}`;
 }
 
 /**
@@ -226,6 +243,20 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
     }
 
     return async function executeToolCall(name, args) {
+        // 每次调用都重新拿当前文件，确保跟随 tab 切换
+        const currentFile = getCurrentFile();
+        const baseDir = currentFile ? dirname(currentFile) : null;
+
+        // 把 AI 给的相对路径解析为绝对路径，否则会落到进程 cwd（开发模式 = mark2 项目目录）
+        const resolveRelativePath = (p) => {
+            if (typeof p !== 'string' || !p) return p;
+            if (isAbsolutePath(p)) return p;
+            if (!baseDir) {
+                throw new Error(`相对路径 "${p}" 无法解析：当前没有打开任何文件，请提供绝对路径。`);
+            }
+            return joinAgentPath(baseDir, p);
+        };
+
         switch (name) {
 
             // ── 当前文档 ──────────────────────────────────────
@@ -369,7 +400,8 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'get_file_info': {
                 try {
-                    return await getFileInfo(args.path);
+                    const path = resolveRelativePath(args.path);
+                    return await getFileInfo(path);
                 } catch (err) {
                     return { error: `获取文件信息失败: ${err.message}` };
                 }
@@ -377,7 +409,8 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'read_file_chunk': {
                 try {
-                    return await readFileChunk(args.path, args.start, args.end, args.sheet);
+                    const path = resolveRelativePath(args.path);
+                    return await readFileChunk(path, args.start, args.end, args.sheet);
                 } catch (err) {
                     return { error: `分块读取失败: ${err.message}` };
                 }
@@ -385,7 +418,8 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'read_file': {
                 try {
-                    const content = await readFile(args.path);
+                    const path = resolveRelativePath(args.path);
+                    const content = await readFile(path);
                     return { content };
                 } catch (err) {
                     return { error: `读取文件失败: ${err.message}` };
@@ -394,8 +428,9 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'write_file': {
                 try {
-                    await writeFile(args.path, args.content);
-                    return { success: true };
+                    const path = resolveRelativePath(args.path);
+                    await writeFile(path, args.content);
+                    return { success: true, path };
                 } catch (err) {
                     return { error: `写入文件失败: ${err.message}` };
                 }
@@ -405,8 +440,9 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'list_directory': {
                 try {
-                    const entries = await listDirectory(args.path);
-                    return { entries };
+                    const path = resolveRelativePath(args.path);
+                    const entries = await listDirectory(path);
+                    return { path, entries };
                 } catch (err) {
                     return { error: `列目录失败: ${err.message}` };
                 }
@@ -414,10 +450,11 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'delete_file': {
                 try {
-                    const confirmed = await onDeleteConfirm(args.path);
+                    const path = resolveRelativePath(args.path);
+                    const confirmed = await onDeleteConfirm(path);
                     if (!confirmed) return { cancelled: true, message: '用户取消了删除' };
-                    await deleteEntry(args.path);
-                    return { success: true };
+                    await deleteEntry(path);
+                    return { success: true, path };
                 } catch (err) {
                     return { error: `删除失败: ${err.message}` };
                 }
@@ -425,8 +462,10 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'rename_file': {
                 try {
-                    await renameEntry(args.old_path, args.new_path);
-                    return { success: true };
+                    const oldPath = resolveRelativePath(args.old_path);
+                    const newPath = resolveRelativePath(args.new_path);
+                    await renameEntry(oldPath, newPath);
+                    return { success: true, old_path: oldPath, new_path: newPath };
                 } catch (err) {
                     return { error: `重命名失败: ${err.message}` };
                 }
@@ -434,8 +473,9 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
 
             case 'create_directory': {
                 try {
-                    await createDirectory(args.path);
-                    return { success: true };
+                    const path = resolveRelativePath(args.path);
+                    await createDirectory(path);
+                    return { success: true, path };
                 } catch (err) {
                     return { error: `创建目录失败: ${err.message}` };
                 }
