@@ -975,13 +975,14 @@ async function renderSingleMermaid(element) {
         return;
     }
 
+    const uniqueId =
+        element.getAttribute('data-mermaid-id') ||
+        `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    element.setAttribute('data-mermaid-id', uniqueId);
+
     try {
         const mermaid = await loadMermaid();
         element.classList.remove('mermaid--failed');
-        const uniqueId =
-            element.getAttribute('data-mermaid-id') ||
-            `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-        element.setAttribute('data-mermaid-id', uniqueId);
         const { svg } = await mermaid.render(uniqueId, code);
         // mermaid 某些图（quadrant/pie/xychart）输出的 SVG 含 width=""/height="" 空属性，
         // WebKit 校验 SVG 属性时会报 "Invalid value for <svg> attribute"，先剔除。
@@ -1015,6 +1016,11 @@ async function renderSingleMermaid(element) {
         svgCache.set(cacheKey, { svg: cleanedSvg, height });
     } catch (error) {
         console.warn('[MermaidRenderer] 渲染失败', error);
+        // mermaid.render 在 parse/draw 失败的 throw 路径上不会清理临时 div，
+        // 会把"Syntax error"炸弹 SVG 留在 <body> 下的 #d{id}/#i{id} 里污染布局。
+        document.getElementById(`d${uniqueId}`)?.remove();
+        document.getElementById(`i${uniqueId}`)?.remove();
+        document.getElementById(uniqueId)?.remove();
         element.setAttribute('data-processed', 'true');
         element.classList.add('mermaid--failed');
         element.innerHTML = '';
