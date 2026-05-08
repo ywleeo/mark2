@@ -12,6 +12,13 @@ export function setupSidebarResizer(options = {}) {
 
     if (!sidebar || !resizer) return;
 
+    const syncWidthVar = (width) => {
+        document.documentElement.style.setProperty('--sidebar-current-width', `${width}px`);
+    };
+
+    // 初始同步：sidebar 在右侧布局时 padding-right 跟 resizer 位置都依赖这个 var
+    syncWidthVar(sidebar.getBoundingClientRect().width);
+
     let startX = 0;
     let startWidth = 0;
     let activePointerId = null;
@@ -42,13 +49,15 @@ export function setupSidebarResizer(options = {}) {
     const handlePointerMove = (event) => {
         if (activePointerId === null || event.pointerId !== activePointerId) return;
 
-        const delta = event.clientX - startX;
+        const sign = document.body.classList.contains('sidebar-position-right') ? -1 : 1;
+        const delta = (event.clientX - startX) * sign;
         const bodyWidth = document.body.getBoundingClientRect().width;
         const maxAvailable = bodyWidth - minContentWidth;
         const clampedMax = Math.max(minWidth, Math.min(maxSidebarWidth, maxAvailable));
         const nextWidth = Math.min(Math.max(minWidth, startWidth + delta), clampedMax);
 
         sidebar.style.width = `${nextWidth}px`;
+        syncWidthVar(nextWidth);
     };
 
     resizer.addEventListener('pointerdown', handlePointerDown);

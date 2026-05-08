@@ -97,6 +97,21 @@ export class SettingsDialog {
                                     <option value="zh-TW">繁體中文</option>
                                 </select>
                             </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.tabFontSize')}</span>
+                                <input type="number" name="tabFontSize" min="9" max="24" step="1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.sidebarFontSize')}</span>
+                                <input type="number" name="sidebarFontSize" min="9" max="24" step="1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.sidebarPosition')}</span>
+                                <select name="sidebarPosition" class="settings-row__control">
+                                    <option value="left">${t('settings.sidebarPositionLeft')}</option>
+                                    <option value="right">${t('settings.sidebarPositionRight')}</option>
+                                </select>
+                            </label>
                             ${isMac ? `
                             <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
                                 <span class="settings-row__label">${t('settings.defaultApp')}</span>
@@ -253,6 +268,11 @@ export class SettingsDialog {
         // Language
         this.languageSelect = this.form.querySelector('select[name="language"]');
 
+        // 通用：tab / sidebar 字号
+        this.tabFontSizeInput = this.form.querySelector('input[name="tabFontSize"]');
+        this.sidebarFontSizeInput = this.form.querySelector('input[name="sidebarFontSize"]');
+        this.sidebarPositionSelect = this.form.querySelector('select[name="sidebarPosition"]');
+
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
         this.codeFontFamilySelect = this.form.querySelector('select[name="codeFontFamily"]');
@@ -347,6 +367,7 @@ export class SettingsDialog {
             this.themeSelect,
             this.appearanceSelect,
             this.languageSelect,
+            this.sidebarPositionSelect,
             this.fontFamilySelect,
             this.fontWeightSelect,
             this.codeThemeSelect,
@@ -436,6 +457,15 @@ export class SettingsDialog {
         }
         if (this.languageSelect) {
             this._setSelectValue(this.languageSelect, getLocale());
+        }
+        if (this.tabFontSizeInput) {
+            this.tabFontSizeInput.value = Number(editorPrefs.tabFontSize) || 12;
+        }
+        if (this.sidebarFontSizeInput) {
+            this.sidebarFontSizeInput.value = Number(editorPrefs.sidebarFontSize) || 12;
+        }
+        if (this.sidebarPositionSelect) {
+            this._setSelectValue(this.sidebarPositionSelect, editorPrefs.sidebarPosition || 'left');
         }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
@@ -594,6 +624,12 @@ export class SettingsDialog {
         const normalizedCodeSize = Number.isFinite(codeFontSize) ? this.clamp(codeFontSize, 10, 48) : 14;
         const normalizedCodeLineHeight = Number.isFinite(codeLineHeight) ? this.clamp(codeLineHeight, 1.0, 3.0) : 1.5;
 
+        // General：tab / sidebar 字号
+        const tabFontSize = Number(this.tabFontSizeInput?.value);
+        const sidebarFontSize = Number(this.sidebarFontSizeInput?.value);
+        const normalizedTabSize = Number.isFinite(tabFontSize) ? this.clamp(tabFontSize, 9, 24) : 12;
+        const normalizedSidebarSize = Number.isFinite(sidebarFontSize) ? this.clamp(sidebarFontSize, 9, 24) : 12;
+
         const sanitized = {
             theme: theme,
             appearance: ['light', 'dark', 'system'].includes(appearance) ? appearance : 'system',
@@ -608,6 +644,11 @@ export class SettingsDialog {
             codeFontWeight: Number.isFinite(codeFontWeight) ? codeFontWeight : 400,
             terminalFontSize: Number(this.initialSettings?.terminalFontSize) || 13,
             terminalFontFamily: (this.initialSettings?.terminalFontFamily || '').trim(),
+            tabFontSize: normalizedTabSize,
+            sidebarFontSize: normalizedSidebarSize,
+            sidebarPosition: ['left', 'right'].includes(this.sidebarPositionSelect?.value)
+                ? this.sidebarPositionSelect.value
+                : 'left',
         };
 
         // AI 助手设置
