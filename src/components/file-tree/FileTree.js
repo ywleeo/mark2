@@ -167,6 +167,7 @@ export class FileTree {
             renderer: this.renderer,
             buildFolderKey: this.buildFolderKey.bind(this),
             watchFolder: (path) => this.watchFolder(path),
+            stopWatchingFolder: (path) => this.stopWatchingFolder(path),
             emitStateChange: () => this.emitStateChange(),
             shouldDefer: (path) => this.shouldDeferRefresh(path),
             onRefreshDeferred: (path) => this.pendingRefreshPaths.add(path),

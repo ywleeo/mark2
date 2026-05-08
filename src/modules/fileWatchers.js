@@ -1,3 +1,5 @@
+import { dirname } from '../utils/pathUtils.js';
+
 export function createFileWatcherController({
     fileTree,
     normalizeFsPath,
@@ -21,17 +23,25 @@ export function createFileWatcherController({
     function handleFolderWatcherEvent(watchedPath, event) {
         if (!fileTree) return;
 
-        const normalizedRoot = normalizeFsPath(watchedPath);
-        if (!normalizedRoot || !fileTree?.hasRoot?.(normalizedRoot)) {
-            return;
-        }
+        // watchedPath 现在可能是 root 或任意已展开子目录（recursive:false per-folder watch）
+        const normalizedWatched = normalizeFsPath(watchedPath);
+        if (!normalizedWatched) return;
 
         const eventPaths = Array.isArray(event?.paths) ? event.paths.map(normalizeFsPath) : [];
-        let shouldRefreshRoot = eventPaths.length === 0;
+        // 受影响的目录集合：每个 event path 的父目录（mkdir / rm 在该父目录下发生）。
+        // 老逻辑无脑 refresh root，root.entries 没变时签名命中跳过 → 子目录里的 mkdir 不刷新。
+        const dirsToRefresh = new Set();
+
+        if (eventPaths.length === 0) {
+            dirsToRefresh.add(normalizedWatched);
+        }
 
         eventPaths.forEach((changedPath) => {
             if (!changedPath) return;
-            shouldRefreshRoot = true;
+            // 把发生变化路径的父目录加入待刷新集合
+            const parentDir = normalizeFsPath(dirname(changedPath));
+            if (parentDir) dirsToRefresh.add(parentDir);
+
             if (shouldIgnoreLocalWrite(changedPath)) {
                 return;
             }
@@ -53,9 +63,9 @@ export function createFileWatcherController({
             }
         });
 
-        if (shouldRefreshRoot) {
-            scheduleFolderRefresh(normalizedRoot);
-        }
+        // 触发各父目录的 refresh —— refreshFolder 内部会判断是 root 还是子节点，
+        // 走对应的刷新路径
+        dirsToRefresh.forEach((dirPath) => scheduleFolderRefresh(dirPath));
     }
 
     function handleFileWatcherEvent(filePath) {
@@ -95,29 +105,28 @@ export function createFileWatcherController({
         scheduleFileRefresh(filePath);
     }
 
-    function scheduleFolderRefresh(rootPath) {
-        const normalizedRoot = normalizeFsPath(rootPath);
-        if (!normalizedRoot) return;
+    // 接收 root 或任意已展开子目录路径。refreshFolder 内部按 isRootPath 决定走哪条
+    // 刷新路径，子目录通过 querySelector(`.tree-folder[data-path="..."]`) 找到对应节点。
+    function scheduleFolderRefresh(folderPath) {
+        const normalizedPath = normalizeFsPath(folderPath);
+        if (!normalizedPath) return;
 
-        const existing = folderRefreshTimers.get(normalizedRoot);
+        const existing = folderRefreshTimers.get(normalizedPath);
         if (existing) {
             clearTimeout(existing);
         }
 
         const timer = setTimeout(async () => {
-            folderRefreshTimers.delete(normalizedRoot);
-            if (!fileTree?.hasRoot?.(normalizedRoot)) {
-                return;
-            }
+            folderRefreshTimers.delete(normalizedPath);
 
             try {
-                await fileTree.refreshFolder(normalizedRoot);
+                await fileTree.refreshFolder(normalizedPath);
             } catch (error) {
                 console.error('刷新目录失败:', error);
             }
         }, 100);
 
-        folderRefreshTimers.set(normalizedRoot, timer);
+        folderRefreshTimers.set(normalizedPath, timer);
     }
 
     function scheduleFileRefresh(filePath) {

@@ -974,6 +974,23 @@ export class AiSidebar {
     _setupToolExecutor() {
         this.toolExecutor = createToolExecutor({
             getCurrentFile: () => this.getAppState().getCurrentFile(),
+            // 相对路径基准：sidebar 上当前 tab 所属的 root folder
+            // 没匹配到（多 root 全部不包含当前文件）就 fallback 到唯一 root；
+            // 没 root 时返回 null，让 resolveRelativePath 退回 dirname(currentFile)
+            getRootDir: () => {
+                const tree = this.getAppState().getFileTree?.();
+                const roots = tree?.getRootPaths?.() || [];
+                if (roots.length === 0) return null;
+                const file = this.getAppState().getCurrentFile();
+                if (!file) return roots.length === 1 ? roots[0] : null;
+                let best = null;
+                for (const root of roots) {
+                    if (file === root || file.startsWith(root.endsWith('/') ? root : root + '/')) {
+                        if (!best || root.length > best.length) best = root;
+                    }
+                }
+                return best || (roots.length === 1 ? roots[0] : null);
+            },
             getCurrentContent: () => this._getEditorContent(),
             onWriteCurrentDocument: ({ path, oldContent, newContent, patchPlan, mode }) =>
                 this._handleWriteCurrentDocument({ path, oldContent, newContent, patchPlan, mode }),

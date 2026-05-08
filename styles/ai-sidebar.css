@@ -333,7 +333,9 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
 
 .ai-message-markdown pre {
     margin: 6px 0;
-    padding: 10px 12px;
+    /* 底部 padding 增加到 14px，给 scrollbar 留出 inset 空间，避免流式渲染时
+       macOS WebKit 自定义 scrollbar 样式延迟生效 → 默认粗 scrollbar 浮起挡到下一段文字 */
+    padding: 10px 12px 14px;
     background: var(--ai-input-bg);
     border-radius: 8px;
     overflow-x: auto;
@@ -342,9 +344,10 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
 }
 
+/* 不用 var(--scrollbar-size, 2px) —— :root 把它定成 6px 了，fallback 不生效 */
 .ai-message-markdown pre::-webkit-scrollbar {
-    width: var(--scrollbar-size, 2px);
-    height: var(--scrollbar-size, 2px);
+    width: 4px;
+    height: 4px;
     -webkit-appearance: none;
 }
 

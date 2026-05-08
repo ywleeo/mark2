@@ -83,7 +83,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
+                    path: { type: 'string', description: '文件路径。优先用相对路径（相对于 sidebar 当前打开的根目录）；只有用户明确给出绝对路径时才用绝对路径，不要自己拼绝对路径以免出错' },
                 },
                 required: ['path'],
             },
@@ -97,7 +97,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
+                    path: { type: 'string', description: '文件路径。优先用相对路径（相对于 sidebar 当前打开的根目录）；只有用户明确给出绝对路径时才用绝对路径，不要自己拼绝对路径以免出错' },
                     start: { type: 'integer', description: '起始位置（含），从 1 开始。对应各格式的页/幻灯片/行/段落编号' },
                     end: { type: 'integer', description: '结束位置（含）' },
                     sheet: { type: 'string', description: 'Excel 专用：工作表名称。省略则读取第一个 sheet' },
@@ -114,7 +114,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
+                    path: { type: 'string', description: '文件路径。优先用相对路径（相对于 sidebar 当前打开的根目录）；只有用户明确给出绝对路径时才用绝对路径，不要自己拼绝对路径以免出错' },
                 },
                 required: ['path'],
             },
@@ -128,7 +128,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
+                    path: { type: 'string', description: '文件路径。优先用相对路径（相对于 sidebar 当前打开的根目录）；只有用户明确给出绝对路径时才用绝对路径，不要自己拼绝对路径以免出错' },
                     content: { type: 'string', description: '要写入的内容' },
                 },
                 required: ['path', 'content'],
@@ -146,7 +146,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '目录路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径（推荐绝对路径）' },
+                    path: { type: 'string', description: '目录路径。优先用相对路径（相对于 sidebar 当前打开的根目录）；只有用户明确给出绝对路径时才用绝对路径' },
                 },
                 required: ['path'],
             },
@@ -160,7 +160,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '要删除的文件或目录路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                    path: { type: 'string', description: '要删除的文件或目录路径。优先用相对路径（相对于 sidebar 当前打开的根目录）' },
                 },
                 required: ['path'],
             },
@@ -174,8 +174,8 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    old_path: { type: 'string', description: '当前路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
-                    new_path: { type: 'string', description: '新路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                    old_path: { type: 'string', description: '当前路径。优先用相对路径（相对于 sidebar 当前打开的根目录）' },
+                    new_path: { type: 'string', description: '新路径。优先用相对路径（相对于 sidebar 当前打开的根目录）' },
                 },
                 required: ['old_path', 'new_path'],
             },
@@ -189,7 +189,7 @@ export const TOOL_DEFINITIONS = [
             parameters: {
                 type: 'object',
                 properties: {
-                    path: { type: 'string', description: '新目录路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                    path: { type: 'string', description: '新目录路径。优先用相对路径（相对于 sidebar 当前打开的根目录）' },
                 },
                 required: ['path'],
             },
@@ -209,7 +209,7 @@ export const TOOL_DEFINITIONS = [
                         items: {
                             type: 'object',
                             properties: {
-                                path: { type: 'string', description: '文件路径。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                                path: { type: 'string', description: '文件路径。优先用相对路径（相对于 sidebar 当前打开的根目录）' },
                                 content: { type: 'string', description: '文件内容；省略或空字符串则创建空文件' },
                             },
                             required: ['path'],
@@ -219,7 +219,7 @@ export const TOOL_DEFINITIONS = [
                         type: 'object',
                         description: '模板模式：批量生成名字有规律的文件。例如要建 001.md ~ 900.md，用 {directory:"tmp01", name_template:"{i}.md", count:900, padding:3}',
                         properties: {
-                            directory: { type: 'string', description: '目标目录。可填绝对路径，或相对于当前打开文件所在目录的相对路径' },
+                            directory: { type: 'string', description: '目标目录。优先用相对路径（相对于 sidebar 当前打开的根目录）' },
                             name_template: { type: 'string', description: '文件名模板，{i} 会被序号替换。例：{i}.md / note-{i}.txt' },
                             count: { type: 'integer', description: '生成多少个文件（≤ 1000）' },
                             start: { type: 'integer', description: '起始序号，默认 1' },
@@ -285,7 +285,7 @@ function joinAgentPath(base, rel) {
  * @param {(p: {path,oldContent,newContent,patchPlan?:Array<object>,mode:'patch'|'replace'}) => Promise<{applied:boolean}>} options.onWriteCurrentDocument
  * @param {(path: string) => Promise<boolean>} options.onDeleteConfirm
  */
-export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteCurrentDocument, onDeleteConfirm }) {
+export function createToolExecutor({ getCurrentFile, getRootDir, getCurrentContent, onWriteCurrentDocument, onDeleteConfirm }) {
 
     /** 从编辑器内存或磁盘读取当前文档内容 */
     async function fetchCurrentContent() {
@@ -299,7 +299,10 @@ export function createToolExecutor({ getCurrentFile, getCurrentContent, onWriteC
     return async function executeToolCall(name, args) {
         // 每次调用都重新拿当前文件，确保跟随 tab 切换
         const currentFile = getCurrentFile();
-        const baseDir = currentFile ? dirname(currentFile) : null;
+        // 相对路径基准优先用 sidebar 上当前 tab 所属的 root folder（用户语义上的"工作区根"），
+        // 没拿到再 fallback 到当前文件所在目录
+        const rootDir = typeof getRootDir === 'function' ? getRootDir() : null;
+        const baseDir = rootDir || (currentFile ? dirname(currentFile) : null);
 
         // 把 AI 给的相对路径解析为绝对路径，否则会落到进程 cwd（开发模式 = mark2 项目目录）
         const resolveRelativePath = (p) => {

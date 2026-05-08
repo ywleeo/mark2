@@ -13,6 +13,7 @@ export class FolderLoader {
             renderer,
             buildFolderKey,
             watchFolder,
+            stopWatchingFolder,
             emitStateChange,
             shouldDefer,
             onRefreshDeferred,
@@ -26,6 +27,7 @@ export class FolderLoader {
         this.renderer = renderer;
         this.buildFolderKey = buildFolderKey;
         this.watchFolder = watchFolder;
+        this.stopWatchingFolder = stopWatchingFolder;
         this.emitStateChange = emitStateChange;
         this.shouldDefer = shouldDefer;
         this.onRefreshDeferred = onRefreshDeferred;
@@ -193,7 +195,10 @@ export class FolderLoader {
             await this.loadFolderChildren(rootPath, children, entries);
             // root header 的名字 label 不在 children 容器内，需要单独触发一次刷新
             scheduleCompactFileNameRefresh(rootItem);
-            await this.watchFolder(rootPath);
+            // watcher 注册不阻塞首屏：超大目录（几十万 entry）下 FSEvents/notify
+            // 启动可能慢，await 会让整个 loadFolder 卡住，UI 显示不出来。
+            // 错误自己 log，外部 try/catch 不再 await 它。
+            this.watchFolder(rootPath).catch((err) => console.error('watchFolder failed:', err));
         } catch (error) {
             console.error('读取文件夹失败:', error);
         } finally {
@@ -324,6 +329,8 @@ export class FolderLoader {
                 }
                 try {
                     await this.loadFolderChildren(job.path, job.children);
+                    // 恢复出来的已展开子目录也要单独挂 watcher（recursive: false）
+                    this.watchFolder?.(job.path)?.catch?.(() => {});
                     // 子目录加载完才能确认对应文件是否在 DOM 里，重应用一次选中态
                     this.renderer?.reapplyCurrentFileSelection?.();
                 } catch (error) {
@@ -353,6 +360,10 @@ export class FolderLoader {
             children.classList.remove('expanded');
             header.classList.remove('expanded');
             children.style.display = 'none';
+            // 折叠时取消该子目录的 watch（root 永远 watch，由 closeFolder 管理）
+            if (!isRoot) {
+                this.stopWatchingFolder?.(path);
+            }
         } else {
             expandedFolders.add(folderKey);
             children.classList.add('expanded');
@@ -360,6 +371,10 @@ export class FolderLoader {
             children.style.display = 'block';
             if (children.children.length === 0) {
                 await this.loadFolderChildren(path, children);
+            }
+            // 展开时挂载该子目录的 watch（recursive: false 在 FileWatcher 已配好）
+            if (!isRoot) {
+                this.watchFolder?.(path)?.catch?.(() => {});
             }
         }
 

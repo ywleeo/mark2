@@ -39,12 +39,15 @@ export class FileWatcher {
 
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
+            // recursive: false —— 只监听本层变化。子目录的 watch 由 FolderLoader 在
+            // 用户展开时按需挂载，避免在巨型目录树（几十万 entry）上启动 recursive
+            // watcher 时 notify/FSEvents 注册成本过高
             const unwatch = await watch(
                 normalizedPath,
                 (event) => {
                     this.onFolderChange?.(normalizedPath, event);
                 },
-                { recursive: true, delayMs: FOLDER_WATCH_DEBOUNCE_MS }
+                { recursive: false, delayMs: FOLDER_WATCH_DEBOUNCE_MS }
             );
 
             // 监听过程中可能已被 stopWatchingFolder 清理
