@@ -105,6 +105,10 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.sidebarFontSize')}</span>
                                 <input type="number" name="sidebarFontSize" min="9" max="24" step="1" class="settings-row__control" />
                             </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.tocFontSize')}</span>
+                                <input type="number" name="tocFontSize" min="9" max="24" step="1" class="settings-row__control" />
+                            </label>
                             ${isMac ? `
                             <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
                                 <span class="settings-row__label">${t('settings.defaultApp')}</span>
@@ -261,9 +265,10 @@ export class SettingsDialog {
         // Language
         this.languageSelect = this.form.querySelector('select[name="language"]');
 
-        // 通用：tab / sidebar 字号
+        // 通用：tab / sidebar / toc 字号
         this.tabFontSizeInput = this.form.querySelector('input[name="tabFontSize"]');
         this.sidebarFontSizeInput = this.form.querySelector('input[name="sidebarFontSize"]');
+        this.tocFontSizeInput = this.form.querySelector('input[name="tocFontSize"]');
 
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
@@ -455,6 +460,9 @@ export class SettingsDialog {
         if (this.sidebarFontSizeInput) {
             this.sidebarFontSizeInput.value = Number(editorPrefs.sidebarFontSize) || 12;
         }
+        if (this.tocFontSizeInput) {
+            this.tocFontSizeInput.value = Number(editorPrefs.tocFontSize) || 12;
+        }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
         this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
@@ -612,11 +620,13 @@ export class SettingsDialog {
         const normalizedCodeSize = Number.isFinite(codeFontSize) ? this.clamp(codeFontSize, 10, 48) : 14;
         const normalizedCodeLineHeight = Number.isFinite(codeLineHeight) ? this.clamp(codeLineHeight, 1.0, 3.0) : 1.5;
 
-        // General：tab / sidebar 字号
+        // General：tab / sidebar / toc 字号
         const tabFontSize = Number(this.tabFontSizeInput?.value);
         const sidebarFontSize = Number(this.sidebarFontSizeInput?.value);
+        const tocFontSize = Number(this.tocFontSizeInput?.value);
         const normalizedTabSize = Number.isFinite(tabFontSize) ? this.clamp(tabFontSize, 9, 24) : 12;
         const normalizedSidebarSize = Number.isFinite(sidebarFontSize) ? this.clamp(sidebarFontSize, 9, 24) : 12;
+        const normalizedTocSize = Number.isFinite(tocFontSize) ? this.clamp(tocFontSize, 9, 24) : 12;
 
         const sanitized = {
             theme: theme,
@@ -634,6 +644,7 @@ export class SettingsDialog {
             terminalFontFamily: (this.initialSettings?.terminalFontFamily || '').trim(),
             tabFontSize: normalizedTabSize,
             sidebarFontSize: normalizedSidebarSize,
+            tocFontSize: normalizedTocSize,
         };
 
         // AI 助手设置

@@ -22,6 +22,7 @@ export const defaultEditorSettings = {
     terminalFontFamily: '',
     tabFontSize: 12,
     sidebarFontSize: 12,
+    tocFontSize: 12,
 };
 
 function clamp(value, min, max) {
@@ -151,6 +152,13 @@ export function normalizeEditorSettings(candidate) {
                 prefs.sidebarFontSize = clamp(size, 9, 24);
             }
         }
+
+        if (candidate.tocFontSize !== undefined) {
+            const size = Number(candidate.tocFontSize);
+            if (Number.isFinite(size)) {
+                prefs.tocFontSize = clamp(size, 9, 24);
+            }
+        }
     }
 
     return prefs;
@@ -208,6 +216,7 @@ export function applyEditorSettings(settings) {
 
     root.style.setProperty('--tab-font-size', `${prefs.tabFontSize}px`);
     root.style.setProperty('--sidebar-font-size', `${prefs.sidebarFontSize}px`);
+    root.style.setProperty('--toc-font-size', `${prefs.tocFontSize}px`);
 
     notifyAppearanceChange(resolvedAppearance, appearancePreference);
 }
