@@ -338,6 +338,28 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     border-radius: 8px;
     overflow-x: auto;
     border: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
+}
+
+.ai-message-markdown pre::-webkit-scrollbar {
+    width: var(--scrollbar-size, 2px);
+    height: var(--scrollbar-size, 2px);
+    -webkit-appearance: none;
+}
+
+.ai-message-markdown pre::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-message-markdown pre::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.6)) 50%, transparent);
+    border-radius: 2px;
+    transition: background 0.2s ease;
+}
+
+.ai-message-markdown pre::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.45)) 50%, transparent);
 }
 
 .ai-message-markdown pre code {
