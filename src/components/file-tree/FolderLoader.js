@@ -268,21 +268,30 @@ export class FolderLoader {
             removed.remove();
         }
 
-        // 重排：仅在顺序/数量与当前 DOM 不一致时调整。appendChild 对已存在节点是
-        // "移动"操作，不会重建，也不破坏节点状态（hover/focus/expand 等）。
-        const currentChildren = childrenContainer.children;
-        let needsReorder = currentChildren.length !== nextOrder.length;
-        if (!needsReorder) {
-            for (let i = 0; i < nextOrder.length; i++) {
-                if (currentChildren[i] !== nextOrder[i]) { needsReorder = true; break; }
+        // 快速路径：容器原本是空的（首次展开/初次加载），全部都是新建节点，
+        // 用 DocumentFragment 一次 append 进去，避免逐个 insertBefore 触发 N 次 reflow
+        // —— 这是大目录（几十/上百个子项）打开慢的关键瓶颈
+        if (!hasExistingChildren && newlyCreated.length === nextOrder.length) {
+            const fragment = document.createDocumentFragment();
+            for (const node of nextOrder) fragment.appendChild(node);
+            childrenContainer.appendChild(fragment);
+        } else {
+            // 增量重排：仅在顺序/数量与当前 DOM 不一致时调整。appendChild 对已存在节点是
+            // "移动"操作，不会重建，也不破坏节点状态（hover/focus/expand 等）。
+            const currentChildren = childrenContainer.children;
+            let needsReorder = currentChildren.length !== nextOrder.length;
+            if (!needsReorder) {
+                for (let i = 0; i < nextOrder.length; i++) {
+                    if (currentChildren[i] !== nextOrder[i]) { needsReorder = true; break; }
+                }
             }
-        }
-        if (needsReorder) {
-            for (let i = 0; i < nextOrder.length; i++) {
-                const target = nextOrder[i];
-                const current = currentChildren[i];
-                if (current !== target) {
-                    childrenContainer.insertBefore(target, current || null);
+            if (needsReorder) {
+                for (let i = 0; i < nextOrder.length; i++) {
+                    const target = nextOrder[i];
+                    const current = currentChildren[i];
+                    if (current !== target) {
+                        childrenContainer.insertBefore(target, current || null);
+                    }
                 }
             }
         }
