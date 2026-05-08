@@ -1,6 +1,20 @@
 let mermaidPromise = null;
 let mermaidInstance = null;
 
+// mermaid.render(id, text) 不传第三个参数时，它会把临时渲染 div 直接挂到 document.body 上。
+// body 是 display:flex; flex-wrap:wrap，这个临时 div 会立刻成为 flex item，布局成右侧
+// 一个 column 闪一下再被自身 remove —— 这是"打开 md 文件时右侧 200px 空 column 闪现"
+// 的根因。给一个离屏 fixed 容器，让 mermaid 在它里面渲染，不再污染 body 布局。
+let _mermaidHost = null;
+function getMermaidRenderHost() {
+    if (_mermaidHost && _mermaidHost.isConnected) return _mermaidHost;
+    _mermaidHost = document.createElement('div');
+    _mermaidHost.id = 'mermaid-offscreen-host';
+    _mermaidHost.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;visibility:hidden;pointer-events:none;overflow:hidden;';
+    document.body.appendChild(_mermaidHost);
+    return _mermaidHost;
+}
+
 // 内存缓存：code hash -> svg string（包含主题标识）
 const svgCache = new Map();
 
@@ -983,7 +997,7 @@ async function renderSingleMermaid(element) {
     try {
         const mermaid = await loadMermaid();
         element.classList.remove('mermaid--failed');
-        const { svg } = await mermaid.render(uniqueId, code);
+        const { svg } = await mermaid.render(uniqueId, code, getMermaidRenderHost());
         // mermaid 某些图（quadrant/pie/xychart）输出的 SVG 含 width=""/height="" 空属性，
         // WebKit 校验 SVG 属性时会报 "Invalid value for <svg> attribute"，先剔除。
         const cleanedSvg = stripEmptyDimensionAttrs(svg);
