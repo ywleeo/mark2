@@ -27,6 +27,8 @@ export class TocPanel {
         this.isDirty = true;
         this.editorUpdateHandler = null;
         this.resizeCleanup = null;
+        // 'left' | 'right'，默认 right（DOM 默认顺序就是 toc 在 content-main 之后）
+        this.position = store.get('position', 'right') === 'left' ? 'left' : 'right';
     }
 
     /**
@@ -55,13 +57,29 @@ export class TocPanel {
         const container = document.createElement('div');
         container.className = 'toc-panel';
         container.style.display = 'none';
+        container.dataset.position = this.position;
 
         // 头部
         const header = document.createElement('div');
         header.className = 'toc-panel__header';
         header.innerHTML = `
             <span class="toc-panel__title">${t('toc.title')}</span>
+            <button type="button" class="toc-panel__toggle-position" title="${t('toc.togglePosition')}" aria-label="${t('toc.togglePosition')}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 3 L3 12 L8 21" />
+                    <path d="M16 3 L21 12 L16 21" />
+                </svg>
+            </button>
         `;
+        const toggleBtn = header.querySelector('.toc-panel__toggle-position');
+        if (toggleBtn) {
+            // 不 push 到 this.clickCleanups：render() 刷新时会清空该数组并调所有 cleanup，
+            // 会把这里的 click listener 误删。toggle button 跟 container 同生命周期。
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.togglePosition();
+            });
+        }
 
         // 目录内容容器
         const content = document.createElement('div');
@@ -170,8 +188,9 @@ export class TocPanel {
 
         const onMove = (e) => {
             if (pointerId === null || e.pointerId !== pointerId) return;
-            // 向左拖 = 变宽（因为面板在右侧）
-            const delta = startX - e.clientX;
+            // 右侧布局：向左拖 = 变宽；左侧布局：向右拖 = 变宽
+            const sign = this.position === 'left' ? 1 : -1;
+            const delta = (e.clientX - startX) * sign;
             const next = Math.min(Math.max(MIN_WIDTH, startWidth + delta), MAX_WIDTH);
             this.container.style.flexBasis = next + 'px';
         };
@@ -187,6 +206,15 @@ export class TocPanel {
             resizer.removeEventListener('pointerup', stop);
             resizer.removeEventListener('pointercancel', stop);
         };
+    }
+
+    /**
+     * 切换大纲面板位置（左 / 右）
+     */
+    togglePosition() {
+        this.position = this.position === 'left' ? 'right' : 'left';
+        if (this.container) this.container.dataset.position = this.position;
+        store.set('position', this.position);
     }
 
     /**

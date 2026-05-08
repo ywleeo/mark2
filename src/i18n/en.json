@@ -180,6 +180,7 @@
     "toc.title": "Table of Contents",
     "toc.empty": "No headings in current document",
     "toc.warningPreviewOnly": "Table of contents is only available in Markdown preview mode",
+    "toc.togglePosition": "Toggle position (left / right)",
 
     "sidebar.openFiles": "OPEN FILES",
     "sidebar.folders": "FOLDERS",

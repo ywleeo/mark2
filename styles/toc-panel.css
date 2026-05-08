@@ -55,6 +55,7 @@ body.toc-resizing {
 }
 
 .toc-panel__title {
+    flex: 1;
     font-size: 11px;
     font-weight: 600;
     color: rgba(0, 0, 0, 0.4);
@@ -64,6 +65,57 @@ body.toc-resizing {
 
 :root[data-theme-appearance='dark'] .toc-panel__title {
     color: rgba(255, 255, 255, 0.35);
+}
+
+/* 切换位置按钮（右上角） */
+.toc-panel__toggle-position {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 2px;
+    margin: 0;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.toc-panel__toggle-position:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme-appearance='dark'] .toc-panel__toggle-position {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+:root[data-theme-appearance='dark'] .toc-panel__toggle-position:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* 左侧布局：用 flex order 把 toc 推到 content-main 之前；border 和 resizer 镜像 */
+.toc-panel[data-position="left"] {
+    order: -1;
+    border-left: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme-appearance='dark'] .toc-panel[data-position="left"] {
+    border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+.toc-panel[data-position="left"] .toc-panel__resizer {
+    left: auto;
+    right: -3px;
+}
+
+.toc-panel[data-position="left"] .toc-panel__resizer::before {
+    left: auto;
+    right: 3px;
 }
 
 /* 内容区域 */

@@ -180,6 +180,7 @@
     "toc.title": "目录",
     "toc.empty": "当前文档无标题",
     "toc.warningPreviewOnly": "目录功能仅在 Markdown 预览模式下可用",
+    "toc.togglePosition": "切换位置（左 / 右）",
 
     "sidebar.openFiles": "打开的文件",
     "sidebar.folders": "文件夹",

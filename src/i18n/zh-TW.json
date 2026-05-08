@@ -179,6 +179,7 @@
   "toc.title": "目錄",
   "toc.empty": "目前文件無標題",
   "toc.warningPreviewOnly": "目錄功能僅在 Markdown 預覽模式下可用",
+  "toc.togglePosition": "切換位置（左 / 右）",
 
   "sidebar.openFiles": "已開啟的檔案",
   "sidebar.folders": "資料夾",
