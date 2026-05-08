@@ -5,7 +5,6 @@ const store = createStore('editor');
 store.migrateFrom('mark2:editorSettings', 'settings');
 
 const VALID_APPEARANCES = new Set(['light', 'dark', 'system']);
-const VALID_SIDEBAR_POSITIONS = new Set(['left', 'right']);
 
 export const defaultEditorSettings = {
     theme: 'default',
@@ -23,7 +22,6 @@ export const defaultEditorSettings = {
     terminalFontFamily: '',
     tabFontSize: 12,
     sidebarFontSize: 12,
-    sidebarPosition: 'left',
 };
 
 function clamp(value, min, max) {
@@ -153,13 +151,6 @@ export function normalizeEditorSettings(candidate) {
                 prefs.sidebarFontSize = clamp(size, 9, 24);
             }
         }
-
-        if (typeof candidate.sidebarPosition === 'string') {
-            const pos = candidate.sidebarPosition.trim().toLowerCase();
-            if (VALID_SIDEBAR_POSITIONS.has(pos)) {
-                prefs.sidebarPosition = pos;
-            }
-        }
     }
 
     return prefs;
@@ -217,8 +208,6 @@ export function applyEditorSettings(settings) {
 
     root.style.setProperty('--tab-font-size', `${prefs.tabFontSize}px`);
     root.style.setProperty('--sidebar-font-size', `${prefs.sidebarFontSize}px`);
-
-    document.body.classList.toggle('sidebar-position-right', prefs.sidebarPosition === 'right');
 
     notifyAppearanceChange(resolvedAppearance, appearancePreference);
 }

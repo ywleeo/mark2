@@ -105,13 +105,6 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.sidebarFontSize')}</span>
                                 <input type="number" name="sidebarFontSize" min="9" max="24" step="1" class="settings-row__control" />
                             </label>
-                            <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.sidebarPosition')}</span>
-                                <select name="sidebarPosition" class="settings-row__control">
-                                    <option value="left">${t('settings.sidebarPositionLeft')}</option>
-                                    <option value="right">${t('settings.sidebarPositionRight')}</option>
-                                </select>
-                            </label>
                             ${isMac ? `
                             <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
                                 <span class="settings-row__label">${t('settings.defaultApp')}</span>
@@ -271,7 +264,6 @@ export class SettingsDialog {
         // 通用：tab / sidebar 字号
         this.tabFontSizeInput = this.form.querySelector('input[name="tabFontSize"]');
         this.sidebarFontSizeInput = this.form.querySelector('input[name="sidebarFontSize"]');
-        this.sidebarPositionSelect = this.form.querySelector('select[name="sidebarPosition"]');
 
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
@@ -367,7 +359,6 @@ export class SettingsDialog {
             this.themeSelect,
             this.appearanceSelect,
             this.languageSelect,
-            this.sidebarPositionSelect,
             this.fontFamilySelect,
             this.fontWeightSelect,
             this.codeThemeSelect,
