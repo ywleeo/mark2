@@ -455,9 +455,6 @@ export class SettingsDialog {
         if (this.sidebarFontSizeInput) {
             this.sidebarFontSizeInput.value = Number(editorPrefs.sidebarFontSize) || 12;
         }
-        if (this.sidebarPositionSelect) {
-            this._setSelectValue(this.sidebarPositionSelect, editorPrefs.sidebarPosition || 'left');
-        }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
         this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
@@ -637,9 +634,6 @@ export class SettingsDialog {
             terminalFontFamily: (this.initialSettings?.terminalFontFamily || '').trim(),
             tabFontSize: normalizedTabSize,
             sidebarFontSize: normalizedSidebarSize,
-            sidebarPosition: ['left', 'right'].includes(this.sidebarPositionSelect?.value)
-                ? this.sidebarPositionSelect.value
-                : 'left',
         };
 
         // AI 助手设置

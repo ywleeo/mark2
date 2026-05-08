@@ -343,52 +343,6 @@ body.sidebar-resizing .sidebar-resizer::before {
     background: var(--sidebar-resizer-active, rgba(0, 0, 0, 0.12));
 }
 
-/* sidebar 在右侧：
-   1) body 改成 nowrap，避免 titlebar 100% 触发 wrap 把 content 挤到第三行
-   2) titlebar 改成 fixed 顶端铺满
-   3) #sidebar / #sidebarResizer fixed 贴 viewport 右沿
-   4) body 用 padding-top（让出 titlebar）+ padding-right（让出 sidebar）撑出 content 区
-   这样 flex 流里只剩 content-wrapper + ai-sidebar，绝不会 wrap */
-body.sidebar-position-right {
-    box-sizing: border-box;
-    flex-wrap: nowrap;
-    padding-top: var(--titlebar-height, 30px);
-    padding-right: var(--sidebar-current-width, 260px);
-}
-
-body.sidebar-position-right #titlebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: auto;
-    z-index: 100;
-}
-
-body.sidebar-position-right #sidebar {
-    position: fixed;
-    top: var(--titlebar-height, 30px);
-    right: 0;
-    height: calc(100vh - var(--titlebar-height, 30px));
-    margin: 0;
-    z-index: 10;
-    border-right: none;
-    border-left: 1px solid var(--border-color, #ddd);
-}
-
-body.sidebar-position-right #sidebarResizer {
-    position: fixed;
-    top: var(--titlebar-height, 30px);
-    right: var(--sidebar-current-width, 260px);
-    height: calc(100vh - var(--titlebar-height, 30px));
-    margin: 0;
-    z-index: 11;
-}
-
-body.sidebar-position-right.is-sidebar-hidden {
-    padding-right: 0;
-}
-
 .tab-bar {
     display: flex;
     align-items: center;
