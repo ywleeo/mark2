@@ -123,6 +123,9 @@ export class MarkdownToolbarManager {
 
         if (manager.editorType === 'tiptap') {
             // TipTap 编辑器
+            // on/off 用闭包持有当前 instance，避免 updateEditor 切换后 off 作用到新 instance
+            // 导致旧 listener 永远解绑不掉。
+            const boundInstance = manager.editorInstance;
             return {
                 get state() {
                     return manager.editorInstance?.state;
@@ -135,6 +138,12 @@ export class MarkdownToolbarManager {
                 },
                 get commands() {
                     return manager.editorInstance?.commands;
+                },
+                on(event, handler) {
+                    boundInstance?.on?.(event, handler);
+                },
+                off(event, handler) {
+                    boundInstance?.off?.(event, handler);
                 }
             };
         } else if (manager.editorType === 'codemirror') {
