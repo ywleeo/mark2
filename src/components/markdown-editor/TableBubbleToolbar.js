@@ -109,7 +109,14 @@ export class TableBubbleToolbar {
             btn.type = 'button';
             btn.className = 'csv-context-menu__item' + (item.danger ? ' csv-context-menu__item--danger' : '');
             btn.textContent = t(item.i18nKey);
+            // mousedown 只防 ProseMirror 改选区（preventDefault 阻止 focus 切走）+
+            // 阻止冒泡到 _closeHandler 把菜单关掉。真正执行放到 click，避免菜单在
+            // mousedown 阶段就 remove → 后续 click 穿透到下层（如果下面是图片，会打开图片）
             btn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 this._hide();
