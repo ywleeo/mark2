@@ -275,6 +275,13 @@ export class FileTreeContextMenu {
             item.style.display = isRunnable ? '' : 'none';
         });
 
+        // 根目录（用户加进工作区的顶层文件夹）不允许删除，避免误把整个工作区扔回收站
+        const isRootFolder = isFolder && this.targetItem?.dataset?.isRoot === 'true';
+        const deleteItem = this.element.querySelector('[data-action="delete"]');
+        if (deleteItem) {
+            deleteItem.style.display = isRootFolder ? 'none' : '';
+        }
+
         this.syncSeparators();
 
         this.element.classList.remove('hidden');
