@@ -263,6 +263,7 @@
   "settings.cloudAccountAuthenticating": "等待瀏覽器完成登入…",
   "settings.cloudAccountCancel": "取消登入",
   "settings.cloudAccountErrorPrefix": "登入失敗：",
+  "settings.cloudAccountPoints": "積分",
   "settings.cloudAccountPlanPro": "Pro 月付",
   "settings.cloudAccountDevToggle": "使用本地開發 server",
   "settings.cloudAccountDevToggleHint": "勾選後切到 http://localhost:8787，僅供聯調",

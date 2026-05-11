@@ -31,30 +31,80 @@ async function request(path, { method = 'GET', body, token, headers } = {}) {
         try { payload = await resp.json(); } catch (_) { /* ignore */ }
     }
     if (!resp.ok) {
-        const err = (payload && payload.error) || `http_${resp.status}`;
+        // FastAPI 的 HTTPValidationError / 自定义错误都尽量提取一个可读字符串
+        const err = extractErrorMessage(payload) || `http_${resp.status}`;
         throw new ServerError(err, { status: resp.status, body: payload });
     }
     return payload;
 }
 
+function extractErrorMessage(payload) {
+    if (!payload) return null;
+    if (typeof payload.error === 'string') return payload.error;
+    if (typeof payload.detail === 'string') return payload.detail;
+    if (Array.isArray(payload.detail) && payload.detail[0]?.msg) return payload.detail[0].msg;
+    if (payload.error && typeof payload.error.message === 'string') return payload.error.message;
+    return null;
+}
+
 export const api = {
-    requestDeviceCode: () =>
-        request('/api/device/code', { method: 'POST', body: {} }),
+    // ---------- auth ----------
+    sendCode: ({ email, turnstile_token = '' }) =>
+        request('/api/auth/send-code', {
+            method: 'POST',
+            body: { email, turnstile_token },
+        }),
 
-    pollDeviceToken: (device_code) =>
-        request('/api/device/token', { method: 'POST', body: { device_code } }),
+    register: ({ email, code, name, password }) =>
+        request('/api/auth/register', {
+            method: 'POST',
+            body: { email, code, name, password },
+        }),
 
-    exchangeAuthCode: (exchange_code) =>
-        request('/api/auth/exchange', { method: 'POST', body: { exchange_code } }),
-
-    revoke: (token) =>
-        request('/api/auth/revoke', { method: 'POST', body: {}, token }),
+    login: ({ email, password }) =>
+        request('/api/auth/login', {
+            method: 'POST',
+            body: { email, password },
+        }),
 
     me: (token) =>
-        request('/api/me', { token }),
+        request('/api/auth/me', { token }),
 
-    profiles: (token) =>
-        request('/v1/profiles', { token }),
+    appToken: (token) =>
+        request('/api/auth/app-token', { method: 'POST', token }),
+
+    // ---------- oauth ----------
+    oauthCode: ({
+        token,
+        response_type,
+        client_id,
+        redirect_uri,
+        code_challenge,
+        code_challenge_method,
+        state,
+    }) =>
+        request('/api/oauth/code', {
+            method: 'POST',
+            token,
+            body: {
+                response_type,
+                client_id,
+                redirect_uri,
+                code_challenge,
+                code_challenge_method,
+                state,
+            },
+        }),
+
+    oauthToken: ({ grant_type, code, redirect_uri, client_id, code_verifier }) =>
+        request('/api/oauth/token', {
+            method: 'POST',
+            body: { grant_type, code, redirect_uri, client_id, code_verifier },
+        }),
+
+    // ---------- llm ----------
+    models: (token) =>
+        request('/api/v1/models', { token }),
 };
 
 export { ServerError };

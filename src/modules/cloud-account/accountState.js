@@ -2,8 +2,9 @@
  * 当前 mark2 cloud 账户状态。
  *
  * status: 'unknown' | 'guest' | 'authenticating' | 'logged-in'
- * me: { user_id, email, plan, plan_status, credits, billing_url } | null
+ * me: { id, email, name, avatar, level, points, status } | null
  * token: string | null
+ * models: [{ id, object, created, owned_by }] | null  从 /api/v1/models 拉
  * lastError: string | null
  */
 
@@ -13,7 +14,7 @@ const state = {
     status: 'unknown',
     me: null,
     token: null,
-    profiles: null, // [{ id, label, description, capabilities, ... }] 从 /v1/profiles 拉
+    models: null,
     lastError: null,
 };
 

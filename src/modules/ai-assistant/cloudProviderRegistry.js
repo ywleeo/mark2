@@ -11,7 +11,7 @@
  *   preset: { id, name, baseUrl, models, isCloud: true }, // 静态 preset 定义（model 可被运行时覆盖）
  *   isAvailable(): boolean,                               // 是否可用（一般 = 已登录）
  *   getCredentials(): { baseUrl, apiKey, models? },       // 运行时凭据；models 不返回时用 preset.models
- *   subscribe(cb): () => void,                            // 状态变化时通知（登录态/profiles 等）
+ *   subscribe(cb): () => void,                            // 状态变化时通知（登录态/models 等）
  *   mountSettingsSlot(container): () => void,             // Settings 卡片入口；返回 destroy
  *   bootstrap(): Promise<void>,                           // 应用启动时调（非阻塞）
  * }

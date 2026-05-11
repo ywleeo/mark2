@@ -264,6 +264,7 @@
     "settings.cloudAccountAuthenticating": "Waiting for browser sign-in…",
     "settings.cloudAccountCancel": "Cancel sign-in",
     "settings.cloudAccountErrorPrefix": "Sign-in failed: ",
+    "settings.cloudAccountPoints": "Credits",
     "settings.cloudAccountPlanPro": "Pro Monthly",
     "settings.cloudAccountDevToggle": "Use local dev server",
     "settings.cloudAccountDevToggleHint": "Switches to http://localhost:8787 for development only",

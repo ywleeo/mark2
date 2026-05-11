@@ -25,7 +25,8 @@ if (features.cloudAccount) {
             id: 'mark2cloud',
             name: 'mark2 Cloud',
             baseUrl: '',
-            models: ['fast', 'think'],
+            // 默认 fallback 列表，登录后会被 /api/v1/models 实拉的列表覆盖
+            models: ['gpt-4o-mini'],
             isCloud: true,
         },
         isAvailable() {
@@ -33,13 +34,13 @@ if (features.cloudAccount) {
         },
         getCredentials() {
             const c = getCloudCredentials();
-            const profileModels = (c.profiles && c.profiles.length > 0)
-                ? c.profiles.map((p) => p.id)
+            const modelIds = (c.models && c.models.length > 0)
+                ? c.models.map((m) => m.id)
                 : null;
             return {
                 baseUrl: c.baseUrl,
                 apiKey: c.loggedIn ? c.apiKey : '',
-                models: profileModels,
+                models: modelIds,
             };
         },
         subscribe,

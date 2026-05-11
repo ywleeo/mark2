@@ -1,9 +1,7 @@
-import { open as openShell } from '@tauri-apps/plugin-shell';
-
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { t } from '../../i18n/index.js';
 import { subscribe } from './accountState.js';
-import { startLogin, cancelLogin, logout } from './deviceFlow.js';
+import { startLogin, cancelLogin, logout } from './oauthFlow.js';
 import { getServerBaseUrl, setServerBaseUrl } from './serverConfig.js';
 import { bootstrapSession } from './session.js';
 
@@ -124,39 +122,36 @@ export class AccountSettingsRow {
         const info = document.createElement('div');
         info.className = 'cloud-account-info';
 
+        const name = document.createElement('span');
+        name.className = 'cloud-account-name';
+        name.textContent = me.name || me.email;
+
         const email = document.createElement('span');
         email.className = 'cloud-account-email';
         email.textContent = me.email;
 
-        const plan = document.createElement('span');
-        plan.className = 'cloud-account-plan';
-        plan.textContent = formatPlan(me);
-
+        info.appendChild(name);
         info.appendChild(email);
-        info.appendChild(plan);
+
+        if (typeof me.points === 'number') {
+            const points = document.createElement('span');
+            points.className = 'cloud-account-points';
+            points.textContent = `${t('settings.cloudAccountPoints')}: ${me.points}`;
+            info.appendChild(points);
+        }
 
         const actions = document.createElement('div');
         actions.className = 'cloud-account-actions';
-
-        const manageBtn = document.createElement('button');
-        manageBtn.type = 'button';
-        manageBtn.className = 'btn secondary';
-        manageBtn.textContent = t('settings.cloudAccountManage');
-        const c1 = addClickHandler(manageBtn, () => {
-            if (me.billing_url) openShell(me.billing_url).catch(() => {});
-        }, { preventDefault: true });
-        this._actionCleanups.push(c1);
 
         const logoutBtn = document.createElement('button');
         logoutBtn.type = 'button';
         logoutBtn.className = 'btn secondary';
         logoutBtn.textContent = t('settings.cloudAccountLogout');
-        const c2 = addClickHandler(logoutBtn, () => {
+        const c = addClickHandler(logoutBtn, () => {
             logout().catch((e) => console.warn('[cloud-account] logout error:', e));
         }, { preventDefault: true });
-        this._actionCleanups.push(c2);
+        this._actionCleanups.push(c);
 
-        actions.appendChild(manageBtn);
         actions.appendChild(logoutBtn);
 
         this.body.appendChild(info);
@@ -195,9 +190,4 @@ export class AccountSettingsRow {
 
         this.root.appendChild(wrapper);
     }
-}
-
-function formatPlan(me) {
-    if (me.plan === 'pro_monthly') return t('settings.cloudAccountPlanPro');
-    return me.plan || '';
 }

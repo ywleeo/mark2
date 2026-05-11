@@ -1238,7 +1238,7 @@ export class AiSidebar {
         });
         this._cleanups.push(unsub);
 
-        // cloud plugin 登录态 / profiles 变化也需要重渲下拉
+        // cloud plugin 登录态 / models 变化也需要重渲下拉
         const unsubCloud = subscribeRegistry(() => this._populateModelSelect());
         this._cleanups.push(unsubCloud);
     }
