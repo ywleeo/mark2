@@ -118,8 +118,6 @@ export class AppMenu {
                     { id: 'copy', label: t('menu.copy'), shortcut: 'Ctrl+C', command: COMMAND_IDS.EDITOR_COPY },
                     { id: 'paste', label: t('menu.paste'), shortcut: 'Ctrl+V', command: COMMAND_IDS.EDITOR_PASTE },
                     { id: 'select-all', label: t('menu.selectAll'), shortcut: 'Ctrl+A', command: COMMAND_IDS.EDITOR_SELECT_ALL },
-                    { id: 'sep2', separator: true },
-                    { id: 'settings', label: t('menu.settings'), shortcut: 'Ctrl+,', command: COMMAND_IDS.APP_SETTINGS, menuId: 'settings' },
                 ]
             },
             {
@@ -136,6 +134,7 @@ export class AppMenu {
                     { id: 'toggle-theme', label: t('menu.toggleTheme'), command: COMMAND_IDS.THEME_TOGGLE },
                 ]
             },
+            { id: 'settings', label: t('menu.settings'), shortcut: 'Ctrl+,', command: COMMAND_IDS.APP_SETTINGS, menuId: 'settings' },
             {
                 id: 'help',
                 label: t('menu.help'),
