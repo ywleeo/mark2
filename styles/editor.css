@@ -431,6 +431,7 @@
 
 .tiptap-editor a:hover {
     text-decoration: underline;
+    cursor: pointer;
 }
 
 /* 水平线 */

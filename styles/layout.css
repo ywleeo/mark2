@@ -216,7 +216,8 @@ button:focus-visible,
     width: 18px;
     margin-right: 4px;
     -webkit-app-region: no-drag;
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .titlebar-title {

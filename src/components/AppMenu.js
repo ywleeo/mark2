@@ -223,6 +223,18 @@ export class AppMenu {
             }));
         }
 
+        const logo = document.getElementById('titlebar-logo');
+        if (logo && this.executeCommand) {
+            this.cleanupFunctions.push(addClickHandler(logo, (e) => {
+                e.stopPropagation();
+                try {
+                    this.executeCommand(COMMAND_IDS.APP_ABOUT, {}, { source: 'titlebar-logo' });
+                } catch (err) {
+                    console.warn('点击 logo 打开关于失败:', err);
+                }
+            }));
+        }
+
         // 点击菜单项执行命令
         this.cleanupFunctions.push(addClickHandler(this.element, (e) => {
             const item = e.target.closest('.app-menu__item');
