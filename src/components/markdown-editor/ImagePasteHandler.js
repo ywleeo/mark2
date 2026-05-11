@@ -154,12 +154,6 @@ export class ImagePasteHandler {
             // 2. 文本形式的图片 URL → 直接作为图片节点插入
             // 必须 stopImmediatePropagation 阻止 ProseMirror 的 bubble handler（它会把 URL 解析成 autolink）
             const pastedText = event.clipboardData?.getData('text/plain');
-            console.log('[ImagePasteHandler] paste', {
-                pastedText: pastedText?.slice?.(0, 300),
-                types: Array.from(event.clipboardData?.types || []),
-                isImageUrl: isImageUrl(pastedText),
-                isLocalPath: isLocalPath(pastedText),
-            });
             if (isImageUrl(pastedText)) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
