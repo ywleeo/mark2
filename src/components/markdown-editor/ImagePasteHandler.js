@@ -56,6 +56,18 @@ export class ImagePasteHandler {
             }
         };
 
+        // 单行文本是否像本地路径（Windows 绝对/UNC、Unix 绝对、相对、file://）
+        const isLocalPath = (text) => {
+            if (!text || typeof text !== 'string') return false;
+            const trimmed = text.trim();
+            if (!trimmed || trimmed.includes('\n') || trimmed.length > 4096) return false;
+            return /^[A-Za-z]:[\\/]/.test(trimmed)
+                || /^\\\\/.test(trimmed)
+                || /^\//.test(trimmed)
+                || /^\.\.?[\\/]/.test(trimmed)
+                || /^file:\/\//i.test(trimmed);
+        };
+
         const getFallbackFileName = (path) => basename(path) || '文件';
 
         const escapeMarkdownLabel = (text) => {
@@ -142,6 +154,12 @@ export class ImagePasteHandler {
             // 2. 文本形式的图片 URL → 直接作为图片节点插入
             // 必须 stopImmediatePropagation 阻止 ProseMirror 的 bubble handler（它会把 URL 解析成 autolink）
             const pastedText = event.clipboardData?.getData('text/plain');
+            console.log('[ImagePasteHandler] paste', {
+                pastedText: pastedText?.slice?.(0, 300),
+                types: Array.from(event.clipboardData?.types || []),
+                isImageUrl: isImageUrl(pastedText),
+                isLocalPath: isLocalPath(pastedText),
+            });
             if (isImageUrl(pastedText)) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
@@ -150,6 +168,28 @@ export class ImagePasteHandler {
                     type: 'image',
                     attrs: { src: url, dataOriginalSrc: url },
                 }).run();
+                return;
+            }
+
+            // 2b. 文本形式的本地路径 → 图片 image 节点，其他插入带 link mark 的 text 节点
+            // 用 chain insertContent 而不是插入 `[name](path)` 字符串，避免被当 raw 文本
+            if (isLocalPath(pastedText)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                const path = pastedText.trim();
+                if (isImageFile(path)) {
+                    editor.chain().focus().insertContent({
+                        type: 'image',
+                        attrs: { src: path, dataOriginalSrc: path },
+                    }).run();
+                } else {
+                    const name = getFallbackFileName(path);
+                    editor.chain().focus().insertContent({
+                        type: 'text',
+                        text: name,
+                        marks: [{ type: 'link', attrs: { href: path } }],
+                    }).run();
+                }
                 return;
             }
 
