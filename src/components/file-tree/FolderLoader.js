@@ -345,7 +345,9 @@ export class FolderLoader {
     }
 
     async toggleFolder(path, folderElement = null) {
-        const folderItem = folderElement ?? this.container.querySelector(`[data-path="${path}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+        const folderItem = folderElement ?? (Array.from(this.container.querySelectorAll('[data-path]'))
+            .find(el => el.dataset.path === path) || null);
         if (!folderItem) return;
 
         const header = folderItem.querySelector('.tree-folder-header');
@@ -405,7 +407,9 @@ export class FolderLoader {
             return;
         }
 
-        const folderElement = this.container.querySelector(`.tree-folder[data-path="${normalizedPath}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+        const folderElement = Array.from(this.container.querySelectorAll('.tree-folder'))
+            .find(el => el.dataset.path === normalizedPath) || null;
         if (!folderElement) return;
         const children = folderElement.querySelector('.tree-folder-children');
         if (!children) return;

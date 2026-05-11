@@ -323,8 +323,12 @@ export function createFileMenuActions(options = {}) {
         fileTree.startRenaming(currentFile);
         
         // 同时将焦点设置到文件树或打开文件列表的对应项上
-        const focusTarget = fileTree.container.querySelector(`.tree-file[data-path="${currentFile}"]`)
-            || fileTree.container.querySelector(`.open-file-item[data-path="${currentFile}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+        const focusTarget = Array.from(fileTree.container.querySelectorAll('.tree-file'))
+                .find(el => el.dataset.path === currentFile)
+            || Array.from(fileTree.container.querySelectorAll('.open-file-item'))
+                .find(el => el.dataset.path === currentFile)
+            || null;
         if (focusTarget) {
             if (!focusTarget.hasAttribute('tabindex')) {
                 focusTarget.tabIndex = -1;

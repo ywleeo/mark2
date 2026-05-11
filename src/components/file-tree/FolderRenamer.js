@@ -46,7 +46,9 @@ export class FolderRenamer {
             this.cancel();
         }
 
-        const folderItem = this.container?.querySelector(`.tree-folder[data-path="${normalized}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+        const folderItem = Array.from(this.container?.querySelectorAll('.tree-folder') || [])
+            .find(el => el.dataset.path === normalized) || null;
         if (!folderItem) return;
         const header = folderItem.querySelector('.tree-folder-header');
         if (!header) return;
@@ -201,9 +203,10 @@ export class FolderRenamer {
         await this.handleMoveSuccess?.(normalizedSource, normalizedDestination, { isDirectory: true });
 
         setTimeout(() => {
-            const folderHeader = this.container?.querySelector(
-                `.tree-folder[data-path="${normalizedDestination}"] .tree-folder-header`,
-            );
+            // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+            const folderItem = Array.from(this.container?.querySelectorAll('.tree-folder') || [])
+                .find(el => el.dataset.path === normalizedDestination) || null;
+            const folderHeader = folderItem?.querySelector('.tree-folder-header') || null;
             if (folderHeader) {
                 try {
                     folderHeader.focus();

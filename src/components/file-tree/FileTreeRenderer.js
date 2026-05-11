@@ -47,17 +47,17 @@ export class FileTreeRenderer {
         const rootActions = isRoot
             ? `
                 <div class="root-folder-actions">
-                    <button class="root-folder-action-btn move-up-btn" type="button" data-path="${path}" title="上移">
+                    <button class="root-folder-action-btn move-up-btn" type="button" title="上移">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="18 15 12 9 6 15"/>
                         </svg>
                     </button>
-                    <button class="root-folder-action-btn move-down-btn" type="button" data-path="${path}" title="下移">
+                    <button class="root-folder-action-btn move-down-btn" type="button" title="下移">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="6 9 12 15 18 9"/>
                         </svg>
                     </button>
-                    <button class="root-folder-action-btn close-folder-btn" type="button" data-path="${path}" title="移除文件夹">
+                    <button class="root-folder-action-btn close-folder-btn" type="button" title="移除文件夹">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                             <line x1="18" y1="6" x2="6" y2="18"/>
                             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -319,7 +319,9 @@ export class FileTreeRenderer {
         const normalized = this.fileTree.normalizePath(this.fileTree.currentFile);
         if (!normalized) return;
 
-        const fileItem = this.fileTree.container.querySelector(`.tree-file[data-path="${normalized}"]`);
+        // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+        const fileItem = Array.from(this.fileTree.container.querySelectorAll('.tree-file'))
+            .find(el => el.dataset.path === normalized) || null;
         if (fileItem && !fileItem.classList.contains('selected')) {
             fileItem.classList.add('selected');
         }

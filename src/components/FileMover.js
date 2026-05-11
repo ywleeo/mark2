@@ -68,8 +68,15 @@ export class FileMover {
             document.body.classList.add('is-internal-drag');
             setInternalDrag(true);
             const name = (this._dragState.sourcePath || '').split(/[\\/]/).pop() || '';
-            const sourceEl = this.container?.querySelector(`.tree-file[data-path="${this._dragState.sourcePath}"]`)
-                || this.container?.querySelector(`.tree-folder[data-path="${this._dragState.sourcePath}"] .tree-folder-header`);
+            // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
+            const sourcePath = this._dragState.sourcePath;
+            const fileEl = Array.from(this.container?.querySelectorAll('.tree-file') || [])
+                .find(el => el.dataset.path === sourcePath) || null;
+            const folderEl = fileEl
+                ? null
+                : (Array.from(this.container?.querySelectorAll('.tree-folder') || [])
+                    .find(el => el.dataset.path === sourcePath) || null);
+            const sourceEl = fileEl || folderEl?.querySelector('.tree-folder-header') || null;
             const rect = sourceEl ? sourceEl.getBoundingClientRect() : null;
             const nodeWidth = rect ? rect.width : null;
             this.createDragGhost(
