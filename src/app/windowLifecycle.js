@@ -159,8 +159,8 @@ export function createWindowLifecycle({
         dialog.querySelectorAll('.about-link[data-url]').forEach(link => {
             addClickHandler(link, async (e) => {
                 e.preventDefault();
-                const { open } = await import('@tauri-apps/plugin-shell');
-                open(link.dataset.url);
+                const { invoke } = await import('@tauri-apps/api/core');
+                invoke('open_path_in_browser', { path: link.dataset.url });
             });
         });
 

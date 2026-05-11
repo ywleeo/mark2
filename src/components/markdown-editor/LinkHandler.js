@@ -106,8 +106,8 @@ export class LinkHandler {
 
     async openExternalLink(url) {
         try {
-            const { open } = await import('@tauri-apps/plugin-shell');
-            await open(url);
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('open_path_in_browser', { path: url });
         } catch (error) {
             console.error('打开外部链接失败:', error);
         }
