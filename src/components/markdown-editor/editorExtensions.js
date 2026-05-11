@@ -50,6 +50,9 @@ export function createEditorExtensions(lowlight) {
         Link.configure({
             openOnClick: false,
             HTMLAttributes: { class: 'markdown-link' },
+            // 默认白名单只放行 http/https/mailto 等，会把本地路径（Windows `C:\...`、相对路径、file://）
+            // 在 renderHTML 时把 href 抹成空字符串。这里全放行，URL 安全性由 LinkHandler 走系统打开兜底。
+            isAllowedUri: () => true,
         }),
         TaskList,
         CustomTaskItem.configure({ nested: true }),

@@ -23,8 +23,6 @@ export class LinkHandler {
             const href = link.getAttribute('href');
             if (!href) return;
 
-            console.log('[LinkHandler] click', { href, class: link.className });
-
             if (href.startsWith('#')) {
                 this.scrollToAnchor(href);
             } else if (this.isExternalLink(href)) {
