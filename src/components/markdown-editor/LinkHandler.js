@@ -17,11 +17,13 @@ export class LinkHandler {
 
     setup() {
         const handleLinkClick = async (e) => {
-            const link = e.target.closest('a.markdown-link');
+            const link = e.target.closest('a[href]');
             if (!link) return;
 
             const href = link.getAttribute('href');
             if (!href) return;
+
+            console.log('[LinkHandler] click', { href, class: link.className });
 
             if (href.startsWith('#')) {
                 this.scrollToAnchor(href);
@@ -33,7 +35,7 @@ export class LinkHandler {
         };
 
         this.cleanup = addClickHandler(this.element, handleLinkClick, {
-            shouldHandle: (e) => e.target.closest('a.markdown-link') !== null,
+            shouldHandle: (e) => e.target.closest('a[href]') !== null,
             preventDefault: true,
         });
     }
