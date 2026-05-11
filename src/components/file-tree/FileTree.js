@@ -87,6 +87,7 @@ export class FileTree {
             refreshFolder: (path) => this.refreshFolder(path),
             selectFile: (path, opts) => this.selectFile(path, opts),
             startRenaming: (path, meta) => this.startRenaming(path, meta),
+            ensureFolderExpanded: (path) => this.expandFolder(path),
         });
 
         this.init();
@@ -343,6 +344,7 @@ export class FileTree {
     async requestOpenFolder() { return this.loader.requestOpenFolder(); }
     async loadFolder(path) { return this.loader.loadFolder(path); }
     async toggleFolder(path, el) { return this.loader.toggleFolder(path, el); }
+    async expandFolder(path, el) { return this.loader.expandFolder(path, el); }
     async loadFolderChildren(path, container, prefetched) { return this.loader.loadFolderChildren(path, container, prefetched); }
     async refreshFolder(path) { return this.loader.refreshFolder(path); }
     async refreshCurrentFolder(targetPath) { return this.loader.refreshCurrentFolder(targetPath); }

@@ -7,6 +7,7 @@ export class FileCreator {
             refreshFolder,
             selectFile,
             startRenaming,
+            ensureFolderExpanded,
         } = options;
 
         this.normalizePath = normalizePath;
@@ -15,6 +16,7 @@ export class FileCreator {
         this.refreshFolder = refreshFolder;
         this.selectFile = selectFile;
         this.startRenaming = startRenaming;
+        this.ensureFolderExpanded = ensureFolderExpanded;
     }
 
     async _findAvailableName(dirPath, baseName, ext) {
@@ -44,9 +46,9 @@ export class FileCreator {
             this.markLocalWrite?.(normalized);
             await fileService.writeText(candidatePath, '');
             await this.refreshFolder?.(normalized);
+            await this.ensureFolderExpanded?.(normalized);
             setTimeout(() => {
                 this.selectFile?.(candidatePath, { autoFocus: false });
-                this.startRenaming?.(candidatePath);
             }, 100);
         } catch (error) {
             console.error('创建文件失败:', error);
@@ -67,9 +69,7 @@ export class FileCreator {
             this.markLocalWrite?.(normalized);
             await fileService.createDirectory(candidatePath);
             await this.refreshFolder?.(normalized);
-            setTimeout(() => {
-                this.startRenaming?.(candidatePath, { targetType: 'folder' });
-            }, 100);
+            await this.ensureFolderExpanded?.(normalized);
         } catch (error) {
             console.error('创建文件夹失败:', error);
             try {

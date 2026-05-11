@@ -344,6 +344,17 @@ export class FolderLoader {
         runNext();
     }
 
+    async expandFolder(path, folderElement = null) {
+        const folderItem = folderElement ?? (Array.from(this.container.querySelectorAll('[data-path]'))
+            .find(el => el.dataset.path === path) || null);
+        if (!folderItem) return;
+        const parentPath = folderItem.dataset.parentPath || null;
+        const isRoot = folderItem.dataset.isRoot === 'true';
+        const folderKey = folderItem.dataset.nodeKey || this.buildFolderKey(path, parentPath, isRoot);
+        if (this.state.expandedFolders.has(folderKey)) return;
+        await this.toggleFolder(path, folderItem);
+    }
+
     async toggleFolder(path, folderElement = null) {
         // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
         const folderItem = folderElement ?? (Array.from(this.container.querySelectorAll('[data-path]'))
