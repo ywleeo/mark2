@@ -142,6 +142,16 @@ export class OpenFileManager {
         return [...this.state.openFiles];
     }
 
+    /**
+     * 返回 DocumentManager 中所有已打开文档的路径（fileTab 真源）。
+     * 与 getOpenFilePaths 不同：openFiles 是侧边栏列表，可能与 fileTab 不完全同步。
+     */
+    getDocumentOpenPaths() {
+        const dm = this.documentManager;
+        if (!dm || typeof dm.getOpenPaths !== 'function') return [];
+        return dm.getOpenPaths() || [];
+    }
+
     add(path) {
         const dm = this._requireDm();
         const normalized = this.normalizePath(path);

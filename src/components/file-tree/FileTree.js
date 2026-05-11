@@ -194,10 +194,13 @@ export class FileTree {
             refreshFolder: (path) => this.refreshFolder(path),
             handleMoveSuccess: (src, dst, meta) => this.handleMoveSuccess(src, dst, meta),
             stopWatchingFile: (path) => this.stopWatchingFile(path),
+            stopWatchingFolder: (path) => this.stopWatchingFolder(path),
             closeFile: (path, opts) => this.closeFile(path, opts),
             clearSelection: () => this.clearSelection(),
             isInOpenList: (path) => this.isInOpenList(path),
             getCurrentFile: () => this.state.getCurrentFile(),
+            getOpenFilePaths: () => this.getOpenFilePaths(),
+            getDocumentOpenPaths: () => this.getDocumentOpenPaths(),
             onFileSelect: this.onFileSelect,
             onCloseFileRequest: this.onCloseFileRequest,
         });
@@ -361,6 +364,7 @@ export class FileTree {
     restoreOpenFiles(paths) { return this.openFileManager.restore(paths); }
     reorderOpenFiles(paths) { return this.openFileManager.reorder(paths); }
     getOpenFilePaths() { return this.openFileManager.getOpenFilePaths(); }
+    getDocumentOpenPaths() { return this.openFileManager.getDocumentOpenPaths(); }
 
     // ========== 文件操作（委托 FileActions）==========
 

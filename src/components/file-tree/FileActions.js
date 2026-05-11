@@ -9,10 +9,13 @@ export class FileActions {
             refreshFolder,
             handleMoveSuccess,
             stopWatchingFile,
+            stopWatchingFolder,
             closeFile,
             clearSelection,
             isInOpenList,
             getCurrentFile,
+            getOpenFilePaths,
+            getDocumentOpenPaths,
             onFileSelect,
             onCloseFileRequest,
         } = options;
@@ -22,10 +25,13 @@ export class FileActions {
         this.refreshFolder = refreshFolder;
         this.handleMoveSuccess = handleMoveSuccess;
         this.stopWatchingFile = stopWatchingFile;
+        this.stopWatchingFolder = stopWatchingFolder;
         this.closeFile = closeFile;
         this.clearSelection = clearSelection;
         this.isInOpenList = isInOpenList;
         this.getCurrentFile = getCurrentFile;
+        this.getOpenFilePaths = getOpenFilePaths;
+        this.getDocumentOpenPaths = getDocumentOpenPaths;
         this.onFileSelect = onFileSelect;
         this.onCloseFileRequest = onCloseFileRequest;
     }
@@ -112,6 +118,55 @@ export class FileActions {
             if (!shouldDelete) return;
 
             const fileService = this.getFileService();
+
+            // 删除前先判断是否文件夹：是的话，关闭文件夹内所有打开的 tab + 停止 watcher，
+            // 否则 trash 之后残留的 watcher 会去读已不存在的文件，刷出 path-not-found 错误。
+            let isDir = false;
+            try {
+                isDir = await fileService.isDirectory(normalized);
+            } catch {}
+
+            const sep = normalized.includes('\\') ? '\\' : '/';
+            const folderPrefix = `${normalized}${sep}`;
+            const isWithinDeletedFolder = (p) => {
+                if (!isDir || !p) return false;
+                return p === normalized || p.startsWith(folderPrefix);
+            };
+
+            if (isDir) {
+                // 合并三个来源：fileTab 真源（DocumentManager）、侧边栏 openFiles、active currentFile。
+                // 缺一不可：sharedTab 预览模式打开的文件不进前两者，只通过 currentFile 暴露。
+                const allOpenPaths = new Set();
+                const addPaths = (paths) => {
+                    if (!Array.isArray(paths)) return;
+                    for (const p of paths) {
+                        const np = this.normalizePath(p);
+                        if (np) allOpenPaths.add(np);
+                    }
+                };
+                addPaths(typeof this.getDocumentOpenPaths === 'function' ? this.getDocumentOpenPaths() : []);
+                addPaths(typeof this.getOpenFilePaths === 'function' ? this.getOpenFilePaths() : []);
+                const activeFile = this.normalizePath(this.getCurrentFile?.());
+                if (activeFile) allOpenPaths.add(activeFile);
+
+                for (const openPath of allOpenPaths) {
+                    if (!isWithinDeletedFolder(openPath)) continue;
+                    this.stopWatchingFile(openPath);
+                    // onCloseFileRequest 走 handleTabClose 统一入口，能正确关闭 fileTab/sharedTab
+                    // 并清掉 appState.currentFile，避免 watcher 后续读已删除文件。
+                    if (typeof this.onCloseFileRequest === 'function') {
+                        try {
+                            await this.onCloseFileRequest(openPath);
+                        } catch (err) {
+                            console.warn('关闭文件夹下打开的 tab 失败:', openPath, err);
+                        }
+                    }
+                }
+                if (typeof this.stopWatchingFolder === 'function') {
+                    this.stopWatchingFolder(normalized);
+                }
+            }
+
             await fileService.remove(normalized);
 
             this.stopWatchingFile(normalized);
@@ -122,7 +177,7 @@ export class FileActions {
             } else if (isCurrentFile && typeof this.onCloseFileRequest === 'function') {
                 this.onCloseFileRequest(normalized);
             }
-            if (isCurrentFile) {
+            if (isCurrentFile || isWithinDeletedFolder(currentFile)) {
                 this.clearSelection();
                 this.onFileSelect?.(null);
             }
