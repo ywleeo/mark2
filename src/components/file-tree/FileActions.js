@@ -190,21 +190,9 @@ export class FileActions {
                 await postDeleteCleanup();
             } catch (trashError) {
                 const raw = String(trashError?.message ?? trashError ?? '');
-                // Rust 端在 trash 失败时加 trash_unsupported: 前缀，标记此位置不支持回收站（WSL / 网络盘等）
+                // Rust 端在 trash 失败时加 trash_unsupported: 前缀，标记此位置不支持回收站（WSL / 网络盘等）。
+                // 此时直接走永久删除——前面已经确认过一次，不再二次确认。
                 if (!raw.startsWith('trash_unsupported:')) throw trashError;
-
-                const { confirm: confirm2 } = await import('@tauri-apps/plugin-dialog');
-                const goPermanent = await confirm2(
-                    t('fileMenu.deleteFile.permanentConfirmMessage', { name: fileName }),
-                    {
-                        title: t('fileMenu.deleteFile.permanentConfirmTitle'),
-                        kind: 'warning',
-                        okLabel: t('fileMenu.deleteFile.permanentConfirmOk'),
-                        cancelLabel: t('common.cancel'),
-                    },
-                );
-                if (!goPermanent) return;
-
                 await fileService.removePermanent(normalized);
                 await postDeleteCleanup();
             }
