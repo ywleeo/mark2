@@ -150,6 +150,11 @@ export async function deleteEntry(path) {
     return await invoke('delete_entry', { path });
 }
 
+export async function deleteEntryPermanent(path) {
+    ensurePath(path, 'deleteEntryPermanent');
+    return await invoke('delete_entry_permanent', { path });
+}
+
 export async function renameEntry(source, destination) {
     ensurePath(source, 'renameEntry');
     ensurePath(destination, 'renameEntry');

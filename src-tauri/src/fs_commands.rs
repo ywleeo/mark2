@@ -234,7 +234,20 @@ pub fn delete_entry(path: String) -> Result<(), String> {
 
     #[cfg(not(target_os = "macos"))]
     {
-        trash::delete(&path).map_err(|e| e.to_string())
+        // trash 失败时加 trash_unsupported: 前缀，前端识别后弹"永久删除"二次确认。
+        // WSL / 网络驱动器等不支持 Windows 回收站会走到这里。
+        trash::delete(&path).map_err(|e| format!("trash_unsupported:{}", e))
+    }
+}
+
+#[tauri::command]
+pub fn delete_entry_permanent(path: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    let meta = fs::symlink_metadata(p).map_err(|e| e.to_string())?;
+    if meta.is_dir() {
+        fs::remove_dir_all(p).map_err(|e| e.to_string())
+    } else {
+        fs::remove_file(p).map_err(|e| e.to_string())
     }
 }
 

@@ -167,24 +167,47 @@ export class FileActions {
                 }
             }
 
-            await fileService.remove(normalized);
+            const postDeleteCleanup = async () => {
+                this.stopWatchingFile(normalized);
+                const currentFile = this.normalizePath(this.getCurrentFile?.());
+                const isCurrentFile = currentFile === normalized;
+                if (this.isInOpenList(normalized)) {
+                    this.closeFile(normalized, { suppressActivate: true });
+                } else if (isCurrentFile && typeof this.onCloseFileRequest === 'function') {
+                    this.onCloseFileRequest(normalized);
+                }
+                if (isCurrentFile || isWithinDeletedFolder(currentFile)) {
+                    this.clearSelection();
+                    this.onFileSelect?.(null);
+                }
+                const parentDir = await pathModule.dirname(normalized);
+                const normalizedParent = this.normalizePath(parentDir);
+                if (normalizedParent) await this.refreshFolder(normalizedParent);
+            };
 
-            this.stopWatchingFile(normalized);
-            const currentFile = this.normalizePath(this.getCurrentFile?.());
-            const isCurrentFile = currentFile === normalized;
-            if (this.isInOpenList(normalized)) {
-                this.closeFile(normalized, { suppressActivate: true });
-            } else if (isCurrentFile && typeof this.onCloseFileRequest === 'function') {
-                this.onCloseFileRequest(normalized);
-            }
-            if (isCurrentFile || isWithinDeletedFolder(currentFile)) {
-                this.clearSelection();
-                this.onFileSelect?.(null);
-            }
+            try {
+                await fileService.remove(normalized);
+                await postDeleteCleanup();
+            } catch (trashError) {
+                const raw = String(trashError?.message ?? trashError ?? '');
+                // Rust 端在 trash 失败时加 trash_unsupported: 前缀，标记此位置不支持回收站（WSL / 网络盘等）
+                if (!raw.startsWith('trash_unsupported:')) throw trashError;
 
-            const parentDir = await pathModule.dirname(normalized);
-            const normalizedParent = this.normalizePath(parentDir);
-            if (normalizedParent) await this.refreshFolder(normalizedParent);
+                const { confirm: confirm2 } = await import('@tauri-apps/plugin-dialog');
+                const goPermanent = await confirm2(
+                    t('fileMenu.deleteFile.permanentConfirmMessage', { name: fileName }),
+                    {
+                        title: t('fileMenu.deleteFile.permanentConfirmTitle'),
+                        kind: 'warning',
+                        okLabel: t('fileMenu.deleteFile.permanentConfirmOk'),
+                        cancelLabel: t('common.cancel'),
+                    },
+                );
+                if (!goPermanent) return;
+
+                await fileService.removePermanent(normalized);
+                await postDeleteCleanup();
+            }
         } catch (error) {
             console.error('删除文件失败:', error);
             try {

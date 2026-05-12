@@ -246,6 +246,7 @@ fn main() {
             fs_commands::get_app_log_file_path,
             fs_commands::read_dir,
             fs_commands::delete_entry,
+            fs_commands::delete_entry_permanent,
             fs_commands::rename_entry,
             fs_commands::create_directory,
             fs_commands::write_binary_file,

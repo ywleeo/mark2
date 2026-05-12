@@ -81,6 +81,12 @@ export function createFileService() {
         return { path };
     }
 
+    async function removePermanent(path) {
+        ensurePath(path, 'removePermanent');
+        await filesystem.deleteEntryPermanent(path);
+        return { path };
+    }
+
     async function move(source, destination, options = {}) {
         const { overwrite = false } = options;
         ensurePath(source, 'move');
@@ -158,6 +164,7 @@ export function createFileService() {
         createFile,
         createDirectory,
         remove,
+        removePermanent,
         move,
         list,
         reveal,
