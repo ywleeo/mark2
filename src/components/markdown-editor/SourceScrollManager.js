@@ -246,6 +246,39 @@ export class SourceScrollManager {
         });
     }
 
+    /** 光标在 viewport 内的相对纵坐标（0=顶 1=底）。看不到/未就绪返回 null。 */
+    getCursorViewportRatio() {
+        if (!this._editor?.view) return null;
+        const { view } = this._editor;
+        const head = this._editor.state.selection.head;
+        const coords = view.coordsAtPos(head);
+        if (!coords) return null;
+        const scrollContainer = this._getScrollContainer();
+        if (!scrollContainer) return null;
+        const rect = scrollContainer.getBoundingClientRect();
+        if (rect.height <= 0) return null;
+        return Math.min(1, Math.max(0, (coords.top - rect.top) / rect.height));
+    }
+
+    /** 设光标到 sourcepos line:column，并让该行出现在容器的 ratio 位置。 */
+    setSourcePositionAtRatio(lineNumber, column = 1, ratio = 0.3) {
+        this.setSourcePositionOnly(lineNumber, column);
+        const r = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0.3;
+        requestAnimationFrame(() => {
+            if (!this._editor?.view) return;
+            const { view } = this._editor;
+            const head = this._editor.state.selection.head;
+            const coords = view.coordsAtPos(head);
+            if (!coords) return;
+            const scrollContainer = this._getScrollContainer();
+            if (!scrollContainer) return;
+            const rect = scrollContainer.getBoundingClientRect();
+            const desiredOffsetFromTop = r * rect.height;
+            const currentOffsetFromTop = coords.top - rect.top;
+            scrollContainer.scrollTop += currentOffsetFromTop - desiredOffsetFromTop;
+        });
+    }
+
     scrollToSourceLineInCenter(lineNumber) {
         if (!this._editor || !Number.isFinite(lineNumber)) return;
         const { state, view } = this._editor;

@@ -690,6 +690,39 @@ export class CodeEditor {
         this.editor.dispatch({ selection: { anchor: pos } });
     }
 
+    /** 光标在 viewport 内的相对纵坐标（0=顶部 1=底部）。光标不可见或编辑器未就绪返回 null。 */
+    getCursorViewportRatio() {
+        if (!this.editor) return null;
+        const head = this.editor.state.selection.main.head;
+        const coords = this.editor.coordsAtPos(head);
+        if (!coords) return null;
+        const scroller = this.editor.scrollDOM;
+        const rect = scroller.getBoundingClientRect();
+        if (rect.height <= 0) return null;
+        return Math.min(1, Math.max(0, (coords.top - rect.top) / rect.height));
+    }
+
+    /** 设光标并把该行滚到 viewport 的 ratio 位置（0=顶 0.5=中 1=底）。用于 cmd+e 切换时位置继承。 */
+    setPositionAtRatio(lineNumber, column = 1, ratio = 0.3) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return;
+        const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
+        const pos = Math.min(line.from + safeColumn - 1, line.to);
+        this.editor.dispatch({ selection: { anchor: pos } });
+        const r = Number.isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0.3;
+        requestAnimationFrame(() => {
+            if (!this.editor) return;
+            const coords = this.editor.coordsAtPos(pos);
+            if (!coords) return;
+            const scroller = this.editor.scrollDOM;
+            const rect = scroller.getBoundingClientRect();
+            const desiredOffsetFromTop = r * rect.height;
+            const currentOffsetFromTop = coords.top - rect.top;
+            scroller.scrollTop += currentOffsetFromTop - desiredOffsetFromTop;
+        });
+    }
+
     _safeGetLine(lineNumber) {
         if (!this.editor) return null;
         const doc = this.editor.state.doc;

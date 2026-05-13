@@ -70,6 +70,8 @@ export function createMarkdownCodeMode({
 
             // 光标位置同样只在编辑器装的就是当前文件时才取
             const pos = editorMatchesFile ? editor.getCurrentSourcePosition?.() : null;
+            // 切前抓光标在 viewport 的相对位置，切后保持同样的相对高度（位置继承）
+            const cursorRatio = editorMatchesFile ? editor.getCursorViewportRatio?.() : null;
 
             toggleState = {
                 originalMarkdown: editorMatchesFile ? editor.originalMarkdown : markdownContent,
@@ -81,12 +83,12 @@ export function createMarkdownCodeMode({
             await codeEditor.show(currentFile, markdownContent, language, null, { tabId: currentFile });
             editor?.refreshSearch?.();
 
-            // 恢复光标：定位到行尾（不滚动，滚动位置由视图状态恢复控制）
+            // 恢复光标：定位到行尾，按切前的 viewport 相对位置摆放该行
             if (pos) {
                 const lines = markdownContent.split('\n');
                 const line = lines[pos.lineNumber - 1] || '';
                 requestAnimationFrame(() => {
-                    codeEditor.setPositionOnly(pos.lineNumber, line.length + 1);
+                    codeEditor.setPositionAtRatio(pos.lineNumber, line.length + 1, cursorRatio);
                 });
             }
 
@@ -120,14 +122,15 @@ export function createMarkdownCodeMode({
             });
 
             const pos = codeMatchesFile ? codeEditor.getCurrentPosition?.() : null;
+            const cursorRatio = codeMatchesFile ? codeEditor.getCursorViewportRatio?.() : null;
 
             codeEditor?.saveViewStateForTab?.(currentFile);
             view.activate('markdown');
             await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });
             editor?.refreshSearch?.();
 
-            // 恢复光标：定位到行尾（不滚动，滚动位置由视图状态恢复控制）
-            if (pos && editor.setSourcePositionOnly) {
+            // 恢复光标：定位到行尾，按切前的 viewport 相对位置摆放该行
+            if (pos && editor.setSourcePositionAtRatio) {
                 const lines = codeContent.split('\n');
                 const line = lines[pos.lineNumber - 1] || '';
                 // 去掉 markdown 符号后的行长度
@@ -137,7 +140,7 @@ export function createMarkdownCodeMode({
                     .replace(/^[-*+]\s+/, '')
                     .replace(/^\d+\.\s+/, '');
                 requestAnimationFrame(() => {
-                    editor.setSourcePositionOnly(pos.lineNumber, renderedLine.length + 1);
+                    editor.setSourcePositionAtRatio(pos.lineNumber, renderedLine.length + 1, cursorRatio);
                 });
             }
 
