@@ -482,7 +482,9 @@ body {
         styles.push(`
 @page {
     size: A4;
-    margin: 20mm 15mm 25mm 15mm;
+    /* 左右 0：让 wrapper 自己的 padding 控制内容内边距（CSS layout 比 @page 更稳，
+       不受 Chrome 打印对话框的 Margins 选项干扰）。 */
+    margin: 20mm 0 25mm 0;
 }
 @media screen {
     html {
@@ -511,7 +513,7 @@ body {
     .mark2-export-wrapper--a4 {
         max-width: 100%;
         margin: 0;
-        padding: 0;
+        padding: 0 0.68in;
         box-shadow: none;
         box-sizing: border-box;
     }
