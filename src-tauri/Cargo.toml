@@ -8,7 +8,7 @@ rust-version = "1.77.2"
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.3", features = [] }
+tauri = { version = "2.3", features = ["devtools"] }
 tauri-plugin-dialog = "2.3"
 tauri-plugin-fs = { version = "2.4", features = ["watch"] }
 tauri-plugin-shell = "2.3"

@@ -47,10 +47,11 @@ function createMarkdownTokenizer() {
         autolabel: true,
     });
 
+    // label/labelAfter 会把整段内容再塞一份到 <label> html_inline 里——我们用 TipTap 渲染、
+    // html_inline fallback 会 extractInlineText 把这段文字加回 doc 导致内容写两份，
+    // 进而被序列化器逐字转义，每存一次反斜杠翻倍。这两个选项一定不能开。
     md.use(markdownItTaskLists, {
         enabled: true,
-        label: true,
-        labelAfter: true,
     });
 
     md.use(markdownItCjkEmphasis);

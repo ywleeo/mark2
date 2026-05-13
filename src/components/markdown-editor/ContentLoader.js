@@ -272,6 +272,52 @@ export class ContentLoader {
             view.dispatch(tr);
 
             this.getTrailingParagraphManager()?.ensure();
+
+            // [DIAG-ROUNDTRIP-LOAD] 解析+序列化 round-trip 检查：解析后立刻反向序列化对比原文
+            try {
+                const reserialized = this.markdownSerializer?.serialize(editor.state.doc) ?? '';
+                const origForCmp = (this.originalMarkdown || '').replace(/\n+$/, '');
+                const reserForCmp = reserialized.replace(/\n+$/, '');
+                if (origForCmp && reserForCmp && origForCmp !== reserForCmp) {
+                    const oBs = (origForCmp.match(/\\/g) || []).length;
+                    const rBs = (reserForCmp.match(/\\/g) || []).length;
+                    console.warn(`[DIAG-ROUNDTRIP-LOAD] round-trip 不稳定: orig \\=${oBs} → reser \\=${rBs}`);
+                    let i = 0;
+                    while (i < origForCmp.length && i < reserForCmp.length && origForCmp[i] === reserForCmp[i]) i++;
+                    const ctx = (s) => s.slice(Math.max(0, i - 30), i + 60);
+                    console.warn(`[DIAG-ROUNDTRIP-LOAD] 首处差异 @${i}\n  orig:  …${ctx(origForCmp)}…\n  reser: …${ctx(reserForCmp)}…`);
+
+                    // 定位包含差异的那个 taskItem 节点，dump 其 JSON 结构
+                    try {
+                        // 找差异行号
+                        const lineNo = origForCmp.slice(0, i).split('\n').length - 1;
+                        const lineStartChar = origForCmp.split('\n').slice(0, lineNo).join('\n').length + (lineNo > 0 ? 1 : 0);
+                        // 在 doc 里找对应位置的节点
+                        const doc = editor.state.doc;
+                        let foundNode = null;
+                        let foundPos = -1;
+                        doc.descendants((node, pos) => {
+                            if (foundNode) return false;
+                            if (node.type.name === 'taskItem') {
+                                const text = node.textContent;
+                                if (text && text.includes('Day 7 中期评估')) {
+                                    foundNode = node;
+                                    foundPos = pos;
+                                    return false;
+                                }
+                            }
+                            return true;
+                        });
+                        if (foundNode) {
+                            console.warn(`[DIAG-ROUNDTRIP-LOAD] 出问题的 taskItem @${foundPos} JSON:`, JSON.stringify(foundNode.toJSON(), null, 2));
+                        }
+                    } catch (e2) {
+                        console.warn('[DIAG-ROUNDTRIP-LOAD] dump 节点失败:', e2);
+                    }
+                }
+            } catch (err) {
+                console.warn('[DIAG-ROUNDTRIP-LOAD] 检查失败:', err);
+            }
         } finally {
             this.setUpdateSuppressed(false);
         }

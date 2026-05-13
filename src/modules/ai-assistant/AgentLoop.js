@@ -7,6 +7,30 @@ import { aiService } from './aiService.js';
 
 const MAX_ITERATIONS = 10;
 
+/**
+ * 发送前清理 messages，避免脏数据触发 server 400。
+ * - 丢弃空 assistant 消息（content 空 + 无 tool_calls + 无 reasoning_content）
+ * - 合并连续同 role 消息（保留最后一条，避免 user→user / assistant→assistant 违反协议）
+ */
+function sanitizeMessages(messages) {
+    const cleaned = [];
+    for (const m of messages) {
+        if (!m || !m.role) continue;
+        if (m.role === 'assistant') {
+            const hasContent = typeof m.content === 'string' && m.content.length > 0;
+            const hasToolCalls = Array.isArray(m.tool_calls) && m.tool_calls.length > 0;
+            const hasReasoning = typeof m.reasoning_content === 'string' && m.reasoning_content.length > 0;
+            if (!hasContent && !hasToolCalls && !hasReasoning) continue;
+        }
+        if (cleaned.length > 0 && cleaned[cleaned.length - 1].role === m.role && m.role !== 'tool') {
+            cleaned[cleaned.length - 1] = m;
+            continue;
+        }
+        cleaned.push(m);
+    }
+    return cleaned;
+}
+
 export class AgentLoop {
     /**
      * @param {Object} options
@@ -41,7 +65,7 @@ export class AgentLoop {
      */
     async run(messages) {
         this.aborted = false;
-        const history = [...messages];
+        const history = sanitizeMessages(messages);
 
         try {
             for (let i = 0; i < MAX_ITERATIONS; i++) {
@@ -82,7 +106,7 @@ export class AgentLoop {
                 if (this.aborted) break;
 
                 // 将 assistant 响应加入历史
-                const assistantMsg = { role: 'assistant', content: result.content || null };
+                const assistantMsg = { role: 'assistant', content: result.content ?? '' };
                 if (result.thinking) {
                     // DeepSeek V4 thinking 模式要求 reasoning_content 必须回传
                     assistantMsg.reasoning_content = result.thinking;

@@ -27,7 +27,7 @@
 
 .code-editor__instance .cm-scroller {
     overflow: auto;
-    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
+    font-family: var(--code-font-family, 'Mark2 Mono SC', 'Menlo', 'Monaco', 'Courier New', monospace);
 }
 
 /* Scrollbar - 使用全局变量，和 markdown 编辑器一致 */

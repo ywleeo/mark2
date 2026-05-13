@@ -1,0 +1,17 @@
+/*
+ * 内嵌 CJK 等宽字体 - Sarasa Mono SC
+ *
+ * 用途：让代码块（markdown ``` 块、CodeMirror、ASCII 流程图）里的 CJK
+ *      字符宽度严格 = 2 倍 ASCII 字符宽度，保证 ASCII 字符画对齐。
+ *
+ * 字体来源：be5invis/Sarasa-Gothic v1.0.37 (SIL OFL 1.1)
+ * subset 范围：ASCII + Latin-1 + 标点 + 箭头 + 数学 + 制表符 + 几何 +
+ *              CJK 标点 + CJK 基础块 (U+4E00-9FFF) + 半全角
+ */
+@font-face {
+    font-family: 'Mark2 Mono SC';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/SarasaMonoSC-Regular.woff2') format('woff2');
+}

@@ -3,6 +3,7 @@ import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
 import { isSpreadsheetFilePath } from '../../utils/fileTypeUtils.js';
 import { createMarkdownParser, createMarkdownSerializer } from '../../modules/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
+import { AlignAsciiArtManager } from '../../features/alignAsciiArt.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
@@ -134,6 +135,11 @@ export class MarkdownEditor {
                 // 明确声明不进历史的 transaction（TrailingParagraph / IME \u200B / 图片异步解析等内部变更）
                 // 不应污染 undo 历史，否则会错误重置合并窗口
                 if (transaction?.getMeta?.('addToHistory') === false) return;
+                // [DIAG-DIRTY] 首次把 contentChanged 由 false 翻成 true——打堆栈
+                if (this.contentLoader.contentChanged === false) {
+                    console.warn(`[DIAG-DIRTY] contentChanged false→true via onUpdate; docChanged=${transaction.docChanged}`);
+                    console.trace('[DIAG-DIRTY] onUpdate stack');
+                }
                 this.contentLoader.contentChanged = true;
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
@@ -148,6 +154,7 @@ export class MarkdownEditor {
 
         // ── Feature managers ──
         this.codeCopyManager = new CodeCopyManager(this.element);
+        this.alignAsciiArtManager = new AlignAsciiArtManager(this.element, this.editor);
         this.searchBoxManager = new SearchBoxManager(this.editor);
         this.clipboardEnhancer = new ClipboardEnhancer(this.element);
         this.imageModal = new ImageModal();
@@ -627,6 +634,7 @@ export class MarkdownEditor {
         this.saveManager = null;
 
         this.codeCopyManager?.destroy();
+        this.alignAsciiArtManager?.destroy();
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
         this.imageModal?.destroy();

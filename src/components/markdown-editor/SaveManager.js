@@ -149,6 +149,18 @@ export class SaveManager {
         const savePromise = (async () => {
             try {
                 const markdown = pendingMarkdown ?? this.getMarkdown();
+                // [DIAG-ROUNDTRIP] 写盘前对比：若新内容反斜杠数大于原 markdown，说明序列化在放大转义
+                try {
+                    const origMd = this.getOriginalMarkdown() ?? '';
+                    const oldBs = (origMd.match(/\\/g) || []).length;
+                    const newBs = (markdown.match(/\\/g) || []).length;
+                    if (newBs > oldBs) {
+                        console.warn(
+                            `[DIAG-ROUNDTRIP] 写盘内容反斜杠数 ${oldBs} → ${newBs}（增长 ${newBs - oldBs}）reason=${reason} file=${targetFile}`
+                        );
+                        console.trace('[DIAG-ROUNDTRIP] save stack');
+                    }
+                } catch (_) { /* diagnostic only */ }
                 const services = getAppServices();
                 if (localWriteKey && this.documentSessions?.markLocalWrite) {
                     this.documentSessions.markLocalWrite(localWriteKey);

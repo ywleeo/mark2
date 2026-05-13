@@ -227,7 +227,9 @@ class AiService {
 
         const normalizeModelSlot = (slot) => {
             if (!slot?.providerId || !slot?.model) return null;
-            const valid = presetIds.has(slot.providerId) || providers.some(p => p.id === slot.providerId && p.isCustom);
+            const valid = presetIds.has(slot.providerId)
+                || !!getCloudProvider(slot.providerId)
+                || providers.some(p => p.id === slot.providerId && p.isCustom);
             if (!valid) return null;
             return { providerId: slot.providerId, model: slot.model };
         };
@@ -616,6 +618,7 @@ class AiService {
                 messages: options.messages,
                 temperature: options.temperature,
                 stream: false,
+                ...(options.extraBody || {}),
             },
         });
 
