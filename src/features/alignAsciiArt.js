@@ -1,15 +1,16 @@
 /**
- * 在 markdown 代码块右上角加一个"对齐"按钮：让 AI 按等宽字体规则
- * （CJK 字符宽度 = 2 倍 ASCII 字符宽度）重新调整 ASCII 字符画的对齐。
- * 替换原 code block 内的文本内容，不改变 language（仍是 ASCII，不是 mermaid）。
+ * 在 markdown 代码块右上角加一个按钮：让 AI 识别 ASCII 流程图结构，
+ * 客户端把 JSON spec 转成 mermaid 代码，替换 code block 为 mermaidBlock 节点
+ * 由现成的 mermaid 渲染器接管展示。
  */
 
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { aiService } from '../modules/ai-assistant/aiService.js';
 import { startAiProxyStream } from '../api/aiProxy.js';
-import { renderFlowchart } from './asciiFlowchart/render.js';
+import { renderMermaidIn } from '../utils/mermaidRenderer.js';
+import { closeHistory } from '@tiptap/pm/history';
 
-// 对齐图标：几条对齐的横线
+// 图标：几条带对齐感的横线（沿用之前的"整理"图标）
 const ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line class="l1" x1="3" y1="6" x2="21" y2="6"/><line class="l2" x1="3" y1="12" x2="15" y2="12"/><line class="l3" x1="3" y1="18" x2="18" y2="18"/></svg>';
 
 const SYSTEM_PROMPT = `你是流程图结构识别专家。用户提供一段 ASCII 字符画流程图（可能字符位置错乱），你的任务是**识别其结构**并输出 JSON。
@@ -43,9 +44,31 @@ JSON schema：
 - 边上短文字（如"脱颗粒"、"产生 > 降解"）= edge.label
 - 节点右侧的水平箭头注释（如"← 易激惹度上升"）= node.side_note，不算独立节点
 
+**分叉点的关键规则**：父节点分出多个分支时，每条分支线上常常带一段短文字（比较表达式、状态名等），**紧接着才到下一个真正的子节点**。这段短文字是 **edge.label**，绝不是独立节点。识别信号：
+
+\`\`\`
+   ┌─父─┐
+   └─┬─┘
+     │
+  ┌──┼──┐
+  │  │  │
+  A  B  C    ← 这一行是 edge.label（短文字 + 单入单出连接到下方节点）
+  │  │  │
+  ▽  ▽  ▽
+  X  Y  Z    ← 这一行才是真正的子节点
+\`\`\`
+
+错误输出（多了 3 个空节点 A/B/C）：
+\`{from:父,to:A},{from:A,to:X},{from:父,to:B},{from:B,to:Y}…\`
+
+正确输出（A/B/C 是 label）：
+\`{from:父,to:X,label:"A"},{from:父,to:Y,label:"B"},{from:父,to:Z,label:"C"}\`
+
+判断标准：如果一行的多个短文字（≤6 字符或含 \`>/<\`/\`=\` 等符号）下方还各自连着一个真节点，**那些短文字必定是 edge.label**。
+
 **严禁**：
 - 不要尝试重画 ASCII，只输出 JSON
-- 不要增减节点或边
+- 不要增减节点或边（label 不算节点）
 - 节点 id 任意但必须唯一`;
 
 const HIDE_DELAY = 140;
@@ -138,8 +161,8 @@ export class AlignAsciiArtManager {
         btn.type = 'button';
         btn.className = 'align-ascii-button';
         btn.innerHTML = ICON;
-        btn.setAttribute('title', 'AI 重新对齐 ASCII 字符画');
-        btn.setAttribute('aria-label', 'AI 重新对齐 ASCII 字符画');
+        btn.setAttribute('title', 'AI 转 Mermaid 流程图');
+        btn.setAttribute('aria-label', 'AI 转 Mermaid 流程图');
         btn.addEventListener('mouseenter', () => this._cancelHide());
         btn.addEventListener('mouseleave', () => this._scheduleHide());
         this.clickCleanup = addClickHandler(btn, () => this._handleClick(), { preventDefault: true });
@@ -234,9 +257,12 @@ export class AlignAsciiArtManager {
             }
             console.log('[alignAsciiArt] parsed spec:', spec);
 
-            const aligned = renderFlowchart(spec);
-            console.log('[alignAsciiArt] rendered:\n' + aligned);
-            this._replaceCodeBlockText(pre, aligned);
+            // fallback：如果 AI 把"父→A→子"这种分叉 label 错认成节点，自动消解
+            spec = collapseLabelNodes(spec);
+
+            const mermaid = specToMermaid(spec);
+            console.log('[alignAsciiArt] mermaid:\n' + mermaid);
+            this._replaceWithMermaidBlock(pre, mermaid);
             this._hide(true);
         } catch (err) {
             console.error('[alignAsciiArt] failed:', err);
@@ -256,6 +282,8 @@ export class AlignAsciiArtManager {
 
         return new Promise((resolve, reject) => {
             let buffer = '';
+            // SSE 跨 chunk 缓冲：chunk 不保证以 \n 结尾，必须把残行留到下一次再拼
+            let sseBuffer = '';
             let firstChunkAt = null;
             const t0 = performance.now();
             const requestId = `align-${Date.now()}`;
@@ -265,6 +293,18 @@ export class AlignAsciiArtManager {
                 if (cleanup) { try { cleanup(); } catch (_) {} cleanup = null; }
                 if (err) reject(err);
                 else resolve(buffer.trim());
+            };
+
+            const processLine = (line) => {
+                const l = line.trim();
+                if (!l.startsWith('data:')) return;
+                const data = l.slice(5).trim();
+                if (!data || data === '[DONE]') return;
+                try {
+                    const j = JSON.parse(data);
+                    const delta = j.choices?.[0]?.delta?.content;
+                    if (delta) buffer += delta;
+                } catch (_) { /* ignore parse error */ }
             };
 
             startAiProxyStream({
@@ -287,23 +327,22 @@ export class AlignAsciiArtManager {
                         firstChunkAt = performance.now();
                         console.log(`[alignAsciiArt] first chunk at ${Math.round(firstChunkAt - t0)}ms`);
                     }
-                    for (const line of chunk.split('\n')) {
-                        const l = line.trim();
-                        if (!l.startsWith('data:')) continue;
-                        const data = l.slice(5).trim();
-                        if (!data || data === '[DONE]') continue;
-                        try {
-                            const j = JSON.parse(data);
-                            const delta = j.choices?.[0]?.delta?.content;
-                            if (delta) buffer += delta;
-                        } catch (_) { /* ignore parse error */ }
-                    }
+                    sseBuffer += chunk;
+                    const lines = sseBuffer.split('\n');
+                    // 最后一段可能是不完整的，留到下次再拼
+                    sseBuffer = lines.pop() ?? '';
+                    for (const line of lines) processLine(line);
                 },
                 onError: (msg) => {
                     console.error('[alignAsciiArt] stream error:', msg);
                     finish(new Error(msg || 'stream error'));
                 },
                 onEnd: () => {
+                    // 流结束时把残留的最后一行处理掉（避免最后一条 SSE 没换行被丢）
+                    if (sseBuffer) {
+                        processLine(sseBuffer);
+                        sseBuffer = '';
+                    }
                     console.log(`[alignAsciiArt] stream end, total ${Math.round(performance.now() - t0)}ms, buffer length ${buffer.length}`);
                     finish();
                 },
@@ -311,27 +350,50 @@ export class AlignAsciiArtManager {
         });
     }
 
-    _replaceCodeBlockText(pre, newText) {
+    /**
+     * 把整个 codeBlock 节点替换成 mermaidBlock 节点。
+     * mermaidBlock 是 atom，code 放在 attrs.code 里，由 MermaidNodeView 渲染。
+     */
+    _replaceWithMermaidBlock(pre, mermaidCode) {
         if (!this.editor) return;
         const view = this.editor.view;
+        const schema = view.state.schema;
         const pos = view.posAtDOM(pre, 0);
         if (pos == null || pos < 0) return;
         const $pos = view.state.doc.resolve(pos);
-        let from, to;
+        let blockPos = -1;
+        let blockNode = null;
         for (let depth = $pos.depth; depth > 0; depth--) {
             const node = $pos.node(depth);
             if (node?.type?.name === 'codeBlock') {
-                from = $pos.start(depth);  // codeBlock 内部内容开始
-                to = $pos.end(depth);      // codeBlock 内部内容结束
+                blockPos = $pos.before(depth);
+                blockNode = node;
                 break;
             }
         }
-        if (from == null) return;
-        const schema = view.state.schema;
-        const textNode = newText.length > 0 ? schema.text(newText) : null;
-        const tr = textNode
-            ? view.state.tr.replaceWith(from, to, textNode)
-            : view.state.tr.delete(from, to);
+        if (blockPos < 0 || !blockNode) return;
+        const mermaidType = schema.nodes.mermaidBlock;
+        if (mermaidType) {
+            const mermaidNode = mermaidType.create({ code: mermaidCode });
+            let tr = view.state.tr.replaceWith(blockPos, blockPos + blockNode.nodeSize, mermaidNode);
+            // 强制本次 transaction 单独成为一个 undo group，避免和前后操作合并（连点两次按钮 cmd+z 一次撤销两个的问题）
+            tr = closeHistory(tr);
+            view.dispatch(tr);
+            // 触发 mermaid 渲染：把刚插入的 <div class="mermaid"> 转成 SVG
+            requestAnimationFrame(() => {
+                renderMermaidIn(this.element).catch(e => console.warn('[alignAsciiArt] mermaid render failed:', e));
+            });
+            return;
+        }
+        // fallback：schema 没有 mermaidBlock，退化为改 codeBlock.language=mermaid + 替换内容
+        const textNode = mermaidCode.length > 0 ? schema.text(mermaidCode) : null;
+        const innerFrom = blockPos + 1;
+        const innerTo = blockPos + blockNode.nodeSize - 1;
+        let tr = textNode
+            ? view.state.tr.replaceWith(innerFrom, innerTo, textNode)
+            : view.state.tr.delete(innerFrom, innerTo);
+        tr = tr.setNodeMarkup(blockPos, null, { ...blockNode.attrs, language: 'mermaid' });
+        tr = closeHistory(tr);
         view.dispatch(tr);
     }
 
@@ -356,4 +418,125 @@ export class AlignAsciiArtManager {
             window.removeEventListener('resize', this._scrollHandler);
         }
     }
+}
+
+/**
+ * 把 spec JSON 转成 mermaid flowchart 代码。
+ * boxed: true → 矩形 `[text]`；boxed: false → 圆角 `(text)`；
+ * side_note → 单独节点，用虚线连接；edge.label → `-->|label|` 标注。
+ */
+function specToMermaid(spec) {
+    const lines = ['flowchart TD'];
+    const sanitizeId = (id) => {
+        const s = String(id || '').replace(/[^a-zA-Z0-9_]/g, '_');
+        return s || 'n';
+    };
+    const escapeText = (s) => String(s || '').replace(/"/g, '#quot;').replace(/\n/g, '<br/>');
+    const formatNodeText = (textArr) => {
+        const arr = Array.isArray(textArr) ? textArr : [String(textArr || '')];
+        return arr.map(l => escapeText(String(l || ''))).join('<br/>');
+    };
+
+    // 节点 id 可能冲突（sanitize 后）——加序号兜底
+    const usedIds = new Set();
+    const idMap = {};
+    for (const node of spec.nodes || []) {
+        let id = sanitizeId(node.id);
+        let i = 1;
+        while (usedIds.has(id)) id = sanitizeId(node.id) + '_' + (++i);
+        usedIds.add(id);
+        idMap[node.id] = id;
+    }
+
+    for (const node of spec.nodes || []) {
+        const id = idMap[node.id];
+        const text = formatNodeText(node.text);
+        const shape = node.boxed !== false ? `["${text}"]` : `("${text}")`;
+        lines.push(`    ${id}${shape}`);
+        if (node.side_note) {
+            const noteId = `${id}_note`;
+            const noteText = escapeText(String(node.side_note).replace(/^[←→]\s*/, '').trim());
+            if (noteText) {
+                lines.push(`    ${noteId}["${noteText}"]`);
+                lines.push(`    ${id} -.- ${noteId}`);
+            }
+        }
+    }
+
+    for (const edge of spec.edges || []) {
+        const from = idMap[edge.from];
+        const to = idMap[edge.to];
+        if (!from || !to) continue;
+        if (edge.label) {
+            lines.push(`    ${from} -->|"${escapeText(edge.label)}"| ${to}`);
+        } else {
+            lines.push(`    ${from} --> ${to}`);
+        }
+    }
+
+    return lines.join('\n');
+}
+
+/**
+ * 后处理：消解被错认成节点的 edge label。
+ * 触发条件：一个父节点的"所有"出边子节点都是 boxed:false + 单入单出 + 自己也有出边
+ * → 这些"子"实际是 label，把它们 collapse 到父→孙的 edge.label 上。
+ *
+ * 例如 AI 错误地输出：父→A→X，父→B→Y，父→C→Z（A/B/C 都是 boxed:false 单入单出）
+ * 修正为：父→X(label:A)，父→Y(label:B)，父→Z(label:C)
+ */
+function collapseLabelNodes(spec) {
+    if (!spec || !Array.isArray(spec.nodes) || !Array.isArray(spec.edges)) return spec;
+    const incoming = {};
+    const outgoing = {};
+    for (const e of spec.edges) {
+        (outgoing[e.from] ||= []).push(e);
+        (incoming[e.to] ||= []).push(e);
+    }
+    const nodeMap = Object.fromEntries(spec.nodes.map(n => [n.id, n]));
+
+    // 单入单出 + boxed:false + 自己有出边 = "中转 label 节点"特征
+    const looksLikeLabel = (id) => {
+        const n = nodeMap[id];
+        if (!n || n.boxed !== false) return false;
+        return (incoming[id]?.length === 1) && (outgoing[id]?.length === 1);
+    };
+
+    // 收集要 collapse 的节点：父节点的多个子节点全都是 label-like 才认定
+    const toCollapse = new Set();
+    for (const parent of spec.nodes) {
+        const outs = outgoing[parent.id] || [];
+        if (outs.length < 2) continue;
+        if (outs.every(e => looksLikeLabel(e.to))) {
+            for (const e of outs) toCollapse.add(e.to);
+        }
+    }
+
+    if (toCollapse.size === 0) return spec;
+
+    const labelText = (n) => Array.isArray(n.text) ? n.text.join(' ') : String(n.text || '');
+    const newEdges = [];
+    for (const e of spec.edges) {
+        // 来自被消解节点的出边：跳过（已被入边吸收）
+        if (toCollapse.has(e.from)) continue;
+        // 指向被消解节点的入边：把目标改成被消解节点的孙节点，把被消解节点的文字塞进 label
+        if (toCollapse.has(e.to)) {
+            const mid = nodeMap[e.to];
+            const out = outgoing[e.to][0];
+            const lbl = labelText(mid);
+            newEdges.push({
+                from: e.from,
+                to: out.to,
+                label: e.label ? `${e.label} ${lbl}` : lbl,
+            });
+            continue;
+        }
+        newEdges.push(e);
+    }
+
+    return {
+        ...spec,
+        nodes: spec.nodes.filter(n => !toCollapse.has(n.id)),
+        edges: newEdges,
+    };
 }
