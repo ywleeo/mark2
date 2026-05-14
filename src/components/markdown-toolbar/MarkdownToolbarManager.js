@@ -648,29 +648,37 @@ export class MarkdownToolbarManager {
 
     async copyPlainText() {
         try {
-            // 优先用浏览器级选区——快捷键触发时最可靠
-            const selectedText = window.getSelection()?.toString() ?? '';
-            if (selectedText.trim()) {
-                await navigator.clipboard.writeText(selectedText.trim());
-                return;
-            }
+            let markdown = '';
 
-            // 无选区：整篇内容，需要 strip markdown
             if (this.editorType === 'tiptap') {
                 const mdEditor = this._getEditorRegistry?.()?.getMarkdownEditor?.();
-                let markdown = '';
-                if (mdEditor && typeof mdEditor.getMarkdown === 'function') {
-                    markdown = mdEditor.getMarkdown();
-                } else if (this.rawEditorInstance && typeof this.rawEditorInstance.getMarkdown === 'function') {
+                if (mdEditor) {
+                    // 优先复制选中内容的 markdown，无选区则整篇
+                    const selected = mdEditor.getSelectedMarkdown?.();
+                    markdown = selected || mdEditor.getMarkdown?.() || '';
+                } else if (this.rawEditorInstance?.getMarkdown) {
                     markdown = this.rawEditorInstance.getMarkdown();
+                } else if (this.editorInstance?.getMarkdown) {
+                    markdown = this.editorInstance.getMarkdown();
+                } else {
+                    return;
                 }
-                if (markdown) await navigator.clipboard.writeText(_stripMarkdown(markdown));
-
             } else if (this.editorType === 'codemirror') {
-                const view = this.editorInstance;
-                if (!view) return;
-                const raw = this.rawEditorInstance?.getValue?.() ?? view.state.doc.toString();
-                if (raw) await navigator.clipboard.writeText(_stripMarkdown(raw));
+                // CodeMirror 显示的就是 markdown 原文，选区即原文
+                const selected = window.getSelection()?.toString() ?? '';
+                if (selected.trim()) {
+                    markdown = selected;
+                } else if (this.rawEditorInstance?.getValue) {
+                    markdown = this.rawEditorInstance.getValue();
+                } else if (this.editorInstance?.getValue) {
+                    markdown = this.editorInstance.getValue();
+                } else {
+                    return;
+                }
+            }
+
+            if (markdown) {
+                await navigator.clipboard.writeText(_formatListMarkdown(markdown));
             }
         } catch (error) {
             console.error('复制纯文本失败:', error);
@@ -699,36 +707,61 @@ export class MarkdownToolbarManager {
     }
 }
 
-function _stripMarkdown(md) {
-    let t = md;
-    // 代码块：保留内容，去掉围栏和语言标记
-    t = t.replace(/^```[\w]*\n([\s\S]*?)^```/gm, '$1');
-    // 标题：去掉 # 并在前后各加一个空行，保证与正文之间有间距
-    t = t.replace(/^#{1,6}\s+(.+)$/gm, '\n$1\n');
-    // 粗斜体 / 粗体 / 斜体 / 删除线
-    t = t.replace(/(\*{1,3}|_{1,3})([\s\S]+?)\1/g, '$2');
-    t = t.replace(/~~(.+?)~~/g, '$1');
-    // 行内代码
-    t = t.replace(/`([^`\n]+)`/g, '$1');
-    // 图片（丢弃 alt，避免噪音）
-    t = t.replace(/!\[[^\]]*\]\([^\)]*\)/g, '');
-    // 链接：保留文字
-    t = t.replace(/\[([^\]]+)\]\([^\)]*\)/g, '$1');
-    // 引用块
-    t = t.replace(/^>\s?/gm, '');
-    // 分割线
-    t = t.replace(/^[-*_]{3,}\s*$/gm, '');
-    // 任务列表复选框
-    t = t.replace(/^\s*-\s+\[[ xX]\]\s*/gm, '');
-    // 无序列表标记
-    t = t.replace(/^\s*[-*+]\s+/gm, '');
-    // 有序列表标记
-    t = t.replace(/^\s*\d+\.\s+/gm, '');
-    // HTML 标签
-    t = t.replace(/<[^>]+>/g, '');
-    // 段落之间保证有空行（相邻非空行之间插入空行，零宽断言避免跳行问题）
-    t = t.replace(/(?<=[^\n])\n(?=[^\n])/g, '\n\n');
-    // 连续 3 个以上空行压缩为 1 个空行
-    t = t.replace(/\n{3,}/g, '\n\n');
-    return t.trim();
+/**
+ * 复制 markdown 原文时的列表格式化：
+ * 1. 有序列表序号连续累加（1. 1. 1. → 1. 2. 3.），按缩进层级各自计数
+ * 2. 列表组之间补空行：一个有序项 + 跟随的无序条目算一组，组与组之间空一行
+ * 重置时机：遇到普通内容（非列表、非空行、非缩进续行）时该层级序号归零。
+ */
+function _formatListMarkdown(md) {
+    const lines = String(md ?? '').split('\n');
+    const out = [];
+    // 缩进长度 → { count, sawBullet }，按层级各自累加，避免嵌套列表被错误连号
+    const levels = new Map();
+    const orderedRe = /^(\s*)(\d+)\.(\s+)/;
+    const bulletRe = /^(\s*)[-*+](\s+)/;
+
+    const resetDeeperThan = (indentLen) => {
+        for (const key of [...levels.keys()]) {
+            if (key > indentLen) levels.delete(key);
+        }
+    };
+
+    for (const line of lines) {
+        const om = orderedRe.exec(line);
+        if (om) {
+            const indentLen = om[1].length;
+            resetDeeperThan(indentLen);
+            let lvl = levels.get(indentLen);
+            if (!lvl) { lvl = { count: 0, sawBullet: false }; levels.set(indentLen, lvl); }
+            lvl.count += 1;
+            // 同层级、且本组里出现过无序条目 → 组间补空行（避免重复空行）
+            if (lvl.count > 1 && lvl.sawBullet && out.length > 0 && out[out.length - 1].trim() !== '') {
+                out.push('');
+            }
+            lvl.sawBullet = false;
+            out.push(line.replace(orderedRe, (m, ind, num, sp) => `${ind}${lvl.count}.${sp}`));
+            continue;
+        }
+        const bm = bulletRe.exec(line);
+        if (bm) {
+            const indentLen = bm[1].length;
+            resetDeeperThan(indentLen);
+            // 标记同级或更浅的有序层级"本组见过无序条目"
+            for (const [key, lvl] of levels) {
+                if (key <= indentLen) lvl.sawBullet = true;
+            }
+            out.push(line);
+            continue;
+        }
+        // 空行 / 缩进续行：保持列表上下文，不重置
+        if (line.trim() === '' || /^\s/.test(line)) {
+            out.push(line);
+            continue;
+        }
+        // 普通内容：清空所有层级计数
+        levels.clear();
+        out.push(line);
+    }
+    return out.join('\n').trim();
 }
