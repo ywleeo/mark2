@@ -296,7 +296,7 @@
     "settings.kb.settings": "设置",
     "settings.kb.selectAllMatches": "选中全部匹配",
     "settings.kb.copyMarkdown": "复制为 Markdown",
-    "settings.kb.copyPlainText": "复制为纯文本",
+    "settings.kb.copyPlainText": "复制 Markdown 并整理列表",
 
     "about.description": "基于 Tauri 构建的极简 Markdown 编辑器。",
     "about.version": "版本 {version}",

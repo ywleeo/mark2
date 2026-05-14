@@ -296,7 +296,7 @@
     "settings.kb.settings": "Settings",
     "settings.kb.selectAllMatches": "Select All Matches",
     "settings.kb.copyMarkdown": "Copy as Markdown",
-    "settings.kb.copyPlainText": "Copy as Plain Text",
+    "settings.kb.copyPlainText": "Copy Markdown & Tidy Lists",
 
     "about.description": "A minimal Markdown editor built with Tauri.",
     "about.version": "Version {version}",

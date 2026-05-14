@@ -1,7 +1,7 @@
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, highlightSpecialChars, Decoration } from '@codemirror/view';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, crosshairCursor, drawSelection, Decoration } from '@codemirror/view';
 import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
-import { defaultKeymap, indentWithTab, history, historyKeymap, undo, redo, isolateHistory } from '@codemirror/commands';
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, bracketMatching, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
+import { defaultKeymap, indentWithTab, history, undo, redo, isolateHistory } from '@codemirror/commands';
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
@@ -59,6 +59,10 @@ const SPLIT_CHAR = /[\s\p{P}]/u;
 const isolateHistoryOnSplit = EditorState.transactionExtender.of((tr) => {
     if (!tr.docChanged) return null;
     if (tr.isUserEvent('input.type.compose')) return null;
+    // 粘贴是一次独立操作：前后都隔离（full），不和之前的输入/之后的删除编辑合并成一个 undo
+    if (tr.isUserEvent('input.paste')) {
+        return { annotations: isolateHistory.of('full') };
+    }
     let shouldSplit = false;
     tr.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
         if (shouldSplit) return;
@@ -76,7 +80,11 @@ const searchDecorationField = StateField.define({
         for (const e of tr.effects) {
             if (e.is(setSearchDecorations)) return e.value;
         }
-        return decos.map(tr.changes);
+        // 文档一改动旧搜索装饰就失效了：直接清空，由 SearchBoxManager 重新搜索后再 set。
+        // 不能用 decos.map(tr.changes)——旧装饰位置可能越界（如文档被清空），
+        // 残留的越界 range 在下次 map 时会抛 "Position N out of range"。
+        if (tr.docChanged) return Decoration.none;
+        return decos;
     },
     provide: f => EditorView.decorations.from(f),
 });
@@ -205,17 +213,27 @@ export class CodeEditor {
                 lineNumbers(),
                 highlightActiveLine(),
                 highlightActiveLineGutter(),
-                highlightSpecialChars(),
+                // highlightSpecialChars() 与 bracketMatching() 均已移除：二者内部都用
+                // decoration.map(update.changes) 增量映射装饰，在 IME 输入法合成期间
+                // （update.view.composing）装饰位置与 changeset 长度不同步时会越界，抛
+                // "Position N out of range for changeset of length 0"。这两个特性都属
+                // 锦上添花，移除后崩溃彻底消失。
+                // 竖向多选（Sublime 风格按住 Option 拖拽）：
+                // rectangularSelection 负责创建多段选区，drawSelection 负责渲染多段高亮，
+                // allowMultipleSelections 允许 state 持有多段（否则会被合并成一段）。
+                EditorState.allowMultipleSelections.of(true),
+                drawSelection(),
                 rectangularSelection(),
+                crosshairCursor(),
                 indentOnInput(),
-                bracketMatching(),
                 foldGutter(),
                 // 字符切分（isolateHistoryOnSplit）+ 时间切分（newGroupDelay）双重兜底，
                 // 避免一长串无标点输入变成单一 group。值取默认 500ms
                 history({ newGroupDelay: 500 }),
                 isolateHistoryOnSplit,
+                // 不挂 historyKeymap：undo/redo 由应用层命令系统统一处理（EDITOR_UNDO/EDITOR_REDO →
+                // CodeEditor.undo()/redo()）。若两边都绑 Mod+Z，一次按键会触发两次 undo。
                 keymap.of([
-                    ...historyKeymap,
                     ...defaultKeymap,
                     ...foldKeymap,
                     indentWithTab,
@@ -333,6 +351,8 @@ export class CodeEditor {
                 const { from, to } = this.editor.state.selection.main;
                 this.editor.dispatch({
                     changes: { from, to, insert: processed },
+                    // 标成 paste，让 isolateHistoryOnSplit 把它当独立 undo 步隔离
+                    userEvent: 'input.paste',
                 });
             }
         };
@@ -756,6 +776,8 @@ export class CodeEditor {
     scheduleAutoSave() {
         if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
         if (!this.isDirty || !this.currentFile) return;
+        // untitled 文件还没有磁盘路径，自动保存必然 ENOENT，跳过——等用户显式"另存为"拿到真实路径再说
+        if (this.currentFile.startsWith('untitled://')) return;
         const sessionId = this.currentSessionId;
         this.autoSavePlannedSessionId = sessionId;
         this.autoSaveTimer = setTimeout(() => {
@@ -776,6 +798,8 @@ export class CodeEditor {
 
     async performAutoSave(sessionId = null) {
         if (!this.isDirty || !this.currentFile) return;
+        // untitled 文件无磁盘路径，跳过且不重新调度（防御性兜底，正常情况 scheduleAutoSave 已拦截）
+        if (this.currentFile.startsWith('untitled://')) return;
         if (sessionId && !this.isSessionActive(sessionId)) return;
         if (this.isSaving) {
             this.scheduleAutoSave();
@@ -1173,10 +1197,23 @@ export class CodeEditor {
             return;
         }
 
-        const decorations = matches.map((match, index) => {
+        // 按当前文档长度过滤：匹配可能是对旧文档算的（文档变短/清空后还没刷新），
+        // 越界装饰会让 CM 在 diff 新旧装饰时对越界位置 mapPos，抛 "Position out of range"。
+        const docLength = this.editor.state.doc.length;
+        const decorations = [];
+        matches.forEach((match, index) => {
+            const from = match._from;
+            const to = match._to;
+            if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+            if (from < 0 || to > docLength || from >= to) return;
             const cls = index === currentIndex ? 'search-result-current' : 'search-result';
-            return Decoration.mark({ class: cls }).range(match._from, match._to);
+            decorations.push(Decoration.mark({ class: cls }).range(from, to));
         });
+
+        if (decorations.length === 0) {
+            this.clearSearchDecorations();
+            return;
+        }
 
         this.editor.dispatch({
             effects: setSearchDecorations.of(Decoration.set(decorations, true))

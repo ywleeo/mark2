@@ -135,11 +135,6 @@ export class MarkdownEditor {
                 // 明确声明不进历史的 transaction（TrailingParagraph / IME \u200B / 图片异步解析等内部变更）
                 // 不应污染 undo 历史，否则会错误重置合并窗口
                 if (transaction?.getMeta?.('addToHistory') === false) return;
-                // [DIAG-DIRTY] 首次把 contentChanged 由 false 翻成 true——打堆栈
-                if (this.contentLoader.contentChanged === false) {
-                    console.warn(`[DIAG-DIRTY] contentChanged false→true via onUpdate; docChanged=${transaction.docChanged}`);
-                    console.trace('[DIAG-DIRTY] onUpdate stack');
-                }
                 this.contentLoader.contentChanged = true;
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');

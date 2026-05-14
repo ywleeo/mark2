@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { closeHistory } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
+import { UndoRedo } from '@tiptap/extensions';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -22,7 +23,7 @@ import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugi
 
 /**
  * 返回 MarkdownEditor 所需的 TipTap 扩展列表。
- * undo/redo 由 StarterKit 内置 History 扩展处理，按 tab 维护各自历史。
+ * undo/redo 由 UndoRedo 扩展维护历史状态，但键位被剥离，统一交全局 KeybindingManager 触发。
  * @param {object} lowlight - createConfiguredLowlight() 实例
  */
 export function createEditorExtensions(lowlight) {
@@ -43,10 +44,16 @@ export function createEditorExtensions(lowlight) {
             link: false,
             trailingNode: false,
             hardBreak: { keepMarks: true },
-            // 字符切分（historyGroupSplitter）+ 时间切分（newGroupDelay）双重兜底，
-            // 避免一长串无标点输入变成单一 group。值取默认 500ms
-            history: { newGroupDelay: 500 },
+            // 关掉 StarterKit 自带的 UndoRedo：它的 addKeyboardShortcuts 注册了 Mod-z/Mod-y，
+            // 会和全局 KeybindingManager 的 Mod+Z 双触发，一次 cmd+z 撤销两步。
+            undoRedo: false,
         }),
+        // 自己挂 UndoRedo，但去掉键位——undo/redo 快捷键统一交给全局 KeybindingManager。
+        // 字符切分（historyGroupSplitter）+ 时间切分（newGroupDelay）双重兜底，
+        // 避免一长串无标点输入变成单一 group。
+        UndoRedo.extend({
+            addKeyboardShortcuts() { return {}; },
+        }).configure({ newGroupDelay: 500 }),
         Link.configure({
             openOnClick: false,
             HTMLAttributes: { class: 'markdown-link' },
