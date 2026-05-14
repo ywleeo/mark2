@@ -7,6 +7,7 @@
 [data-theme-appearance='light'] .markdown-content {
     color: #374151;
     background-color: #ffffff;
+    --em-table-border: #9e9fa0;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h2,
@@ -46,16 +47,38 @@
     border-top-color: #9e9fa0;
 }
 
-[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table td,
-.tiptap-editor[data-theme-appearance='light'] table td,
-[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
-.tiptap-editor[data-theme-appearance='light'] table th{
-    border-color: #9e9fa0;
-}
-
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='light'] table th{
     background-color: #f0f1f1;
+}
+
+/* 表格完整边框 + 圆角：
+   border-collapse: collapse 下 WebKit 会忽略圆角，所以改用 separate；
+   外框 + border-radius 放在 table 上，overflow:hidden 把 th 背景裁进圆角；
+   单元格只画右、下内边框（末列/末行去掉），避免和外框叠成双线。 */
+.tiptap-editor table{
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--em-table-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.tiptap-editor table td,
+.tiptap-editor table th{
+    border-style: none;
+    border-right: 1px solid var(--em-table-border);
+    border-bottom: 1px solid var(--em-table-border);
+}
+
+.tiptap-editor table td:last-child,
+.tiptap-editor table th:last-child{
+    border-right: none;
+}
+
+.tiptap-editor table tr:last-child td,
+.tiptap-editor table tr:last-child th{
+    border-bottom: none;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) p.is-editor-empty:first-child::before,
@@ -158,6 +181,7 @@
 [data-theme-appearance='dark'] .markdown-content {
     color: #dbdbdb;
     background-color: #15171b;
+    --em-table-border: #3d434d;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h2,
@@ -190,13 +214,6 @@
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) hr,
 .tiptap-editor[data-theme-appearance='dark'] hr{
     border-top-color: #7878787e;
-}
-
-[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table td,
-.tiptap-editor[data-theme-appearance='dark'] table td,
-[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
-.tiptap-editor[data-theme-appearance='dark'] table th{
-    border-color: #959595;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
