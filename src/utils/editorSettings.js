@@ -23,6 +23,7 @@ export const defaultEditorSettings = {
     tabFontSize: 12,
     sidebarFontSize: 12,
     tocFontSize: 12,
+    autoSave: true,
 };
 
 function clamp(value, min, max) {
@@ -159,9 +160,19 @@ export function normalizeEditorSettings(candidate) {
                 prefs.tocFontSize = clamp(size, 9, 24);
             }
         }
+
+        if (candidate.autoSave !== undefined) {
+            prefs.autoSave = candidate.autoSave !== false;
+        }
     }
 
     return prefs;
+}
+
+// 给编辑器/SaveManager 查询用：autoSave 关掉时所有定时/隐式自动保存都不再触发。
+// 手动 cmd+S 走的是显式 saveCurrentFile，不经这里。
+export function isAutoSaveEnabled() {
+    return lastAppliedSettings.autoSave !== false;
 }
 
 export function loadEditorSettings() {

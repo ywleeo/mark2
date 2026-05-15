@@ -1,5 +1,6 @@
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
+import { isAutoSaveEnabled } from '../../utils/editorSettings.js';
 import { DEFAULT_AUTO_SAVE_DELAY, MIN_AUTO_SAVE_DELAY } from './constants.js';
 
 /**
@@ -66,6 +67,11 @@ export class SaveManager {
 
     scheduleAutoSave() {
         if (!this.autoSaveDelayMs || this.autoSaveDelayMs < 0) return;
+        // 设置里关掉了自动保存：取消已排队的，并不再续期
+        if (!isAutoSaveEnabled()) {
+            this.clearAutoSaveTimer();
+            return;
+        }
         this.clearAutoSaveTimer();
         const plannedSessionId = this.getCurrentSessionId();
         this.autoSavePlannedSessionId = plannedSessionId;
@@ -78,6 +84,8 @@ export class SaveManager {
     }
 
     async handleAutoSaveTrigger(targetSessionId = null) {
+        // 计时器到点才进来，再确认一次开关状态（用户可能在等待期内关掉了自动保存）
+        if (!isAutoSaveEnabled()) return;
         const sessionId = typeof targetSessionId === 'number'
             ? targetSessionId
             : this.getCurrentSessionId();

@@ -8,6 +8,7 @@ import {
     ensureMarkdownTrailingEmptyLine,
     shouldEnforceMarkdownTrailingEmptyLine,
 } from '../../utils/markdownFormatting.js';
+import { isAutoSaveEnabled } from '../../utils/editorSettings.js';
 import { resolveLanguageSupport } from './LanguageSupport.js';
 import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
 import {
@@ -776,6 +777,8 @@ export class CodeEditor {
     scheduleAutoSave() {
         if (this.autoSaveTimer) clearTimeout(this.autoSaveTimer);
         if (!this.isDirty || !this.currentFile) return;
+        // 用户在设置里关掉了自动保存：不排队、不写盘，全交给手动 cmd+S
+        if (!isAutoSaveEnabled()) return;
         // untitled 文件还没有磁盘路径，自动保存必然 ENOENT，跳过——等用户显式"另存为"拿到真实路径再说
         if (this.currentFile.startsWith('untitled://')) return;
         const sessionId = this.currentSessionId;
@@ -798,6 +801,8 @@ export class CodeEditor {
 
     async performAutoSave(sessionId = null) {
         if (!this.isDirty || !this.currentFile) return;
+        // 自动保存被关掉就直接返回（防御性兜底，正常情况 scheduleAutoSave 已拦截）
+        if (!isAutoSaveEnabled()) return;
         // untitled 文件无磁盘路径，跳过且不重新调度（防御性兜底，正常情况 scheduleAutoSave 已拦截）
         if (this.currentFile.startsWith('untitled://')) return;
         if (sessionId && !this.isSessionActive(sessionId)) return;

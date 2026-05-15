@@ -220,6 +220,7 @@
   "settings.tabFontSize": "頁籤字型大小",
   "settings.sidebarFontSize": "側邊欄字型大小",
   "settings.tocFontSize": "大綱字型大小",
+  "settings.autoSave": "自動儲存",
   "settings.defaultApp": "預設開啟方式",
   "settings.defaultAppSet": "設為預設",
   "settings.defaultAppAllSet": "已是預設",

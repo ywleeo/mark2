@@ -251,6 +251,53 @@
     box-sizing: border-box;
 }
 
+/* 轻量开关：细滑轨 + 小圆 knob，整体偏扁平、不抢戏。
+   appearance:none 抹掉原生 checkbox，::after 画 knob、transform 滑动。 */
+.settings-row__control--toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 0 auto;
+    position: relative;
+    width: 26px;
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 7px;
+    background: var(--settings-divider);
+    cursor: pointer;
+    transition: background 140ms ease;
+}
+
+.settings-row__control--toggle::after {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 140ms ease;
+}
+
+.settings-row__control--toggle:checked {
+    background: var(--settings-primary);
+}
+
+.settings-row__control--toggle:checked::after {
+    transform: translateX(12px);
+}
+
+.settings-row__control--toggle:focus-visible {
+    outline: 2px solid var(--settings-primary);
+    outline-offset: 2px;
+}
+
+:root[data-theme-appearance='dark'] .settings-row__control--toggle:checked::after {
+    background: var(--settings-primary-text);
+}
+
 .settings-row--default-app {
     flex-direction: column;
     align-items: stretch;

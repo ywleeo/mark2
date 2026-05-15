@@ -221,6 +221,7 @@
     "settings.tabFontSize": "标签页字号",
     "settings.sidebarFontSize": "侧边栏字号",
     "settings.tocFontSize": "大纲字号",
+    "settings.autoSave": "自动保存",
     "settings.defaultApp": "默认打开方式",
     "settings.defaultAppSet": "设为默认",
     "settings.defaultAppAllSet": "已是默认",

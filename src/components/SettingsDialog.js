@@ -109,6 +109,10 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.tocFontSize')}</span>
                                 <input type="number" name="tocFontSize" min="9" max="24" step="1" class="settings-row__control" />
                             </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.autoSave')}</span>
+                                <input type="checkbox" name="autoSave" class="settings-row__control settings-row__control--toggle" />
+                            </label>
                             ${isMac ? `
                             <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
                                 <span class="settings-row__label">${t('settings.defaultApp')}</span>
@@ -269,6 +273,7 @@ export class SettingsDialog {
         this.tabFontSizeInput = this.form.querySelector('input[name="tabFontSize"]');
         this.sidebarFontSizeInput = this.form.querySelector('input[name="sidebarFontSize"]');
         this.tocFontSizeInput = this.form.querySelector('input[name="tocFontSize"]');
+        this.autoSaveCheckbox = this.form.querySelector('input[name="autoSave"]');
 
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
@@ -463,6 +468,9 @@ export class SettingsDialog {
         if (this.tocFontSizeInput) {
             this.tocFontSizeInput.value = Number(editorPrefs.tocFontSize) || 12;
         }
+        if (this.autoSaveCheckbox) {
+            this.autoSaveCheckbox.checked = editorPrefs.autoSave !== false;
+        }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
         this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
@@ -627,6 +635,7 @@ export class SettingsDialog {
         const normalizedTabSize = Number.isFinite(tabFontSize) ? this.clamp(tabFontSize, 9, 24) : 12;
         const normalizedSidebarSize = Number.isFinite(sidebarFontSize) ? this.clamp(sidebarFontSize, 9, 24) : 12;
         const normalizedTocSize = Number.isFinite(tocFontSize) ? this.clamp(tocFontSize, 9, 24) : 12;
+        const autoSave = this.autoSaveCheckbox ? Boolean(this.autoSaveCheckbox.checked) : true;
 
         const sanitized = {
             theme: theme,
@@ -645,6 +654,7 @@ export class SettingsDialog {
             tabFontSize: normalizedTabSize,
             sidebarFontSize: normalizedSidebarSize,
             tocFontSize: normalizedTocSize,
+            autoSave,
         };
 
         // AI 助手设置
