@@ -21,15 +21,15 @@ Mark2 当前采用“核心 Manager + 装配层 + 业务模块 + UI 组件”的
 
 核心业务由以下 7 个 Manager 承接：
 
-| Manager | 职责 |
-| --- | --- |
-| `DocumentManager` | 文档身份、激活态、rename、dirty、保存目标路径 |
-| `WorkspaceManager` | open files、shared tab、sidebar 状态、workspace snapshot 持久化 |
-| `ViewManager` | 视图模式解析、renderer 分发、视图激活协议 |
-| `CommandManager` | 系统命令注册与执行 |
-| `KeybindingManager` | 快捷键与命令绑定 |
-| `FeatureManager` | AI、Terminal、Scratchpad、Card Export 等功能模块挂载 |
-| `ExportManager` | 图片、PDF 等导出能力 |
+| Manager             | 职责                                                            |
+| ------------------- | --------------------------------------------------------------- |
+| `DocumentManager`   | 文档身份、激活态、rename、dirty、保存目标路径                   |
+| `WorkspaceManager`  | open files、shared tab、sidebar 状态、workspace snapshot 持久化 |
+| `ViewManager`       | 视图模式解析、renderer 分发、视图激活协议                       |
+| `CommandManager`    | 系统命令注册与执行                                              |
+| `KeybindingManager` | 快捷键与命令绑定                                                |
+| `FeatureManager`    | AI、Terminal、Scratchpad、Card Export 等功能模块挂载            |
+| `ExportManager`     | 图片、PDF 等导出能力                                            |
 
 `AppState` 负责共享 UI 状态与兼容镜像状态。
 `navigationController`、`fileOperations`、`fileMenuActions` 等模块负责运行时事务协调。
@@ -111,23 +111,23 @@ src-tauri/
 
 目录分工如下：
 
-| 目录 | 说明 |
-| --- | --- |
-| `src/api/` | Tauri invoke 前端封装层 |
-| `src/core/` | 内核层，承接系统正式协议与真源 |
-| `src/app/` | 装配层，负责初始化顺序与模块连接 |
-| `src/config/` | 配置与 feature flags |
-| `src/components/` | 展示层与交互层 |
-| `src/extensions/` | TipTap 编辑器扩展 |
-| `src/features/` | 编辑器增强功能 |
-| `src/fileRenderers/` | 文件类型渲染扩展层 |
-| `src/i18n/` | 多语言（中文/英文） |
-| `src/modules/` | 业务模块与事务协调层 |
-| `src/renderer/` | 渲染层辅助 |
-| `src/services/` | 文件、权限等服务封装 |
-| `src/state/` | 共享状态与实例注册 |
-| `src/utils/` | 可复用工具与导出辅助逻辑 |
-| `src-tauri/` | Tauri/Rust 桌面能力层 |
+| 目录                 | 说明                             |
+| -------------------- | -------------------------------- |
+| `src/api/`           | Tauri invoke 前端封装层          |
+| `src/core/`          | 内核层，承接系统正式协议与真源   |
+| `src/app/`           | 装配层，负责初始化顺序与模块连接 |
+| `src/config/`        | 配置与 feature flags             |
+| `src/components/`    | 展示层与交互层                   |
+| `src/extensions/`    | TipTap 编辑器扩展                |
+| `src/features/`      | 编辑器增强功能                   |
+| `src/fileRenderers/` | 文件类型渲染扩展层               |
+| `src/i18n/`          | 多语言（中文/英文）              |
+| `src/modules/`       | 业务模块与事务协调层             |
+| `src/renderer/`      | 渲染层辅助                       |
+| `src/services/`      | 文件、权限等服务封装             |
+| `src/state/`         | 共享状态与实例注册               |
+| `src/utils/`         | 可复用工具与导出辅助逻辑         |
+| `src-tauri/`         | Tauri/Rust 桌面能力层            |
 
 ---
 

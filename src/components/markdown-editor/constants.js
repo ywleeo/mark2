@@ -10,6 +10,7 @@ export const TRAILING_PARAGRAPH_NODE_TYPES = new Set([
     'codeBlock',
     'table',
     'mermaidBlock',
+    'videoBlock',
     'htmlDiv',
     'horizontalRule',
 ]);

@@ -15,6 +15,7 @@ import { HtmlSpan, HtmlDiv, HtmlInline } from '../../extensions/HtmlSupport.js';
 import { CustomTaskItem } from '../../extensions/CustomTaskItem.js';
 import { MarkdownImage } from '../../utils/markdownPlugins.js';
 import { MermaidBlock } from '../../extensions/MermaidBlock.js';
+import { VideoBlock } from '../../extensions/VideoBlock.js';
 import { CsvTableNode } from '../../extensions/CsvTableNode.js';
 import { MathBlock, MathInline } from '../../extensions/MathBlock.js';
 import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
@@ -64,6 +65,7 @@ export function createEditorExtensions(lowlight) {
         TaskList,
         CustomTaskItem.configure({ nested: true }),
         MermaidBlock,
+        VideoBlock,
         CsvTableNode,
         MathBlock,
         MathInline,

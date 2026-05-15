@@ -293,6 +293,7 @@ export function createMarkdownParser(schema) {
     const codeBlockType = schema.nodes.codeBlock;
     const mermaidType = schema.nodes.mermaidBlock;
     const csvBlockType = schema.nodes.csvBlock;
+    const videoBlockType = schema.nodes.videoBlock;
     const hardBreakType = schema.nodes.hardBreak;
     const bulletListType = schema.nodes.bulletList;
     const taskListType = schema.nodes.taskList;
@@ -316,6 +317,12 @@ export function createMarkdownParser(schema) {
             }
             if (info === 'csv' && csvBlockType) {
                 state.addNode(csvBlockType, { csv: content });
+                return;
+            }
+            if (info === 'video' && videoBlockType) {
+                // body 当前只放一个 URL，多行就取首行非空；以后扩选项时再改
+                const firstLine = content.split(/\r?\n/).map(l => l.trim()).find(Boolean) || '';
+                state.addNode(videoBlockType, { src: firstLine, sourcepos: getSourcepos(tok) });
                 return;
             }
             state.openNode(codeBlockType, { language: info || null, sourcepos: getSourcepos(tok) });
@@ -698,6 +705,13 @@ export function createMarkdownSerializer(schema) {
             const csv = node.attrs?.csv || '';
             state.write('```csv\n');
             state.text(csv, false);
+            state.write('\n```');
+            state.closeBlock(node);
+        },
+        videoBlock(state, node) {
+            const src = node.attrs?.src || '';
+            state.write('```video\n');
+            state.text(src, false);
             state.write('\n```');
             state.closeBlock(node);
         },

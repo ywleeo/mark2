@@ -650,6 +650,8 @@ function sanitizeExportNode(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) {
         return node;
     }
+    // PDF / 卡片导出无法播视频，把 video-block 退化成可点击的链接
+    downgradeVideoBlocksForExport(node);
     const stack = [node];
     while (stack.length) {
         const current = stack.pop();
@@ -667,6 +669,22 @@ function sanitizeExportNode(node) {
         }
     }
     return node;
+}
+
+function downgradeVideoBlocksForExport(root) {
+    const blocks = Array.from(root.querySelectorAll('.video-block, [data-type="video-block"]'));
+    for (const block of blocks) {
+        const videoEl = block.querySelector('video');
+        const rawSrc = videoEl?.dataset?.originalSrc
+            || block.getAttribute('data-src')
+            || videoEl?.getAttribute('src')
+            || '';
+        const link = document.createElement('a');
+        link.className = 'video-block-fallback';
+        link.href = rawSrc || '#';
+        link.textContent = rawSrc ? `▶ 视频：${rawSrc}` : '▶ 视频（无源）';
+        block.replaceWith(link);
+    }
 }
 
 
