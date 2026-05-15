@@ -32,6 +32,53 @@ function getSourcepos(token) {
     return `${start + 1}:${end}`;
 }
 
+// 顶层 block 之间额外空行（用户在源码里特意留的视觉间距）按 markdown 语义会
+// 被合并成默认的一个空行。这里靠 markdown-it 给每个 block 留的 map 行号差，把多
+// 出来的空行还原成空的 paragraph token 注入到 token 流里，让 ProseMirror doc
+// 持有这些"空段落"节点；序列化时再把它们写回额外的 \n，做到 round-trip 幂等。
+//
+// 仅在顶层（level === 0）做。list / blockquote 内部的空行有自己的语义（loose
+// list / blockquote 续行），不能碰。
+function injectBlankLinePlaceholders(tokens) {
+    if (!Array.isArray(tokens) || tokens.length === 0) return tokens;
+    const TokenCtor = tokens[0].constructor;
+    if (!TokenCtor) return tokens;
+
+    const out = [];
+    let prevEndLine = -1;
+
+    for (const tok of tokens) {
+        // 顶层 block 起点：level=0，nesting >= 0（opener 或自闭合 token），带 map
+        const isTopBlockStart = tok.level === 0 && tok.nesting >= 0 && Array.isArray(tok.map);
+
+        if (isTopBlockStart) {
+            const startLine = tok.map[0];
+            // gap = startLine - prevEndLine（map[1] 是结束行的下一行，所以 gap == 中间空行数）
+            // 默认 markdown 段落分隔已经隐含一个空行，多出来 (gap - 1) 个才需要补
+            if (prevEndLine >= 0 && startLine > prevEndLine) {
+                const extra = startLine - prevEndLine - 1;
+                for (let j = 0; j < extra; j += 1) {
+                    const open = new TokenCtor('paragraph_open', 'p', 1);
+                    open.block = true;
+                    const inline = new TokenCtor('inline', '', 0);
+                    inline.content = '';
+                    inline.children = [];
+                    inline.block = true;
+                    inline.level = 1;
+                    const close = new TokenCtor('paragraph_close', 'p', -1);
+                    close.block = true;
+                    out.push(open, inline, close);
+                }
+            }
+            prevEndLine = tok.map[1];
+        }
+
+        out.push(tok);
+    }
+
+    return out;
+}
+
 function createMarkdownTokenizer() {
     const md = new MarkdownIt({
         html: true,
@@ -155,6 +202,10 @@ function applyMarksToInline(node, marks) {
 
 export function createMarkdownParser(schema) {
     const tokenizer = createMarkdownTokenizer();
+    // 包一层 tokenizer.parse：拿到原 token 流后，按行号差注入"空段落"占位 token，
+    // 让顶层 block 之间的多余空行能进 doc。MarkdownParser 内部正是调 tokenizer.parse。
+    const origTokenizeParse = tokenizer.parse.bind(tokenizer);
+    tokenizer.parse = (src, env) => injectBlankLinePlaceholders(origTokenizeParse(src, env));
     const hasMark = (name) => Boolean(schema.marks && schema.marks[name]);
     const tokens = {
         blockquote: { block: 'blockquote', getAttrs: tok => ({ sourcepos: getSourcepos(tok) }) },
@@ -547,7 +598,21 @@ export function createMarkdownSerializer(schema) {
         blockquote(state, node) {
             state.wrapBlock('> ', null, node, () => state.renderContent(node));
         },
-        paragraph(state, node) {
+        paragraph(state, node, parent, index) {
+            // 顶层的空段落是 parser 为保留多余空行注入的占位节点：把它写成额外
+            // 的换行而不是常规 paragraph，否则相邻 closeBlock 会被合并成单个空行。
+            // 仅在 doc 直接子节点上生效；列表/引用内部的空段落不参与。
+            // 结尾空段落（TrailingParagraphManager 加的）也不动，保持现有写盘行为。
+            const isTopEmpty = node.content.size === 0
+                && parent
+                && parent.type?.name === 'doc'
+                && typeof index === 'number'
+                && index < parent.childCount - 1;
+            if (isTopEmpty) {
+                state.flushClose(2);
+                state.out += '\n';
+                return;
+            }
             state.renderInline(node);
             state.closeBlock(node);
         },
