@@ -58,6 +58,17 @@ export class ToolbarPlainMarkdownHandlers {
         }
     }
 
+    /**
+     * 设置标题级别（幂等，供工具栏标题下拉使用）
+     * @param {number} level - 0 表示正文，1-6 表示标题级别
+     */
+    setHeading(level) {
+        const { selection, line } = this.getSelectedText();
+        const stripped = line.replace(/^#{1,6}\s/, '');
+        const newLine = level ? '#'.repeat(level) + ' ' + stripped : stripped;
+        this.replaceLine(newLine, selection);
+    }
+
     togglePrefix(prefix) {
         const { selection, line } = this.getSelectedText();
         if (line.startsWith(prefix)) {
@@ -71,29 +82,73 @@ export class ToolbarPlainMarkdownHandlers {
 
     // --- 插入 ---
     insertLink() {
-        const { selectedText, selection } = this.getSelectedText();
-        const text = selectedText || '链接文本';
-        const link = `[${text}](url)`;
+        void this._runLinkDialog();
+    }
 
+    async _runLinkDialog() {
+        const [{ showLinkDialog }, { getCurrentDirectory }] = await Promise.all([
+            import('./InsertDialogs.js'),
+            import('../../utils/imageResolver.js'),
+        ]);
+        const currentFile = this.toolbar?.options?.getCurrentFilePath?.() || null;
+        const currentDir = currentFile ? getCurrentDirectory(currentFile) : null;
+        const { selectedText, selection } = this.getSelectedText();
+        const result = await showLinkDialog({ text: selectedText || '', currentDir });
+        if (!result || !result.url) {
+            return;
+        }
+        const link = `[${result.text || result.url}](${result.url})`;
         if (selectedText) {
             this.replaceSelection(link, selection);
         } else {
             this.insertTextAtCursor(link);
-            this.selectUrl();
         }
+        this.editor?.focus?.();
     }
 
     insertImage() {
-        const { selectedText, selection } = this.getSelectedText();
-        const alt = selectedText || '图片描述';
-        const image = `![${alt}](image-url)`;
+        void this._runImageDialog();
+    }
 
+    async _runImageDialog() {
+        const [{ showImageDialog }, { getCurrentDirectory }] = await Promise.all([
+            import('./InsertDialogs.js'),
+            import('../../utils/imageResolver.js'),
+        ]);
+        const currentFile = this.toolbar?.options?.getCurrentFilePath?.() || null;
+        const currentDir = currentFile ? getCurrentDirectory(currentFile) : null;
+        const { selectedText, selection } = this.getSelectedText();
+
+        const result = await showImageDialog({ alt: selectedText || '', currentDir });
+        if (!result || !result.url) {
+            return;
+        }
+        const image = `![${result.alt || ''}](${result.url})`;
         if (selectedText) {
             this.replaceSelection(image, selection);
         } else {
             this.insertTextAtCursor(image);
-            this.selectImageUrl();
         }
+        this.editor?.focus?.();
+    }
+
+    insertVideo() {
+        void this._runVideoDialog();
+    }
+
+    async _runVideoDialog() {
+        const [{ showVideoDialog }, { getCurrentDirectory }] = await Promise.all([
+            import('./InsertDialogs.js'),
+            import('../../utils/imageResolver.js'),
+        ]);
+        const currentFile = this.toolbar?.options?.getCurrentFilePath?.() || null;
+        const currentDir = currentFile ? getCurrentDirectory(currentFile) : null;
+        const result = await showVideoDialog({ currentDir });
+        if (!result || !result.url) {
+            return;
+        }
+        this.insertTextAtCursor(`\n\`\`\`video\n${result.url}\n\`\`\`\n`);
+        this.editor?.focus?.();
     }
 
     insertTable() {
@@ -344,67 +399,4 @@ export class ToolbarPlainMarkdownHandlers {
         }
     }
 
-    selectUrl() {
-        setTimeout(() => {
-            const editor = this.editor;
-            if (!editor) return;
-
-            if (typeof editor.state !== 'undefined' && typeof editor.commands !== 'undefined') {
-                const { selection } = this.getSelectedText();
-                const text = editor.state.doc.textBetween(selection.from, selection.to);
-                const openParenIndex = text.indexOf('(');
-                const closeParenIndex = text.indexOf(')');
-
-                if (openParenIndex !== -1 && closeParenIndex !== -1) {
-                    const from = selection.from + openParenIndex + 1;
-                    const to = selection.from + closeParenIndex;
-                    editor.commands.setTextSelection({ from, to });
-                }
-            } else if (typeof editor.setSelectionRange === 'function') {
-                const { selection } = this.getSelectedText();
-                const text = editor.value.substring(selection.from, selection.to);
-                const openParenIndex = text.indexOf('(');
-                const closeParenIndex = text.indexOf(')');
-
-                if (openParenIndex !== -1 && closeParenIndex !== -1) {
-                    const from = selection.from + openParenIndex + 1;
-                    const to = selection.from + closeParenIndex;
-                    editor.setSelectionRange(from, to);
-                }
-            }
-        }, 0);
-    }
-
-    selectImageUrl() {
-        setTimeout(() => {
-            const editor = this.editor;
-            if (!editor) return;
-
-            if (typeof editor.state !== 'undefined' && typeof editor.commands !== 'undefined') {
-                const { selection } = this.getSelectedText();
-                const text = editor.state.doc.textBetween(selection.from, selection.to);
-                const bracketIndex = text.indexOf('[');
-                const linkStartIndex = text.indexOf('](');
-                const closeParenIndex = text.indexOf(')');
-
-                if (bracketIndex !== -1 && linkStartIndex !== -1 && closeParenIndex !== -1) {
-                    const from = selection.from + linkStartIndex + 2;
-                    const to = selection.from + closeParenIndex;
-                    editor.commands.setTextSelection({ from, to });
-                }
-            } else if (typeof editor.setSelectionRange === 'function') {
-                const { selection } = this.getSelectedText();
-                const text = editor.value.substring(selection.from, selection.to);
-                const bracketIndex = text.indexOf('[');
-                const linkStartIndex = text.indexOf('](');
-                const closeParenIndex = text.indexOf(')');
-
-                if (bracketIndex !== -1 && linkStartIndex !== -1 && closeParenIndex !== -1) {
-                    const from = selection.from + linkStartIndex + 2;
-                    const to = selection.from + closeParenIndex;
-                    editor.setSelectionRange(from, to);
-                }
-            }
-        }, 0);
-    }
 }

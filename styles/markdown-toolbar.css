@@ -1,15 +1,214 @@
+/* ===== 应用级固定工具栏 ===== */
+
+/* 外层容器：content-wrapper 的 flex 子项，由 .is-visible 控制显隐 */
+.md-toolbar {
+    flex: 0 0 auto;
+    display: none;
+    box-sizing: border-box;
+}
+
+.md-toolbar.is-visible {
+    display: block;
+}
+
+/* 工具栏主体：定高、不换行、底部分隔线 */
 .markdown-toolbar {
     display: flex;
     align-items: center;
     width: 100%;
+    height: 36px;
     box-sizing: border-box;
-    padding: 8px 12px;
-    backdrop-filter: blur(8px);
-    /* background: var(--toolbar-bg, #f8f9fa); */
-    border: 1px solid var(--toolbar-border, #e0e0e0);
-    border-radius: 6px;
-    flex-wrap: wrap;
+    padding: 0 6px;
+    gap: 2px;
+    background: var(--toolbar-bg, #f8f9fc);
+    border-bottom: 1px solid var(--toolbar-border, #e0e0e0);
     user-select: none;
+}
+
+/* 左侧格式化区：按内容宽度排布、不撑满；窗口变窄时才压缩 */
+.markdown-toolbar__left {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+    gap: 2px;
+}
+
+/* 固定区：行内格式 + 标题下拉，不压缩 */
+.markdown-toolbar__fixed {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 2px;
+}
+
+/* 流动区：空间不足时按钮被裁切，由 JS 收进溢出菜单 */
+.markdown-toolbar__flow {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+    gap: 2px;
+    overflow: hidden;
+}
+
+/* 右侧视图操作区：不压缩，与左侧用竖线分隔 */
+.markdown-toolbar__right {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 2px;
+    margin-left: 4px;
+    padding-left: 6px;
+    border-left: 1px solid var(--separator-color, rgba(15, 23, 42, 0.12));
+}
+
+/* 工具栏内的按钮/分隔符不参与挤压 */
+.markdown-toolbar .toolbar-button,
+.markdown-toolbar .toolbar-separator {
+    flex: 0 0 auto;
+}
+
+/* 下拉选择器 trigger（双 class 提高特异性，覆盖 .toolbar-button 的固定宽度） */
+.toolbar-button.toolbar-select {
+    width: auto;
+    min-width: 32px;
+    padding: 0 4px;
+    gap: 1px;
+}
+
+.toolbar-select__arrow {
+    opacity: 0.55;
+}
+
+/* 下拉选择器 / 溢出菜单的浮层 */
+.toolbar-select-panel,
+.toolbar-overflow-panel {
+    position: fixed;
+    z-index: 1400;
+    display: none;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 4px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.16);
+    color: #1f2937;
+}
+
+.toolbar-select-panel.is-open,
+.toolbar-overflow-panel.is-open {
+    display: flex;
+}
+
+.toolbar-select-panel {
+    min-width: 140px;
+}
+
+.toolbar-overflow-panel {
+    min-width: 184px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* 浮层内的可点项 */
+.toolbar-select-panel__item,
+.toolbar-overflow-panel__item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    font-family: inherit;
+    gap: 8px;
+}
+
+.toolbar-select-panel__item:hover,
+.toolbar-overflow-panel__item:hover {
+    background: rgba(15, 23, 42, 0.07);
+}
+
+/* 标题下拉项：用字号体现层级 */
+.toolbar-select-panel__item--h0 { font-size: 13px; }
+.toolbar-select-panel__item--h1 { font-size: 19px; font-weight: 700; }
+.toolbar-select-panel__item--h2 { font-size: 16px; font-weight: 700; }
+.toolbar-select-panel__item--h3 { font-size: 14px; font-weight: 600; }
+
+/* 下拉项图标（列表等带图标的项） */
+.toolbar-select-panel__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.toolbar-select-panel__icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.toolbar-select-panel__label {
+    flex: 1 1 auto;
+}
+
+/* 溢出菜单项：图标 + 文字 */
+.toolbar-overflow-panel__item {
+    gap: 10px;
+    font-size: 13px;
+}
+
+.toolbar-overflow-panel__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.toolbar-overflow-panel__icon svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.toolbar-overflow-panel__label {
+    flex: 1 1 auto;
+}
+
+.toolbar-overflow-panel__sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: rgba(15, 23, 42, 0.1);
+}
+
+/* 浮层深色模式 */
+:root[data-theme-appearance='dark'] .toolbar-select-panel,
+:root[data-theme-appearance='dark'] .toolbar-overflow-panel {
+    background: #2a2a2e;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    color: #e4e4e7;
+}
+
+:root[data-theme-appearance='dark'] .toolbar-select-panel__item:hover,
+:root[data-theme-appearance='dark'] .toolbar-overflow-panel__item:hover {
+    background: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-theme-appearance='dark'] .toolbar-overflow-panel__sep {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .view-pane.markdown-pane {
@@ -64,29 +263,6 @@
 
 .view-pane.markdown-pane > * {
     flex-shrink: 0;
-}
-
-.markdown-toolbar-container {
-    position: sticky;
-    top: 0;
-    padding: .2em;
-    z-index: 50;
-    display: flex;
-    width: auto;
-    flex-direction: column;
-    align-items: stretch;
-}
-
-.markdown-toolbar-container--light {
-    /* background: rgba(248, 249, 250, 0.95); */
-    /* backdrop-filter: blur(8px); */
-    /* box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08); */
-}
-
-.markdown-toolbar-container--dark {
-    /* background: rgba(28, 28, 28, 0.95); */
-    /* box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); */
-    /* backdrop-filter: blur(8px); */
 }
 
 .markdown-toolbar--light {
@@ -433,4 +609,148 @@
 .markdown-toolbar--dark .toolbar-button--active {
     background: var(--button-active-bg, rgba(255, 255, 255, 0.16));
     color: var(--button-hover-color, #fff);
+}
+
+/* ===== 链接 / 图片插入对话框 ===== */
+.tb-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.tb-dialog {
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    padding: 18px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+    color: #1f2937;
+}
+
+.tb-dialog__title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.tb-dialog__field {
+    margin-bottom: 12px;
+}
+
+.tb-dialog__label {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: #64748b;
+}
+
+.tb-dialog__input-row {
+    display: flex;
+    gap: 6px;
+}
+
+.tb-dialog__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 7px 9px;
+    font-size: 13px;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    border-radius: 6px;
+    background: #ffffff;
+    color: inherit;
+    outline: none;
+}
+
+.tb-dialog__input:focus {
+    border-color: #6be275;
+    box-shadow: 0 0 0 2px rgba(107, 226, 117, 0.25);
+}
+
+.tb-dialog__browse {
+    flex: 0 0 auto;
+    padding: 0 12px;
+    font-size: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: inherit;
+    cursor: pointer;
+}
+
+.tb-dialog__browse:hover {
+    background: #e2e8f0;
+}
+
+.tb-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.tb-dialog__btn {
+    padding: 6px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+
+.tb-dialog__btn--cancel {
+    background: transparent;
+    border-color: rgba(15, 23, 42, 0.18);
+    color: inherit;
+}
+
+.tb-dialog__btn--cancel:hover {
+    background: rgba(15, 23, 42, 0.05);
+}
+
+.tb-dialog__btn--confirm {
+    background: #6be275;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.tb-dialog__btn--confirm:hover {
+    background: #57d063;
+}
+
+/* 对话框深色模式 */
+:root[data-theme-appearance='dark'] .tb-dialog {
+    background: #2a2a2e;
+    color: #e4e4e7;
+}
+
+:root[data-theme-appearance='dark'] .tb-dialog__label {
+    color: #94a3b8;
+}
+
+:root[data-theme-appearance='dark'] .tb-dialog__input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme-appearance='dark'] .tb-dialog__browse {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme-appearance='dark'] .tb-dialog__browse:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-theme-appearance='dark'] .tb-dialog__btn--cancel {
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+:root[data-theme-appearance='dark'] .tb-dialog__btn--cancel:hover {
+    background: rgba(255, 255, 255, 0.08);
 }

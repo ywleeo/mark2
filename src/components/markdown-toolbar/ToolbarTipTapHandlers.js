@@ -83,9 +83,22 @@ export class ToolbarTipTapHandlers {
                 return this.clearFormatting();
             case 'emoji':
                 return this.toolbar.handleEmojiPicker();
+            case 'video':
+                return this.handleVideo();
             default:
                 return false;
         }
+    }
+
+    /**
+     * 设置标题级别（幂等，供工具栏标题下拉使用）
+     * @param {number} level - 0 表示正文，1-6 表示标题级别
+     */
+    applyHeading(level) {
+        if (!level) {
+            return this.runCommand(chain => chain.setParagraph(), { blockedNodes: ['mermaidBlock'] });
+        }
+        return this.runCommand(chain => chain.setHeading({ level }), { blockedNodes: ['mermaidBlock'] });
     }
 
     handleCodeAsBlock() {
@@ -148,35 +161,128 @@ export class ToolbarTipTapHandlers {
         if (!this.isEditor()) {
             return false;
         }
-        const currentHref = this.editor.getAttributes?.('link')?.href || '';
-        const url = window.prompt('请输入链接地址', currentHref || 'https://');
-        if (url === null) {
-            return false;
-        }
-        const trimmed = url.trim();
-        if (!trimmed) {
-            this.editor.chain().focus().extendMarkRange('link').unsetLink().run();
-            return true;
-        }
-        this.editor.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run();
+        void this._runLinkDialog();
         return true;
     }
 
+    async _runLinkDialog() {
+        const [{ showLinkDialog }, { getCurrentDirectory }] = await Promise.all([
+            import('./InsertDialogs.js'),
+            import('../../utils/imageResolver.js'),
+        ]);
+        const currentFile = this.toolbar?.options?.getCurrentFilePath?.() || null;
+        const currentDir = currentFile ? getCurrentDirectory(currentFile) : null;
+        const { state } = this.editor;
+        const { from, to, empty } = state.selection;
+        const hasSelection = !empty;
+        const selectedText = hasSelection ? state.doc.textBetween(from, to, ' ') : '';
+        const currentHref = this.editor.getAttributes?.('link')?.href || '';
+
+        const result = await showLinkDialog({ url: currentHref, text: selectedText, currentDir });
+        if (!result) {
+            return;
+        }
+        if (!result.url) {
+            // 清空地址：若光标停在链接上则移除链接
+            if (currentHref) {
+                this.editor.chain().focus().extendMarkRange('link').unsetLink().run();
+            }
+            return;
+        }
+
+        const { url, text } = result;
+        if (hasSelection && (!text || text === selectedText)) {
+            // 有选区且未改文字：直接给选中文字加链接
+            this.editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+        } else {
+            // 无选区，或用户改了文字：插入一段带链接的文字
+            this.editor.chain().focus()
+                .insertContent({ type: 'text', text: text || url, marks: [{ type: 'link', attrs: { href: url } }] })
+                .run();
+        }
+    }
+
     handleImage() {
-        if (!this.isEditor() || typeof this.editor.commands?.setImage !== 'function') {
+        if (!this.isEditor()) {
             return false;
         }
-        const src = window.prompt('请输入图片地址', 'https://');
-        if (!src) {
-            return false;
-        }
-        const alt = window.prompt('请输入图片描述', '图片描述') || '';
-        this.editor.chain().focus().setImage({
-            src: src.trim(),
-            alt: alt.trim(),
-            title: alt.trim(),
-        }).run();
+        void this._runImageDialog();
         return true;
+    }
+
+    async _runImageDialog() {
+        const [{ showImageDialog }, imageResolver] = await Promise.all([
+            import('./InsertDialogs.js'),
+            import('../../utils/imageResolver.js'),
+        ]);
+        const {
+            getCurrentDirectory, resolveImagePath, isExternalImageSrc,
+            readBinaryFromFs, createImageObjectUrl, registerImageObjectUrl,
+        } = imageResolver;
+        const currentFile = this.toolbar?.options?.getCurrentFilePath?.() || null;
+        const currentDir = currentFile ? getCurrentDirectory(currentFile) : null;
+
+        const result = await showImageDialog({ currentDir });
+        if (!result || !result.url) {
+            return;
+        }
+
+        // 本地图片需读成 objectUrl 才能在所见即所得编辑器里即时显示；
+        // dataOriginalSrc 保留原路径，供 Markdown 序列化与下次加载时解析。
+        const { url, alt } = result;
+        let displaySrc = url;
+        if (!isExternalImageSrc(url)) {
+            const absPath = resolveImagePath(url, currentFile);
+            if (absPath) {
+                try {
+                    const binary = await readBinaryFromFs(absPath, { requestAccessOnError: true });
+                    const objectUrl = createImageObjectUrl(binary, absPath);
+                    if (objectUrl) {
+                        registerImageObjectUrl(objectUrl);
+                        displaySrc = objectUrl;
+                    }
+                } catch (error) {
+                    console.error('读取本地图片失败:', error);
+                }
+            }
+        }
+
+        this.editor.chain().focus().insertContent({
+            type: 'image',
+            attrs: {
+                src: displaySrc,
+                alt: alt || null,
+                title: alt || null,
+                dataOriginalSrc: url,
+            },
+        }).run();
+    }
+
+    handleVideo() {
+        if (!this.isEditor()) {
+            return false;
+        }
+        void this._runVideoDialog();
+        return true;
+    }
+
+    async _runVideoDialog() {
+        const [{ showVideoDialog }, { getCurrentDirectory }] = await Promise.all([
+            import('./InsertDialogs.js'),
+            import('../../utils/imageResolver.js'),
+        ]);
+        const currentFile = this.toolbar?.options?.getCurrentFilePath?.() || null;
+        const currentDir = currentFile ? getCurrentDirectory(currentFile) : null;
+
+        const result = await showVideoDialog({ currentDir });
+        if (!result || !result.url) {
+            return;
+        }
+        // videoBlock 是块级节点，src 由 NodeView 自行解析（相对路径 / URL 均可）
+        this.editor.chain().focus().insertContent({
+            type: 'videoBlock',
+            attrs: { src: result.url },
+        }).run();
     }
 
     handleTable() {

@@ -450,6 +450,7 @@ export function createAppBootstrap({
         const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
             getEditorRegistry: () => editorRegistry,
+            getCurrentFilePath: () => appState.getCurrentFile(),
         });
         appState.setMarkdownToolbarManager(markdownToolbarManager);
         markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);

@@ -26,6 +26,7 @@ export class MarkdownToolbarManager {
         this.onToggleViewMode = options.onToggleViewMode || null;
         this.onCardExport = options.onCardExport || null;
         this._getEditorRegistry = options.getEditorRegistry || null;
+        this._getCurrentFilePath = options.getCurrentFilePath || null;
 
         // 从设置中加载工具栏可见性
         this.loadVisibility();
@@ -56,39 +57,11 @@ export class MarkdownToolbarManager {
         // 创建工具栏容器
         this.createContainer();
 
-        // 创建工具栏实例
+        // 创建工具栏实例（按钮布局见 toolbarConfig 的 TOOLBAR_GROUPS）
         this.toolbar = new MarkdownToolbar({
             position: 'top',
             theme: this.getTheme(),
-            buttons: [
-                'bold',
-                'italic',
-                'strikethrough',
-                'separator',
-                'heading1',
-                'heading2',
-                'heading3',
-                'separator',
-                'quote',
-                'code',
-                'codeBlock',
-                'separator',
-                'unorderedList',
-                'orderedList',
-                'taskList',
-                'separator',
-                'link',
-                'image',
-                'table',
-                'horizontalRule',
-                'separator',
-                'clearFormatting',
-                'emoji',
-                'separator',
-                'centerContent',
-                'copyMarkdown',
-                'toggleViewMode'
-            ]
+            getCurrentFilePath: this._getCurrentFilePath,
         });
 
         // 设置编辑器
@@ -96,7 +69,6 @@ export class MarkdownToolbarManager {
 
         // 渲染工具栏
         this.toolbar.render(this.container);
-        this.updateContainerTheme(this.toolbar.options.theme);
 
         // 设置初始可见性
         if (!this.isVisible) {
@@ -258,78 +230,13 @@ export class MarkdownToolbarManager {
     }
 
     /**
-     * 创建工具栏容器
+     * 绑定工具栏容器（应用级固定栏，静态存在于 index.html）
      */
     createContainer() {
-        // console.log('MarkdownToolbarManager: createContainer called');
-
-        // 查找合适的容器位置
-        const editorContainer = this.findEditorContainer();
-
-        // console.log('MarkdownToolbarManager: editorContainer found', editorContainer);
-
-        if (editorContainer) {
-            this.container = document.createElement('div');
-            this.container.className = 'markdown-toolbar-container';
-
-            // 插入到编辑器容器之前
-            editorContainer.parentNode.insertBefore(this.container, editorContainer);
-            // console.log('MarkdownToolbarManager: toolbar container inserted');
-        } else {
-            console.warn('Could not find editor container');
+        this.container = document.getElementById('markdownToolbar');
+        if (!this.container) {
+            console.warn('MarkdownToolbarManager: 未找到 #markdownToolbar 容器');
         }
-    }
-
-    /**
-     * 查找编辑器容器
-     */
-    findEditorContainer() {
-        // 根据编辑器类型查找容器
-        if (this.editorType === 'tiptap') {
-            // 优先使用 markdown 内容容器，确保工具栏插入在外层 padding 之外
-            const markdownContent = document.querySelector('.markdown-pane .markdown-content');
-            if (markdownContent) {
-                return markdownContent;
-            }
-            // 回退到 TipTap 宿主
-            const tiptapEditor = document.querySelector('[data-markdown-editor-host]') ||
-                document.querySelector('.tiptap-editor');
-            if (tiptapEditor) {
-                return tiptapEditor;
-            }
-        } else if (this.editorType === 'codemirror') {
-            // 查找 Code Editor 容器
-            const codeEditorPane = document.querySelector('.code-editor-pane');
-            if (codeEditorPane) {
-                const editorInstance = codeEditorPane.querySelector('.code-editor__instance');
-                if (editorInstance) {
-                    return editorInstance;
-                }
-            }
-
-            // 备用方案：查找 CodeMirror 编辑器
-            const cmEditor = document.querySelector('.cm-editor');
-            if (cmEditor) {
-                return cmEditor;
-            }
-        }
-
-        // 通用查找 - 尝试更多选择器
-        let container = document.querySelector('[data-editor-container]') ||
-                     document.querySelector('.editor') ||
-                     document.querySelector('.markdown-editor') ||
-                     document.querySelector('#markdownPane') ||
-                     document.querySelector('.markdown-pane');
-
-        // 如果还是找不到，尝试查找任何包含 ProseMirror 或编辑器的元素
-        if (!container) {
-            const proseMirror = document.querySelector('.ProseMirror');
-            if (proseMirror) {
-                container = proseMirror.closest('.editor, .markdown-editor, .pane, div');
-            }
-        }
-
-        return container;
     }
 
     /**
@@ -349,7 +256,6 @@ export class MarkdownToolbarManager {
         // 监听主题变化
         this.toolbar.on('theme-change', (theme) => {
             this.saveTheme(theme);
-            this.updateContainerTheme(theme);
         });
 
         // 监听工具栏动作
@@ -455,7 +361,6 @@ export class MarkdownToolbarManager {
     setTheme(theme) {
         if (this.toolbar) {
             this.toolbar.setTheme(theme);
-            this.updateContainerTheme(theme);
         }
     }
 
@@ -516,8 +421,10 @@ export class MarkdownToolbarManager {
             this.toolbar = null;
         }
 
-        if (this.container && this.container.parentNode) {
-            this.container.parentNode.removeChild(this.container);
+        // #markdownToolbar 是静态容器，仅清空内容、不移除节点
+        if (this.container) {
+            this.container.innerHTML = '';
+            this.container.classList.remove('is-visible');
             this.container = null;
         }
 
@@ -535,16 +442,10 @@ export class MarkdownToolbarManager {
      */
     updateEditor(editorInstance, editorType) {
         if (this.toolbar && editorInstance) {
-            const typeChanged = this.editorType !== editorType;
             this.editorType = editorType;
             this.rawEditorInstance = editorInstance;
             this.editorInstance = this.resolveEditorInstance(editorInstance, editorType);
             this.toolbar.setEditor(this.getEditorProxy());
-
-            // 如果编辑器类型改变，需要重新定位容器
-            if (typeChanged && this.container) {
-                this.relocateContainer();
-            }
         }
     }
 
@@ -563,43 +464,6 @@ export class MarkdownToolbarManager {
         if (this.toolbar) {
             this.toolbar.handleToc();
         }
-    }
-
-    /**
-     * 重新定位工具栏容器到正确的编辑器位置
-     */
-    relocateContainer() {
-        if (!this.container) {
-            return;
-        }
-
-        // 从 DOM 中移除当前容器
-        const oldParent = this.container.parentNode;
-        if (oldParent) {
-            oldParent.removeChild(this.container);
-        }
-
-        // 查找新的编辑器容器位置
-        const editorContainer = this.findEditorContainer();
-        if (editorContainer && editorContainer.parentNode) {
-            // 重新插入到新位置
-            editorContainer.parentNode.insertBefore(this.container, editorContainer);
-        } else {
-            console.warn('MarkdownToolbarManager: could not relocate container, editor container not found');
-            // 如果找不到新位置，尝试放回原位
-            if (oldParent) {
-                oldParent.appendChild(this.container);
-            }
-        }
-    }
-
-    updateContainerTheme(theme) {
-        if (!this.container) {
-            return;
-        }
-        const isDark = theme === 'dark';
-        this.container.classList.remove('markdown-toolbar-container--dark', 'markdown-toolbar-container--light');
-        this.container.classList.add(isDark ? 'markdown-toolbar-container--dark' : 'markdown-toolbar-container--light');
     }
 
     /**

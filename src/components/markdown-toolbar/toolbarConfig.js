@@ -159,31 +159,93 @@ export const BUTTON_CONFIG = {
             <rect x="8" y="8" width="8" height="8" rx="1"></rect>
         </svg>`,
         title: t('toolbar.centerContent')
+    },
+    heading: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5,4V7H10.5V19H13.5V7H19V4H5Z" />
+        </svg>`,
+        title: t('toolbar.heading')
+    },
+    list: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="4" cy="6" r="2.2" />
+            <circle cx="4" cy="12" r="2.2" />
+            <circle cx="4" cy="18" r="2.2" />
+            <path d="M8,5H21V7H8V5M8,11H21V13H8V11M8,17H21V19H8V17Z" />
+        </svg>`,
+        title: t('toolbar.list')
+    },
+    insert: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
+        </svg>`,
+        title: t('toolbar.insert')
+    },
+    video: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" />
+        </svg>`,
+        title: t('toolbar.video')
     }
 };
 
 /**
- * 默认工具栏按钮列表
+ * 工具栏布局分组
+ * - fixed：左侧固定区，始终可见，不参与溢出收纳
+ * - flow：左侧流动区，空间不足时从右往左收进「更多」菜单
+ * - right：右侧视图操作区，始终可见
+ * 每个内层数组是一个按钮组，组与组之间渲染分隔符；'heading' 渲染为标题下拉。
  */
-export const DEFAULT_BUTTONS = [
-    'bold',
-    'italic',
-    'strikethrough',
-    'heading1',
-    'heading2',
-    'heading3',
-    'code',
-    'quote',
-    'unorderedList',
-    'orderedList',
-    'taskList',
-    'link',
-    'image',
-    'table',
-    'horizontalRule',
-    'codeBlock',
-    'clearFormatting',
-    'emoji',
-    'separator',
-    'toggleViewMode'
-];
+export const TOOLBAR_GROUPS = {
+    fixed: [
+        ['bold', 'italic', 'strikethrough', 'code'],
+        ['heading', 'list', 'insert'],
+    ],
+    flow: [
+        ['quote', 'codeBlock'],
+        ['clearFormatting'],
+    ],
+    right: ['centerContent', 'copyMarkdown', 'toggleViewMode'],
+};
+
+/**
+ * 下拉选择器配置：把一组互斥操作收进下拉（标题、列表）。
+ * 'heading'/'list' 在 TOOLBAR_GROUPS 中作为特殊项，渲染为下拉而非按钮。
+ * onSelect 回调由 MarkdownToolbar 在渲染时注入。
+ */
+export const SELECT_CONFIGS = {
+    heading: {
+        dataAction: 'heading',
+        icon: BUTTON_CONFIG.heading.icon,
+        ariaLabel: t('toolbar.heading'),
+        items: [
+            { value: 0, label: t('toolbar.paragraph'), itemClass: 'toolbar-select-panel__item--h0' },
+            { value: 1, label: t('toolbar.heading1'), itemClass: 'toolbar-select-panel__item--h1' },
+            { value: 2, label: t('toolbar.heading2'), itemClass: 'toolbar-select-panel__item--h2' },
+            { value: 3, label: t('toolbar.heading3'), itemClass: 'toolbar-select-panel__item--h3' },
+        ],
+    },
+    list: {
+        dataAction: 'list',
+        icon: BUTTON_CONFIG.list.icon,
+        ariaLabel: t('toolbar.list'),
+        items: [
+            { value: 'unorderedList', label: t('toolbar.unorderedList'), iconHtml: BUTTON_CONFIG.unorderedList.icon },
+            { value: 'orderedList', label: t('toolbar.orderedList'), iconHtml: BUTTON_CONFIG.orderedList.icon },
+            { value: 'taskList', label: t('toolbar.taskList'), iconHtml: BUTTON_CONFIG.taskList.icon },
+        ],
+    },
+    insert: {
+        dataAction: 'insert',
+        icon: BUTTON_CONFIG.insert.icon,
+        ariaLabel: t('toolbar.insert'),
+        items: [
+            { value: 'link', label: t('toolbar.link'), iconHtml: BUTTON_CONFIG.link.icon },
+            { value: 'image', label: t('toolbar.image'), iconHtml: BUTTON_CONFIG.image.icon },
+            { value: 'video', label: t('toolbar.video'), iconHtml: BUTTON_CONFIG.video.icon },
+            { value: 'table', label: t('toolbar.table'), iconHtml: BUTTON_CONFIG.table.icon },
+            { value: 'horizontalRule', label: t('toolbar.horizontalRule'), iconHtml: BUTTON_CONFIG.horizontalRule.icon },
+            { value: 'emoji', label: t('toolbar.emoji'), iconHtml: BUTTON_CONFIG.emoji.icon },
+        ],
+    },
+};

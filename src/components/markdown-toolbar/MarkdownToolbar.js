@@ -1,10 +1,12 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
-import { BUTTON_CONFIG, DEFAULT_BUTTONS } from './toolbarConfig.js';
+import { BUTTON_CONFIG, TOOLBAR_GROUPS, SELECT_CONFIGS } from './toolbarConfig.js';
 import { TocPanel } from '../TocPanel.js';
 import { ToolbarTooltip } from './ToolbarTooltip.js';
 import { ToolbarEmojiPicker } from './ToolbarEmojiPicker.js';
 import { ToolbarPlainMarkdownHandlers } from './ToolbarPlainMarkdownHandlers.js';
 import { ToolbarTipTapHandlers } from './ToolbarTipTapHandlers.js';
+import { ToolbarSelect } from './ToolbarSelect.js';
+import { ToolbarOverflowMenu } from './ToolbarOverflowMenu.js';
 import { createStore } from '../../services/storage.js';
 
 const store = createStore('toolbar');
@@ -24,10 +26,12 @@ export class MarkdownToolbar {
         this.tooltip = null;
         this.emojiPicker = null;
         this.tocPanel = null;
+        this.selects = [];
+        this.overflowMenu = null;
+        this.resizeObserver = null;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
             theme: 'light', // 'light' 或 'dark'
-            buttons: DEFAULT_BUTTONS,
             ...options
         };
 
@@ -71,42 +75,126 @@ export class MarkdownToolbar {
             throw new Error('Container is required');
         }
 
-        // 清理之前的事件监听器
-        this.clickCleanups.forEach(cleanup => {
-            if (typeof cleanup === 'function') {
-                cleanup();
-            }
-        });
-        this.clickCleanups = [];
+        // 清理上一次渲染的资源
+        this._teardownRender();
 
         this.container = container;
         this.container.innerHTML = '';
 
-        // 创建工具栏主容器
+        // 工具栏主体：左侧格式化区 + 右侧视图操作区
         const toolbar = document.createElement('div');
-        toolbar.className = `markdown-toolbar markdown-toolbar--${this.options.position} markdown-toolbar--${this.options.theme}`;
-        toolbar.style.display = this.isVisible ? 'flex' : 'none';
+        toolbar.className = `markdown-toolbar markdown-toolbar--${this.options.theme}`;
 
-        // 创建按钮组
-        this.options.buttons.forEach(buttonType => {
-            if (buttonType === 'separator') {
-                // 添加分隔符
-                const separator = document.createElement('div');
-                separator.className = 'toolbar-separator';
-                toolbar.appendChild(separator);
-            } else if (this.buttonConfig[buttonType]) {
-                const button = this.createButton(buttonType, this.buttonConfig[buttonType]);
-                toolbar.appendChild(button);
+        const left = document.createElement('div');
+        left.className = 'markdown-toolbar__left';
+
+        // 固定区：行内格式 + 标题下拉，始终可见
+        const fixed = document.createElement('div');
+        fixed.className = 'markdown-toolbar__fixed';
+        this._renderGroups(fixed, TOOLBAR_GROUPS.fixed);
+
+        // 固定区与流动区之间的分隔符（常驻，不参与溢出）
+        const divider = document.createElement('div');
+        divider.className = 'toolbar-separator';
+
+        // 流动区：空间不足时按钮收进溢出菜单
+        const flow = document.createElement('div');
+        flow.className = 'markdown-toolbar__flow';
+        this._renderGroups(flow, TOOLBAR_GROUPS.flow);
+
+        // 溢出菜单 ⋯ 按钮
+        this.overflowMenu = new ToolbarOverflowMenu({
+            onAction: (action) => this.handleAction(action),
+        });
+        this.overflowMenu.setFlow(flow);
+
+        left.append(fixed, divider, flow, this.overflowMenu.getElement());
+
+        // 右侧视图操作区：切换视图模式 / 复制 / 居中，始终可见
+        const right = document.createElement('div');
+        right.className = 'markdown-toolbar__right';
+        TOOLBAR_GROUPS.right.forEach(type => {
+            if (this.buttonConfig[type]) {
+                right.appendChild(this.createButton(type, this.buttonConfig[type]));
             }
         });
 
+        toolbar.append(left, right);
         this.container.appendChild(toolbar);
+        this.container.classList.toggle('is-visible', this.isVisible);
+
+        // 宽度变化时动态收纳溢出按钮
+        this.resizeObserver = new ResizeObserver(() => {
+            this.overflowMenu?.recompute();
+        });
+        this.resizeObserver.observe(toolbar);
 
         // 绑定键盘快捷键
         this.bindShortcuts();
 
         // 恢复居中模式状态
         this.restoreCenterContentState();
+
+        // 首帧布局完成后算一次溢出
+        requestAnimationFrame(() => this.overflowMenu?.recompute());
+    }
+
+    /**
+     * 渲染按钮分组：每个内层数组是一组，组间插入分隔符；'heading' 渲染为标题下拉。
+     * @param {HTMLElement} parent - 父容器
+     * @param {Array<Array<string>>} groups - 分组定义
+     */
+    _renderGroups(parent, groups) {
+        groups.forEach((group, groupIndex) => {
+            if (groupIndex > 0) {
+                const separator = document.createElement('div');
+                separator.className = 'toolbar-separator';
+                parent.appendChild(separator);
+            }
+            group.forEach(type => {
+                if (SELECT_CONFIGS[type]) {
+                    const select = new ToolbarSelect({
+                        ...SELECT_CONFIGS[type],
+                        onSelect: this._getSelectHandler(type),
+                    });
+                    this.selects.push(select);
+                    parent.appendChild(select.getElement());
+                } else if (this.buttonConfig[type]) {
+                    parent.appendChild(this.createButton(type, this.buttonConfig[type]));
+                }
+            });
+        });
+    }
+
+    /**
+     * 返回下拉选择器选中项的处理器
+     * @param {string} type - 下拉类型（heading / list ...）
+     */
+    _getSelectHandler(type) {
+        if (type === 'heading') {
+            return (level) => this.applyHeading(level);
+        }
+        // 列表等：下拉项的 value 即按钮 action，复用 handleAction
+        return (action) => this.handleAction(action);
+    }
+
+    /**
+     * 清理一次渲染产生的资源（重渲染或销毁前调用）
+     */
+    _teardownRender() {
+        this.clickCleanups.forEach(cleanup => {
+            if (typeof cleanup === 'function') cleanup();
+        });
+        this.clickCleanups = [];
+
+        this.resizeObserver?.disconnect();
+        this.resizeObserver = null;
+
+        this.selects.forEach(select => select.destroy());
+        this.selects = [];
+
+        this.overflowMenu?.destroy();
+        this.overflowMenu = null;
     }
 
     /**
@@ -206,7 +294,8 @@ export class MarkdownToolbar {
             horizontalRule: () => pm.insertHorizontalRule(),
             codeBlock: () => pm.insertCodeBlock(),
             clearFormatting: () => pm.clearFormatting(),
-            emoji: () => this.handleEmojiPicker()
+            emoji: () => this.handleEmojiPicker(),
+            video: () => pm.insertVideo()
         };
 
         const handler = actions[action];
@@ -214,6 +303,23 @@ export class MarkdownToolbar {
             handler();
             this.emit('action', action);
         }
+    }
+
+    /**
+     * 应用标题级别（供标题下拉调用）
+     * @param {number} level - 0 表示正文，1-3 表示标题级别
+     */
+    applyHeading(level) {
+        if (!this.editor) {
+            console.warn('No editor instance set');
+            return;
+        }
+        if (this.isTipTapEditor()) {
+            this.tipTap.applyHeading(level);
+        } else {
+            this.plainMarkdown.setHeading(level);
+        }
+        this.emit('action', 'heading');
     }
 
     /**
@@ -225,10 +331,7 @@ export class MarkdownToolbar {
         const shortcuts = {};
 
         // 构建快捷键映射
-        this.options.buttons.forEach(buttonType => {
-            if (buttonType === 'separator') return; // 跳过分隔符
-
-            const config = this.buttonConfig[buttonType];
+        Object.entries(this.buttonConfig).forEach(([buttonType, config]) => {
             if (config && config.shortcut) {
                 shortcuts[config.shortcut.toLowerCase()] = buttonType;
             }
@@ -261,16 +364,12 @@ export class MarkdownToolbar {
     }
 
     /**
-     * 显示工具栏
+     * 显示工具栏（切换外层固定栏容器的可见性）
      */
     show() {
         this.isVisible = true;
-        if (this.container) {
-            const toolbar = this.container.querySelector('.markdown-toolbar');
-            if (toolbar) {
-                toolbar.style.display = 'flex';
-            }
-        }
+        this.container?.classList.add('is-visible');
+        requestAnimationFrame(() => this.overflowMenu?.recompute());
         this.emit('visibility-change', true);
     }
 
@@ -279,12 +378,7 @@ export class MarkdownToolbar {
      */
     hide() {
         this.isVisible = false;
-        if (this.container) {
-            const toolbar = this.container.querySelector('.markdown-toolbar');
-            if (toolbar) {
-                toolbar.style.display = 'none';
-            }
-        }
+        this.container?.classList.remove('is-visible');
         this.emit('visibility-change', false);
     }
 
@@ -319,16 +413,12 @@ export class MarkdownToolbar {
      * 销毁工具栏
      */
     destroy() {
-        // 清理 PointerHelper 事件监听器
-        this.clickCleanups.forEach(cleanup => {
-            if (typeof cleanup === 'function') {
-                cleanup();
-            }
-        });
-        this.clickCleanups = [];
+        // 清理渲染期资源（事件监听、ResizeObserver、子组件）
+        this._teardownRender();
 
         if (this.container) {
             this.container.innerHTML = '';
+            this.container.classList.remove('is-visible');
             this.container = null;
         }
         this.editor = null;
@@ -377,9 +467,11 @@ export class MarkdownToolbar {
      * 初始化 emoji 选择器
      */
     handleEmojiPicker() {
-        const emojiButton = this.container?.querySelector('[data-action="emoji"]');
-        if (!emojiButton) return false;
-        this.emojiPicker?.toggle(emojiButton);
+        // emoji 已收进「插入」下拉，没有独立按钮时锚定到下拉 trigger
+        const anchor = this.container?.querySelector('[data-action="emoji"]')
+            || this.container?.querySelector('[data-action="insert"]');
+        if (!anchor) return false;
+        this.emojiPicker?.toggle(anchor);
         return true;
     }
 
