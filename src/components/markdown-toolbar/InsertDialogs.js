@@ -36,6 +36,21 @@ function toInsertablePath(absPath, currentDir) {
 }
 
 /**
+ * 从链接地址推导默认显示文字：取路径 / URL 的最后一段（文件名），
+ * 避免把整条路径塞进显示文字。
+ */
+function deriveDisplayText(url) {
+    const clean = url.split(/[?#]/)[0].replace(/[/\\]+$/, '');
+    const segments = clean.split(/[/\\]/);
+    const last = segments[segments.length - 1] || url;
+    try {
+        return decodeURIComponent(last);
+    } catch {
+        return last;
+    }
+}
+
+/**
  * 弹系统文件选择器选本地文件，返回可写入文档的路径（取消返回 null）。
  * @param {string|null} currentDir - 当前文档目录，用于换算相对路径
  * @param {Array|null} filters - Tauri open 的文件类型过滤；null 表示不限类型
@@ -178,8 +193,8 @@ function showInputDialog({ title, fields }) {
  * 插入链接对话框（支持选本地文件）
  * @returns {Promise<{url:string, text:string}|null>}
  */
-export function showLinkDialog({ url = '', text = '', currentDir = null } = {}) {
-    return showInputDialog({
+export async function showLinkDialog({ url = '', text = '', currentDir = null } = {}) {
+    const result = await showInputDialog({
         title: t('toolbar.linkDialogTitle'),
         fields: [
             {
@@ -198,6 +213,11 @@ export function showLinkDialog({ url = '', text = '', currentDir = null } = {}) 
             { key: 'text', label: t('toolbar.linkDialogText'), value: text, placeholder: t('toolbar.linkDialogTextHint') },
         ],
     });
+    // 没填显示文字时，用文件名作默认值，而不是整条路径
+    if (result && result.url && !result.text) {
+        result.text = deriveDisplayText(result.url);
+    }
+    return result;
 }
 
 /**

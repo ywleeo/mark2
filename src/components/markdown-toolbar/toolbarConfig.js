@@ -186,6 +186,18 @@ export const BUTTON_CONFIG = {
             <path d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" />
         </svg>`,
         title: t('toolbar.video')
+    },
+    navBack: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z" />
+        </svg>`,
+        title: t('toolbar.navBack')
+    },
+    navForward: {
+        icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z" />
+        </svg>`,
+        title: t('toolbar.navForward')
     }
 };
 
@@ -198,6 +210,7 @@ export const BUTTON_CONFIG = {
  */
 export const TOOLBAR_GROUPS = {
     fixed: [
+        ['navBack', 'navForward'],
         ['bold', 'italic', 'strikethrough', 'code'],
         ['heading', 'list', 'insert'],
     ],

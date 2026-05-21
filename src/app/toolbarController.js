@@ -2,6 +2,7 @@
  * Toolbar 控制器
  * 管理 Markdown 工具栏和卡片导出侧边栏的显示/隐藏/同步
  */
+import { navigationHistory } from '../modules/navigationHistory.js';
 
 export function createToolbarController({
     getMarkdownEditor,
@@ -76,6 +77,12 @@ export function createToolbarController({
         const hasMarkdownFile = currentFile && isMarkdownFilePath(currentFile);
         const isMarkdownView = effectiveMode === 'markdown' || effectiveMode === 'split';
         const isCodeView = effectiveMode === 'code';
+
+        // 记录文档访问历史（去重由 navigationHistory 内部处理）
+        // 放在这里而非 handleToolbarOnFileChange，确保启动时首个文档也能被记录
+        if (hasMarkdownFile) {
+            navigationHistory.record(currentFile);
+        }
 
         if (!hasMarkdownFile || (!isMarkdownView && !isCodeView)) {
             markdownToolbarManager.hide({ persist: false });

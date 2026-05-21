@@ -310,6 +310,12 @@
     transform: translateY(1px);
 }
 
+.toolbar-button:disabled {
+    opacity: 0.32;
+    cursor: default;
+    pointer-events: none;
+}
+
 .toolbar-button--copied {
     background: rgba(31, 132, 90, 0.15) !important;
     color: #1f845a !important;

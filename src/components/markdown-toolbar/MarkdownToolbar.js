@@ -7,6 +7,7 @@ import { ToolbarPlainMarkdownHandlers } from './ToolbarPlainMarkdownHandlers.js'
 import { ToolbarTipTapHandlers } from './ToolbarTipTapHandlers.js';
 import { ToolbarSelect } from './ToolbarSelect.js';
 import { ToolbarOverflowMenu } from './ToolbarOverflowMenu.js';
+import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
 
 const store = createStore('toolbar');
@@ -29,6 +30,7 @@ export class MarkdownToolbar {
         this.selects = [];
         this.overflowMenu = null;
         this.resizeObserver = null;
+        this._navUnsubscribe = null;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
             theme: 'light', // 'light' 或 'dark'
@@ -135,6 +137,10 @@ export class MarkdownToolbar {
         // 恢复居中模式状态
         this.restoreCenterContentState();
 
+        // 导航按钮初始状态 + 订阅历史变化
+        this.updateNavButtons();
+        this._navUnsubscribe = navigationHistory.onChange(() => this.updateNavButtons());
+
         // 首帧布局完成后算一次溢出
         requestAnimationFrame(() => this.overflowMenu?.recompute());
     }
@@ -190,11 +196,24 @@ export class MarkdownToolbar {
         this.resizeObserver?.disconnect();
         this.resizeObserver = null;
 
+        this._navUnsubscribe?.();
+        this._navUnsubscribe = null;
+
         this.selects.forEach(select => select.destroy());
         this.selects = [];
 
         this.overflowMenu?.destroy();
         this.overflowMenu = null;
+    }
+
+    /**
+     * 同步后退 / 前进按钮的可用状态
+     */
+    updateNavButtons() {
+        const backBtn = this.container?.querySelector('[data-action="navBack"]');
+        const forwardBtn = this.container?.querySelector('[data-action="navForward"]');
+        if (backBtn) backBtn.disabled = !navigationHistory.canGoBack();
+        if (forwardBtn) forwardBtn.disabled = !navigationHistory.canGoForward();
     }
 
     /**
@@ -241,6 +260,15 @@ export class MarkdownToolbar {
      * @param {string} action - 动作类型
      */
     handleAction(action) {
+        // 导航：后退 / 前进，直接驱动文档历史
+        if (action === 'navBack') {
+            navigationHistory.goBack();
+            return;
+        }
+        if (action === 'navForward') {
+            navigationHistory.goForward();
+            return;
+        }
         // toggleViewMode、copyMarkdown 和 toc 不需要编辑器实例，直接触发回调
         if (action === 'toggleViewMode' || action === 'copyMarkdown') {
             this.emit('action', action);
