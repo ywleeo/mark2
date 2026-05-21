@@ -276,6 +276,19 @@ export class MarkdownToolbarManager {
                 this.copyMarkdown();
                 return;
             }
+            // 复制选中内容
+            if (action === 'copy') {
+                this.dispatchCommand(COMMAND_IDS.EDITOR_COPY, action);
+                return;
+            }
+            // 复制并整理列表
+            if (action === 'copyPlainText') {
+                if (this.dispatchCommand(COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT, action)) {
+                    return;
+                }
+                this.copyPlainText();
+                return;
+            }
         });
     }
 
@@ -543,6 +556,7 @@ export class MarkdownToolbarManager {
 
             if (markdown) {
                 await navigator.clipboard.writeText(_formatListMarkdown(markdown));
+                this.showCopyFeedback();
             }
         } catch (error) {
             console.error('复制纯文本失败:', error);
@@ -557,8 +571,8 @@ export class MarkdownToolbarManager {
             return;
         }
 
-        // 查找复制按钮
-        const copyButton = this.container.querySelector('[data-action="copyMarkdown"]');
+        // 复制按钮已并入「复制」下拉，反馈打在下拉 trigger 上
+        const copyButton = this.container.querySelector('[data-action="copy"]');
         if (copyButton) {
             // 添加一个临时的类来显示反馈
             copyButton.classList.add('toolbar-button--copied');

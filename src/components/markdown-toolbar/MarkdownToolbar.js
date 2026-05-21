@@ -115,11 +115,7 @@ export class MarkdownToolbar {
         // 右侧视图操作区：切换视图模式 / 复制 / 居中，始终可见
         const right = document.createElement('div');
         right.className = 'markdown-toolbar__right';
-        TOOLBAR_GROUPS.right.forEach(type => {
-            if (this.buttonConfig[type]) {
-                right.appendChild(this.createButton(type, this.buttonConfig[type]));
-            }
-        });
+        TOOLBAR_GROUPS.right.forEach(type => this._appendItem(right, type));
 
         toolbar.append(left, right);
         this.container.appendChild(toolbar);
@@ -157,19 +153,24 @@ export class MarkdownToolbar {
                 separator.className = 'toolbar-separator';
                 parent.appendChild(separator);
             }
-            group.forEach(type => {
-                if (SELECT_CONFIGS[type]) {
-                    const select = new ToolbarSelect({
-                        ...SELECT_CONFIGS[type],
-                        onSelect: this._getSelectHandler(type),
-                    });
-                    this.selects.push(select);
-                    parent.appendChild(select.getElement());
-                } else if (this.buttonConfig[type]) {
-                    parent.appendChild(this.createButton(type, this.buttonConfig[type]));
-                }
-            });
+            group.forEach(type => this._appendItem(parent, type));
         });
+    }
+
+    /**
+     * 向容器追加一个工具栏项：下拉（SELECT_CONFIGS）或普通按钮
+     */
+    _appendItem(parent, type) {
+        if (SELECT_CONFIGS[type]) {
+            const select = new ToolbarSelect({
+                ...SELECT_CONFIGS[type],
+                onSelect: this._getSelectHandler(type),
+            });
+            this.selects.push(select);
+            parent.appendChild(select.getElement());
+        } else if (this.buttonConfig[type]) {
+            parent.appendChild(this.createButton(type, this.buttonConfig[type]));
+        }
     }
 
     /**
@@ -269,8 +270,9 @@ export class MarkdownToolbar {
             navigationHistory.goForward();
             return;
         }
-        // toggleViewMode、copyMarkdown 和 toc 不需要编辑器实例，直接触发回调
-        if (action === 'toggleViewMode' || action === 'copyMarkdown') {
+        // 视图操作 / 复制类不需要编辑器实例，直接触发回调
+        if (action === 'toggleViewMode' || action === 'copy'
+            || action === 'copyMarkdown' || action === 'copyPlainText') {
             this.emit('action', action);
             return;
         }

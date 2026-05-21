@@ -142,7 +142,7 @@ export const BUTTON_CONFIG = {
     },
     toggleViewMode: {
         icon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6Z" />
+            <path d="M9.5,8.5L11,10L8,13L11,16L9.5,17.5L5,13L9.5,8.5M14.5,17.5L13,16L16,13L13,10L14.5,8.5L19,13L14.5,17.5M21,2H3A2,2 0 0,0 1,4V20A2,2 0 0,0 3,22H21A2,2 0 0,0 23,20V4A2,2 0 0,0 21,2M21,20H3V6H21V20Z" />
         </svg>`,
         title: t('toolbar.toggleViewMode'),
         shortcut: 'Ctrl+E'
@@ -218,7 +218,7 @@ export const TOOLBAR_GROUPS = {
         ['quote', 'codeBlock'],
         ['clearFormatting'],
     ],
-    right: ['centerContent', 'copyMarkdown', 'toggleViewMode'],
+    right: ['centerContent', 'copy', 'toggleViewMode'],
 };
 
 /**
@@ -259,6 +259,16 @@ export const SELECT_CONFIGS = {
             { value: 'table', label: t('toolbar.table'), iconHtml: BUTTON_CONFIG.table.icon },
             { value: 'horizontalRule', label: t('toolbar.horizontalRule'), iconHtml: BUTTON_CONFIG.horizontalRule.icon },
             { value: 'emoji', label: t('toolbar.emoji'), iconHtml: BUTTON_CONFIG.emoji.icon },
+        ],
+    },
+    copy: {
+        dataAction: 'copy',
+        icon: BUTTON_CONFIG.copyMarkdown.icon,
+        ariaLabel: t('toolbar.copy'),
+        items: [
+            { value: 'copy', label: t('toolbar.copySelection') },
+            { value: 'copyMarkdown', label: t('toolbar.copyMarkdown') },
+            { value: 'copyPlainText', label: t('toolbar.copyPlainText') },
         ],
     },
 };
