@@ -45,7 +45,7 @@ export const COMMAND_IDS = Object.freeze({
     FEATURE_TERMINAL_TOGGLE: 'feature.terminal.toggle',
     FEATURE_TERMINAL_SHOW_HISTORY: 'feature.terminal.showHistory',
     FEATURE_AI_TOGGLE: 'feature.ai.toggle',
-    FEATURE_SCRATCHPAD_TOGGLE: 'feature.scratchpad.toggle',
+    FEATURE_TRANSLATOR_TOGGLE: 'feature.translator.toggle',
     FEATURE_TOC_TOGGLE: 'feature.toc.toggle',
     FEATURE_VAULT_TOGGLE: 'feature.vault.toggle',
     EXPORT_IMAGE: 'export.currentView.image',

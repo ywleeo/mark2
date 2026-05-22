@@ -79,7 +79,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, () => handlers.onToggleTerminal?.(), '切换终端面板');
     register(COMMAND_IDS.FEATURE_TERMINAL_SHOW_HISTORY, () => handlers.onToggleTerminalHistory?.(), '显示终端历史');
     register(COMMAND_IDS.FEATURE_AI_TOGGLE, () => handlers.onToggleAiSidebar?.(), '切换 AI 侧边栏');
-    register(COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, () => handlers.onToggleScratchpad?.(), '切换便签');
+    register(COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, () => handlers.onToggleTranslator?.(), '切换翻译面板');
     register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');
     register(COMMAND_IDS.FEATURE_VAULT_TOGGLE, () => handlers.onToggleVault?.(), '切换保险箱');
     register(COMMAND_IDS.EXPORT_IMAGE, () => handlers.onExportImage?.(), '导出图片');
@@ -121,7 +121,7 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],
     [COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, 'Mod+Shift+C'],
     [COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT, 'Mod+Shift+X'],
-    [COMMAND_IDS.FEATURE_SCRATCHPAD_TOGGLE, 'Mod+Shift+Space'],
+    [COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, 'Mod+Shift+Space'],
     [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+\\'],
     [COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, 'Mod+J'],

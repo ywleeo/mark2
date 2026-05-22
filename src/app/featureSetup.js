@@ -4,7 +4,7 @@
  */
 
 import { createTerminalPanel } from '../modules/terminal/panel.js';
-import { createScratchpadPanel } from '../modules/scratchpadPanel.js';
+import { createTranslatorPanel } from '../modules/translator/translatorPanel.js';
 import { initCardExport } from '../modules/card-export/index.js';
 import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';
 
@@ -68,11 +68,11 @@ export function registerCoreFeatures(options = {}) {
     });
 
     register({
-        id: 'scratchpad',
-        title: '便签面板',
+        id: 'translator',
+        title: '翻译面板',
         contributes: { panel: true },
         mount() {
-            const panel = createScratchpadPanel();
+            const panel = createTranslatorPanel();
             panel?.initialize?.();
             return panel;
         },

@@ -1,0 +1,339 @@
+/* 翻译浮动面板 */
+
+:root {
+    --translator-bg:          rgba(245, 246, 248, 0.5);
+    --translator-border:      rgba(208, 215, 222, 0.5);
+    --translator-header-bg:   rgba(240, 242, 245, 0.45);
+    --translator-header-text: #24292f;
+    --translator-text:        #24292f;
+    --translator-muted:       #8c959f;
+    --translator-shadow:      0 4px 20px rgba(0, 0, 0, 0.14);
+    --translator-resize-dot:  #b0b8c1;
+    --translator-accent:      #0969da;
+}
+
+:root[data-theme-appearance='dark'] {
+    --translator-bg:          rgba(22, 27, 34, 0.5);
+    --translator-border:      rgba(48, 54, 61, 0.5);
+    --translator-header-bg:   rgba(13, 17, 23, 0.45);
+    --translator-header-text: #e6edf3;
+    --translator-text:        #e6edf3;
+    --translator-muted:       #8b949e;
+    --translator-shadow:      0 4px 20px rgba(0, 0, 0, 0.5);
+    --translator-resize-dot:  #484f58;
+    --translator-accent:      #4493f8;
+}
+
+/* ── 面板容器 ───────────────────────────────────────────── */
+
+.translator-panel {
+    display: none;
+    flex-direction: column;
+    position: fixed;
+    bottom: 28px;
+    right: 0;
+    z-index: 500;
+    width: 360px;
+    height: 340px;
+    min-width: 260px;
+    min-height: 200px;
+    border-radius: 8px 0 0 8px;
+    overflow: hidden;
+    background: var(--translator-bg);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(10px) saturate(1.8);
+    border: 1px solid var(--translator-border);
+    border-right: none;
+    box-shadow: var(--translator-shadow);
+    user-select: none;
+}
+
+.translator-panel.is-visible {
+    display: flex;
+}
+
+/* ── Resize handle（左上角，向左上拖扩大） ───────────────── */
+
+.translator-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    touch-action: none;
+    background-image: radial-gradient(circle, var(--translator-resize-dot) 1.5px, transparent 1.5px);
+    background-size: 5px 5px;
+    background-position: 2px 2px;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    z-index: 1;
+}
+
+.translator-resize-handle:hover {
+    opacity: 1;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+
+.translator-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 6px 12px;
+    background: var(--translator-header-bg);
+    border-bottom: 1px solid var(--translator-border);
+    cursor: grab;
+    flex-shrink: 0;
+    touch-action: none;
+}
+
+.translator-header:active {
+    cursor: grabbing;
+}
+
+.translator-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--translator-header-text);
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+.translator-header-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.translator-header-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--translator-header-text);
+    opacity: 0.6;
+    transition: opacity 0.15s, background 0.15s;
+    padding: 0;
+}
+
+.translator-header-actions button:hover {
+    opacity: 1;
+    background: rgba(128, 128, 128, 0.15);
+}
+
+/* ── Body ──────────────────────────────────────────────── */
+
+.translator-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    overflow: hidden;
+}
+
+.translator-input {
+    flex-shrink: 0;
+    height: 64px;
+    resize: none;
+    border: 1px solid var(--translator-border);
+    border-radius: 6px;
+    outline: none;
+    background: var(--translator-bg);
+    color: var(--translator-text);
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.6;
+    padding: 8px 10px;
+    user-select: text;
+}
+
+.translator-input:focus {
+    border-color: var(--translator-accent);
+}
+
+.translator-input::placeholder {
+    color: var(--translator-muted);
+}
+
+.translator-submit {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #fff;
+    background: var(--translator-accent);
+    transition: opacity 0.15s;
+}
+
+.translator-submit:hover {
+    opacity: 0.9;
+}
+
+.translator-submit:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* ── 结果区 ────────────────────────────────────────────── */
+
+.translator-result {
+    flex: 1;
+    overflow-y: auto;
+    user-select: text;
+    color: var(--translator-text);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.translator-placeholder {
+    color: var(--translator-muted);
+    font-size: 12px;
+    padding: 4px 0;
+}
+
+.translator-error {
+    color: #cf222e;
+    font-size: 12px;
+    padding: 4px 0;
+}
+
+:root[data-theme-appearance='dark'] .translator-error {
+    color: #ff7b72;
+}
+
+.translator-translation {
+    color: var(--translator-text);
+    font-size: 15px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.translator-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.translator-phonetic {
+    color: var(--translator-muted);
+    font-size: 13px;
+}
+
+.translator-pos {
+    color: var(--translator-accent);
+    font-size: 12px;
+    font-style: italic;
+}
+
+.translator-section-title {
+    margin-top: 12px;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--translator-muted);
+}
+
+.translator-usage {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--translator-text);
+    opacity: 0.9;
+    white-space: pre-wrap;
+}
+
+.translator-examples {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.translator-example {
+    padding: 5px 0;
+    border-top: 1px solid var(--translator-border);
+}
+
+.translator-example:first-child {
+    border-top: none;
+}
+
+.translator-example-en {
+    font-size: 12px;
+    color: var(--translator-text);
+}
+
+.translator-example-zh {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--translator-muted);
+}
+
+.translator-terms {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.translator-term {
+    padding: 6px 0;
+    border-top: 1px solid var(--translator-border);
+}
+
+.translator-term-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.translator-term-word {
+    font-weight: 600;
+    color: var(--translator-text);
+}
+
+.translator-term-phonetic {
+    color: var(--translator-muted);
+    font-size: 12px;
+}
+
+.translator-term-explain {
+    margin-top: 2px;
+    color: var(--translator-text);
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+/* ── Status bar 按钮 ────────────────────────────────────── */
+
+.status-translator-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.status-translator-btn:hover {
+    opacity: 1;
+}
+
+.status-translator-btn.is-active {
+    opacity: 1;
+    color: var(--translator-accent);
+}
