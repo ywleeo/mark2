@@ -1,6 +1,7 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
 import { basename } from '../utils/pathUtils.js';
 import { t } from '../i18n/index.js';
+import { navigationHistory } from './navigationHistory.js';
 
 export function createFileMenuActions(options = {}) {
     const {
@@ -390,6 +391,8 @@ export function createFileMenuActions(options = {}) {
             : (basename(normalizedNew) || normalizedNew);
 
         documentRegistry.renameEntry(normalizedOld, normalizedNew);
+        // file tab 路径变化时把导航历史车道一起改键，避免重命名后丢失后退 / 前进
+        navigationHistory.rekeyLane(normalizedOld, normalizedNew);
 
         const tabManager = getTabManager();
         tabManager?.updateTabPath(normalizedOld, normalizedNew, tabLabel);

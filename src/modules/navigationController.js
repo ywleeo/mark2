@@ -1,6 +1,7 @@
 import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
 import { EVENT_IDS } from '../core/eventIds.js';
 import { t } from '../i18n/index.js';
+import { navigationHistory } from './navigationHistory.js';
 
 function normalizeComparablePath(fileTree, value) {
     if (!value) {
@@ -436,6 +437,7 @@ export function createNavigationController({
             codeEditor?.forgetViewStateForTab?.(normalizedTarget);
             markdownEditor?.forgetViewStateForTab?.(normalizedTarget);
             documentRegistry.clearEntry(targetPath);
+            navigationHistory.dropLane(targetPath);
             return;
         }
 
@@ -480,6 +482,7 @@ export function createNavigationController({
 
             // shared tab 的移除与后续激活拆开，统一交给事务层提交。
             tabManager?.removeSharedTab?.({ nextActiveTabId: fallbackTab?.id || null });
+            navigationHistory.dropLane(tabManager?.sharedTabId);
 
             if (wasActive) {
                 await activateTabTransition(fallbackTab, { autoFocus: true });
@@ -659,6 +662,61 @@ export function createNavigationController({
         codeEditor?.forgetViewStateForTab?.(targetPath);
         markdownEditor?.forgetViewStateForTab?.(targetPath);
         documentRegistry.clearEntry(targetPath);
+        navigationHistory.dropLane(targetPath);
+    }
+
+    /**
+     * file tab「替换式」切换：在同一个 tab 位上把文档从 fromPath 换成 toPath。
+     * 跟链接跳转、后退 / 前进 file tab 都走这里，顺带把导航车道随 tab 迁移。
+     * @param {string} fromPath - 切换前 file tab 的路径
+     * @param {string} toPath - 切换后的目标路径
+     */
+    function swapFileTab(fromPath, toPath) {
+        const fileTree = getFileTree();
+        if (!fileTree || !fromPath || !toPath || fromPath === toPath) {
+            return;
+        }
+        navigationHistory.rekeyLane(fromPath, toPath);
+        fileTree.addToOpenFiles(toPath);
+        fileTree.selectFile(toPath);
+        fileTree.closeFile(fromPath);
+    }
+
+    /**
+     * navigationHistory 注入的跳转实现：把当前 active tab 内的文档切到 targetPath。
+     * shared 预览位在自身内部切换；file tab 走替换式切换。两者都不会动到另一类 tab。
+     * @param {string} targetPath - 后退 / 前进的目标文档路径
+     */
+    async function performHistoryNavigation(targetPath) {
+        if (!targetPath) {
+            return;
+        }
+        const tabManager = getTabManager();
+        const fileTree = getFileTree();
+        if (!tabManager || !fileTree) {
+            return;
+        }
+
+        const tabs = tabManager.getAllTabs?.() || [];
+        const activeTab = tabs.find(tab => tab.id === tabManager.activeTabId);
+        if (!activeTab || activeTab.path === targetPath) {
+            return;
+        }
+
+        // 目标文档已作为固定 tab 打开：直接激活它，避免在 shared 预览位重复显示
+        const existingFileTab = tabs.find(tab => tab.type === 'file' && tab.path === targetPath);
+        if (existingFileTab) {
+            await activateTabTransition(existingFileTab, { autoFocus: true });
+            return;
+        }
+
+        if (activeTab.type === 'file') {
+            swapFileTab(activeTab.path, targetPath);
+        } else {
+            // shared 预览位：在自身内部切换文档
+            isOpeningFromLink = true;
+            fileTree.selectFile(targetPath);
+        }
     }
 
     function setupLinkNavigationListener() {
@@ -680,16 +738,16 @@ export function createNavigationController({
             const activeTab = tabManager?.getAllTabs().find(tabItem => tabItem.id === tabManager?.activeTabId);
 
             if (activeTab && activeTab.type === 'file' && activeTab.path) {
-                const oldPath = activeTab.path;
-                fileTree.addToOpenFiles(path);
-                fileTree.selectFile(path);
-                fileTree.closeFile(oldPath);
+                swapFileTab(activeTab.path, path);
             } else {
                 isOpeningFromLink = true;
                 fileTree.selectFile(path);
             }
         });
     }
+
+    // 把后退 / 前进的实际跳转能力注入 navigationHistory
+    navigationHistory.setNavigator(performHistoryNavigation);
 
     return {
         handleFileSelect,

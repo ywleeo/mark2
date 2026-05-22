@@ -338,6 +338,13 @@ const toolbarController = createToolbarController({
     getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getCurrentFile: () => getActiveDocumentPath(),
+    // 导航历史车道 id：固定文档用路径、shared 预览位用 sharedTabId
+    getNavLaneId: () => {
+        const currentFile = getActiveDocumentPath();
+        if (!currentFile) return null;
+        const pinned = documentManager?.getDocumentByPath?.(currentFile)?.pinned === true;
+        return pinned ? currentFile : (appState.getTabManager()?.sharedTabId ?? 'shared-preview');
+    },
     getActiveViewMode: () => appState.getActiveViewMode(),
     executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
     getMarkdownToolbarManager: () => appState.getMarkdownToolbarManager(),
