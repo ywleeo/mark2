@@ -251,6 +251,14 @@ export function createTranslatorPanel() {
                 runTranslate();
             }
         });
+        // Esc 关闭面板（焦点在面板内时生效，不影响其它 Esc 处理）
+        panel.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !e.isComposing) {
+                e.preventDefault();
+                e.stopPropagation();
+                hide();
+            }
+        });
         addClickHandler(submitBtn, runTranslate);
         addClickHandler(closeBtn,  hide);
         addClickHandler(statusBtn, toggle);
