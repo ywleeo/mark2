@@ -53,6 +53,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.DOCUMENT_NEW_FILE, () => handlers.onNewFile?.(), '创建文件');
     register(COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, () => handlers.onCopyMarkdown?.(), '复制 Markdown 文本');
     register(COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT, () => handlers.onCopyPlainText?.(), '复制 Markdown 并整理列表');
+    register(COMMAND_IDS.DOCUMENT_SHARE_LINK, () => handlers.onShareLink?.(), '生成分享链接');
     register(COMMAND_IDS.DOCUMENT_DELETE, () => handlers.onDeleteActiveFile?.(), '删除当前文件');
     register(COMMAND_IDS.DOCUMENT_MOVE, () => handlers.onMoveActiveFile?.(), '移动当前文件');
     register(COMMAND_IDS.DOCUMENT_RENAME, () => handlers.onRenameActiveFile?.(), '重命名当前文件');

@@ -289,6 +289,11 @@ export class MarkdownToolbarManager {
                 this.copyPlainText();
                 return;
             }
+            // 生成 mark2 cloud 分享链接
+            if (action === 'shareLink') {
+                this.dispatchCommand(COMMAND_IDS.DOCUMENT_SHARE_LINK, action);
+                return;
+            }
         });
     }
 
@@ -555,7 +560,12 @@ export class MarkdownToolbarManager {
             }
 
             if (markdown) {
-                await navigator.clipboard.writeText(_formatListMarkdown(markdown));
+                // 先整理列表序号,再去掉 markdown 标记(顺序:列表整理只看行首,不会被行内标记影响)
+                // 去标记会把代码围栏 / HR 等留成空行,最后压缩多余空行 + 首尾 trim
+                const plain = _stripMarkdownMarks(_formatListMarkdown(markdown))
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+                await navigator.clipboard.writeText(plain);
                 this.showCopyFeedback();
             }
         } catch (error) {
@@ -642,4 +652,36 @@ function _formatListMarkdown(md) {
         out.push(line);
     }
     return out.join('\n').trim();
+}
+
+/**
+ * 把 markdown 标记剥掉,只留纯文本(列表行首前缀由 _formatListMarkdown 负责保留)。
+ * 覆盖常见标记:代码围栏 / 水平线 / 标题 / 引用 / 链接 / 图片 / 行内代码 / 加粗 / 斜体 / 删除线。
+ * 复杂嵌套(如 **bold *italic***)不保证完美,常见 95% 场景按 CommonMark 习惯处理。
+ */
+function _stripMarkdownMarks(text) {
+    return String(text ?? '')
+        // 代码围栏整行:``` 或 ~~~ 开头的行直接删
+        .replace(/^[ \t]*(?:```|~~~).*$/gm, '')
+        // 水平分隔线:---  ***  ___
+        .replace(/^[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*$/gm, '')
+        // 标题:去掉行首的 #...# 和后随空格
+        .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
+        // 引用:去掉行首的 > 和紧跟的空格(保留原缩进)
+        .replace(/^([ \t]*)>[ \t]?/gm, '$1')
+        // 图片 ![alt](url) → alt
+        .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+        // 链接 [text](url) → text
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        // 行内代码 `xxx`
+        .replace(/`([^`\n]+)`/g, '$1')
+        // 加粗(先做,避免被斜体吃掉一只 *):**xxx** / __xxx__
+        .replace(/\*\*([^*\n]+?)\*\*/g, '$1')
+        .replace(/__([^_\n]+?)__/g, '$1')
+        // 斜体 *xxx*:不挨着另一个 *(避开 **),内部不以空白起止(避开列表 "* item")
+        .replace(/(?<!\*)\*(?!\s)([^*\n]+?)(?<!\s)\*(?!\*)/g, '$1')
+        // 斜体 _xxx_:用 \b 边界避免误伤 snake_case
+        .replace(/\b_([^_\n]+?)_\b/g, '$1')
+        // 删除线 ~~xxx~~
+        .replace(/~~([^~\n]+?)~~/g, '$1');
 }

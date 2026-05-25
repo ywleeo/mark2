@@ -27,6 +27,7 @@ export const COMMAND_IDS = Object.freeze({
     DOCUMENT_NEW_FILE: 'document.newFile',
     DOCUMENT_COPY_MARKDOWN: 'document.copyMarkdown',
     DOCUMENT_COPY_PLAIN_TEXT: 'document.copyPlainText',
+    DOCUMENT_SHARE_LINK: 'document.shareLink',
     DOCUMENT_DELETE: 'document.delete',
     DOCUMENT_MOVE: 'document.move',
     DOCUMENT_RENAME: 'document.rename',

@@ -9,6 +9,7 @@
 import { isFeatureEnabled, getMASLimitationMessage } from '../config/features.js';
 import { manualCheckUpdate } from '../modules/autoUpdater.js';
 import { EXPORT_IDS } from './exportSetup.js';
+import { shareCurrentDocument } from '../modules/share/shareDocument.js';
 
 /**
  * 构造 registerCoreCommands 所需的 handlers 字典。
@@ -130,6 +131,10 @@ export function createCommandHandlers(deps) {
         onToggleTheme: () => toggleAppTheme(appState),
         onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
         onCopyPlainText: () => appState.getMarkdownToolbarManager()?.copyPlainText?.(),
+        onShareLink: () => shareCurrentDocument({
+            getMarkdown: () => editorRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
+            getCurrentFile: () => appState.getCurrentFile(),
+        }),
         onToggleTerminal: () => {
             if (!isFeatureEnabled('terminal')) {
                 alert(getMASLimitationMessage('terminal'));

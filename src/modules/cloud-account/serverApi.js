@@ -14,8 +14,13 @@ async function request(path, { method = 'GET', body, token, headers } = {}) {
     const opts = { method, headers: { ...(headers || {}) } };
     if (token) opts.headers.Authorization = `Bearer ${token}`;
     if (body !== undefined) {
-        opts.headers['Content-Type'] = 'application/json';
-        opts.body = JSON.stringify(body);
+        if (body instanceof FormData) {
+            // multipart 由浏览器自带 boundary,不能手设 Content-Type
+            opts.body = body;
+        } else {
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
     }
 
     let resp;
@@ -105,6 +110,32 @@ export const api = {
     // ---------- llm ----------
     models: (token) =>
         request('/api/v1/models', { token }),
+
+    // ---------- storage / shares ----------
+    uploadFile: ({ blob, filename, token }) => {
+        const fd = new FormData();
+        fd.append('file', blob, filename);
+        return request('/api/storage/upload', { method: 'POST', token, body: fd });
+    },
+
+    createShareLink: ({ file_id, password = null, expires_in_days = null, token }) =>
+        request('/api/shares', {
+            method: 'POST',
+            token,
+            body: { file_id, password, expires_in_days },
+        }),
+
+    // 公开:取分享元信息(filename / size / requires_password / expires_at)
+    getShareInfo: ({ uuid, password = null }) => {
+        const q = password ? `?password=${encodeURIComponent(password)}` : '';
+        return request(`/api/shares/${encodeURIComponent(uuid)}${q}`);
+    },
+
+    // 公开:取分享文件原文(text 内容)
+    getShareRaw: ({ uuid, password = null }) => {
+        const q = password ? `?password=${encodeURIComponent(password)}` : '';
+        return request(`/api/shares/${encodeURIComponent(uuid)}/raw${q}`);
+    },
 };
 
 export { ServerError };

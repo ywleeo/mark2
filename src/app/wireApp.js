@@ -648,6 +648,7 @@ bootstrap = createAppBootstrap({
     saveCurrentFileAs,
     loadFile,
     handleCreateUntitled,
+    handleImportAsUntitled,
     saveUntitledFile,
     confirm,
     eventBus,

@@ -13,6 +13,7 @@ import { setupAutoUpdater } from '../modules/autoUpdater.js';
 // Cloud provider plugins：每个 plugin 在自己的 import 副作用里自注册到 cloudProviderRegistry
 import '../modules/cloud-account/plugin.js';
 import { bootstrapCloudPlugins } from '../modules/ai-assistant/cloudProviderRegistry.js';
+import { setupOpenSharedDocumentListener } from '../modules/share/openSharedDocument.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
@@ -128,6 +129,7 @@ export function createAppBootstrap({
     loadFile,
     // untitledController 导出
     handleCreateUntitled,
+    handleImportAsUntitled,
     saveUntitledFile,
     // 其他
     confirm,
@@ -430,6 +432,11 @@ export function createAppBootstrap({
         }
 
         setupLinkNavigationListener();
+        // mark2://open?share=<uuid>  → 从 cloud 取分享内容,开成本地 untitled tab
+        await setupOpenSharedDocumentListener({
+            openAsUntitled: ({ content, filename }) =>
+                handleImportAsUntitled(content, filename, null),
+        });
         appState.setCleanupFunction('sidebarResizer', setupSidebarResizer());
 
         const fileDropController = createFileDropController({ openPathsFromSelection });
