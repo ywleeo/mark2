@@ -406,6 +406,9 @@ class AssistantCard {
             const contentEls = this.bodyEl.querySelectorAll('.ai-message-content.ai-message-markdown');
             if (contentEls.length > 0) appendMessageActions(this.el, this.bodyEl, { onDelete: this.onDelete });
         }
+        // action bar 是这一帧才追加的,scrollHeight 又涨了一截。
+        // 等 layout 真把它纳入再 scroll,否则量到的还是旧高度。
+        requestAnimationFrame(() => scrollToBottom(this.el));
     }
 
     addToolCard({ id, name }) {
@@ -1052,25 +1055,42 @@ export class AiSidebar {
             this.inputEl.removeEventListener('input', onAutoResize);
         });
 
-        // 自动滚动：用户向上滚动时暂停，停止滚动 5s 后自动恢复
+        // 自动滚动:
+        //  - 向上滚 → 暂停(用户在回看),5s 后自动恢复
+        //  - 向下滚 → 恢复(用户在主动追内容,不必非要精确滑到底)
+        //  - 滚到底 → 直接恢复 + 取消 resume 计时
         const listContainer = this.el.querySelector('.ai-conversation-list');
         if (listContainer) {
             listContainer._shouldAutoScroll = true;
-            const BOTTOM_THRESHOLD = 40;
+            const BOTTOM_THRESHOLD = 80;
             const AUTO_RESUME_DELAY = 5000;
             let resumeTimer = null;
+            let lastScrollTop = listContainer.scrollTop;
             const onScroll = () => {
                 const { scrollTop, scrollHeight, clientHeight } = listContainer;
+                const delta = scrollTop - lastScrollTop;
+                lastScrollTop = scrollTop;
                 const atBottom = scrollHeight - scrollTop - clientHeight < BOTTOM_THRESHOLD;
-                listContainer._shouldAutoScroll = atBottom;
-                clearTimeout(resumeTimer);
-                if (!atBottom) {
+                if (atBottom) {
+                    listContainer._shouldAutoScroll = true;
+                    clearTimeout(resumeTimer);
+                    return;
+                }
+                if (delta < 0) {
+                    // 向上滚 → 暂停,5s 内不操作自动恢复
+                    listContainer._shouldAutoScroll = false;
+                    clearTimeout(resumeTimer);
                     resumeTimer = setTimeout(() => {
                         listContainer._shouldAutoScroll = true;
                     }, AUTO_RESUME_DELAY);
+                } else if (delta > 0) {
+                    // 向下滚 → 立刻恢复(意图明显是要追新内容)
+                    listContainer._shouldAutoScroll = true;
+                    clearTimeout(resumeTimer);
                 }
+                // delta === 0 不动状态
             };
-            listContainer.addEventListener('scroll', onScroll);
+            listContainer.addEventListener('scroll', onScroll, { passive: true });
             this._cleanups.push(() => {
                 listContainer.removeEventListener('scroll', onScroll);
                 clearTimeout(resumeTimer);
