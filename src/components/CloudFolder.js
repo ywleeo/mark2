@@ -18,9 +18,12 @@ import { subscribe, getState } from '../modules/cloud-account/accountState.js';
 import { api, ServerError } from '../modules/cloud-account/serverApi.js';
 import { eventBus } from '../core/EventBus.js';
 
-const REFRESH_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>`;
-const UPLOAD_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><polyline points="7 9 12 4 17 9"/><path d="M4 18v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1"/></svg>`;
-const CLOUD_ICON   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5-1.5A4 4 0 0 0 6 19z"/></svg>`;
+// 刷新:300° 开口圆弧,缺口在右侧;箭头接在弧的上端(头)指向缺口,缺口落在「箭头(头)与尾部」之间
+const REFRESH_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 15.8A7.5 7.5 0 1 1 18.5 8.2"/><path d="M18.5 4.9v3.3h-3.3"/></svg>`;
+// 上传:一个完整的上箭头(竖线 + 箭头头相接成一笔),不留零散线段
+const UPLOAD_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/></svg>`;
+// header 行尾的云朵「类型图标」(对齐 open-files 的文件图标 / folders 的文件夹图标)
+const CLOUD_ICON   = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5-1.5A4 4 0 0 0 6 19z"/></svg>`;
 const CHEVRON_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>`;
 // 未下载(预取未完成)状态:云 + 下箭头
 const PENDING_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 17a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5-1.5A4 4 0 0 0 5.5 17"/><path d="M12 11v8"/><path d="m8.5 15.5 3.5 3.5 3.5-3.5"/></svg>`;
@@ -65,6 +68,8 @@ export class CloudFolder {
     _onState(state) {
         const loggedIn = state.status === 'logged-in' && !!state.token;
         this.container.style.display = loggedIn ? '' : 'none';
+        // 云文件夹显示时它成为最顶部 section,标记父级以调整下方 section 的间距(见 cloud-folder.css)
+        this.container.parentElement?.classList.toggle('has-cloud-folder', loggedIn);
         if (loggedIn) {
             if (!this._loadedOnce) {
                 this._loadedOnce = true;
@@ -135,11 +140,6 @@ export class CloudFolder {
         const header = document.createElement('div');
         header.className = 'section-header' + (this.expanded ? '' : ' collapsed');
 
-        const cloudIcon = document.createElement('span');
-        cloudIcon.className = 'cloud-files-icon';
-        cloudIcon.innerHTML = CLOUD_ICON;
-        header.appendChild(cloudIcon);
-
         const title = document.createElement('span');
         title.className = 'section-title';
         title.textContent = t('cloudFolder.title');
@@ -169,6 +169,13 @@ export class CloudFolder {
         caret.className = 'section-collapse-indicator';
         caret.innerHTML = CHEVRON_ICON;
         actions.appendChild(caret);
+
+        // 行尾云朵「类型图标」,与 open-files 文件图标 / folders 文件夹图标对齐;
+        // 放在 chevron 之后 → chevron 落点与其他 section 一致
+        const typeIcon = document.createElement('span');
+        typeIcon.className = 'cloud-files-icon';
+        typeIcon.innerHTML = CLOUD_ICON;
+        actions.appendChild(typeIcon);
 
         header.appendChild(actions);
 

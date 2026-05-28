@@ -7,6 +7,17 @@
     flex: 0 0 auto;
 }
 
+/* 云文件夹是最顶部 section → 贴顶(去掉通用 8px 上边距) */
+.cloud-folder .section-header {
+    margin-top: 0;
+}
+
+/* 云文件夹显示时,OPEN FILES 不再是顶部 section,恢复与 FOLDERS 一致的 8px 上边距,
+   使 CLOUD FILES / OPEN FILES / FOLDERS 三段间距均匀(默认无云文件夹时保持 OPEN FILES 贴顶) */
+#sidebar.has-cloud-folder .open-files-section .section-header {
+    margin-top: 8px;
+}
+
 /* open-files 行高被那个 font-size:16px 的关闭按钮(×,opacity:0 但占布局)撑高;
    云行没有该按钮,最高元素只有 14px 图标 → 偏矮。这里补等高 min-height 对齐。
    关闭按钮是固定 16px(与 --sidebar-font-size 无关),故 open-file 行高近似定值。 */
@@ -14,10 +25,14 @@
     min-height: 24px;
 }
 
-/* header 里标题前的小云朵 */
+/* header 行尾的云朵「类型图标」:占位与 .section-action-btn(20×20)一致,
+   使左侧 chevron 与 open-files / folders 的 chevron 落在同一 x */
 .cloud-files-icon {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     opacity: 0.7;
     color: var(--text-secondary, #666);
