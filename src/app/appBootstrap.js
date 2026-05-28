@@ -36,6 +36,7 @@ import { createEditorCallbacks, setupEditors } from './editorSetup.js';
 import { setupStatusBar, setupFileTree, setupTabManager } from './componentSetup.js';
 import { setupToolbarEvents } from './eventSetup.js';
 import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windowControls.js';
+import { setupSecretCloudSwitch } from './secretCloudSwitch.js';
 import { AppMenu } from '../components/AppMenu.js';
 import { VaultPanel } from '../components/VaultPanel.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
@@ -355,6 +356,8 @@ export function createAppBootstrap({
 
         setupTitlebarControls();
         setupThemeToggle(appState);
+        // 隐藏暗号(非输入态依次按 j j l l)切换 mark2 Cloud 开关 —— 必须无条件注册,关闭时也能用它开启
+        appState.setCleanupFunction('secretCloudSwitch', setupSecretCloudSwitch());
         if (appFeatures.cloudAccount) {
             setupAccountTitlebarIcon();
 
@@ -376,6 +379,17 @@ export function createAppBootstrap({
                         if (!tab) return false;
                         void activateTabTransition(tab, { autoFocus: true });
                         return true;
+                    },
+                    // 重启后内存映射丢失时,靠持久化的 cloudFileId 反查已恢复的 untitled tab
+                    findOpenPathByCloudId: (fileId) => {
+                        const tm = appState.getTabManager();
+                        const tabs = tm?.getAllTabs?.() || [];
+                        for (const tab of tabs) {
+                            if (tab?.path && untitledFileManager.getCloudFileId?.(tab.path) === fileId) {
+                                return tab.path;
+                            }
+                        }
+                        return null;
                     },
                     writeTextFile: (path, content) => appServices.file.writeText(path, content),
                     readLocalText: (path) => appServices.file.readText(path),

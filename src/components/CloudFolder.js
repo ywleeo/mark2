@@ -261,6 +261,12 @@ export class CloudFolder {
         if (known && this.deps.focusDocumentIfOpen?.(known)) {
             return;
         }
+        // 1b) 重启后内存映射丢失:靠持久化的 cloudFileId 反查已恢复的 tab,命中则聚焦并回填映射
+        const restored = this.deps.findOpenPathByCloudId?.(file.id);
+        if (restored && this.deps.focusDocumentIfOpen?.(restored)) {
+            this._openedPaths.set(file.id, restored);
+            return;
+        }
 
         const filename = file.filename || `file-${file.id}.md`;
 
