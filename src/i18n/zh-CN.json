@@ -60,6 +60,7 @@
     "cloudFolder.loadFailed": "加载失败",
     "cloudFolder.empty": "暂无云文件",
     "cloudFolder.download": "下载到本地…",
+    "cloudFolder.rename": "重命名",
     "cloudFolder.delete": "删除",
     "cloudFolder.notDownloaded": "未下载,点击下载并打开",
     "cloudFolder.saveToCloud.title": "保存到云端",

@@ -52,6 +52,7 @@ export class CloudFolder {
         this._opening = new Set();      // 正在打开的 fileId(in-flight 并发守卫)
         this._contentCache = new Map(); // fileId → content(后台预取,点击秒开)
         this._syncing = new Set();      // 正在存回云端的 fileId(重渲染后仍要保持状态)
+        this._renamingId = null;        // 正在行内重命名的 fileId(避免点击误触发打开)
 
         this._unsub = subscribe((state) => this._onState(state));
         // 文档存回云端期间,在对应行显示「上传中」状态(由 cloudDocSync 广播)
@@ -250,6 +251,8 @@ export class CloudFolder {
     // ── 操作 ──
 
     async _openFile(file) {
+        // 正在行内重命名该行 → 点击交给输入框,不触发打开
+        if (this._renamingId === file.id) return;
         const { token } = getState();
         if (!token) return;
 
@@ -370,6 +373,76 @@ export class CloudFolder {
         }
     }
 
+    // ── 重命名 ──
+
+    // 行内重命名:把 name span 换成输入框,Enter/失焦提交,Esc 取消(复用文件树的输入样式)
+    _startRenaming(file) {
+        const row = this._rowEl(file.id);
+        const nameEl = row?.querySelector('.open-file-name');
+        if (!row || !nameEl) return;
+
+        this._renamingId = file.id;
+        const oldName = file.filename || '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'tree-file-rename-input open-file-rename-input';
+        input.value = oldName;
+        nameEl.replaceWith(input);
+
+        let done = false;
+        const finish = (commit) => {
+            if (done) return;
+            done = true;
+            input.removeEventListener('keydown', onKeyDown);
+            input.removeEventListener('blur', onBlur);
+            this._renamingId = null;
+            const next = (input.value || '').trim();
+            // 行后续会被 refresh / render 重建,这里只需移除输入框兜底(取消或无效时)
+            if (commit && next && next !== oldName) {
+                input.replaceWith(nameEl);
+                void this._renameFile(file, next);
+            } else {
+                input.replaceWith(nameEl);
+            }
+        };
+        const onKeyDown = (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        };
+        const onBlur = () => finish(true);
+        input.addEventListener('keydown', onKeyDown);
+        input.addEventListener('blur', onBlur);
+        // 点击输入框不冒泡到行(行的 click 会触发打开)
+        input.addEventListener('mousedown', (e) => e.stopPropagation());
+
+        setTimeout(() => {
+            input.focus();
+            // 选中主名(不含扩展名),方便直接改名
+            const dot = oldName.lastIndexOf('.');
+            try { input.setSelectionRange(0, dot > 0 ? dot : oldName.length); } catch (_) {}
+        }, 0);
+    }
+
+    // 重命名 = 取云端最新内容 + 用新文件名 PUT 回写(后端用 multipart filename 更新记录)。
+    // 必须实时取内容,不能用可能过期的预取缓存,否则会把云端内容回退。
+    async _renameFile(file, newName) {
+        const { token } = getState();
+        if (!token) return;
+        this._setRowLoading(file.id, true);
+        try {
+            const resp = await api.fileContent({ file_id: file.id, token });
+            const content = (resp && typeof resp.content === 'string') ? resp.content : '';
+            const blob = new Blob([content], { type: file.content_type || 'text/markdown' });
+            await api.updateFile({ file_id: file.id, blob, filename: newName, token });
+            this._contentCache.set(file.id, content); // 内容未变,顺带刷新缓存
+            await this.refresh();
+        } catch (e) {
+            console.error('[cloudFolder] rename failed:', e);
+            this._setRowLoading(file.id, false);
+        }
+    }
+
     // ── 右键菜单 ──
 
     _showContextMenu(x, y, file) {
@@ -377,6 +450,7 @@ export class CloudFolder {
         const menu = document.createElement('div');
         menu.className = 'cloud-folder__menu';
         const items = [
+            { label: t('cloudFolder.rename'),   fn: () => this._startRenaming(file) },
             { label: t('cloudFolder.download'), fn: () => this._downloadFile(file) },
             { label: t('cloudFolder.delete'),   fn: () => this._deleteFile(file), danger: true },
         ];

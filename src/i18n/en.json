@@ -60,6 +60,7 @@
     "cloudFolder.loadFailed": "Failed to load",
     "cloudFolder.empty": "No cloud files yet",
     "cloudFolder.download": "Download to local…",
+    "cloudFolder.rename": "Rename",
     "cloudFolder.delete": "Delete",
     "cloudFolder.notDownloaded": "Not downloaded — click to download & open",
     "cloudFolder.saveToCloud.title": "Save to cloud",
