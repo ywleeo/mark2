@@ -49,6 +49,7 @@ export function createNavigationController({
     confirm,
     untitledFileManager,
     saveUntitledFile,
+    pushCloudDocument,
     eventBus,
     rememberScrollPosition,
 }) {
@@ -600,13 +601,43 @@ export function createNavigationController({
         // 更新 untitledFileManager 中的内容
         untitledFileManager?.setContent?.(targetPath, content);
 
-        // 检查是否有内容需要保存
+        // 判断关闭时是否需要提示保存
         const hasContent = content.trim().length > 0;
-        // 云文件夹 / 分享打开的文档,云端已有副本,关闭不问保存
         const cloudBacked = untitledFileManager?.isCloudBacked?.(targetPath);
+        const cloudFileId = untitledFileManager?.getCloudFileId?.(targetPath);
+        // 黄点 = documentManager dirty;只在"编辑过"时才提示保存
+        const docDirty = Boolean(documentManager?.getDocumentByPath?.(targetPath)?.dirty);
+        const displayName = untitledFileManager?.getDisplayName?.(targetPath) || 'untitled.md';
 
-        if (hasContent && !cloudBacked) {
-            const displayName = untitledFileManager?.getDisplayName?.(targetPath) || 'untitled.md';
+        if (cloudFileId) {
+            // 云文件夹文档:编辑过 → 问"是否存回云端";没编辑直接关
+            if (docDirty) {
+                try {
+                    const { message } = await import('@tauri-apps/plugin-dialog');
+                    const saveLabel = t('cloudFolder.saveToCloud.save');
+                    const cancelLabel = t('common.cancel');
+                    const choice = await message(
+                        t('cloudFolder.saveToCloud.message', { name: displayName }),
+                        {
+                            title: t('cloudFolder.saveToCloud.title'),
+                            kind: 'warning',
+                            buttons: { yes: saveLabel, no: t('cloudFolder.saveToCloud.dontSave'), cancel: cancelLabel },
+                        }
+                    );
+                    if (choice === cancelLabel || choice === 'Cancel') return; // 取消关闭
+                    if (choice === saveLabel || choice === 'Yes') {
+                        const ok = pushCloudDocument
+                            ? await pushCloudDocument({ path: targetPath, content, filename: displayName })
+                            : false;
+                        if (!ok) return; // 写云端失败,保留 tab
+                    }
+                    // no(不保存)→ 继续关
+                } catch (error) {
+                    console.warn('确认存回云端弹窗失败', error);
+                }
+            }
+        } else if (cloudBacked ? docDirty : hasContent) {
+            // 分享打开(编辑过)或普通 untitled(有内容)→ 本地另存为
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
                 const saveLabel = t('tabClose.untitled.save');

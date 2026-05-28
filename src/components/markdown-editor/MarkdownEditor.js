@@ -161,6 +161,7 @@ export class MarkdownEditor {
             getScrollContainer: () => this.getScrollContainer(),
             getCurrentMarkdown: () => this.contentLoader.getMarkdown(),
             getOriginalMarkdown: () => this.contentLoader.originalMarkdown,
+            getContentChanged: () => this.contentLoader.contentChanged,
             setOriginalMarkdown: (v) => { this.contentLoader.originalMarkdown = v; },
             setContentChanged: (v) => { this.contentLoader.contentChanged = v; },
         });

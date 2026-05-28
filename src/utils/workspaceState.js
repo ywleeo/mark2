@@ -57,13 +57,18 @@ function normalizeUntitledTabs(values) {
             return;
         }
 
+        const cloudBacked = Boolean(value.cloudBacked);
         deduped.set(path, {
             path,
             label: typeof value.label === 'string' ? value.label : path.slice(UNTITLED_PROTOCOL.length),
             content: typeof value.content === 'string' ? value.content : '',
             hasChanges: typeof value.hasChanges === 'boolean'
                 ? value.hasChanges
-                : (typeof value.content === 'string' && value.content.trim().length > 0),
+                // 云端文档默认干净;普通 untitled 有内容即视为有更改
+                : (!cloudBacked && typeof value.content === 'string' && value.content.trim().length > 0),
+            // 云端文档标识需跨重启保留,否则恢复后会退化成普通 untitled 而被强制标脏
+            cloudBacked,
+            cloudFileId: value.cloudFileId ?? null,
         });
     });
 

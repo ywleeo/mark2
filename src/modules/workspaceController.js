@@ -202,13 +202,21 @@ export function createWorkspaceController({
             if (!content.trim()) {
                 return;
             }
+            const cloudBacked = untitledFileManager.isCloudBacked?.(path) || false;
             snapshotMap.set(path, {
                 path,
                 label: typeof doc.label === 'string'
                     ? doc.label
                     : (untitledFileManager.getDisplayName?.(path) || path),
                 content,
-                hasChanges: untitledFileManager.hasUnsavedChanges?.(path) || false,
+                // 云端文档用真实脏状态(doc.dirty);普通 untitled 始终视为有更改。
+                // 注意 untitledFileManager.hasUnsavedChanges 把「有内容」也当作有更改,
+                // 对云端文档会误判,故云端文档不用它。
+                hasChanges: cloudBacked
+                    ? Boolean(doc?.dirty)
+                    : (untitledFileManager.hasUnsavedChanges?.(path) || false),
+                cloudBacked,
+                cloudFileId: untitledFileManager.getCloudFileId?.(path) ?? null,
             });
         });
 
@@ -371,16 +379,22 @@ export function createWorkspaceController({
                         && typeof tab.path === 'string'
                         && untitledFileManager.isUntitledPath(tab.path);
                 })
-                .map((tab) => ({
-                    path: tab.path,
-                    label: typeof tab.label === 'string'
-                        ? tab.label
-                        : (untitledFileManager.getDisplayName?.(tab.path) || tab.path),
-                    content: typeof tab.content === 'string' ? tab.content : '',
-                    hasChanges: typeof tab.hasChanges === 'boolean'
-                        ? tab.hasChanges
-                        : (typeof tab.content === 'string' && tab.content.trim().length > 0),
-                }))
+                .map((tab) => {
+                    const cloudBacked = Boolean(tab.cloudBacked);
+                    return {
+                        path: tab.path,
+                        label: typeof tab.label === 'string'
+                            ? tab.label
+                            : (untitledFileManager.getDisplayName?.(tab.path) || tab.path),
+                        content: typeof tab.content === 'string' ? tab.content : '',
+                        hasChanges: typeof tab.hasChanges === 'boolean'
+                            ? tab.hasChanges
+                            // 云端文档默认干净,普通 untitled 有内容即视为有更改
+                            : (!cloudBacked && typeof tab.content === 'string' && tab.content.trim().length > 0),
+                        cloudBacked,
+                        cloudFileId: tab.cloudFileId ?? null,
+                    };
+                })
             : [];
         const storedSharedTabPath = !untitledFileManager.isUntitledPath(stored.sharedTabPath)
             ? canonicalizeWorkspacePath(stored.sharedTabPath)

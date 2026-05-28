@@ -168,6 +168,13 @@ export const api = {
     // 删除云文件(连带退还配额,share 走 FK 级联删)
     deleteFile: ({ file_id, token }) =>
         request(`/api/storage/files/${encodeURIComponent(file_id)}`, { method: 'DELETE', token }),
+
+    // 覆盖更新云文件内容(同一 file_id / R2 key),用于"改完存回云端"
+    updateFile: ({ file_id, blob, filename, token }) => {
+        const fd = new FormData();
+        fd.append('file', blob, filename);
+        return request(`/api/storage/files/${encodeURIComponent(file_id)}`, { method: 'PUT', token, body: fd });
+    },
 };
 
 export { ServerError };

@@ -1,6 +1,7 @@
 import { rememberSecurityScopes } from '../services/securityScopeService.js';
 import { getPathIdentityKey, basename } from '../utils/pathUtils.js';
 import { isSpreadsheetFilePath, isCsvFilePath } from '../utils/fileTypeUtils.js';
+import { t } from '../i18n/index.js';
 
 let sharedExternalDropOpener = null;
 let lastExternalDropKey = null;
@@ -86,6 +87,8 @@ export function createFileOperations({
     importAsUntitled,
     getStatusBarController,
     getTabManager,
+    confirm,
+    pushCloudDocument,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -346,6 +349,11 @@ export function createFileOperations({
 
         // 处理 untitled 文件的保存
         if (untitledFileManager?.isUntitledPath?.(currentFile)) {
+            // 云文件夹打开的文档:⌘S 确认后写回云端原文件,而非本地另存为
+            const cloudFileId = untitledFileManager?.getCloudFileId?.(currentFile);
+            if (cloudFileId && typeof pushCloudDocument === 'function') {
+                return saveCloudFileFromEditor(currentFile);
+            }
             return saveUntitledFileFromEditor(currentFile);
         }
 
@@ -479,6 +487,42 @@ export function createFileOperations({
             return saved;
         }
         return false;
+    }
+
+    /**
+     * 云文件夹打开的文档:⌘S → 确认后把内容写回云端原文件(PUT update)。
+     */
+    async function saveCloudFileFromEditor(untitledPath) {
+        const editor = getEditor();
+        const codeEditor = getCodeEditor();
+        const activeViewMode = getActiveViewMode();
+
+        let content = '';
+        if (activeViewMode === 'markdown' && editor) {
+            content = editor.getMarkdown?.() || '';
+        } else if (activeViewMode === 'code' && codeEditor) {
+            content = codeEditor.getValue?.() || '';
+        }
+
+        const displayName = untitledFileManager?.getDisplayName?.(untitledPath) || 'untitled.md';
+        // 按用户要求:⌘S 也先确认再写回云端
+        const ok = typeof confirm === 'function'
+            ? await confirm(t('cloudFolder.saveToCloud.confirmSave', { name: displayName }), {
+                title: t('cloudFolder.saveToCloud.title'),
+                okLabel: t('cloudFolder.saveToCloud.save'),
+                cancelLabel: t('common.cancel'),
+            })
+            : true;
+        if (!ok) return false;
+
+        const saved = await pushCloudDocument({ path: untitledPath, content, filename: displayName });
+        if (saved) {
+            setHasUnsavedChanges(false);
+            documentManager?.markDirty?.(untitledPath, false);
+            untitledFileManager?.markAsSaved?.(untitledPath);
+            await updateWindowTitle();
+        }
+        return saved;
     }
 
     async function saveFile(filePath) {
@@ -792,10 +836,16 @@ export function createFileOperations({
                         }
                     }
                 }
-                // untitled 文件永远未保存到磁盘，始终为 dirty 状态。
+                // 普通 untitled 文件未保存到磁盘，始终为 dirty 状态。
                 // editor.loadFile 内部会调用 onContentChange → markDirty(false)，这里强制覆盖回 true。
-                documentManager?.markDirty?.(filePath, true);
-                setHasUnsavedChanges(true);
+                // 例外：云端 untitled(cloudBacked)已存在于云上，初始即干净 ——
+                // 脏与否取决于是否真正编辑过，按编辑器真实未保存状态判定，避免切 tab 误标脏。
+                const cloudBacked = untitledFileManager?.isCloudBacked?.(filePath);
+                const untitledDirty = cloudBacked
+                    ? (editor?.hasUnsavedChanges?.() || codeEditor?.hasUnsavedChanges?.() || false)
+                    : true;
+                documentManager?.markDirty?.(filePath, untitledDirty);
+                setHasUnsavedChanges(untitledDirty);
                 // 不 await updateWindowTitle：Tauri 的 win.setTitle() 会调用原生窗口 API，
                 // macOS 上可能导致 WebView 焦点丢失。标题更新不需要阻塞加载流程。
                 void updateWindowTitle();

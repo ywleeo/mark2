@@ -16,6 +16,7 @@ import { getFileIconSvg } from '../utils/fileIcons.js';
 import { t } from '../i18n/index.js';
 import { subscribe, getState } from '../modules/cloud-account/accountState.js';
 import { api, ServerError } from '../modules/cloud-account/serverApi.js';
+import { eventBus } from '../core/EventBus.js';
 
 const REFRESH_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>`;
 const UPLOAD_ICON  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><polyline points="7 9 12 4 17 9"/><path d="M4 18v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1"/></svg>`;
@@ -23,6 +24,8 @@ const CLOUD_ICON   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none
 const CHEVRON_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>`;
 // 未下载(预取未完成)状态:云 + 下箭头
 const PENDING_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 17a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5-1.5A4 4 0 0 0 5.5 17"/><path d="M12 11v8"/><path d="m8.5 15.5 3.5 3.5 3.5-3.5"/></svg>`;
+// 上传中(存回云端)状态:云 + 上箭头
+const SYNC_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5-1.5A4 4 0 0 0 6 19"/><path d="M12 19v-8"/><path d="m8.5 14.5 3.5-3.5 3.5 3.5"/></svg>`;
 
 export class CloudFolder {
     /**
@@ -48,8 +51,14 @@ export class CloudFolder {
         this._openedPaths = new Map();  // fileId → 已打开的 untitled 路径(去重聚焦用)
         this._opening = new Set();      // 正在打开的 fileId(in-flight 并发守卫)
         this._contentCache = new Map(); // fileId → content(后台预取,点击秒开)
+        this._syncing = new Set();      // 正在存回云端的 fileId(重渲染后仍要保持状态)
 
         this._unsub = subscribe((state) => this._onState(state));
+        // 文档存回云端期间,在对应行显示「上传中」状态(由 cloudDocSync 广播)
+        this._busUnsubs = [
+            eventBus.on('cloud:doc-sync-start', ({ fileId } = {}) => this._setRowSyncing(fileId, true)),
+            eventBus.on('cloud:doc-sync-end', ({ fileId } = {}) => this._setRowSyncing(fileId, false)),
+        ];
     }
 
     _onState(state) {
@@ -216,6 +225,15 @@ export class CloudFolder {
         }
         // 打开中(并发 / refresh 重渲染期间)保持 loading 态
         if (this._opening.has(file.id)) item.classList.add('is-loading');
+        // 存回云端中(重渲染期间)保持「上传中」态
+        if (this._syncing.has(file.id)) {
+            item.classList.add('is-syncing');
+            const sync = document.createElement('span');
+            sync.className = 'cloud-file-sync';
+            sync.title = t('cloudFolder.saveToCloud.syncing');
+            sync.innerHTML = SYNC_ICON;
+            item.appendChild(sync);
+        }
 
         this._push(addClickHandler(item, () => this._openFile(file)));
 
@@ -245,7 +263,7 @@ export class CloudFolder {
 
         // 2) 命中预取缓存 → 秒开,无需网络、无需 spinner
         if (this._contentCache.has(file.id)) {
-            const path = await this.deps.openAsUntitled?.({ content: this._contentCache.get(file.id), filename });
+            const path = await this.deps.openAsUntitled?.({ content: this._contentCache.get(file.id), filename, cloudFileId: file.id });
             if (typeof path === 'string' && path) this._openedPaths.set(file.id, path);
             return;
         }
@@ -259,7 +277,7 @@ export class CloudFolder {
             const content = (resp && typeof resp.content === 'string') ? resp.content : '';
             this._contentCache.set(file.id, content);
             this._markRowDownloaded(file.id);
-            const path = await this.deps.openAsUntitled?.({ content, filename });
+            const path = await this.deps.openAsUntitled?.({ content, filename, cloudFileId: file.id });
             if (typeof path === 'string' && path) this._openedPaths.set(file.id, path);
         } catch (e) {
             console.error('[cloudFolder] open failed:', e);
@@ -278,6 +296,25 @@ export class CloudFolder {
     // 预取/按需取完成后移除该行的"未下载"图标
     _markRowDownloaded(fileId) {
         this._rowEl(fileId)?.querySelector('.cloud-file-status')?.remove();
+    }
+
+    // 文档存回云端期间在对应行显示「上传中」云朵,完成后移除
+    _setRowSyncing(fileId, syncing) {
+        if (fileId == null) return;
+        if (syncing) this._syncing.add(fileId); else this._syncing.delete(fileId);
+        const row = this._rowEl(fileId);
+        if (!row) return;
+        row.classList.toggle('is-syncing', syncing);
+        let badge = row.querySelector('.cloud-file-sync');
+        if (syncing && !badge) {
+            badge = document.createElement('span');
+            badge.className = 'cloud-file-sync';
+            badge.title = t('cloudFolder.saveToCloud.syncing');
+            badge.innerHTML = SYNC_ICON;
+            row.appendChild(badge);
+        } else if (!syncing && badge) {
+            badge.remove();
+        }
     }
 
     _rowEl(fileId) {
@@ -382,6 +419,8 @@ export class CloudFolder {
         this._closeContextMenu();
         this._teardownRows();
         this._unsub?.();
+        this._busUnsubs?.forEach((fn) => { try { fn(); } catch (_) {} });
+        this._busUnsubs = [];
         if (this.container) this.container.innerHTML = '';
     }
 }

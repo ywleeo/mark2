@@ -21,6 +21,7 @@ import { createDocumentRegistry } from '../core/documents/DocumentRegistry.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from '../utils/workspaceState.js';
 import { createWorkspaceController } from '../modules/workspaceController.js';
 import { createNavigationController } from '../modules/navigationController.js';
+import { pushCloudDocument } from '../modules/cloud-account/cloudDocSync.js';
 import { createFileOperations } from '../modules/fileOperations.js';
 import { createFileMenuActions } from '../modules/fileMenuActions.js';
 import { createRecentFilesActions } from '../modules/recentFilesActions.js';
@@ -478,6 +479,8 @@ const {
     importAsUntitled: handleImportAsUntitled,
     getStatusBarController: () => appState.getStatusBarController(),
     getTabManager: () => appState.getTabManager(),
+    confirm,
+    pushCloudDocument,
 });
 
 // ========== 导航控制器 ==========
@@ -510,6 +513,7 @@ const {
     confirm,
     untitledFileManager,
     saveUntitledFile,
+    pushCloudDocument,
     eventBus,
     rememberScrollPosition,
 });

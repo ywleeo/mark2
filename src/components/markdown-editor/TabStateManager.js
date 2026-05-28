@@ -17,6 +17,7 @@ export class TabStateManager {
         getScrollContainer,
         getCurrentMarkdown,
         getOriginalMarkdown,
+        getContentChanged,
         setOriginalMarkdown,
         setContentChanged,
     }) {
@@ -24,6 +25,7 @@ export class TabStateManager {
         this._getScrollContainer = getScrollContainer;
         this._getCurrentMarkdown = getCurrentMarkdown;
         this._getOriginalMarkdown = getOriginalMarkdown;
+        this._getContentChanged = getContentChanged;
         this._setOriginalMarkdown = setOriginalMarkdown;
         this._setContentChanged = setContentChanged;
         this._states = new Map();
@@ -38,11 +40,18 @@ export class TabStateManager {
         if (!tabId || !editor) return;
 
         const scrollContainer = this._getScrollContainer();
+        // 脏判定:必须真正发生过编辑(contentChanged 标志为 true)才可能脏。
+        // 仅靠 currentMarkdown !== originalMarkdown 字符串比较不可靠 —— 非 mark2 规范化
+        // 格式的内容(如云端文件)解析→序列化不完全等价,会被误判脏。AND 上编辑标志后,
+        // 未编辑过的文档(标志为 false)一定干净;同时保留「撤销回原内容→清除脏点」行为。
+        const everEdited = this._getContentChanged ? Boolean(this._getContentChanged()) : true;
+        const contentChanged = everEdited
+            && this._getCurrentMarkdown() !== this._getOriginalMarkdown();
         this._states.set(tabId, {
             editorState: editor.state,
             currentMarkdown: this._getCurrentMarkdown(),
             originalMarkdown: this._getOriginalMarkdown(),
-            contentChanged: this._getCurrentMarkdown() !== this._getOriginalMarkdown(),
+            contentChanged,
             scrollTop: scrollContainer?.scrollTop ?? 0,
             lastActive: Date.now(),
         });

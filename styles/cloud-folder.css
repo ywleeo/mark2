@@ -41,6 +41,20 @@
     opacity: 0.9;
 }
 
+/* 存回云端中:行尾"云+上箭头",轻微脉动,完成后由 JS 移除 */
+.cloud-file-sync {
+    margin-right: 6px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent-color, #3b82f6);
+    animation: cloud-folder-pulse 1s ease-in-out infinite;
+}
+@keyframes cloud-folder-pulse {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 1; }
+}
+
 /* 未下载(预取未完成):行尾淡淡的"云+下箭头",下完由 JS 移除 */
 .cloud-file-status {
     margin-right: 6px;

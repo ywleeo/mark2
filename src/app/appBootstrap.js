@@ -361,8 +361,8 @@ export function createAppBootstrap({
             const cloudFolderEl = document.getElementById('cloudFolder');
             if (cloudFolderEl) {
                 const cloudFolder = new CloudFolder(cloudFolderEl, {
-                    openAsUntitled: ({ content, filename }) =>
-                        handleImportAsUntitled(content, filename, null, { cloudBacked: true }),
+                    openAsUntitled: ({ content, filename, cloudFileId }) =>
+                        handleImportAsUntitled(content, filename, null, { cloudBacked: true, cloudFileId }),
                     // 已打开同源 tab 时聚焦它,返回是否命中 → 避免重复点叠开多个 tab
                     focusDocumentIfOpen: (path) => {
                         const tm = appState.getTabManager();
