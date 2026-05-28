@@ -60,7 +60,7 @@ export function createUntitledController({
         // 已由 pipeline loadFile → performLoad → setCurrentFile 内部调用，无需重复。
     }
 
-    async function handleImportAsUntitled(content, suggestedName, originalFilePath) {
+    async function handleImportAsUntitled(content, suggestedName, originalFilePath, options = {}) {
         getSaveCurrentEditorContentToCache()();
 
         // 把原始文件从 open list 移除（安全兜底：正常流程中原文件不在 open list 里）
@@ -69,7 +69,7 @@ export function createUntitledController({
             fileTree?.closeFile?.(originalFilePath);
         }
 
-        const untitledPath = untitledFileManager.createImportFile(suggestedName);
+        const untitledPath = untitledFileManager.createImportFile(suggestedName, options);
         untitledFileManager.setContent(untitledPath, content);
         const displayName = untitledFileManager.getDisplayName(untitledPath);
 
@@ -108,6 +108,9 @@ export function createUntitledController({
         void getUpdateWindowTitle()();
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
+
+        // 返回创建的 untitled 路径,供调用方做"同源去重 / 聚焦已开 tab"
+        return untitledPath;
     }
 
     async function saveUntitledFile(untitledPath, content) {

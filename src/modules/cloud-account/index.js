@@ -4,7 +4,7 @@ import { getServerBaseUrl } from './serverConfig.js';
 export { getState, subscribe } from './accountState.js';
 export { bootstrapSession, fetchAndApplyMe } from './session.js';
 export { startLogin, cancelLogin, logout } from './oauthFlow.js';
-export { getServerBaseUrl, setServerBaseUrl } from './serverConfig.js';
+export { getServerBaseUrl } from './serverConfig.js';
 
 /**
  * 同步返回当前云账户在 AI 调用中需要的凭据。

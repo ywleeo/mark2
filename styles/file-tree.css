@@ -2,7 +2,9 @@
 #fileTree {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    /* flex:1 + min-height:0 取代 height:100%,以便和上方的云文件夹区块共存 */
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: visible;
     user-select: none;
     -webkit-user-select: none;

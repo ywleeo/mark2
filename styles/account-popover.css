@@ -1,0 +1,300 @@
+/* ── titlebar 账户图标按钮(挨着 #theme-toggle) ── */
+
+/* 修复:`.titlebar-btn { display: flex }` 覆盖了 UA 的 `[hidden] { display: none }`,
+   导致 HTML 上的 hidden 失效。这里明确强制 hidden 时隐藏。 */
+#titlebar-account[hidden] {
+    display: none !important;
+}
+
+.titlebar-account-toggle {
+    position: relative;
+}
+
+.titlebar-account-toggle.is-open {
+    background: rgba(0, 0, 0, 0.06);
+}
+:root[data-theme-appearance='dark'] .titlebar-account-toggle.is-open {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.titlebar-account-toggle.is-logged-in svg {
+    color: #2f80ed;
+}
+:root[data-theme-appearance='dark'] .titlebar-account-toggle.is-logged-in svg {
+    color: #5aa3ff;
+}
+
+.titlebar-account-toggle.is-authenticating svg {
+    opacity: 0.6;
+}
+
+.titlebar-account-toggle.has-error::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #e74c3c;
+    box-shadow: 0 0 0 1.5px var(--app-bg, #fff);
+}
+:root[data-theme-appearance='dark'] .titlebar-account-toggle.has-error::after {
+    box-shadow: 0 0 0 1.5px #1f2329;
+}
+
+
+/* ── 浮动账户面板 ── */
+
+.account-popover {
+    position: fixed;
+    z-index: 9000;
+    width: 280px;
+    max-height: 80vh;
+    overflow: auto;
+    padding: 0;
+    background: #ffffff;
+    color: #1f2329;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    font-size: 13px;
+    line-height: 1.45;
+}
+:root[data-theme-appearance='dark'] .account-popover {
+    background: #2a2d33;
+    color: #e6e6e6;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── AccountPanel ── */
+
+.account-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.account-panel__body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* guest / authenticating 状态:简单一段说明 + 按钮 */
+.account-panel__guest {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.account-panel__guest-text {
+    margin: 0;
+    opacity: 0.75;
+    font-size: 12.5px;
+}
+
+/* ── header(头像 + 名 + 邮箱 + plan 徽章) ── */
+
+.account-panel__head {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    align-items: center;
+    column-gap: 10px;
+}
+
+.account-panel__avatar {
+    /* 用 <button> 实现点击,这里 reset UA 默认 */
+    appearance: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 15px;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: opacity 0.15s ease, box-shadow 0.15s ease;
+}
+.account-panel__avatar:hover {
+    opacity: 0.85;
+    box-shadow: 0 0 0 2px rgba(47, 128, 237, 0.3);
+}
+.account-panel__avatar:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(47, 128, 237, 0.55);
+}
+.account-panel__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.account-panel__id {
+    min-width: 0;
+}
+.account-panel__name {
+    font-weight: 600;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.account-panel__email {
+    font-size: 11.5px;
+    opacity: 0.65;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-panel__plan {
+    align-self: start;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: rgba(0, 0, 0, 0.08);
+    color: #4b5563;
+}
+:root[data-theme-appearance='dark'] .account-panel__plan {
+    background: rgba(255, 255, 255, 0.12);
+    color: #d1d5db;
+}
+.account-panel__plan--pro {
+    background: rgba(47, 128, 237, 0.15);
+    color: #2f80ed;
+}
+.account-panel__plan--team {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+}
+.account-panel__plan--expired {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+}
+
+.account-panel__plan-meta {
+    margin-top: -6px;
+    margin-left: 46px;
+    font-size: 11.5px;
+    opacity: 0.6;
+}
+
+/* ── usage 列表 ── */
+
+.account-panel__usage {
+    list-style: none;
+    margin: 0;
+    padding: 8px 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+:root[data-theme-appearance='dark'] .account-panel__usage {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.account-panel__usage-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.account-panel__usage-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12px;
+}
+.account-panel__usage-label {
+    opacity: 0.75;
+}
+.account-panel__usage-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+.account-panel__usage-value.is-muted {
+    opacity: 0.5;
+    font-weight: normal;
+}
+
+.account-panel__usage-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+}
+:root[data-theme-appearance='dark'] .account-panel__usage-bar {
+    background: rgba(255, 255, 255, 0.1);
+}
+.account-panel__usage-bar-fill {
+    height: 100%;
+    background: #2f80ed;
+    transition: width 0.2s ease;
+}
+.account-panel__usage-bar-fill.is-warn   { background: #f59e0b; }
+.account-panel__usage-bar-fill.is-danger { background: #e74c3c; }
+
+/* ── 按钮 ── */
+
+.account-panel__foot {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.account-panel__primary-btn,
+.account-panel__secondary-btn {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.account-panel__primary-btn {
+    background: #2f80ed;
+    color: #ffffff;
+    width: 100%;
+}
+.account-panel__primary-btn:hover {
+    background: #2671d6;
+}
+.account-panel__secondary-btn {
+    background: transparent;
+    color: inherit;
+    border-color: rgba(0, 0, 0, 0.15);
+}
+.account-panel__secondary-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+:root[data-theme-appearance='dark'] .account-panel__secondary-btn {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+:root[data-theme-appearance='dark'] .account-panel__secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.account-panel__error {
+    padding: 6px 10px;
+    background: rgba(231, 76, 60, 0.1);
+    color: #e74c3c;
+    border-radius: 4px;
+    font-size: 11.5px;
+}
+

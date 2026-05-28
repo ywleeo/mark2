@@ -629,6 +629,7 @@ bootstrap = createAppBootstrap({
     closeActiveTab,
     reopenLastClosedTab,
     setupLinkNavigationListener,
+    activateTabTransition,
     handleCreateNewFile,
     handleDeleteActiveFile,
     handleMoveActiveFile,

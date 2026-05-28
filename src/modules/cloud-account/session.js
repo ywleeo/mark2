@@ -36,12 +36,23 @@ export async function fetchAndApplyMe(opts = {}) {
     try {
         const me = await api.me(token);
         setState({ status: 'logged-in', me, lastError: null });
-        // 异步拉 models，不阻塞主流程；失败也不影响登录态
+        // 异步拉 models / subscription / quotas，不阻塞主流程；失败也不影响登录态
         api.models(token)
             .then((resp) => {
                 if (resp && Array.isArray(resp.data)) setState({ models: resp.data });
             })
             .catch((err) => console.warn('[cloud-account] fetch models failed:', err.message));
+        api.subscription(token)
+            .then((resp) => {
+                const list = resp && Array.isArray(resp.subscriptions) ? resp.subscriptions : [];
+                setState({ subscription: list[0] || null });
+            })
+            .catch((err) => console.warn('[cloud-account] fetch subscription failed:', err.message));
+        api.quotas(token)
+            .then((resp) => {
+                if (resp && Array.isArray(resp.quotas)) setState({ quotas: resp.quotas });
+            })
+            .catch((err) => console.warn('[cloud-account] fetch quotas failed:', err.message));
         return me;
     } catch (e) {
         if (e instanceof ServerError && e.status === 401) {
@@ -50,6 +61,9 @@ export async function fetchAndApplyMe(opts = {}) {
                 status: 'guest',
                 token: null,
                 me: null,
+                models: null,
+                subscription: null,
+                quotas: null,
                 lastError: silent ? null : 'token_revoked',
             });
             return null;

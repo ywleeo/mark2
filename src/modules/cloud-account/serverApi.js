@@ -111,6 +111,15 @@ export const api = {
     models: (token) =>
         request('/api/v1/models', { token }),
 
+    // ---------- billing ----------
+    // 订阅信息(空数组表示 free 用户,有数据时只取第一条)
+    subscription: (token) =>
+        request('/api/orders/subscription/me', { token }),
+
+    // 配额使用量(过滤 / 单位换算交给调用方)
+    quotas: (token) =>
+        request('/api/quotas', { token }),
+
     // ---------- storage / shares ----------
     uploadFile: ({ blob, filename, token }) => {
         const fd = new FormData();
@@ -125,6 +134,17 @@ export const api = {
             body: { file_id, password, expires_in_days },
         }),
 
+    // 一步分享:直接上传内容生成分享链接。内容进独立的 share_files,不污染用户云盘(storage_files)。
+    shareUpload: ({ blob, filename, password = null, expires_in_days = null, token }) => {
+        const params = new URLSearchParams();
+        if (password) params.set('password', password);
+        if (expires_in_days != null) params.set('expires_in_days', String(expires_in_days));
+        const qs = params.toString();
+        const fd = new FormData();
+        fd.append('file', blob, filename);
+        return request(`/api/shares/upload${qs ? `?${qs}` : ''}`, { method: 'POST', token, body: fd });
+    },
+
     // 公开:取分享元信息(filename / size / requires_password / expires_at)
     getShareInfo: ({ uuid, password = null }) => {
         const q = password ? `?password=${encodeURIComponent(password)}` : '';
@@ -136,6 +156,18 @@ export const api = {
         const q = password ? `?password=${encodeURIComponent(password)}` : '';
         return request(`/api/shares/${encodeURIComponent(uuid)}/raw${q}`);
     },
+
+    // 云文件列表(扁平,服务端无目录层级)。page_size 服务端上限 100。
+    listFiles: ({ token, page = 1, page_size = 100 } = {}) =>
+        request(`/api/storage/files?page=${page}&page_size=${page_size}`, { token }),
+
+    // 取某个云文件的原文(text)
+    fileContent: ({ file_id, token }) =>
+        request(`/api/storage/files/${encodeURIComponent(file_id)}/content`, { token }),
+
+    // 删除云文件(连带退还配额,share 走 FK 级联删)
+    deleteFile: ({ file_id, token }) =>
+        request(`/api/storage/files/${encodeURIComponent(file_id)}`, { method: 'DELETE', token }),
 };
 
 export { ServerError };

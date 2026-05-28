@@ -4,7 +4,13 @@
  * status: 'unknown' | 'guest' | 'authenticating' | 'logged-in'
  * me: { id, email, name, avatar, level, points, status } | null
  * token: string | null
- * models: [{ id, object, created, owned_by }] | null  从 /api/v1/models 拉
+ * models: [{ id, object, created, owned_by }] | null         来自 /api/v1/models
+ * subscription: { plan, status, started_at, expires_at, is_permanent } | null
+ *                                                            来自 /api/orders/subscription/me
+ *                                                            free 用户 (返回 []) 也置为 null,
+ *                                                            渲染时按 me.level=0 兜底显示 Free
+ * quotas: [{ resource_type, total_used, period_used, hard_limit, effective_limit,
+ *           remaining, usage_percent, is_unlimited, ... }] | null   来自 /api/quotas
  * lastError: string | null
  */
 
@@ -15,6 +21,8 @@ const state = {
     me: null,
     token: null,
     models: null,
+    subscription: null,
+    quotas: null,
     lastError: null,
 };
 

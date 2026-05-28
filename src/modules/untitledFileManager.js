@@ -139,7 +139,7 @@ export function createUntitledFileManager() {
     /**
      * 为导入操作创建 untitled 文件，使用原文件名作为建议保存名
      */
-    function createImportFile(suggestedName) {
+    function createImportFile(suggestedName, options = {}) {
         const name = suggestedName || 'untitled.md';
         let path = `${UNTITLED_PROTOCOL}${name}`;
         if (untitledFiles.has(path)) {
@@ -150,8 +150,14 @@ export function createUntitledFileManager() {
             while (untitledFiles.has(`${UNTITLED_PROTOCOL}${base}-${i}${ext}`)) i++;
             path = `${UNTITLED_PROTOCOL}${base}-${i}${ext}`;
         }
-        untitledFiles.set(path, { content: '', hasChanges: false });
+        // cloudBacked:内容已存在云端,关闭时无需询问保存
+        untitledFiles.set(path, { content: '', hasChanges: false, cloudBacked: !!options.cloudBacked });
         return path;
+    }
+
+    // 该 untitled 文档是否有云端副本(云文件夹 / 分享打开的)→ 关闭时不问保存
+    function isCloudBacked(path) {
+        return Boolean(untitledFiles.get(path)?.cloudBacked);
     }
 
     /**
@@ -209,6 +215,7 @@ export function createUntitledFileManager() {
         isUntitledPath,
         createUntitledFile,
         createImportFile,
+        isCloudBacked,
         getContent,
         setContent,
         hasUnsavedChanges,

@@ -120,5 +120,5 @@ export function cancelLogin() {
 
 export async function logout() {
     await clearToken();
-    setState({ status: 'guest', token: null, me: null, models: null, lastError: null });
+    setState({ status: 'guest', token: null, me: null, models: null, subscription: null, quotas: null, lastError: null });
 }

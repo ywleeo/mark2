@@ -602,8 +602,10 @@ export function createNavigationController({
 
         // 检查是否有内容需要保存
         const hasContent = content.trim().length > 0;
+        // 云文件夹 / 分享打开的文档,云端已有副本,关闭不问保存
+        const cloudBacked = untitledFileManager?.isCloudBacked?.(targetPath);
 
-        if (hasContent) {
+        if (hasContent && !cloudBacked) {
             const displayName = untitledFileManager?.getDisplayName?.(targetPath) || 'untitled.md';
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');

@@ -49,13 +49,13 @@ export async function shareCurrentDocument({ getMarkdown, getCurrentFile } = {})
     const currentFile = typeof getCurrentFile === 'function' ? getCurrentFile() : null;
     const filename = buildFilename(currentFile);
 
-    // 常驻 toast,等成功 / 失败的 toast 自然替换
-    showShareToast({ title: t('share.uploading'), duration: 0 });
+    // toast 现在默认常驻,等成功 / 失败 toast 自然替换
+    showShareToast({ title: t('share.uploading') });
 
     try {
+        // 一步:直传内容生成分享。内容进 share_files(独立配额),不会出现在云文件夹列表里
         const blob = new Blob([markdown], { type: 'text/markdown' });
-        const uploaded = await api.uploadFile({ blob, filename, token });
-        const share = await api.createShareLink({ file_id: uploaded.id, token });
+        const share = await api.shareUpload({ blob, filename, token });
 
         try {
             await navigator.clipboard.writeText(share.url);
@@ -63,13 +63,13 @@ export async function shareCurrentDocument({ getMarkdown, getCurrentFile } = {})
             console.warn('[share] clipboard 写入失败,链接仍然可用:', e);
         }
 
-        showShareToast({ title: t('share.copied'), hint: share.url, duration: 6000 });
+        showShareToast({ title: t('share.copied'), hint: share.url });
         return share;
     } catch (e) {
         const detail = (e && (e.body?.detail || e.message)) || '';
         if (e instanceof ServerError && e.status === 401) {
             showShareToast({ title: t('share.notLoggedIn'), variant: 'error' });
-        } else if (e instanceof ServerError && e.status === 402) {
+        } else if (e instanceof ServerError && (e.status === 402 || e.status === 403)) {
             showShareToast({ title: t('share.quotaExceeded'), variant: 'error' });
         } else {
             showShareToast({ title: t('share.failed'), hint: detail, variant: 'error' });

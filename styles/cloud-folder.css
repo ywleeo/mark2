@@ -1,0 +1,119 @@
+/* 侧边栏「云文件夹」区块。
+   header / content / 行 全部复用文件树的 .section-* 和 .open-file-* 类,
+   宽度 / 行距 / 缩进自动与「打开的文件」一致;这里只放云端专属的少量样式。 */
+
+.cloud-folder {
+    /* 放在本地文件树上方。滚动交给内部 .section-content(overlay,不占宽) */
+    flex: 0 0 auto;
+}
+
+/* open-files 行高被那个 font-size:16px 的关闭按钮(×,opacity:0 但占布局)撑高;
+   云行没有该按钮,最高元素只有 14px 图标 → 偏矮。这里补等高 min-height 对齐。
+   关闭按钮是固定 16px(与 --sidebar-font-size 无关),故 open-file 行高近似定值。 */
+.cloud-file-item {
+    min-height: 24px;
+}
+
+/* header 里标题前的小云朵 */
+.cloud-files-icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    opacity: 0.7;
+    color: var(--text-secondary, #666);
+}
+
+/* 刷新按钮 loading 转圈 */
+.section-action-btn.is-spinning svg {
+    animation: cloud-folder-spin 0.8s linear infinite;
+}
+@keyframes cloud-folder-spin {
+    to { transform: rotate(360deg); }
+}
+
+.cloud-folder__hint {
+    padding: 6px 12px;
+    opacity: 0.5;
+    font-size: 12px;
+}
+.cloud-folder__hint--error {
+    color: #e74c3c;
+    opacity: 0.9;
+}
+
+/* 未下载(预取未完成):行尾淡淡的"云+下箭头",下完由 JS 移除 */
+.cloud-file-status {
+    margin-right: 6px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.45;
+    color: var(--text-secondary, #666);
+}
+.cloud-file-item.is-loading .cloud-file-status {
+    display: none;
+}
+
+/* 点击打开中:把行图标换成转圈 spinner + cursor:progress + 淡化 */
+.cloud-file-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    opacity: 0.55;
+    flex-shrink: 0;
+}
+.cloud-file-item.is-loading {
+    cursor: progress;
+    opacity: 0.75;
+}
+.cloud-file-item.is-loading .open-file-icon {
+    display: none;
+}
+.cloud-file-item.is-loading .cloud-file-spinner {
+    display: inline-block;
+    order: -1; /* 占据原图标位置 */
+    animation: cloud-folder-spin 0.7s linear infinite;
+}
+
+/* 右键菜单 */
+.cloud-folder__menu {
+    position: fixed;
+    z-index: 99999;
+    min-width: 140px;
+    padding: 4px;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+:root[data-theme-appearance='dark'] .cloud-folder__menu {
+    background: #2a2d33;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.cloud-folder__menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-size: 12.5px;
+}
+.cloud-folder__menu-item:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+:root[data-theme-appearance='dark'] .cloud-folder__menu-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.cloud-folder__menu-item.is-danger {
+    color: #e74c3c;
+}

@@ -16,7 +16,9 @@ import {
     getCloudCredentials,
     subscribe,
 } from './index.js';
-import { AccountSettingsRow } from './AccountSettingsRow.js';
+
+// 注:账户 UI 不再挂进 Settings,而是 titlebar 的浮动账户面板。
+// 见 appBootstrap.js 里调 setupAccountTitlebarIcon()。
 
 if (features.cloudAccount) {
     registerCloudProvider({
@@ -44,11 +46,6 @@ if (features.cloudAccount) {
             };
         },
         subscribe,
-        mountSettingsSlot(container) {
-            const row = new AccountSettingsRow();
-            row.mount(container);
-            return () => row.destroy();
-        },
         bootstrap() {
             return bootstrapSession();
         },

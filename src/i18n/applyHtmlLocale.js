@@ -12,6 +12,7 @@ export function applyHtmlLocale() {
     const attrs = [
         ['#titlebar-menu', 'aria-label', 'titlebar.menu'],
         ['#theme-toggle', 'aria-label', 'titlebar.toggleTheme'],
+        ['#titlebar-account', 'aria-label', 'titlebar.account'],
         ['#titlebar-minimize', 'aria-label', 'titlebar.minimize'],
         ['#titlebar-maximize', 'aria-label', 'titlebar.maximize'],
         ['#titlebar-close', 'aria-label', 'titlebar.close'],

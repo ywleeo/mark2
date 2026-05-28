@@ -14,10 +14,13 @@ import { setupAutoUpdater } from '../modules/autoUpdater.js';
 import '../modules/cloud-account/plugin.js';
 import { bootstrapCloudPlugins } from '../modules/ai-assistant/cloudProviderRegistry.js';
 import { setupOpenSharedDocumentListener } from '../modules/share/openSharedDocument.js';
+import { setupAccountTitlebarIcon } from '../modules/cloud-account/accountPopover.js';
+import { CloudFolder } from '../components/CloudFolder.js';
+import { features as appFeatures } from '../config/features.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
-import { normalizeFsPath, dirname } from '../utils/pathUtils.js';
+import { normalizeFsPath, dirname, getPathIdentityKey } from '../utils/pathUtils.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
@@ -352,6 +355,44 @@ export function createAppBootstrap({
 
         setupTitlebarControls();
         setupThemeToggle(appState);
+        if (appFeatures.cloudAccount) {
+            setupAccountTitlebarIcon();
+
+            const cloudFolderEl = document.getElementById('cloudFolder');
+            if (cloudFolderEl) {
+                const cloudFolder = new CloudFolder(cloudFolderEl, {
+                    openAsUntitled: ({ content, filename }) =>
+                        handleImportAsUntitled(content, filename, null, { cloudBacked: true }),
+                    // 已打开同源 tab 时聚焦它,返回是否命中 → 避免重复点叠开多个 tab
+                    focusDocumentIfOpen: (path) => {
+                        const tm = appState.getTabManager();
+                        const tabs = tm?.getAllTabs?.() || [];
+                        // 宽松匹配:untitled 路径可能被规范化,先精确再按 identity key 比
+                        const key = getPathIdentityKey(normalizeFsPath(path));
+                        const tab = tabs.find((t) => t && (
+                            t.path === path ||
+                            getPathIdentityKey(normalizeFsPath(t.path)) === key
+                        ));
+                        if (!tab) return false;
+                        void activateTabTransition(tab, { autoFocus: true });
+                        return true;
+                    },
+                    writeTextFile: (path, content) => appServices.file.writeText(path, content),
+                    readLocalText: (path) => appServices.file.readText(path),
+                    pickUploadFiles: async () => {
+                        const { open } = await import('@tauri-apps/plugin-dialog');
+                        const sel = await open({ multiple: true });
+                        return Array.isArray(sel) ? sel : (sel ? [sel] : []);
+                    },
+                    pickSaveTarget: async (defaultName) => {
+                        const { save } = await import('@tauri-apps/plugin-dialog');
+                        return await save({ defaultPath: defaultName });
+                    },
+                    confirm,
+                });
+                appState.setCleanupFunction('cloudFolder', () => cloudFolder.destroy());
+            }
+        }
 
         const settingsDialog = new coreModules.SettingsDialog({ onSubmit: handleSettingsSubmit });
         appState.setSettingsDialog(settingsDialog);
@@ -435,7 +476,7 @@ export function createAppBootstrap({
         // mark2://open?share=<uuid>  → 从 cloud 取分享内容,开成本地 untitled tab
         await setupOpenSharedDocumentListener({
             openAsUntitled: ({ content, filename }) =>
-                handleImportAsUntitled(content, filename, null),
+                handleImportAsUntitled(content, filename, null, { cloudBacked: true }),
         });
         appState.setCleanupFunction('sidebarResizer', setupSidebarResizer());
 
