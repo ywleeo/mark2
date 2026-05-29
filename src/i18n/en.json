@@ -69,6 +69,7 @@
     "cloudFolder.saveToCloud.save": "Save to cloud",
     "cloudFolder.saveToCloud.dontSave": "Don't save",
     "cloudFolder.saveToCloud.syncing": "Saving to cloud…",
+    "cloudFolder.saveToCloud.failed": "Failed to save \"{name}\" to cloud. Check your connection and try again.",
     "cloudFolder.confirmDelete": "Delete cloud file \"{name}\"?",
     "titlebar.minimize": "Minimize",
     "titlebar.maximize": "Maximize",

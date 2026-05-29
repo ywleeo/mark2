@@ -134,7 +134,9 @@ export function createCommandHandlers(deps) {
         onShareLink: () => shareCurrentDocument({
             getMarkdown: () => editorRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
             getCurrentFile: () => appState.getCurrentFile(),
-            getIsDirty: () => editorRegistry.getMarkdownEditor()?.hasUnsavedChanges?.() ?? false,
+            // 用全局脏标记(已 OR 了 markdown + code 两个编辑器,见 editorSetup),
+            // 否则源码视图下编辑云文件会漏判,分享出云端旧版
+            getIsDirty: () => appState.getHasUnsavedChanges(),
             saveCurrentFile,
         }),
         onToggleTerminal: () => {

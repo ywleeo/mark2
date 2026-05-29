@@ -69,6 +69,7 @@
     "cloudFolder.saveToCloud.save": "保存到云端",
     "cloudFolder.saveToCloud.dontSave": "不保存",
     "cloudFolder.saveToCloud.syncing": "正在保存到云端…",
+    "cloudFolder.saveToCloud.failed": "「{name}」保存到云端失败,请检查网络后重试。",
     "cloudFolder.confirmDelete": "确定删除云文件「{name}」？",
     "titlebar.minimize": "最小化",
     "titlebar.maximize": "最大化",

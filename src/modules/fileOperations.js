@@ -521,6 +521,15 @@ export function createFileOperations({
             documentManager?.markDirty?.(untitledPath, false);
             untitledFileManager?.markAsSaved?.(untitledPath);
             await updateWindowTitle();
+        } else {
+            // 用户已确认保存但写云失败(网络/配额等):给出反馈,否则 ⌘S / 分享会静默无响应
+            try {
+                const { message } = await import('@tauri-apps/plugin-dialog');
+                await message(t('cloudFolder.saveToCloud.failed', { name: displayName }), {
+                    title: t('cloudFolder.saveToCloud.title'),
+                    kind: 'error',
+                });
+            } catch (_) {}
         }
         return saved;
     }
