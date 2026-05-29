@@ -15,6 +15,7 @@
 import { basename } from '../../utils/pathUtils.js';
 import { api, ServerError } from '../cloud-account/serverApi.js';
 import { getState } from '../cloud-account/accountState.js';
+import { untitledFileManager } from '../untitledFileManager.js';
 import { t } from '../../i18n/index.js';
 import { showShareToast } from './shareToast.js';
 
@@ -31,9 +32,11 @@ function buildFilename(currentFile) {
  * @param {Object} deps
  * @param {() => string} deps.getMarkdown - 返回当前 markdown 原文
  * @param {() => string|null} deps.getCurrentFile - 返回当前文档路径(用来推文件名)
+ * @param {() => boolean} [deps.getIsDirty] - 当前文档是否有未保存修改
+ * @param {() => Promise<boolean>} [deps.saveCurrentFile] - 保存当前文档(云文件→写回云端),返回是否保存成功
  * @returns {Promise<{ uuid:string, url:string } | null>}
  */
-export async function shareCurrentDocument({ getMarkdown, getCurrentFile } = {}) {
+export async function shareCurrentDocument({ getMarkdown, getCurrentFile, getIsDirty, saveCurrentFile } = {}) {
     const { token, status } = getState();
     if (!token || status !== 'logged-in') {
         showShareToast({ title: t('share.notLoggedIn'), variant: 'error' });
@@ -48,14 +51,30 @@ export async function shareCurrentDocument({ getMarkdown, getCurrentFile } = {})
 
     const currentFile = typeof getCurrentFile === 'function' ? getCurrentFile() : null;
     const filename = buildFilename(currentFile);
+    // 云文件夹打开的文档已在 storage 里,分享直接引用其 file_id,无需重传
+    const cloudFileId = currentFile ? untitledFileManager.getCloudFileId?.(currentFile) : null;
+
+    // 云文件有未保存修改时,from-storage 分享的是云端旧版本。先走「保存到云端」(复用其确认),
+    // 保存成功才分享,用户取消保存则不分享旧版。
+    if (cloudFileId && typeof getIsDirty === 'function' && getIsDirty()
+        && typeof saveCurrentFile === 'function') {
+        const saved = await saveCurrentFile();
+        if (!saved) return null;
+    }
 
     // toast 现在默认常驻,等成功 / 失败 toast 自然替换
     showShareToast({ title: t('share.uploading') });
 
     try {
-        // 一步:直传内容生成分享。内容进 share_files(独立配额),不会出现在云文件夹列表里
-        const blob = new Blob([markdown], { type: 'text/markdown' });
-        const share = await api.shareUpload({ blob, filename, token });
+        let share;
+        if (cloudFileId) {
+            // 云文件:引用已有 storage 文件生成分享,不重传内容
+            share = await api.shareFromStorage({ file_id: cloudFileId, token });
+        } else {
+            // 本地文件:一步直传内容生成分享。内容进 share_files(独立配额),不会出现在云文件夹列表里
+            const blob = new Blob([markdown], { type: 'text/markdown' });
+            share = await api.shareUpload({ blob, filename, token });
+        }
 
         try {
             await navigator.clipboard.writeText(share.url);

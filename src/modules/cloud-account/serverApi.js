@@ -134,7 +134,7 @@ export const api = {
             body: { file_id, password, expires_in_days },
         }),
 
-    // 一步分享:直接上传内容生成分享链接。内容进独立的 share_files,不污染用户云盘(storage_files)。
+    // 一步分享(本地文件):直接上传内容生成分享链接。内容进独立的 share_files,不污染用户云盘(storage_files)。
     shareUpload: ({ blob, filename, password = null, expires_in_days = null, token }) => {
         const params = new URLSearchParams();
         if (password) params.set('password', password);
@@ -143,6 +143,18 @@ export const api = {
         const fd = new FormData();
         fd.append('file', blob, filename);
         return request(`/api/shares/upload${qs ? `?${qs}` : ''}`, { method: 'POST', token, body: fd });
+    },
+
+    // 分享云文件:引用已有 storage 文件生成分享链接,无需重传内容(file_id 走路径,无 body)。
+    shareFromStorage: ({ file_id, password = null, expires_in_days = null, token }) => {
+        const params = new URLSearchParams();
+        if (password) params.set('password', password);
+        if (expires_in_days != null) params.set('expires_in_days', String(expires_in_days));
+        const qs = params.toString();
+        return request(
+            `/api/shares/from-storage/${encodeURIComponent(file_id)}${qs ? `?${qs}` : ''}`,
+            { method: 'POST', token }
+        );
     },
 
     // 公开:取分享元信息(filename / size / requires_password / expires_at)

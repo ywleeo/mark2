@@ -5,6 +5,9 @@
 .cloud-folder {
     /* 放在本地文件树上方。滚动交给内部 .section-content(overlay,不占宽) */
     flex: 0 0 auto;
+    /* 与 #fileTree 一致:文件名/标题不可被鼠标选中(云文件夹是独立兄弟节点,不继承 #fileTree 的禁选) */
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* 云文件夹是最顶部 section → 贴顶(去掉通用 8px 上边距) */

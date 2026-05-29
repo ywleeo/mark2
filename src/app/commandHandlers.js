@@ -134,6 +134,8 @@ export function createCommandHandlers(deps) {
         onShareLink: () => shareCurrentDocument({
             getMarkdown: () => editorRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
             getCurrentFile: () => appState.getCurrentFile(),
+            getIsDirty: () => editorRegistry.getMarkdownEditor()?.hasUnsavedChanges?.() ?? false,
+            saveCurrentFile,
         }),
         onToggleTerminal: () => {
             if (!isFeatureEnabled('terminal')) {
