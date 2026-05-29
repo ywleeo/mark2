@@ -181,16 +181,30 @@ fn main() {
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
         let file_paths: Vec<String> = argv
+            .clone()
             .into_iter()
             .skip(1)
             .filter(|arg| !arg.starts_with('-'))
             .filter(|arg| std::path::Path::new(arg).exists())
             .collect();
 
+        let deep_link_urls: Vec<String> = argv
+            .iter()
+            .skip(1)
+            .filter(|arg| arg.starts_with("mark2://"))
+            .map(|arg| arg.clone())
+            .collect();
+
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_focus();
+
+            if !deep_link_urls.is_empty() {
+                let _ = window.emit("cloud-deep-link", deep_link_urls);
+                return;
+            }
+
             if !file_paths.is_empty() {
                 let payload = OpenedFilesPayload { paths: file_paths.clone() };
                 if window.emit("files-opened", payload).is_ok() {

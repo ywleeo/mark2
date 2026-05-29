@@ -26,6 +26,7 @@ function parseCallback(url) {
     try {
         const u = new URL(url);
         if (u.protocol !== DEEP_LINK_SCHEME) return null;
+        if (u.host !== 'auth') return null;
         const params = u.searchParams;
         const token = params.get('token') || params.get('access_token');
         const error = params.get('error');
