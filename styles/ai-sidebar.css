@@ -30,6 +30,8 @@
     --ai-diff-added-badge: #16a34a;
     --ai-diff-deleted-badge: #ef4444;
     --ai-primary: #1a1a1a;
+    --ai-accent: #6366f1;
+    --ai-accent-user: #10b981;
     --ai-danger: #ef4444;
     --ai-cancel-bg: transparent;
     --ai-cancel-text: #f97316;
@@ -61,6 +63,8 @@
     --ai-diff-added-badge: #4ade80;
     --ai-diff-deleted-badge: #f87171;
     --ai-primary: #e5e5e5;
+    --ai-accent: #818cf8;
+    --ai-accent-user: #34d399;
     --ai-danger: #f87171;
     --ai-cancel-bg: transparent;
     --ai-cancel-text: #fb923c;
@@ -226,11 +230,46 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     border-bottom: none;
 }
 
+/* 角色署名行:头像 + 名称,紧贴内容上方,让角色一眼可辨 */
 .ai-message-role {
-    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.ai-message-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+}
+
+.ai-message-avatar svg {
+    width: 11px;
+    height: 11px;
+}
+
+.ai-message-name {
+    font-size: 12px;
     font-weight: 600;
-    color: var(--ai-text-secondary);
-    letter-spacing: 0.02em;
+    color: var(--ai-text);
+    letter-spacing: 0.01em;
+}
+
+/* You:强调色圆 + 白色人像,生动、和 AI 拉开 */
+.ai-message-role--user .ai-message-avatar {
+    background: var(--ai-accent-user);
+    color: #fff;
+}
+
+/* AI:强调色圆 + 白色 sparkle,和 You 拉开、突出主角色 */
+.ai-message-role--ai .ai-message-avatar {
+    background: var(--ai-accent);
+    color: #fff;
 }
 
 .ai-message-content {
@@ -243,10 +282,14 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     word-break: break-word;
 }
 
-/* AI 消息 */
-.ai-message-assistant {
-    background: var(--ai-hover);
+/* 用户内容:淡色块,和 AI 的纯文本回答区分,一眼看出归属 */
+.ai-message-user .ai-message-content {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--ai-accent-user) 12%, transparent);
 }
+
+/* AI 消息:不再用整块灰背景,改靠头像 + 分隔线区分,更干净 */
 
 /* 系统消息 */
 .ai-message-system {

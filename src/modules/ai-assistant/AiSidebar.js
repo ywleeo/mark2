@@ -276,7 +276,7 @@ class AssistantCard {
         this.el = document.createElement('div');
         this.el.className = 'ai-message ai-message-assistant';
         this.el.innerHTML = `
-            <div class="ai-message-role">AI</div>
+            ${roleHeaderHTML('ai')}
             <div class="ai-message-thinking is-collapsed" style="display:none">
                 <button class="ai-message-thinking-toggle" type="button">
                     <span>Thinking</span>
@@ -645,18 +645,32 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// 角色头像:You 用线条 person,AI 用实心 sparkle(与 titlebar AI 图标呼应)
+const AVATAR_USER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>';
+const AVATAR_AI_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>';
+
+/**
+ * 角色署名行(头像 + 名称)。内容全为内部常量,无用户数据,拼 HTML 安全。
+ * @param {'user'|'ai'} kind
+ */
+function roleHeaderHTML(kind) {
+    const isAi = kind === 'ai';
+    return `<div class="ai-message-role ai-message-role--${isAi ? 'ai' : 'user'}">`
+        + `<span class="ai-message-avatar">${isAi ? AVATAR_AI_SVG : AVATAR_USER_SVG}</span>`
+        + `<span class="ai-message-name">${isAi ? 'AI' : 'You'}</span>`
+        + '</div>';
+}
+
 /**
  * 从原始文本构造用户消息 DOM。
- * 全部走 createElement + textContent,避免从不可信数据拼 innerHTML。
+ * 用户文本走 textContent(不可信数据不拼 innerHTML);
+ * 角色署名行 roleHeaderHTML 仅含内部常量,无用户数据。
  */
 function buildUserMessageElement(text, { onDelete } = {}) {
     const el = document.createElement('div');
     el.className = 'ai-message ai-message-user';
 
-    const roleEl = document.createElement('div');
-    roleEl.className = 'ai-message-role';
-    roleEl.textContent = 'You';
-    el.appendChild(roleEl);
+    el.insertAdjacentHTML('beforeend', roleHeaderHTML('user'));
 
     const contentEl = document.createElement('div');
     contentEl.className = 'ai-message-content';
@@ -773,10 +787,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
     const el = document.createElement('div');
     el.className = 'ai-message ai-message-assistant';
 
-    const roleEl = document.createElement('div');
-    roleEl.className = 'ai-message-role';
-    roleEl.textContent = 'AI';
-    el.appendChild(roleEl);
+    el.insertAdjacentHTML('beforeend', roleHeaderHTML('ai'));
 
     if (typeof entry.thinking === 'string' && entry.thinking.trim()) {
         el.appendChild(buildThinkingBlock(entry.thinking));
