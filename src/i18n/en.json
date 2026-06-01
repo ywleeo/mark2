@@ -48,7 +48,7 @@
     "account.usage.storage": "Storage",
     "account.usage.files": "Files",
     "account.usage.llmTokens": "AI tokens",
-    "account.usage.points": "Points",
+    "account.usage.shareCount": "Shared files",
     "account.usage.notIncluded": "not included",
     "account.period.daily": "today",
     "account.period.weekly": "this week",

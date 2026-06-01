@@ -48,7 +48,7 @@
   "account.usage.storage": "儲存",
   "account.usage.files": "檔案數",
   "account.usage.llmTokens": "AI tokens",
-  "account.usage.points": "積分",
+  "account.usage.shareCount": "分享檔案數",
   "account.usage.notIncluded": "方案不含",
   "account.period.daily": "今日",
   "account.period.weekly": "本週",

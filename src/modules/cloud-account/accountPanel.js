@@ -20,8 +20,8 @@ const PROFILE_URL = 'https://mark2app.com/profile/info';
 // ── ResourceType,跟 backend/app/models/billing.py 保持一致 ──
 const R_STORAGE_BYTES       = 10;
 const R_STORAGE_FILE_COUNT  = 11;
+const R_SHARE_FILE_COUNT    = 12;
 const R_LLM_TOTAL_TOKENS    = 22;
-const R_POINTS              = 30;
 
 // ── 格式化工具 ──
 
@@ -299,7 +299,7 @@ export class AccountPanel {
         const storage = qmap.get(R_STORAGE_BYTES);
         const files   = qmap.get(R_STORAGE_FILE_COUNT);
         const tokens  = qmap.get(R_LLM_TOTAL_TOKENS);
-        const points  = qmap.get(R_POINTS);
+        const shares  = qmap.get(R_SHARE_FILE_COUNT);
 
         usage.appendChild(this._renderUsageRow({
             label: t('account.usage.storage'),
@@ -320,8 +320,8 @@ export class AccountPanel {
             showBar: true,
         }));
         usage.appendChild(this._renderUsageRow({
-            label: t('account.usage.points'),
-            quota: points,
+            label: t('account.usage.shareCount'),
+            quota: shares,
             format: formatCount,
             showBar: true,
         }));
