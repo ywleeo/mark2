@@ -8,7 +8,7 @@
  * Plugin 接口：
  * {
  *   id: string,                                           // 唯一 id（同时作为 provider preset id）
- *   preset: { id, name, baseUrl, models, isCloud: true }, // 静态 preset 定义（model 可被运行时覆盖）
+ *   preset: { id, name, baseUrl, models, defaultModel?, isCloud: true }, // 静态 preset;defaultModel 为自动选默认时首选的 model id
  *   isAvailable(): boolean,                               // 是否可用（一般 = 已登录）
  *   getCredentials(): { baseUrl, apiKey, models? },       // 运行时凭据；models 不返回时用 preset.models
  *   subscribe(cb): () => void,                            // 状态变化时通知（登录态/models 等）

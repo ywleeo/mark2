@@ -29,6 +29,8 @@ if (features.cloudAccount) {
             baseUrl: '',
             // 默认 fallback 列表，登录后会被 /api/v1/models 实拉的列表覆盖
             models: ['gpt-4o-mini'],
+            // 自动选默认模型时优先它(实拉列表里存在时);避免默认到 gpt mini
+            defaultModel: 'deepseek-v4-flash',
             isCloud: true,
         },
         isAvailable() {
