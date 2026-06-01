@@ -377,7 +377,13 @@ export function createFileOperations({
             if (isSpreadsheetFilePath(currentFile) && !isCsvFilePath(currentFile)) {
                 return await saveExcelAsCsv(currentFile, editor);
             }
-            const result = await editor.save();
+            documentManager?.setSyncing?.(currentFile, true);
+            let result;
+            try {
+                result = await editor.save();
+            } finally {
+                documentManager?.setSyncing?.(currentFile, false);
+            }
             if (result) {
                 setHasUnsavedChanges(false);
                 documentManager?.markDirty?.(currentFile, false);
@@ -403,7 +409,12 @@ export function createFileOperations({
                 if (localWriteKey && documentSessions.markLocalWrite) {
                     documentSessions.markLocalWrite(localWriteKey);
                 }
-                await fileService.writeText(currentFile, content);
+                documentManager?.setSyncing?.(currentFile, true);
+                try {
+                    await fileService.writeText(currentFile, content);
+                } finally {
+                    documentManager?.setSyncing?.(currentFile, false);
+                }
                 // 如果内容被格式化了，同步更新编辑器内容
                 if (content !== raw && codeEditor.editor) {
                     const position = codeEditor.getCurrentPosition();
@@ -516,7 +527,14 @@ export function createFileOperations({
             : true;
         if (!ok) return false;
 
-        const saved = await pushCloudDocument({ path: untitledPath, content, filename: displayName });
+        // 写云期间 tab 上把脏黄点显示成 progress 动效
+        documentManager?.setSyncing?.(untitledPath, true);
+        let saved;
+        try {
+            saved = await pushCloudDocument({ path: untitledPath, content, filename: displayName });
+        } finally {
+            documentManager?.setSyncing?.(untitledPath, false);
+        }
         if (saved) {
             setHasUnsavedChanges(false);
             documentManager?.markDirty?.(untitledPath, false);
@@ -831,6 +849,12 @@ export function createFileOperations({
                 const untitledViewMode = initialViewMode === 'code' ? 'code' : 'markdown';
                 viewProtocol?.activate?.(untitledViewMode);
                 const untitledContent = untitledFileManager.getContent?.(filePath) || '';
+                const cloudBacked = untitledFileManager?.isCloudBacked?.(filePath);
+                // 云端文档脏状态须在 loadFile 之前捕获:loadFile 会触发 onContentChange→markDirty(false),
+                // 加载后编辑器又必报 clean,二者都会冲掉「编辑过 / 重启恢复出」的未保存状态。
+                const cloudDirtyBeforeLoad = cloudBacked
+                    ? Boolean(documentManager?.getDocumentByPath?.(filePath)?.dirty)
+                    : false;
                 if (untitledViewMode === 'code') {
                     if (codeEditor) {
                         await codeEditor.show(filePath, untitledContent, null, session, { autoFocus, tabId });
@@ -846,14 +870,10 @@ export function createFileOperations({
                         }
                     }
                 }
-                // 普通 untitled 文件未保存到磁盘，始终为 dirty 状态。
-                // editor.loadFile 内部会调用 onContentChange → markDirty(false)，这里强制覆盖回 true。
-                // 例外：云端 untitled(cloudBacked)已存在于云上，初始即干净 ——
-                // 脏与否取决于是否真正编辑过，按编辑器真实未保存状态判定，避免切 tab 误标脏。
-                const cloudBacked = untitledFileManager?.isCloudBacked?.(filePath);
-                const untitledDirty = cloudBacked
-                    ? (editor?.hasUnsavedChanges?.() || codeEditor?.hasUnsavedChanges?.() || false)
-                    : true;
+                // 普通 untitled 未存盘,始终 dirty(loadFile 会 markDirty(false),这里覆盖回 true)。
+                // 云端 untitled 已存在云上:用加载前捕获的真实脏状态,既保留编辑/重启恢复出的未保存,
+                // 又不会因「刚加载编辑器报 clean」而误清,也不会因切 tab 误标脏。
+                const untitledDirty = cloudBacked ? cloudDirtyBeforeLoad : true;
                 documentManager?.markDirty?.(filePath, untitledDirty);
                 setHasUnsavedChanges(untitledDirty);
                 // 不 await updateWindowTitle：Tauri 的 win.setTitle() 会调用原生窗口 API，

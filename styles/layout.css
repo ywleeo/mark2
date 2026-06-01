@@ -507,6 +507,36 @@ body.sidebar-resizing .sidebar-resizer::before {
     color: var(--tab-close-hover-color, rgba(21, 23, 26, 0.85));
 }
 
+/* Saving indicator: 保存中把脏点替换成转圈 progress(优先于 is-dirty) */
+.tab.is-syncing .tab-close {
+    font-size: 0;
+    color: transparent;
+}
+
+.tab.is-syncing .tab-close::before {
+    content: '';
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 1.5px solid var(--tab-dirty-color, rgba(220, 100, 40, 0.85));
+    border-top-color: transparent;
+    animation: tab-sync-spin 0.7s linear infinite;
+}
+
+/* 保存中:hover 不切换成 ✕,保持转圈(避免误关正在保存的 tab) */
+.tab.is-syncing:hover .tab-close {
+    font-size: 0;
+}
+
+.tab.is-syncing:hover .tab-close::before {
+    content: '';
+}
+
+@keyframes tab-sync-spin {
+    to { transform: rotate(360deg); }
+}
+
 .tab-new-btn {
     position: sticky;
     right: 0;

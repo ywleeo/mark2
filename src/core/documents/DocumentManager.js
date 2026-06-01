@@ -101,6 +101,7 @@ export function createDocumentManager(options = {}) {
             kind: doc.kind,
             viewMode: doc.viewMode,
             dirty: Boolean(doc.dirty),
+            syncing: Boolean(doc.syncing),
             active: Boolean(doc.active),
             sessionId: doc.sessionId,
             label: doc.label || null,
@@ -412,6 +413,28 @@ export function createDocumentManager(options = {}) {
                 type: 'dirty',
                 path: normalizedPath,
                 dirty: nextDirty,
+                document: toPublicDocument(document),
+            });
+        },
+
+        // 保存进行中状态:tab 上把脏黄点显示成 progress 动效,保存结束(成功/失败)清除
+        setSyncing(path, syncing) {
+            const normalizedPath = normalizeDocumentPath(normalizePath, path);
+            if (!normalizedPath) {
+                return;
+            }
+            const document = documents.get(normalizedPath);
+            if (!document) {
+                return;
+            }
+            const next = Boolean(syncing);
+            if (document.syncing === next) {
+                return;
+            }
+            document.syncing = next;
+            emit({
+                type: 'update',
+                path: normalizedPath,
                 document: toPublicDocument(document),
             });
         },

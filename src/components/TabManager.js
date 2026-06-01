@@ -110,6 +110,7 @@ export class TabManager {
                 path: doc.path,
                 label: doc.label || existing?.label || fallbackLabel,
                 dirty: Boolean(doc.dirty),
+                syncing: Boolean(doc.syncing),
             };
         });
 
@@ -120,6 +121,7 @@ export class TabManager {
         if (this.sharedTab) {
             const sharedDoc = dm.getDocumentByPath?.(this.sharedTab.path);
             this.sharedTab.dirty = Boolean(sharedDoc?.dirty);
+            this.sharedTab.syncing = Boolean(sharedDoc?.syncing);
         }
 
         if (activePath && this.fileTabs.some(tab => tab.path === activePath)) {
@@ -307,6 +309,7 @@ export class TabManager {
             const tabElement = document.createElement('div');
             tabElement.className = 'tab';
             if (tab.dirty) tabElement.classList.add('is-dirty');
+            if (tab.syncing) tabElement.classList.add('is-syncing');
             tabElement.dataset.tabId = tab.id;
             tabElement.dataset.tabType = tab.type;
 
