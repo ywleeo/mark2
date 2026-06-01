@@ -237,6 +237,11 @@ button:focus-visible,
     padding: 0 10px;
 }
 
+/* hidden 修复:.titlebar-btn { display: flex } 会盖掉 UA 的 [hidden]{display:none} */
+#titlebar-ai[hidden] {
+    display: none;
+}
+
 .titlebar-theme-toggle .icon-moon {
     display: none;
 }

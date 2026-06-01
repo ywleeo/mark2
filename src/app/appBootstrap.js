@@ -15,6 +15,7 @@ import '../modules/cloud-account/plugin.js';
 import { bootstrapCloudPlugins } from '../modules/ai-assistant/cloudProviderRegistry.js';
 import { setupOpenSharedDocumentListener } from '../modules/share/openSharedDocument.js';
 import { setupAccountTitlebarIcon } from '../modules/cloud-account/accountPopover.js';
+import { setupAiTitlebarIcon } from './aiTitlebarIcon.js';
 import { CloudFolder } from '../components/CloudFolder.js';
 import { features as appFeatures } from '../config/features.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
@@ -360,6 +361,10 @@ export function createAppBootstrap({
         appState.setCleanupFunction('secretCloudSwitch', setupSecretCloudSwitch());
         if (appFeatures.cloudAccount) {
             setupAccountTitlebarIcon();
+            // 登录后在主题图标左侧显示 AI 入口,点击唤起 AI 助手
+            setupAiTitlebarIcon({
+                onToggle: () => featureManager?.getFeatureApi?.('ai-sidebar')?.toggle?.(),
+            });
 
             const cloudFolderEl = document.getElementById('cloudFolder');
             if (cloudFolderEl) {
