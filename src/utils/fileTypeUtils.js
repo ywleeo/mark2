@@ -287,6 +287,9 @@ export function getViewModeForPath(filePath) {
     if (isPdfFilePath(filePath)) {
         return 'pdf';
     }
+    if (isEmbedFilePath(filePath)) {
+        return 'embed';
+    }
     if (isUnsupportedFilePath(filePath)) {
         return 'unsupported';
     }
@@ -296,4 +299,13 @@ export function getViewModeForPath(filePath) {
 export function isSvgFilePath(filePath) {
     const normalized = normalizeCandidatePath(filePath);
     return normalized.endsWith('.svg');
+}
+
+// 渲染型嵌入视图:由 renderer handler 自带 DOM 渲染到通用 embed pane。
+// 新增此类类型(epub、svg 预览等)只需把扩展名加进这个集合 + 写一个 handler。
+const EMBED_EXTENSIONS = new Set(['html', 'htm']);
+export function isEmbedFilePath(filePath) {
+    const normalized = normalizeCandidatePath(filePath);
+    const match = normalized.match(/\.([a-z0-9]+)$/);
+    return !!match && EMBED_EXTENSIONS.has(match[1]);
 }

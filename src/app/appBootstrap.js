@@ -96,6 +96,7 @@ export function createAppBootstrap({
     // editorActions 导出
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
+    toggleEmbedCodeMode,
     toggleCsvTableMode,
     // layoutControls 导出
     toggleSidebarVisibility,
@@ -443,6 +444,7 @@ export function createAppBootstrap({
                 toggleStatusBarVisibility,
                 toggleMarkdownCodeMode,
                 toggleSvgCodeMode,
+                toggleEmbedCodeMode,
                 toggleCsvTableMode,
                 toggleMarkdownToolbar,
                 toggleAppTheme,

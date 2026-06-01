@@ -208,6 +208,19 @@ export function createDocumentRegistry({
                 nonTextCache.set(filePath, entry);
                 return { ...entry };
             }
+            if (viewMode === 'embed') {
+                // 嵌入渲染类型当文本读(供源码视图),但保持 viewMode='embed',
+                // 不落到下面 TEXT_VIEW_MODES 的兜底('code')而被当成源码打开
+                const embedText = await readText(filePath);
+                const entry = {
+                    content: embedText,
+                    hasChanges: false,
+                    viewMode,
+                    modifiedTime,
+                };
+                nonTextCache.set(filePath, entry);
+                return { ...entry };
+            }
 
             const content = await readText(filePath);
             const resolvedViewMode = TEXT_VIEW_MODES.has(viewMode) ? viewMode : 'code';

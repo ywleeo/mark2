@@ -29,6 +29,7 @@ export function createCommandHandlers(deps) {
         toggleStatusBarVisibility,
         toggleMarkdownCodeMode,
         toggleSvgCodeMode,
+        toggleEmbedCodeMode,
         toggleCsvTableMode,
         toggleMarkdownToolbar,
         toggleAppTheme,
@@ -127,6 +128,8 @@ export function createCommandHandlers(deps) {
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
+        // embed 视图(HTML 等)下 ⌘E 在渲染预览 ↔ CodeMirror 源码间切换
+        onToggleHtmlEmbedView: toggleEmbedCodeMode,
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
         onToggleTheme: () => toggleAppTheme(appState),
         onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),

@@ -98,6 +98,8 @@ export function createViewManager({
                 return viewController.activateSpreadsheetView();
             case 'pdf':
                 return viewController.activatePdfView();
+            case 'embed':
+                return viewController.activateEmbedView();
             case 'unsupported':
                 return viewController.activateUnsupportedView();
             default:

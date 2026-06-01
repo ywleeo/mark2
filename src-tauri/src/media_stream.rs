@@ -30,6 +30,40 @@ fn guess_mime(path: &str) -> &'static str {
         "video/x-msvideo"
     } else if lower.ends_with(".m4v") {
         "video/x-m4v"
+    } else if lower.ends_with(".html") || lower.ends_with(".htm") {
+        "text/html; charset=utf-8"
+    } else if lower.ends_with(".css") {
+        "text/css; charset=utf-8"
+    } else if lower.ends_with(".js") || lower.ends_with(".mjs") {
+        "text/javascript; charset=utf-8"
+    } else if lower.ends_with(".json") {
+        "application/json; charset=utf-8"
+    } else if lower.ends_with(".svg") {
+        "image/svg+xml"
+    } else if lower.ends_with(".png") {
+        "image/png"
+    } else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if lower.ends_with(".gif") {
+        "image/gif"
+    } else if lower.ends_with(".webp") {
+        "image/webp"
+    } else if lower.ends_with(".ico") {
+        "image/x-icon"
+    } else if lower.ends_with(".woff2") {
+        "font/woff2"
+    } else if lower.ends_with(".woff") {
+        "font/woff"
+    } else if lower.ends_with(".ttf") {
+        "font/ttf"
+    } else if lower.ends_with(".otf") {
+        "font/otf"
+    } else if lower.ends_with(".xml") {
+        "application/xml; charset=utf-8"
+    } else if lower.ends_with(".wasm") {
+        "application/wasm"
+    } else if lower.ends_with(".txt") {
+        "text/plain; charset=utf-8"
     } else {
         "application/octet-stream"
     }

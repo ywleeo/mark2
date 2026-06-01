@@ -74,6 +74,9 @@ export function registerCoreCommands(options = {}) {
         if (await handlers.onToggleCsvTableView?.()) {
             return true;
         }
+        if (await handlers.onToggleHtmlEmbedView?.()) {
+            return true;
+        }
         return await handlers.onToggleMarkdownCodeView?.();
     }, '切换源码视图');
     register(COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, () => handlers.onToggleMarkdownToolbar?.(), '切换 Markdown 工具栏');

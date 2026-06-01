@@ -5,6 +5,7 @@ export function createEditorActions({
     getCodeEditor,
     getMarkdownCodeMode,
     getSvgCodeMode,
+    getEmbedCodeMode,
     getCsvTableMode,
     getCurrentFile,
     setHasUnsavedChanges,
@@ -183,6 +184,31 @@ export function createEditorActions({
         void updateWindowTitle?.();
     }
 
+    async function toggleEmbedCodeMode() {
+        const embedCodeMode = getEmbedCodeMode?.();
+        if (!embedCodeMode) {
+            return;
+        }
+
+        const result = await embedCodeMode.toggle({
+            currentFile: getCurrentFile?.(),
+            activeViewMode: getActiveViewMode?.(),
+            codeEditor: getCodeEditor?.(),
+            fileService: getFileService?.(),
+        });
+
+        if (!result?.changed) {
+            return;
+        }
+
+        setActiveViewMode?.(result.nextViewMode);
+        setHasUnsavedChanges?.(result.hasUnsavedChanges);
+
+        saveCurrentEditorContentToCache?.();
+        persistWorkspaceState?.();
+        void updateWindowTitle?.();
+    }
+
     async function toggleCsvTableMode() {
         const csvTableMode = getCsvTableMode?.();
         if (!csvTableMode) {
@@ -318,6 +344,7 @@ export function createEditorActions({
         insertTextIntoActiveEditor,
         toggleMarkdownCodeMode,
         toggleSvgCodeMode,
+        toggleEmbedCodeMode,
         toggleCsvTableMode,
         requestActiveEditorContext,
     };

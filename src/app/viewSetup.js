@@ -21,6 +21,7 @@ export function setupViewPanes(appState) {
         <div class="view-pane media-pane" data-pane="media"></div>
         <div class="view-pane spreadsheet-pane" data-pane="spreadsheet"></div>
         <div class="view-pane pdf-pane" data-pane="pdf"></div>
+        <div class="view-pane embed-pane" data-pane="embed"></div>
         <div class="view-pane unsupported-pane" data-pane="unsupported"></div>
     `;
 
@@ -31,5 +32,6 @@ export function setupViewPanes(appState) {
     appState.setPaneElement('media', requireElementWithin(viewContainer, '.media-pane', '视图容器缺少 media-pane'));
     appState.setPaneElement('spreadsheet', requireElementWithin(viewContainer, '.spreadsheet-pane', '视图容器缺少 spreadsheet-pane'));
     appState.setPaneElement('pdf', requireElementWithin(viewContainer, '.pdf-pane', '视图容器缺少 pdf-pane'));
+    appState.setPaneElement('embed', requireElementWithin(viewContainer, '.embed-pane', '视图容器缺少 embed-pane'));
     appState.setPaneElement('unsupported', requireElementWithin(viewContainer, '.unsupported-pane', '视图容器缺少 unsupported-pane'));
 }

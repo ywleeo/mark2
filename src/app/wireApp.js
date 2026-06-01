@@ -36,6 +36,7 @@ import { createFeatureManager } from '../core/features/FeatureManager.js';
 import { createExportManager } from '../core/export/ExportManager.js';
 import { createWorkspaceManager } from '../core/workspace/WorkspaceManager.js';
 import { createViewManager } from '../core/views/ViewManager.js';
+import { createEmbedCodeMode } from '../modules/embedCodeMode.js';
 import { createDocumentSessionManager } from '../modules/documentSessionManager.js';
 import { untitledFileManager } from '../modules/untitledFileManager.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './viewController.js';
@@ -57,6 +58,7 @@ import { createImageRenderer } from '../fileRenderers/handlers/image.js';
 import { createMediaRenderer } from '../fileRenderers/handlers/media.js';
 import { createSpreadsheetRenderer } from '../fileRenderers/handlers/spreadsheet.js';
 import { createPdfRenderer } from '../fileRenderers/handlers/pdf.js';
+import { createHtmlRenderer } from '../fileRenderers/handlers/html.js';
 import { createDocxRenderer } from '../fileRenderers/handlers/docx.js';
 import { createPptxRenderer } from '../fileRenderers/handlers/pptx.js';
 
@@ -153,6 +155,7 @@ rendererRegistry.register(createImageRenderer());
 rendererRegistry.register(createMediaRenderer());
 rendererRegistry.register(createSpreadsheetRenderer());
 rendererRegistry.register(createPdfRenderer());
+rendererRegistry.register(createHtmlRenderer());
 rendererRegistry.register(createDocxRenderer());
 rendererRegistry.register(createPptxRenderer());
 rendererRegistry.setDefaultHandler(createCodeRenderer());
@@ -241,6 +244,7 @@ const viewController = createViewController({
     getMediaPane: () => appState.getPaneElement('media'),
     getSpreadsheetPane: () => appState.getPaneElement('spreadsheet'),
     getPdfPane: () => appState.getPaneElement('pdf'),
+    getEmbedPane: () => appState.getPaneElement('embed'),
     getUnsupportedPane: () => appState.getPaneElement('unsupported'),
     getViewContainer: () => appState.getPaneElement('viewContainer'),
     getStatusBarController: () => appState.getStatusBarController(),
@@ -280,6 +284,7 @@ const {
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateEmbedView,
     activateUnsupportedView,
     updateZoomDisplayForActiveView,
     handleZoomControl,
@@ -295,6 +300,15 @@ const viewManager = createViewManager({
     traceRecorder,
 });
 
+// embed(渲染视图)↔ code 切换:源码走真正的 CodeMirror,⌘E 触发
+const embedCodeMode = createEmbedCodeMode({
+    view: viewManager.createViewProtocol(),
+    getRendererForPath: (p) => rendererRegistry.getHandlerForPath(p),
+    getFileContent: (p) => documentRegistry.getFileContent(p),
+    getEmbedHost: () => appState.getPaneElement('embed'),
+});
+appState.setEmbedCodeMode(embedCodeMode);
+
 // ========== 编辑器动作 ==========
 const editorActions = createEditorActions({
     getActiveViewMode: () => appState.getActiveViewMode(),
@@ -303,6 +317,7 @@ const editorActions = createEditorActions({
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getSvgCodeMode: () => appState.getSvgCodeMode(),
+    getEmbedCodeMode: () => appState.getEmbedCodeMode(),
     getCsvTableMode: () => appState.getCsvTableMode(),
     getCurrentFile: () => getActiveDocumentPath(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
@@ -319,6 +334,7 @@ const {
     insertTextIntoActiveEditor,
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
+    toggleEmbedCodeMode,
     toggleCsvTableMode,
     requestActiveEditorContext,
 } = editorActions;
@@ -446,6 +462,7 @@ const {
     getSpreadsheetViewer: () => editorRegistry.getSpreadsheetViewer(),
     getPdfViewer: () => editorRegistry.getPdfViewer(),
     getUnsupportedViewer: () => editorRegistry.getUnsupportedViewer(),
+    getEmbedPane: () => appState.getPaneElement('embed'),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
     getCurrentFile: () => getActiveDocumentPath(),
     setCurrentFile: (value, metadata = {}) => {
@@ -614,6 +631,7 @@ bootstrap = createAppBootstrap({
     activateMediaView,
     activateSpreadsheetView,
     activatePdfView,
+    activateEmbedView,
     activateUnsupportedView,
     setContentZoom,
     updateZoomDisplayForActiveView,
@@ -622,6 +640,7 @@ bootstrap = createAppBootstrap({
     restoreMarkdownScrollPosition,
     toggleMarkdownCodeMode,
     toggleSvgCodeMode,
+    toggleEmbedCodeMode,
     toggleCsvTableMode,
     toggleSidebarVisibility,
     toggleStatusBarVisibility,

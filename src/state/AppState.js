@@ -39,6 +39,7 @@ export class AppState {
         this.fileDropController = null;
         this.markdownCodeMode = null;
         this.svgCodeMode = null;
+        this.embedCodeMode = null;
         this.documentIO = null;
         this.rendererRegistry = null;
 
@@ -50,6 +51,7 @@ export class AppState {
             media: null,
             spreadsheet: null,
             pdf: null,
+            embed: null,
             unsupported: null,
             viewContainer: null,
         };
@@ -232,6 +234,14 @@ export class AppState {
 
     setSvgCodeMode(instance) {
         this.svgCodeMode = instance;
+    }
+
+    getEmbedCodeMode() {
+        return this.embedCodeMode;
+    }
+
+    setEmbedCodeMode(instance) {
+        this.embedCodeMode = instance;
     }
 
     getCsvTableMode() {

@@ -61,6 +61,7 @@ export function createFileOperations({
     getSpreadsheetViewer,
     getPdfViewer,
     getUnsupportedViewer,
+    getEmbedPane,
     getMarkdownCodeMode,
     getCurrentFile,
     setCurrentFile,
@@ -1027,6 +1028,7 @@ export function createFileOperations({
                 spreadsheetViewer,
                 pdfViewer,
                 unsupportedViewer,
+                embedHost: getEmbedPane?.(),
                 fileService,
                 importAsUntitled: importAsUntitled
                     ? (content, suggestedName) => {

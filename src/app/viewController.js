@@ -97,6 +97,20 @@ export function createViewController(options = {}) {
                 options.getPdfViewer?.()?.show?.();
             },
         },
+        // 通用嵌入渲染视图:内容由 renderer handler 自行注入 embed pane,
+        // 这里只负责隐藏其它视图(pane 显隐交给 .is-active class)
+        embed: {
+            getPane: () => options.getEmbedPane?.() ?? null,
+            onEnter: () => {
+                options.getEditor?.()?.clear?.();
+                options.getCodeEditor?.()?.hide?.();
+                options.getImageViewer?.()?.hide?.();
+                options.getMediaViewer?.()?.hide?.();
+                options.getSpreadsheetViewer?.()?.hide?.();
+                options.getPdfViewer?.()?.hide?.();
+                options.getUnsupportedViewer?.()?.hide?.();
+            },
+        },
         unsupported: {
             getPane: () => options.getUnsupportedPane?.() ?? null,
             onEnter: () => {
@@ -415,6 +429,7 @@ export function createViewController(options = {}) {
         activateMediaView: () => setActiveViewMode('media'),
         activateSpreadsheetView: () => setActiveViewMode('spreadsheet'),
         activatePdfView: () => setActiveViewMode('pdf'),
+        activateEmbedView: () => setActiveViewMode('embed'),
         activateUnsupportedView: () => setActiveViewMode('unsupported'),
         updateZoomDisplayForActiveView,
         handleZoomControl,
