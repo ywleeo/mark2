@@ -562,6 +562,37 @@
     transition: transform 0.45s ease;
 }
 
+/* 同一段落含 ≥2 张图 → 左右横排,放不下自动换行(class 由 ImageRowLayout 扩展加,
+   不用 :has,因为嵌套 :has 在部分 WebView 不生效)。
+   图片保持各自原始尺寸,徽章/小图不会被撑大变形;单图/普通段落不受影响。 */
+.tiptap-editor p.image-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;   /* 顶部对齐:徽章都在各自 <a> 顶部,即使 a 里有占位图撑高也不会错位 */
+    gap: 8px;
+}
+
+/* 多图段落里的软换行(各占一行写出来的徽章/图)不再强制断行,交给 flex-wrap */
+.tiptap-editor p.image-row br {
+    display: none;
+}
+
+/* 链接徽章是 <a><img>,a 作为 flex item 横排;a 不撑满、按内容宽 */
+.tiptap-editor p.image-row > a {
+    flex: 0 0 auto;
+}
+
+.tiptap-editor p.image-row img:not(.ProseMirror-separator) {
+    display: block;   /* 抵消全局 img{display:block} 在 flex item 内造成的换行影响 */
+    margin: 0;
+    max-width: 100%;
+}
+
+/* PM 光标占位图被全局 img{display:block} 撑出高度,会把所在 <a> 顶高导致错位,隐藏之 */
+.tiptap-editor p.image-row img.ProseMirror-separator {
+    display: none;
+}
+
 
 /* 表格样式 */
 .tiptap-editor .tableWrapper {

@@ -14,6 +14,7 @@ import { SearchExtension } from '../../extensions/SearchExtension.js';
 import { HtmlSpan, HtmlDiv, HtmlInline } from '../../extensions/HtmlSupport.js';
 import { CustomTaskItem } from '../../extensions/CustomTaskItem.js';
 import { MarkdownImage } from '../../utils/markdownPlugins.js';
+import { ImageRowLayout } from '../../extensions/ImageRowLayout.js';
 import { MermaidBlock } from '../../extensions/MermaidBlock.js';
 import { VideoBlock } from '../../extensions/VideoBlock.js';
 import { CsvTableNode } from '../../extensions/CsvTableNode.js';
@@ -84,6 +85,7 @@ export function createEditorExtensions(lowlight) {
         TableHeader,
         TableCell,
         MarkdownImage,
+        ImageRowLayout,
         SearchExtension,
         HtmlSpan,
         HtmlDiv,
