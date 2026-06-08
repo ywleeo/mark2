@@ -407,7 +407,7 @@ body.sidebar-resizing .sidebar-resizer::before {
 .tab.active {
     background: var(--content-bg, #fdfdfd);
     color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
-    bottom: -1px;
+    bottom: 0;
     z-index: 1;
 }
 
