@@ -447,23 +447,30 @@ body.terminal-resizing {
 }
 
 /* ── 右侧停靠布局 ──
- * content-wrapper 的直接子元素是 tabBar / contentArea / statusBar / terminalPanel,
- * 右侧停靠时用 grid 让 tabBar 与 statusBar 保持满宽,中间 contentArea 与
- * terminalPanel 并排,避免简单地把 wrapper 改成 flex-row 把所有子节点都
- * 推到一行。
+ * content-wrapper 的直接子元素是 tabBar / markdownToolbar / contentArea /
+ * statusBar / terminalPanel。右侧停靠时用 grid：
+ *   - tabBar 仍然满宽
+ *   - markdownToolbar 固定在左侧编辑区顶部
+ *   - terminalPanel 占据右侧并跨越 toolbar + main 两行
+ * 避免简单改成 flex-row 后把所有子节点都推到同一行。
  */
 .content-wrapper[data-terminal-position="right"] {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
     grid-template-areas:
         "tab      tab"
+        "toolbar  term"
         "main     term"
         "search   search"
         "stat     stat";
 }
 
 .content-wrapper[data-terminal-position="right"] #tabBar { grid-area: tab; }
+.content-wrapper[data-terminal-position="right"] #markdownToolbar {
+    grid-area: toolbar;
+    min-width: 0;
+}
 .content-wrapper[data-terminal-position="right"] #contentArea {
     grid-area: main;
     min-width: 0;
