@@ -30,8 +30,10 @@ const AI_SIDEBAR_DEFAULT_WIDTH = 380;
 const AI_SIDEBAR_MIN_WIDTH = 320;
 const AI_SIDEBAR_MAX_WIDTH = 720;
 
-// 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）
-const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
+// 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）。
+// 关闭 table 规则，避免 AI 在解释 Markdown 语法时，原本用于举例的 `| ... |`
+// 被错误渲染成真实表格，导致内容语义和排版一起失真。
+const md = new MarkdownIt({ html: false, linkify: true, typographer: false }).disable(['table']);
 
 // 工具标签（按 toolName 从 i18n 查词条，未定义则返回 undefined 让调用方回退到 toolName）
 const TOOL_LABELS = new Proxy({}, {
