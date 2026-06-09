@@ -211,7 +211,7 @@ export const BUTTON_CONFIG = {
  * 工具栏布局分组
  * - fixed：左侧固定区，始终可见，不参与溢出收纳
  * - flow：左侧流动区，空间不足时从右往左收进「更多」菜单
- * - right：右侧视图操作区，始终可见
+ * - right：右侧保留区，仅放必须常驻的极少数动作
  * 每个内层数组是一个按钮组，组与组之间渲染分隔符；'heading' 渲染为标题下拉。
  */
 export const TOOLBAR_GROUPS = {
@@ -223,8 +223,9 @@ export const TOOLBAR_GROUPS = {
     flow: [
         ['quote', 'codeBlock'],
         ['clearFormatting'],
+        ['centerContent', 'copy', 'shareLink'],
     ],
-    right: ['centerContent', 'copy', 'shareLink', 'toggleViewMode'],
+    right: ['toggleViewMode'],
 };
 
 /**

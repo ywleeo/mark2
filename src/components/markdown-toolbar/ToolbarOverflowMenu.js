@@ -189,6 +189,7 @@ export class ToolbarOverflowMenu {
         this._position();
         this.panel.classList.add('is-open');
         this.button.classList.add('toolbar-button--active');
+        this._position();
     }
 
     close() {
@@ -200,10 +201,15 @@ export class ToolbarOverflowMenu {
 
     _position() {
         const rect = this.button.getBoundingClientRect();
+        const viewportPadding = 8;
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+
         this.panel.style.top = `${rect.bottom + 4}px`;
         const panelWidth = this.panel.offsetWidth;
         let left = rect.right - panelWidth;
-        if (left < 8) left = 8;
+        const maxLeft = Math.max(viewportPadding, viewportWidth - panelWidth - viewportPadding);
+        if (left > maxLeft) left = maxLeft;
+        if (left < viewportPadding) left = viewportPadding;
         this.panel.style.left = `${left}px`;
     }
 
