@@ -295,6 +295,7 @@ class AssistantCard {
         this.thinkingToggleEl = this.el.querySelector('.ai-message-thinking-toggle');
         this.bodyEl = this.el.querySelector('.ai-message-body');
         this.toolCards = new Map(); // id -> {el, startTime, segment}
+        this.currentToolGroup = null;
 
         // 唯一的 loading 指示器，始终 append 在 bodyEl 末尾
         this.loadingEl = document.createElement('div');
@@ -314,6 +315,7 @@ class AssistantCard {
         // 按 DOM 出现顺序记录每段（markdown / tool），用于会话恢复时还原原顺序
         this.bodySegments = [];
         this.currentMarkdownSegment = null;
+        this.completionSummary = '';
 
         addClickHandler(this.thinkingToggleEl, () => this._toggleThinking());
     }
@@ -328,6 +330,7 @@ class AssistantCard {
     newContentBox() {
         this.currentContentEl = null;
         this.currentMarkdownSegment = null;
+        this.currentToolGroup = null;
         this.loadingTextEl.textContent = t('ai.generating.thinking');
         this.loadingEl.style.display = '';
         this.bodyEl.appendChild(this.loadingEl); // 移到最底部
@@ -362,6 +365,7 @@ class AssistantCard {
             this.markdownSegments.push('');
             this.currentMarkdownSegment = { type: 'markdown', content: '' };
             this.bodySegments.push(this.currentMarkdownSegment);
+            this.currentToolGroup = null;
         }
         this.currentContentEl.innerHTML = md.render(parsed.content);
         if (this.markdownSegments.length > 0) {
@@ -395,11 +399,20 @@ class AssistantCard {
     }
 
     /** Agent 完成，隐藏 loading */
-    done() {
+    done({ showCompletionSummary = true } = {}) {
         this.loadingEl.style.display = 'none';
         if (this.currentContentEl && !this.currentContentEl.textContent?.trim()) {
             this.currentContentEl.remove();
             this.currentContentEl = null;
+        }
+        if (showCompletionSummary) {
+            const toolSegments = this.bodySegments.filter((segment) => segment?.type === 'tool');
+            this.completionSummary = buildCompletionSummary(toolSegments);
+            if (this.completionSummary && !this.bodyEl.querySelector('.ai-message-completion')) {
+                this.bodyEl.appendChild(buildCompletionNoteElement(this.completionSummary));
+            }
+        } else {
+            this.completionSummary = '';
         }
         // 给整个消息容器加操作按钮
         if (!this.el.querySelector('.ai-message-actions-bar')) {
@@ -422,9 +435,15 @@ class AssistantCard {
             <span class="ai-tool-card-name">${TOOL_LABELS[name] || name}</span>
             <span class="ai-tool-card-status">${statusText}</span>
         `;
-        this.bodyEl.insertBefore(card, this.loadingEl);
         const segment = { type: 'tool', name, status: 'running', durationMs: 0, error: null };
         this.bodySegments.push(segment);
+        if (!this.currentToolGroup) {
+            this.currentToolGroup = createToolGroupElement();
+            this.bodyEl.insertBefore(this.currentToolGroup.wrap, this.loadingEl);
+        }
+        this.currentToolGroup.listEl.appendChild(card);
+        this.currentToolGroup.segments.push(segment);
+        this.currentToolGroup.summaryEl.textContent = formatToolGroupSummary(this.currentToolGroup.segments);
         this.toolCards.set(id, { el: card, startTime: Date.now(), segment });
         // 一旦进入工具调用阶段，下次 markdown 文本应当作为新的段落显示
         this.currentContentEl = null;
@@ -468,6 +487,9 @@ class AssistantCard {
             statusEl.textContent = elapsed;
             if (segment) segment.status = 'done';
         }
+        if (this.currentToolGroup?.summaryEl) {
+            this.currentToolGroup.summaryEl.textContent = formatToolGroupSummary(this.currentToolGroup.segments);
+        }
         scrollToBottom(this.el);
     }
 
@@ -497,7 +519,7 @@ class AssistantCard {
                 return null;
             })
             .filter(Boolean);
-        return { v: 2, thinking, segments };
+        return { v: 2, thinking, segments, completionSummary: this.completionSummary || '' };
     }
 
     setError(msg) {
@@ -776,6 +798,103 @@ function formatPersistedToolElapsed(ms) {
 }
 
 /**
+ * 生成一条简洁的完成汇报，让用户知道 agent 已结束而不是还在工作。
+ */
+function buildCompletionSummary(toolSegments = []) {
+    const names = toolSegments.map((segment) => segment?.name).filter(Boolean);
+    const toolCount = names.length;
+    if (toolCount === 0) {
+        return '已完成这次回复。';
+    }
+
+    const touchedCurrentDocument = names.includes('write_current_document');
+    const touchedWorkspaceFiles = names.some((name) => [
+        'write_file',
+        'create_files',
+        'delete_file',
+        'rename_file',
+        'create_directory',
+    ].includes(name));
+    const inspectedOnly = names.every((name) => [
+        'get_document_info',
+        'read_document_lines',
+        'search_in_document',
+        'get_file_info',
+        'read_file_chunk',
+        'read_file',
+        'list_directory',
+    ].includes(name));
+
+    if (touchedCurrentDocument) {
+        return `已完成本次处理，并已更新当前文档。共执行 ${toolCount} 次工具调用。`;
+    }
+    if (touchedWorkspaceFiles) {
+        return `已完成本次处理，并已更新相关文件。共执行 ${toolCount} 次工具调用。`;
+    }
+    if (inspectedOnly) {
+        return `已完成本次检查。共执行 ${toolCount} 次工具调用。`;
+    }
+    return `已完成本次处理。共执行 ${toolCount} 次工具调用。`;
+}
+
+function buildCompletionNoteElement(text) {
+    const el = document.createElement('div');
+    el.className = 'ai-message-completion';
+    el.textContent = text;
+    return el;
+}
+
+/**
+ * 工具调用区摘要：默认只展示数量与运行状态，减少正文噪音。
+ */
+function formatToolGroupSummary(segments = []) {
+    const toolCount = segments.length;
+    const runningCount = segments.filter((segment) => segment?.status === 'running').length;
+    if (runningCount > 0) {
+        return `${toolCount} tool${toolCount > 1 ? 's' : ''} · ${runningCount} running`;
+    }
+    return `${toolCount} tool call${toolCount > 1 ? 's' : ''}`;
+}
+
+/**
+ * 创建一个默认折叠的工具调用分组。
+ */
+function createToolGroupElement(segments = []) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ai-tool-group is-collapsed';
+
+    const toggle = document.createElement('button');
+    toggle.className = 'ai-tool-group-toggle';
+    toggle.type = 'button';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'ai-tool-group-title';
+    titleEl.textContent = 'Tool calls';
+
+    const summaryEl = document.createElement('span');
+    summaryEl.className = 'ai-tool-group-summary';
+    summaryEl.textContent = formatToolGroupSummary(segments);
+
+    const iconEl = document.createElement('span');
+    iconEl.className = 'ai-tool-group-expand';
+    iconEl.textContent = '›';
+
+    toggle.append(titleEl, summaryEl, iconEl);
+
+    const listEl = document.createElement('div');
+    listEl.className = 'ai-tool-calls';
+
+    wrap.append(toggle, listEl);
+
+    addClickHandler(toggle, () => {
+        const collapsed = wrap.classList.toggle('is-collapsed');
+        iconEl.textContent = collapsed ? '›' : '‹';
+    });
+
+    return { wrap, listEl, summaryEl, segments };
+}
+
+/**
  * 从原始 markdown 或 v2 快照构造助手消息 DOM。
  * 唯一的 innerHTML 来源是 md.render(),且 MarkdownIt 配置为 html: false,
  * 会把任何原始 HTML 标签当纯文本转义。
@@ -795,6 +914,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
 
     const bodyEl = document.createElement('div');
     bodyEl.className = 'ai-message-body';
+    let currentToolGroup = null;
 
     if (Array.isArray(entry.segments) && entry.segments.length > 0) {
         for (const seg of entry.segments) {
@@ -806,8 +926,15 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
                 mdEl.className = 'ai-message-content ai-message-markdown';
                 mdEl.innerHTML = md.render(content);
                 bodyEl.appendChild(mdEl);
+                currentToolGroup = null;
             } else if (seg.type === 'tool') {
-                bodyEl.appendChild(buildToolCardElement(seg));
+                if (!currentToolGroup) {
+                    currentToolGroup = createToolGroupElement();
+                    bodyEl.appendChild(currentToolGroup.wrap);
+                }
+                currentToolGroup.listEl.appendChild(buildToolCardElement(seg));
+                currentToolGroup.segments.push(seg);
+                currentToolGroup.summaryEl.textContent = formatToolGroupSummary(currentToolGroup.segments);
             }
         }
     } else {
@@ -815,6 +942,10 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
         contentEl.className = 'ai-message-content ai-message-markdown';
         contentEl.innerHTML = md.render(entry.markdown || '');
         bodyEl.appendChild(contentEl);
+    }
+
+    if (typeof entry.completionSummary === 'string' && entry.completionSummary.trim()) {
+        bodyEl.appendChild(buildCompletionNoteElement(entry.completionSummary.trim()));
     }
 
     el.appendChild(bodyEl);
@@ -1422,10 +1553,12 @@ export class AiSidebar {
         try {
             const updatedMessages = await this.agentLoop.run(this.agentMessages);
             this.agentMessages = updatedMessages;
-            card.done();
+            const wasAborted = Boolean(this.agentLoop?.aborted);
+            card.done({ showCompletionSummary: !wasAborted });
             // 按 DOM 顺序持久化 thinking + 各段（markdown / tool 状态），仅存源数据避免 HTML 进 localStorage
             const snapshot = card.getPersistSnapshot();
             const hasContent = (snapshot.thinking && snapshot.thinking.trim())
+                || (snapshot.completionSummary && snapshot.completionSummary.trim())
                 || snapshot.segments.some((s) => s.type === 'tool' || (s.type === 'markdown' && s.content.trim()));
             if (hasContent) {
                 this.chatHistory.push({ role: 'assistant', ...snapshot });

@@ -282,6 +282,14 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     word-break: break-word;
 }
 
+/* 助手消息正文容器：把 markdown / tool / loading / actions 放在同一列节奏里 */
+.ai-message-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
 /* 用户内容:淡色块,和 AI 的纯文本回答区分,一眼看出归属 */
 .ai-message-user .ai-message-content {
     padding: 8px 12px;
@@ -310,6 +318,9 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     display: flex;
     align-self: flex-end;
     gap: 2px;
+    margin-top: 2px;
+    padding-right: 2px;
+    opacity: 0.78;
 }
 
 .ai-msg-action-btn {
@@ -466,6 +477,24 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     background: var(--ai-hover);
 }
 
+.ai-message-completion {
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ai-text-secondary);
+    padding-left: 18px;
+    position: relative;
+}
+
+.ai-message-completion::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: var(--ai-tool-done);
+    font-weight: 600;
+}
+
 /* ── Loading ─────────────────────────────── */
 
 .ai-message-content.ai-message-loading {
@@ -566,11 +595,60 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
 
 /* ── 工具调用 ─────────────────────────────── */
 
+.ai-tool-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 2px 0 4px;
+    padding-left: 10px;
+    border-left: 2px solid var(--ai-border);
+}
+
+.ai-tool-group-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.ai-tool-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ai-text-secondary);
+    letter-spacing: 0.02em;
+}
+
+.ai-tool-group-summary {
+    font-size: 11px;
+    color: var(--ai-text-secondary);
+    opacity: 0.9;
+}
+
+.ai-tool-group-expand {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--ai-text-secondary);
+    transition: transform 0.15s ease;
+}
+
+.ai-tool-group:not(.is-collapsed) .ai-tool-group-expand {
+    transform: rotate(90deg);
+}
+
 .ai-tool-calls {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    margin-top: 4px;
+}
+
+.ai-tool-group.is-collapsed .ai-tool-calls {
+    display: none;
 }
 
 .ai-tool-card {
