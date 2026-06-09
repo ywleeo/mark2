@@ -889,6 +889,10 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     transition: all 0.15s;
 }
 
+.ai-sidebar.is-processing .ai-sidebar-send-btn {
+    display: none;
+}
+
 .ai-sidebar-send-btn:hover:not(:disabled) {
     background: var(--ai-send-hover);
 }
@@ -912,6 +916,11 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
     cursor: pointer;
     flex-shrink: 0;
     transition: all 0.15s;
+    display: none;
+}
+
+.ai-sidebar.is-processing .ai-sidebar-cancel-btn {
+    display: flex;
 }
 
 .ai-sidebar-cancel-btn:hover {

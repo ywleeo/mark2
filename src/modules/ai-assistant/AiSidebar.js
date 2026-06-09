@@ -295,7 +295,7 @@ class AssistantCard {
         this.thinkingToggleEl = this.el.querySelector('.ai-message-thinking-toggle');
         this.bodyEl = this.el.querySelector('.ai-message-body');
         this.toolCards = new Map(); // id -> {el, startTime, segment}
-        this.currentToolGroup = null;
+        this.toolGroup = null;
 
         // 唯一的 loading 指示器，始终 append 在 bodyEl 末尾
         this.loadingEl = document.createElement('div');
@@ -330,7 +330,6 @@ class AssistantCard {
     newContentBox() {
         this.currentContentEl = null;
         this.currentMarkdownSegment = null;
-        this.currentToolGroup = null;
         this.loadingTextEl.textContent = t('ai.generating.thinking');
         this.loadingEl.style.display = '';
         this.bodyEl.appendChild(this.loadingEl); // 移到最底部
@@ -365,7 +364,6 @@ class AssistantCard {
             this.markdownSegments.push('');
             this.currentMarkdownSegment = { type: 'markdown', content: '' };
             this.bodySegments.push(this.currentMarkdownSegment);
-            this.currentToolGroup = null;
         }
         this.currentContentEl.innerHTML = md.render(parsed.content);
         if (this.markdownSegments.length > 0) {
@@ -437,13 +435,13 @@ class AssistantCard {
         `;
         const segment = { type: 'tool', name, status: 'running', durationMs: 0, error: null };
         this.bodySegments.push(segment);
-        if (!this.currentToolGroup) {
-            this.currentToolGroup = createToolGroupElement();
-            this.bodyEl.insertBefore(this.currentToolGroup.wrap, this.loadingEl);
+        if (!this.toolGroup) {
+            this.toolGroup = createToolGroupElement();
+            this.bodyEl.insertBefore(this.toolGroup.wrap, this.loadingEl);
         }
-        this.currentToolGroup.listEl.appendChild(card);
-        this.currentToolGroup.segments.push(segment);
-        this.currentToolGroup.summaryEl.textContent = formatToolGroupSummary(this.currentToolGroup.segments);
+        this.toolGroup.listEl.appendChild(card);
+        this.toolGroup.segments.push(segment);
+        this.toolGroup.summaryEl.textContent = formatToolGroupSummary(this.toolGroup.segments);
         this.toolCards.set(id, { el: card, startTime: Date.now(), segment });
         // 一旦进入工具调用阶段，下次 markdown 文本应当作为新的段落显示
         this.currentContentEl = null;
@@ -487,8 +485,8 @@ class AssistantCard {
             statusEl.textContent = elapsed;
             if (segment) segment.status = 'done';
         }
-        if (this.currentToolGroup?.summaryEl) {
-            this.currentToolGroup.summaryEl.textContent = formatToolGroupSummary(this.currentToolGroup.segments);
+        if (this.toolGroup?.summaryEl) {
+            this.toolGroup.summaryEl.textContent = formatToolGroupSummary(this.toolGroup.segments);
         }
         scrollToBottom(this.el);
     }
@@ -914,7 +912,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
 
     const bodyEl = document.createElement('div');
     bodyEl.className = 'ai-message-body';
-    let currentToolGroup = null;
+    const toolSegments = [];
 
     if (Array.isArray(entry.segments) && entry.segments.length > 0) {
         for (const seg of entry.segments) {
@@ -926,15 +924,8 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
                 mdEl.className = 'ai-message-content ai-message-markdown';
                 mdEl.innerHTML = md.render(content);
                 bodyEl.appendChild(mdEl);
-                currentToolGroup = null;
             } else if (seg.type === 'tool') {
-                if (!currentToolGroup) {
-                    currentToolGroup = createToolGroupElement();
-                    bodyEl.appendChild(currentToolGroup.wrap);
-                }
-                currentToolGroup.listEl.appendChild(buildToolCardElement(seg));
-                currentToolGroup.segments.push(seg);
-                currentToolGroup.summaryEl.textContent = formatToolGroupSummary(currentToolGroup.segments);
+                toolSegments.push(seg);
             }
         }
     } else {
@@ -942,6 +933,16 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
         contentEl.className = 'ai-message-content ai-message-markdown';
         contentEl.innerHTML = md.render(entry.markdown || '');
         bodyEl.appendChild(contentEl);
+    }
+
+    if (toolSegments.length > 0) {
+        const toolGroup = createToolGroupElement();
+        toolSegments.forEach((seg) => {
+            toolGroup.listEl.appendChild(buildToolCardElement(seg));
+            toolGroup.segments.push(seg);
+        });
+        toolGroup.summaryEl.textContent = formatToolGroupSummary(toolGroup.segments);
+        bodyEl.appendChild(toolGroup.wrap);
     }
 
     if (typeof entry.completionSummary === 'string' && entry.completionSummary.trim()) {
@@ -996,7 +997,8 @@ function appendMessageActions(messageEl, copySourceEl, { onDelete } = {}) {
 }
 
 function scrollToBottom(refEl, force = false) {
-    const list = refEl.closest?.('.ai-conversation-list');
+    const list = refEl?.closest?.('.ai-conversation-list')
+        || refEl?.querySelector?.('.ai-conversation-list');
     if (!list) return;
     if (force || list._shouldAutoScroll !== false) {
         list.scrollTop = list.scrollHeight;
@@ -1491,6 +1493,7 @@ export class AiSidebar {
     show() {
         document.body.classList.add('ai-sidebar-visible');
         this._updateContextBar();
+        requestAnimationFrame(() => scrollToBottom(this.el, true));
         this.inputEl.focus();
     }
 
@@ -1694,14 +1697,14 @@ export class AiSidebar {
     _startProcessing() {
         this.isProcessing = true;
         this.sendBtn.disabled = true;
-        this.cancelBtn.style.display = '';
+        this.el.classList.add('is-processing');
         this.el.querySelector('.ai-conversation-list').classList.add('ai-processing');
     }
 
     _stopProcessing() {
         this.isProcessing = false;
         this.sendBtn.disabled = false;
-        this.cancelBtn.style.display = 'none';
+        this.el.classList.remove('is-processing');
         this.el.querySelector('.ai-conversation-list').classList.remove('ai-processing');
     }
 
