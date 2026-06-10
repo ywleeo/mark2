@@ -353,18 +353,22 @@
     width: 28px;
     height: 28px;
     padding: 0;
-    border: none;
-    border-radius: 4px;
-    background: rgba(122, 122, 122, 0.7);
-    color: #fff;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: rgba(55, 65, 81, 0.92);
     cursor: pointer;
     opacity: 0;
     outline: none;
-    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
     pointer-events: none;
     z-index: 20;
     contain: layout style paint;
     will-change: opacity, transform;
+}
+
+:root[data-theme-appearance='dark'] .code-copy-button {
+    color: rgba(255, 255, 255, 0.92);
 }
 
 .code-copy-button.is-visible {
@@ -376,9 +380,26 @@
     transform: scale(0.95);
 }
 
+.code-copy-button:hover {
+    background: rgba(15, 23, 42, 0.08);
+    border-color: rgba(15, 23, 42, 0.12);
+}
+
 .code-copy-button:focus-visible {
     outline: 2px solid rgba(255, 255, 255, 0.6);
     outline-offset: 2px;
+    background: rgba(15, 23, 42, 0.08);
+    border-color: rgba(15, 23, 42, 0.16);
+}
+
+:root[data-theme-appearance='dark'] .code-copy-button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme-appearance='dark'] .code-copy-button:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
 }
 
 .code-copy-button svg {
@@ -388,11 +409,13 @@
 }
 
 .code-copy-button.copy-success {
-    background: rgba(31, 132, 90, 0.85);
+    background: rgba(31, 132, 90, 0.18);
+    border-color: rgba(31, 132, 90, 0.35);
 }
 
 .code-copy-button.copy-error {
-    background: rgba(199, 55, 44, 0.85);
+    background: rgba(199, 55, 44, 0.18);
+    border-color: rgba(199, 55, 44, 0.35);
 }
 
 /* 引用 */

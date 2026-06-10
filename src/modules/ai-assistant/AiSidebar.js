@@ -31,9 +31,130 @@ const AI_SIDEBAR_MIN_WIDTH = 320;
 const AI_SIDEBAR_MAX_WIDTH = 720;
 
 // 轻量 markdown 渲染器，仅用于 AI 回复展示（不开 html，防 XSS）。
-// 关闭 table 规则，避免 AI 在解释 Markdown 语法时，原本用于举例的 `| ... |`
-// 被错误渲染成真实表格，导致内容语义和排版一起失真。
-const md = new MarkdownIt({ html: false, linkify: true, typographer: false }).disable(['table']);
+// 表格规则保持开启，但在渲染前会把“结构不合法的伪表格示例”降级成代码块，
+// 避免解释 Markdown 语法时把坏表格示例误渲染成真正表格。
+const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
+
+/**
+ * 判断一行是否可能是 GFM 表格分隔线。
+ * @param {string} line - 原始文本行
+ * @returns {boolean} 是否是表格分隔线候选
+ */
+function isTableSeparatorLine(line) {
+    const cells = splitTableCells(line);
+    if (cells.length === 0) return false;
+    return cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+}
+
+/**
+ * 按未转义的 `|` 拆分表格单元格，并忽略两端包裹用的竖线。
+ * @param {string} line - 原始文本行
+ * @returns {string[]} 单元格数组
+ */
+function splitTableCells(line) {
+    const source = typeof line === 'string' ? line.trim() : '';
+    if (!source.includes('|')) return [];
+
+    let working = source;
+    if (working.startsWith('|')) working = working.slice(1);
+    if (working.endsWith('|')) working = working.slice(0, -1);
+
+    const cells = [];
+    let current = '';
+    let escaped = false;
+    for (const ch of working) {
+        if (escaped) {
+            current += ch;
+            escaped = false;
+            continue;
+        }
+        if (ch === '\\') {
+            current += ch;
+            escaped = true;
+            continue;
+        }
+        if (ch === '|') {
+            cells.push(current);
+            current = '';
+            continue;
+        }
+        current += ch;
+    }
+    cells.push(current);
+    return cells;
+}
+
+/**
+ * 判断一个候选表格块是否结构完整。
+ * 要求 header / separator / body 的列数一致，且 separator 每列都是 `---` / `:---:` 形式。
+ * @param {string[]} lines - 连续的候选表格行
+ * @returns {boolean} 是否可作为真实表格渲染
+ */
+function isValidMarkdownTableBlock(lines) {
+    if (!Array.isArray(lines) || lines.length < 2) return false;
+    const headerCells = splitTableCells(lines[0]);
+    const separatorCells = splitTableCells(lines[1]);
+    if (headerCells.length === 0 || headerCells.length !== separatorCells.length) return false;
+    if (!separatorCells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))) return false;
+
+    for (let i = 2; i < lines.length; i++) {
+        const cells = splitTableCells(lines[i]);
+        if (cells.length !== headerCells.length) return false;
+    }
+    return true;
+}
+
+/**
+ * 预处理 AI 回复中的表格。
+ * 合法表格保持原样；结构不合法但长得像表格的块改成 fenced code，保留用户想看的原始 Markdown。
+ * @param {string} source - markdown 原文
+ * @returns {string} 预处理后的 markdown
+ */
+function normalizeAiMarkdownTables(source) {
+    const text = typeof source === 'string' ? source : '';
+    if (!text.includes('|')) return text;
+
+    const lines = text.split('\n');
+    const output = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const nextLine = lines[i + 1] ?? '';
+        const maybeTableStart = line.includes('|') && isTableSeparatorLine(nextLine);
+
+        if (!maybeTableStart) {
+            output.push(line);
+            continue;
+        }
+
+        const block = [line, nextLine];
+        i += 1;
+        while (i + 1 < lines.length) {
+            const candidate = lines[i + 1];
+            if (!candidate.trim()) break;
+            if (!candidate.includes('|')) break;
+            block.push(candidate);
+            i += 1;
+        }
+
+        if (isValidMarkdownTableBlock(block)) {
+            output.push(...block);
+        } else {
+            output.push('```text', ...block, '```');
+        }
+    }
+
+    return output.join('\n');
+}
+
+/**
+ * 渲染 AI markdown。
+ * @param {string} source - markdown 原文
+ * @returns {string} 安全 HTML
+ */
+function renderAiMarkdown(source) {
+    return md.render(normalizeAiMarkdownTables(source));
+}
 
 // 工具标签（按 toolName 从 i18n 查词条，未定义则返回 undefined 让调用方回退到 toolName）
 const TOOL_LABELS = new Proxy({}, {
@@ -367,7 +488,7 @@ class AssistantCard {
             this.currentMarkdownSegment = { type: 'markdown', content: '' };
             this.bodySegments.push(this.currentMarkdownSegment);
         }
-        this.currentContentEl.innerHTML = md.render(parsed.content);
+        this.currentContentEl.innerHTML = renderAiMarkdown(parsed.content);
         if (this.markdownSegments.length > 0) {
             this.markdownSegments[this.markdownSegments.length - 1] = parsed.content;
         }
@@ -896,7 +1017,7 @@ function createToolGroupElement(segments = []) {
 
 /**
  * 从原始 markdown 或 v2 快照构造助手消息 DOM。
- * 唯一的 innerHTML 来源是 md.render(),且 MarkdownIt 配置为 html: false,
+ * 唯一的 innerHTML 来源是 renderAiMarkdown(),且 MarkdownIt 配置为 html: false,
  * 会把任何原始 HTML 标签当纯文本转义。
  */
 function buildAssistantMessageElement(input, { onDelete } = {}) {
@@ -924,7 +1045,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
                 if (!content.trim()) continue;
                 const mdEl = document.createElement('div');
                 mdEl.className = 'ai-message-content ai-message-markdown';
-                mdEl.innerHTML = md.render(content);
+                mdEl.innerHTML = renderAiMarkdown(content);
                 bodyEl.appendChild(mdEl);
             } else if (seg.type === 'tool') {
                 toolSegments.push(seg);
@@ -933,7 +1054,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
     } else {
         const contentEl = document.createElement('div');
         contentEl.className = 'ai-message-content ai-message-markdown';
-        contentEl.innerHTML = md.render(entry.markdown || '');
+        contentEl.innerHTML = renderAiMarkdown(entry.markdown || '');
         bodyEl.appendChild(contentEl);
     }
 

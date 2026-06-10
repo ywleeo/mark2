@@ -30,13 +30,9 @@ function toStreamUrl(filePath) {
 function renderHtmlEmbed(host, filePath) {
     host.innerHTML = `
         <div class="html-embed">
-            <div class="html-embed__stage">
-                <div class="html-embed__page">
-                    <iframe class="html-embed__frame"
-                            sandbox="allow-scripts allow-popups allow-forms allow-modals"
-                            referrerpolicy="no-referrer"></iframe>
-                </div>
-            </div>
+            <iframe class="html-embed__frame"
+                    sandbox="allow-scripts allow-popups allow-forms allow-modals"
+                    referrerpolicy="no-referrer"></iframe>
         </div>
     `;
     const iframe = host.querySelector('.html-embed__frame');
