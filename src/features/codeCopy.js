@@ -29,6 +29,23 @@ export class CodeCopyManager {
         this._startObserver();
     }
 
+    /**
+     * 判断一个 pre 是否属于当前 TipTap 编辑器实例。
+     * 复制按钮只服务编辑器正文代码块，不接管 AI Sidebar 等外围区域里的 pre。
+     *
+     * @param {Element | null | undefined} pre - 候选代码块元素
+     * @returns {boolean} 是否应由当前实例管理
+     */
+    isManagedCodeBlock(pre) {
+        if (!(pre instanceof Element) || !this.element) {
+            return false;
+        }
+        if (!this.element.contains(pre)) {
+            return false;
+        }
+        return !pre.closest('.ai-sidebar');
+    }
+
     // 启动 MutationObserver，增量处理 pre 元素的新增/移除
     _startObserver() {
         if (!this.element || typeof MutationObserver === 'undefined') {
@@ -71,6 +88,9 @@ export class CodeCopyManager {
 
     // 为单个 pre 元素附加 hover 监听器
     _attachPre(pre) {
+        if (!this.isManagedCodeBlock(pre)) {
+            return;
+        }
         if (this.codeBlockCopyListeners.has(pre)) {
             return;
         }
@@ -132,7 +152,7 @@ export class CodeCopyManager {
 
         this.ensureCodeCopyButton();
 
-        const codeBlocks = this.element.querySelectorAll('pre');
+        const codeBlocks = [...this.element.querySelectorAll('pre')].filter((pre) => this.isManagedCodeBlock(pre));
         if (codeBlocks.length === 0) {
             this.hideCodeCopyButton({ immediate: true });
         }

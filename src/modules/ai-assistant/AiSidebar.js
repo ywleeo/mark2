@@ -156,6 +156,58 @@ function renderAiMarkdown(source) {
     return md.render(normalizeAiMarkdownTables(source));
 }
 
+/**
+ * 给 AI 消息中的代码块挂载复制按钮。
+ * 作用域严格限制在 AI markdown 容器内，不复用编辑器的全局代码复制按钮。
+ *
+ * @param {HTMLElement | null | undefined} rootEl - AI markdown 容器
+ */
+function enhanceAiMarkdownCodeBlocks(rootEl) {
+    if (!(rootEl instanceof HTMLElement)) {
+        return;
+    }
+
+    rootEl.querySelectorAll('pre').forEach((pre) => {
+        if (!(pre instanceof HTMLElement)) {
+            return;
+        }
+
+        let wrap = pre.parentElement;
+        if (!(wrap instanceof HTMLElement) || !wrap.classList.contains('ai-code-block-wrap')) {
+            wrap = document.createElement('div');
+            wrap.className = 'ai-code-block-wrap';
+            pre.parentNode?.insertBefore(wrap, pre);
+            wrap.appendChild(pre);
+        }
+
+        if (wrap.querySelector('.ai-code-copy-button')) {
+            return;
+        }
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'ai-code-copy-button';
+        button.innerHTML = AI_COPY_ICON;
+        button.setAttribute('aria-label', '复制代码块');
+        button.setAttribute('title', '复制代码块');
+
+        addClickHandler(button, () => {
+            const codeEl = pre.querySelector('code');
+            const text = (codeEl?.textContent || pre.textContent || '').trimEnd();
+            navigator.clipboard.writeText(text).then(() => {
+                button.innerHTML = AI_COPY_CHECK_ICON;
+                button.classList.add('is-copied');
+                setTimeout(() => {
+                    button.innerHTML = AI_COPY_ICON;
+                    button.classList.remove('is-copied');
+                }, 1500);
+            });
+        });
+
+        wrap.appendChild(button);
+    });
+}
+
 // 工具标签（按 toolName 从 i18n 查词条，未定义则返回 undefined 让调用方回退到 toolName）
 const TOOL_LABELS = new Proxy({}, {
     get(_, toolName) {
@@ -489,6 +541,7 @@ class AssistantCard {
             this.bodySegments.push(this.currentMarkdownSegment);
         }
         this.currentContentEl.innerHTML = renderAiMarkdown(parsed.content);
+        enhanceAiMarkdownCodeBlocks(this.currentContentEl);
         if (this.markdownSegments.length > 0) {
             this.markdownSegments[this.markdownSegments.length - 1] = parsed.content;
         }
@@ -1046,6 +1099,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
                 const mdEl = document.createElement('div');
                 mdEl.className = 'ai-message-content ai-message-markdown';
                 mdEl.innerHTML = renderAiMarkdown(content);
+                enhanceAiMarkdownCodeBlocks(mdEl);
                 bodyEl.appendChild(mdEl);
             } else if (seg.type === 'tool') {
                 toolSegments.push(seg);
@@ -1055,6 +1109,7 @@ function buildAssistantMessageElement(input, { onDelete } = {}) {
         const contentEl = document.createElement('div');
         contentEl.className = 'ai-message-content ai-message-markdown';
         contentEl.innerHTML = renderAiMarkdown(entry.markdown || '');
+        enhanceAiMarkdownCodeBlocks(contentEl);
         bodyEl.appendChild(contentEl);
     }
 
