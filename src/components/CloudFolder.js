@@ -56,8 +56,13 @@ export class CloudFolder {
         this._contentCache = new Map(); // fileId → content(后台预取,点击秒开)
         this._syncing = new Set();      // 正在存回云端的 fileId(重渲染后仍要保持状态)
         this._renamingId = null;        // 正在行内重命名的 fileId(避免点击误触发打开)
+        this._selectedFileId = null;    // 当前激活的云端文件 id（用于高亮）
 
         this._unsub = subscribe((state) => this._onState(state));
+        this._unsubscribeCurrentFile = this.deps.onCurrentFileChange?.((path) => {
+            this._syncSelectionFromPath(path);
+        }) || null;
+        this._syncSelectionFromPath(this.deps.getCurrentFile?.() ?? null);
         // 文档存回云端期间,在对应行显示「上传中」状态(由 cloudDocSync 广播)
         this._busUnsubs = [
             eventBus.on('cloud:doc-sync-start', ({ fileId } = {}) => this._setRowSyncing(fileId, true)),
@@ -215,6 +220,7 @@ export class CloudFolder {
         item.className = 'open-file-item cloud-file-item';
         item.dataset.id = String(file.id);
         item.title = name;
+        if (String(file.id) === String(this._selectedFileId)) item.classList.add('selected');
         item.innerHTML = getFileIconSvg(name, { className: 'open-file-icon', size: 14 });
         const nameEl = document.createElement('span');
         nameEl.className = 'open-file-name';
@@ -280,7 +286,10 @@ export class CloudFolder {
         // 2) 命中预取缓存 → 秒开,无需网络、无需 spinner
         if (this._contentCache.has(file.id)) {
             const path = await this.deps.openAsUntitled?.({ content: this._contentCache.get(file.id), filename, cloudFileId: file.id });
-            if (typeof path === 'string' && path) this._openedPaths.set(file.id, path);
+            if (typeof path === 'string' && path) {
+                this._openedPaths.set(file.id, path);
+                this._syncSelectionFromPath(path);
+            }
             return;
         }
 
@@ -294,7 +303,10 @@ export class CloudFolder {
             this._contentCache.set(file.id, content);
             this._markRowDownloaded(file.id);
             const path = await this.deps.openAsUntitled?.({ content, filename, cloudFileId: file.id });
-            if (typeof path === 'string' && path) this._openedPaths.set(file.id, path);
+            if (typeof path === 'string' && path) {
+                this._openedPaths.set(file.id, path);
+                this._syncSelectionFromPath(path);
+            }
         } catch (e) {
             console.error('[cloudFolder] open failed:', e);
         } finally {
@@ -337,6 +349,23 @@ export class CloudFolder {
         return this.container?.querySelector(
             `.cloud-file-item[data-id="${CSS.escape(String(fileId))}"]`
         ) || null;
+    }
+
+    _syncSelectionFromPath(path) {
+        const nextFileId = path ? this.deps.getCloudFileId?.(path) ?? null : null;
+        this._selectedFileId = nextFileId == null ? null : String(nextFileId);
+
+        if (nextFileId != null) {
+            this.deps.clearLocalSelection?.();
+        }
+
+        this.container?.querySelectorAll('.cloud-file-item.selected').forEach((el) => {
+            el.classList.remove('selected');
+        });
+
+        if (this._selectedFileId != null) {
+            this._rowEl(this._selectedFileId)?.classList.add('selected');
+        }
     }
 
     async _uploadFlow() {
@@ -506,6 +535,7 @@ export class CloudFolder {
         this._closeContextMenu();
         this._teardownRows();
         this._unsub?.();
+        this._unsubscribeCurrentFile?.();
         this._busUnsubs?.forEach((fn) => { try { fn(); } catch (_) {} });
         this._busUnsubs = [];
         if (this.container) this.container.innerHTML = '';

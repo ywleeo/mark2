@@ -21,12 +21,8 @@
     margin-top: 8px;
 }
 
-/* open-files 行高被那个 font-size:16px 的关闭按钮(×,opacity:0 但占布局)撑高;
-   云行没有该按钮,最高元素只有 14px 图标 → 偏矮。这里补等高 min-height 对齐。
-   关闭按钮是固定 16px(与 --sidebar-font-size 无关),故 open-file 行高近似定值。 */
-.cloud-file-item {
-    min-height: 24px;
-}
+/* 云端文件行高跟随 .open-file-item，本文件不再单独抬高，
+   保持与 folders 下的文件节点密度一致。 */
 
 /* header 行尾的云朵「类型图标」:占位与 .section-action-btn(20×20)一致,
    使左侧 chevron 与 open-files / folders 的 chevron 落在同一 x */

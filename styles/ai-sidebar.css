@@ -482,8 +482,9 @@ body.ai-sidebar-resizing { cursor: ew-resize; user-select: none; }
 
 .ai-code-copy-button.is-copied {
     color: var(--ai-tool-done, #22c55e);
-    background: color-mix(in srgb, var(--ai-tool-done, #22c55e) 12%, transparent);
-    border-color: color-mix(in srgb, var(--ai-tool-done, #22c55e) 30%, transparent);
+    background: color-mix(in srgb, var(--ai-tool-done, #22c55e) 22%, transparent);
+    border-color: color-mix(in srgb, var(--ai-tool-done, #22c55e) 42%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ai-tool-done, #22c55e) 14%, transparent);
 }
 
 .ai-message-markdown blockquote {

@@ -1487,11 +1487,11 @@ export class AiSidebar {
     }
 
     _bindFileChangeListener() {
-        this.getAppState().onCurrentFileChange((path) => {
+        const unsubscribe = this.getAppState().onCurrentFileChange((path) => {
             this._updateContextBar(path);
         });
         this._cleanups.push(() => {
-            this.getAppState().onCurrentFileChange(null);
+            unsubscribe?.();
         });
     }
 

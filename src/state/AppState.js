@@ -64,6 +64,8 @@ export class AppState {
             fileDrop: null,
             appearanceChange: null,
         };
+
+        this._currentFileChangeListeners = new Set();
     }
 
     // ========== 文件状态管理 ==========
@@ -76,13 +78,25 @@ export class AppState {
         const prev = this.currentFile;
         this.currentFile = filePath;
         if (prev !== filePath) {
-            this._onCurrentFileChange?.(filePath);
+            this._currentFileChangeListeners.forEach((listener) => {
+                try {
+                    listener(filePath);
+                } catch (error) {
+                    console.error('[AppState] currentFile listener failed:', error);
+                }
+            });
         }
     }
 
     /** 注册当前文件变化回调（供 AiSidebar 等模块订阅） */
     onCurrentFileChange(fn) {
-        this._onCurrentFileChange = fn;
+        if (typeof fn !== 'function') {
+            return () => {};
+        }
+        this._currentFileChangeListeners.add(fn);
+        return () => {
+            this._currentFileChangeListeners.delete(fn);
+        };
     }
 
     getHasUnsavedChanges() {

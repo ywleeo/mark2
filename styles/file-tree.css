@@ -200,15 +200,22 @@
 }
 
 .close-file-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
     background: none;
     border: none;
     cursor: pointer;
     margin-right: 4px;
-    padding: 2px 4px;
-    font-size: 16px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
     color: var(--text-secondary, #999);
     opacity: 0;
     transition: opacity 0.15s;
+    flex: 0 0 auto;
 }
 
 .open-file-item:hover .close-file-btn {

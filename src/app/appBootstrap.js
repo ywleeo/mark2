@@ -372,6 +372,10 @@ export function createAppBootstrap({
                 const cloudFolder = new CloudFolder(cloudFolderEl, {
                     openAsUntitled: ({ content, filename, cloudFileId }) =>
                         handleImportAsUntitled(content, filename, null, { cloudBacked: true, cloudFileId }),
+                    getCurrentFile: () => appState.getCurrentFile?.() ?? null,
+                    onCurrentFileChange: (listener) => appState.onCurrentFileChange?.(listener),
+                    getCloudFileId: (path) => untitledFileManager.getCloudFileId?.(path) ?? null,
+                    clearLocalSelection: () => appState.getFileTree()?.clearSelection?.(),
                     // 已打开同源 tab 时聚焦它,返回是否命中 → 避免重复点叠开多个 tab
                     focusDocumentIfOpen: (path) => {
                         const tm = appState.getTabManager();
