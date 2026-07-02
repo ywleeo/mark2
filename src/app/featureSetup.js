@@ -6,7 +6,6 @@
 import { createTerminalPanel } from '../modules/terminal/panel.js';
 import { createTranslatorPanel } from '../modules/translator/translatorPanel.js';
 import { initCardExport } from '../modules/card-export/index.js';
-import { initAiSidebar } from '../modules/ai-assistant/AiSidebar.js';
 
 /**
  * 注册当前应用的核心功能模块。
@@ -34,20 +33,6 @@ export function registerCoreFeatures(options = {}) {
         },
         unmount(api) {
             api?.destroy?.();
-        },
-    });
-
-    register({
-        id: 'ai-sidebar',
-        title: 'AI 侧边栏',
-        contributes: { sidebar: true },
-        mount() {
-            return initAiSidebar({
-                getAppState: context.getAppState,
-                getEditorRegistry: context.getEditorRegistry,
-                reloadCurrentFile: context.reloadCurrentFile,
-                confirm: context.confirm,
-            });
         },
     });
 

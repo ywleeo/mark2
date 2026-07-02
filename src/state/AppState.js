@@ -88,7 +88,7 @@ export class AppState {
         }
     }
 
-    /** 注册当前文件变化回调（供 AiSidebar 等模块订阅） */
+    /** 注册当前文件变化回调（供侧栏、面板等模块订阅） */
     onCurrentFileChange(fn) {
         if (typeof fn !== 'function') {
             return () => {};

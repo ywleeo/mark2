@@ -18,7 +18,6 @@ const COMMAND_TO_MENU_IDS = {
     'view.toggleSidebar': 'toggle-sidebar',
     'toolbar.toggleMarkdown': 'toggle-markdown-toolbar',
     'feature.terminal.toggle': 'toggle-terminal',
-    'feature.ai.toggle': 'toggle-ai-sidebar',
     'document.newFile': 'file-new',
     'document.delete': 'file-delete',
     'editor.undo': 'undo',
@@ -129,7 +128,6 @@ export class AppMenu {
                     { id: 'toggle-toolbar', label: t('menu.toggleToolbar'), command: COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, menuId: 'toggle-markdown-toolbar' },
                     { id: 'sep1', separator: true },
                     { id: 'toggle-terminal', label: t('menu.toggleTerminal'), shortcut: 'Ctrl+`', command: COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, menuId: 'toggle-terminal' },
-                    { id: 'toggle-ai', label: t('menu.toggleAi'), shortcut: 'Ctrl+Shift+A', command: COMMAND_IDS.FEATURE_AI_TOGGLE, menuId: 'toggle-ai-sidebar' },
                     { id: 'sep2', separator: true },
                     { id: 'toggle-theme', label: t('menu.toggleTheme'), command: COMMAND_IDS.THEME_TOGGLE },
                 ]

@@ -32,7 +32,7 @@ export class CodeCopyManager {
 
     /**
      * 判断一个 pre 是否属于当前 TipTap 编辑器实例。
-     * 复制按钮只服务编辑器正文代码块，不接管 AI Sidebar 等外围区域里的 pre。
+     * 复制按钮只服务当前编辑器正文代码块，不接管外围区域里的 pre。
      *
      * @param {Element | null | undefined} pre - 候选代码块元素
      * @returns {boolean} 是否应由当前实例管理
@@ -44,7 +44,7 @@ export class CodeCopyManager {
         if (!this.element.contains(pre)) {
             return false;
         }
-        return !pre.closest('.ai-sidebar');
+        return true;
     }
 
     // 启动 MutationObserver，增量处理 pre 元素的新增/移除

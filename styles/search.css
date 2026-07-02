@@ -62,7 +62,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* 扁平按钮：透明背景，hover 时显示底色（对齐 terminal-action-btn / ai-sidebar 风格） */
+/* 扁平按钮：透明背景，hover 时显示底色（对齐 terminal-action-btn 风格） */
 .search-button {
     appearance: none;
     border: none;

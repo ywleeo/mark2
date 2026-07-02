@@ -133,7 +133,6 @@ fn command_to_menu_ids() -> HashMap<&'static str, Vec<&'static str>> {
     m.insert("view.toggleSidebar", vec!["toggle-sidebar"]);
     m.insert("toolbar.toggleMarkdown", vec!["toggle-markdown-toolbar"]);
     m.insert("feature.terminal.toggle", vec!["toggle-terminal"]);
-    m.insert("feature.ai.toggle", vec!["toggle-ai-sidebar"]);
     m.insert("document.newFile", vec!["file-new"]);
     m.insert("document.delete", vec!["file-delete"]);
     m.insert("editor.undo", vec!["undo"]);
@@ -419,10 +418,6 @@ fn build_menu(
         .accelerator(get_accelerator("toggle-terminal", "CmdOrCtrl+J", custom_accel))
         .build(handle)?;
 
-    let toggle_ai_sidebar_item = MenuItemBuilder::with_id("toggle-ai-sidebar", l["ai-assistant"])
-        .accelerator(get_accelerator("toggle-ai-sidebar", "CmdOrCtrl+Shift+A", custom_accel))
-        .build(handle)?;
-
     let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"])
         .build(handle)?;
 
@@ -495,7 +490,6 @@ fn build_menu(
         .item(&toggle_theme_item)
         .separator()
         .item(&toggle_terminal_item)
-        .item(&toggle_ai_sidebar_item)
         .build()?;
 
     let undo_item = MenuItemBuilder::with_id("undo", l["undo"])

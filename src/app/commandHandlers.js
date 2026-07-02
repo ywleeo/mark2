@@ -153,7 +153,6 @@ export function createCommandHandlers(deps) {
             if (!isFeatureEnabled('terminal')) return;
             featureManager?.getFeatureApi?.('terminal')?.showHistory?.();
         },
-        onToggleAiSidebar: () => featureManager?.getFeatureApi?.('ai-sidebar')?.toggle?.(),
         onNewUntitled: handleCreateUntitled,
         onNewFile: handleCreateNewFile,
         onDeleteActiveFile: handleDeleteActiveFile,

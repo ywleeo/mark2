@@ -44,7 +44,6 @@ export async function registerMenuListeners(handlers) {
     await register('menu-toggle-markdown-toolbar', COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN);
     await register('menu-toggle-theme', COMMAND_IDS.THEME_TOGGLE);
     await register('menu-toggle-terminal', COMMAND_IDS.FEATURE_TERMINAL_TOGGLE);
-    await register('menu-toggle-ai-sidebar', COMMAND_IDS.FEATURE_AI_TOGGLE);
     await register('menu-file-new', COMMAND_IDS.DOCUMENT_NEW_FILE);
     await register('menu-file-save-as', COMMAND_IDS.DOCUMENT_SAVE_AS);
     await register('menu-file-delete', COMMAND_IDS.DOCUMENT_DELETE);

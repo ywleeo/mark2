@@ -2,7 +2,7 @@
  * Cloud Provider Plugin Registry
  *
  * 让 ai-assistant 与具体的 cloud account 实现（如 mark2 cloud、未来其它云）解耦。
- * Plugin 通过 import 副作用自注册到这里，aiService / AiSidebar / SettingsDialog 都
+ * Plugin 通过 import 副作用自注册到这里，aiService / SettingsDialog 都
  * 仅依赖本 registry 暴露的接口，不再 import 任何 cloud-account 模块。
  *
  * Plugin 接口：
