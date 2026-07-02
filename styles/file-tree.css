@@ -35,24 +35,25 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 12px 4px 8px 12px;
+    min-height: 24px;
+    padding: 8px 10px 3px 14px;
     margin-top: 8px;
     cursor: pointer;
     user-select: none;
-    transition: background 0.15s;
+    transition: background 0.15s ease;
 }
 
 .section-header:hover {
-    background: var(--hover-bg-color, rgba(0, 0, 0, 0.03));
+    background: transparent;
 }
 
 .section-title {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
-    color: var(--text-color, #444);
-    opacity: 0.8;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--sidebar-section-title, var(--text-secondary, #666));
+    opacity: 1;
     flex: 1;
 }
 
@@ -66,16 +67,16 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     color: var(--text-secondary, #666);
-    opacity: 0.7;
+    opacity: 0.62;
     transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
 }
 
 .section-header:hover .section-collapse-indicator {
-    opacity: 0.95;
-    color: var(--text-color, #333);
+    opacity: 0.9;
+    color: var(--text-secondary, #666);
 }
 
 .section-header.collapsed .section-collapse-indicator {
@@ -107,22 +108,22 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     border: none;
     background: transparent;
     color: var(--text-secondary, #666);
-    opacity: 0.72;
+    opacity: 0.58;
     cursor: pointer;
     transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 .section-action-btn:hover {
     opacity: 1;
     color: var(--text-color, #333);
-    background: var(--hover-bg-color, rgba(0, 0, 0, 0.05));
+    background: var(--sidebar-row-hover-bg, rgba(0, 0, 0, 0.05));
 }
 
 .section-action-btn svg {
@@ -161,27 +162,33 @@
 .open-file-item {
     display: flex;
     align-items: center;
-    padding: 1px 0 1px 22px;
+    min-height: var(--sidebar-row-height, 27px);
+    padding: 0 8px 0 22px;
+    margin: 0 var(--sidebar-row-x, 8px);
     cursor: pointer;
     font-size: var(--sidebar-font-size, 12px);
-    transition: background 0.15s;
+    border-radius: var(--sidebar-row-radius, 5px);
+    transition: background 0.14s ease, color 0.14s ease;
     position: relative;
     min-width: 0;
 }
 
 .open-file-item:hover {
-    background: var(--hover-bg-color, #f0f0f0);
+    background: var(--sidebar-row-hover-bg, #f0f0f0);
 }
 
 .open-file-item.selected {
     background: var(--file-selected-bg, #eeeeee);
     font-weight: 500;
+    color: var(--text-color, #333);
+    box-shadow: none;
 }
 
 .open-file-icon {
-    margin-right: 6px;
+    margin-right: 7px;
     flex-shrink: 0;
-    color: var(--text-secondary, #666);
+    color: var(--file-icon-color, var(--text-secondary, #666));
+    opacity: 0.82;
 }
 
 .open-file-name {
@@ -192,7 +199,12 @@
     overflow: hidden;
     white-space: nowrap;
     color: var(--text-color, #333);
+    opacity: 0.92;
     min-width: 0;
+}
+
+.open-file-item.selected .open-file-name {
+    opacity: 1;
 }
 
 .open-file-rename-input {
@@ -208,7 +220,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    margin-right: 4px;
+    margin-right: 0;
     padding: 0;
     font-size: 14px;
     line-height: 1;
@@ -224,6 +236,8 @@
 
 .close-file-btn:hover {
     color: var(--text-color, #333);
+    background: var(--sidebar-row-hover-bg, rgba(0, 0, 0, 0.05));
+    border-radius: 4px;
 }
 
 .root-folder-actions {
@@ -238,8 +252,10 @@
     background: none;
     border: none;
     cursor: pointer;
-    padding: 2px 4px;
-    font-size: 16px;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
     color: var(--text-secondary, #999);
     opacity: 0;
     transition: opacity 0.15s, color 0.15s;
@@ -276,40 +292,46 @@
 .tree-folder-header {
     display: flex;
     align-items: center;
-    padding: 1px 4px 1px 14px;
-    margin: 1px 0;
+    min-height: var(--sidebar-row-height, 27px);
+    padding: 0 8px 0 14px;
+    margin: 0 var(--sidebar-row-x, 8px);
     cursor: pointer;
     font-size: var(--sidebar-font-size, 13px);
+    border-radius: var(--sidebar-row-radius, 5px);
     min-width: 0;
+    transition: background 0.14s ease, color 0.14s ease;
 }
 
 .tree-folder-header:hover {
-    background-color: var(--hover-bg-color, #e4e5e5);
+    background-color: var(--sidebar-row-hover-bg, #e4e5e5);
 }
 
 .tree-folder-header.drag-over {
     background-color: var(--file-selected-bg, #fcf8d8);
-    /* outline: 21px dashed var(--file-selected-border, #fd7e14); */
+    box-shadow: none;
     outline-offset: -2px;
 }
 
 .tree-folder-header.root {
     font-weight: 600;
-    border-bottom: 1px solid var(--border-color, #e9ecef);
-    padding: 8px 4px 8px 15px;
+    border-bottom: none;
+    padding: 0 8px 0 14px;
+    margin-top: 1px;
+    margin-bottom: 1px;
 }
 
 /* 展开/收起小箭头 */
 .tree-expand-icon {
-    margin-right: 6px;
-    width: 12px;
-    height: 12px;
+    margin-right: 5px;
+    width: 13px;
+    height: 13px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: transform 0.15s ease;
     flex-shrink: 0;
     color: var(--text-secondary, #bfbfbf);
+    opacity: 0.7;
     transform: rotate(-90deg);
     pointer-events: none;
 }
@@ -326,13 +348,14 @@
 
 /* 文件夹图标 */
 .tree-folder-icon {
-    margin-right: 6px;
-    width: 14px;
-    height: 14px;
+    margin-right: 7px;
+    width: 15px;
+    height: 15px;
     display: inline-block;
     flex-shrink: 0;
     position: relative;
     color: var(--folder-color, #54aeff);
+    opacity: 0.9;
     pointer-events: none;
 }
 
@@ -365,6 +388,7 @@
     white-space: nowrap;
     color: var(--text-color, #333);
     font-weight: 400;
+    opacity: 0.92;
     min-width: 0;
     pointer-events: none;
 }
@@ -393,8 +417,8 @@
 
 .tree-folder-children.expanded {
     display: block;
-    margin-left: 20px;
-    border-left: 1px solid var(--tree-line-color, #d1d5db);
+    margin-left: 18px;
+    border-left: none;
     padding-left: 0;
 }
 
@@ -402,30 +426,41 @@
 .tree-file {
     display: flex;
     align-items: center;
-    padding: 2px 4px 2px 16px;
+    min-height: var(--sidebar-row-height, 27px);
+    padding: 0 8px 0 16px;
+    margin: 0 var(--sidebar-row-x, 8px);
     cursor: pointer;
     font-size: var(--sidebar-font-size, 12px);
-    border-radius: 0;
+    border-radius: var(--sidebar-row-radius, 5px);
     min-width: 0;
+    transition: background 0.14s ease, color 0.14s ease;
 }
 
 .tree-file:hover {
-    background-color: var(--hover-bg-color, #e4e5e5);
+    background-color: var(--sidebar-row-hover-bg, #e4e5e5);
 }
 
 .tree-file.selected {
     background-color: var(--file-selected-bg, #fcf8d8);
     font-weight: 500;
+    box-shadow: none;
+}
+
+.tree-file.selected .tree-item-name,
+.tree-folder-header:hover .tree-item-name,
+.tree-file:hover .tree-item-name {
+    opacity: 1;
 }
 
 /* 文件图标 */
 .tree-file-icon {
-    margin-right: 6px;
-    width: 14px;
-    height: 14px;
+    margin-right: 7px;
+    width: 15px;
+    height: 15px;
     display: inline-block;
     flex-shrink: 0;
     color: var(--file-icon-color, #656d76);
+    opacity: 0.78;
 }
 
 .tree-file-icon,
@@ -433,83 +468,44 @@
     overflow: visible;
 }
 
-.file-icon--markdown { color: #2563eb; }
-.file-icon--workflow { color: #ca8a04; }
-.file-icon--image { color: #db2777; }
-.file-icon--audio { color: #ea580c; }
-.file-icon--video { color: #dc2626; }
+.file-icon--markdown { color: var(--file-icon-color, currentColor); }
+.file-icon--workflow { color: var(--file-icon-color, currentColor); }
+.file-icon--image { color: var(--file-icon-color, currentColor); }
+.file-icon--audio { color: var(--file-icon-color, currentColor); }
+.file-icon--video { color: var(--file-icon-color, currentColor); }
 .file-icon--spreadsheet,
-.file-icon--csv { color: #16a34a; }
-.file-icon--pdf { color: #b91c1c; }
-.file-icon--javascript { color: #ca8a04; }
-.file-icon--typescript { color: #2563eb; }
-.file-icon--json { color: #0f766e; }
+.file-icon--csv { color: var(--file-icon-color, currentColor); }
+.file-icon--pdf { color: var(--file-icon-color, currentColor); }
+.file-icon--javascript { color: var(--file-icon-color, currentColor); }
+.file-icon--typescript { color: var(--file-icon-color, currentColor); }
+.file-icon--json { color: var(--file-icon-color, currentColor); }
 .file-icon--yaml,
 .file-icon--ini,
 .file-icon--env,
-.file-icon--xml { color: #0891b2; }
-.file-icon--html { color: #ea580c; }
+.file-icon--xml { color: var(--file-icon-color, currentColor); }
+.file-icon--html { color: var(--file-icon-color, currentColor); }
 .file-icon--css,
 .file-icon--scss,
-.file-icon--less { color: #7c3aed; }
-.file-icon--python { color: #2563eb; }
-.file-icon--go { color: #0891b2; }
-.file-icon--rust { color: #9a3412; }
+.file-icon--less { color: var(--file-icon-color, currentColor); }
+.file-icon--python { color: var(--file-icon-color, currentColor); }
+.file-icon--go { color: var(--file-icon-color, currentColor); }
+.file-icon--rust { color: var(--file-icon-color, currentColor); }
 .file-icon--java,
 .file-icon--kotlin,
-.file-icon--swift { color: #dc2626; }
+.file-icon--swift { color: var(--file-icon-color, currentColor); }
 .file-icon--ruby,
-.file-icon--php { color: #9333ea; }
+.file-icon--php { color: var(--file-icon-color, currentColor); }
 .file-icon--csharp,
 .file-icon--cpp,
 .file-icon--c,
-.file-icon--objective-c { color: #1d4ed8; }
-.file-icon--sql { color: #0f766e; }
+.file-icon--objective-c { color: var(--file-icon-color, currentColor); }
+.file-icon--sql { color: var(--file-icon-color, currentColor); }
 .file-icon--shell,
 .file-icon--powershell,
 .file-icon--dockerfile,
-.file-icon--diff { color: #475569; }
+.file-icon--diff { color: var(--file-icon-color, currentColor); }
 .file-icon--plaintext,
-.file-icon--code { color: var(--file-icon-color, #656d76); }
-
-:root[data-theme-appearance="dark"] .file-icon--markdown { color: #60a5fa; }
-:root[data-theme-appearance="dark"] .file-icon--workflow { color: #fbbf24; }
-:root[data-theme-appearance="dark"] .file-icon--image { color: #f472b6; }
-:root[data-theme-appearance="dark"] .file-icon--audio { color: #fb923c; }
-:root[data-theme-appearance="dark"] .file-icon--video { color: #f87171; }
-:root[data-theme-appearance="dark"] .file-icon--spreadsheet,
-:root[data-theme-appearance="dark"] .file-icon--csv { color: #4ade80; }
-:root[data-theme-appearance="dark"] .file-icon--pdf { color: #f87171; }
-:root[data-theme-appearance="dark"] .file-icon--javascript { color: #facc15; }
-:root[data-theme-appearance="dark"] .file-icon--typescript { color: #60a5fa; }
-:root[data-theme-appearance="dark"] .file-icon--json { color: #2dd4bf; }
-:root[data-theme-appearance="dark"] .file-icon--yaml,
-:root[data-theme-appearance="dark"] .file-icon--ini,
-:root[data-theme-appearance="dark"] .file-icon--env,
-:root[data-theme-appearance="dark"] .file-icon--xml { color: #67e8f9; }
-:root[data-theme-appearance="dark"] .file-icon--html { color: #fb923c; }
-:root[data-theme-appearance="dark"] .file-icon--css,
-:root[data-theme-appearance="dark"] .file-icon--scss,
-:root[data-theme-appearance="dark"] .file-icon--less { color: #c084fc; }
-:root[data-theme-appearance="dark"] .file-icon--python { color: #93c5fd; }
-:root[data-theme-appearance="dark"] .file-icon--go { color: #67e8f9; }
-:root[data-theme-appearance="dark"] .file-icon--rust { color: #fdba74; }
-:root[data-theme-appearance="dark"] .file-icon--java,
-:root[data-theme-appearance="dark"] .file-icon--kotlin,
-:root[data-theme-appearance="dark"] .file-icon--swift { color: #fca5a5; }
-:root[data-theme-appearance="dark"] .file-icon--ruby,
-:root[data-theme-appearance="dark"] .file-icon--php { color: #d8b4fe; }
-:root[data-theme-appearance="dark"] .file-icon--csharp,
-:root[data-theme-appearance="dark"] .file-icon--cpp,
-:root[data-theme-appearance="dark"] .file-icon--c,
-:root[data-theme-appearance="dark"] .file-icon--objective-c { color: #93c5fd; }
-:root[data-theme-appearance="dark"] .file-icon--sql { color: #5eead4; }
-:root[data-theme-appearance="dark"] .file-icon--shell,
-:root[data-theme-appearance="dark"] .file-icon--powershell,
-:root[data-theme-appearance="dark"] .file-icon--dockerfile,
-:root[data-theme-appearance="dark"] .file-icon--diff,
-:root[data-theme-appearance="dark"] .file-icon--plaintext,
-:root[data-theme-appearance="dark"] .file-icon--code { color: rgba(233, 237, 245, 0.92); }
+.file-icon--code { color: var(--file-icon-color, currentColor); }
 
 /* 取消文件/文件夹节点获得焦点时的系统描边，不改动已有选中样式 */
 .tree-file:focus,
@@ -636,23 +632,23 @@
 }
 
 .tree-file.context-menu-target {
-    background-color: var(--active-bg-color, #e8eefc);
-    box-shadow: inset 2px 0 0 var(--accent-color, #2563eb);
+    background-color: var(--file-selected-bg, #e8eefc);
+    box-shadow: none;
 }
 
 .tree-folder.context-menu-target > .tree-folder-header {
-    background-color: var(--active-bg-color, #e8eefc);
-    box-shadow: inset 2px 0 0 var(--accent-color, #2563eb);
+    background-color: var(--file-selected-bg, #e8eefc);
+    box-shadow: none;
 }
 
 .open-file-item.context-menu-target {
-    background-color: var(--active-bg-color, #e8eefc);
-    box-shadow: inset 2px 0 0 var(--accent-color, #2563eb);
+    background-color: var(--file-selected-bg, #e8eefc);
+    box-shadow: none;
 }
 
 :root[data-theme-appearance="dark"] .tree-folder.context-menu-target > .tree-folder-header {
-    background-color: rgba(59, 130, 246, 0.18);
-    box-shadow: inset 2px 0 0 rgba(96, 165, 250, 0.95);
+    background-color: var(--file-selected-bg, rgba(59, 130, 246, 0.18));
+    box-shadow: none;
 }
 
 :root[data-theme-appearance="dark"] .file-tree-context-menu {
@@ -688,8 +684,8 @@
 
 :root[data-theme-appearance="dark"] .tree-file.context-menu-target,
 :root[data-theme-appearance="dark"] .open-file-item.context-menu-target {
-    background-color: rgba(59, 130, 246, 0.18);
-    box-shadow: inset 2px 0 0 rgba(96, 165, 250, 0.95);
+    background-color: var(--file-selected-bg, rgba(59, 130, 246, 0.18));
+    box-shadow: none;
 }
 
 /* ===== Sheet 选择弹窗 ===== */

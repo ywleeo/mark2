@@ -7,7 +7,8 @@
     --scrollbar-thumb-color: rgba(92, 92, 92, 0.679);
     --scrollbar-thumb-hover-color: rgba(82, 82, 82, 0.643);
     --scrollbar-track-color: rgba(67, 67, 67, 0.06);
-    --sidebar-bg: #f8f8f8;
+    --sidebar-bg: #f6f7f8;
+    --sidebar-border: rgba(15, 23, 42, 0.08);
     --content-bg: #fdfdfd;
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);
     --body-text-color: rgba(21, 23, 26, 0.85);
@@ -44,15 +45,24 @@
     --drop-overlay-border: rgba(107, 226, 117, 0.65);
     --drop-overlay-bg: rgba(255, 255, 255, 0.72);
     --drop-overlay-text: rgba(21, 23, 26, 0.8);
-    --sidebar-section-header-hover-bg: #fafafa;
-    --text-secondary: #666666;
-    --hover-bg-color: #f0f0f0;
-    --active-bg-color: #eeeeee;
-    --text-color: #333333;
-    --folder-color: #54aeff;
-    --tree-line-color: #d1d5db;
-    --file-selected-bg: #e0f6ff;
-    --file-icon-color: #656d76;
+    --sidebar-section-header-hover-bg: rgba(15, 23, 42, 0.035);
+    --sidebar-section-title: rgba(36, 43, 52, 0.46);
+    --sidebar-row-height: 24px;
+    --sidebar-row-radius: 7px;
+    --sidebar-row-x: 10px;
+    --sidebar-row-hover-bg: rgba(15, 23, 42, 0.04);
+    --sidebar-row-active-bg: rgba(15, 23, 42, 0.075);
+    --sidebar-row-active-border: transparent;
+    --sidebar-icon-muted: rgba(75, 85, 99, 0.56);
+    --text-secondary: rgba(75, 85, 99, 0.76);
+    --hover-bg-color: var(--sidebar-row-hover-bg);
+    --active-bg-color: var(--sidebar-row-active-bg);
+    --text-color: rgba(30, 35, 42, 0.88);
+    --folder-color: var(--sidebar-icon-muted);
+    --tree-line-color: transparent;
+    --file-selected-bg: var(--sidebar-row-active-bg);
+    --file-selected-border: var(--sidebar-row-active-border);
+    --file-icon-color: var(--sidebar-icon-muted);
     --editor-font-size: 16px;
     --editor-line-height: 1.6;
     --editor-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -65,7 +75,8 @@
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.662);
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.52);
     --scrollbar-track-color: rgba(255, 255, 255, 0.06);
-    --sidebar-bg: #1a1a1a;
+    --sidebar-bg: #18191b;
+    --sidebar-border: rgba(255, 255, 255, 0.08);
     --content-bg: #151515;
     --sidebar-resizer-active: rgba(255, 255, 255, 0.18);
     --body-text-color: rgba(235, 239, 247, 0.95);
@@ -103,16 +114,24 @@
     --drop-overlay-border: rgba(76, 201, 255, 0.8);
     --drop-overlay-bg: rgba(23, 32, 48, 0.82);
     --drop-overlay-text: rgba(248, 250, 252, 0.95);
-    --sidebar-section-header-hover-bg: rgba(255, 255, 255, 0.08);
-    --text-secondary: rgba(207, 216, 233, 0.9);
-    --hover-bg-color: rgba(148, 163, 184, 0.22);
-    --active-bg-color: rgba(76, 201, 255, 0.22);
-    --text-color: rgba(248, 250, 252, 0.95);
-    --folder-color: #a5d8ff;
-    --tree-line-color: rgba(148, 163, 184, 0.5);
-    --file-selected-bg: rgba(76, 201, 255, 0.2);
-    --file-selected-border: rgba(76, 201, 255, 0.9);
-    --file-icon-color: rgba(233, 237, 245, 0.92);
+    --sidebar-section-header-hover-bg: rgba(255, 255, 255, 0.035);
+    --sidebar-section-title: rgba(220, 226, 238, 0.46);
+    --sidebar-row-height: 24px;
+    --sidebar-row-radius: 7px;
+    --sidebar-row-x: 10px;
+    --sidebar-row-hover-bg: rgba(255, 255, 255, 0.055);
+    --sidebar-row-active-bg: rgba(255, 255, 255, 0.105);
+    --sidebar-row-active-border: transparent;
+    --sidebar-icon-muted: rgba(176, 190, 212, 0.54);
+    --text-secondary: rgba(185, 196, 214, 0.72);
+    --hover-bg-color: var(--sidebar-row-hover-bg);
+    --active-bg-color: var(--sidebar-row-active-bg);
+    --text-color: rgba(238, 242, 248, 0.9);
+    --folder-color: var(--sidebar-icon-muted);
+    --tree-line-color: transparent;
+    --file-selected-bg: var(--sidebar-row-active-bg);
+    --file-selected-border: var(--sidebar-row-active-border);
+    --file-icon-color: var(--sidebar-icon-muted);
 }
 
 html {
@@ -296,7 +315,7 @@ body.sidebar-resizing {
     overflow: visible;
     flex-shrink: 0;
     background: var(--sidebar-bg, #f5f6f8);
-    border-right: 1px solid var(--border-color, #ddd);
+    border-right: 1px solid var(--sidebar-border, var(--border-color, #ddd));
 }
 
 body.is-sidebar-hidden #sidebar,
