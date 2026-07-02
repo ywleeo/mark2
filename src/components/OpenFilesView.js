@@ -66,7 +66,7 @@ export class OpenFilesView {
                 item.classList.add('selected');
             }
 
-            item.innerHTML = getFileIconSvg(normalized, { className: 'open-file-icon', size: 14 });
+            item.innerHTML = getFileIconSvg(normalized, { className: 'open-file-icon', size: 16 });
             item.appendChild(createCompactFileNameElement('open-file-name', fileName));
 
             const closeButton = document.createElement('button');
