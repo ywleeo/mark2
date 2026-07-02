@@ -7,37 +7,37 @@
     --scrollbar-thumb-color: rgba(92, 92, 92, 0.679);
     --scrollbar-thumb-hover-color: rgba(82, 82, 82, 0.643);
     --scrollbar-track-color: rgba(67, 67, 67, 0.06);
-    --sidebar-bg: #f6f7f8;
-    --sidebar-border: rgba(15, 23, 42, 0.08);
+    --sidebar-bg: #f7f7f8;
+    --sidebar-border: rgba(15, 23, 42, 0.07);
     --content-bg: #fdfdfd;
     --sidebar-resizer-active: rgba(0, 0, 0, 0.12);
     --body-text-color: rgba(21, 23, 26, 0.85);
-    --tab-border-accent: #ffffff;
-    --tab-border-color: #c8c8c8;
-    --tab-text-color: rgba(21, 23, 26, 0.8);
-    --tab-bg: #eee;
-    --tab-hover-bg: rgba(255, 255, 255, 0.9);
+    --tab-border-accent: transparent;
+    --tab-border-color: rgba(15, 23, 42, 0.08);
+    --tab-text-color: rgba(31, 36, 44, 0.66);
+    --tab-bg: transparent;
+    --tab-hover-bg: rgba(15, 23, 42, 0.04);
     --tab-hover-border-color: #6be275;
-    --tab-active-bg: #fdfdfd;
-    --tab-active-border-color: #dedede;
-    --tab-active-text-color: rgba(21, 23, 26, 0.95);
-    --tab-close-color: rgba(21, 23, 26, 0.4);
-    --tab-close-hover-color: rgba(21, 23, 26, 0.85);
+    --tab-active-bg: rgba(15, 23, 42, 0.072);
+    --tab-active-border-color: transparent;
+    --tab-active-text-color: rgba(31, 36, 44, 0.92);
+    --tab-close-color: rgba(31, 36, 44, 0.34);
+    --tab-close-hover-color: rgba(31, 36, 44, 0.74);
     --tab-rename-border: rgba(21, 23, 26, 0.25);
     --tab-rename-bg: #ffffff;
     --tab-rename-text: rgba(21, 23, 26, 0.9);
     --tab-focus-shadow-color: rgba(107, 226, 117, 0.25);
     --border-color: #ddd;
-    --status-bg: rgba(245, 246, 248, 0.94);
-    --status-border: rgba(15, 23, 42, 0.06);
-    --status-text: rgba(21, 23, 26, 0.7);
-    --status-muted: rgba(21, 23, 26, 0.6);
-    --status-pill-bg: rgba(226, 232, 240, 0.7);
-    --status-pill-shadow: rgba(255, 255, 255, 0.5);
-    --status-pill-button-bg: rgba(255, 255, 255, 0.9);
-    --status-pill-button-text: rgba(21, 23, 26, 0.85);
-    --status-pill-button-shadow: rgba(15, 23, 42, 0.15);
-    --status-zoom-hover-bg: #f0f0f0;
+    --status-bg: rgba(247, 247, 248, 0.78);
+    --status-border: rgba(15, 23, 42, 0.045);
+    --status-text: rgba(31, 36, 44, 0.5);
+    --status-muted: rgba(31, 36, 44, 0.4);
+    --status-pill-bg: rgba(15, 23, 42, 0.055);
+    --status-pill-shadow: transparent;
+    --status-pill-button-bg: rgba(255, 255, 255, 0.72);
+    --status-pill-button-text: rgba(31, 36, 44, 0.68);
+    --status-pill-button-shadow: rgba(15, 23, 42, 0.08);
+    --status-zoom-hover-bg: rgba(15, 23, 42, 0.08);
     --status-progress-border: rgba(107, 226, 117, 0.25);
     --status-progress-active: rgba(107, 226, 117, 0.85);
     --status-success: rgba(107, 226, 117, 0.85);
@@ -46,18 +46,18 @@
     --drop-overlay-bg: rgba(255, 255, 255, 0.72);
     --drop-overlay-text: rgba(21, 23, 26, 0.8);
     --sidebar-section-header-hover-bg: rgba(15, 23, 42, 0.035);
-    --sidebar-section-title: rgba(36, 43, 52, 0.46);
-    --sidebar-row-height: 24px;
-    --sidebar-row-radius: 7px;
-    --sidebar-row-x: 10px;
-    --sidebar-row-hover-bg: rgba(15, 23, 42, 0.04);
-    --sidebar-row-active-bg: rgba(15, 23, 42, 0.075);
+    --sidebar-section-title: rgba(36, 43, 52, 0.42);
+    --sidebar-row-height: 23px;
+    --sidebar-row-radius: 6px;
+    --sidebar-row-x: 11px;
+    --sidebar-row-hover-bg: rgba(15, 23, 42, 0.035);
+    --sidebar-row-active-bg: rgba(15, 23, 42, 0.068);
     --sidebar-row-active-border: transparent;
-    --sidebar-icon-muted: rgba(75, 85, 99, 0.56);
-    --text-secondary: rgba(75, 85, 99, 0.76);
+    --sidebar-icon-muted: rgba(77, 86, 98, 0.5);
+    --text-secondary: rgba(75, 85, 99, 0.7);
     --hover-bg-color: var(--sidebar-row-hover-bg);
     --active-bg-color: var(--sidebar-row-active-bg);
-    --text-color: rgba(30, 35, 42, 0.88);
+    --text-color: rgba(31, 36, 44, 0.86);
     --folder-color: var(--sidebar-icon-muted);
     --tree-line-color: transparent;
     --file-selected-bg: var(--sidebar-row-active-bg);
@@ -75,38 +75,38 @@
     --scrollbar-thumb-color: rgba(255, 255, 255, 0.662);
     --scrollbar-thumb-hover-color: rgba(255, 255, 255, 0.52);
     --scrollbar-track-color: rgba(255, 255, 255, 0.06);
-    --sidebar-bg: #18191b;
-    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-bg: #18191a;
+    --sidebar-border: rgba(255, 255, 255, 0.075);
     --content-bg: #151515;
     --sidebar-resizer-active: rgba(255, 255, 255, 0.18);
     --body-text-color: rgba(235, 239, 247, 0.95);
-    --tab-border-accent: #151515;
-    --tab-border-color: rgba(255, 255, 255, 0.16);
-    --tab-text-color: rgba(227, 233, 247, 0.9);
-    --tab-bg: #222;
-    --tab-hover-bg: rgba(40, 52, 70, 0.92);
+    --tab-border-accent: transparent;
+    --tab-border-color: rgba(255, 255, 255, 0.08);
+    --tab-text-color: rgba(227, 233, 247, 0.68);
+    --tab-bg: transparent;
+    --tab-hover-bg: rgba(255, 255, 255, 0.055);
     --tab-hover-border-color: #4cc9ff;
-    --tab-active-bg: #1a1a1a;
-    --tab-active-border-color: #343434;
-    --tab-active-text-color: rgba(252, 254, 255, 0.96);
-    --tab-close-color: rgba(226, 232, 240, 0.55);
-    --tab-close-hover-color: rgba(252, 254, 255, 0.92);
+    --tab-active-bg: rgba(255, 255, 255, 0.055);
+    --tab-active-border-color: transparent;
+    --tab-active-text-color: rgba(252, 254, 255, 0.86);
+    --tab-close-color: rgba(226, 232, 240, 0.4);
+    --tab-close-hover-color: rgba(252, 254, 255, 0.82);
     --tab-dirty-color: rgba(255, 140, 70, 0.9);
     --tab-rename-border: rgba(164, 180, 205, 0.5);
     --tab-rename-bg: rgba(26, 35, 51, 0.95);
     --tab-rename-text: rgba(252, 254, 255, 0.95);
     --tab-focus-shadow-color: rgba(76, 201, 255, 0.35);
     --border-color: rgba(255, 255, 255, 0.12);
-    --status-bg: rgba(26, 33, 49, 0.88);
-    --status-border: rgba(23, 32, 48, 0.6);
-    --status-text: rgba(228, 233, 246, 0.92);
-    --status-muted: rgba(170, 183, 205, 0.92);
-    --status-pill-bg: rgba(44, 56, 76, 0.88);
-    --status-pill-shadow: rgba(17, 24, 39, 0.55);
-    --status-pill-button-bg: rgba(27, 36, 52, 0.95);
-    --status-pill-button-text: rgba(248, 250, 252, 0.92);
-    --status-pill-button-shadow: rgba(57, 72, 106, 0.629);
-    --status-zoom-hover-bg: rgba(148, 163, 184, 0.3);
+    --status-bg: rgba(24, 25, 26, 0.76);
+    --status-border: rgba(255, 255, 255, 0.055);
+    --status-text: rgba(228, 233, 246, 0.54);
+    --status-muted: rgba(170, 183, 205, 0.46);
+    --status-pill-bg: rgba(255, 255, 255, 0.07);
+    --status-pill-shadow: transparent;
+    --status-pill-button-bg: rgba(255, 255, 255, 0.075);
+    --status-pill-button-text: rgba(248, 250, 252, 0.68);
+    --status-pill-button-shadow: transparent;
+    --status-zoom-hover-bg: rgba(255, 255, 255, 0.11);
     --status-progress-border: rgba(79, 209, 197, 0.4);
     --status-progress-active: rgba(79, 209, 197, 0.9);
     --status-success: rgba(45, 212, 191, 0.9);
@@ -115,18 +115,18 @@
     --drop-overlay-bg: rgba(23, 32, 48, 0.82);
     --drop-overlay-text: rgba(248, 250, 252, 0.95);
     --sidebar-section-header-hover-bg: rgba(255, 255, 255, 0.035);
-    --sidebar-section-title: rgba(220, 226, 238, 0.46);
-    --sidebar-row-height: 24px;
-    --sidebar-row-radius: 7px;
-    --sidebar-row-x: 10px;
-    --sidebar-row-hover-bg: rgba(255, 255, 255, 0.055);
-    --sidebar-row-active-bg: rgba(255, 255, 255, 0.105);
+    --sidebar-section-title: rgba(220, 226, 238, 0.43);
+    --sidebar-row-height: 23px;
+    --sidebar-row-radius: 6px;
+    --sidebar-row-x: 11px;
+    --sidebar-row-hover-bg: rgba(255, 255, 255, 0.045);
+    --sidebar-row-active-bg: rgba(255, 255, 255, 0.088);
     --sidebar-row-active-border: transparent;
-    --sidebar-icon-muted: rgba(176, 190, 212, 0.54);
-    --text-secondary: rgba(185, 196, 214, 0.72);
+    --sidebar-icon-muted: rgba(176, 190, 212, 0.48);
+    --text-secondary: rgba(185, 196, 214, 0.66);
     --hover-bg-color: var(--sidebar-row-hover-bg);
     --active-bg-color: var(--sidebar-row-active-bg);
-    --text-color: rgba(238, 242, 248, 0.9);
+    --text-color: rgba(238, 242, 248, 0.86);
     --folder-color: var(--sidebar-icon-muted);
     --tree-line-color: transparent;
     --file-selected-bg: var(--sidebar-row-active-bg);
@@ -368,14 +368,14 @@ body.sidebar-resizing .sidebar-resizer::before {
     align-items: center;
     margin-left: 2px;
     min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
-    gap: 2px;
+    gap: 3px;
     overflow-x: auto;
     position: relative;
     -webkit-app-region: drag;
     scrollbar-width: none;
     background: var(--sidebar-bg, #f5f6f8);
-    padding-bottom: 1px;
-    box-shadow: inset 0 -1px 0 var(--border-color, #ddd);
+    padding: 4px 8px 5px 4px;
+    box-shadow: inset 0 -1px 0 var(--sidebar-border, var(--border-color, #ddd));
 }
 
 .tab-bar.tab-dragging {
@@ -391,16 +391,18 @@ body.sidebar-resizing .sidebar-resizer::before {
 }
 
 .tab {
-    margin-top: 1px;
+    margin-top: 0;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 10px;
+    min-height: 25px;
+    padding: 0 10px;
     /* border-top: 3px solid var(--tab-border-accent, #ffa2f9);
     border-left: 1px solid var(--tab-border-color);
     border-right: 1px solid var(--tab-border-accent, #ffa2f9);
     border-bottom: 1px solid var(--tab-border-color, #ddd); */
-    border-radius: 4px 4px 0 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
     font-size: var(--tab-font-size, 12px);
     line-height: 1;
     color: var(--tab-text-color, rgba(21, 23, 26, 0.8));
@@ -419,10 +421,12 @@ body.sidebar-resizing .sidebar-resizer::before {
 }
 
 .tab.active {
-    background: var(--content-bg, #fdfdfd);
+    background: var(--tab-active-bg, var(--content-bg, #fdfdfd));
+    border-color: var(--tab-active-border-color, transparent);
     color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
     bottom: 0;
     z-index: 1;
+    box-shadow: none;
 }
 
 .tab-label {
@@ -444,13 +448,11 @@ body.sidebar-resizing .sidebar-resizer::before {
 }
 
 .tab-placeholder {
-    margin-top: 1px;
+    margin-top: 0;
     flex: 0 0 var(--tab-placeholder-width, 8px);
     height: calc(100% - 1px);
-    border-top: 3px dashed var(--tab-border-accent, #ffa2f9);
-    border-right: 1px dashed var(--tab-border-accent, #ffa2f9);
-    border-bottom: 1px dashed var(--tab-border-color, #ddd);
-    border-radius: 4px 4px 0 0;
+    border: 1px dashed var(--tab-border-color, #ddd);
+    border-radius: 7px;
     background: transparent;
     pointer-events: none;
 }
@@ -556,7 +558,7 @@ body.sidebar-resizing .sidebar-resizer::before {
     right: 0;
     appearance: none;
     border: none;
-    background: var(--sidebar-bg, #f5f6f8);
+    background: transparent;
     color: var(--tab-text-color, rgba(21, 23, 26, 0.5));
     font-size: 16px;
     line-height: 1;
@@ -564,7 +566,9 @@ body.sidebar-resizing .sidebar-resizer::before {
     cursor: pointer;
     -webkit-app-region: no-drag;
     flex-shrink: 0;
-    align-self: stretch;
+    align-self: center;
+    height: 25px;
+    border-radius: 7px;
     display: flex;
     align-items: center;
     transition: color 0.15s ease, background 0.15s ease;
@@ -598,16 +602,17 @@ body.sidebar-resizing .sidebar-resizer::before {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 18px;
-    min-height: var(--status-bar-height, 28px);
-    padding: 0 16px;
-    font-size: 12px;
+    gap: 16px;
+    min-height: 25px;
+    padding: 0 14px;
+    font-size: 11px;
     line-height: 1.4;
     color: var(--status-text, rgba(21, 23, 26, 0.7));
     background: var(--status-bg, rgba(245, 246, 248, 0.94));
     border-top: 1px solid var(--status-border, rgba(15, 23, 42, 0.06));
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(10px);
     -webkit-app-region: no-drag;
+    transition: color 0.15s ease, background 0.15s ease;
 }
 
 body.is-status-bar-hidden .status-bar {
@@ -627,34 +632,50 @@ body.is-status-bar-hidden .status-bar {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    opacity: 0.72;
+    transition: opacity 0.15s ease;
 }
 
 
 .status-item-word-count,
 .status-item-last-modified {
     flex: 0 0 auto;
+    opacity: 0.78;
+    transition: opacity 0.15s ease;
 }
 
 .status-item-page {
     min-width: 80px;
     flex: 0 0 auto;
     color: var(--status-muted, rgba(21, 23, 26, 0.6));
+    opacity: 0.72;
+    transition: opacity 0.15s ease;
 }
 
 .status-item-zoom {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     background: var(--status-pill-bg, rgba(226, 232, 240, 0.7));
     border-radius: 999px;
     box-shadow: inset 0 1px 0 var(--status-pill-shadow, rgba(255, 255, 255, 0.5));
+    opacity: 0.78;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.status-bar:hover .status-item-path,
+.status-bar:hover .status-item-word-count,
+.status-bar:hover .status-item-last-modified,
+.status-bar:hover .status-item-page,
+.status-bar:hover .status-item-zoom {
+    opacity: 1;
 }
 
 .status-zoom-btn {
     border: none;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     font-size: 12px;
     cursor: pointer;
@@ -678,7 +699,7 @@ body.is-status-bar-hidden .status-bar {
 }
 
 .status-zoom-value {
-    min-width: 42px;
+    min-width: 40px;
     text-align: center;
     font-variant-numeric: tabular-nums;
     color: var(--status-text, rgba(21, 23, 26, 0.8));

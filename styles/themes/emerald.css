@@ -5,58 +5,71 @@
 .tiptap-editor[data-theme-appearance='light'],
 [data-theme-appearance='light'] .markdown-pane,
 [data-theme-appearance='light'] .markdown-content {
-    color: #374151;
+    color: #34403c;
     background-color: #ffffff;
-    --em-table-border: #9e9fa0;
+    --em-accent: #3f8f82;
+    --em-accent-soft: rgba(63, 143, 130, 0.12);
+    --em-muted: #6d7874;
+    --em-rule: rgba(52, 64, 60, 0.11);
+    --em-surface: #f6f8f7;
+    --em-surface-strong: #f1f2f2;
+    --em-table-border: rgba(52, 58, 56, 0.115);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h2,
 .tiptap-editor[data-theme-appearance='light'] h2{
-    border-bottom-color: #3498db;
+    border-bottom-color: var(--em-rule);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) p,
 .tiptap-editor[data-theme-appearance='light'] p{
-    color: #374151;
+    color: #34403c;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) pre,
 .tiptap-editor[data-theme-appearance='light'] pre{
-    background: #f8fafc;
+    background: var(--em-surface);
+    border: 1px solid var(--em-table-border);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
 .tiptap-editor[data-theme-appearance='light'] :not(pre) > code{
-    color: #6366f1;
-    background-color: #f3f4f6;
+    color: #49625b;
+    background-color: var(--em-accent-soft);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) blockquote,
 .tiptap-editor[data-theme-appearance='light'] blockquote{
-    border-left-color: #a2fb24;
-    color: #6b7280;
+    border-left-color: rgba(63, 143, 130, 0.45);
+    color: var(--em-muted);
+    background: rgba(63, 143, 130, 0.045);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) a,
 .tiptap-editor[data-theme-appearance='light'] a{
-    color: #36b5a8;
+    color: var(--em-accent);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) hr,
 .tiptap-editor[data-theme-appearance='light'] hr{
-    border-top-color: #9e9fa0;
+    border-top-color: var(--em-rule);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='light'] table th{
-    background-color: #f0f1f1;
+    background-color: var(--em-surface-strong);
+    color: #3a4642;
+    font-weight: 600;
 }
 
 /* 表格完整边框 + 圆角：
    border-collapse: collapse 下 WebKit 会忽略圆角，所以改用 separate；
    外框 + border-radius 放在 table 上，overflow:hidden 把 th 背景裁进圆角；
    单元格只画右、下内边框（末列/末行去掉），避免和外框叠成双线。 */
-.tiptap-editor table{
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table,
+.tiptap-editor[data-theme-appearance='light'] table,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table,
+.tiptap-editor[data-theme-appearance='dark'] table{
     border-collapse: separate;
     border-spacing: 0;
     border: 1px solid var(--em-table-border);
@@ -64,20 +77,38 @@
     overflow: hidden;
 }
 
-.tiptap-editor table td,
-.tiptap-editor table th{
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table td,
+.tiptap-editor[data-theme-appearance='light'] table td,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th,
+.tiptap-editor[data-theme-appearance='light'] table th,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table td,
+.tiptap-editor[data-theme-appearance='dark'] table td,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
+.tiptap-editor[data-theme-appearance='dark'] table th{
     border-style: none;
     border-right: 1px solid var(--em-table-border);
     border-bottom: 1px solid var(--em-table-border);
 }
 
-.tiptap-editor table td:last-child,
-.tiptap-editor table th:last-child{
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table td:last-child,
+.tiptap-editor[data-theme-appearance='light'] table td:last-child,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table th:last-child,
+.tiptap-editor[data-theme-appearance='light'] table th:last-child,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table td:last-child,
+.tiptap-editor[data-theme-appearance='dark'] table td:last-child,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th:last-child,
+.tiptap-editor[data-theme-appearance='dark'] table th:last-child{
     border-right: none;
 }
 
-.tiptap-editor table tr:last-child td,
-.tiptap-editor table tr:last-child th{
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table tr:last-child td,
+.tiptap-editor[data-theme-appearance='light'] table tr:last-child td,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) table tr:last-child th,
+.tiptap-editor[data-theme-appearance='light'] table tr:last-child th,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table tr:last-child td,
+.tiptap-editor[data-theme-appearance='dark'] table tr:last-child td,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table tr:last-child th,
+.tiptap-editor[data-theme-appearance='dark'] table tr:last-child th{
     border-bottom: none;
 }
 
@@ -179,51 +210,61 @@
 .tiptap-editor[data-theme-appearance='dark'],
 [data-theme-appearance='dark'] .markdown-pane,
 [data-theme-appearance='dark'] .markdown-content {
-    color: #dbdbdb;
-    background-color: #15171b;
-    --em-table-border: #3d434d;
+    color: #d7d8d4;
+    background-color: #151716;
+    --em-accent: #8dcfc3;
+    --em-accent-soft: rgba(141, 207, 195, 0.11);
+    --em-muted: #a3aaa6;
+    --em-rule: rgba(215, 216, 212, 0.12);
+    --em-surface: rgba(255, 255, 255, 0.035);
+    --em-surface-strong: rgba(255, 255, 255, 0.055);
+    --em-table-border: rgba(215, 216, 212, 0.105);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h2,
 .tiptap-editor[data-theme-appearance='dark'] h2{
-    border-bottom-color: #aaaaaa4d;
+    border-bottom-color: var(--em-rule);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) pre,
 .tiptap-editor[data-theme-appearance='dark'] pre{
-    background: rgba(62, 62, 62, 0.21);
+    background: var(--em-surface);
+    border: 1px solid var(--em-table-border);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
 .tiptap-editor[data-theme-appearance='dark'] :not(pre) > code{
-    color: #a5b4fc;
-    background-color: rgba(139, 241, 155, 0.12);
+    color: #b6d9d2;
+    background-color: var(--em-accent-soft);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) blockquote,
 .tiptap-editor[data-theme-appearance='dark'] blockquote{
-    border-left-color: #8bf19b;
-    color: #9f9f9f;
+    border-left-color: rgba(141, 207, 195, 0.5);
+    color: var(--em-muted);
+    background: rgba(141, 207, 195, 0.045);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) a,
 .tiptap-editor[data-theme-appearance='dark'] a{
-    color: #7df3d5;
+    color: var(--em-accent);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) hr,
 .tiptap-editor[data-theme-appearance='dark'] hr{
-    border-top-color: #7878787e;
+    border-top-color: var(--em-rule);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) table th,
 .tiptap-editor[data-theme-appearance='dark'] table th{
-    background-color: #212b36;
+    background-color: var(--em-surface-strong);
+    color: #dadbd7;
+    font-weight: 600;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) p.is-editor-empty:first-child::before,
 .tiptap-editor[data-theme-appearance='dark'] p.is-editor-empty:first-child::before{
-    color: #b3d4c6;
+    color: var(--em-muted);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) del,
@@ -235,7 +276,6 @@
 .tiptap-editor[data-theme-appearance='dark'] strong,
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) b,
 .tiptap-editor[data-theme-appearance='dark'] b{
-    color: #a4edff;
     padding: 0 2px;
     border-radius: 2px;
 }
@@ -266,20 +306,20 @@
 
 /* 代码高亮 - Dark */
 [data-theme-appearance='dark'] .hljs {
-    background: #2b424e21;
-    color: #f8fff0;
+    background: var(--em-surface);
+    color: #d7d8d4;
 }
 
 [data-theme-appearance='dark'] .hljs-comment,
 [data-theme-appearance='dark'] .hljs-quote {
-    color: #868686;
+    color: #8f9692;
     font-style: italic;
 }
 
 [data-theme-appearance='dark'] .hljs-keyword,
 [data-theme-appearance='dark'] .hljs-selector-tag,
 [data-theme-appearance='dark'] .hljs-subst {
-    color: #ffae85;
+    color: #d9b38f;
 }
 
 [data-theme-appearance='dark'] .hljs-literal,
@@ -290,7 +330,7 @@
 [data-theme-appearance='dark'] .hljs-symbol,
 [data-theme-appearance='dark'] .hljs-meta,
 [data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
-    color: #7cc9ff;
+    color: #9fc2d1;
 }
 
 [data-theme-appearance='dark'] .hljs-string,
@@ -300,7 +340,7 @@
 [data-theme-appearance='dark'] .hljs-variable,
 [data-theme-appearance='dark'] .hljs-attribute .hljs-string,
 [data-theme-appearance='dark'] .hljs-meta .hljs-string {
-    color: #5aff62;
+    color: #a9cfa9;
 }
 
 [data-theme-appearance='dark'] .hljs-title,
@@ -308,9 +348,9 @@
 [data-theme-appearance='dark'] .hljs-section,
 [data-theme-appearance='dark'] .hljs-selector-id,
 [data-theme-appearance='dark'] .hljs-selector-class {
-    color: #e8cfff;
+    color: #c8bdd8;
 }
 
 [data-theme-appearance='dark'] .hljs-deletion {
-    color: #ffd3c4;
+    color: #d9aaa1;
 }

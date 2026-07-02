@@ -16,10 +16,10 @@
     display: flex;
     align-items: center;
     width: 100%;
-    height: 36px;
+    height: 34px;
     box-sizing: border-box;
-    padding: 0 6px;
-    gap: 2px;
+    padding: 0 8px;
+    gap: 3px;
     background: var(--toolbar-bg, #f8f9fc);
     border-bottom: 1px solid var(--toolbar-border, #e0e0e0);
     user-select: none;
@@ -31,7 +31,7 @@
     align-items: center;
     flex: 0 1 auto;
     min-width: 0;
-    gap: 2px;
+    gap: 3px;
 }
 
 /* 固定区：行内格式 + 标题下拉，不压缩 */
@@ -39,7 +39,7 @@
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    gap: 2px;
+    gap: 3px;
 }
 
 /* 流动区：空间不足时按钮被裁切，由 JS 收进溢出菜单 */
@@ -48,7 +48,7 @@
     align-items: center;
     flex: 0 1 auto;
     min-width: 0;
-    gap: 2px;
+    gap: 3px;
     overflow: hidden;
 }
 
@@ -57,10 +57,11 @@
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    gap: 2px;
-    margin-left: 4px;
-    padding-left: 6px;
+    gap: 3px;
+    margin-left: 6px;
+    padding-left: 8px;
     border-left: 1px solid var(--separator-color, rgba(15, 23, 42, 0.12));
+    opacity: 0.94;
 }
 
 /* 工具栏内的按钮/分隔符不参与挤压 */
@@ -266,37 +267,37 @@
 }
 
 .markdown-toolbar--light {
-    --toolbar-bg: #f8f9fc;
-    --toolbar-border: rgba(15, 23, 42, 0.1);
-    --button-color: #475569;
-    --button-hover-bg: rgba(15, 23, 42, 0.08);
-    --button-hover-color: #0f172a;
-    --button-active-bg: rgba(59, 130, 246, 0.2);
-    --separator-color: rgba(15, 23, 42, 0.12);
+    --toolbar-bg: rgba(247, 247, 248, 0.82);
+    --toolbar-border: rgba(15, 23, 42, 0.07);
+    --button-color: rgba(31, 36, 44, 0.62);
+    --button-hover-bg: rgba(15, 23, 42, 0.045);
+    --button-hover-color: rgba(31, 36, 44, 0.88);
+    --button-active-bg: rgba(15, 23, 42, 0.08);
+    --separator-color: rgba(15, 23, 42, 0.06);
 }
 
 .markdown-toolbar--dark {
-    --toolbar-bg: #262626;
-    --toolbar-border: #404040;
-    --button-color: #cbd5f5;
-    --button-hover-bg: rgba(255, 255, 255, 0.08);
-    --button-hover-color: #fff;
-    --button-active-bg: rgba(255, 255, 255, 0.16);
-    --separator-color: rgba(255, 255, 255, 0.2);
+    --toolbar-bg: rgba(32, 33, 35, 0.82);
+    --toolbar-border: rgba(255, 255, 255, 0.085);
+    --button-color: rgba(217, 225, 244, 0.68);
+    --button-hover-bg: rgba(255, 255, 255, 0.055);
+    --button-hover-color: rgba(255, 255, 255, 0.92);
+    --button-active-bg: rgba(255, 255, 255, 0.105);
+    --separator-color: rgba(255, 255, 255, 0.075);
 }
 
 .toolbar-button {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border: none;
     background: transparent;
     color: var(--button-color, #666);
-    border-radius: 4px;
+    border-radius: 7px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
     position: relative;
 }
 
@@ -307,7 +308,7 @@
 
 .toolbar-button:active {
     background: var(--button-active-bg, #d0d0d0);
-    transform: translateY(1px);
+    transform: translateY(0.5px);
 }
 
 .toolbar-button:disabled {
@@ -345,10 +346,29 @@
     justify-content: center;
 }
 
-.toolbar-button__icon svg {
+.toolbar-button__icon svg,
+.toolbar-select-panel__icon svg,
+.toolbar-overflow-panel__icon svg {
     width: 16px;
     height: 16px;
+}
+
+.toolbar-icon--stroke {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.toolbar-icon--text {
     fill: currentColor;
+    stroke: none;
+}
+
+.toolbar-icon--text text {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    dominant-baseline: alphabetic;
 }
 
 .markdown-toolbar-tooltip {
@@ -389,13 +409,14 @@
 
 .toolbar-separator {
     width: 1px;
-    height: 20px;
+    height: 17px;
     background: var(--separator-color, #ddd);
-    margin: 0 4px;
+    margin: 0 6px;
+    opacity: 0.82;
 }
 
 .markdown-toolbar--dark .toolbar-separator {
-    background: #404040;
+    background: var(--separator-color, rgba(255, 255, 255, 0.105));
 }
 
 /* Emoji Picker Styles */
@@ -608,12 +629,12 @@
 
 /* 按钮激活状态 */
 .toolbar-button--active {
-    background: var(--button-active-bg, rgba(59, 130, 246, 0.2));
+    background: var(--button-active-bg, rgba(15, 23, 42, 0.08));
     color: var(--button-hover-color, #0f172a);
 }
 
 .markdown-toolbar--dark .toolbar-button--active {
-    background: var(--button-active-bg, rgba(255, 255, 255, 0.16));
+    background: var(--button-active-bg, rgba(255, 255, 255, 0.105));
     color: var(--button-hover-color, #fff);
 }
 
