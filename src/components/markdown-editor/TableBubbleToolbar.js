@@ -4,16 +4,30 @@
  */
 
 import { t } from '../../i18n/index.js';
-const TABLE_MENU_ITEMS = [
-    { action: 'addRowBefore',    i18nKey: 'table.addRowBefore' },
-    { action: 'addRowAfter',     i18nKey: 'table.addRowAfter' },
-    { action: 'addColumnBefore', i18nKey: 'table.addColumnBefore' },
-    { action: 'addColumnAfter',  i18nKey: 'table.addColumnAfter' },
-    { separator: true },
-    { action: 'deleteRow',    i18nKey: 'table.deleteRow',    danger: true },
-    { action: 'deleteColumn', i18nKey: 'table.deleteColumn', danger: true },
-    { separator: true },
-    { action: 'deleteTable',  i18nKey: 'table.deleteTable',  danger: true },
+
+const TABLE_MENU_GROUPS = [
+    {
+        titleKey: 'table.group.row',
+        items: [
+            { action: 'addRowBefore', i18nKey: 'table.insertAbove' },
+            { action: 'addRowAfter', i18nKey: 'table.insertBelow' },
+            { action: 'deleteRow', i18nKey: 'table.delete' },
+        ],
+    },
+    {
+        titleKey: 'table.group.column',
+        items: [
+            { action: 'addColumnBefore', i18nKey: 'table.insertLeft' },
+            { action: 'addColumnAfter', i18nKey: 'table.insertRight' },
+            { action: 'deleteColumn', i18nKey: 'table.delete' },
+        ],
+    },
+    {
+        titleKey: 'table.group.table',
+        items: [
+            { action: 'deleteTable', i18nKey: 'table.deleteTable' },
+        ],
+    },
 ];
 
 export class TableBubbleToolbar {
@@ -97,31 +111,38 @@ export class TableBubbleToolbar {
         const menu = document.createElement('div');
         menu.className = 'table-context-menu';
 
-        TABLE_MENU_ITEMS.forEach(item => {
-            if (item.separator) {
+        TABLE_MENU_GROUPS.forEach((group, index) => {
+            if (index > 0) {
                 const sep = document.createElement('div');
                 sep.className = 'table-context-menu__separator';
                 menu.appendChild(sep);
-                return;
             }
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'table-context-menu__item' + (item.danger ? ' table-context-menu__item--danger' : '');
-            btn.textContent = t(item.i18nKey);
-            // mousedown 只防 ProseMirror 改选区（preventDefault 阻止 focus 切走）+
-            // 阻止冒泡到 _closeHandler 把菜单关掉。真正执行放到 click，避免菜单在
-            // mousedown 阶段就 remove → 后续 click 穿透到下层（如果下面是图片，会打开图片）
-            btn.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+
+            const heading = document.createElement('div');
+            heading.className = 'table-context-menu__heading';
+            heading.textContent = t(group.titleKey);
+            menu.appendChild(heading);
+
+            group.items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'table-context-menu__item' + (item.danger ? ' table-context-menu__item--danger' : '');
+                btn.textContent = t(item.i18nKey);
+                // mousedown 只防 ProseMirror 改选区（preventDefault 阻止 focus 切走）+
+                // 阻止冒泡到 _closeHandler 把菜单关掉。真正执行放到 click，避免菜单在
+                // mousedown 阶段就 remove → 后续 click 穿透到下层（如果下面是图片，会打开图片）
+                btn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this._hide();
+                    this._executeAction(item.action);
+                });
+                menu.appendChild(btn);
             });
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this._hide();
-                this._executeAction(item.action);
-            });
-            menu.appendChild(btn);
         });
 
         document.body.appendChild(menu);

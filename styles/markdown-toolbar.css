@@ -6,6 +6,12 @@
     font-display: block;
 }
 
+@font-face {
+    font-family: 'mark2-toolbar-uicons-bold';
+    src: url('../node_modules/@flaticon/flaticon-uicons/css/uicons-bold-rounded-MQNABNC6.woff2') format('woff2');
+    font-display: block;
+}
+
 /* 外层容器：content-wrapper 的 flex 子项，由 .is-visible 控制显隐 */
 .md-toolbar {
     flex: 0 0 auto;
@@ -397,6 +403,12 @@
 .fi-rr-align-center::before { content: "\f13b"; }
 .fi-rr-arrow-left::before { content: "\f197"; }
 .fi-rr-arrow-right::before { content: "\f19b"; }
+.fi-rr-arrow-small-left::before { content: "\f19d"; }
+.fi-rr-arrow-small-right::before { content: "\f19e"; }
+.fi-rr-arrow-small-left::before,
+.fi-rr-arrow-small-right::before {
+    font-family: 'mark2-toolbar-uicons-bold';
+}
 .fi-rr-block-quote::before { content: "\f25e"; }
 .fi-rr-bold::before { content: "\f269"; }
 .fi-rr-brackets-curly::before { content: "\f2bf"; }

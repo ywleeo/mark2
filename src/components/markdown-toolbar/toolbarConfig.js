@@ -159,11 +159,11 @@ export const BUTTON_CONFIG = {
         title: t('toolbar.video')
     },
     navBack: {
-        icon: uicon('arrow-left'),
+        icon: uicon('arrow-small-left'),
         title: t('toolbar.navBack')
     },
     navForward: {
-        icon: uicon('arrow-right'),
+        icon: uicon('arrow-small-right'),
         title: t('toolbar.navForward')
     },
     shareLink: {

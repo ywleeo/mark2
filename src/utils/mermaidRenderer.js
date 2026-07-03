@@ -747,6 +747,48 @@ const encodeMermaidCode = value => {
     }
 };
 
+// 从 Mermaid 节点中读取原始代码。这里必须保持无异常，避免坏属性拖垮整篇文档。
+function getMermaidCodeFromElement(element) {
+    if (!element) return '';
+    try {
+        const encodedAttr = element.getAttribute?.('data-mermaid-code') || '';
+        const existingCode = decodeMermaidCode(encodedAttr);
+        const sourceNode = element.querySelector?.('.mermaid-source');
+        const rawSource = sourceNode ? sourceNode.textContent : element.textContent || '';
+        const raw = existingCode || rawSource;
+        return raw ? raw.trim() : '';
+    } catch (error) {
+        console.warn('[MermaidRenderer] 读取 Mermaid 代码失败', error);
+        return '';
+    }
+}
+
+// Mermaid 失败时只降级当前 block，不能让异常继续冒泡影响 Markdown 打开。
+function showMermaidFallback(element, code, error, uniqueId = '') {
+    try {
+        if (error) {
+            console.warn('[MermaidRenderer] 渲染失败', error);
+        }
+        if (uniqueId) {
+            // mermaid.render 在 parse/draw 失败的 throw 路径上不会清理临时 div，
+            // 会把"Syntax error"炸弹 SVG 留在 <body> 下的 #d{id}/#i{id} 里污染布局。
+            document.getElementById(`d${uniqueId}`)?.remove();
+            document.getElementById(`i${uniqueId}`)?.remove();
+            document.getElementById(uniqueId)?.remove();
+        }
+        element.setAttribute('data-processed', 'true');
+        element.classList.remove('mermaid--clickable');
+        element.classList.add('mermaid--failed');
+        element.innerHTML = '';
+        const fallback = document.createElement('pre');
+        fallback.className = 'mermaid-fallback';
+        fallback.textContent = code || '';
+        element.appendChild(fallback);
+    } catch (fallbackError) {
+        console.warn('[MermaidRenderer] Mermaid fallback 渲染失败', fallbackError);
+    }
+}
+
 // 从 mermaid 代码中解析数值
 function parseChartValues(mermaidCode, type = 'bar') {
     if (!mermaidCode) return [];
@@ -953,48 +995,46 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
 
 // 渲染单个 mermaid 元素
 async function renderSingleMermaid(element) {
-    if (element.getAttribute('data-processed') === 'true') {
-        return;
-    }
-
-    const encodedAttr = element.getAttribute('data-mermaid-code') || '';
-    const existingCode = decodeMermaidCode(encodedAttr);
-    const sourceNode = element.querySelector('.mermaid-source');
-    const rawSource = sourceNode ? sourceNode.textContent : element.textContent || '';
-    const raw = existingCode || rawSource;
-    const code = raw ? raw.trim() : '';
-    if (!code) {
-        element.setAttribute('data-processed', 'true');
-        return;
-    }
-
-    element.setAttribute('data-mermaid-code', encodeMermaidCode(code));
-    const cacheKey = hashCode(code);
-
-    // 检查缓存
-    const cached = svgCache.get(cacheKey);
-    if (cached) {
-        element.innerHTML = cached.svg;
-        const svgElement = element.querySelector('svg');
-        if (svgElement) {
-            stripSvgBackground(svgElement);
-            polishFlowchart(svgElement);
-            polishSequence(svgElement);
-            thinAxisTicks(svgElement);
-            const polished = polishXYChart(svgElement, code) || svgElement;
-            addTooltipsToNodes(polished, code);
-        }
-        element.setAttribute('data-processed', 'true');
-        element.classList.add('mermaid--clickable');
-        return;
-    }
-
-    const uniqueId =
-        element.getAttribute('data-mermaid-id') ||
-        `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    element.setAttribute('data-mermaid-id', uniqueId);
-
+    let code = '';
+    let uniqueId = '';
     try {
+        if (!element || element.getAttribute('data-processed') === 'true') {
+            return;
+        }
+
+        code = getMermaidCodeFromElement(element);
+        if (!code) {
+            element.setAttribute('data-processed', 'true');
+            return;
+        }
+
+        element.setAttribute('data-mermaid-code', encodeMermaidCode(code));
+        const cacheKey = hashCode(code);
+
+        // 检查缓存。缓存 SVG 的二次后处理也可能抛错，需要与首次渲染同等保护。
+        const cached = svgCache.get(cacheKey);
+        if (cached) {
+            element.innerHTML = cached.svg;
+            const svgElement = element.querySelector('svg');
+            if (svgElement) {
+                stripSvgBackground(svgElement);
+                polishFlowchart(svgElement);
+                polishSequence(svgElement);
+                thinAxisTicks(svgElement);
+                const polished = polishXYChart(svgElement, code) || svgElement;
+                addTooltipsToNodes(polished, code);
+            }
+            element.setAttribute('data-processed', 'true');
+            element.classList.remove('mermaid--failed');
+            element.classList.add('mermaid--clickable');
+            return;
+        }
+
+        uniqueId =
+            element.getAttribute('data-mermaid-id') ||
+            `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        element.setAttribute('data-mermaid-id', uniqueId);
+
         const mermaid = await loadMermaid();
         element.classList.remove('mermaid--failed');
         const { svg } = await mermaid.render(uniqueId, code, getMermaidRenderHost());
@@ -1029,19 +1069,7 @@ async function renderSingleMermaid(element) {
         const height = element.offsetHeight;
         svgCache.set(cacheKey, { svg: cleanedSvg, height });
     } catch (error) {
-        console.warn('[MermaidRenderer] 渲染失败', error);
-        // mermaid.render 在 parse/draw 失败的 throw 路径上不会清理临时 div，
-        // 会把"Syntax error"炸弹 SVG 留在 <body> 下的 #d{id}/#i{id} 里污染布局。
-        document.getElementById(`d${uniqueId}`)?.remove();
-        document.getElementById(`i${uniqueId}`)?.remove();
-        document.getElementById(uniqueId)?.remove();
-        element.setAttribute('data-processed', 'true');
-        element.classList.add('mermaid--failed');
-        element.innerHTML = '';
-        const fallback = document.createElement('pre');
-        fallback.className = 'mermaid-fallback';
-        fallback.textContent = code;
-        element.appendChild(fallback);
+        showMermaidFallback(element, code, error, uniqueId);
     }
 }
 
@@ -1050,51 +1078,60 @@ export async function renderMermaidIn(rootElement) {
         return;
     }
 
-    const matchesMermaid = typeof rootElement.matches === 'function' && rootElement.matches('.mermaid');
-    const fromRoot = matchesMermaid ? [rootElement] : [];
-    const fromChildren = typeof rootElement.querySelectorAll === 'function'
-        ? Array.from(rootElement.querySelectorAll('.mermaid'))
-        : [];
-    const candidates = [...fromRoot, ...fromChildren];
- 
+    try {
+        const matchesMermaid = typeof rootElement.matches === 'function' && rootElement.matches('.mermaid');
+        const fromRoot = matchesMermaid ? [rootElement] : [];
+        const fromChildren = typeof rootElement.querySelectorAll === 'function'
+            ? Array.from(rootElement.querySelectorAll('.mermaid'))
+            : [];
+        const candidates = [...fromRoot, ...fromChildren];
 
-    const targets = candidates.filter(element => {
-        const processed = element.getAttribute('data-processed');
-        if (processed !== 'true') {
-            return true;
-        }
-        const hasSvg = element.querySelector('svg');
-        const failed = element.classList.contains('mermaid--failed');
-        if (!hasSvg || failed) {
-            element.setAttribute('data-processed', 'false');
-            return true;
-        }
-        return false;
-    });
- 
-
-    if (targets.length === 0) {
-        return;
-    }
-
-    // 先给所有元素设置占位高度（如果有缓存）
-    targets.forEach(element => {
-        const encodedAttr = element.getAttribute('data-mermaid-code') || '';
-        const existingCode = decodeMermaidCode(encodedAttr);
-        const sourceNode = element.querySelector('.mermaid-source');
-        const rawSource = sourceNode ? sourceNode.textContent : element.textContent || '';
-        const raw = existingCode || rawSource;
-        const code = raw ? raw.trim() : '';
-        if (code) {
-            const cacheKey = hashCode(code);
-            const cached = svgCache.get(cacheKey);
-            if (cached?.height) {
-                element.style.minHeight = cached.height + 'px';
+        const targets = candidates.filter(element => {
+            try {
+                const processed = element.getAttribute('data-processed');
+                if (processed !== 'true') {
+                    return true;
+                }
+                const hasSvg = element.querySelector('svg');
+                const failed = element.classList.contains('mermaid--failed');
+                if (!hasSvg || failed) {
+                    element.setAttribute('data-processed', 'false');
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.warn('[MermaidRenderer] Mermaid 节点筛选失败', error);
+                return false;
             }
-        }
-    });
+        });
 
-    await Promise.all(targets.map(element => renderSingleMermaid(element)));
+        if (targets.length === 0) {
+            return;
+        }
+
+        // 先给所有元素设置占位高度（如果有缓存），避免重新渲染时页面高度抖动。
+        targets.forEach(element => {
+            const code = getMermaidCodeFromElement(element);
+            if (code) {
+                const cacheKey = hashCode(code);
+                const cached = svgCache.get(cacheKey);
+                if (cached?.height) {
+                    element.style.minHeight = cached.height + 'px';
+                }
+            }
+        });
+
+        const results = await Promise.allSettled(targets.map(element => renderSingleMermaid(element)));
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                const element = targets[index];
+                const code = getMermaidCodeFromElement(element);
+                showMermaidFallback(element, code, result.reason);
+            }
+        });
+    } catch (error) {
+        console.warn('[MermaidRenderer] Mermaid 批量渲染失败', error);
+    }
 }
 
 /**
