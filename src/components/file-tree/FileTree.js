@@ -35,13 +35,11 @@ export class FileTree {
             executeCommand,
             onCloseFileRequest,
             onPathRenamed,
-            onRunFile,
             onOpenFileRequest,
             onOpenFolderRequest,
             documentSessions = null,
         } = callbacks;
 
-        this.onRunFile = onRunFile;
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
         this.services = null;
@@ -215,7 +213,6 @@ export class FileTree {
             onDelete: (path) => this.fileActions.confirmAndDelete(path),
             onCreateFile: (path) => this.creator.createFile(path),
             onCreateFolder: (path) => this.creator.createFolder(path),
-            onRun: (path) => this.onRunFile?.(path),
         });
     }
 
@@ -376,8 +373,6 @@ export class FileTree {
 
     async createFileInFolder(folderPath) { return this.creator.createFile(folderPath); }
     async createFolderInFolder(folderPath) { return this.creator.createFolder(folderPath); }
-    async createWorkflowInFolder(folderPath) { return this.creator.createWorkflow(folderPath); }
-
     // ========== 文件选择 ==========
 
     async selectFile(path, options = {}) {

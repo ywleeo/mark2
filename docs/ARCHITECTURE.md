@@ -28,7 +28,7 @@ Mark2 当前采用“核心 Manager + 装配层 + 业务模块 + UI 组件”的
 | `ViewManager`       | 视图模式解析、renderer 分发、视图激活协议                       |
 | `CommandManager`    | 系统命令注册与执行                                              |
 | `KeybindingManager` | 快捷键与命令绑定                                                |
-| `FeatureManager`    | AI、Terminal、Scratchpad、Card Export 等功能模块挂载            |
+| `FeatureManager`    | AI、Scratchpad、Card Export 等功能模块挂载                      |
 | `ExportManager`     | 图片、PDF 等导出能力                                            |
 
 `AppState` 负责共享 UI 状态与兼容镜像状态。
@@ -104,7 +104,7 @@ src/
   utils/                工具函数（平台检测、导出、Mermaid 渲染等）
 
 src-tauri/
-  src/                  Rust 命令与桌面端能力（fs_commands、ai_proxy、menu、pty、media_stream、spreadsheet、security_scope、macos_security）
+  src/                  Rust 命令与桌面端能力（fs_commands、ai_proxy、menu、media_stream、spreadsheet、security_scope、macos_security）
   icons/                应用图标资源
   gen/                  生成文件与 schema
 ```
@@ -246,7 +246,6 @@ keydown
 当前已经纳入：
 
 - `ai-sidebar`
-- `terminal`
 - `scratchpad`
 - `card-export`
 
@@ -302,10 +301,9 @@ menu / toolbar
 - `menuExports` / `menuListeners` — 菜单导出与监听
 - `windowFocusHandler` — 窗口焦点处理
 - `markdownCodeMode` / `svgCodeMode` / `csvTableMode` — 视图模式切换
-- `scratchpadPanel` / `terminalPanel` — 面板模块
+- `scratchpadPanel` — 面板模块
 - `ai-assistant/` — AI 助手
 - `card-export/` — 卡片导出
-- `terminal-sidebar/` — 终端侧边栏
 
 这一层负责把用户动作、文档状态、视图状态和工作区状态串起来。
 
@@ -552,4 +550,3 @@ command -> ExportManager -> exporter
   开发规范、接入流程、发布流程
 - `DEBUG_CONVENTIONS.md`
   日志与 trace 约定
-

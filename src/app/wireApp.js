@@ -203,7 +203,6 @@ const windowLifecycle = createWindowLifecycle({
     documentRegistry,
     untitledFileManager,
     getViewManager: () => viewManager,
-    getTerminalPanel: () => featureManager.getFeatureApi('terminal'),
     getHandleSettingsSubmit: () => handleSettingsSubmit,
     getPersistWorkspaceState: () => persistWorkspaceState,
 });
@@ -226,7 +225,6 @@ function clearActiveFileView() { return bootstrap.clearActiveFileView(); }
 function saveCurrentEditorContentToCache() { return bootstrap.saveCurrentEditorContentToCache(); }
 async function updateExportMenuState() { return bootstrap.updateExportMenuState(); }
 function handleSidebarStateChange(s) { return bootstrap.handleSidebarStateChange(s); }
-async function handleRunFile(f) { return bootstrap.handleRunFile(f); }
 
 // ========== 视图控制器 ==========
 const viewController = createViewController({

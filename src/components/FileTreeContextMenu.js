@@ -1,5 +1,4 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
-import { isFeatureEnabled } from '../config/features.js';
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { isWindows, isMac } from '../utils/platform.js';
 import { t } from '../i18n/index.js';
@@ -15,7 +14,6 @@ export class FileTreeContextMenu {
             onDelete,
             onCreateFile,
             onCreateFolder,
-            onRun,
             getTargetPath,
         } = options;
 
@@ -27,7 +25,6 @@ export class FileTreeContextMenu {
         this.onDelete = onDelete;
         this.onCreateFile = onCreateFile;
         this.onCreateFolder = onCreateFolder;
-        this.onRun = onRun;
         this.getTargetPath = getTargetPath;
 
         this.element = null;
@@ -50,7 +47,6 @@ export class FileTreeContextMenu {
         menu.className = 'file-tree-context-menu hidden';
         menu.innerHTML = `
             <div class="file-tree-context-menu__group">
-                ${this.renderMenuItem('run', t('contextMenu.run'), this.getMenuIcon('run'), 'runnable-only')}
                 ${this.renderMenuItem('create-file', t('contextMenu.newFile'), this.getMenuIcon('create-file'), 'folder-only')}
                 ${this.renderMenuItem('create-folder', t('contextMenu.newFolder'), this.getMenuIcon('create-folder'), 'folder-only')}
             </div>
@@ -252,12 +248,6 @@ export class FileTreeContextMenu {
         this.targetPath = null;
     }
 
-    isRunnableFile(path) {
-        if (!path || typeof path !== 'string') return false;
-        const lowerPath = path.toLowerCase();
-        return lowerPath.endsWith('.sh') || lowerPath.endsWith('.py');
-    }
-
     showMenu(x, y) {
         if (!this.element) return;
 
@@ -266,13 +256,6 @@ export class FileTreeContextMenu {
         const isFolder = this.targetType === 'folder';
         folderOnlyItems.forEach(item => {
             item.style.display = isFolder ? '' : 'none';
-        });
-
-        // 根据文件类型显示/隐藏 Run 菜单项（MAS 版本禁用）
-        const runnableOnlyItems = this.element.querySelectorAll('.runnable-only');
-        const isRunnable = !isFolder && this.isRunnableFile(this.targetPath) && isFeatureEnabled('runScript');
-        runnableOnlyItems.forEach(item => {
-            item.style.display = isRunnable ? '' : 'none';
         });
 
         // 根目录（用户加进工作区的顶层文件夹）不允许删除，避免误把整个工作区扔回收站
@@ -363,9 +346,6 @@ export class FileTreeContextMenu {
         }
 
         switch (action) {
-            case 'run':
-                await this.onRun?.(targetPath, meta);
-                break;
             case 'create-file':
                 await this.onCreateFile?.(targetPath, meta);
                 break;
@@ -404,7 +384,6 @@ export class FileTreeContextMenu {
      */
     resolveCommandId(action) {
         const commandMap = {
-            run: COMMAND_IDS.WORKSPACE_RUN_ENTRY,
             'create-file': COMMAND_IDS.WORKSPACE_CREATE_FILE,
             'create-folder': COMMAND_IDS.WORKSPACE_CREATE_FOLDER,
             rename: COMMAND_IDS.WORKSPACE_RENAME_ENTRY,

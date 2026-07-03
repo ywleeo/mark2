@@ -11,7 +11,6 @@ mod fs_commands;
 mod image_proxy;
 mod media_stream;
 mod menu;
-mod pty;
 mod security_scope;
 mod spreadsheet;
 mod vault;
@@ -238,7 +237,6 @@ fn main() {
         .manage(WorkspaceState::default())
         .manage(DocumentState::default())
         .manage(ai_proxy::AiProxyState::default())
-        .manage(pty::PtyState::default())
         .manage(vault::commands::VaultState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -269,7 +267,6 @@ fn main() {
             fs_commands::capture_screenshot,
             fs_commands::get_file_metadata,
             fs_commands::reveal_in_file_manager,
-            fs_commands::open_in_terminal,
             spreadsheet::read_spreadsheet,
             security_scope::pick_path,
             security_scope::capture_security_scope,
@@ -280,10 +277,6 @@ fn main() {
             update_workspace_context,
             update_document_snapshot,
             get_opened_files,
-            pty::pty_spawn,
-            pty::pty_write,
-            pty::pty_resize,
-            pty::pty_kill,
             ai_proxy::ai_proxy_json_request,
             ai_proxy::ai_proxy_start_stream,
             ai_proxy::ai_proxy_cancel_stream,

@@ -96,7 +96,6 @@ export function setupFileTree({
     handleTabClose,
     normalizeFsPath,
     documentSessions,
-    onRunFile,
     onOpenFile,
     onOpenFolder,
 }) {
@@ -127,7 +126,6 @@ export function setupFileTree({
                 path: normalized,
             });
         },
-        onRunFile,
         documentSessions,
     });
 

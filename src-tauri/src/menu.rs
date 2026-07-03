@@ -45,7 +45,6 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("toggle-sidebar", "切换侧边栏");
         m.insert("toggle-status-bar", "切换状态栏");
         m.insert("markdown-toolbar", "Markdown 工具栏");
-        m.insert("terminal", "终端");
         m.insert("ai-assistant", "AI 助手");
         m.insert("toggle-theme", "切换深色/浅色模式");
         m.insert("toggle-code-mode", "切换 Markdown 代码模式");
@@ -77,7 +76,6 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("toggle-sidebar", "切換側邊欄");
         m.insert("toggle-status-bar", "切換狀態列");
         m.insert("markdown-toolbar", "Markdown 工具列");
-        m.insert("terminal", "終端機");
         m.insert("ai-assistant", "AI 助理");
         m.insert("toggle-theme", "切換深色/淺色模式");
         m.insert("toggle-code-mode", "切換 Markdown 程式碼模式");
@@ -109,7 +107,6 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("toggle-sidebar", "Toggle Sidebar");
         m.insert("toggle-status-bar", "Toggle Status Bar");
         m.insert("markdown-toolbar", "Markdown Toolbar");
-        m.insert("terminal", "Terminal");
         m.insert("ai-assistant", "AI Assistant");
         m.insert("toggle-theme", "Toggle Dark/Light Mode");
         m.insert("toggle-code-mode", "Toggle Markdown Code Mode");
@@ -132,7 +129,6 @@ fn command_to_menu_ids() -> HashMap<&'static str, Vec<&'static str>> {
     m.insert("export.currentView.pdf", vec!["export-pdf"]);
     m.insert("view.toggleSidebar", vec!["toggle-sidebar"]);
     m.insert("toolbar.toggleMarkdown", vec!["toggle-markdown-toolbar"]);
-    m.insert("feature.terminal.toggle", vec!["toggle-terminal"]);
     m.insert("document.newFile", vec!["file-new"]);
     m.insert("document.delete", vec!["file-delete"]);
     m.insert("editor.undo", vec!["undo"]);
@@ -414,10 +410,6 @@ fn build_menu(
             .accelerator(get_accelerator("toggle-markdown-toolbar", "CmdOrCtrl+Shift+T", custom_accel))
             .build(handle)?;
 
-    let toggle_terminal_item = MenuItemBuilder::with_id("toggle-terminal", l["terminal"])
-        .accelerator(get_accelerator("toggle-terminal", "CmdOrCtrl+J", custom_accel))
-        .build(handle)?;
-
     let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"])
         .build(handle)?;
 
@@ -488,8 +480,6 @@ fn build_menu(
         .item(&toggle_status_bar_item)
         .item(&toggle_markdown_toolbar_item)
         .item(&toggle_theme_item)
-        .separator()
-        .item(&toggle_terminal_item)
         .build()?;
 
     let undo_item = MenuItemBuilder::with_id("undo", l["undo"])

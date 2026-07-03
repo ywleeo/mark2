@@ -145,7 +145,6 @@ export function createAppBootstrap({
         clearActiveFileView,
         persistWorkspaceState,
         handleSidebarStateChange,
-        handleRunFile,
         restoreWorkspaceStateFromStorage,
         saveCurrentEditorContentToCache,
     } = createBootstrapHelpers({
@@ -303,7 +302,6 @@ export function createAppBootstrap({
             handleTabClose,
             normalizeFsPath,
             documentSessions,
-            onRunFile: handleRunFile,
             onOpenFile: openFileOnly,
             onOpenFolder: openFolderOnly,
         });
@@ -454,7 +452,6 @@ export function createAppBootstrap({
                 handleMoveActiveFile,
                 handleRenameActiveFile,
                 showCardExportSidebar,
-                handleRunFile,
                 handleRecentItemClick,
                 clearRecent,
                 toggleVault,
@@ -553,6 +550,5 @@ export function createAppBootstrap({
         persistWorkspaceState,
         updateExportMenuState,
         handleSidebarStateChange,
-        handleRunFile,
     };
 }

@@ -6,7 +6,6 @@
  * 占了 appBootstrap 近 130 行,把初始化流程的主脉络淹没了。
  */
 
-import { isFeatureEnabled, getMASLimitationMessage } from '../config/features.js';
 import { manualCheckUpdate } from '../modules/autoUpdater.js';
 import { EXPORT_IDS } from './exportSetup.js';
 import { shareCurrentDocument } from '../modules/share/shareDocument.js';
@@ -50,8 +49,6 @@ export function createCommandHandlers(deps) {
         handleRenameActiveFile,
         // card export
         showCardExportSidebar,
-        // run script
-        handleRunFile,
         // recent
         handleRecentItemClick,
         clearRecent,
@@ -142,17 +139,6 @@ export function createCommandHandlers(deps) {
             getIsDirty: () => appState.getHasUnsavedChanges(),
             saveCurrentFile,
         }),
-        onToggleTerminal: () => {
-            if (!isFeatureEnabled('terminal')) {
-                alert(getMASLimitationMessage('terminal'));
-                return;
-            }
-            featureManager?.getFeatureApi?.('terminal')?.toggle?.();
-        },
-        onToggleTerminalHistory: () => {
-            if (!isFeatureEnabled('terminal')) return;
-            featureManager?.getFeatureApi?.('terminal')?.showHistory?.();
-        },
         onNewUntitled: handleCreateUntitled,
         onNewFile: handleCreateNewFile,
         onDeleteActiveFile: handleDeleteActiveFile,
@@ -174,7 +160,6 @@ export function createCommandHandlers(deps) {
         onMoveWorkspaceEntry: ({ path, targetType }) => appState.getFileTree()?.promptMoveTo?.(path, { targetType }),
         onDeleteWorkspaceEntry: ({ path }) => appState.getFileTree()?.confirmAndDelete?.(path),
         onRevealWorkspaceEntry: ({ path }) => appState.getFileTree()?.revealInFinder?.(path),
-        onRunWorkspaceEntry: ({ path }) => handleRunFile(path),
         onCopyWorkspacePath: async ({ path }) => {
             if (!path) return;
             await navigator.clipboard.writeText(path);

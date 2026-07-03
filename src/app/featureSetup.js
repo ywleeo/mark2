@@ -3,7 +3,6 @@
  * 将现有侧边栏和面板能力按统一协议注册到 FeatureManager。
  */
 
-import { createTerminalPanel } from '../modules/terminal/panel.js';
 import { createTranslatorPanel } from '../modules/translator/translatorPanel.js';
 import { initCardExport } from '../modules/card-export/index.js';
 
@@ -32,22 +31,6 @@ export function registerCoreFeatures(options = {}) {
             });
         },
         unmount(api) {
-            api?.destroy?.();
-        },
-    });
-
-    register({
-        id: 'terminal',
-        title: '终端面板',
-        contributes: { panel: true },
-        mount() {
-            const panel = createTerminalPanel({
-                getWorkspaceCwd: context.getWorkspaceCwd,
-            });
-            panel?.initialize?.();
-            return panel;
-        },
-        async unmount(api) {
             api?.destroy?.();
         },
     });

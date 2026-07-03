@@ -64,7 +64,6 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.WORKSPACE_DELETE_ENTRY, (payload) => handlers.onDeleteWorkspaceEntry?.(payload), '删除工作区条目');
     register(COMMAND_IDS.WORKSPACE_COPY_PATH, (payload) => handlers.onCopyWorkspacePath?.(payload), '复制工作区路径');
     register(COMMAND_IDS.WORKSPACE_REVEAL_IN_FINDER, (payload) => handlers.onRevealWorkspaceEntry?.(payload), '在文件管理器中显示');
-    register(COMMAND_IDS.WORKSPACE_RUN_ENTRY, (payload) => handlers.onRunWorkspaceEntry?.(payload), '运行工作区文件');
     register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, () => handlers.onToggleSidebar?.(), '切换侧边栏');
     register(COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR, () => handlers.onToggleStatusBar?.(), '切换状态栏');
     register(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, async () => {
@@ -80,8 +79,6 @@ export function registerCoreCommands(options = {}) {
         return await handlers.onToggleMarkdownCodeView?.();
     }, '切换源码视图');
     register(COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, () => handlers.onToggleMarkdownToolbar?.(), '切换 Markdown 工具栏');
-    register(COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, () => handlers.onToggleTerminal?.(), '切换终端面板');
-    register(COMMAND_IDS.FEATURE_TERMINAL_SHOW_HISTORY, () => handlers.onToggleTerminalHistory?.(), '显示终端历史');
     register(COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, () => handlers.onToggleTranslator?.(), '切换翻译面板');
     register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');
     register(COMMAND_IDS.FEATURE_VAULT_TOGGLE, () => handlers.onToggleVault?.(), '切换保险箱');
@@ -127,8 +124,6 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, 'Mod+Shift+Space'],
     [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+\\'],
-    [COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, 'Mod+J'],
-    [COMMAND_IDS.FEATURE_TERMINAL_SHOW_HISTORY, 'Mod+Shift+H'],
     [COMMAND_IDS.FEATURE_TOC_TOGGLE, 'Mod+H'],
     [COMMAND_IDS.FEATURE_VAULT_TOGGLE, 'Mod+Shift+K'],
     [COMMAND_IDS.APP_SETTINGS, 'Mod+,'],

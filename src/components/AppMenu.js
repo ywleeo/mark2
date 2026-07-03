@@ -17,7 +17,6 @@ const COMMAND_TO_MENU_IDS = {
     'export.currentView.pdf': 'export-pdf',
     'view.toggleSidebar': 'toggle-sidebar',
     'toolbar.toggleMarkdown': 'toggle-markdown-toolbar',
-    'feature.terminal.toggle': 'toggle-terminal',
     'document.newFile': 'file-new',
     'document.delete': 'file-delete',
     'editor.undo': 'undo',
@@ -127,8 +126,6 @@ export class AppMenu {
                     { id: 'toggle-status-bar', label: t('menu.toggleStatusBar'), command: COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR },
                     { id: 'toggle-toolbar', label: t('menu.toggleToolbar'), command: COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, menuId: 'toggle-markdown-toolbar' },
                     { id: 'sep1', separator: true },
-                    { id: 'toggle-terminal', label: t('menu.toggleTerminal'), shortcut: 'Ctrl+`', command: COMMAND_IDS.FEATURE_TERMINAL_TOGGLE, menuId: 'toggle-terminal' },
-                    { id: 'sep2', separator: true },
                     { id: 'toggle-theme', label: t('menu.toggleTheme'), command: COMMAND_IDS.THEME_TOGGLE },
                 ]
             },

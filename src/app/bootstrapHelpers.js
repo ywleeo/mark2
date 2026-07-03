@@ -70,24 +70,6 @@ export function createBootstrapHelpers(deps) {
         return workspaceManager?.getSnapshot?.();
     }
 
-    async function handleRunFile(filePath) {
-        if (!filePath) return;
-        const lowerPath = filePath.toLowerCase();
-        let command = '';
-        if (lowerPath.endsWith('.sh')) {
-            command = `sh "${filePath}"`;
-        } else if (lowerPath.endsWith('.py')) {
-            command = `python3 "${filePath}"`;
-        } else {
-            return;
-        }
-        try {
-            await featureManager?.getFeatureApi?.('terminal')?.runCommand?.(command);
-        } catch (error) {
-            console.error('[Run] 执行命令失败:', error);
-        }
-    }
-
     async function restoreWorkspaceStateFromStorage() {
         if (!workspaceController) return;
         try {
@@ -129,7 +111,6 @@ export function createBootstrapHelpers(deps) {
         clearActiveFileView,
         persistWorkspaceState,
         handleSidebarStateChange,
-        handleRunFile,
         restoreWorkspaceStateFromStorage,
         saveCurrentEditorContentToCache,
     };

@@ -476,7 +476,6 @@
 }
 
 .file-icon--markdown { color: var(--file-icon-color, currentColor); }
-.file-icon--workflow { color: var(--file-icon-color, currentColor); }
 .file-icon--image { color: var(--file-icon-color, currentColor); }
 .file-icon--audio { color: var(--file-icon-color, currentColor); }
 .file-icon--video { color: var(--file-icon-color, currentColor); }

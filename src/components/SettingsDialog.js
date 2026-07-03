@@ -665,8 +665,6 @@ export class SettingsDialog {
             codeLineHeight: Number(normalizedCodeLineHeight.toFixed(2)),
             codeFontFamily: codeFontFamily || '',
             codeFontWeight: Number.isFinite(codeFontWeight) ? codeFontWeight : 400,
-            terminalFontSize: Number(this.initialSettings?.terminalFontSize) || 13,
-            terminalFontFamily: (this.initialSettings?.terminalFontFamily || '').trim(),
             tabFontSize: normalizedTabSize,
             sidebarFontSize: normalizedSidebarSize,
             tocFontSize: normalizedTocSize,

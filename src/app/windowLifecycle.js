@@ -18,7 +18,6 @@ export function createWindowLifecycle({
     documentRegistry,
     untitledFileManager,
     getViewManager,
-    getTerminalPanel,
     getHandleSettingsSubmit,
     getPersistWorkspaceState,
 }) {
@@ -286,9 +285,6 @@ export function createWindowLifecycle({
             fileWatcherController.cleanup();
             appState.setFileWatcherController(null);
         }
-
-        const tp = getTerminalPanel();
-        if (tp?.destroy) tp.destroy();
 
         documentRegistry.clearAll();
 

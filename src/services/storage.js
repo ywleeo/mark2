@@ -9,12 +9,12 @@
  * 4. 老 key 迁移:`migrateFrom` 把历史裸 key 一次性搬进命名空间。
  *
  * 使用:
- *     const store = createStore('terminal', { version: 1 });
- *     store.set('height', 320);
- *     const h = store.get('height', 240);
+ *     const store = createStore('toolbar', { version: 1 });
+ *     store.set('visible', true);
+ *     const visible = store.get('visible', true);
  *
  *     // 从老 key 迁移(只在新 key 不存在时执行)
- *     store.migrateFrom('mark2_terminal_height', 'height', { parse: Number });
+ *     store.migrateFrom('mark2_toolbar_visible', 'visible', { parse: value => value === 'true' });
  */
 
 const PREFIX = 'mark2';
@@ -50,7 +50,7 @@ function safeRemoveItem(key) {
 
 /**
  * 创建一个命名空间存储。
- * @param {string} feature  业务命名空间,如 'terminal' / 'ai' / 'toolbar'
+ * @param {string} feature  业务命名空间,如 'ai' / 'toolbar'
  * @param {object} [options]
  * @param {number} [options.version]  schema 版本号。设置后数据以 `{v,d}` 信封存储。
  */
