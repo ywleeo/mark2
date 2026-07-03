@@ -189,8 +189,8 @@
 }
 
 .open-file-icon {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     margin-right: 7px;
     flex-shrink: 0;
     color: var(--file-icon-color, var(--text-secondary, #666));
@@ -462,18 +462,57 @@
 /* 文件图标 */
 .tree-file-icon {
     margin-right: 7px;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     display: inline-block;
     flex-shrink: 0;
     color: var(--file-icon-color, #656d76);
-    opacity: 0.82;
+    opacity: 0.74;
 }
 
 .tree-file-icon,
 .open-file-icon {
     overflow: visible;
 }
+
+.file-icon--markdown { color: var(--file-icon-color, currentColor); }
+.file-icon--workflow { color: var(--file-icon-color, currentColor); }
+.file-icon--image { color: var(--file-icon-color, currentColor); }
+.file-icon--audio { color: var(--file-icon-color, currentColor); }
+.file-icon--video { color: var(--file-icon-color, currentColor); }
+.file-icon--spreadsheet,
+.file-icon--csv { color: var(--file-icon-color, currentColor); }
+.file-icon--pdf { color: var(--file-icon-color, currentColor); }
+.file-icon--javascript { color: var(--file-icon-color, currentColor); }
+.file-icon--typescript { color: var(--file-icon-color, currentColor); }
+.file-icon--json { color: var(--file-icon-color, currentColor); }
+.file-icon--yaml,
+.file-icon--ini,
+.file-icon--env,
+.file-icon--xml { color: var(--file-icon-color, currentColor); }
+.file-icon--html { color: var(--file-icon-color, currentColor); }
+.file-icon--css,
+.file-icon--scss,
+.file-icon--less { color: var(--file-icon-color, currentColor); }
+.file-icon--python { color: var(--file-icon-color, currentColor); }
+.file-icon--go { color: var(--file-icon-color, currentColor); }
+.file-icon--rust { color: var(--file-icon-color, currentColor); }
+.file-icon--java,
+.file-icon--kotlin,
+.file-icon--swift { color: var(--file-icon-color, currentColor); }
+.file-icon--ruby,
+.file-icon--php { color: var(--file-icon-color, currentColor); }
+.file-icon--csharp,
+.file-icon--cpp,
+.file-icon--c,
+.file-icon--objective-c { color: var(--file-icon-color, currentColor); }
+.file-icon--sql { color: var(--file-icon-color, currentColor); }
+.file-icon--shell,
+.file-icon--powershell,
+.file-icon--dockerfile,
+.file-icon--diff { color: var(--file-icon-color, currentColor); }
+.file-icon--plaintext,
+.file-icon--code { color: var(--file-icon-color, currentColor); }
 
 /* 取消文件/文件夹节点获得焦点时的系统描边，不改动已有选中样式 */
 .tree-file:focus,
