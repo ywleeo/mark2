@@ -173,7 +173,7 @@ export class FileTreeRenderer {
             item.removeEventListener('dragend', onNativeDragEnd);
         });
 
-        item.innerHTML = getFileIconSvg(path, { className: 'tree-file-icon', size: 16 });
+        item.innerHTML = getFileIconSvg(path, { className: 'tree-file-icon', size: 18 });
         item.appendChild(createCompactFileNameElement('tree-item-name', name));
 
         // 键盘：回车和 F2 触发重命名

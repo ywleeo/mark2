@@ -221,7 +221,7 @@ export class CloudFolder {
         item.dataset.id = String(file.id);
         item.title = name;
         if (String(file.id) === String(this._selectedFileId)) item.classList.add('selected');
-        item.innerHTML = getFileIconSvg(name, { className: 'open-file-icon', size: 16 });
+        item.innerHTML = getFileIconSvg(name, { className: 'open-file-icon', size: 18 });
         const nameEl = document.createElement('span');
         nameEl.className = 'open-file-name';
         nameEl.textContent = name;   // 普通文本;.open-file-name 已 overflow:hidden,这里靠 CSS 省略号

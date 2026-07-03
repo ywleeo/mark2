@@ -189,9 +189,9 @@
 }
 
 .open-file-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    margin-right: 7px;
     flex-shrink: 0;
     color: var(--file-icon-color, var(--text-secondary, #666));
     opacity: 0.84;
@@ -356,8 +356,8 @@
 /* 文件夹图标 */
 .tree-folder-icon {
     margin-right: 7px;
-    width: 14px;
-    height: 14px;
+    width: 17px;
+    height: 17px;
     display: inline-block;
     flex-shrink: 0;
     position: relative;
@@ -461,9 +461,9 @@
 
 /* 文件图标 */
 .tree-file-icon {
-    margin-right: 8px;
-    width: 16px;
-    height: 16px;
+    margin-right: 7px;
+    width: 18px;
+    height: 18px;
     display: inline-block;
     flex-shrink: 0;
     color: var(--file-icon-color, #656d76);
