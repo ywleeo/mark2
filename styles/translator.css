@@ -1,27 +1,41 @@
 /* 翻译浮动面板 */
 
 :root {
-    --translator-bg:          rgba(245, 246, 248, 0.5);
-    --translator-border:      rgba(208, 215, 222, 0.5);
-    --translator-header-bg:   rgba(240, 242, 245, 0.45);
-    --translator-header-text: #24292f;
-    --translator-text:        #24292f;
-    --translator-muted:       #8c959f;
-    --translator-shadow:      0 4px 20px rgba(0, 0, 0, 0.14);
-    --translator-resize-dot:  #b0b8c1;
-    --translator-accent:      #0969da;
+    --translator-bg:           rgba(255, 255, 255, 0.78);
+    --translator-surface:      rgba(255, 255, 255, 0.56);
+    --translator-surface-hot:  rgba(255, 255, 255, 0.76);
+    --translator-border:       rgba(38, 43, 51, 0.10);
+    --translator-border-strong: rgba(38, 43, 51, 0.18);
+    --translator-header-bg:    rgba(255, 255, 255, 0.36);
+    --translator-header-text:  rgba(38, 43, 51, 0.70);
+    --translator-text:         rgba(38, 43, 51, 0.88);
+    --translator-muted:        rgba(38, 43, 51, 0.44);
+    --translator-shadow:       0 18px 52px rgba(15, 23, 42, 0.16), 0 2px 10px rgba(15, 23, 42, 0.08);
+    --translator-resize-dot:   rgba(38, 43, 51, 0.18);
+    --translator-accent:       rgba(38, 43, 51, 0.72);
+    --translator-focus:        rgba(79, 115, 128, 0.18);
+    --translator-button-bg:    rgba(38, 43, 51, 0.06);
+    --translator-button-hover: rgba(38, 43, 51, 0.10);
+    --translator-button-text:  rgba(38, 43, 51, 0.76);
 }
 
 :root[data-theme-appearance='dark'] {
-    --translator-bg:          rgba(22, 27, 34, 0.5);
-    --translator-border:      rgba(48, 54, 61, 0.5);
-    --translator-header-bg:   rgba(13, 17, 23, 0.45);
-    --translator-header-text: #e6edf3;
-    --translator-text:        #e6edf3;
-    --translator-muted:       #8b949e;
-    --translator-shadow:      0 4px 20px rgba(0, 0, 0, 0.5);
-    --translator-resize-dot:  #484f58;
-    --translator-accent:      #4493f8;
+    --translator-bg:           rgba(25, 26, 28, 0.80);
+    --translator-surface:      rgba(255, 255, 255, 0.045);
+    --translator-surface-hot:  rgba(255, 255, 255, 0.075);
+    --translator-border:       rgba(255, 255, 255, 0.10);
+    --translator-border-strong: rgba(255, 255, 255, 0.18);
+    --translator-header-bg:    rgba(255, 255, 255, 0.035);
+    --translator-header-text:  rgba(237, 238, 240, 0.72);
+    --translator-text:         rgba(237, 238, 240, 0.88);
+    --translator-muted:        rgba(237, 238, 240, 0.45);
+    --translator-shadow:       0 22px 60px rgba(0, 0, 0, 0.46), 0 2px 12px rgba(0, 0, 0, 0.30);
+    --translator-resize-dot:   rgba(237, 238, 240, 0.20);
+    --translator-accent:       rgba(237, 238, 240, 0.76);
+    --translator-focus:        rgba(189, 199, 204, 0.16);
+    --translator-button-bg:    rgba(255, 255, 255, 0.075);
+    --translator-button-hover: rgba(255, 255, 255, 0.12);
+    --translator-button-text:  rgba(237, 238, 240, 0.78);
 }
 
 /* ── 面板容器 ───────────────────────────────────────────── */
@@ -31,19 +45,18 @@
     flex-direction: column;
     position: fixed;
     bottom: 28px;
-    right: 0;
+    right: 12px;
     z-index: 500;
     width: 360px;
     height: 340px;
     min-width: 260px;
     min-height: 200px;
-    border-radius: 8px 0 0 8px;
+    border-radius: 10px;
     overflow: hidden;
     background: var(--translator-bg);
-    backdrop-filter: blur(24px) saturate(1.8);
-    -webkit-backdrop-filter: blur(10px) saturate(1.8);
+    backdrop-filter: blur(30px) saturate(1.35);
+    -webkit-backdrop-filter: blur(30px) saturate(1.35);
     border: 1px solid var(--translator-border);
-    border-right: none;
     box-shadow: var(--translator-shadow);
     user-select: none;
 }
@@ -58,14 +71,14 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     cursor: nwse-resize;
     touch-action: none;
-    background-image: radial-gradient(circle, var(--translator-resize-dot) 1.5px, transparent 1.5px);
+    background-image: radial-gradient(circle, var(--translator-resize-dot) 1.25px, transparent 1.25px);
     background-size: 5px 5px;
-    background-position: 2px 2px;
-    opacity: 0.5;
+    background-position: 3px 3px;
+    opacity: 0.42;
     transition: opacity 0.15s;
     z-index: 1;
 }
@@ -80,7 +93,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 8px 6px 12px;
+    min-height: 34px;
+    padding: 7px 8px 7px 18px;
     background: var(--translator-header-bg);
     border-bottom: 1px solid var(--translator-border);
     cursor: grab;
@@ -93,10 +107,9 @@
 }
 
 .translator-title {
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 12.5px;
+    font-weight: 600;
     color: var(--translator-header-text);
-    opacity: 0.8;
     pointer-events: none;
 }
 
@@ -109,23 +122,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border: none;
     background: transparent;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
     color: var(--translator-header-text);
-    opacity: 0.6;
+    opacity: 0.58;
     transition: opacity 0.15s, background 0.15s;
     padding: 0;
 }
 
 .translator-header-actions button:hover {
     opacity: 1;
-    background: rgba(128, 128, 128, 0.15);
+    background: var(--translator-button-hover);
 }
 
 /* ── Body ──────────────────────────────────────────────── */
@@ -134,29 +147,32 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 14px 16px 16px;
     overflow: hidden;
 }
 
 .translator-input {
     flex-shrink: 0;
-    height: 64px;
+    height: 78px;
     resize: none;
     border: 1px solid var(--translator-border);
-    border-radius: 6px;
+    border-radius: 8px;
     outline: none;
-    background: var(--translator-bg);
+    background: var(--translator-surface);
     color: var(--translator-text);
-    font-size: 13px;
+    font-size: 13.5px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     line-height: 1.6;
-    padding: 8px 10px;
+    padding: 10px 12px;
     user-select: text;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
 .translator-input:focus {
-    border-color: var(--translator-accent);
+    border-color: var(--translator-border-strong);
+    background: var(--translator-surface-hot);
+    box-shadow: 0 0 0 3px var(--translator-focus);
 }
 
 .translator-input::placeholder {
@@ -165,19 +181,24 @@
 
 .translator-submit {
     flex-shrink: 0;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 500;
+    align-self: flex-end;
+    min-width: 88px;
+    height: 30px;
+    border: 1px solid var(--translator-border);
+    border-radius: 7px;
+    padding: 0 14px;
+    font-size: 12.5px;
+    font-weight: 600;
     cursor: pointer;
-    color: #fff;
-    background: var(--translator-accent);
-    transition: opacity 0.15s;
+    color: var(--translator-button-text);
+    background: var(--translator-button-bg);
+    transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
 }
 
 .translator-submit:hover {
-    opacity: 0.9;
+    border-color: var(--translator-border-strong);
+    background: var(--translator-button-hover);
+    color: var(--translator-text);
 }
 
 .translator-submit:disabled {
@@ -192,19 +213,19 @@
     overflow-y: auto;
     user-select: text;
     color: var(--translator-text);
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 13.5px;
+    line-height: 1.65;
 }
 
 .translator-placeholder {
     color: var(--translator-muted);
-    font-size: 12px;
-    padding: 4px 0;
+    font-size: 12.5px;
+    padding: 2px 0;
 }
 
 .translator-error {
     color: #cf222e;
-    font-size: 12px;
+    font-size: 12.5px;
     padding: 4px 0;
 }
 
@@ -214,7 +235,7 @@
 
 .translator-translation {
     color: var(--translator-text);
-    font-size: 15px;
+    font-size: 15.5px;
     line-height: 1.5;
     white-space: pre-wrap;
 }
@@ -232,17 +253,18 @@
 }
 
 .translator-pos {
-    color: var(--translator-accent);
+    color: var(--translator-muted);
     font-size: 12px;
     font-style: italic;
 }
 
 .translator-section-title {
-    margin-top: 12px;
-    margin-bottom: 4px;
-    font-size: 11px;
+    margin-top: 14px;
+    margin-bottom: 5px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--translator-muted);
+    letter-spacing: 0.01em;
 }
 
 .translator-usage {

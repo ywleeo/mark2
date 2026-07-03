@@ -65,9 +65,10 @@ export class TocPanel {
         header.innerHTML = `
             <span class="toc-panel__title">${t('toc.title')}</span>
             <button type="button" class="toc-panel__toggle-position" title="${t('toc.togglePosition')}" aria-label="${t('toc.togglePosition')}">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M8 3 L3 12 L8 21" />
-                    <path d="M16 3 L21 12 L16 21" />
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="5" width="16" height="14" rx="3" />
+                    <path d="M10 5v14" />
+                    <path d="M14 9l3 3-3 3" />
                 </svg>
             </button>
         `;
@@ -315,7 +316,28 @@ export class TocPanel {
             item.className = `toc-panel__item toc-panel__item--level${heading.level}`;
             item.setAttribute('data-heading-id', heading.id);
             item.setAttribute('data-heading-index', index);
-            item.textContent = heading.text;
+            item.title = heading.text;
+            if (heading.id === this.activeHeadingId) {
+                item.classList.add('toc-panel__item--active');
+            }
+
+            const emojiPrefix = heading.text.match(/^(\p{Extended_Pictographic}(?:\uFE0F)?(?:\s|\u00A0)*)+/u)?.[0] || '';
+            if (emojiPrefix) {
+                const emoji = document.createElement('span');
+                emoji.className = 'toc-panel__item-emoji';
+                emoji.textContent = emojiPrefix;
+                item.appendChild(emoji);
+
+                const text = document.createElement('span');
+                text.className = 'toc-panel__item-text';
+                text.textContent = heading.text.slice(emojiPrefix.length);
+                item.appendChild(text);
+            } else {
+                const text = document.createElement('span');
+                text.className = 'toc-panel__item-text';
+                text.textContent = heading.text;
+                item.appendChild(text);
+            }
 
             const cleanup = addClickHandler(item, (e) => {
                 e.preventDefault();

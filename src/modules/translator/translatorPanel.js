@@ -13,8 +13,9 @@ import { translate } from './translator.js';
 const store = createStore('translator');
 
 const DEFAULT_SIZE     = { width: 360, height: 340 };
-const DEFAULT_POSITION = { right: 0, bottom: 28 };
+const DEFAULT_POSITION = { right: 12, bottom: 28 };
 const SAVE_DEBOUNCE_MS = 400;
+const VIEWPORT_MARGIN  = 8;
 
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -43,11 +44,26 @@ export function createTranslatorPanel() {
 
     // ── 定位和尺寸（始终用 right/bottom） ──
 
+    function clampPosition(pos, size = DEFAULT_SIZE) {
+        const width      = size.width  || panel.offsetWidth  || DEFAULT_SIZE.width;
+        const height     = size.height || panel.offsetHeight || DEFAULT_SIZE.height;
+        const maxRight   = Math.max(VIEWPORT_MARGIN, window.innerWidth  - width  - VIEWPORT_MARGIN);
+        const maxBottom  = Math.max(VIEWPORT_MARGIN, window.innerHeight - height - VIEWPORT_MARGIN);
+        const nextRight  = Math.min(Math.max(VIEWPORT_MARGIN, pos.right  ?? DEFAULT_POSITION.right),  maxRight);
+        const nextBottom = Math.min(Math.max(VIEWPORT_MARGIN, pos.bottom ?? DEFAULT_POSITION.bottom), maxBottom);
+
+        return { right: nextRight, bottom: nextBottom };
+    }
+
     function applyPosition(pos) {
+        const nextPos = clampPosition(pos, {
+            width:  panel.offsetWidth,
+            height: panel.offsetHeight,
+        });
         panel.style.left   = 'auto';
         panel.style.top    = 'auto';
-        panel.style.right  = (pos.right  ?? DEFAULT_POSITION.right)  + 'px';
-        panel.style.bottom = (pos.bottom ?? DEFAULT_POSITION.bottom) + 'px';
+        panel.style.right  = nextPos.right  + 'px';
+        panel.style.bottom = nextPos.bottom + 'px';
     }
 
     function applySize(size) {
@@ -194,8 +210,16 @@ export function createTranslatorPanel() {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
 
-            const newRight  = Math.max(0, Math.min(window.innerWidth - 260, startRight - dx));
-            const newBottom = Math.max(0, startBottom - dy);
+            const panelWidth  = panel.offsetWidth;
+            const panelHeight = panel.offsetHeight;
+            const rawLeft     = window.innerWidth  - startRight  - panelWidth  + dx;
+            const rawTop      = window.innerHeight - startBottom - panelHeight + dy;
+            const maxLeft     = Math.max(VIEWPORT_MARGIN, window.innerWidth  - panelWidth  - VIEWPORT_MARGIN);
+            const maxTop      = Math.max(VIEWPORT_MARGIN, window.innerHeight - panelHeight - VIEWPORT_MARGIN);
+            const nextLeft    = Math.min(Math.max(VIEWPORT_MARGIN, rawLeft), maxLeft);
+            const nextTop     = Math.min(Math.max(VIEWPORT_MARGIN, rawTop),  maxTop);
+            const newRight    = window.innerWidth  - nextLeft - panelWidth;
+            const newBottom   = window.innerHeight - nextTop  - panelHeight;
 
             panel.style.right  = newRight  + 'px';
             panel.style.bottom = newBottom + 'px';
@@ -220,8 +244,13 @@ export function createTranslatorPanel() {
 
         resizeHandle.addEventListener('pointermove', (e) => {
             if (!resizeHandle.hasPointerCapture(e.pointerId)) return;
-            const newW = Math.max(260, startW - (e.clientX - startX));
-            const newH = Math.max(200, startH - (e.clientY - startY));
+            const rect          = panel.getBoundingClientRect();
+            const currentRight  = window.innerWidth  - rect.right;
+            const currentBottom = window.innerHeight - rect.bottom;
+            const maxW          = Math.max(260, window.innerWidth  - currentRight  - VIEWPORT_MARGIN);
+            const maxH          = Math.max(200, window.innerHeight - currentBottom - VIEWPORT_MARGIN);
+            const newW          = Math.min(maxW, Math.max(260, startW - (e.clientX - startX)));
+            const newH          = Math.min(maxH, Math.max(200, startH - (e.clientY - startY)));
 
             panel.style.width  = newW + 'px';
             panel.style.height = newH + 'px';
@@ -239,8 +268,8 @@ export function createTranslatorPanel() {
         const visible    = store.get('visible', false);
 
         input.value = savedInput;
-        applyPosition(pos);
         applySize(size);
+        applyPosition(pos);
         renderEmpty();
         if (visible) _show(false);
 
