@@ -20,6 +20,7 @@ export class ToolbarOverflowMenu {
         this.flowEl = null;
         this._cleanups = [];
         this._menuCleanups = [];
+        this._recomputeFrame = 0;
 
         this._build();
         this._bindGlobal();
@@ -32,9 +33,7 @@ export class ToolbarOverflowMenu {
         btn.setAttribute('aria-label', t('toolbar.more'));
         btn.setAttribute('aria-haspopup', 'true');
         btn.style.display = 'none';
-        btn.innerHTML = `<span class="toolbar-button__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
-        </svg></span>`;
+        btn.innerHTML = `<span class="toolbar-button__icon"><i class="toolbar-icon toolbar-icon--uicon fi fi-rr-menu-dots" aria-hidden="true"></i></span>`;
         this.button = btn;
         this._cleanups.push(addClickHandler(btn, (e) => {
             e.preventDefault();
@@ -76,6 +75,19 @@ export class ToolbarOverflowMenu {
     /** 设置要监测溢出的流动区容器 */
     setFlow(flowEl) {
         this.flowEl = flowEl;
+    }
+
+    /**
+     * 合并同一帧内的多次布局变更，避免 resize / display 切换反复触发测量。
+     */
+    scheduleRecompute() {
+        if (this._recomputeFrame) {
+            cancelAnimationFrame(this._recomputeFrame);
+        }
+        this._recomputeFrame = requestAnimationFrame(() => {
+            this._recomputeFrame = 0;
+            this.recompute();
+        });
     }
 
     /**
@@ -220,6 +232,10 @@ export class ToolbarOverflowMenu {
 
     destroy() {
         this.close();
+        if (this._recomputeFrame) {
+            cancelAnimationFrame(this._recomputeFrame);
+            this._recomputeFrame = 0;
+        }
         this._clearMenuCleanups();
         this._cleanups.forEach(fn => typeof fn === 'function' && fn());
         this._cleanups = [];

@@ -601,7 +601,7 @@
 .file-tree-context-menu__item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
     text-align: left;
     padding: 8px 10px;
@@ -619,19 +619,51 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     color: var(--text-secondary, #6b7280);
-    flex: 0 0 20px;
+    flex: 0 0 18px;
 }
 
 .file-tree-context-menu__item-icon svg {
-    width: 19px;
-    height: 19px;
+    width: 17px;
+    height: 17px;
     display: block;
     pointer-events: none;
     vector-effect: non-scaling-stroke;
 }
+
+.file-tree-context-menu__icon-font {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    color: currentColor;
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.file-tree-context-menu__icon-font::before {
+    font-family: 'mark2-toolbar-uicons';
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1;
+    text-transform: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.fi-rr-add-document::before { content: "\f117"; }
+.fi-rr-add-folder::before { content: "\f118"; }
+.fi-rr-copy::before { content: "\f4dd"; }
+.fi-rr-eye::before { content: "\f5f8"; }
+.fi-rr-move-to-folder::before { content: "\f984"; }
+.fi-rr-pencil::before { content: "\fa29"; }
+.fi-rr-trash::before { content: "\fe17"; }
 
 .file-tree-context-menu__item-label {
     flex: 1;

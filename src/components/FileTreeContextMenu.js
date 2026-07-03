@@ -117,9 +117,7 @@ export class FileTreeContextMenu {
      */
     getMenuIcon(action) {
         const iconOptions = {
-            className: 'file-tree-context-menu__icon-svg',
-            size: 19,
-            strokeWidth: 1.55,
+            className: 'file-tree-context-menu__icon-font',
         };
         const icons = {
             'create-file': fileMenuIcons.createFile(iconOptions),

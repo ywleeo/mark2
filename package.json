@@ -37,6 +37,7 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.1",
     "@emoji-mart/data": "^1.2.1",
+    "@flaticon/flaticon-uicons": "^3.3.1",
     "@lezer/highlight": "^1.2.3",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.7.0",

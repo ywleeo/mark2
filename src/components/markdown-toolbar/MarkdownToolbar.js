@@ -30,6 +30,7 @@ export class MarkdownToolbar {
         this.selects = [];
         this.overflowMenu = null;
         this.resizeObserver = null;
+        this._onWindowResize = null;
         this._navUnsubscribe = null;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
@@ -123,9 +124,16 @@ export class MarkdownToolbar {
 
         // 宽度变化时动态收纳溢出按钮
         this.resizeObserver = new ResizeObserver(() => {
-            this.overflowMenu?.recompute();
+            this.overflowMenu?.scheduleRecompute();
         });
         this.resizeObserver.observe(toolbar);
+        this.resizeObserver.observe(left);
+        this.resizeObserver.observe(flow);
+
+        this._onWindowResize = () => {
+            this.overflowMenu?.scheduleRecompute();
+        };
+        window.addEventListener('resize', this._onWindowResize);
 
         // 绑定键盘快捷键
         this.bindShortcuts();
@@ -138,7 +146,7 @@ export class MarkdownToolbar {
         this._navUnsubscribe = navigationHistory.onChange(() => this.updateNavButtons());
 
         // 首帧布局完成后算一次溢出
-        requestAnimationFrame(() => this.overflowMenu?.recompute());
+        this.overflowMenu.scheduleRecompute();
     }
 
     /**
@@ -196,6 +204,11 @@ export class MarkdownToolbar {
 
         this.resizeObserver?.disconnect();
         this.resizeObserver = null;
+
+        if (this._onWindowResize) {
+            window.removeEventListener('resize', this._onWindowResize);
+            this._onWindowResize = null;
+        }
 
         this._navUnsubscribe?.();
         this._navUnsubscribe = null;
