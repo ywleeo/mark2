@@ -1,9 +1,10 @@
 // 代码块复制功能模块
 import { addClickHandler } from '../utils/PointerHelper.js';
+import { checkIcon, copyIcon } from '../icons/uiIcons.js';
 
 // 常量配置
-const COPY_BUTTON_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-const COPY_BUTTON_CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+const COPY_BUTTON_ICON = copyIcon({ className: 'code-copy-button__icon', size: 16, strokeWidth: 1.8 });
+const COPY_BUTTON_CHECK_ICON = checkIcon({ className: 'code-copy-button__icon', size: 16, strokeWidth: 2 });
 const COPY_FEEDBACK_DURATION = 1600;
 const COPY_BUTTON_OFFSET = 8;
 const COPY_BUTTON_SIZE = 28;

@@ -2,6 +2,7 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { isWindows, isMac } from '../utils/platform.js';
 import { t } from '../i18n/index.js';
+import { fileMenuIcons } from '../icons/uiIcons.js';
 
 export class FileTreeContextMenu {
     constructor(options = {}) {
@@ -115,63 +116,19 @@ export class FileTreeContextMenu {
      * 返回菜单项线条图标。
      */
     getMenuIcon(action) {
+        const iconOptions = {
+            className: 'file-tree-context-menu__icon-svg',
+            size: 19,
+            strokeWidth: 1.55,
+        };
         const icons = {
-            run: `
-                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                    <path d="M5 3.5v9l7-4.5z"/>
-                </svg>
-            `,
-            'create-file': `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9.5 1.5H4A1.5 1.5 0 0 0 2.5 3v10A1.5 1.5 0 0 0 4 14.5h8A1.5 1.5 0 0 0 13.5 13V5.5z"/>
-                    <path d="M9.5 1.5v4h4"/>
-                    <path d="M8 7v4"/>
-                    <path d="M6 9h4"/>
-                </svg>
-            `,
-            'create-folder': `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1.5 4A1.5 1.5 0 0 1 3 2.5h2.6l1.2 1.4H13A1.5 1.5 0 0 1 14.5 5.4V6H1.5z"/>
-                    <path d="M1.5 6h13l-1 6.2A1.5 1.5 0 0 1 12 13.5H4A1.5 1.5 0 0 1 2.5 12.2z"/>
-                    <path d="M8 7.8v3.4"/>
-                    <path d="M6.3 9.5h3.4"/>
-                </svg>
-            `,
-            rename: `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m11.8 2.2 2 2a1 1 0 0 1 0 1.4l-7.9 7.9-3.4.6.6-3.4 7.9-7.9a1 1 0 0 1 1.4 0Z"/>
-                    <path d="m10.5 3.5 2 2"/>
-                </svg>
-            `,
-            move: `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 5.5h7"/>
-                    <path d="m8 2.5 3 3-3 3"/>
-                    <path d="M13 10.5H6"/>
-                    <path d="m8 7.5-3 3 3 3"/>
-                </svg>
-            `,
-            'copy-path': `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="5" y="3" width="8" height="10" rx="1.2"/>
-                    <path d="M3.5 11.5H3A1.5 1.5 0 0 1 1.5 10V3A1.5 1.5 0 0 1 3 1.5h5A1.5 1.5 0 0 1 9.5 3v.5"/>
-                </svg>
-            `,
-            reveal: `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1.5 8s2.4-3.5 6.5-3.5S14.5 8 14.5 8s-2.4 3.5-6.5 3.5S1.5 8 1.5 8Z"/>
-                    <circle cx="8" cy="8" r="1.8"/>
-                </svg>
-            `,
-            delete: `
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M2.5 4.5h11"/>
-                    <path d="M6.2 1.8h3.6"/>
-                    <path d="M4 4.5 4.8 13A1.5 1.5 0 0 0 6.3 14.5h3.4A1.5 1.5 0 0 0 11.2 13l.8-8.5"/>
-                    <path d="M6.5 7v4"/>
-                    <path d="M9.5 7v4"/>
-                </svg>
-            `,
+            'create-file': fileMenuIcons.createFile(iconOptions),
+            'create-folder': fileMenuIcons.createFolder(iconOptions),
+            rename: fileMenuIcons.rename(iconOptions),
+            move: fileMenuIcons.move(iconOptions),
+            'copy-path': fileMenuIcons.copy(iconOptions),
+            reveal: fileMenuIcons.reveal(iconOptions),
+            delete: fileMenuIcons.delete(iconOptions),
         };
 
         return icons[action] || '';

@@ -189,12 +189,12 @@
 }
 
 .open-file-icon {
-    width: 14px;
-    height: 14px;
-    margin-right: 7px;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
     flex-shrink: 0;
     color: var(--file-icon-color, var(--text-secondary, #666));
-    opacity: 0.82;
+    opacity: 0.84;
 }
 
 .open-file-name {
@@ -461,18 +461,33 @@
 
 /* 文件图标 */
 .tree-file-icon {
-    margin-right: 7px;
-    width: 14px;
-    height: 14px;
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
     display: inline-block;
     flex-shrink: 0;
     color: var(--file-icon-color, #656d76);
-    opacity: 0.74;
+    opacity: 0.82;
 }
 
 .tree-file-icon,
 .open-file-icon {
     overflow: visible;
+}
+
+.tree-file-icon .file-icon__badge,
+.open-file-icon .file-icon__badge {
+    fill: currentColor;
+    stroke: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 4px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.tree-file-icon .file-icon__dot,
+.open-file-icon .file-icon__dot {
+    stroke-width: 2.2;
 }
 
 .file-icon--markdown { color: var(--file-icon-color, currentColor); }
@@ -586,7 +601,7 @@
 .file-tree-context-menu__item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
     text-align: left;
     padding: 8px 10px;
@@ -604,16 +619,18 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     color: var(--text-secondary, #6b7280);
-    flex: 0 0 16px;
+    flex: 0 0 20px;
 }
 
 .file-tree-context-menu__item-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 19px;
+    height: 19px;
+    display: block;
     pointer-events: none;
+    vector-effect: non-scaling-stroke;
 }
 
 .file-tree-context-menu__item-label {

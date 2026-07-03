@@ -4,7 +4,6 @@
  */
 
 import { t } from '../../i18n/index.js';
-
 const TABLE_MENU_ITEMS = [
     { action: 'addRowBefore',    i18nKey: 'table.addRowBefore' },
     { action: 'addRowAfter',     i18nKey: 'table.addRowAfter' },
@@ -34,7 +33,7 @@ export class TableBubbleToolbar {
     }
 
     setup() {
-        // 阻止右键 mousedown 触发 ProseMirror table 的 cell 拖选
+        // 阻止右键 mousedown 触发 ProseMirror table 的 cell 拖选。
         this._mousedownHandler = (e) => {
             if (e.button !== 2) return;
             const cell = e.target.closest('td, th');
@@ -96,18 +95,18 @@ export class TableBubbleToolbar {
         this._overlayEl = overlay;
 
         const menu = document.createElement('div');
-        menu.className = 'csv-context-menu';
+        menu.className = 'table-context-menu';
 
         TABLE_MENU_ITEMS.forEach(item => {
             if (item.separator) {
                 const sep = document.createElement('div');
-                sep.className = 'csv-context-menu__separator';
+                sep.className = 'table-context-menu__separator';
                 menu.appendChild(sep);
                 return;
             }
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'csv-context-menu__item' + (item.danger ? ' csv-context-menu__item--danger' : '');
+            btn.className = 'table-context-menu__item' + (item.danger ? ' table-context-menu__item--danger' : '');
             btn.textContent = t(item.i18nKey);
             // mousedown 只防 ProseMirror 改选区（preventDefault 阻止 focus 切走）+
             // 阻止冒泡到 _closeHandler 把菜单关掉。真正执行放到 click，避免菜单在
@@ -131,8 +130,8 @@ export class TableBubbleToolbar {
         const vw = window.innerWidth;
         const vh = window.innerHeight;
         const rect = menu.getBoundingClientRect();
-        menu.style.left = Math.min(x, vw - rect.width - 8) + 'px';
-        menu.style.top  = Math.min(y, vh - rect.height - 8) + 'px';
+        menu.style.left = Math.max(8, Math.min(x, vw - rect.width - 8)) + 'px';
+        menu.style.top  = Math.max(8, Math.min(y, vh - rect.height - 8)) + 'px';
 
         setTimeout(() => {
             document.addEventListener('mousedown', this._closeHandler, true);

@@ -3,18 +3,19 @@
  * 包含所有按钮的图标、标题和快捷键
  */
 import { t } from '../../i18n/index.js';
+import { copyIcon } from '../../icons/uiIcons.js';
 
 /**
  * 生成统一的线性工具栏图标。
  * 工具栏图标全部使用 24px viewBox + 统一 stroke，由 CSS 控制实际尺寸和线宽。
  */
-const strokeIcon = (content) => `<svg class="toolbar-icon toolbar-icon--stroke" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">${content}</svg>`;
+const strokeIcon = (content) => `<svg class="toolbar-icon toolbar-icon--stroke" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">${content}</svg>`;
 
 /**
  * 生成字形类工具栏图标。
  * Bold/Italic 等编辑器通用字形用文本保留直觉，其余功能尽量使用 strokeIcon。
  */
-const textIcon = (content, className = '') => `<svg class="toolbar-icon toolbar-icon--text ${className}" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">${content}</svg>`;
+const textIcon = (content, className = '') => `<svg class="toolbar-icon toolbar-icon--text ${className}" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">${content}</svg>`;
 
 export const BUTTON_CONFIG = {
     bold: {
@@ -48,42 +49,42 @@ export const BUTTON_CONFIG = {
         shortcut: 'Ctrl+3'
     },
     code: {
-        icon: strokeIcon('<polyline points="9 8 5 12 9 16"/><polyline points="15 8 19 12 15 16"/>'),
+        icon: strokeIcon('<path d="m9 8-4 4 4 4"/><path d="m15 8 4 4-4 4"/>'),
         title: t('toolbar.code'),
         shortcut: 'Ctrl+`'
     },
     quote: {
-        icon: strokeIcon('<path d="M8 9H5.8a3 3 0 0 0 0 6H8v-4.5a4.5 4.5 0 0 1-2.8 4"/><path d="M18 9h-2.2a3 3 0 0 0 0 6H18v-4.5a4.5 4.5 0 0 1-2.8 4"/>'),
+        icon: strokeIcon('<path d="M6 7v10"/><path d="M10 9h8"/><path d="M10 12h6"/><path d="M10 15h7"/>'),
         title: t('toolbar.quote'),
         shortcut: 'Ctrl+Shift+>'
     },
     unorderedList: {
-        icon: strokeIcon('<line x1="9" y1="7" x2="20" y2="7"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="17" x2="20" y2="17"/><circle cx="5" cy="7" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="5" cy="17" r="1"/>'),
+        icon: strokeIcon('<path d="M9 7h10"/><path d="M9 12h10"/><path d="M9 17h10"/><path d="M5 7h.01"/><path d="M5 12h.01"/><path d="M5 17h.01"/>'),
         title: t('toolbar.unorderedList'),
         shortcut: 'Ctrl+Shift+8'
     },
     orderedList: {
-        icon: strokeIcon('<path d="M5 7h1v4"/><path d="M4.5 11h3"/><path d="M5 15.5h2.5L5 19h3"/><line x1="11" y1="8" x2="20" y2="8"/><line x1="11" y1="17" x2="20" y2="17"/>'),
+        icon: strokeIcon('<path d="M10 7h9"/><path d="M10 12h9"/><path d="M10 17h9"/><path d="M5 6.2h1v3"/><path d="M4.8 12h2.2"/><path d="M5 10.8h.7a1.1 1.1 0 0 1 0 2.2H5"/><path d="M4.8 15.8h2.1L5.2 18H7"/>'),
         title: t('toolbar.orderedList'),
         shortcut: 'Ctrl+Shift+7'
     },
     taskList: {
-        icon: strokeIcon('<rect x="4" y="5" width="4" height="4" rx="1"/><path d="M11 7h9"/><path d="M5 16l2 2 3-4"/><path d="M13 16h7"/>'),
+        icon: strokeIcon('<path d="M10 7h9"/><path d="M10 12h9"/><path d="M10 17h9"/><path d="m4.5 7 1 1 2-2"/><path d="m4.5 12 1 1 2-2"/><path d="m4.5 17 1 1 2-2"/>'),
         title: t('toolbar.taskList'),
         shortcut: 'Ctrl+Shift+9'
     },
     link: {
-        icon: strokeIcon('<path d="M10 13a5 5 0 0 0 7 0l1.5-1.5a5 5 0 0 0-7-7L10 6"/><path d="M14 11a5 5 0 0 0-7 0l-1.5 1.5a5 5 0 0 0 7 7L14 18"/>'),
+        icon: strokeIcon('<path d="M9.5 8.5h-1A3.5 3.5 0 0 0 5 12a3.5 3.5 0 0 0 3.5 3.5h1"/><path d="M14.5 8.5h1A3.5 3.5 0 0 1 19 12a3.5 3.5 0 0 1-3.5 3.5h-1"/><path d="M9 12h6"/>'),
         title: t('toolbar.link'),
         shortcut: 'Ctrl+K'
     },
     image: {
-        icon: strokeIcon('<rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.5"/><path d="M7 17l4-4 3 3 2-2 3 3"/>'),
+        icon: strokeIcon('<rect x="5" y="6" width="14" height="12" rx="2"/><path d="m7.5 15 3-3 2.5 2.5 1.5-1.5 2 2"/><path d="M9 9.5h.01"/>'),
         title: t('toolbar.image'),
         shortcut: 'Ctrl+Shift+I'
     },
     table: {
-        icon: strokeIcon('<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16"/><path d="M4 15h16"/><path d="M10 5v14"/><path d="M15 5v14"/>'),
+        icon: strokeIcon('<rect x="5" y="6" width="14" height="12" rx="2"/><path d="M5 10h14"/><path d="M10 6v12"/>'),
         title: t('toolbar.table'),
         shortcut: 'Ctrl+Shift+T'
     },
@@ -93,12 +94,12 @@ export const BUTTON_CONFIG = {
         shortcut: 'Ctrl+Shift+-'
     },
     codeBlock: {
-        icon: strokeIcon('<path d="M8 4H7a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h1"/><path d="M16 4h1a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2h-1"/>'),
+        icon: strokeIcon('<path d="M9 6H7.5A2.5 2.5 0 0 0 5 8.5v1A2.5 2.5 0 0 1 2.5 12 2.5 2.5 0 0 1 5 14.5v1A2.5 2.5 0 0 0 7.5 18H9"/><path d="M15 6h1.5A2.5 2.5 0 0 1 19 8.5v1a2.5 2.5 0 0 0 2.5 2.5A2.5 2.5 0 0 0 19 14.5v1a2.5 2.5 0 0 1-2.5 2.5H15"/>'),
         title: t('toolbar.codeBlock'),
         shortcut: 'Ctrl+Shift+C'
     },
     clearFormatting: {
-        icon: strokeIcon('<path d="M7 15l8-8 3 3-8 8H7v-3z"/><path d="M4 20h16"/>'),
+        icon: strokeIcon('<path d="m7 15 7-7a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1l-7 7H7z"/><path d="M5 20h14"/>'),
         title: t('toolbar.clearFormatting')
     },
     emoji: {
@@ -106,20 +107,20 @@ export const BUTTON_CONFIG = {
         title: t('toolbar.emoji')
     },
     copyMarkdown: {
-        icon: strokeIcon('<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/>'),
+        icon: copyIcon({ className: 'toolbar-icon toolbar-icon--stroke', strokeWidth: 1.65 }),
         title: t('toolbar.copyMarkdown')
     },
     toggleViewMode: {
-        icon: strokeIcon('<rect x="4" y="5" width="16" height="14" rx="2"/><polyline points="10 9 7 12 10 15"/><polyline points="14 9 17 12 14 15"/>'),
+        icon: strokeIcon('<rect x="5" y="6" width="14" height="12" rx="2"/><path d="m10 10-2 2 2 2"/><path d="m14 10 2 2-2 2"/>'),
         title: t('toolbar.toggleViewMode'),
         shortcut: 'Ctrl+E'
     },
     toc: {
-        icon: strokeIcon('<rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 9h8"/><path d="M8 12h8"/><path d="M8 15h5"/>'),
+        icon: strokeIcon('<rect x="6" y="5" width="12" height="14" rx="2"/><path d="M9 9h6"/><path d="M9 12h6"/><path d="M9 15h4"/>'),
         title: t('toolbar.toc')
     },
     centerContent: {
-        icon: strokeIcon('<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/>'),
+        icon: strokeIcon('<rect x="5" y="5" width="14" height="14" rx="2.2"/><rect x="9.2" y="9.2" width="5.6" height="5.6" rx="1.2"/>'),
         title: t('toolbar.centerContent')
     },
     heading: {
@@ -127,7 +128,7 @@ export const BUTTON_CONFIG = {
         title: t('toolbar.heading')
     },
     list: {
-        icon: strokeIcon('<line x1="9" y1="7" x2="20" y2="7"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="17" x2="20" y2="17"/><circle cx="5" cy="7" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="5" cy="17" r="1"/>'),
+        icon: strokeIcon('<path d="M9 7h10"/><path d="M9 12h10"/><path d="M9 17h10"/><path d="M5 7h.01"/><path d="M5 12h.01"/><path d="M5 17h.01"/>'),
         title: t('toolbar.list')
     },
     insert: {
@@ -135,19 +136,19 @@ export const BUTTON_CONFIG = {
         title: t('toolbar.insert')
     },
     video: {
-        icon: strokeIcon('<rect x="4" y="7" width="11" height="10" rx="2"/><path d="M15 11l5-3v8l-5-3z"/>'),
+        icon: strokeIcon('<rect x="5" y="7" width="11" height="10" rx="2"/><path d="m16 10 4-2v8l-4-2z"/>'),
         title: t('toolbar.video')
     },
     navBack: {
-        icon: strokeIcon('<path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/>'),
+        icon: strokeIcon('<path d="M19 12H5.5"/><path d="m12 5.5-6.5 6.5 6.5 6.5"/>'),
         title: t('toolbar.navBack')
     },
     navForward: {
-        icon: strokeIcon('<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>'),
+        icon: strokeIcon('<path d="M5 12h13.5"/><path d="m12 5.5 6.5 6.5-6.5 6.5"/>'),
         title: t('toolbar.navForward')
     },
     shareLink: {
-        icon: strokeIcon('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.7 10.7l6.6-4.4"/><path d="M8.7 13.3l6.6 4.4"/>'),
+        icon: strokeIcon('<circle cx="18" cy="6.5" r="2.2"/><circle cx="6" cy="12" r="2.2"/><circle cx="18" cy="17.5" r="2.2"/><path d="m8 11 8-3.6"/><path d="m8 13 8 3.6"/>'),
         title: t('toolbar.shareLink')
     }
 };

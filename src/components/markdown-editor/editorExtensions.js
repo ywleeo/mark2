@@ -4,10 +4,11 @@ import { closeHistory } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import { UndoRedo } from '@tiptap/extensions';
 import TaskList from '@tiptap/extension-task-list';
-import { Table } from '@tiptap/extension-table';
+import { Table as BaseTable } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
+import { tableEditingKey } from '@tiptap/pm/tables';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Link from '@tiptap/extension-link';
 import { SearchExtension } from '../../extensions/SearchExtension.js';
@@ -21,7 +22,25 @@ import { CsvTableNode } from '../../extensions/CsvTableNode.js';
 import { MathBlock, MathInline } from '../../extensions/MathBlock.js';
 import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
 import { SourcePos } from '../../extensions/SourcePos.js';
+import { TableSelectionGuard } from '../../extensions/TableSelectionGuard.js';
 import { AiEditHighlight } from '../../modules/ai-assistant/tools/highlightPlugin.js';
+
+/**
+ * TipTap 默认 Table 会注册 prosemirror-tables 的无阈值 mousedown cell-selection。
+ * 触控板轻点后产生的微小 mousemove 很容易被识别成多格选中，这里只移除默认
+ * mousedown，保留 decorations、键盘、paste、fixTables 等表格能力。
+ */
+const Table = BaseTable.extend({
+    addProseMirrorPlugins() {
+        const plugins = this.parent?.() ?? [];
+        return plugins.map((plugin) => {
+            if (plugin.key === tableEditingKey.key && plugin.props?.handleDOMEvents?.mousedown) {
+                delete plugin.props.handleDOMEvents.mousedown;
+            }
+            return plugin;
+        });
+    },
+});
 
 /**
  * 返回 MarkdownEditor 所需的 TipTap 扩展列表。
@@ -76,6 +95,7 @@ export function createEditorExtensions(lowlight) {
             HTMLAttributes: { class: 'code-block hljs' },
         }),
         DisableInlineCodeShortcut,
+        TableSelectionGuard,
         Table.configure({
             resizable: false,
             renderWrapper: true,

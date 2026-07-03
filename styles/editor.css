@@ -714,6 +714,8 @@
     border-collapse: collapse;
     table-layout: auto;
     width: fit-content;
+    touch-action: none;
+    -webkit-user-drag: none;
 }
 
 .tiptap-editor table td,
@@ -726,6 +728,7 @@
     vertical-align: top;
     box-sizing: border-box;
     position: relative;
+    -webkit-user-drag: none;
 }
 
 .tiptap-editor table td p,
@@ -742,11 +745,13 @@
     z-index: 2;
     position: absolute;
     content: "";
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    background: rgba(200, 200, 255, 0.4);
+    left: 1px;
+    right: 1px;
+    top: 1px;
+    bottom: 1px;
+    border-radius: 3px;
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.24);
     pointer-events: none;
 }
 
@@ -826,6 +831,55 @@
     margin: 4px 0;
 }
 
+.table-context-menu {
+    position: fixed;
+    z-index: 9999;
+    min-width: 190px;
+    padding: 6px;
+    background: var(--bg-color, #ffffff);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+    color: var(--text-color, #1f2937);
+    user-select: none;
+}
+
+.table-context-menu__item {
+    display: block;
+    width: 100%;
+    min-height: 34px;
+    padding: 7px 12px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: left;
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.table-context-menu__item:hover {
+    background: rgba(15, 23, 42, 0.07);
+}
+
+.table-context-menu__item--danger {
+    color: var(--danger-color, #dc2626);
+}
+
+.table-context-menu__item--danger:hover {
+    background: rgba(220, 38, 38, 0.08);
+}
+
+.table-context-menu__separator {
+    height: 1px;
+    margin: 5px 4px;
+    background: rgba(15, 23, 42, 0.09);
+}
+
 .csv-table-scroll {
     overflow-x: auto;
     scrollbar-width: thin;
@@ -882,6 +936,11 @@
     border-color: rgba(255, 255, 255, 0.1);
 }
 
+:root[data-theme-appearance='dark'] .tiptap-editor table .selectedCell:after {
+    background: rgba(125, 166, 255, 0.11);
+    box-shadow: inset 0 0 0 1px rgba(125, 166, 255, 0.28);
+}
+
 :root[data-theme-appearance='dark'] .csv-context-menu {
     background: var(--bg-secondary, #1e293b);
     border-color: rgba(255, 255, 255, 0.1);
@@ -906,6 +965,29 @@
 
 :root[data-theme-appearance='dark'] .csv-context-menu__separator {
     background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme-appearance='dark'] .table-context-menu {
+    background: var(--bg-elevated, #202124);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+    color: var(--text-color, #e5e7eb);
+}
+
+:root[data-theme-appearance='dark'] .table-context-menu__item:hover {
+    background: rgba(255, 255, 255, 0.09);
+}
+
+:root[data-theme-appearance='dark'] .table-context-menu__item--danger {
+    color: #f87171;
+}
+
+:root[data-theme-appearance='dark'] .table-context-menu__item--danger:hover {
+    background: rgba(248, 113, 113, 0.13);
+}
+
+:root[data-theme-appearance='dark'] .table-context-menu__separator {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 :root[data-theme-appearance='dark'] .csv-table th,
