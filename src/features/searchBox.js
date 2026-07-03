@@ -127,6 +127,9 @@ export class SearchBoxManager {
         if (typeof withReplace === 'boolean') {
             this.searchBox.classList.toggle('is-find-only', !withReplace);
         }
+        if (this.searchInput?.value) {
+            this.handleSearchInput();
+        }
         this.searchInput?.focus();
         this.searchInput?.select();
     }

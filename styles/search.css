@@ -1,15 +1,28 @@
-/* 查找/替换工具栏（贴在 status bar 上方，挤压内容区） */
+/* 查找/替换浮层 */
 .search-box {
-    flex: 0 0 auto;
     display: none;
     flex-direction: column;
+    position: fixed;
+    top: calc(var(--titlebar-height, 30px) + 84px);
+    right: 22px;
+    z-index: 460;
+    width: min(420px, calc(100vw - 44px));
     background: var(--search-box-bg);
-    border-top: 1px solid var(--search-box-border);
+    border: 1px solid var(--search-box-border);
+    border-radius: 10px;
+    box-shadow: var(--search-box-shadow);
+    backdrop-filter: blur(28px) saturate(1.25);
+    -webkit-backdrop-filter: blur(28px) saturate(1.25);
+    overflow: hidden;
     -webkit-app-region: no-drag;
 }
 
 .search-box.is-visible {
     display: flex;
+}
+
+.search-box:not(.is-find-only) {
+    width: min(460px, calc(100vw - 44px));
 }
 
 .search-box.is-find-only .replace-input,
@@ -19,32 +32,48 @@
 }
 
 .search-row {
-    display: flex;
+    display: grid;
     align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
-    min-height: 28px;
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
+    grid-template-areas:
+        "find toggle info prev next close"
+        "replace replace replace replaceBtn multi .";
+    gap: 7px 6px;
+    padding: 8px;
+}
+
+.search-box.is-find-only .search-row {
+    grid-template-areas: "find toggle info prev next close";
 }
 
 .search-box .search-input,
 .search-box .replace-input {
-    flex: 1 1 auto;
     min-width: 0;
-    padding: 2px 8px;
+    height: 30px;
+    padding: 0 10px;
     background: var(--search-input-bg);
     border: 1px solid var(--search-input-border);
-    border-radius: 3px;
-    font-size: 12px;
+    border-radius: 7px;
+    font-size: 13px;
     line-height: 1.5;
     color: var(--search-input-text);
     outline: none;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.search-box .search-input {
+    grid-area: find;
+}
+
+.search-box .replace-input {
+    grid-area: replace;
 }
 
 .search-box .search-input:focus,
 .search-box .replace-input:focus {
     background: var(--search-input-bg-focus);
     border-color: var(--search-input-border-focus);
+    box-shadow: 0 0 0 3px var(--search-input-focus-shadow);
 }
 
 .search-box .search-input::placeholder,
@@ -53,24 +82,25 @@
 }
 
 .search-info {
-    font-size: 11px;
+    grid-area: info;
+    font-size: 11.5px;
     color: var(--search-info-text);
     user-select: none;
-    min-width: 42px;
+    min-width: 46px;
     text-align: center;
-    flex: 0 0 auto;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
-/* 扁平按钮：透明背景，hover 时显示底色（对齐 terminal-action-btn 风格） */
+/* 扁平按钮：透明背景，hover 时显示轻底色 */
 .search-button {
     appearance: none;
     border: none;
     background: transparent;
-    padding: 0 5px;
-    height: 22px;
-    min-width: 22px;
-    border-radius: 3px;
+    padding: 0 7px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 7px;
     color: var(--search-button-text);
     cursor: pointer;
     user-select: none;
@@ -79,9 +109,15 @@
     justify-content: center;
     gap: 3px;
     line-height: 1;
-    flex: 0 0 auto;
     transition: background 0.15s, color 0.15s;
 }
+
+.toggle-replace-btn { grid-area: toggle; }
+.prev-btn { grid-area: prev; }
+.next-btn { grid-area: next; }
+.replace-btn { grid-area: replaceBtn; }
+.multi-btn { grid-area: multi; }
+.close-btn { grid-area: close; }
 
 .search-button:hover {
     background: var(--search-button-hover-bg);
@@ -93,21 +129,22 @@
 }
 
 .search-button svg {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
+    stroke-width: 1.8;
 }
 
 .search-button-label {
-    font-size: 11px;
+    font-size: 12px;
+    font-weight: 600;
     line-height: 1;
     padding: 0 1px;
 }
 
 /* 替换模式开关：紧贴 search-input 右侧的文字 toggle，激活时高亮 */
 .search-button.toggle-replace-btn {
-    margin-left: -2px;
-    padding: 0 8px;
+    padding: 0 9px;
 }
 
 .search-box:not(.is-find-only) .toggle-replace-btn {
@@ -136,13 +173,15 @@
    Dark Mode
    ============================================================================ */
 [data-theme-appearance="dark"] {
-    --search-box-bg: rgba(40, 42, 48, 0.96);
-    --search-box-border: rgba(255, 255, 255, 0.08);
+    --search-box-bg: rgba(25, 26, 28, 0.82);
+    --search-box-border: rgba(255, 255, 255, 0.10);
+    --search-box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42), 0 2px 12px rgba(0, 0, 0, 0.28);
 
-    --search-input-bg: rgba(255, 255, 255, 0.06);
-    --search-input-bg-focus: rgba(255, 255, 255, 0.1);
-    --search-input-border: rgba(255, 255, 255, 0.08);
-    --search-input-border-focus: rgba(120, 170, 255, 0.5);
+    --search-input-bg: rgba(255, 255, 255, 0.045);
+    --search-input-bg-focus: rgba(255, 255, 255, 0.075);
+    --search-input-border: rgba(255, 255, 255, 0.10);
+    --search-input-border-focus: rgba(255, 255, 255, 0.18);
+    --search-input-focus-shadow: rgba(189, 199, 204, 0.15);
     --search-input-text: rgba(255, 255, 255, 0.92);
     --search-input-placeholder: rgba(255, 255, 255, 0.35);
 
@@ -153,22 +192,24 @@
     --search-button-hover-bg: rgba(255, 255, 255, 0.08);
     --search-button-active-bg: rgba(255, 255, 255, 0.14);
 
-    --search-toggle-active-bg: rgba(120, 170, 255, 0.22);
-    --search-toggle-active-hover-bg: rgba(120, 170, 255, 0.3);
-    --search-toggle-active-text: rgba(180, 210, 255, 1);
+    --search-toggle-active-bg: rgba(255, 255, 255, 0.11);
+    --search-toggle-active-hover-bg: rgba(255, 255, 255, 0.15);
+    --search-toggle-active-text: rgba(255, 255, 255, 0.88);
 }
 
 /* ============================================================================
    Light Mode
    ============================================================================ */
 [data-theme-appearance="light"] {
-    --search-box-bg: rgba(245, 246, 248, 0.98);
-    --search-box-border: rgba(15, 23, 42, 0.08);
+    --search-box-bg: rgba(255, 255, 255, 0.84);
+    --search-box-border: rgba(38, 43, 51, 0.10);
+    --search-box-shadow: 0 18px 52px rgba(15, 23, 42, 0.14), 0 2px 10px rgba(15, 23, 42, 0.08);
 
-    --search-input-bg: rgba(255, 255, 255, 1);
-    --search-input-bg-focus: rgba(255, 255, 255, 1);
-    --search-input-border: rgba(15, 23, 42, 0.12);
-    --search-input-border-focus: rgba(30, 100, 200, 0.5);
+    --search-input-bg: rgba(255, 255, 255, 0.58);
+    --search-input-bg-focus: rgba(255, 255, 255, 0.78);
+    --search-input-border: rgba(38, 43, 51, 0.11);
+    --search-input-border-focus: rgba(38, 43, 51, 0.18);
+    --search-input-focus-shadow: rgba(79, 115, 128, 0.16);
     --search-input-text: rgba(15, 23, 42, 0.92);
     --search-input-placeholder: rgba(15, 23, 42, 0.4);
 
@@ -179,7 +220,7 @@
     --search-button-hover-bg: rgba(15, 23, 42, 0.06);
     --search-button-active-bg: rgba(15, 23, 42, 0.1);
 
-    --search-toggle-active-bg: rgba(30, 100, 200, 0.14);
-    --search-toggle-active-hover-bg: rgba(30, 100, 200, 0.2);
-    --search-toggle-active-text: rgba(30, 100, 200, 1);
+    --search-toggle-active-bg: rgba(15, 23, 42, 0.075);
+    --search-toggle-active-hover-bg: rgba(15, 23, 42, 0.105);
+    --search-toggle-active-text: rgba(15, 23, 42, 0.82);
 }
