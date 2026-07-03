@@ -3,7 +3,7 @@ import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
 import { isSpreadsheetFilePath } from '../../utils/fileTypeUtils.js';
 import { createMarkdownParser, createMarkdownSerializer } from '../../modules/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
-import { AlignAsciiArtManager } from '../../features/alignAsciiArt.js';
+import { InlineCompletionManager } from '../../features/inlineCompletion/InlineCompletionManager.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
@@ -66,6 +66,7 @@ export class MarkdownEditor {
         this.trailingParagraphManager = null;
         this.saveManager = null;
         this.codeCopyManager = null;
+        this.inlineCompletionManager = null;
         this.searchBoxManager = null;
         this.clipboardEnhancer = null;
         this.imageModal = null;
@@ -149,7 +150,10 @@ export class MarkdownEditor {
 
         // ── Feature managers ──
         this.codeCopyManager = new CodeCopyManager(this.element);
-        this.alignAsciiArtManager = new AlignAsciiArtManager(this.element, this.editor);
+        this.inlineCompletionManager = new InlineCompletionManager({
+            editor: this.editor,
+            getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
+        });
         this.searchBoxManager = new SearchBoxManager(this.editor);
         this.clipboardEnhancer = new ClipboardEnhancer(this.element);
         this.imageModal = new ImageModal();
@@ -632,7 +636,8 @@ export class MarkdownEditor {
         this.saveManager = null;
 
         this.codeCopyManager?.destroy();
-        this.alignAsciiArtManager?.destroy();
+        this.inlineCompletionManager?.destroy();
+        this.inlineCompletionManager = null;
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
         this.imageModal?.destroy();

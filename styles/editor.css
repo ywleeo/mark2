@@ -44,6 +44,138 @@
     outline: none;
 }
 
+.inline-completion-wrap,
+.inline-completion-status,
+.inline-completion-writing {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Inline AI completion ghost text */
+.inline-completion-wrap {
+    display: inline;
+}
+
+.inline-completion {
+    color: var(--inline-completion-color, rgba(31, 36, 44, 0.32));
+    white-space: pre-wrap;
+}
+
+.inline-completion-hint {
+    display: inline;
+    margin-left: 0.55em;
+    color: var(--inline-completion-hint-color, rgba(31, 36, 44, 0.28));
+    font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
+    font-size: 0.64em;
+    font-weight: 400;
+    line-height: 1;
+    vertical-align: 0.12em;
+}
+
+.inline-completion-writing {
+    display: inline-flex;
+    align-items: baseline;
+    margin-left: 0.18em;
+    color: var(--inline-completion-writing-color, rgba(31, 36, 44, 0.34));
+    font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
+    font-size: 0.82em;
+    font-weight: 400;
+    line-height: 1;
+    vertical-align: 0.04em;
+}
+
+.inline-completion-writing__dots {
+    display: inline-flex;
+    margin-left: 0.02em;
+    font-size: 1.28em;
+    font-weight: 600;
+    letter-spacing: 0;
+    transform: translateY(-0.02em);
+}
+
+.inline-completion-writing__dots span {
+    opacity: 0.18;
+    animation: inline-completion-dot 1.2s ease-in-out infinite;
+}
+
+.inline-completion-writing__dots span:nth-child(2) {
+    animation-delay: 0.16s;
+}
+
+.inline-completion-writing__dots span:nth-child(3) {
+    animation-delay: 0.32s;
+}
+
+.inline-completion-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42em;
+    margin-left: 0.35em;
+    padding: 0.18em 0.55em;
+    border: 1px solid var(--inline-completion-status-border, rgba(31, 36, 44, 0.10));
+    border-radius: 999px;
+    background: var(--inline-completion-status-bg, rgba(31, 36, 44, 0.055));
+    color: var(--inline-completion-status-color, rgba(31, 36, 44, 0.48));
+    font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
+    font-size: 0.72em;
+    font-weight: 500;
+    line-height: 1.2;
+    vertical-align: 0.12em;
+}
+
+.inline-completion-status__dot {
+    width: 0.44em;
+    height: 0.44em;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.6;
+    animation: inline-completion-pulse 1.1s ease-in-out infinite;
+}
+
+.inline-completion-status--error {
+    color: var(--inline-completion-error, rgba(190, 60, 60, 0.82));
+    border-color: var(--inline-completion-error-border, rgba(190, 60, 60, 0.16));
+    background: var(--inline-completion-error-bg, rgba(190, 60, 60, 0.07));
+}
+
+@keyframes inline-completion-pulse {
+    0%, 100% { transform: scale(0.78); opacity: 0.36; }
+    50% { transform: scale(1); opacity: 0.78; }
+}
+
+@keyframes inline-completion-dot {
+    0%, 100% { opacity: 0.18; color: currentColor; transform: translateY(0); }
+    45% { opacity: 1; color: var(--inline-completion-writing-accent, rgba(64, 105, 150, 0.82)); transform: translateY(-0.08em); }
+}
+
+:root[data-theme-appearance='dark'] .inline-completion {
+    color: var(--inline-completion-color, rgba(226, 232, 240, 0.32));
+}
+
+:root[data-theme-appearance='dark'] .inline-completion-hint {
+    color: var(--inline-completion-hint-color, rgba(226, 232, 240, 0.30));
+}
+
+:root[data-theme-appearance='dark'] .inline-completion-writing {
+    color: var(--inline-completion-writing-color, rgba(226, 232, 240, 0.36));
+}
+
+:root[data-theme-appearance='dark'] .inline-completion-writing__dots span {
+    --inline-completion-writing-accent: rgba(162, 190, 226, 0.82);
+}
+
+:root[data-theme-appearance='dark'] .inline-completion-status {
+    border-color: var(--inline-completion-status-border, rgba(226, 232, 240, 0.10));
+    background: var(--inline-completion-status-bg, rgba(226, 232, 240, 0.065));
+    color: var(--inline-completion-status-color, rgba(226, 232, 240, 0.52));
+}
+
+:root[data-theme-appearance='dark'] .inline-completion-status--error {
+    color: var(--inline-completion-error, rgba(252, 165, 165, 0.9));
+    border-color: var(--inline-completion-error-border, rgba(252, 165, 165, 0.18));
+    background: var(--inline-completion-error-bg, rgba(252, 165, 165, 0.08));
+}
+
 /* 标题样式 */
 .tiptap-editor h1 {
     font-size: 2em;
@@ -273,73 +405,6 @@
 .tiptap-editor .math-error {
     color: #cc0000;
     font-family: monospace;
-}
-
-/* 代码块"AI 重新对齐 ASCII 字符画"按钮 */
-.align-ascii-button {
-    position: absolute;
-    top: -9999px;
-    left: -9999px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    background: rgba(122, 122, 122, 0.7);
-    color: #fff;
-    cursor: pointer;
-    opacity: 0;
-    outline: none;
-    transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
-    pointer-events: none;
-    z-index: 20;
-    contain: layout style paint;
-    will-change: opacity, transform;
-}
-
-.align-ascii-button.is-visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.align-ascii-button:active {
-    transform: scale(0.95);
-}
-
-.align-ascii-button.is-busy {
-    opacity: 0.6;
-    cursor: progress;
-}
-
-.align-ascii-button.is-busy svg line {
-    transform-box: fill-box;
-    transform-origin: 0% 50%;
-    animation: align-ascii-line 1.2s ease-in-out infinite;
-}
-
-.align-ascii-button.is-busy svg .l1 { animation-delay: 0s; }
-.align-ascii-button.is-busy svg .l2 { animation-delay: 0.15s; }
-.align-ascii-button.is-busy svg .l3 { animation-delay: 0.3s; }
-
-.align-ascii-button.is-error {
-    background: rgba(190, 60, 60, 0.85);
-}
-
-.align-ascii-button svg {
-    width: 16px;
-    height: 16px;
-    display: block;
-}
-
-@keyframes align-ascii-line {
-    0%   { transform: scaleX(1); }
-    25%  { transform: scaleX(0.35); }
-    50%  { transform: scaleX(0.8); }
-    75%  { transform: scaleX(0.5); }
-    100% { transform: scaleX(1); }
 }
 
 /* 代码块复制按钮 */

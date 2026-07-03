@@ -224,20 +224,32 @@ export class SettingsDialog {
 
                         <div class="settings-rows">
                             <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.assistantModel')}</span>
-                                <select data-ref="assistantModelSelect" class="settings-row__control"></select>
+                                <span class="settings-row__label">${t('settings.translationModel')}</span>
+                                <select data-ref="translationModelSelect" class="settings-row__control"></select>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.beautifyModel')}</span>
+                                <select data-ref="beautifyModelSelect" class="settings-row__control"></select>
+                            </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.completionModel')}</span>
+                                <select data-ref="completionModelSelect" class="settings-row__control"></select>
                             </label>
                             <label class="settings-row settings-row--sub">
-                                <span class="settings-row__label">${t('settings.creativity')}</span>
+                                <span class="settings-row__label">${t('settings.completionCreativity')}</span>
                                 <select name="aiCreativity" class="settings-row__control">
                                     <option value="low">${t('settings.creativityLow')}</option>
                                     <option value="medium">${t('settings.creativityMedium')}</option>
                                     <option value="high">${t('settings.creativityHigh')}</option>
                                 </select>
                             </label>
-                            <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.fastModel')}</span>
-                                <select data-ref="fastModelSelect" class="settings-row__control"></select>
+                            <label class="settings-row settings-row--sub">
+                                <span class="settings-row__label">${t('settings.completionLength')}</span>
+                                <select name="aiCompletionLength" class="settings-row__control">
+                                    <option value="short">${t('settings.completionLengthShort')}</option>
+                                    <option value="medium">${t('settings.completionLengthMedium')}</option>
+                                    <option value="long">${t('settings.completionLengthLong')}</option>
+                                </select>
                             </label>
                         </div>
                     </section>
@@ -283,9 +295,11 @@ export class SettingsDialog {
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
         // AI 助手设置字段
         this.aiCreativitySelect = this.form.querySelector('select[name="aiCreativity"]');
+        this.aiCompletionLengthSelect = this.form.querySelector('select[name="aiCompletionLength"]');
         this.aiKeysListEl = this.root.querySelector('[data-ref="aiKeysList"]');
-        this.assistantModelSelectEl = this.root.querySelector('[data-ref="assistantModelSelect"]');
-        this.fastModelSelectEl = this.root.querySelector('[data-ref="fastModelSelect"]');
+        this.translationModelSelectEl = this.root.querySelector('[data-ref="translationModelSelect"]');
+        this.beautifyModelSelectEl = this.root.querySelector('[data-ref="beautifyModelSelect"]');
+        this.completionModelSelectEl = this.root.querySelector('[data-ref="completionModelSelect"]');
         this.aiConfiguredProviders = []; // [{ id, apiKey, isCustom?, name?, baseUrl?, models? }]
 
         // Cloud plugin 入口：每个 plugin 的 mountSettingsSlot 都把自己的 UI 插到这里
@@ -375,6 +389,7 @@ export class SettingsDialog {
             this.codeFontFamilySelect,
             this.codeFontWeightSelect,
             this.aiCreativitySelect,
+            this.aiCompletionLengthSelect,
         ].filter(Boolean);
     }
 
@@ -489,8 +504,9 @@ export class SettingsDialog {
             .filter(p => !getCloudProvider(p.id))
             .map(p => ({ ...p }));
         this._setSelectValue(this.aiCreativitySelect, aiConfig.preferences?.creativity || 'medium');
+        this._setSelectValue(this.aiCompletionLengthSelect, aiConfig.preferences?.completionLength || 'medium');
         this._renderAiKeysList();
-        this._renderModelSelects(aiConfig.assistantModel, aiConfig.fastModel);
+        this._renderModelSelects(aiConfig.translationModel, aiConfig.beautifyModel, aiConfig.completionModel);
 
         // 快捷键设置
         if (this.keybindingsSettings) {
@@ -573,7 +589,7 @@ export class SettingsDialog {
             .filter(p => !getCloudProvider(p.id))
             .map(p => ({ ...p }));
         this._renderAiKeysList();
-        this._renderModelSelects(cfg.assistantModel, cfg.fastModel);
+        this._renderModelSelects(cfg.translationModel, cfg.beautifyModel, cfg.completionModel);
     }
 
     async loadAiConfig() {
@@ -582,7 +598,7 @@ export class SettingsDialog {
             return service.getConfig();
         } catch (error) {
             console.warn('[SettingsDialog] 无法获取 AI 配置:', error);
-            return { providers: [], activeProviderId: '', activeModel: '', preferences: { creativity: 'medium' } };
+            return { providers: [], activeProviderId: '', activeModel: '', preferences: { creativity: 'medium', completionLength: 'medium' } };
         }
     }
 
@@ -673,9 +689,13 @@ export class SettingsDialog {
         };
         const aiConfig = {
             providers,
-            assistantModel: parseModelSlot(this.assistantModelSelectEl?.value),
-            fastModel: parseModelSlot(this.fastModelSelectEl?.value),
-            preferences: { creativity: this.aiCreativitySelect.value || 'medium' },
+            translationModel: parseModelSlot(this.translationModelSelectEl?.value),
+            beautifyModel: parseModelSlot(this.beautifyModelSelectEl?.value),
+            completionModel: parseModelSlot(this.completionModelSelectEl?.value),
+            preferences: {
+                creativity: this.aiCreativitySelect.value || 'medium',
+                completionLength: this.aiCompletionLengthSelect?.value || 'medium',
+            },
         };
         await this.saveAiConfig(aiConfig);
 
@@ -1107,8 +1127,8 @@ export class SettingsDialog {
         addBtn.parentNode.insertBefore(form, addBtn);
     }
 
-    _renderModelSelects(assistantModel, fastModel) {
-        if (!this.assistantModelSelectEl || !this.fastModelSelectEl) return;
+    _renderModelSelects(translationModel, beautifyModel, completionModel) {
+        if (!this.translationModelSelectEl || !this.beautifyModelSelectEl || !this.completionModelSelectEl) return;
 
         const buildOptions = (currentVal) => {
             const fragment = document.createDocumentFragment();
@@ -1161,16 +1181,20 @@ export class SettingsDialog {
             return fragment;
         };
 
-        const assistantVal = assistantModel ? `${assistantModel.providerId}::${assistantModel.model}` : '';
-        const fastVal = fastModel ? `${fastModel.providerId}::${fastModel.model}` : '';
+        const translationVal = translationModel ? `${translationModel.providerId}::${translationModel.model}` : '';
+        const beautifyVal = beautifyModel ? `${beautifyModel.providerId}::${beautifyModel.model}` : '';
+        const completionVal = completionModel ? `${completionModel.providerId}::${completionModel.model}` : '';
 
-        this.assistantModelSelectEl.innerHTML = '';
-        this.assistantModelSelectEl.appendChild(buildOptions(assistantVal));
+        this.translationModelSelectEl.innerHTML = '';
+        this.translationModelSelectEl.appendChild(buildOptions(translationVal));
 
-        this.fastModelSelectEl.innerHTML = '';
-        this.fastModelSelectEl.appendChild(buildOptions(fastVal));
+        this.beautifyModelSelectEl.innerHTML = '';
+        this.beautifyModelSelectEl.appendChild(buildOptions(beautifyVal));
 
-        for (const el of [this.assistantModelSelectEl, this.fastModelSelectEl]) {
+        this.completionModelSelectEl.innerHTML = '';
+        this.completionModelSelectEl.appendChild(buildOptions(completionVal));
+
+        for (const el of [this.translationModelSelectEl, this.beautifyModelSelectEl, this.completionModelSelectEl]) {
             if (this._dropdownMap.has(el)) {
                 try { this._dropdownMap.get(el).destroy(); } catch (_) {}
                 this._dropdownMap.delete(el);
@@ -1186,8 +1210,9 @@ export class SettingsDialog {
             return providerId && model ? { providerId, model } : null;
         };
         this._renderModelSelects(
-            parseVal(this.assistantModelSelectEl?.value),
-            parseVal(this.fastModelSelectEl?.value),
+            parseVal(this.translationModelSelectEl?.value),
+            parseVal(this.beautifyModelSelectEl?.value),
+            parseVal(this.completionModelSelectEl?.value),
         );
     }
 

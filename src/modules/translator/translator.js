@@ -38,8 +38,8 @@ export async function translate(text) {
         throw new Error(t('translator.error.empty'));
     }
 
-    const provider = aiService.getFastProvider();
-    const model = aiService.getFastModel();
+    const provider = aiService.getProviderForScene('translation');
+    const model = aiService.getModelForScene('translation');
     if (!provider?.apiKey || !model) {
         throw new Error(t('translator.error.noConfig'));
     }

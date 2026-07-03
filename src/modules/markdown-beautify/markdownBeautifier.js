@@ -17,8 +17,8 @@ export async function beautifyMarkdown(text) {
         throw new Error(t('beautify.error.tooManyLines', { max: MAX_LINES, current: lineCount }));
     }
 
-    const provider = aiService.getFastProvider();
-    const model = aiService.getFastModel();
+    const provider = aiService.getProviderForScene('beautify');
+    const model = aiService.getModelForScene('beautify');
     if (!provider?.apiKey || !model) {
         throw new Error(t('beautify.error.noConfig'));
     }

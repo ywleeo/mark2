@@ -147,12 +147,15 @@ class AiService {
             if (!plugin.isAvailable()) {
                 const next = { ...this.config };
                 let dirty = false;
-                if (next.assistantModel?.providerId === plugin.id) {
-                    next.assistantModel = null;
-                    dirty = true;
+                for (const slot of ['translationModel', 'beautifyModel', 'completionModel']) {
+                    if (next[slot]?.providerId === plugin.id) {
+                        next[slot] = null;
+                        dirty = true;
+                    }
                 }
-                if (next.fastModel?.providerId === plugin.id) {
-                    next.fastModel = null;
+                if (next.assistantModel || next.fastModel) {
+                    delete next.assistantModel;
+                    delete next.fastModel;
                     dirty = true;
                 }
                 if (dirty) this.saveConfig(next);
@@ -172,7 +175,7 @@ class AiService {
 
             const next = { ...this.config };
             let dirty = false;
-            for (const slot of ['assistantModel', 'fastModel']) {
+            for (const slot of ['translationModel', 'beautifyModel', 'completionModel']) {
                 const cur = next[slot];
                 if (!cur?.providerId) {
                     // 空槽:填默认(优先 preferred)
@@ -209,11 +212,11 @@ class AiService {
     }
 
     normalizeConfig(raw) {
-        // 兼容旧格式（有 activeProviderId 字段）→ 迁移到新格式
+        // 兼容旧格式（有 activeProviderId 字段）→ 迁移到 provider + 场景模型格式
         if (raw.activeProviderId !== undefined && raw.assistantModel === undefined) {
             const oldProviders = Array.isArray(raw.providers) ? raw.providers : [];
             const migratedProviders = [];
-            let migratedAssistant = null;
+            let migratedModel = null;
             for (const op of oldProviders) {
                 const preset = PROVIDER_PRESETS.find(p =>
                     normalizeAiBaseUrl(p.baseUrl) === normalizeAiBaseUrl(op.baseUrl || '')
@@ -223,14 +226,15 @@ class AiService {
                         migratedProviders.push({ id: preset.id, apiKey: op.apiKey });
                     }
                     if (op.id === raw.activeProviderId && raw.activeModel) {
-                        migratedAssistant = { providerId: preset.id, model: raw.activeModel };
+                        migratedModel = { providerId: preset.id, model: raw.activeModel };
                     }
                 }
             }
             raw = {
                 providers: migratedProviders,
-                assistantModel: migratedAssistant,
-                fastModel: null,
+                translationModel: migratedModel,
+                beautifyModel: migratedModel,
+                completionModel: migratedModel,
                 preferences: raw.preferences,
             };
         }
@@ -267,12 +271,19 @@ class AiService {
             return { providerId: slot.providerId, model: slot.model };
         };
 
+        const legacyDefaultModel = normalizeModelSlot(raw.fastModel)
+            || normalizeModelSlot(raw.assistantModel);
+
         return {
             providers,
-            assistantModel: normalizeModelSlot(raw.assistantModel),
-            fastModel: normalizeModelSlot(raw.fastModel),
+            translationModel: normalizeModelSlot(raw.translationModel) || legacyDefaultModel,
+            beautifyModel: normalizeModelSlot(raw.beautifyModel) || legacyDefaultModel,
+            completionModel: normalizeModelSlot(raw.completionModel) || legacyDefaultModel,
             preferences: {
                 creativity: raw.preferences?.creativity || 'medium',
+                completionLength: ['short', 'medium', 'long'].includes(raw.preferences?.completionLength)
+                    ? raw.preferences.completionLength
+                    : 'medium',
             },
         };
     }
@@ -296,15 +307,38 @@ class AiService {
         return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     }
 
-    // ── 便捷方法：获取 assistantModel / fastModel ─────────────
+    // ── 便捷方法：按 AI 使用场景获取模型 ───────────────────────
 
-    getActiveProvider() {
-        const slot = this.config.assistantModel;
+    getModelSlot(scene) {
+        if (scene === 'completion') return this.config.completionModel || null;
+        if (scene === 'beautify') return this.config.beautifyModel || null;
+        if (scene === 'translation') return this.config.translationModel || null;
+        return this.config.completionModel || this.config.beautifyModel || this.config.translationModel || null;
+    }
+
+    getProviderForScene(scene) {
+        const slot = this.getModelSlot(scene);
         return slot ? this.getProviderConfig(slot.providerId) : null;
     }
 
+    getModelForScene(scene) {
+        return this.getModelSlot(scene)?.model || '';
+    }
+
+    getApiKeyForScene(scene) {
+        return this.getProviderForScene(scene)?.apiKey || '';
+    }
+
+    getBaseUrlForScene(scene) {
+        return normalizeAiBaseUrl(this.getProviderForScene(scene)?.baseUrl || 'https://api.openai.com/v1');
+    }
+
+    getActiveProvider() {
+        return this.getProviderForScene('beautify');
+    }
+
     getActiveModel() {
-        return this.config.assistantModel?.model || '';
+        return this.getModelForScene('beautify');
     }
 
     getActiveApiKey() {
@@ -316,12 +350,11 @@ class AiService {
     }
 
     getFastProvider() {
-        const slot = this.config.fastModel;
-        return slot ? this.getProviderConfig(slot.providerId) : this.getActiveProvider();
+        return this.getProviderForScene('translation');
     }
 
     getFastModel() {
-        return this.config.fastModel?.model || this.getActiveModel();
+        return this.getModelForScene('translation');
     }
 
     getFastApiKey() {
@@ -331,6 +364,11 @@ class AiService {
     getTemperature() {
         const map = { low: 0.3, medium: 0.7, high: 0.9 };
         return map[this.config.preferences?.creativity] ?? 0.7;
+    }
+
+    getCompletionLength() {
+        const value = this.config.preferences?.completionLength;
+        return ['short', 'medium', 'long'].includes(value) ? value : 'medium';
     }
 
     getFastBaseUrl() {
