@@ -171,7 +171,7 @@ export class AiWritingEntryManager {
         this.hideHint({ immediate: true });
 
         const hint = document.createElement('div');
-        hint.className = 'ai-writing-cursor-hint ai-writing-cursor-hint--expanded';
+        hint.className = 'ai-writing-menu ai-writing-cursor-hint--expanded';
         this.expandedHintOpenedAt = Date.now();
         this.bindHintPointerGuards(hint);
 
@@ -182,7 +182,9 @@ export class AiWritingEntryManager {
 
         const continueBtn = document.createElement('button');
         continueBtn.type = 'button';
+        continueBtn.className = 'ai-writing-menu__button';
         continueBtn.textContent = t('aiWriting.continue');
+        this.bindMenuButtonHover(continueBtn);
         this.hintCleanups.push(addClickHandler(continueBtn, () => {
             this.suppressedUntilSelectionChange = true;
             this.hideHint();
@@ -191,7 +193,9 @@ export class AiWritingEntryManager {
 
         const inspirationBtn = document.createElement('button');
         inspirationBtn.type = 'button';
+        inspirationBtn.className = 'ai-writing-menu__button';
         inspirationBtn.textContent = t('aiWriting.inspiration');
+        this.bindMenuButtonHover(inspirationBtn);
         this.hintCleanups.push(addClickHandler(inspirationBtn, () => {
             this.hideHint();
             this.openInspiration();
@@ -201,6 +205,7 @@ export class AiWritingEntryManager {
         document.body.appendChild(hint);
         this.hintEl = hint;
         this.positionHintElement(hint);
+        this.syncMenuButtonHoverState(hint);
     }
 
     hideHint({ immediate = false } = {}) {
@@ -220,6 +225,30 @@ export class AiWritingEntryManager {
             return;
         }
         hint.remove();
+    }
+
+    bindMenuButtonHover(button) {
+        const show = () => button.classList.add('is-hovered');
+        const hide = () => button.classList.remove('is-hovered');
+        button.addEventListener('pointerenter', show);
+        button.addEventListener('pointerleave', hide);
+        button.addEventListener('blur', hide);
+        this.hintCleanups.push(() => {
+            button.removeEventListener('pointerenter', show);
+            button.removeEventListener('pointerleave', hide);
+            button.removeEventListener('blur', hide);
+        });
+    }
+
+    syncMenuButtonHoverState(menu) {
+        requestAnimationFrame(() => {
+            if (this.hintEl !== menu) return;
+            const hovered = document.querySelectorAll(':hover');
+            const top = hovered[hovered.length - 1];
+            menu.querySelectorAll('.ai-writing-menu__button').forEach(button => {
+                button.classList.toggle('is-hovered', button === top || button.contains(top));
+            });
+        });
     }
 
     hideHintForEditorActivity() {
