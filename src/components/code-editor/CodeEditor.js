@@ -9,6 +9,7 @@ import {
     shouldEnforceMarkdownTrailingEmptyLine,
 } from '../../utils/markdownFormatting.js';
 import { isAutoSaveEnabled } from '../../utils/editorSettings.js';
+import { createLogger } from '../../core/diagnostics/Logger.js';
 import { resolveLanguageSupport } from './LanguageSupport.js';
 import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
 import {
@@ -18,6 +19,8 @@ import {
     MAX_ZOOM_SCALE,
 } from './constants.js';
 import { formatCode, isFormattable } from './CodeFormatter.js';
+
+const logger = createLogger('code-editor');
 
 /**
  * 规范化表格中 <br> + 空行的模式，防止 markdown 表格断裂。
@@ -877,7 +880,7 @@ export class CodeEditor {
                         this.editor.focus();
                     }
                 }
-                console.log('[CodeEditor] 自动保存成功');
+                logger.debug('自动保存成功', { filePath });
                 return true;
             } catch (error) {
                 if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {

@@ -45,7 +45,6 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("toggle-sidebar", "切换侧边栏");
         m.insert("toggle-status-bar", "切换状态栏");
         m.insert("markdown-toolbar", "Markdown 工具栏");
-        m.insert("ai-assistant", "AI 助手");
         m.insert("toggle-theme", "切换深色/浅色模式");
         m.insert("toggle-code-mode", "切换 Markdown 代码模式");
         m.insert("check-update", "检查更新...");
@@ -76,7 +75,6 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("toggle-sidebar", "切換側邊欄");
         m.insert("toggle-status-bar", "切換狀態列");
         m.insert("markdown-toolbar", "Markdown 工具列");
-        m.insert("ai-assistant", "AI 助理");
         m.insert("toggle-theme", "切換深色/淺色模式");
         m.insert("toggle-code-mode", "切換 Markdown 程式碼模式");
         m.insert("check-update", "檢查更新...");
@@ -107,7 +105,6 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("toggle-sidebar", "Toggle Sidebar");
         m.insert("toggle-status-bar", "Toggle Status Bar");
         m.insert("markdown-toolbar", "Markdown Toolbar");
-        m.insert("ai-assistant", "AI Assistant");
         m.insert("toggle-theme", "Toggle Dark/Light Mode");
         m.insert("toggle-code-mode", "Toggle Markdown Code Mode");
         m.insert("check-update", "Check for Updates...");

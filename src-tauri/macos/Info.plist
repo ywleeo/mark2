@@ -31,18 +31,6 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
-				<string>mflow</string>
-			</array>
-			<key>CFBundleTypeName</key>
-			<string>Mark2 Workflow</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-		</dict>
-		<dict>
-			<key>CFBundleTypeExtensions</key>
-			<array>
 				<string>txt</string>
 			</array>
 			<key>CFBundleTypeName</key>

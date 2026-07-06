@@ -266,7 +266,6 @@ export function createWindowFocusHandler(options = {}) {
                     }, 100);
                 }
             });
-            console.log('[windowFocusHandler] 窗口焦点监听已启动');
         } catch (error) {
             console.error('[windowFocusHandler] 启动窗口焦点监听失败:', error);
         }

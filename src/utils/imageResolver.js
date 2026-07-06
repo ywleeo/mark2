@@ -1,5 +1,8 @@
 // 图片路径解析和处理模块
 import { basename, dirname } from './pathUtils.js';
+import { createLogger } from '../core/diagnostics/Logger.js';
+
+const logger = createLogger('image-resolver');
 
 // 检查是否是外部图片 URL
 export function isExternalImageSrc(src) {
@@ -230,7 +233,7 @@ export async function readBinaryFromFs(path, options = {}) {
             } catch (fallbackError) {
                 // 如果两次都失败，且允许请求权限，则请求用户授权
                 if (options.requestAccessOnError && typeof window !== 'undefined' && window.__TAURI__) {
-                    console.log('[imageResolver] 文件读取失败，请求用户授权:', path);
+                    logger.info('文件读取失败，请求用户授权', { path });
                     const granted = await requestFileAccess(path);
                     if (granted) {
                         // 重新尝试读取
@@ -251,7 +254,7 @@ export async function readBinaryFromFs(path, options = {}) {
 
         // 如果允许请求权限且在 Tauri 环境
         if (options.requestAccessOnError && typeof window !== 'undefined' && window.__TAURI__) {
-            console.log('[imageResolver] 文件读取失败，请求用户授权:', path);
+            logger.info('文件读取失败，请求用户授权', { path });
             const granted = await requestFileAccess(path);
             if (granted) {
                 // 重新尝试读取

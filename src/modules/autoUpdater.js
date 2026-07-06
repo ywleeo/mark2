@@ -9,9 +9,11 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 import { createStore } from '../services/storage.js';
 import { isMac } from '../utils/platform.js';
 import { t } from '../i18n/index.js';
+import { createLogger } from '../core/diagnostics/Logger.js';
 
 const store = createStore('autoUpdater');
 store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Number(raw) });
+const logger = createLogger('auto-updater');
 
 const CHECK_DELAY_MS = 5000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1h
@@ -28,7 +30,7 @@ export function setupAutoUpdater() {
     setTimeout(() => {
         if (pendingUpdate) return;
         checkAndDownload(false).catch(err => {
-            console.warn('[AutoUpdater] 启动检查更新失败:', err);
+            logger.warn('启动检查更新失败', err);
         });
     }, CHECK_DELAY_MS);
 
@@ -45,7 +47,7 @@ function runScheduledCheck() {
     const last = Number(store.get('lastCheckAt', 0)) || 0;
     if (Date.now() - last < CHECK_INTERVAL_MS) return;
     checkAndDownload(false).catch(err => {
-        console.warn('[AutoUpdater] 检查更新失败:', err);
+        logger.warn('检查更新失败', err);
     });
 }
 
@@ -68,7 +70,7 @@ export async function manualCheckUpdate() {
             showInfoToast({ title: t('updater.upToDate'), variant: 'info', autoHideMs: 2500 });
         }
     } catch (err) {
-        console.warn('[AutoUpdater] 手动检查更新失败（已静默）:', err);
+        logger.warn('手动检查更新失败（已静默）', err);
         replaceToast();
     }
 }
@@ -89,7 +91,7 @@ async function checkWithRetry() {
             return await check();
         } catch (err) {
             lastErr = err;
-            console.warn(`[AutoUpdater] check 失败(第${attempt + 1}/${total}次):`, err);
+            logger.warn('检查更新重试失败', { attempt: attempt + 1, total, error: err });
         }
     }
     throw lastErr;
@@ -99,18 +101,18 @@ async function checkAndDownload(manual) {
     const update = await checkWithRetry();
     store.set('lastCheckAt', Date.now());
     if (!update) {
-        console.log('[AutoUpdater] 当前已是最新版本');
+        logger.info('当前已是最新版本');
         return false;
     }
 
-    console.log(`[AutoUpdater] 发现新版本: ${update.version},开始后台下载`);
+    logger.info('发现新版本，开始后台下载', { version: update.version });
     if (manual) {
         showInfoToast({ title: t('updater.downloading', { version: update.version }), variant: 'loading' });
     }
 
     await downloadWithRetry(update);
 
-    console.log('[AutoUpdater] 已下载,等待用户点击重启');
+    logger.info('更新已下载，等待用户点击重启', { version: update.version });
     pendingUpdate = update;
     pendingUpdateVersion = update.version;
     showUpdateReadyToast(update.version);
@@ -123,15 +125,15 @@ async function downloadWithRetry(update) {
         try {
             await update.download((progress) => {
                 if (progress.event === 'Started') {
-                    console.log(`[AutoUpdater] 开始下载(第${attempt}次),总大小: ${progress.data.contentLength} bytes`);
+                    logger.info('开始下载更新', { attempt, contentLength: progress.data.contentLength });
                 } else if (progress.event === 'Finished') {
-                    console.log('[AutoUpdater] 下载完成');
+                    logger.info('更新下载完成', { attempt });
                 }
             });
             return;
         } catch (err) {
             lastErr = err;
-            console.warn(`[AutoUpdater] 下载失败(第${attempt}/${DOWNLOAD_MAX_ATTEMPTS}次):`, err);
+            logger.warn('更新下载失败', { attempt, total: DOWNLOAD_MAX_ATTEMPTS, error: err });
             if (attempt < DOWNLOAD_MAX_ATTEMPTS) {
                 await new Promise(r => setTimeout(r, DOWNLOAD_RETRY_DELAY_MS));
             }
@@ -143,9 +145,9 @@ async function downloadWithRetry(update) {
 async function applyPendingUpdate() {
     if (!pendingUpdate) return;
     try {
-        console.log('[AutoUpdater] 开始 install()');
+        logger.info('开始安装更新');
         await pendingUpdate.install();
-        console.log('[AutoUpdater] install() 完成,开始 relaunch()');
+        logger.info('更新安装完成，开始重启');
         // macOS 上 plugin-process 的 relaunch() 直接 spawn 二进制，不走 LaunchServices，
         // 导致新进程窗口不前置、需手动点 dock。改走 Rust 侧 `open -n` 让系统正常登记前台 app。
         if (isMac) {
@@ -153,9 +155,9 @@ async function applyPendingUpdate() {
         } else {
             await relaunch();
         }
-        console.log('[AutoUpdater] relaunch() 已调用');
+        logger.info('重启已调用');
     } catch (err) {
-        console.warn('[AutoUpdater] 安装/重启失败:', err);
+        logger.warn('安装或重启失败', err);
         showInfoToast({
             title: t('updater.installFailed'),
             hint: err?.message || String(err),

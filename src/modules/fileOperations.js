@@ -735,7 +735,7 @@ export function createFileOperations({
                 return false;
             }
             if (!documentSessions.isSessionActive(sessionId)) {
-                console.debug('[DocumentSession] 跳过已过期的 loadFile 调用', {
+                logger?.debug?.('跳过已过期的 loadFile 调用', {
                     filePath,
                     phase,
                     sessionId,

@@ -11,8 +11,11 @@ import {
 } from '../modules/ai-assistant/cloudProviderRegistry.js';
 import { invoke } from '@tauri-apps/api/core';
 import { isMac } from '../utils/platform.js';
+import { createLogger } from '../core/diagnostics/Logger.js';
+import { renderSettingsAiSection } from './settings/SettingsAiSection.js';
 
 const DEFAULT_APP_EXTENSIONS = ['md', 'markdown', 'mkd', 'txt', 'json'];
+const logger = createLogger('settings');
 
 // 动态导入 aiService（避免循环依赖）
 let aiService = null;
@@ -215,44 +218,7 @@ export class SettingsDialog {
                         </div>
                     </section>
 
-                    <!-- AI 助手设置 -->
-                    <section class="settings-body hidden" data-tab-content="ai">
-                        <div data-ref="cloudAccountSlot"></div>
-
-                        <div class="settings-section-label">${t('settings.apiKeys')}</div>
-                        <div class="ai-keys-list" data-ref="aiKeysList"></div>
-
-                        <div class="settings-rows">
-                            <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.translationModel')}</span>
-                                <select data-ref="translationModelSelect" class="settings-row__control"></select>
-                            </label>
-                            <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.beautifyModel')}</span>
-                                <select data-ref="beautifyModelSelect" class="settings-row__control"></select>
-                            </label>
-                            <label class="settings-row">
-                                <span class="settings-row__label">${t('settings.completionModel')}</span>
-                                <select data-ref="completionModelSelect" class="settings-row__control"></select>
-                            </label>
-                            <label class="settings-row settings-row--sub">
-                                <span class="settings-row__label">${t('settings.completionCreativity')}</span>
-                                <select name="aiCreativity" class="settings-row__control">
-                                    <option value="low">${t('settings.creativityLow')}</option>
-                                    <option value="medium">${t('settings.creativityMedium')}</option>
-                                    <option value="high">${t('settings.creativityHigh')}</option>
-                                </select>
-                            </label>
-                            <label class="settings-row settings-row--sub">
-                                <span class="settings-row__label">${t('settings.completionLength')}</span>
-                                <select name="aiCompletionLength" class="settings-row__control">
-                                    <option value="short">${t('settings.completionLengthShort')}</option>
-                                    <option value="medium">${t('settings.completionLengthMedium')}</option>
-                                    <option value="long">${t('settings.completionLengthLong')}</option>
-                                </select>
-                            </label>
-                        </div>
-                    </section>
+                    ${renderSettingsAiSection(t)}
 
                     <footer class="settings-footer">
                         <button type="button" class="btn secondary" data-action="cancel">${t('settings.cancel')}</button>
@@ -293,7 +259,7 @@ export class SettingsDialog {
         this.codeFontSizeInput = this.form.querySelector('input[name="codeFontSize"]');
         this.codeLineHeightInput = this.form.querySelector('input[name="codeLineHeight"]');
         this.codeFontWeightSelect = this.form.querySelector('select[name="codeFontWeight"]');
-        // AI 助手设置字段
+        // AI 场景设置字段
         this.aiCreativitySelect = this.form.querySelector('select[name="aiCreativity"]');
         this.aiCompletionLengthSelect = this.form.querySelector('select[name="aiCompletionLength"]');
         this.aiKeysListEl = this.root.querySelector('[data-ref="aiKeysList"]');
@@ -497,7 +463,7 @@ export class SettingsDialog {
         this.codeFontSizeInput.value = Number(editorPrefs.codeFontSize) || 14;
         this.codeLineHeightInput.value = Number(editorPrefs.codeLineHeight) || 1.5;
         this._setSelectValue(this.codeFontWeightSelect, String(editorPrefs.codeFontWeight || 400));
-        // AI 助手设置 - 从 aiService 读取
+        // AI 场景设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
         // 过滤掉 cloud plugin（由登录态自动接入，不应出现在用户配置列表）
         this.aiConfiguredProviders = (aiConfig.providers || [])
@@ -671,7 +637,7 @@ export class SettingsDialog {
             autoSave,
         };
 
-        // AI 助手设置
+        // AI 场景设置
         const providers = this.aiConfiguredProviders
             .filter(p => p.apiKey?.trim())
             .map(p => {
@@ -721,7 +687,7 @@ export class SettingsDialog {
         try {
             const service = await getAiService();
             service.saveConfig(config);
-            console.log('[SettingsDialog] AI 配置已保存');
+            logger.info('AI 配置已保存');
         } catch (error) {
             console.error('[SettingsDialog] 保存 AI 配置失败:', error);
         }

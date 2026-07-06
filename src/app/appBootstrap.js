@@ -266,7 +266,6 @@ export function createAppBootstrap({
             void featureManager?.unmountAll?.();
         });
         await featureManager?.mountAll?.();
-        console.log('[App] 功能模块已通过 FeatureManager 挂载');
         handleCardSidebarOnFileChange(appState.getCurrentFile());
 
         const markdownCodeMode = createMarkdownCodeMode({

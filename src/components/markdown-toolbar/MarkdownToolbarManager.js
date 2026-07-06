@@ -1,11 +1,13 @@
 import { MarkdownToolbar } from './index.js';
 import { COMMAND_IDS } from '../../core/commands/commandIds.js';
 import { createStore } from '../../services/storage.js';
+import { createLogger } from '../../core/diagnostics/Logger.js';
 
 const store = createStore('toolbar');
 store.migrateFrom('markdown-toolbar-theme', 'theme', { parse: 'raw' });
 store.migrateFrom('markdown-toolbar-visible', 'visible', { parse: (raw) => raw === 'true' });
 store.migrateFrom('markdown-content-centered', 'contentCentered', { parse: (raw) => raw === 'true' });
+const logger = createLogger('toolbar');
 
 /**
  * Markdown工具栏管理器
@@ -38,8 +40,6 @@ export class MarkdownToolbarManager {
      * @param {string} editorType - 编辑器类型 ('tiptap' 或 'codemirror')
      */
     async initialize(editorInstance, editorType = 'tiptap') {
-        // console.log('MarkdownToolbarManager: initialize called', { editorInstance, editorType });
-
         if (this.isInitialized) {
             console.warn('Markdown toolbar already initialized');
             return;
@@ -79,7 +79,7 @@ export class MarkdownToolbarManager {
         this.setupEventListeners();
 
         this.isInitialized = true;
-        console.log('Markdown toolbar initialized');
+        logger.info('Markdown toolbar initialized');
     }
 
     /**
@@ -358,12 +358,6 @@ export class MarkdownToolbarManager {
      * 切换工具栏显示状态
      */
     toggle() {
-        // console.log('MarkdownToolbarManager: toggle called', {
-        //     isInitialized: this.isInitialized,
-        //     hasToolbar: !!this.toolbar,
-        //     hasEditor: !!this.editorInstance
-        // });
-
         if (this.toolbar) {
             this.toolbar.toggle();
         } else if (!this.isInitialized && this._getEditorRegistry) {
@@ -455,7 +449,7 @@ export class MarkdownToolbarManager {
         this.editorInstance = null;
         this.editorType = null;
 
-        console.log('Markdown toolbar destroyed');
+        logger.info('Markdown toolbar destroyed');
     }
 
     /**

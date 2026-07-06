@@ -637,9 +637,7 @@ export class TabManager {
         if (typeof tabElement.setPointerCapture === 'function') {
             try {
                 tabElement.setPointerCapture(pointerId);
-            } catch (error) {
-                console.debug('无法捕获指针用于拖动 tab:', error);
-            }
+            } catch {}
         }
 
         this.draggedTabId = tabId;
@@ -727,9 +725,7 @@ export class TabManager {
             if (typeof tabElement.releasePointerCapture === 'function') {
                 try {
                     tabElement.releasePointerCapture(state.pointerId);
-                } catch (error) {
-                    console.debug('释放指针捕获失败:', error);
-                }
+                } catch {}
             }
 
             this.restoreDraggedTabPosition(state);
@@ -763,9 +759,7 @@ export class TabManager {
             if (typeof state.tabElement.releasePointerCapture === 'function') {
                 try {
                     state.tabElement.releasePointerCapture(state.pointerId);
-                } catch (error) {
-                    console.debug('释放指针捕获失败:', error);
-                }
+                } catch {}
             }
             this.restoreDraggedTabPosition(state);
             this.resetDraggedTabStyles(state.tabElement);

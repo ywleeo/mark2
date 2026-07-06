@@ -4,6 +4,9 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { createLogger } from '../core/diagnostics/Logger.js';
+
+const logger = createLogger('recent-files');
 
 export function createRecentFilesActions(options = {}) {
     const {
@@ -56,7 +59,7 @@ export function createRecentFilesActions(options = {}) {
             // 调用 Rust command 更新菜单（只更新实际存在的项）
             await invoke('update_recent_menu', { items: menuItems });
         } catch (error) {
-            console.error('[recentFilesActions] 更新最近菜单失败:', error);
+            logger.error('更新最近菜单失败', error);
         }
     }
 
@@ -64,29 +67,26 @@ export function createRecentFilesActions(options = {}) {
      * 处理点击最近项菜单
      */
     async function handleRecentItemClick(index) {
-        console.log('[recentFilesActions] 点击菜单项:', index);
-        console.log('[recentFilesActions] 当前映射:', recentPathsMap);
+        logger.debug('点击最近菜单项', { index, mappedCount: recentPathsMap.size });
 
         const path = recentPathsMap.get(index);
         if (!path) {
-            console.warn('[recentFilesActions] 未找到路径映射:', index);
+            logger.warn('未找到最近菜单路径映射', { index });
             return;
         }
 
-        console.log('[recentFilesActions] 将要打开:', path);
+        logger.debug('准备打开最近项', { path });
 
         try {
-            console.log('[recentFilesActions] 开始标准化路径...');
             const normalizedPath = normalizeFsPath(path);
-            console.log('[recentFilesActions] 标准化路径结果:', normalizedPath);
+            logger.debug('最近项路径已标准化', { path, normalizedPath });
             if (!normalizedPath) {
-                console.warn('[recentFilesActions] 路径标准化失败');
+                logger.warn('最近项路径标准化失败', { path });
                 return;
             }
 
-            console.log('[recentFilesActions] 检查文件是否存在...');
             const exists = await fileService.exists(normalizedPath);
-            console.log('[recentFilesActions] 文件存在性:', exists);
+            logger.debug('最近项存在性检查完成', { normalizedPath, exists });
             if (!exists) {
                 const { message } = await import('@tauri-apps/plugin-dialog');
                 await message(`文件或文件夹不存在：\n${normalizedPath}`, {
@@ -100,37 +100,31 @@ export function createRecentFilesActions(options = {}) {
                 return;
             }
 
-            console.log('[recentFilesActions] 检查是否为目录...');
             const isDir = await fileService.isDirectory(normalizedPath);
-            console.log('[recentFilesActions] 是否为目录:', isDir);
+            logger.debug('最近项类型检查完成', { normalizedPath, isDir });
 
             const fileTree = getFileTree();
-            console.log('[recentFilesActions] fileTree:', fileTree);
 
             if (isDir) {
                 // 打开文件夹
-                console.log('[recentFilesActions] 尝试打开文件夹...');
                 if (fileTree && typeof fileTree.loadFolder === 'function') {
-                    console.log('[recentFilesActions] 调用 loadFolder');
                     await fileTree.loadFolder(normalizedPath);
-                    console.log('[recentFilesActions] loadFolder 完成');
+                    logger.info('已打开最近文件夹', { normalizedPath });
                 } else {
-                    console.warn('[recentFilesActions] fileTree 未初始化或无 loadFolder 方法');
+                    logger.warn('fileTree 未初始化或无 loadFolder 方法');
                 }
             } else {
                 // 打开文件
-                console.log('[recentFilesActions] 尝试打开文件...');
                 if (fileTree) {
-                    console.log('[recentFilesActions] 调用 addToOpenFiles 和 selectFile');
                     fileTree.addToOpenFiles(normalizedPath);
                     fileTree.selectFile(normalizedPath);
-                    console.log('[recentFilesActions] 文件打开完成');
+                    logger.info('已打开最近文件', { normalizedPath });
                 } else {
-                    console.warn('[recentFilesActions] fileTree 未初始化');
+                    logger.warn('fileTree 未初始化');
                 }
             }
         } catch (error) {
-            console.error('[recentFilesActions] 打开最近项失败:', error);
+            logger.error('打开最近项失败', error);
             const { message } = await import('@tauri-apps/plugin-dialog');
             await message(`打开失败: ${error?.message || error}`, {
                 title: 'Open Recent',

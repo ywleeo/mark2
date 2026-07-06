@@ -74,7 +74,7 @@ export const VideoBlock = Node.create({
             video.preload = 'metadata';
             video.playsInline = true;
             video.setAttribute('webkit-playsinline', 'true');
-            // 留个原始路径在 dataset 里，导出 / AI 助手等下游需要时能拿到
+            // 留个原始路径在 dataset 里，导出等下游需要时能拿到
             video.dataset.originalSrc = rawSrc;
             wrapper.appendChild(video);
 

@@ -1,6 +1,9 @@
 import { TextSelection } from '@tiptap/pm/state';
 import { buildInlineCompletionContext, requestInlineCompletion } from './InlineCompletionProvider.js';
 import { createInlineCompletionPlugin, inlineCompletionPluginKey } from './InlineCompletionPlugin.js';
+import { createLogger } from '../../core/diagnostics/Logger.js';
+
+const logger = createLogger('inline-completion');
 
 /**
  * Markdown 编辑器内联续写控制器。
@@ -58,7 +61,7 @@ export class InlineCompletionManager {
         tr.setSelection(TextSelection.create(tr.doc, insertPos + text.length));
         tr.setMeta(inlineCompletionPluginKey, { type: 'clear' });
         view.dispatch(tr);
-        console.debug('[InlineCompletion] accept', { length: text.length });
+        logger.debug('accept', { length: text.length });
     }
 
     showSuggestion(text, pos = null) {
@@ -97,7 +100,7 @@ export class InlineCompletionManager {
         view.dispatch(state.tr
             .setSelection(TextSelection.create(state.doc, pos))
             .setMeta(inlineCompletionPluginKey, { type: 'loading', pos }));
-        console.debug('[InlineCompletion] request:start', { pos });
+        logger.debug('request:start', { pos });
 
         try {
             const context = buildInlineCompletionContext(state, this.getMarkdown?.() || '');
@@ -111,7 +114,7 @@ export class InlineCompletionManager {
                     text: completion,
                 }));
             view.focus();
-            console.debug('[InlineCompletion] request:success', { length: completion.length });
+            logger.debug('request:success', { length: completion.length });
         } catch (error) {
             if (requestId !== this.requestSeq || view.isDestroyed) return;
             console.warn('[InlineCompletion] request:failed', error);

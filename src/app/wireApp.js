@@ -80,6 +80,7 @@ const workspaceLogger = createLogger('workspace');
 const featureLogger = createLogger('features');
 const exportLogger = createLogger('export');
 const viewLogger = createLogger('views');
+featureLogger.info('Mark2 Tauri 版本已启动');
 const documentManager = createDocumentManager({
     appState,
     normalizePath: normalizeFsPath,
@@ -118,8 +119,6 @@ function ensureFileService() {
     }
     return createFileService();
 }
-
-console.log('Mark2 Tauri 版本已启动');
 
 // ========== 服务层实例 ==========
 const recentFilesService = createRecentFilesService();
