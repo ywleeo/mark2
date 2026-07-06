@@ -286,7 +286,7 @@ export class MarkdownToolbar {
         // 视图操作 / 复制 / 分享类不需要编辑器实例，直接触发回调
         if (action === 'toggleViewMode' || action === 'copy'
             || action === 'copyMarkdown' || action === 'copyPlainText'
-            || action === 'shareLink') {
+            || action === 'shareLink' || action === 'aiWriting') {
             this.emit('action', action);
             return;
         }

@@ -154,6 +154,10 @@ export const BUTTON_CONFIG = {
         icon: uicon('plus'),
         title: t('toolbar.insert')
     },
+    aiWriting: {
+        icon: textIcon('AI', 'toolbar-icon--ai-writing'),
+        title: t('toolbar.aiWriting')
+    },
     video: {
         icon: uicon('video-camera'),
         title: t('toolbar.video')
@@ -183,7 +187,7 @@ export const TOOLBAR_GROUPS = {
     fixed: [
         ['navBack', 'navForward'],
         ['bold', 'italic', 'strikethrough', 'code'],
-        ['heading', 'list', 'insert'],
+        ['heading', 'list', 'insert', 'aiWriting'],
     ],
     flow: [
         ['quote', 'codeBlock'],

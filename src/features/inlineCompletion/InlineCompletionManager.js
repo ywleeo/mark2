@@ -24,6 +24,7 @@ export class InlineCompletionManager {
         if (value?.text && event.key === 'Tab') {
             event.preventDefault();
             event.stopPropagation();
+            event.stopImmediatePropagation?.();
             this.accept(value.text, value.pos);
             return;
         }
@@ -31,6 +32,7 @@ export class InlineCompletionManager {
         if ((value?.text || value?.loading || value?.error) && event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
+            event.stopImmediatePropagation?.();
             this.clear();
             this.cancel();
             return;
@@ -44,6 +46,7 @@ export class InlineCompletionManager {
 
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation?.();
         this.request(this.editor.view);
     }
 
@@ -56,6 +59,21 @@ export class InlineCompletionManager {
         tr.setMeta(inlineCompletionPluginKey, { type: 'clear' });
         view.dispatch(tr);
         console.debug('[InlineCompletion] accept', { length: text.length });
+    }
+
+    showSuggestion(text, pos = null) {
+        const view = this.editor.view;
+        if (!view || view.isDestroyed || !text) return;
+        const insertPos = Math.min(pos ?? view.state.selection.from, view.state.doc.content.size);
+        const tr = view.state.tr
+            .setSelection(TextSelection.create(view.state.doc, insertPos))
+            .setMeta(inlineCompletionPluginKey, {
+                type: 'suggest',
+                pos: insertPos,
+                text,
+            });
+        view.dispatch(tr);
+        view.focus();
     }
 
     clear() {
@@ -75,18 +93,24 @@ export class InlineCompletionManager {
 
         const requestId = ++this.requestSeq;
         const pos = state.selection.from;
-        view.dispatch(state.tr.setMeta(inlineCompletionPluginKey, { type: 'loading', pos }));
+        view.focus();
+        view.dispatch(state.tr
+            .setSelection(TextSelection.create(state.doc, pos))
+            .setMeta(inlineCompletionPluginKey, { type: 'loading', pos }));
         console.debug('[InlineCompletion] request:start', { pos });
 
         try {
             const context = buildInlineCompletionContext(state, this.getMarkdown?.() || '');
             const completion = await requestInlineCompletion(context);
             if (requestId !== this.requestSeq || view.isDestroyed) return;
-            view.dispatch(view.state.tr.setMeta(inlineCompletionPluginKey, {
-                type: 'suggest',
-                pos,
-                text: completion,
-            }));
+            view.dispatch(view.state.tr
+                .setSelection(TextSelection.create(view.state.doc, pos))
+                .setMeta(inlineCompletionPluginKey, {
+                    type: 'suggest',
+                    pos,
+                    text: completion,
+                }));
+            view.focus();
             console.debug('[InlineCompletion] request:success', { length: completion.length });
         } catch (error) {
             if (requestId !== this.requestSeq || view.isDestroyed) return;

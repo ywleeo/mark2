@@ -4,6 +4,8 @@ import { isSpreadsheetFilePath } from '../../utils/fileTypeUtils.js';
 import { createMarkdownParser, createMarkdownSerializer } from '../../modules/markdownPipeline.js';
 import { CodeCopyManager } from '../../features/codeCopy.js';
 import { InlineCompletionManager } from '../../features/inlineCompletion/InlineCompletionManager.js';
+import { AiWritingEntryManager } from '../../features/aiWriting/AiWritingEntryManager.js';
+import { SelectionRewriteManager } from '../../features/aiWriting/SelectionRewriteManager.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
@@ -23,6 +25,7 @@ import { LinkHandler } from './LinkHandler.js';
 import { ImagePasteHandler } from './ImagePasteHandler.js';
 import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
+import { LineStartClickManager } from './LineStartClickManager.js';
 
 function extractCsvFromDoc(doc) {
     if (!doc) return null;
@@ -67,6 +70,8 @@ export class MarkdownEditor {
         this.saveManager = null;
         this.codeCopyManager = null;
         this.inlineCompletionManager = null;
+        this.aiWritingEntryManager = null;
+        this.selectionRewriteManager = null;
         this.searchBoxManager = null;
         this.clipboardEnhancer = null;
         this.imageModal = null;
@@ -77,6 +82,7 @@ export class MarkdownEditor {
         this.linkHandler = null;
         this.imagePasteHandler = null;
         this.mermaidExportHandler = null;
+        this.lineStartClickManager = null;
 
         this._pendingMermaidRender = null;
         this._mermaidRenderFrame = null;
@@ -154,8 +160,29 @@ export class MarkdownEditor {
             editor: this.editor,
             getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
         });
+        this.selectionRewriteManager = new SelectionRewriteManager({
+            editor: this.editor,
+            viewElement: this.viewElement,
+            getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
+            getSelectedMarkdown: () => this.getSelectedMarkdown(),
+            replaceRangeWithMarkdown: (from, to, markdown) => this.replaceRangeWithMarkdown(from, to, markdown),
+            onInspiration: () => this.aiWritingEntryManager?.openInspiration(),
+        });
+        this.selectionRewriteManager.setup();
+        this.aiWritingEntryManager = new AiWritingEntryManager({
+            editor: this.editor,
+            getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
+            getSelectedMarkdown: () => this.getSelectedMarkdown(),
+            inlineCompletionManager: this.inlineCompletionManager,
+            insertTextAtCursor: (text) => this.insertTextAtCursor(text),
+        });
+        this.aiWritingEntryManager.setup();
         this.searchBoxManager = new SearchBoxManager(this.editor);
         this.clipboardEnhancer = new ClipboardEnhancer(this.element);
+        this.lineStartClickManager = new LineStartClickManager({
+            editor: this.editor,
+        });
+        this.lineStartClickManager.setup();
         this.imageModal = new ImageModal();
         this.tableToolbar = new TableBubbleToolbar(this.editor, this.viewElement);
         this.tableToolbar.setup();
@@ -492,6 +519,10 @@ export class MarkdownEditor {
 
     replaceSelectionWithAIContent(markdown) { this.insertAIContent(markdown); }
 
+    showAiWriting() {
+        this.aiWritingEntryManager?.openForCurrentContext();
+    }
+
     replaceRangeWithMarkdown(from, to, markdown) {
         if (!this.editor || typeof markdown !== 'string') return;
         const processed = preprocessMarkdown(markdown);
@@ -638,8 +669,14 @@ export class MarkdownEditor {
         this.codeCopyManager?.destroy();
         this.inlineCompletionManager?.destroy();
         this.inlineCompletionManager = null;
+        this.aiWritingEntryManager?.destroy();
+        this.aiWritingEntryManager = null;
+        this.selectionRewriteManager?.destroy();
+        this.selectionRewriteManager = null;
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
+        this.lineStartClickManager?.destroy();
+        this.lineStartClickManager = null;
         this.imageModal?.destroy();
         this.tableToolbar?.destroy();
         this.tableToolbar = null;
