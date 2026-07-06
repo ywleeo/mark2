@@ -27,7 +27,7 @@ export function createCodeRenderer() {
                 return false;
             }
 
-            view?.activate?.('code', { skipScrollSync: true });
+            view?.activate?.('code');
             markdownEditor?.clear?.();
             const language = detectLanguageForPath?.(filePath) || null;
 

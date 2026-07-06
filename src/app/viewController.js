@@ -258,81 +258,12 @@ export function createViewController(options = {}) {
         adjustContentZoom(delta);
     }
 
-    // 用于 markdown ↔ code 切换时的位置同步
-    let pendingSyncPosition = null;  // 光标位置（行号+列号）
-    let pendingSyncScrollRatio = null;  // 滚动位置（百分比，0-1）
-
-    function getScrollRatio(scrollContainer) {
-        if (!scrollContainer) return null;
-        const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-        const maxScroll = scrollHeight - clientHeight;
-        if (maxScroll <= 0) return 0;
-        return scrollTop / maxScroll;
-    }
-
-    function applyScrollRatio(scrollContainer, ratio) {
-        if (!scrollContainer || ratio === null) return;
-        const { scrollHeight, clientHeight } = scrollContainer;
-        const maxScroll = scrollHeight - clientHeight;
-        if (maxScroll <= 0) return;
-        scrollContainer.scrollTop = ratio * maxScroll;
-    }
-
-    /**
-     * 等待滚动容器渲染稳定后再应用滚动比例
-     * @param {HTMLElement} scrollContainer - 滚动容器
-     * @param {number} ratio - 滚动比例 (0-1)
-     * @param {number} maxRetries - 最大重试次数
-     */
-    function waitForRenderThenScroll(scrollContainer, ratio, maxRetries = 10) {
-        if (!scrollContainer || ratio === null) return;
-
-        let lastHeight = 0;
-        let retries = 0;
-
-        function check() {
-            const height = scrollContainer.scrollHeight ?? 0;
-            if (height > 0 && height === lastHeight) {
-                // 高度稳定，渲染完成，应用滚动
-                applyScrollRatio(scrollContainer, ratio);
-            } else if (retries < maxRetries) {
-                lastHeight = height;
-                retries++;
-                requestAnimationFrame(check);
-            }
-        }
-        requestAnimationFrame(check);
-    }
-
-    function setActiveViewMode(nextMode, viewOptions = {}) {
-        const { skipScrollSync = false } = viewOptions;
+    function setActiveViewMode(nextMode) {
         const config = VIEW_MODE_BEHAVIORS[nextMode];
         if (!config) {
             return;
         }
         const currentMode = getActiveViewMode();
-
-        // markdown → code: 记录光标位置和滚动百分比（仅同文件视图切换时）
-        if (!skipScrollSync && currentMode === 'markdown' && nextMode === 'code') {
-            const editor = options.getEditor?.();
-            pendingSyncPosition = editor?.getCurrentSourcePosition?.() ?? null;
-            // 使用 markdownPane 作为滚动容器（和 rememberMarkdownScrollPosition 一致）
-            const scrollContainer = getMarkdownScrollContainer();
-            pendingSyncScrollRatio = getScrollRatio(scrollContainer);
-        }
-
-        // code → markdown: 记录光标位置和滚动百分比（仅同文件视图切换时）
-        if (!skipScrollSync && currentMode === 'code' && nextMode === 'markdown') {
-            const codeEditor = options.getCodeEditor?.();
-            pendingSyncPosition = codeEditor?.getCurrentPosition?.() ?? null;
-            if (codeEditor) {
-                const scrollTop = codeEditor.getScrollTop();
-                const scrollHeight = codeEditor.getScrollHeight();
-                const clientHeight = codeEditor.getClientHeight();
-                const maxScroll = scrollHeight - clientHeight;
-                pendingSyncScrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
-            }
-        }
 
         // 保留原有的滚动位置记忆（用于文件切换等场景）
         if (currentMode === 'markdown' && nextMode !== 'markdown' && nextMode !== 'code') {
@@ -360,51 +291,6 @@ export function createViewController(options = {}) {
             // markdown ↔ code 切换时不再使用 scrollTop，改用位置同步
             if (nextMode !== 'markdown' && nextMode !== 'code') {
                 container.scrollTop = 0;
-            }
-        }
-
-        // 同步光标位置和滚动位置
-        if (pendingSyncPosition !== null || pendingSyncScrollRatio !== null) {
-            if (nextMode === 'code') {
-                // markdown → code: 设置光标位置，然后按百分比滚动
-                requestAnimationFrame(() => {
-                    const codeEditor = options.getCodeEditor?.();
-                    // 先设置光标位置（不滚动）
-                    if (pendingSyncPosition !== null) {
-                        codeEditor?.setPositionOnly?.(pendingSyncPosition.lineNumber, pendingSyncPosition.column);
-                    }
-                    // 按百分比滚动
-                    if (pendingSyncScrollRatio !== null && codeEditor) {
-                        const scrollHeight = codeEditor.getScrollHeight();
-                        const clientHeight = codeEditor.getClientHeight();
-                        const maxScroll = scrollHeight - clientHeight;
-                        if (maxScroll > 0) {
-                            codeEditor.setScrollTop(pendingSyncScrollRatio * maxScroll);
-                        }
-                    }
-                    pendingSyncPosition = null;
-                    pendingSyncScrollRatio = null;
-                });
-            } else if (nextMode === 'markdown') {
-                // code → markdown: 设置光标位置，然后按百分比滚动
-                const savedPosition = pendingSyncPosition;
-                const savedRatio = pendingSyncScrollRatio;
-                pendingSyncPosition = null;
-                pendingSyncScrollRatio = null;
-
-                // 先设置光标位置（不滚动）
-                requestAnimationFrame(() => {
-                    const editor = options.getEditor?.();
-                    if (savedPosition !== null) {
-                        editor?.setSourcePositionOnly?.(savedPosition.lineNumber, savedPosition.column);
-                    }
-                });
-
-                // 等待渲染稳定后按百分比滚动
-                if (savedRatio !== null) {
-                    const scrollContainer = getMarkdownScrollContainer();
-                    waitForRenderThenScroll(scrollContainer, savedRatio);
-                }
             }
         }
 

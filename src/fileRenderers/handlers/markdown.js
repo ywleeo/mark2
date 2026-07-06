@@ -24,7 +24,7 @@ export function createMarkdownRenderer() {
                 return false;
             }
 
-            view?.activate?.('markdown', { skipScrollSync: true });
+            view?.activate?.('markdown');
 
             if (doc && typeof editor.attachDocument === 'function') {
                 await editor.attachDocument(doc, {

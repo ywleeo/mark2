@@ -17,6 +17,78 @@ export function createMarkdownCodeMode({
 
     let toggleState = null;
 
+    function getElementScrollRatio(element) {
+        if (!element) return null;
+        const maxScroll = (element.scrollHeight ?? 0) - (element.clientHeight ?? 0);
+        if (maxScroll <= 0) return 0;
+        return Math.min(1, Math.max(0, (element.scrollTop || 0) / maxScroll));
+    }
+
+    function applyElementScrollRatio(element, ratio) {
+        if (!element || !Number.isFinite(ratio)) return;
+        const maxScroll = (element.scrollHeight ?? 0) - (element.clientHeight ?? 0);
+        if (maxScroll <= 0) return;
+        element.scrollTop = Math.min(1, Math.max(0, ratio)) * maxScroll;
+    }
+
+    function applyElementScrollRatioWhenStable(element, ratio, maxRetries = 8) {
+        if (!element || !Number.isFinite(ratio)) return;
+
+        let lastHeight = -1;
+        let retries = 0;
+        const tick = () => {
+            const height = element.scrollHeight ?? 0;
+            if (height > 0 && height === lastHeight) {
+                applyElementScrollRatio(element, ratio);
+                return;
+            }
+            if (retries >= maxRetries) {
+                applyElementScrollRatio(element, ratio);
+                return;
+            }
+            lastHeight = height;
+            retries += 1;
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    }
+
+    function getCodeScrollRatio(codeEditor) {
+        if (!codeEditor) return null;
+        const maxScroll = codeEditor.getScrollHeight() - codeEditor.getClientHeight();
+        if (maxScroll <= 0) return 0;
+        return Math.min(1, Math.max(0, codeEditor.getScrollTop() / maxScroll));
+    }
+
+    function applyCodeScrollRatio(codeEditor, ratio) {
+        if (!codeEditor || !Number.isFinite(ratio)) return;
+        const maxScroll = codeEditor.getScrollHeight() - codeEditor.getClientHeight();
+        if (maxScroll <= 0) return;
+        codeEditor.setScrollTop(Math.min(1, Math.max(0, ratio)) * maxScroll);
+    }
+
+    function applyCodeScrollRatioWhenStable(codeEditor, ratio, maxRetries = 8) {
+        if (!codeEditor || !Number.isFinite(ratio)) return;
+
+        let lastHeight = -1;
+        let retries = 0;
+        const tick = () => {
+            const height = codeEditor.getScrollHeight();
+            if (height > 0 && height === lastHeight) {
+                applyCodeScrollRatio(codeEditor, ratio);
+                return;
+            }
+            if (retries >= maxRetries) {
+                applyCodeScrollRatio(codeEditor, ratio);
+                return;
+            }
+            lastHeight = height;
+            retries += 1;
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    }
+
     /**
      * 从 DocumentModel 拿"权威"内容。先 saveCache 把当前编辑器同步过来（带身份校验，
      * 拿不到就跳过保存——比如另一个 tab 残留），然后从 DocumentModel 读。
@@ -70,7 +142,9 @@ export function createMarkdownCodeMode({
 
             // 光标位置同样只在编辑器装的就是当前文件时才取
             const pos = editorMatchesFile ? editor.getCurrentSourcePosition?.() : null;
-            // 切前抓光标在 viewport 的相对位置，切后保持同样的相对高度（位置继承）
+            const sourceScrollRatio = editorMatchesFile
+                ? getElementScrollRatio(editor.getScrollContainer?.())
+                : null;
             const cursorRatio = editorMatchesFile ? editor.getCursorViewportRatio?.() : null;
 
             toggleState = {
@@ -83,12 +157,19 @@ export function createMarkdownCodeMode({
             await codeEditor.show(currentFile, markdownContent, language, null, { tabId: currentFile });
             editor?.refreshSearch?.();
 
-            // 恢复光标：定位到行尾，按切前的 viewport 相对位置摆放该行
-            if (pos) {
+            // md/code 切换时，源视图当前 scroll ratio 优先于目标视图历史 scroll；光标只作为定位兜底。
+            if (pos || Number.isFinite(sourceScrollRatio)) {
                 const lines = markdownContent.split('\n');
-                const line = lines[pos.lineNumber - 1] || '';
+                const line = pos ? (lines[pos.lineNumber - 1] || '') : '';
                 requestAnimationFrame(() => {
-                    codeEditor.setPositionAtRatio(pos.lineNumber, line.length + 1, cursorRatio);
+                    if (Number.isFinite(sourceScrollRatio)) {
+                        if (pos) {
+                            codeEditor.setPositionOnly?.(pos.lineNumber, line.length + 1);
+                        }
+                        applyCodeScrollRatioWhenStable(codeEditor, sourceScrollRatio);
+                    } else if (pos) {
+                        codeEditor.setPositionAtRatio(pos.lineNumber, line.length + 1, cursorRatio);
+                    }
                 });
             }
 
@@ -122,6 +203,7 @@ export function createMarkdownCodeMode({
             });
 
             const pos = codeMatchesFile ? codeEditor.getCurrentPosition?.() : null;
+            const sourceScrollRatio = codeMatchesFile ? getCodeScrollRatio(codeEditor) : null;
             const cursorRatio = codeMatchesFile ? codeEditor.getCursorViewportRatio?.() : null;
 
             codeEditor?.saveViewStateForTab?.(currentFile);
@@ -129,10 +211,10 @@ export function createMarkdownCodeMode({
             await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });
             editor?.refreshSearch?.();
 
-            // 恢复光标：定位到行尾，按切前的 viewport 相对位置摆放该行
-            if (pos && editor.setSourcePositionAtRatio) {
+            // md/code 切换时，源视图当前 scroll ratio 优先于目标视图历史 scroll；光标只作为定位兜底。
+            if (pos || Number.isFinite(sourceScrollRatio)) {
                 const lines = codeContent.split('\n');
-                const line = lines[pos.lineNumber - 1] || '';
+                const line = pos ? (lines[pos.lineNumber - 1] || '') : '';
                 // 去掉 markdown 符号后的行长度
                 const renderedLine = line
                     .replace(/^#{1,6}\s+/, '')
@@ -140,7 +222,14 @@ export function createMarkdownCodeMode({
                     .replace(/^[-*+]\s+/, '')
                     .replace(/^\d+\.\s+/, '');
                 requestAnimationFrame(() => {
-                    editor.setSourcePositionAtRatio(pos.lineNumber, renderedLine.length + 1, cursorRatio);
+                    if (Number.isFinite(sourceScrollRatio)) {
+                        if (pos) {
+                            editor.setSourcePositionOnly?.(pos.lineNumber, renderedLine.length + 1);
+                        }
+                        applyElementScrollRatioWhenStable(editor.getScrollContainer?.(), sourceScrollRatio);
+                    } else if (pos && editor.setSourcePositionAtRatio) {
+                        editor.setSourcePositionAtRatio(pos.lineNumber, renderedLine.length + 1, cursorRatio);
+                    }
                 });
             }
 
