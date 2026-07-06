@@ -755,14 +755,76 @@
 
 
 /* 居中排版模式 */
+.view-pane.markdown-pane.content-centered {
+    position: relative;
+}
+
 .view-pane.markdown-pane.content-centered .markdown-content {
-    justify-content: center;
-    align-items: center;
+    display: block;
 }
 
 .view-pane.markdown-pane.content-centered .markdown-content .tiptap-editor {
-    max-width: 800px;
-    width: 100%;
+    width: min(var(--markdown-centered-width, clamp(720px, 72%, 980px)), calc(100% - 56px));
+    max-width: none;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.markdown-page-width-handle {
+    position: absolute;
+    z-index: 24;
+    width: 24px;
+    height: 72px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(31, 41, 55, 0.28);
+    cursor: ew-resize;
+    opacity: 0;
+    pointer-events: auto;
+    transform: translateY(-50%);
+    transition: opacity 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.markdown-page-width-handle::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.72;
+}
+
+.view-pane.markdown-pane.content-centered:hover .markdown-page-width-handle,
+.markdown-page-width-handle:hover,
+.markdown-page-width-handle.is-dragging {
+    opacity: 1;
+}
+
+.markdown-page-width-handle:hover,
+.markdown-page-width-handle.is-dragging {
+    color: rgba(59, 130, 246, 0.72);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+body.is-resizing-markdown-page,
+body.is-resizing-markdown-page * {
+    cursor: ew-resize !important;
+    user-select: none !important;
+}
+
+:root[data-theme-appearance='dark'] .markdown-page-width-handle {
+    color: rgba(226, 232, 240, 0.28);
+}
+
+:root[data-theme-appearance='dark'] .markdown-page-width-handle:hover,
+:root[data-theme-appearance='dark'] .markdown-page-width-handle.is-dragging {
+    color: rgba(147, 197, 253, 0.78);
+    background: rgba(147, 197, 253, 0.1);
 }
 
 /* 按钮激活状态 */

@@ -11,6 +11,9 @@ import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
 
 const store = createStore('toolbar');
+const CENTERED_WIDTH_MIN = 560;
+const CENTERED_WIDTH_MAX = 1180;
+const CENTERED_WIDTH_GUTTER = 56;
 
 /**
  * Markdown工具栏类
@@ -32,6 +35,10 @@ export class MarkdownToolbar {
         this.resizeObserver = null;
         this._onWindowResize = null;
         this._navUnsubscribe = null;
+        this.pageWidthHandle = null;
+        this.pageWidthDragState = null;
+        this.pageWidthCleanup = null;
+        this.pageWidthResizeObserver = null;
         this.options = {
             position: 'top', // 'top' 或 'bottom'
             theme: 'light', // 'light' 或 'dark'
@@ -132,6 +139,7 @@ export class MarkdownToolbar {
 
         this._onWindowResize = () => {
             this.overflowMenu?.scheduleRecompute();
+            this.updatePageWidthHandlePosition();
         };
         window.addEventListener('resize', this._onWindowResize);
 
@@ -218,6 +226,8 @@ export class MarkdownToolbar {
 
         this.overflowMenu?.destroy();
         this.overflowMenu = null;
+
+        this.disablePageWidthHandle();
     }
 
     /**
@@ -580,6 +590,7 @@ export class MarkdownToolbar {
         }
 
         const isCentered = markdownPane.classList.toggle('content-centered');
+        this.applyCenteredContentWidth(markdownPane);
 
         // 更新按钮状态
         const button = this.container?.querySelector('[data-action="centerContent"]');
@@ -588,6 +599,11 @@ export class MarkdownToolbar {
         }
 
         store.set('contentCentered', isCentered);
+        if (isCentered) {
+            this.enablePageWidthHandle(markdownPane);
+        } else {
+            this.disablePageWidthHandle();
+        }
 
         return true;
     }
@@ -600,10 +616,160 @@ export class MarkdownToolbar {
         const markdownPane = document.querySelector('.view-pane.markdown-pane');
         if (markdownPane) {
             markdownPane.classList.add('content-centered');
+            this.applyCenteredContentWidth(markdownPane);
+            this.enablePageWidthHandle(markdownPane);
         }
         const button = this.container?.querySelector('[data-action="centerContent"]');
         if (button) {
             button.classList.add('toolbar-button--active');
         }
+    }
+
+    /**
+     * 将用户保存的居中页宽应用到 markdown pane。
+     * 没有保存值时走 CSS 自适应宽度。
+     */
+    applyCenteredContentWidth(markdownPane) {
+        const width = Number(store.get('contentCenteredWidth', 0));
+        if (Number.isFinite(width) && width > 0) {
+            markdownPane.style.setProperty('--markdown-centered-width', `${width}px`);
+            return;
+        }
+        markdownPane.style.removeProperty('--markdown-centered-width');
+    }
+
+    /**
+     * 开启居中排版页宽拖拽手柄。
+     */
+    enablePageWidthHandle(markdownPane) {
+        if (!markdownPane || this.pageWidthHandle?.isConnected) {
+            this.updatePageWidthHandlePosition();
+            return;
+        }
+
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'markdown-page-width-handle';
+        handle.setAttribute('aria-label', 'Adjust page width');
+        markdownPane.appendChild(handle);
+        this.pageWidthHandle = handle;
+
+        const onPointerDown = (event) => {
+            if (event.button !== 0) return;
+            const editorEl = this.getCenteredEditorElement();
+            const contentEl = markdownPane.querySelector('.markdown-content');
+            if (!editorEl || !contentEl) return;
+            event.preventDefault();
+            event.stopPropagation();
+
+            const contentRect = contentEl.getBoundingClientRect();
+            const editorRect = editorEl.getBoundingClientRect();
+            this.pageWidthDragState = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startWidth: editorRect.width,
+                maxWidth: this.getCenteredWidthMax(contentRect.width),
+            };
+            document.body.classList.add('is-resizing-markdown-page');
+            handle.classList.add('is-dragging');
+        };
+
+        const onPointerMove = (event) => {
+            const state = this.pageWidthDragState;
+            if (!state) return;
+            event.preventDefault();
+            const rawWidth = Math.round(state.startWidth + (event.clientX - state.startX) * 2);
+            const width = this.clampPageWidth(rawWidth, state.maxWidth);
+            markdownPane.style.setProperty('--markdown-centered-width', `${width}px`);
+            store.set('contentCenteredWidth', width);
+            this.updatePageWidthHandlePosition();
+        };
+
+        const finishDrag = (event) => {
+            const state = this.pageWidthDragState;
+            if (!state) return;
+            handle.classList.remove('is-dragging');
+            document.body.classList.remove('is-resizing-markdown-page');
+            this.pageWidthDragState = null;
+            this.updatePageWidthHandlePosition();
+        };
+
+        handle.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', finishDrag);
+        window.addEventListener('pointercancel', finishDrag);
+        this.pageWidthCleanup = () => {
+            handle.removeEventListener('pointerdown', onPointerDown);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', finishDrag);
+            window.removeEventListener('pointercancel', finishDrag);
+        };
+
+        const contentEl = markdownPane.querySelector('.markdown-content');
+        if (typeof ResizeObserver !== 'undefined') {
+            this.pageWidthResizeObserver = new ResizeObserver(() => this.updatePageWidthHandlePosition());
+            this.pageWidthResizeObserver.observe(markdownPane);
+            if (contentEl) {
+                this.pageWidthResizeObserver.observe(contentEl);
+            }
+        }
+
+        requestAnimationFrame(() => this.updatePageWidthHandlePosition());
+    }
+
+    /**
+     * 关闭并清理页宽拖拽手柄。
+     */
+    disablePageWidthHandle() {
+        this.pageWidthCleanup?.();
+        this.pageWidthCleanup = null;
+        this.pageWidthResizeObserver?.disconnect();
+        this.pageWidthResizeObserver = null;
+        this.pageWidthDragState = null;
+        document.body.classList.remove('is-resizing-markdown-page');
+        this.pageWidthHandle?.remove();
+        this.pageWidthHandle = null;
+    }
+
+    /**
+     * 根据当前编辑器实际边界摆放页宽手柄。
+     */
+    updatePageWidthHandlePosition() {
+        const handle = this.pageWidthHandle;
+        if (!handle?.isConnected) return;
+        const markdownPane = document.querySelector('.view-pane.markdown-pane.content-centered');
+        const editorEl = this.getCenteredEditorElement();
+        if (!markdownPane || !editorEl) return;
+
+        const paneRect = markdownPane.getBoundingClientRect();
+        const contentRect = markdownPane.querySelector('.markdown-content')?.getBoundingClientRect();
+        const editorRect = editorEl.getBoundingClientRect();
+        const x = editorRect.right - paneRect.left + 10;
+        const y = (contentRect?.top ?? editorRect.top) - paneRect.top + 72;
+
+        handle.style.left = `${Math.round(x)}px`;
+        handle.style.top = `${Math.round(y)}px`;
+    }
+
+    /**
+     * 返回居中模式下正在显示的 TipTap 编辑器 DOM。
+     */
+    getCenteredEditorElement() {
+        return document.querySelector('.view-pane.markdown-pane.content-centered .markdown-content .tiptap-editor');
+    }
+
+    /**
+     * 根据容器宽度限制可拖拽页宽。
+     */
+    getCenteredWidthMax(contentWidth) {
+        return Math.max(CENTERED_WIDTH_MIN, Math.min(CENTERED_WIDTH_MAX, contentWidth - CENTERED_WIDTH_GUTTER));
+    }
+
+    /**
+     * 限制页宽在可读范围内。
+     */
+    clampPageWidth(width, maxWidth = CENTERED_WIDTH_MAX) {
+        const upper = Math.max(CENTERED_WIDTH_MIN, maxWidth);
+        return Math.min(Math.max(width, CENTERED_WIDTH_MIN), upper);
     }
 }

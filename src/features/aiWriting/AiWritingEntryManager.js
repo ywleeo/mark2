@@ -26,6 +26,8 @@ export class AiWritingEntryManager {
         this.panelCleanups = [];
         this.hintTimer = null;
         this.hintShowFrame = null;
+        this.hintPositionFrame = null;
+        this.scrollContainer = null;
         this.lastCompactHintPosition = null;
         this.requestSeq = 0;
         this.expandedHintOpenedAt = 0;
@@ -34,6 +36,7 @@ export class AiWritingEntryManager {
         this.selectionUpdateHandler = () => this.handleEditorActivity();
         this.transactionHandler = ({ transaction }) => this.handleTransaction(transaction);
         this.keydownHandler = () => this.handleTyping();
+        this.viewportChangeHandler = () => this.scheduleHintPositionUpdate();
         this.documentPointerHandler = (event) => {
             if (this.panelEl && !this.panelEl.contains(event.target) && !this.hintEl?.contains(event.target)) {
                 this.hidePanel();
@@ -50,6 +53,10 @@ export class AiWritingEntryManager {
         this.editor?.on?.('selectionUpdate', this.selectionUpdateHandler);
         this.editor?.on?.('transaction', this.transactionHandler);
         this.editor?.view?.dom?.addEventListener('keydown', this.keydownHandler, true);
+        this.scrollContainer = this.getScrollContainer();
+        this.scrollContainer?.addEventListener('scroll', this.viewportChangeHandler, { passive: true });
+        document.addEventListener('scroll', this.viewportChangeHandler, true);
+        window.addEventListener('resize', this.viewportChangeHandler);
         document.addEventListener('mousedown', this.documentPointerHandler, true);
     }
 
@@ -59,7 +66,12 @@ export class AiWritingEntryManager {
         this.editor?.off?.('selectionUpdate', this.selectionUpdateHandler);
         this.editor?.off?.('transaction', this.transactionHandler);
         this.editor?.view?.dom?.removeEventListener('keydown', this.keydownHandler, true);
+        this.scrollContainer?.removeEventListener('scroll', this.viewportChangeHandler);
+        this.scrollContainer = null;
+        document.removeEventListener('scroll', this.viewportChangeHandler, true);
+        window.removeEventListener('resize', this.viewportChangeHandler);
         document.removeEventListener('mousedown', this.documentPointerHandler, true);
+        this.clearHintPositionFrame();
         this.hideHint({ immediate: true });
         this.hidePanel();
     }
@@ -106,6 +118,30 @@ export class AiWritingEntryManager {
             cancelAnimationFrame(this.hintShowFrame);
             this.hintShowFrame = null;
         }
+    }
+
+    /**
+     * 清理滚动/窗口变化触发的定位帧。
+     */
+    clearHintPositionFrame() {
+        if (this.hintPositionFrame) {
+            cancelAnimationFrame(this.hintPositionFrame);
+            this.hintPositionFrame = null;
+        }
+    }
+
+    /**
+     * 在滚动或窗口尺寸变化时刷新 AI 入口位置。
+     */
+    scheduleHintPositionUpdate() {
+        if (!this.hintEl) return;
+        this.clearHintPositionFrame();
+        this.hintPositionFrame = requestAnimationFrame(() => {
+            this.hintPositionFrame = null;
+            if (this.hintEl) {
+                this.positionHintElement(this.hintEl);
+            }
+        });
     }
 
     scheduleCursorHint() {
@@ -305,12 +341,20 @@ export class AiWritingEntryManager {
             const pos = this.editor.state.selection.from;
             const anchor = this.getLineGutterAnchor(pos);
             const rect = element.getBoundingClientRect();
+            const viewportRect = this.getEditorViewportRect();
+            if (!alignMenu && viewportRect && (anchor.bottom < viewportRect.top || anchor.top > viewportRect.bottom)) {
+                element.style.visibility = 'hidden';
+                return;
+            }
+            element.style.visibility = '';
             const left = alignMenu
                 ? Math.max(10, Math.min(anchor.left + 24, window.innerWidth - rect.width - 10))
                 : Math.max(10, Math.min(anchor.left, window.innerWidth - rect.width - 10));
             const lineMiddle = (anchor.top + anchor.bottom) / 2;
             const rawTop = alignMenu ? anchor.bottom + 6 : lineMiddle - rect.height / 2;
-            const top = Math.max(10, Math.min(rawTop, window.innerHeight - rect.height - 10));
+            const top = alignMenu
+                ? Math.max(10, Math.min(rawTop, window.innerHeight - rect.height - 10))
+                : rawTop;
             element.style.left = `${left}px`;
             element.style.top = `${top}px`;
             if (element.classList.contains('ai-writing-cursor-hint--compact')) {
@@ -343,6 +387,21 @@ export class AiWritingEntryManager {
             top: lineCoords.top,
             bottom: lineCoords.bottom,
         };
+    }
+
+    /**
+     * 获取编辑器滚动视口，用于判断光标行是否还可见。
+     */
+    getEditorViewportRect() {
+        return this.getScrollContainer()?.getBoundingClientRect?.() || null;
+    }
+
+    /**
+     * 获取 Markdown 编辑区滚动容器。
+     */
+    getScrollContainer() {
+        const dom = this.editor?.view?.dom;
+        return dom?.closest?.('.view-pane.markdown-pane') || dom?.closest?.('.markdown-content') || dom?.parentElement || null;
     }
 
     getCaretLineCoords(pos) {
