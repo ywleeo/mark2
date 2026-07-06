@@ -287,13 +287,15 @@
     box-shadow: none;
     backdrop-filter: none;
     transform-origin: left center;
-    animation: ai-writing-hint-fade-in 0.18s ease-out forwards;
-    transition: opacity 0.16s ease, transform 0.16s ease;
+    transition: opacity 0.18s ease;
+}
+
+.ai-writing-cursor-hint--compact.is-visible {
+    opacity: 0.82;
 }
 
 .ai-writing-cursor-hint--compact.is-leaving {
     pointer-events: none;
-    animation: ai-writing-hint-fade-out 0.16s ease-in forwards;
 }
 
 .ai-writing-cursor-hint--compact:hover {
@@ -473,28 +475,6 @@
 @keyframes inline-completion-dot {
     0%, 100% { opacity: 0.18; color: currentColor; transform: translateY(0); }
     45% { opacity: 1; color: var(--inline-completion-writing-accent, rgba(64, 105, 150, 0.82)); transform: translateY(-0.08em); }
-}
-
-@keyframes ai-writing-hint-fade-in {
-    from {
-        opacity: 0;
-        transform: translateY(5px) scale(0.94);
-    }
-    to {
-        opacity: 0.86;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes ai-writing-hint-fade-out {
-    from {
-        opacity: 0.86;
-        transform: translateY(0) scale(1);
-    }
-    to {
-        opacity: 0;
-        transform: translateY(4px) scale(0.96);
-    }
 }
 
 :root[data-theme-appearance='dark'] .inline-completion {

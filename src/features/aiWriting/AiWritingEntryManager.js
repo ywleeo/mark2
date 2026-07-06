@@ -24,6 +24,9 @@ export class AiWritingEntryManager {
         this.hintCleanups = [];
         this.panelCleanups = [];
         this.hintTimer = null;
+        this.hintShowFrame = null;
+        this.hintMoveTimer = null;
+        this.lastCompactHintPosition = null;
         this.requestSeq = 0;
         this.expandedHintOpenedAt = 0;
         this.suppressedUntilSelectionChange = false;
@@ -98,11 +101,25 @@ export class AiWritingEntryManager {
         }
     }
 
+    clearHintAnimationState() {
+        if (this.hintShowFrame) {
+            cancelAnimationFrame(this.hintShowFrame);
+            this.hintShowFrame = null;
+        }
+        if (this.hintMoveTimer) {
+            clearTimeout(this.hintMoveTimer);
+            this.hintMoveTimer = null;
+        }
+    }
+
     scheduleCursorHint() {
         this.clearHintTimer();
         const view = this.editor?.view;
         const selection = this.editor?.state?.selection;
         if (!view || view.isDestroyed || !view.hasFocus?.() || !selection?.empty || this.suppressedUntilSelectionChange) {
+            if (this.hintEl?.classList.contains('ai-writing-cursor-hint--compact')) {
+                this.hideHint();
+            }
             return;
         }
         this.hintTimer = setTimeout(() => {
@@ -115,12 +132,14 @@ export class AiWritingEntryManager {
         const view = this.editor?.view;
         const selection = this.editor?.state?.selection;
         if (!view || view.isDestroyed || !view.hasFocus?.() || !selection?.empty || this.panelEl) return;
+        if (this.hintEl?.classList.contains('ai-writing-cursor-hint--expanded')) return;
         this.showHint();
     }
 
     showHint() {
         if (this.hintEl) {
-            this.positionHintElement(this.hintEl);
+            if (this.hintEl.classList.contains('ai-writing-cursor-hint--expanded')) return;
+            this.positionHintElement(this.hintEl, { animateCompact: true });
             return;
         }
 
@@ -141,6 +160,7 @@ export class AiWritingEntryManager {
         document.body.appendChild(hint);
         this.hintEl = hint;
         this.positionHintElement(hint);
+        this.revealCompactHint(hint);
     }
 
     showActionHint() {
@@ -181,14 +201,17 @@ export class AiWritingEntryManager {
     hideHint({ immediate = false } = {}) {
         const hint = this.hintEl;
         const shouldAnimate = !immediate && hint?.classList.contains('ai-writing-cursor-hint--compact');
+        this.clearHintAnimationState();
         this.hintCleanups.forEach(cleanup => cleanup?.());
         this.hintCleanups = [];
         this.hintEl = null;
+        this.lastCompactHintPosition = null;
 
         if (!hint) return;
         if (shouldAnimate) {
+            hint.classList.remove('is-visible');
             hint.classList.add('is-leaving');
-            setTimeout(() => hint.remove(), 180);
+            setTimeout(() => hint.remove(), 220);
             return;
         }
         hint.remove();
@@ -199,7 +222,9 @@ export class AiWritingEntryManager {
             && Date.now() - this.expandedHintOpenedAt < 180) {
             return;
         }
-        this.hideHint();
+        if (this.hintEl?.classList.contains('ai-writing-cursor-hint--expanded')) {
+            this.hideHint();
+        }
     }
 
     bindHintPointerGuards(hint) {
@@ -231,16 +256,16 @@ export class AiWritingEntryManager {
         }
     }
 
-    positionHintElement(element) {
+    positionHintElement(element, { animateCompact = false } = {}) {
         if (!element) return;
         if (element.classList.contains('ai-writing-cursor-hint--compact')) {
-            this.positionElementAtLineGutter(element);
+            this.positionElementAtLineGutter(element, { animateCompact });
             return;
         }
         this.positionElementAtLineGutter(element, { alignMenu: true });
     }
 
-    positionElementAtLineGutter(element, { alignMenu = false } = {}) {
+    positionElementAtLineGutter(element, { alignMenu = false, animateCompact = false } = {}) {
         if (!element || !this.editor?.view) return;
         try {
             const pos = this.editor.state.selection.from;
@@ -252,11 +277,57 @@ export class AiWritingEntryManager {
             const lineMiddle = (anchor.top + anchor.bottom) / 2;
             const rawTop = alignMenu ? anchor.bottom + 6 : lineMiddle - rect.height / 2;
             const top = Math.max(10, Math.min(rawTop, window.innerHeight - rect.height - 10));
+            if (animateCompact && element.classList.contains('ai-writing-cursor-hint--compact')) {
+                this.moveCompactHint(element, { left, top });
+                return;
+            }
             element.style.left = `${left}px`;
             element.style.top = `${top}px`;
+            if (element.classList.contains('ai-writing-cursor-hint--compact')) {
+                this.lastCompactHintPosition = { left, top };
+            }
         } catch {
             this.hideHint();
         }
+    }
+
+    revealCompactHint(hint) {
+        this.clearHintAnimationState();
+        hint.classList.remove('is-visible', 'is-leaving');
+        // 先让浏览器提交透明初始态，再切到可见态，避免插入 DOM 时直接显示。
+        this.hintShowFrame = requestAnimationFrame(() => {
+            this.hintShowFrame = requestAnimationFrame(() => {
+                this.hintShowFrame = null;
+                if (this.hintEl === hint) {
+                    hint.classList.add('is-visible');
+                }
+            });
+        });
+    }
+
+    moveCompactHint(element, position) {
+        const previous = this.lastCompactHintPosition;
+        const changed = !previous
+            || Math.abs(previous.left - position.left) > 1
+            || Math.abs(previous.top - position.top) > 1;
+        if (!changed) return;
+
+        this.lastCompactHintPosition = position;
+        if (!element.classList.contains('is-visible')) {
+            element.style.left = `${position.left}px`;
+            element.style.top = `${position.top}px`;
+            return;
+        }
+
+        this.clearHintAnimationState();
+        element.classList.remove('is-visible');
+        this.hintMoveTimer = setTimeout(() => {
+            this.hintMoveTimer = null;
+            if (this.hintEl !== element) return;
+            element.style.left = `${position.left}px`;
+            element.style.top = `${position.top}px`;
+            this.revealCompactHint(element);
+        }, 180);
     }
 
     getLineGutterAnchor(pos) {
@@ -275,9 +346,11 @@ export class AiWritingEntryManager {
         const nextRect = this.getCharacterRect(pos);
         if (!nextRect) return coords;
 
+        const nextIsBlockStart = this.isAtTextblockStart(pos)
+            && nextRect.top > coords.top + 2;
         const nextIsVisualLineStart = nextRect.top > coords.top + 2
             && nextRect.left < coords.left - 8;
-        if (!nextIsVisualLineStart) return coords;
+        if (!nextIsBlockStart && !nextIsVisualLineStart) return coords;
 
         return {
             top: nextRect.top,
@@ -287,9 +360,38 @@ export class AiWritingEntryManager {
         };
     }
 
+    isAtTextblockStart(pos) {
+        const state = this.editor?.state;
+        if (!state) return false;
+        try {
+            const $pos = state.doc.resolve(pos);
+            if ($pos.parent?.isTextblock && $pos.parentOffset === 0) return true;
+
+            let foundTextblockStart = false;
+            state.doc.nodesBetween(pos, Math.min(state.doc.content.size, pos + 6), (node, nodePos) => {
+                if (foundTextblockStart) return false;
+                if (node.isTextblock && pos <= nodePos + 1) {
+                    foundTextblockStart = true;
+                    return false;
+                }
+                return true;
+            });
+            return foundTextblockStart;
+        } catch {
+            return false;
+        }
+    }
+
     getCharacterRect(pos) {
         const view = this.editor?.view;
-        if (!view) return null;
+        const state = this.editor?.state;
+        if (!view || !state) return null;
+        const textPosition = this.findNextDocumentTextPosition(pos);
+        if (textPosition != null) {
+            const rect = this.getDocumentTextRect(textPosition);
+            if (rect) return rect;
+        }
+
         let domPos;
         try {
             domPos = view.domAtPos(pos);
@@ -302,6 +404,46 @@ export class AiWritingEntryManager {
         const range = document.createRange();
         range.setStart(target.node, target.offset);
         range.setEnd(target.node, target.offset + 1);
+        const rect = Array.from(range.getClientRects()).find(item => item.width > 0 && item.height > 0);
+        range.detach?.();
+        return rect || null;
+    }
+
+    findNextDocumentTextPosition(pos) {
+        const state = this.editor?.state;
+        if (!state) return null;
+        const from = Math.max(0, pos);
+        const to = Math.min(state.doc.content.size, pos + 240);
+        let result = null;
+
+        state.doc.nodesBetween(from, to, (node, nodePos) => {
+            if (result != null) return false;
+            if (!node.isText || !node.text?.length) return true;
+            const offset = Math.max(0, from - nodePos);
+            if (offset >= node.text.length) return true;
+            result = nodePos + offset;
+            return false;
+        });
+
+        return result;
+    }
+
+    getDocumentTextRect(pos) {
+        const view = this.editor?.view;
+        if (!view) return null;
+        let domPos;
+        try {
+            domPos = view.domAtPos(pos);
+        } catch {
+            return null;
+        }
+        const node = domPos.node;
+        const offset = domPos.offset;
+        if (node?.nodeType !== Node.TEXT_NODE || offset >= node.nodeValue.length) return null;
+
+        const range = document.createRange();
+        range.setStart(node, offset);
+        range.setEnd(node, offset + 1);
         const rect = Array.from(range.getClientRects()).find(item => item.width > 0 && item.height > 0);
         range.detach?.();
         return rect || null;
