@@ -1,5 +1,6 @@
 import { t } from '../../i18n/index.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { createAiWritingBadge } from './AiWritingBadge.js';
 import { buildWritingIdeaContext, requestIdeaExpansion, requestWritingIdeas } from './AiWritingService.js';
 
 /**
@@ -140,23 +141,22 @@ export class AiWritingEntryManager {
 
         const hint = document.createElement('div');
         hint.className = 'ai-writing-cursor-hint ai-writing-cursor-hint--compact';
-        this.bindHintPointerGuards(hint);
-
-        const trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'ai-writing-cursor-hint__trigger';
-        trigger.textContent = 'AI';
-        trigger.setAttribute('aria-label', t('toolbar.aiWriting'));
         const openActions = event => {
             event.preventDefault();
             event.stopPropagation();
             this.showActionHint();
         };
-        trigger.addEventListener('pointerdown', openActions);
-        trigger.addEventListener('click', openActions);
+        hint.addEventListener('pointerdown', openActions);
+        hint.addEventListener('mousedown', openActions);
         this.hintCleanups.push(() => {
-            trigger.removeEventListener('pointerdown', openActions);
-            trigger.removeEventListener('click', openActions);
+            hint.removeEventListener('pointerdown', openActions);
+            hint.removeEventListener('mousedown', openActions);
+        });
+
+        const trigger = createAiWritingBadge({
+            tagName: 'button',
+            className: 'ai-writing-cursor-hint__trigger',
+            ariaLabel: t('toolbar.aiWriting'),
         });
 
         hint.append(trigger);
@@ -167,6 +167,7 @@ export class AiWritingEntryManager {
     }
 
     showActionHint() {
+        if (this.hintEl?.classList.contains('ai-writing-cursor-hint--expanded')) return;
         this.hideHint({ immediate: true });
 
         const hint = document.createElement('div');
@@ -174,9 +175,10 @@ export class AiWritingEntryManager {
         this.expandedHintOpenedAt = Date.now();
         this.bindHintPointerGuards(hint);
 
-        const title = document.createElement('span');
-        title.className = 'ai-writing-menu__title ai-writing-cursor-hint__title';
-        title.textContent = t('aiWriting.title');
+        const title = createAiWritingBadge({
+            className: 'ai-writing-menu__title ai-writing-cursor-hint__title',
+            text: t('aiWriting.title'),
+        });
 
         const continueBtn = document.createElement('button');
         continueBtn.type = 'button';
@@ -481,9 +483,10 @@ export class AiWritingEntryManager {
         const header = document.createElement('div');
         header.className = 'ai-writing-inspiration-panel__header';
 
-        const title = document.createElement('span');
-        title.className = 'ai-writing-menu__title ai-writing-inspiration-panel__ai-label';
-        title.textContent = t('aiWriting.title');
+        const title = createAiWritingBadge({
+            className: 'ai-writing-menu__title ai-writing-inspiration-panel__ai-label',
+            text: t('aiWriting.title'),
+        });
 
         const label = document.createElement('span');
         label.textContent = t('aiWriting.inspirationTitle');

@@ -202,13 +202,15 @@
     z-index: 10010;
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     min-height: 34px;
     padding: 4px;
-    border: 1px solid rgba(31, 36, 44, 0.12);
+    border: 1px solid rgba(89, 124, 255, 0.20);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 14px 38px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.08);
+    background:
+        linear-gradient(135deg, rgba(89, 124, 255, 0.08), rgba(80, 210, 190, 0.04) 44%, rgba(255, 255, 255, 0.94) 45%),
+        rgba(255, 255, 255, 0.94);
+    box-shadow: 0 14px 38px rgba(68, 88, 160, 0.14), 0 2px 8px rgba(15, 23, 42, 0.08);
     backdrop-filter: blur(18px);
     color: rgba(31, 36, 44, 0.82);
     font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
@@ -216,12 +218,8 @@
 }
 
 .ai-writing-menu__title {
-    padding: 0 8px;
-    color: rgba(31, 36, 44, 0.48);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1;
-    white-space: nowrap;
+    background: linear-gradient(135deg, rgba(89, 124, 255, 0.14), rgba(80, 210, 190, 0.12));
+    color: rgba(64, 82, 150, 0.86);
 }
 
 .ai-writing-menu__button {
@@ -240,8 +238,8 @@
 }
 
 .ai-writing-menu__button:hover {
-    background: rgba(31, 36, 44, 0.07);
-    color: rgba(31, 36, 44, 0.92);
+    background: rgba(89, 124, 255, 0.10);
+    color: rgba(47, 66, 132, 0.94);
 }
 
 .ai-writing-menu__button:disabled {
@@ -305,10 +303,6 @@
     transform: none;
 }
 
-.ai-writing-cursor-hint__title {
-    padding: 0 6px 0 7px;
-}
-
 .ai-writing-cursor-hint button {
     height: 24px;
     padding: 0 8px;
@@ -322,40 +316,38 @@
     cursor: default;
 }
 
-.ai-writing-cursor-hint__trigger {
+.ai-writing-badge {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
-    width: 24px;
+    width: auto;
     height: 20px;
     min-width: 24px;
-    padding: 0;
+    padding: 0 7px;
     border: 0;
-    border-radius: 0;
+    border-radius: 8px 6px 9px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    white-space: nowrap;
+    clip-path: polygon(5px 0, calc(100% - 4px) 0, 100% 6px, calc(100% - 2px) calc(100% - 4px), calc(100% - 8px) 100%, 4px 100%, 0 calc(100% - 6px), 1px 5px);
+}
+
+.ai-writing-cursor-hint .ai-writing-cursor-hint__trigger {
+    padding: 0 7px;
+    border-radius: 8px 6px 9px 5px;
     background: transparent;
     color: rgba(31, 36, 44, 0.46);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0;
-    transition: color 0.16s ease;
+    transition: background 0.16s ease, color 0.16s ease;
 }
 
-.ai-writing-cursor-hint__trigger::after {
-    content: "";
-    position: absolute;
-    right: 3px;
-    bottom: 1px;
-    left: 3px;
-    height: 2px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, rgba(76, 132, 255, 0.82), rgba(91, 214, 176, 0.82));
-    opacity: 0;
-    transform: scaleX(0.35);
-    transform-origin: center;
-    transition: opacity 0.16s ease, transform 0.16s ease;
-}
-
-.ai-writing-cursor-hint--compact:hover .ai-writing-cursor-hint__trigger::after {
-    opacity: 1;
-    transform: scaleX(1);
+.ai-writing-cursor-hint--compact:hover .ai-writing-cursor-hint__trigger {
+    background: linear-gradient(135deg, rgba(89, 124, 255, 0.14), rgba(80, 210, 190, 0.12));
 }
 
 .ai-writing-cursor-hint--expanded button:hover {
@@ -395,7 +387,7 @@
 }
 
 .ai-writing-inspiration-panel__ai-label {
-    padding: 0 6px 0 0;
+    margin-right: 4px;
 }
 
 .ai-writing-inspiration-panel__status {
@@ -523,14 +515,17 @@
 }
 
 :root[data-theme-appearance='dark'] .ai-writing-menu {
-    border-color: rgba(226, 232, 240, 0.12);
-    background: rgba(27, 29, 31, 0.94);
+    border-color: rgba(135, 170, 255, 0.22);
+    background:
+        linear-gradient(135deg, rgba(135, 170, 255, 0.12), rgba(94, 234, 212, 0.06) 44%, rgba(27, 29, 31, 0.94) 45%),
+        rgba(27, 29, 31, 0.94);
     box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.24);
     color: rgba(226, 232, 240, 0.82);
 }
 
 :root[data-theme-appearance='dark'] .ai-writing-menu__title {
-    color: rgba(226, 232, 240, 0.46);
+    background: linear-gradient(135deg, rgba(135, 170, 255, 0.18), rgba(94, 234, 212, 0.12));
+    color: rgba(202, 215, 255, 0.92);
 }
 
 :root[data-theme-appearance='dark'] .ai-writing-menu__button {
@@ -538,8 +533,8 @@
 }
 
 :root[data-theme-appearance='dark'] .ai-writing-menu__button:hover {
-    background: rgba(226, 232, 240, 0.09);
-    color: rgba(226, 232, 240, 0.94);
+    background: rgba(135, 170, 255, 0.14);
+    color: rgba(238, 242, 255, 0.96);
 }
 
 :root[data-theme-appearance='dark'] .ai-writing-menu.is-busy .ai-writing-menu__title {
@@ -571,6 +566,10 @@
     box-shadow: none;
 }
 
+:root[data-theme-appearance='dark'] .ai-writing-cursor-hint--compact:hover .ai-writing-cursor-hint__trigger {
+    background: linear-gradient(135deg, rgba(135, 170, 255, 0.18), rgba(94, 234, 212, 0.12));
+}
+
 :root[data-theme-appearance='dark'] .ai-writing-cursor-hint button {
     color: rgba(226, 232, 240, 0.50);
 }
@@ -582,10 +581,6 @@
 
 :root[data-theme-appearance='dark'] .ai-writing-cursor-hint--compact .ai-writing-cursor-hint__trigger:hover {
     color: rgba(226, 232, 240, 0.74);
-}
-
-:root[data-theme-appearance='dark'] .ai-writing-cursor-hint__trigger::after {
-    background: linear-gradient(90deg, rgba(135, 170, 255, 0.86), rgba(94, 234, 212, 0.82));
 }
 
 :root[data-theme-appearance='dark'] .ai-writing-inspiration-panel {

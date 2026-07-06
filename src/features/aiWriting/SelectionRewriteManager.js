@@ -1,5 +1,6 @@
 import { t } from '../../i18n/index.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
+import { createAiWritingBadge } from './AiWritingBadge.js';
 import { buildSelectionRewriteContext, requestSelectionRewrite } from './AiWritingService.js';
 
 const ACTIONS = [
@@ -141,9 +142,10 @@ export class SelectionRewriteManager {
             event.stopPropagation();
         });
 
-        const title = document.createElement('span');
-        title.className = 'ai-writing-menu__title';
-        title.textContent = t('aiWriting.title');
+        const title = createAiWritingBadge({
+            className: 'ai-writing-menu__title',
+            text: t('aiWriting.title'),
+        });
         menu.appendChild(title);
 
         ACTIONS.forEach(action => {
