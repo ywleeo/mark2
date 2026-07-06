@@ -417,8 +417,10 @@
 .fi-rr-copy::before { content: "\f4dd"; }
 .fi-rr-document::before { content: "\f57a"; }
 .fi-rr-eraser::before { content: "\f5e2"; }
+.fi-rr-file-code::before { content: "\f65b"; }
 .fi-rr-heading::before { content: "\f792"; }
 .fi-rr-hr::before { content: "\f7ed"; }
+.fi-rr-id-card-clip-alt::before { content: "\f7f8"; }
 .fi-rr-italic::before { content: "\f830"; }
 .fi-rr-link::before { content: "\f8ba"; }
 .fi-rr-list-check::before { content: "\f8c0"; }

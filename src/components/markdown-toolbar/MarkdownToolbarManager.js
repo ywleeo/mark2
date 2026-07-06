@@ -294,6 +294,10 @@ export class MarkdownToolbarManager {
                 this.dispatchCommand(COMMAND_IDS.DOCUMENT_SHARE_LINK, action);
                 return;
             }
+            if (action === 'cardExport') {
+                this.onCardExport?.();
+                return;
+            }
             if (action === 'aiWriting') {
                 const mdEditor = this._getEditorRegistry?.()?.getMarkdownEditor?.();
                 mdEditor?.showAiWriting?.();

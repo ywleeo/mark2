@@ -34,6 +34,51 @@ export function createToolbarController({
         return editor;
     }
 
+    function getCurrentSelectionHtml() {
+        const selection = window.getSelection?.();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0) return '';
+
+        const getElement = (node) => {
+            if (!node) return null;
+            return node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+        };
+
+        const host = getElement(selection.anchorNode)?.closest?.('[data-markdown-editor-host]')
+            || getElement(selection.focusNode)?.closest?.('[data-markdown-editor-host]');
+        if (!host) return '';
+
+        const div = document.createElement('div');
+        div.appendChild(selection.getRangeAt(0).cloneContents());
+        return div.innerHTML;
+    }
+
+    function showCardExportSidebar() {
+        const flow = getCardExportSidebar();
+        if (!flow) return;
+
+        if (getActiveViewMode() === 'code') {
+            const codeEditor = getCodeEditor();
+            const text = (codeEditor?.getSelectionText?.() || codeEditor?.getValue?.() || '').trim();
+            if (text) flow.open?.({ text, html: '' });
+            return;
+        }
+
+        const markdownEditor = getMarkdownEditor();
+        if (!markdownEditor) return;
+
+        const selectedText = markdownEditor.getSelectedMarkdown?.() || '';
+        const text = (selectedText || markdownEditor.getMarkdown?.() || '').trim();
+        if (!text) return;
+        const html = selectedText
+            ? getCurrentSelectionHtml()
+            : (markdownEditor.getRenderedHtml?.() || '');
+
+        flow.open?.({
+            text,
+            html,
+        });
+    }
+
     function showModeWarning(message) {
         if (modeWarningElement) {
             modeWarningElement.remove();
@@ -71,6 +116,7 @@ export function createToolbarController({
         const markdownToolbarManager = getMarkdownToolbarManager();
         if (!markdownToolbarManager) return;
         markdownToolbarManager.executeCommand = executeCommand;
+        markdownToolbarManager.onCardExport = showCardExportSidebar;
 
         const activeViewMode = getActiveViewMode();
         const currentFile = getCurrentFile();
@@ -133,6 +179,7 @@ export function createToolbarController({
                 const newManager = new MarkdownToolbarManager(services, {
                     executeCommand,
                     onToggleViewMode: toggleMarkdownCodeMode,
+                    onCardExport: showCardExportSidebar,
                     getEditorRegistry,
                 });
                 setMarkdownToolbarManager(newManager);
@@ -176,6 +223,7 @@ export function createToolbarController({
 
     return {
         getToolbarEditorInstance,
+        showCardExportSidebar,
         toggleMarkdownToolbar,
         handleToolbarOnViewModeChange,
         handleToolbarOnFileChange,

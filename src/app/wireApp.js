@@ -372,6 +372,7 @@ const toolbarController = createToolbarController({
 });
 const {
     getToolbarEditorInstance,
+    showCardExportSidebar,
     toggleMarkdownToolbar,
     handleToolbarOnViewModeChange,
     handleToolbarOnFileChange,
@@ -620,6 +621,7 @@ bootstrap = createAppBootstrap({
     handleToolbarOnViewModeChange,
     syncToolbarWithCurrentContext,
     getToolbarEditorInstance,
+    showCardExportSidebar,
     toggleMarkdownToolbar,
     viewManager,
     activateMarkdownView,

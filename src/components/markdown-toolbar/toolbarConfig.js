@@ -121,6 +121,10 @@ export const BUTTON_CONFIG = {
         icon: uicon('smile'),
         title: t('toolbar.emoji')
     },
+    cardExport: {
+        icon: uicon('id-card-clip-alt'),
+        title: t('toolbar.cardExport')
+    },
     copy: {
         icon: uicon('copy'),
         title: t('toolbar.copy')
@@ -130,7 +134,7 @@ export const BUTTON_CONFIG = {
         title: t('toolbar.copyMarkdown')
     },
     toggleViewMode: {
-        icon: uicon('square-code'),
+        icon: uicon('file-code'),
         title: t('toolbar.toggleViewMode'),
         shortcut: 'Ctrl+E'
     },
@@ -153,10 +157,6 @@ export const BUTTON_CONFIG = {
     insert: {
         icon: uicon('plus'),
         title: t('toolbar.insert')
-    },
-    aiWriting: {
-        icon: textIcon('AI', 'toolbar-icon--ai-writing'),
-        title: t('toolbar.aiWriting')
     },
     video: {
         icon: uicon('video-camera'),
@@ -187,11 +187,12 @@ export const TOOLBAR_GROUPS = {
     fixed: [
         ['navBack', 'navForward'],
         ['bold', 'italic', 'strikethrough', 'code'],
-        ['heading', 'list', 'insert', 'aiWriting'],
+        ['heading', 'list', 'insert'],
     ],
     flow: [
         ['quote', 'codeBlock'],
         ['clearFormatting'],
+        ['cardExport'],
         ['centerContent', 'copy', 'shareLink'],
     ],
     right: ['toggleViewMode'],

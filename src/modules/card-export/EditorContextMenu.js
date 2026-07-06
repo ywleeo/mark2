@@ -1,37 +1,25 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { t } from '../../i18n/index.js';
+import { SELECTION_REWRITE_ACTIONS } from '../../features/aiWriting/SelectionRewriteManager.js';
 
 export class EditorContextMenu {
-    constructor({ onGenerateCard, onBeautifyMarkdown, getEditor }) {
-        this.onGenerateCard = onGenerateCard;
+    constructor({ onBeautifyMarkdown, onAiSelectionAction, getEditor }) {
         this.onBeautifyMarkdown = onBeautifyMarkdown ?? null;
+        this.onAiSelectionAction = onAiSelectionAction ?? null;
         this.getEditor = getEditor ?? null;
         this.element = null;
+        this.selectionRange = null;
         this._cleanups = [];
         this._init();
     }
 
     _init() {
         const el = document.createElement('div');
-        el.className = 'editor-context-menu hidden';
+        el.className = 'editor-context-menu editor-context-menu--ai hidden';
         el.innerHTML = `
-            <button type="button" class="editor-context-menu__item" data-action="generate-card">
-                <span class="editor-context-menu__item-icon" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="2" width="12" height="12" rx="1.5"/>
-                        <path d="M5 6h6M5 9h4"/>
-                    </svg>
-                </span>
-                <span class="editor-context-menu__item-label">${t('contextMenu.generateCard')}</span>
-            </button>
-            <button type="button" class="editor-context-menu__item" data-action="beautify-markdown">
-                <span class="editor-context-menu__item-icon" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M8 2l1.2 3.5L13 7l-3.8 1.5L8 12l-1.2-3.5L3 7l3.8-1.5Z"/>
-                        <path d="M13 11l.6 1.4 1.4.6-1.4.6L13 15l-.6-1.4-1.4-.6 1.4-.6Z" stroke-width="1.2"/>
-                    </svg>
-                </span>
-                <span class="editor-context-menu__item-label">${t('contextMenu.beautifyMarkdown')}</span>
+            ${this.renderAiGroup()}
+            <button type="button" class="ai-writing-menu__button" data-action="beautify-markdown">
+                ${t('contextMenu.beautifyMarkdown')}
             </button>
         `;
         this.element = el;
@@ -48,8 +36,13 @@ export class EditorContextMenu {
 
         this._cleanups.push(
             addClickHandler(el, (e) => {
-                if (e.target?.closest('[data-action="generate-card"]')) this._handleGenerateCard();
-                if (e.target?.closest('[data-action="beautify-markdown"]')) this._handleBeautifyMarkdown();
+                const item = e.target?.closest('[data-action]');
+                const action = item?.dataset?.action;
+                if (!action) return;
+                if (action === 'beautify-markdown') this._handleBeautifyMarkdown();
+                if (action.startsWith('ai-selection:')) {
+                    this._handleAiSelectionAction(action.replace('ai-selection:', ''));
+                }
             }, { shouldHandle: (e) => Boolean(e.target?.closest('[data-action]')), preventDefault: true }),
             () => document.removeEventListener('contextmenu', onContextMenu),
             () => window.removeEventListener('click', onClose, true),
@@ -58,34 +51,47 @@ export class EditorContextMenu {
         );
     }
 
+    renderAiGroup() {
+        if (!this.onAiSelectionAction) return '';
+        const actions = SELECTION_REWRITE_ACTIONS.map(action => `
+            <button type="button" class="ai-writing-menu__button" data-action="ai-selection:${action.mode}">
+                ${t(action.labelKey)}
+            </button>
+        `).join('');
+        return `
+            <span class="ai-writing-badge ai-writing-menu__title">${t('aiWriting.title')}</span>
+            ${actions}
+        `;
+    }
+
     _handleContextMenu(e) {
         if (!e.target?.closest('[data-markdown-editor-host]')) return;
         const sel = window.getSelection();
         if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+        this.selectionRange = this.getSelectionRange();
         e.preventDefault();
         const vw = window.innerWidth;
         const vh = window.innerHeight;
-        const menuHeight = this.onBeautifyMarkdown ? 80 : 44;
-        const left = e.clientX + 200 > vw ? vw - 210 : e.clientX;
-        const top = e.clientY + menuHeight > vh ? vh - menuHeight - 8 : e.clientY;
+
+        this.element.style.left = '0px';
+        this.element.style.top = '0px';
+        this.element.classList.remove('hidden');
+        const rect = this.element.getBoundingClientRect();
+        const left = e.clientX + rect.width > vw ? vw - rect.width - 8 : e.clientX;
+        const top = e.clientY + rect.height > vh ? vh - rect.height - 8 : e.clientY;
         this.element.style.left = `${left}px`;
         this.element.style.top = `${top}px`;
-        this.element.classList.remove('hidden');
     }
 
     _hide() {
         this.element?.classList.add('hidden');
     }
 
-    _handleGenerateCard() {
-        this._hide();
-        const sel = window.getSelection();
-        if (!sel || sel.isCollapsed) return;
-        const text = sel.toString().trim();
-        if (!text) return;
-        const div = document.createElement('div');
-        div.appendChild(sel.getRangeAt(0).cloneContents());
-        this.onGenerateCard({ text, html: div.innerHTML });
+    getSelectionRange() {
+        const editor = typeof this.getEditor === 'function' ? this.getEditor() : null;
+        const selection = editor?.state?.selection;
+        if (!selection || selection.empty) return null;
+        return { from: selection.from, to: selection.to };
     }
 
     _handleBeautifyMarkdown() {
@@ -103,6 +109,12 @@ export class EditorContextMenu {
         if (!text) return;
 
         this.onBeautifyMarkdown({ text, from, to });
+    }
+
+    _handleAiSelectionAction(mode) {
+        const range = this.selectionRange;
+        this._hide();
+        this.onAiSelectionAction?.(mode, range);
     }
 
     destroy() {

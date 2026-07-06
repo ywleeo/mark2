@@ -45,7 +45,9 @@ export function initCardExport({ getMarkdownEditor } = {}) {
 
     const contextMenu = new EditorContextMenu({
         getEditor: () => getMarkdownEditor?.()?.editor ?? null,
-        onGenerateCard: ({ text, html }) => flow.open({ text, html }),
+        onAiSelectionAction: (mode, range) => {
+            getMarkdownEditor?.()?.runSelectionAiAction?.(mode, range);
+        },
         onBeautifyMarkdown: async ({ text, from, to }) => {
             const markdownEditor = getMarkdownEditor?.();
             let cancelled = false;

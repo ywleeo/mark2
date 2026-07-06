@@ -456,6 +456,25 @@ export class MarkdownEditor {
         return this._getDocumentFilePath?.() ?? this.contentLoader?.loadedFilePath ?? null;
     }
 
+    // 导出当前编辑器正文的渲染 HTML，过滤 ghost text / AI 菜单等编辑辅助 UI。
+    getRenderedHtml() {
+        const contentRoot = this.editor?.view?.dom
+            || this.element?.querySelector?.('.tiptap-editor, [contenteditable="true"]')
+            || this.element;
+        if (!contentRoot) return '';
+
+        const clone = contentRoot.cloneNode(true);
+        clone.querySelectorAll([
+            '[data-inline-completion-widget]',
+            '.ai-writing-cursor-hint',
+            '.ai-writing-menu',
+            '.ai-writing-inspiration-panel',
+        ].join(', ')).forEach(node => node.remove());
+        clone.removeAttribute('contenteditable');
+        clone.querySelectorAll('[contenteditable]').forEach(node => node.removeAttribute('contenteditable'));
+        return clone.innerHTML.trim();
+    }
+
     // 焦点
     focus()                                     { this.editor?.commands?.focus?.(); }
     blur()                                      { this.editor?.commands?.blur?.() ?? this.editor?.view?.dom?.blur?.(); }
@@ -515,6 +534,11 @@ export class MarkdownEditor {
 
     showAiWriting() {
         this.aiWritingEntryManager?.openForCurrentContext();
+    }
+
+    runSelectionAiAction(mode, range = null) {
+        if (range) return this.selectionRewriteManager?.executeForSelectionRange(mode, range) ?? false;
+        return this.selectionRewriteManager?.executeForCurrentSelection(mode) ?? false;
     }
 
     replaceRangeWithMarkdown(from, to, markdown) {

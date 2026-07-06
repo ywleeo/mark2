@@ -6,49 +6,59 @@
 .editor-context-menu {
     position: fixed;
     z-index: 9999;
-    background: #ffffff;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12), 0 1px 4px rgba(15, 23, 42, 0.06);
-    padding: 4px;
-    min-width: 160px;
+    display: flex;
+    max-width: calc(100vw - 24px);
 }
 
 .editor-context-menu.hidden { display: none; }
 
-.editor-context-menu__item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.editor-context-menu--ai {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 148px;
+    min-height: 34px;
+    padding: 4px;
+    gap: 2px;
+    border: 1px solid rgba(89, 124, 255, 0.20);
+    border-radius: 10px;
+    background:
+        linear-gradient(135deg, rgba(92, 124, 255, 0.12), rgba(74, 202, 190, 0.07) 38%, rgba(255, 255, 255, 0.78) 39%, rgba(255, 255, 255, 0.94) 62%),
+        rgba(255, 255, 255, 0.94);
+    box-shadow: 0 14px 38px rgba(68, 88, 160, 0.14), 0 2px 8px rgba(15, 23, 42, 0.08);
+    color: rgba(31, 36, 44, 0.82);
+    font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
+    user-select: none;
+    backdrop-filter: blur(18px);
+}
+
+.editor-context-menu .ai-writing-menu__title {
+    align-self: flex-start;
+    margin: 0 0 2px;
+    background: linear-gradient(135deg, rgba(92, 124, 255, 0.18), rgba(74, 202, 190, 0.14));
+    color: rgba(48, 72, 150, 0.88);
+}
+
+.editor-context-menu .ai-writing-menu__button {
+    justify-content: flex-start;
     width: 100%;
-    padding: 7px 10px;
-    background: transparent;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 13px;
-    color: rgba(15, 23, 42, 0.85);
+    min-width: 0;
+    padding: 0 10px;
     text-align: left;
-    transition: background 0.12s ease;
 }
 
-.editor-context-menu__item:hover { background: rgba(15, 23, 42, 0.06); }
-
-.editor-context-menu__item-icon {
-    display: inline-flex;
-    align-items: center;
-    color: rgba(15, 23, 42, 0.5);
-    flex-shrink: 0;
+:root[data-theme-appearance='dark'] .editor-context-menu--ai {
+    border-color: rgba(135, 170, 255, 0.22);
+    background:
+        linear-gradient(135deg, rgba(135, 170, 255, 0.12), rgba(94, 234, 212, 0.06) 44%, rgba(27, 29, 31, 0.94) 45%),
+        rgba(27, 29, 31, 0.94);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.24);
+    color: rgba(226, 232, 240, 0.82);
 }
 
-:root[data-theme-appearance='dark'] .editor-context-menu {
-    background: #1e2535;
-    border-color: rgba(148, 163, 184, 0.18);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+:root[data-theme-appearance='dark'] .editor-context-menu .ai-writing-menu__title {
+    background: linear-gradient(135deg, rgba(135, 170, 255, 0.22), rgba(94, 234, 212, 0.15));
+    color: rgba(202, 215, 255, 0.92);
 }
-:root[data-theme-appearance='dark'] .editor-context-menu__item { color: rgba(226, 232, 240, 0.9); }
-:root[data-theme-appearance='dark'] .editor-context-menu__item:hover { background: rgba(255, 255, 255, 0.08); }
-:root[data-theme-appearance='dark'] .editor-context-menu__item-icon { color: rgba(148, 163, 184, 0.7); }
 
 /* ====== 卡片导出浮层 ====== */
 
