@@ -25,7 +25,6 @@ export class AiWritingEntryManager {
         this.panelCleanups = [];
         this.hintTimer = null;
         this.hintShowFrame = null;
-        this.hintMoveTimer = null;
         this.lastCompactHintPosition = null;
         this.requestSeq = 0;
         this.expandedHintOpenedAt = 0;
@@ -106,10 +105,6 @@ export class AiWritingEntryManager {
             cancelAnimationFrame(this.hintShowFrame);
             this.hintShowFrame = null;
         }
-        if (this.hintMoveTimer) {
-            clearTimeout(this.hintMoveTimer);
-            this.hintMoveTimer = null;
-        }
     }
 
     scheduleCursorHint() {
@@ -139,7 +134,7 @@ export class AiWritingEntryManager {
     showHint() {
         if (this.hintEl) {
             if (this.hintEl.classList.contains('ai-writing-cursor-hint--expanded')) return;
-            this.positionHintElement(this.hintEl, { animateCompact: true });
+            this.positionHintElement(this.hintEl);
             return;
         }
 
@@ -152,9 +147,17 @@ export class AiWritingEntryManager {
         trigger.className = 'ai-writing-cursor-hint__trigger';
         trigger.textContent = 'AI';
         trigger.setAttribute('aria-label', t('toolbar.aiWriting'));
-        this.hintCleanups.push(addClickHandler(trigger, () => {
+        const openActions = event => {
+            event.preventDefault();
+            event.stopPropagation();
             this.showActionHint();
-        }, { preventDefault: true }));
+        };
+        trigger.addEventListener('pointerdown', openActions);
+        trigger.addEventListener('click', openActions);
+        this.hintCleanups.push(() => {
+            trigger.removeEventListener('pointerdown', openActions);
+            trigger.removeEventListener('click', openActions);
+        });
 
         hint.append(trigger);
         document.body.appendChild(hint);
@@ -256,16 +259,16 @@ export class AiWritingEntryManager {
         }
     }
 
-    positionHintElement(element, { animateCompact = false } = {}) {
+    positionHintElement(element) {
         if (!element) return;
         if (element.classList.contains('ai-writing-cursor-hint--compact')) {
-            this.positionElementAtLineGutter(element, { animateCompact });
+            this.positionElementAtLineGutter(element);
             return;
         }
         this.positionElementAtLineGutter(element, { alignMenu: true });
     }
 
-    positionElementAtLineGutter(element, { alignMenu = false, animateCompact = false } = {}) {
+    positionElementAtLineGutter(element, { alignMenu = false } = {}) {
         if (!element || !this.editor?.view) return;
         try {
             const pos = this.editor.state.selection.from;
@@ -277,10 +280,6 @@ export class AiWritingEntryManager {
             const lineMiddle = (anchor.top + anchor.bottom) / 2;
             const rawTop = alignMenu ? anchor.bottom + 6 : lineMiddle - rect.height / 2;
             const top = Math.max(10, Math.min(rawTop, window.innerHeight - rect.height - 10));
-            if (animateCompact && element.classList.contains('ai-writing-cursor-hint--compact')) {
-                this.moveCompactHint(element, { left, top });
-                return;
-            }
             element.style.left = `${left}px`;
             element.style.top = `${top}px`;
             if (element.classList.contains('ai-writing-cursor-hint--compact')) {
@@ -303,31 +302,6 @@ export class AiWritingEntryManager {
                 }
             });
         });
-    }
-
-    moveCompactHint(element, position) {
-        const previous = this.lastCompactHintPosition;
-        const changed = !previous
-            || Math.abs(previous.left - position.left) > 1
-            || Math.abs(previous.top - position.top) > 1;
-        if (!changed) return;
-
-        this.lastCompactHintPosition = position;
-        if (!element.classList.contains('is-visible')) {
-            element.style.left = `${position.left}px`;
-            element.style.top = `${position.top}px`;
-            return;
-        }
-
-        this.clearHintAnimationState();
-        element.classList.remove('is-visible');
-        this.hintMoveTimer = setTimeout(() => {
-            this.hintMoveTimer = null;
-            if (this.hintEl !== element) return;
-            element.style.left = `${position.left}px`;
-            element.style.top = `${position.top}px`;
-            this.revealCompactHint(element);
-        }, 180);
     }
 
     getLineGutterAnchor(pos) {

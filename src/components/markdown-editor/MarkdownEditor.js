@@ -25,7 +25,6 @@ import { LinkHandler } from './LinkHandler.js';
 import { ImagePasteHandler } from './ImagePasteHandler.js';
 import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
-import { LineStartClickManager } from './LineStartClickManager.js';
 
 function extractCsvFromDoc(doc) {
     if (!doc) return null;
@@ -82,7 +81,6 @@ export class MarkdownEditor {
         this.linkHandler = null;
         this.imagePasteHandler = null;
         this.mermaidExportHandler = null;
-        this.lineStartClickManager = null;
 
         this._pendingMermaidRender = null;
         this._mermaidRenderFrame = null;
@@ -179,10 +177,6 @@ export class MarkdownEditor {
         this.aiWritingEntryManager.setup();
         this.searchBoxManager = new SearchBoxManager(this.editor);
         this.clipboardEnhancer = new ClipboardEnhancer(this.element);
-        this.lineStartClickManager = new LineStartClickManager({
-            editor: this.editor,
-        });
-        this.lineStartClickManager.setup();
         this.imageModal = new ImageModal();
         this.tableToolbar = new TableBubbleToolbar(this.editor, this.viewElement);
         this.tableToolbar.setup();
@@ -675,8 +669,6 @@ export class MarkdownEditor {
         this.selectionRewriteManager = null;
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
-        this.lineStartClickManager?.destroy();
-        this.lineStartClickManager = null;
         this.imageModal?.destroy();
         this.tableToolbar?.destroy();
         this.tableToolbar = null;
