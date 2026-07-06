@@ -420,6 +420,7 @@
     "aiWriting.ideaPrefix": "Idea: ",
     "aiWriting.working": "AI is rewriting...",
     "aiWriting.error": "AI rewrite failed",
+    "aiWriting.error.noIdeas": "AI did not return usable ideas. Try again.",
     "cardExport.title": "Card",
 
     "table.addRowBefore": "Insert Row Above",

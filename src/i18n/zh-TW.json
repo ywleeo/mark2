@@ -419,6 +419,7 @@
   "aiWriting.ideaPrefix": "想法：",
   "aiWriting.working": "AI 正在改...",
   "aiWriting.error": "AI 改寫失敗",
+  "aiWriting.error.noIdeas": "AI 沒有返回可用靈感，請重試",
   "cardExport.title": "卡片",
 
   "table.addRowBefore": "上方插入列",

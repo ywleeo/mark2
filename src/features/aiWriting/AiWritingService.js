@@ -67,7 +67,14 @@ function sanitizeRewrite(raw) {
 
 function parseAiContent(body) {
     const data = JSON.parse(body || '{}');
-    const content = data?.choices?.[0]?.message?.content;
+    const choice = data?.choices?.[0];
+    const content = choice?.message?.content ?? choice?.text;
+    if (Array.isArray(content)) {
+        return content
+            .map(part => (typeof part === 'string' ? part : part?.text || ''))
+            .join('')
+            .trim();
+    }
     return typeof content === 'string' ? content : '';
 }
 
@@ -80,6 +87,38 @@ function parseJsonArray(content) {
     }
     const parsed = JSON.parse(text);
     return Array.isArray(parsed) ? parsed : [];
+}
+
+function parseIdeasPayload(content) {
+    const text = stripFences(content).trim();
+    if (!text) return [];
+
+    try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed?.ideas)) return parsed.ideas;
+        if (Array.isArray(parsed?.items)) return parsed.items;
+        if (Array.isArray(parsed?.suggestions)) return parsed.suggestions;
+    } catch {
+        // Fall through to partial JSON and plain-text parsing.
+    }
+
+    try {
+        const parsed = parseJsonArray(text);
+        if (parsed.length) return parsed;
+    } catch {
+        // Fall through to plain-text parsing.
+    }
+
+    return text
+        .split('\n')
+        .map(line => line
+            .replace(/^\s*(?:[-*•]|\d+[.)、]|[一二三四五六七八九十]+[、.])\s*/u, '')
+            .trim())
+        .filter(Boolean)
+        .filter(line => !/^(ideas?|灵感|寫作靈感|writing ideas?)[:：]?$/i.test(line))
+        .slice(0, 5)
+        .map(line => ({ type: 'angle', text: line, why: '' }));
 }
 
 function normalizeIdeas(rawIdeas) {
@@ -210,12 +249,13 @@ ${scopeInstruction}
     }
 
     try {
-        const ideas = normalizeIdeas(parseJsonArray(parseAiContent(res.body)));
-        if (ideas.length === 0) throw new Error(t('inlineCompletion.error.noContent'));
+        const content = parseAiContent(res.body);
+        const ideas = normalizeIdeas(parseIdeasPayload(content));
+        if (ideas.length === 0) throw new Error(t('aiWriting.error.noIdeas'));
         return ideas;
     } catch (error) {
         console.warn('[AiWriting] parse ideas failed', error);
-        throw new Error(t('inlineCompletion.error.noContent'));
+        throw new Error(t('aiWriting.error.noIdeas'));
     }
 }
 
