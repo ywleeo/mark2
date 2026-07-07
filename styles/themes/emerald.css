@@ -7,6 +7,8 @@
 [data-theme-appearance='light'] .markdown-content {
     color: #34403c;
     background-color: #ffffff;
+    --em-writing-font: "New York", "Iowan Old Style", "Georgia", "Times New Roman", var(--editor-font-family, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", serif);
+    --em-heading-font: var(--editor-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif);
     --em-accent: #3f8f82;
     --em-accent-soft: rgba(63, 143, 130, 0.12);
     --em-muted: #6d7874;
@@ -16,9 +18,23 @@
     --em-table-border: rgba(52, 58, 56, 0.115);
 }
 
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance='light'] {
+    font-family: var(--em-writing-font);
+}
+
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h2,
 .tiptap-editor[data-theme-appearance='light'] h2{
     border-bottom-color: var(--em-rule);
+}
+
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h1,
+.tiptap-editor[data-theme-appearance='light'] h1,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h2,
+.tiptap-editor[data-theme-appearance='light'] h2,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h3,
+.tiptap-editor[data-theme-appearance='light'] h3 {
+    font-family: var(--em-heading-font);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) p,
@@ -26,10 +42,17 @@
     color: #34403c;
 }
 
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) li,
+.tiptap-editor[data-theme-appearance='light'] li {
+    font-variant-ligatures: none;
+    overflow-wrap: anywhere;
+}
+
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) pre,
 .tiptap-editor[data-theme-appearance='light'] pre{
-    background: var(--em-surface);
-    border: 1px solid var(--em-table-border);
+    background: #f8faf9;
+    border: 1px solid rgba(52, 64, 60, 0.075);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
@@ -156,8 +179,8 @@
 
 /* 代码高亮 - Light */
 [data-theme-appearance='light'] .hljs {
-    background: #f8fafc;
-    color: #374151;
+    background: transparent;
+    color: #34403c;
 }
 
 [data-theme-appearance='light'] .hljs-comment,
@@ -169,7 +192,7 @@
 [data-theme-appearance='light'] .hljs-keyword,
 [data-theme-appearance='light'] .hljs-selector-tag,
 [data-theme-appearance='light'] .hljs-subst {
-    color: #d73a49;
+    color: #7d5f5a;
 }
 
 [data-theme-appearance='light'] .hljs-literal,
@@ -180,7 +203,7 @@
 [data-theme-appearance='light'] .hljs-symbol,
 [data-theme-appearance='light'] .hljs-meta,
 [data-theme-appearance='light'] .hljs-meta .hljs-keyword {
-    color: #005cc5;
+    color: #315f78;
 }
 
 [data-theme-appearance='light'] .hljs-string,
@@ -190,7 +213,7 @@
 [data-theme-appearance='light'] .hljs-variable,
 [data-theme-appearance='light'] .hljs-attribute .hljs-string,
 [data-theme-appearance='light'] .hljs-meta .hljs-string {
-    color: #032f62;
+    color: #294f69;
 }
 
 [data-theme-appearance='light'] .hljs-title,
@@ -198,7 +221,7 @@
 [data-theme-appearance='light'] .hljs-section,
 [data-theme-appearance='light'] .hljs-selector-id,
 [data-theme-appearance='light'] .hljs-selector-class {
-    color: #6f42c1;
+    color: #62616f;
 }
 
 [data-theme-appearance='light'] .hljs-deletion {
@@ -210,15 +233,22 @@
 .tiptap-editor[data-theme-appearance='dark'],
 [data-theme-appearance='dark'] .markdown-pane,
 [data-theme-appearance='dark'] .markdown-content {
-    color: #d7d8d4;
+    color: #ced2cd;
     background-color: #151716;
-    --em-accent: #8dcfc3;
-    --em-accent-soft: rgba(141, 207, 195, 0.11);
-    --em-muted: #a3aaa6;
-    --em-rule: rgba(215, 216, 212, 0.12);
+    --em-writing-font: "New York", "Iowan Old Style", "Georgia", "Times New Roman", var(--editor-font-family, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", serif);
+    --em-heading-font: var(--editor-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif);
+    --em-accent: #a4c9c1;
+    --em-accent-soft: rgba(164, 201, 193, 0.09);
+    --em-muted: #969d99;
+    --em-rule: rgba(215, 216, 212, 0.105);
     --em-surface: rgba(255, 255, 255, 0.035);
     --em-surface-strong: rgba(255, 255, 255, 0.055);
-    --em-table-border: rgba(215, 216, 212, 0.105);
+    --em-table-border: rgba(215, 216, 212, 0.095);
+}
+
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance='dark'] {
+    font-family: var(--em-writing-font);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h2,
@@ -226,10 +256,32 @@
     border-bottom-color: var(--em-rule);
 }
 
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h1,
+.tiptap-editor[data-theme-appearance='dark'] h1,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h2,
+.tiptap-editor[data-theme-appearance='dark'] h2,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h3,
+.tiptap-editor[data-theme-appearance='dark'] h3 {
+    color: #dcdfda;
+    font-family: var(--em-heading-font);
+}
+
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) p,
+.tiptap-editor[data-theme-appearance='dark'] p {
+    color: #ced2cd;
+}
+
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) li,
+.tiptap-editor[data-theme-appearance='dark'] li {
+    font-variant-ligatures: none;
+    overflow-wrap: anywhere;
+}
+
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) pre,
 .tiptap-editor[data-theme-appearance='dark'] pre{
-    background: var(--em-surface);
-    border: 1px solid var(--em-table-border);
+    background: rgba(255, 255, 255, 0.026);
+    border: 1px solid rgba(215, 216, 212, 0.065);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
@@ -306,8 +358,8 @@
 
 /* 代码高亮 - Dark */
 [data-theme-appearance='dark'] .hljs {
-    background: var(--em-surface);
-    color: #d7d8d4;
+    background: transparent;
+    color: #ced2cd;
 }
 
 [data-theme-appearance='dark'] .hljs-comment,
@@ -319,7 +371,7 @@
 [data-theme-appearance='dark'] .hljs-keyword,
 [data-theme-appearance='dark'] .hljs-selector-tag,
 [data-theme-appearance='dark'] .hljs-subst {
-    color: #d9b38f;
+    color: #c8aa8f;
 }
 
 [data-theme-appearance='dark'] .hljs-literal,
@@ -330,7 +382,7 @@
 [data-theme-appearance='dark'] .hljs-symbol,
 [data-theme-appearance='dark'] .hljs-meta,
 [data-theme-appearance='dark'] .hljs-meta .hljs-keyword {
-    color: #9fc2d1;
+    color: #a9bdc6;
 }
 
 [data-theme-appearance='dark'] .hljs-string,
@@ -340,7 +392,7 @@
 [data-theme-appearance='dark'] .hljs-variable,
 [data-theme-appearance='dark'] .hljs-attribute .hljs-string,
 [data-theme-appearance='dark'] .hljs-meta .hljs-string {
-    color: #a9cfa9;
+    color: #a7bea6;
 }
 
 [data-theme-appearance='dark'] .hljs-title,
@@ -348,9 +400,68 @@
 [data-theme-appearance='dark'] .hljs-section,
 [data-theme-appearance='dark'] .hljs-selector-id,
 [data-theme-appearance='dark'] .hljs-selector-class {
-    color: #c8bdd8;
+    color: #bdb7c8;
 }
 
 [data-theme-appearance='dark'] .hljs-deletion {
     color: #d9aaa1;
+}
+
+/* Code-heavy 文档优化：降低代码块的卡片感，让安装命令类页面更像轻量说明文。 */
+.tiptap-editor[data-theme-appearance] pre,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) pre {
+    padding: 14px 18px;
+    border-radius: 6px;
+    line-height: 1.36;
+}
+
+.tiptap-editor[data-theme-appearance] h2 + pre,
+.tiptap-editor[data-theme-appearance] h3 + pre,
+.tiptap-editor[data-theme-appearance] p + pre,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h2 + pre,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h3 + pre,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) p + pre {
+    margin-top: 0.55em;
+}
+
+.tiptap-editor[data-theme-appearance] pre + h2,
+.tiptap-editor[data-theme-appearance] pre + h3,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) pre + h2,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) pre + h3 {
+    margin-top: 1.05em;
+}
+
+.tiptap-editor[data-theme-appearance] pre + p,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) pre + p {
+    margin-top: 0.9em;
+}
+
+.code-copy-button {
+    color: rgba(52, 64, 60, 0.58);
+    opacity: 0;
+}
+
+.code-copy-button.is-visible {
+    opacity: 0.42;
+}
+
+.code-copy-button.is-visible:hover,
+.code-copy-button.is-visible:focus-visible,
+.code-copy-button.copy-success,
+.code-copy-button.copy-error {
+    opacity: 1;
+}
+
+.code-copy-button:hover,
+.code-copy-button:focus-visible {
+    background: rgba(52, 64, 60, 0.055);
+}
+
+:root[data-theme-appearance='dark'] .code-copy-button {
+    color: rgba(215, 216, 212, 0.58);
+}
+
+:root[data-theme-appearance='dark'] .code-copy-button:hover,
+:root[data-theme-appearance='dark'] .code-copy-button:focus-visible {
+    background: rgba(255, 255, 255, 0.055);
 }
