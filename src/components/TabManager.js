@@ -6,7 +6,8 @@ const TAB_DRAG_ACTIVATION_THRESHOLD = 4;
 
 export class TabManager {
     constructor(containerElement, callbacks = {}) {
-        this.container = containerElement;
+        this.root = containerElement;
+        this.container = this.ensureTabListElement();
         this.callbacks = callbacks;
         this.sharedTabId = 'shared-preview';
         this.sharedTab = null;
@@ -35,6 +36,28 @@ export class TabManager {
             });
         }
         this.render();
+    }
+
+    /**
+     * 确保 tab bar 拥有独立的横向滚动列表。
+     * 外层只负责固定布局，避免新建按钮作为 sticky item 覆盖 tab 内容。
+     * @returns {HTMLElement|null} tab 列表元素
+     */
+    ensureTabListElement() {
+        if (!this.root) {
+            return null;
+        }
+        const existing = Array.from(this.root.children).find((child) => {
+            return child instanceof HTMLElement && child.classList.contains('tab-list');
+        });
+        if (existing) {
+            return existing;
+        }
+
+        const tabList = document.createElement('div');
+        tabList.className = 'tab-list';
+        this.root.prepend(tabList);
+        return tabList;
     }
 
     isPointerPrimaryActive(event) {
@@ -273,23 +296,21 @@ export class TabManager {
         requestAnimationFrame(() => {
             if (!activeEl.isConnected) return;
             const c = this.container;
-            // 末尾的 + 按钮是 position: sticky，会悬浮在右侧遮挡 tab，需扣掉其宽度
-            const newTabBtn = c.querySelector('.tab-new-btn');
-            const trailing = newTabBtn ? newTabBtn.offsetWidth : 0;
             const left = activeEl.offsetLeft;
             const right = left + activeEl.offsetWidth;
             const viewLeft = c.scrollLeft;
-            const viewRight = viewLeft + c.clientWidth - trailing;
+            const viewRight = viewLeft + c.clientWidth;
             if (left < viewLeft) {
                 c.scrollTo({ left: left, behavior: 'smooth' });
             } else if (right > viewRight) {
-                c.scrollTo({ left: right - (c.clientWidth - trailing), behavior: 'smooth' });
+                c.scrollTo({ left: right - c.clientWidth, behavior: 'smooth' });
             }
         });
     }
 
     render() {
-        if (!this.container) return;
+        this.container = this.ensureTabListElement();
+        if (!this.root || !this.container) return;
         if (this.pointerDragState) {
             this.cancelPointerDrag();
         }
@@ -303,6 +324,11 @@ export class TabManager {
         this.cleanupFunctions = [];
 
         this.container.innerHTML = '';
+        Array.from(this.root.children).forEach((child) => {
+            if (child instanceof HTMLElement && child.classList.contains('tab-new-btn')) {
+                child.remove();
+            }
+        });
         const tabs = this.getAllTabs();
 
         tabs.forEach(tab => {
@@ -459,7 +485,7 @@ export class TabManager {
             e.preventDefault();
             this.callbacks.onCreateUntitled?.({ ext: 'txt' });
         });
-        this.container.appendChild(newTabBtn);
+        this.root.appendChild(newTabBtn);
 
         this.updateActiveState();
     }
