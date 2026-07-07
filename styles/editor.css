@@ -703,6 +703,15 @@
     border-radius: 0;
 }
 
+/* Code block 内的 Markdown strong 显示层渲染：保留原文，只隐藏 marker。 */
+.tiptap-editor pre .code-markdown-strong {
+    font-weight: 700;
+}
+
+.tiptap-editor pre .code-markdown-strong-marker {
+    display: none;
+}
+
 .tiptap-editor .mermaid {
     margin: 0;
     padding: 0;

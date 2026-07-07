@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { closeHistory } from '@tiptap/pm/history';
 import StarterKit from '@tiptap/starter-kit';
 import { UndoRedo } from '@tiptap/extensions';
@@ -39,6 +40,54 @@ const Table = BaseTable.extend({
             }
             return plugin;
         });
+    },
+});
+
+/**
+ * 为 code block 内的 Markdown strong 标记提供显示层渲染。
+ * 只创建 decoration，不改 ProseMirror 文档，避免保存时污染用户原文。
+ */
+const CodeBlockMarkdownStrong = Extension.create({
+    name: 'codeBlockMarkdownStrong',
+
+    addProseMirrorPlugins() {
+        return [
+            new Plugin({
+                key: new PluginKey('codeBlockMarkdownStrong'),
+                props: {
+                    decorations(state) {
+                        const decorations = [];
+                        state.doc.descendants((node, pos) => {
+                            if (node.type.name !== 'codeBlock') {
+                                return;
+                            }
+
+                            const text = node.textContent || '';
+                            const contentStart = pos + 1;
+                            const strongPattern = /\*\*([^\n*](?:[^\n]*?[^\n*])?)\*\*/g;
+                            let match;
+                            while ((match = strongPattern.exec(text)) !== null) {
+                                const markerStart = contentStart + match.index;
+                                const contentFrom = markerStart + 2;
+                                const contentTo = markerStart + match[0].length - 2;
+                                const markerEnd = markerStart + match[0].length;
+
+                                if (contentFrom >= contentTo) {
+                                    continue;
+                                }
+
+                                decorations.push(
+                                    Decoration.inline(markerStart, contentFrom, { class: 'code-markdown-strong-marker' }),
+                                    Decoration.inline(contentFrom, contentTo, { class: 'code-markdown-strong' }),
+                                    Decoration.inline(contentTo, markerEnd, { class: 'code-markdown-strong-marker' })
+                                );
+                            }
+                        });
+                        return decorations.length ? DecorationSet.create(state.doc, decorations) : null;
+                    },
+                },
+            }),
+        ];
     },
 });
 
@@ -94,6 +143,7 @@ export function createEditorExtensions(lowlight) {
             lowlight,
             HTMLAttributes: { class: 'code-block hljs' },
         }),
+        CodeBlockMarkdownStrong,
         DisableInlineCodeShortcut,
         TableSelectionGuard,
         Table.configure({

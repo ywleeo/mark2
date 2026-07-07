@@ -66,6 +66,8 @@
     border-left-color: rgba(63, 143, 130, 0.45);
     color: var(--em-muted);
     background: rgba(63, 143, 130, 0.045);
+    padding-top: 0.35em;
+    padding-bottom: 0.35em;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) a,
@@ -295,6 +297,8 @@
     border-left-color: rgba(141, 207, 195, 0.5);
     color: var(--em-muted);
     background: rgba(141, 207, 195, 0.045);
+    padding-top: 0.35em;
+    padding-bottom: 0.35em;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) a,

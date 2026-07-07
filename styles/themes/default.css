@@ -39,16 +39,25 @@
     background: #f6f8fa;
 }
 
-[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) code,
-.tiptap-editor[data-theme-appearance='light'] code{
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
+.tiptap-editor[data-theme-appearance='light'] :not(pre) > code{
     background: #f0f0f0;
     color: #24292f;
+}
+
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) pre code,
+.tiptap-editor[data-theme-appearance='light'] pre code,
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) pre code span,
+.tiptap-editor[data-theme-appearance='light'] pre code span {
+    background: transparent;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) blockquote,
 .tiptap-editor[data-theme-appearance='light'] blockquote{
     border-left-color: #d8dee4;
     color: #57606a;
+    padding-top: 0.35em;
+    padding-bottom: 0.35em;
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) a,
@@ -192,16 +201,25 @@
     background: #222a38;
 }
 
-[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) code,
-.tiptap-editor[data-theme-appearance='dark'] code{
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) :not(pre) > code,
+.tiptap-editor[data-theme-appearance='dark'] :not(pre) > code{
     background: #1f2632;
     color: #f0f3f8;
+}
+
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) pre code,
+.tiptap-editor[data-theme-appearance='dark'] pre code,
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) pre code span,
+.tiptap-editor[data-theme-appearance='dark'] pre code span {
+    background: transparent;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) blockquote,
 .tiptap-editor[data-theme-appearance='dark'] blockquote{
     border-left-color: #3f5166;
     color: #c6d5ed;
+    padding-top: 0.35em;
+    padding-bottom: 0.35em;
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) a,
