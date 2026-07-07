@@ -14,12 +14,14 @@ export class AiWritingEntryManager {
         getSelectedMarkdown,
         inlineCompletionManager,
         insertTextAtCursor,
+        insertMarkdownAtCursor,
     }) {
         this.editor = editor;
         this.getMarkdown = getMarkdown;
         this.getSelectedMarkdown = getSelectedMarkdown;
         this.inlineCompletionManager = inlineCompletionManager;
         this.insertTextAtCursor = insertTextAtCursor;
+        this.insertMarkdownAtCursor = insertMarkdownAtCursor;
         this.hintEl = null;
         this.panelEl = null;
         this.hintCleanups = [];
@@ -655,7 +657,12 @@ export class AiWritingEntryManager {
     }
 
     insertIdea(idea) {
-        this.insertTextAtCursor?.(`\n\n> ${t('aiWriting.ideaPrefix')}${idea.text}\n\n`);
+        const markdown = `\n\n> ${t('aiWriting.ideaPrefix')}${idea.text}\n\n`;
+        if (typeof this.insertMarkdownAtCursor === 'function') {
+            this.insertMarkdownAtCursor(markdown);
+        } else {
+            this.insertTextAtCursor?.(markdown);
+        }
         this.hidePanel();
     }
 }

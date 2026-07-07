@@ -210,17 +210,13 @@ export function createDocumentIO(options = {}) {
         if (activeViewMode === 'markdown' && editor?.getMarkdown) {
             content = editor.getMarkdown();
         } else if (activeViewMode === 'code' && codeEditor) {
-            content = typeof codeEditor.getValueForSave === 'function'
-                ? codeEditor.getValueForSave()
-                : codeEditor.getValue?.();
+            content = codeEditor.getValue?.();
         } else if (editor?.getMarkdown) {
             content = editor.getMarkdown();
         }
 
         if (!content && codeEditor) {
-            content = typeof codeEditor.getValueForSave === 'function'
-                ? codeEditor.getValueForSave()
-                : codeEditor.getValue?.();
+            content = codeEditor.getValue?.();
         }
 
         if (!content && documentRegistry?.getCachedEntry) {

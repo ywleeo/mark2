@@ -173,6 +173,7 @@ export class MarkdownEditor {
             getSelectedMarkdown: () => this.getSelectedMarkdown(),
             inlineCompletionManager: this.inlineCompletionManager,
             insertTextAtCursor: (text) => this.insertTextAtCursor(text),
+            insertMarkdownAtCursor: (markdown) => this.insertAIContent(markdown),
         });
         this.aiWritingEntryManager.setup();
         this.searchBoxManager = new SearchBoxManager(this.editor);

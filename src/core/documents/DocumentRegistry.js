@@ -103,9 +103,9 @@ export function createDocumentRegistry({
         } else if (activeViewMode === 'code' && codeEditor) {
             if (codeEditor.currentFile !== currentFile) return;
             if (typeof codeEditor.isLoading === 'function' && codeEditor.isLoading()) return;
-            content = typeof codeEditor.getValueForSave === 'function'
-                ? codeEditor.getValueForSave()
-                : codeEditor.getValue();
+            // saveCache 是编辑器内存快照，不是落盘保存。这里必须保留 CodeMirror 原文，
+            // 否则自动保存/视图切换会把尾部空行等用户输入过早规范化，造成内容跳动。
+            content = codeEditor.getValue();
             hasChanges = codeEditor.hasUnsavedChanges();
         }
 

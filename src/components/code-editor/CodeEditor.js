@@ -18,7 +18,6 @@ import {
     MIN_ZOOM_SCALE,
     MAX_ZOOM_SCALE,
 } from './constants.js';
-import { formatCode, isFormattable } from './CodeFormatter.js';
 
 const logger = createLogger('code-editor');
 
@@ -397,19 +396,18 @@ export class CodeEditor {
 
         const targetLanguage = this.resolveLanguage(language);
         const baseContent = typeof content === 'string' ? content : '';
-        const shouldNormalizeMarkdown = shouldEnforceMarkdownTrailingEmptyLine(filePath, targetLanguage);
-        const normalizedContent = shouldNormalizeMarkdown
-            ? ensureMarkdownTrailingEmptyLine(baseContent)
-            : baseContent;
+        // CodeMirror 负责展示和编辑源文本，不能在加载阶段补空行或格式化。
+        // 保存预处理只应该发生在显式保存链路，避免用户编辑时内容突然跳动。
+        const editorContent = baseContent;
 
         // Create fresh state with content + language + theme all at once
-        this.baseContent = normalizedContent;
+        this.baseContent = editorContent;
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
         this.isDirty = false;
-        const restored = this.restoreTabState(this.currentTabId, normalizedContent, targetLanguage);
+        const restored = this.restoreTabState(this.currentTabId, editorContent, targetLanguage);
         if (!restored) {
-            this.editor.setState(this.createEditorState(normalizedContent, targetLanguage));
+            this.editor.setState(this.createEditorState(editorContent, targetLanguage));
         }
 
         // Force synchronous parsing so highlighting appears immediately
@@ -819,25 +817,8 @@ export class CodeEditor {
 
         const filePath = this.currentFile;
         const raw = this.getValue();
-        // 同步预处理（JSON 格式化、Markdown 尾部空行）
-        let content = this.getValueForSave();
-
-        // 异步格式化（Worker 中执行，不阻塞主线程）
-        if (this.formatOnSave && isFormattable(this.currentLanguage)) {
-            try {
-                const formatted = await formatCode(raw, this.currentLanguage);
-                if (formatted && formatted !== raw) {
-                    // Markdown 文件还需要确保尾部空行
-                    if (shouldEnforceMarkdownTrailingEmptyLine(this.currentFile, this.currentLanguage)) {
-                        content = ensureMarkdownTrailingEmptyLine(formatted);
-                    } else {
-                        content = formatted;
-                    }
-                }
-            } catch (error) {
-                console.warn('[CodeEditor] 格式化异常，使用预处理内容:', error);
-            }
-        }
+        // 自动保存必须原样写入 CodeMirror 文本，不能格式化或补/删空行。
+        const content = raw;
 
         const localWriteKey = normalizeFsPath(filePath) || filePath;
         const hadFocusBeforeSave = this.editor?.hasFocus ?? false;
@@ -850,8 +831,7 @@ export class CodeEditor {
 
         // 检查 await 期间用户是否继续编辑了内容
         const currentRaw = this.getValue();
-        const userEditedDuringFormat = currentRaw !== raw;
-        const contentChanged = content !== currentRaw;
+        const userEditedDuringSave = currentRaw !== raw;
 
         const savePromise = (async () => {
             try {
@@ -861,19 +841,10 @@ export class CodeEditor {
                 }
                 await services.file.writeText(filePath, content);
                 if (!sessionId || sessionId === this.currentSessionId) {
-                    if (userEditedDuringFormat) {
-                        // 用户在格式化期间继续编辑了，不刷新编辑器，重新触发保存
+                    if (userEditedDuringSave) {
+                        // 用户在写盘期间继续编辑了，不刷新编辑器，重新触发保存
                         this.isDirty = true;
                         this.scheduleAutoSave();
-                    } else if (contentChanged && this.editor) {
-                        const pos = this.editor.state.selection.main.head;
-                        this.suppressChange = true;
-                        this.editor.dispatch({
-                            changes: { from: 0, to: this.editor.state.doc.length, insert: content }
-                        });
-                        this.suppressChange = false;
-                        const safePos = Math.min(pos, this.editor.state.doc.length);
-                        this.editor.dispatch({ selection: { anchor: safePos } });
                     }
                     this.markSaved();
                     if (hadFocusBeforeSave && this.isVisible && this.editor) {

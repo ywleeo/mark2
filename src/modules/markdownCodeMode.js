@@ -190,9 +190,7 @@ export function createMarkdownCodeMode({
         if (activeViewMode === 'code') {
             const codeMatchesFile = codeEditor.currentFile === currentFile && !codeEditor.isLoading?.();
             const inMemoryFallback = codeMatchesFile
-                ? (typeof codeEditor.getValueForSave === 'function'
-                    ? codeEditor.getValueForSave()
-                    : codeEditor.getValue())
+                ? codeEditor.getValue()
                 : '';
             const { content: codeContent, hasChanges } = await loadAuthoritativeContent({
                 currentFile,
