@@ -147,7 +147,7 @@ class AiService {
             if (!plugin.isAvailable()) {
                 const next = { ...this.config };
                 let dirty = false;
-                for (const slot of ['translationModel', 'beautifyModel', 'completionModel']) {
+                for (const slot of ['translationModel', 'beautifyModel', 'completionModel', 'documentTaskModel']) {
                     if (next[slot]?.providerId === plugin.id) {
                         next[slot] = null;
                         dirty = true;
@@ -175,7 +175,7 @@ class AiService {
 
             const next = { ...this.config };
             let dirty = false;
-            for (const slot of ['translationModel', 'beautifyModel', 'completionModel']) {
+            for (const slot of ['translationModel', 'beautifyModel', 'completionModel', 'documentTaskModel']) {
                 const cur = next[slot];
                 if (!cur?.providerId) {
                     // 空槽:填默认(优先 preferred)
@@ -235,6 +235,7 @@ class AiService {
                 translationModel: migratedModel,
                 beautifyModel: migratedModel,
                 completionModel: migratedModel,
+                documentTaskModel: migratedModel,
                 preferences: raw.preferences,
             };
         }
@@ -279,6 +280,9 @@ class AiService {
             translationModel: normalizeModelSlot(raw.translationModel) || legacyDefaultModel,
             beautifyModel: normalizeModelSlot(raw.beautifyModel) || legacyDefaultModel,
             completionModel: normalizeModelSlot(raw.completionModel) || legacyDefaultModel,
+            documentTaskModel: normalizeModelSlot(raw.documentTaskModel)
+                || normalizeModelSlot(raw.completionModel)
+                || legacyDefaultModel,
             preferences: {
                 creativity: raw.preferences?.creativity || 'medium',
                 completionLength: ['short', 'medium', 'long'].includes(raw.preferences?.completionLength)
@@ -311,6 +315,7 @@ class AiService {
 
     getModelSlot(scene) {
         if (scene === 'completion') return this.config.completionModel || null;
+        if (scene === 'documentTask') return this.config.documentTaskModel || this.config.completionModel || null;
         if (scene === 'beautify') return this.config.beautifyModel || null;
         if (scene === 'translation') return this.config.translationModel || null;
         return this.config.completionModel || this.config.beautifyModel || this.config.translationModel || null;

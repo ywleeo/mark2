@@ -681,6 +681,36 @@ body.is-status-bar-hidden .status-bar {
     opacity: 1;
 }
 
+.status-ai-task-btn {
+    flex: 0 0 auto;
+    height: 100%;
+    padding: 0 6px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.72;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.status-ai-task-btn:hover,
+.status-ai-task-btn.is-active {
+    opacity: 1;
+    color: var(--accent-color, #315fbe);
+}
+
+.status-ai-task-btn__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 16px;
+    font-size: 11px;
+    font-weight: 760;
+    line-height: 1;
+    letter-spacing: 0.01em;
+}
+
 .status-zoom-btn {
     border: none;
     width: 18px;

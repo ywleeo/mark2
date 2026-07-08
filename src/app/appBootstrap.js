@@ -39,6 +39,7 @@ import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windo
 import { setupSecretCloudSwitch } from './secretCloudSwitch.js';
 import { AppMenu } from '../components/AppMenu.js';
 import { VaultPanel } from '../components/VaultPanel.js';
+import { AiFileTaskDialog } from '../modules/ai-file-task/AiFileTaskDialog.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
 import { EVENT_IDS } from '../core/eventIds.js';
 
@@ -176,6 +177,22 @@ export function createAppBootstrap({
 
         setupViewPanes(appState);
 
+        const aiFileTaskDialog = new AiFileTaskDialog({
+            fileService: appServices.file,
+            getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
+            untitledFileManager,
+            saveCurrentEditorContentToCache,
+            openResultAsUntitled: ({ content, filename }) => handleImportAsUntitled(content, filename),
+            getStatusBarController: () => appState.getStatusBarController(),
+        });
+        const unsubscribeAiFileTaskCurrentFile = appState.onCurrentFileChange((path) => {
+            aiFileTaskDialog.updateCurrentFile(path);
+        });
+        appState.setCleanupFunction('aiFileTaskDialog', () => {
+            unsubscribeAiFileTaskCurrentFile();
+            aiFileTaskDialog.destroy();
+        });
+
         setupStatusBar({
             appState,
             appServices,
@@ -183,6 +200,7 @@ export function createAppBootstrap({
             normalizeFsPath,
             handleZoomControl,
             updateZoomDisplayForActiveView,
+            onAiDocumentTask: (path) => aiFileTaskDialog.open({ path }),
         });
 
         const editorCallbacks = createEditorCallbacks({

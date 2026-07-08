@@ -1,0 +1,197 @@
+/* AI 文档任务面板：复用翻译面板的浮动、拖动和视觉语言。 */
+.ai-file-task {
+    z-index: 540;
+    width: 420px;
+    height: 360px;
+    min-width: 300px;
+    min-height: 240px;
+}
+
+.ai-file-task,
+.ai-file-task * {
+    -webkit-app-region: no-drag;
+}
+
+.ai-file-task__header {
+    padding-left: 18px;
+}
+
+.ai-file-task__header-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.ai-file-task__badge {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 22px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 760;
+    letter-spacing: 0.01em;
+    background: linear-gradient(135deg, #315fbe 0%, #4977d6 58%, #6aa2ff 100%);
+    border-radius: 46% 54% 48% 52% / 55% 43% 57% 45%;
+}
+
+.ai-file-task__heading {
+    min-width: 0;
+}
+
+.ai-file-task__title {
+    color: var(--translator-header-text);
+    font-size: 12.5px;
+    font-weight: 650;
+    line-height: 1.25;
+}
+
+.ai-file-task__path {
+    margin-top: 1px;
+    color: var(--translator-muted);
+    font-size: 11.5px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px;
+}
+
+.ai-file-task__body {
+    gap: 9px;
+}
+
+.ai-file-task__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--translator-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ai-file-task__input {
+    height: 94px;
+}
+
+.ai-file-task__hint {
+    color: var(--translator-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.ai-file-task__submit {
+    margin-top: -2px;
+}
+
+.ai-file-task__result {
+    min-height: 0;
+    padding-top: 2px;
+}
+
+.ai-file-task__answer {
+    color: var(--translator-text);
+    font-size: 13.5px;
+    line-height: 1.65;
+}
+
+.ai-file-task__answer :is(h1, h2, h3, h4, h5, h6) {
+    margin: 0.85em 0 0.35em;
+    color: var(--translator-text);
+    font-size: 13.75px;
+    font-weight: 720;
+    line-height: 1.45;
+}
+
+.ai-file-task__answer :is(h1, h2, h3, h4, h5, h6):first-child {
+    margin-top: 0;
+}
+
+.ai-file-task__answer p {
+    margin: 0.55em 0;
+}
+
+.ai-file-task__answer p:first-child {
+    margin-top: 0;
+}
+
+.ai-file-task__answer p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-file-task__answer :is(ul, ol) {
+    margin: 0.45em 0 0.65em;
+    padding-left: 1.35em;
+}
+
+.ai-file-task__answer li {
+    margin: 0.22em 0;
+}
+
+.ai-file-task__answer strong {
+    font-weight: 720;
+}
+
+.ai-file-task__answer blockquote {
+    margin: 0.65em 0;
+    padding: 0.25em 0 0.25em 0.8em;
+    color: var(--translator-muted);
+    border-left: 2px solid var(--translator-border-strong);
+}
+
+.ai-file-task__answer code {
+    padding: 0.08em 0.32em;
+    border-radius: 4px;
+    background: var(--translator-surface);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.92em;
+}
+
+.ai-file-task__answer pre {
+    margin: 0.65em 0;
+    padding: 9px 10px;
+    overflow: auto;
+    border-radius: 7px;
+    background: var(--translator-surface);
+}
+
+.ai-file-task__answer pre code {
+    padding: 0;
+    background: transparent;
+    white-space: pre;
+}
+
+.ai-file-task__answer a {
+    color: var(--accent-color, #2f6fed);
+    text-decoration: none;
+}
+
+.ai-file-task__answer a:hover {
+    text-decoration: underline;
+}
+
+.ai-file-task__status {
+    min-height: 16px;
+    color: var(--translator-muted);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ai-file-task__status[data-state='success'] {
+    color: #2f7c4f;
+}
+
+.ai-file-task__status[data-state='error'] {
+    color: #cf222e;
+}
+
+:root[data-theme-appearance='dark'] .ai-file-task__status[data-state='success'] {
+    color: #7ee787;
+}
+
+:root[data-theme-appearance='dark'] .ai-file-task__status[data-state='error'] {
+    color: #ff7b72;
+}

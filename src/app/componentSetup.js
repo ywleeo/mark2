@@ -7,6 +7,7 @@ import { requireElementById, requireElementWithin } from './domHelpers.js';
 import { createStatusBarController } from '../modules/statusBarController.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { ZOOM_STEP } from './viewController.js';
+import { t } from '../i18n/index.js';
 
 /**
  * 初始化状态栏控制器
@@ -20,6 +21,7 @@ export function setupStatusBar({
     normalizeFsPath,
     handleZoomControl,
     updateZoomDisplayForActiveView,
+    onAiDocumentTask,
 }) {
     const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
     const statusBarFilePathElement = requireElementById('statusBarPath', '状态栏缺少文件路径区域');
@@ -72,6 +74,20 @@ export function setupStatusBar({
     if (tocBtn) {
         addClickHandler(tocBtn, () => {
             appState.getMarkdownToolbarManager()?.toggleToc?.();
+        });
+    }
+
+    // AI 当前文档任务入口：不常驻聊天侧栏，只对正在打开的文档执行一次性指令。
+    const aiTaskBtn = document.getElementById('statusBarAiTask');
+    if (aiTaskBtn) {
+        addClickHandler(aiTaskBtn, () => {
+            const currentFile = appState.getCurrentFile();
+            if (!currentFile) {
+                statusBarController.showProgress(t('aiFileTask.error.noCurrentFile'), { state: 'error' });
+                statusBarController.hideProgress({ delay: 1800 });
+                return;
+            }
+            onAiDocumentTask?.(currentFile);
         });
     }
 

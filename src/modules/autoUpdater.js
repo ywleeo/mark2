@@ -1,6 +1,7 @@
 /**
  * 自动更新模块。
- * 启动时静默检查并下载；下载完成后显示浮层提示,用户点击"重启"才真正替换并重启。
+ * 启动时静默检查；允许自动更新时后台下载，下载完成后显示浮层提示，用户点击"重启"才真正替换并重启。
+ * 关闭自动更新时仍检查并提示新版本，但不会下载或安装。
  */
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
@@ -10,6 +11,7 @@ import { createStore } from '../services/storage.js';
 import { isMac } from '../utils/platform.js';
 import { t } from '../i18n/index.js';
 import { createLogger } from '../core/diagnostics/Logger.js';
+import { isAutoUpdateAllowed } from '../utils/editorSettings.js';
 
 const store = createStore('autoUpdater');
 store.migrateFrom('autoUpdater:lastCheckAt', 'lastCheckAt', { parse: (raw) => Number(raw) });
@@ -103,6 +105,12 @@ async function checkAndDownload(manual) {
     if (!update) {
         logger.info('当前已是最新版本');
         return false;
+    }
+
+    if (!isAutoUpdateAllowed()) {
+        logger.info('发现新版本，自动更新已关闭，仅提示用户', { version: update.version });
+        showUpdateAvailableToast(update.version);
+        return true;
     }
 
     logger.info('发现新版本，开始后台下载', { version: update.version });
@@ -220,6 +228,30 @@ function showInfoToast({ title, hint = '', variant = 'info', autoHideMs = 0 }) {
     if (autoHideMs > 0) {
         setTimeout(() => dismissToast(el), autoHideMs);
     }
+}
+
+function showUpdateAvailableToast(version) {
+    replaceToast();
+    const el = document.createElement('div');
+    el.className = 'updater-toast updater-toast--available';
+    el.innerHTML = `
+        <div class="updater-toast__body">
+            <div class="updater-toast__title">${escapeHtml(t('updater.available.title', { version }))}</div>
+            <div class="updater-toast__hint">${escapeHtml(t('updater.available.hint'))}</div>
+        </div>
+        <button type="button" class="updater-toast__close" data-action="dismiss" aria-label="${escapeHtml(t('updater.close'))}">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M3 3 L11 11 M11 3 L3 11"/>
+            </svg>
+        </button>
+    `;
+    addClickHandler(el, (e) => {
+        const action = e.target.closest('[data-action]')?.dataset.action;
+        if (action === 'dismiss') dismissToast(el);
+    });
+    document.body.appendChild(el);
+    toastEl = el;
+    requestAnimationFrame(() => el.classList.add('is-visible'));
 }
 
 function showUpdateReadyToast(version) {

@@ -116,6 +116,10 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.autoSave')}</span>
                                 <input type="checkbox" name="autoSave" class="settings-row__control settings-row__control--toggle" />
                             </label>
+                            <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.allowAutoUpdate')}</span>
+                                <input type="checkbox" name="allowAutoUpdate" class="settings-row__control settings-row__control--toggle" />
+                            </label>
                             ${isMac ? `
                             <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
                                 <span class="settings-row__label">${t('settings.defaultApp')}</span>
@@ -252,6 +256,7 @@ export class SettingsDialog {
         this.sidebarFontSizeInput = this.form.querySelector('input[name="sidebarFontSize"]');
         this.tocFontSizeInput = this.form.querySelector('input[name="tocFontSize"]');
         this.autoSaveCheckbox = this.form.querySelector('input[name="autoSave"]');
+        this.allowAutoUpdateCheckbox = this.form.querySelector('input[name="allowAutoUpdate"]');
 
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
@@ -266,6 +271,7 @@ export class SettingsDialog {
         this.translationModelSelectEl = this.root.querySelector('[data-ref="translationModelSelect"]');
         this.beautifyModelSelectEl = this.root.querySelector('[data-ref="beautifyModelSelect"]');
         this.completionModelSelectEl = this.root.querySelector('[data-ref="completionModelSelect"]');
+        this.documentTaskModelSelectEl = this.root.querySelector('[data-ref="documentTaskModelSelect"]');
         this.aiConfiguredProviders = []; // [{ id, apiKey, isCustom?, name?, baseUrl?, models? }]
 
         // Cloud plugin 入口：每个 plugin 的 mountSettingsSlot 都把自己的 UI 插到这里
@@ -452,6 +458,9 @@ export class SettingsDialog {
         if (this.autoSaveCheckbox) {
             this.autoSaveCheckbox.checked = editorPrefs.autoSave !== false;
         }
+        if (this.allowAutoUpdateCheckbox) {
+            this.allowAutoUpdateCheckbox.checked = editorPrefs.allowAutoUpdate !== false;
+        }
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
         this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
@@ -472,7 +481,12 @@ export class SettingsDialog {
         this._setSelectValue(this.aiCreativitySelect, aiConfig.preferences?.creativity || 'medium');
         this._setSelectValue(this.aiCompletionLengthSelect, aiConfig.preferences?.completionLength || 'medium');
         this._renderAiKeysList();
-        this._renderModelSelects(aiConfig.translationModel, aiConfig.beautifyModel, aiConfig.completionModel);
+        this._renderModelSelects(
+            aiConfig.translationModel,
+            aiConfig.beautifyModel,
+            aiConfig.completionModel,
+            aiConfig.documentTaskModel,
+        );
 
         // 快捷键设置
         if (this.keybindingsSettings) {
@@ -555,7 +569,12 @@ export class SettingsDialog {
             .filter(p => !getCloudProvider(p.id))
             .map(p => ({ ...p }));
         this._renderAiKeysList();
-        this._renderModelSelects(cfg.translationModel, cfg.beautifyModel, cfg.completionModel);
+        this._renderModelSelects(
+            cfg.translationModel,
+            cfg.beautifyModel,
+            cfg.completionModel,
+            cfg.documentTaskModel,
+        );
     }
 
     async loadAiConfig() {
@@ -618,6 +637,7 @@ export class SettingsDialog {
         const normalizedSidebarSize = Number.isFinite(sidebarFontSize) ? this.clamp(sidebarFontSize, 9, 24) : 12;
         const normalizedTocSize = Number.isFinite(tocFontSize) ? this.clamp(tocFontSize, 9, 24) : 12;
         const autoSave = this.autoSaveCheckbox ? Boolean(this.autoSaveCheckbox.checked) : true;
+        const allowAutoUpdate = this.allowAutoUpdateCheckbox ? Boolean(this.allowAutoUpdateCheckbox.checked) : true;
 
         const sanitized = {
             theme: theme,
@@ -635,6 +655,7 @@ export class SettingsDialog {
             sidebarFontSize: normalizedSidebarSize,
             tocFontSize: normalizedTocSize,
             autoSave,
+            allowAutoUpdate,
         };
 
         // AI 场景设置
@@ -656,6 +677,7 @@ export class SettingsDialog {
             translationModel: parseModelSlot(this.translationModelSelectEl?.value),
             beautifyModel: parseModelSlot(this.beautifyModelSelectEl?.value),
             completionModel: parseModelSlot(this.completionModelSelectEl?.value),
+            documentTaskModel: parseModelSlot(this.documentTaskModelSelectEl?.value),
             preferences: {
                 creativity: this.aiCreativitySelect.value || 'medium',
                 completionLength: this.aiCompletionLengthSelect?.value || 'medium',
@@ -1091,8 +1113,11 @@ export class SettingsDialog {
         addBtn.parentNode.insertBefore(form, addBtn);
     }
 
-    _renderModelSelects(translationModel, beautifyModel, completionModel) {
-        if (!this.translationModelSelectEl || !this.beautifyModelSelectEl || !this.completionModelSelectEl) return;
+    _renderModelSelects(translationModel, beautifyModel, completionModel, documentTaskModel) {
+        if (!this.translationModelSelectEl
+            || !this.beautifyModelSelectEl
+            || !this.completionModelSelectEl
+            || !this.documentTaskModelSelectEl) return;
 
         const buildOptions = (currentVal) => {
             const fragment = document.createDocumentFragment();
@@ -1148,6 +1173,7 @@ export class SettingsDialog {
         const translationVal = translationModel ? `${translationModel.providerId}::${translationModel.model}` : '';
         const beautifyVal = beautifyModel ? `${beautifyModel.providerId}::${beautifyModel.model}` : '';
         const completionVal = completionModel ? `${completionModel.providerId}::${completionModel.model}` : '';
+        const documentTaskVal = documentTaskModel ? `${documentTaskModel.providerId}::${documentTaskModel.model}` : '';
 
         this.translationModelSelectEl.innerHTML = '';
         this.translationModelSelectEl.appendChild(buildOptions(translationVal));
@@ -1158,7 +1184,15 @@ export class SettingsDialog {
         this.completionModelSelectEl.innerHTML = '';
         this.completionModelSelectEl.appendChild(buildOptions(completionVal));
 
-        for (const el of [this.translationModelSelectEl, this.beautifyModelSelectEl, this.completionModelSelectEl]) {
+        this.documentTaskModelSelectEl.innerHTML = '';
+        this.documentTaskModelSelectEl.appendChild(buildOptions(documentTaskVal));
+
+        for (const el of [
+            this.translationModelSelectEl,
+            this.beautifyModelSelectEl,
+            this.completionModelSelectEl,
+            this.documentTaskModelSelectEl,
+        ]) {
             if (this._dropdownMap.has(el)) {
                 try { this._dropdownMap.get(el).destroy(); } catch (_) {}
                 this._dropdownMap.delete(el);
@@ -1177,6 +1211,7 @@ export class SettingsDialog {
             parseVal(this.translationModelSelectEl?.value),
             parseVal(this.beautifyModelSelectEl?.value),
             parseVal(this.completionModelSelectEl?.value),
+            parseVal(this.documentTaskModelSelectEl?.value),
         );
     }
 

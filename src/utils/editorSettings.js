@@ -22,6 +22,7 @@ export const defaultEditorSettings = {
     sidebarFontSize: 12,
     tocFontSize: 12,
     autoSave: true,
+    allowAutoUpdate: true,
 };
 
 function clamp(value, min, max) {
@@ -151,6 +152,10 @@ export function normalizeEditorSettings(candidate) {
         if (candidate.autoSave !== undefined) {
             prefs.autoSave = candidate.autoSave !== false;
         }
+
+        if (candidate.allowAutoUpdate !== undefined) {
+            prefs.allowAutoUpdate = candidate.allowAutoUpdate !== false;
+        }
     }
 
     return prefs;
@@ -160,6 +165,11 @@ export function normalizeEditorSettings(candidate) {
 // 手动 cmd+S 走的是显式 saveCurrentFile，不经这里。
 export function isAutoSaveEnabled() {
     return lastAppliedSettings.autoSave !== false;
+}
+
+// 自动更新开关只控制下载/安装，不影响检查新版本和新版提示。
+export function isAutoUpdateAllowed() {
+    return loadEditorSettings().allowAutoUpdate !== false;
 }
 
 export function loadEditorSettings() {

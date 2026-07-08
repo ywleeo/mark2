@@ -30,6 +30,10 @@ export function renderSettingsAiSection(translate) {
                     <span class="settings-row__label">${translate('settings.completionModel')}</span>
                     <select data-ref="completionModelSelect" class="settings-row__control"></select>
                 </label>
+                <label class="settings-row">
+                    <span class="settings-row__label">${translate('settings.documentTaskModel')}</span>
+                    <select data-ref="documentTaskModelSelect" class="settings-row__control"></select>
+                </label>
                 <label class="settings-row settings-row--sub">
                     <span class="settings-row__label">${translate('settings.completionCreativity')}</span>
                     <select name="aiCreativity" class="settings-row__control">

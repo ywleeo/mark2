@@ -19,6 +19,7 @@ export function applyHtmlLocale() {
         ['.status-zoom-btn[data-zoom="out"]', 'aria-label', 'statusBar.zoomOut'],
         ['.status-zoom-btn[data-zoom="in"]', 'aria-label', 'statusBar.zoomIn'],
         ['#statusBarToc', 'title', 'statusBar.toc'],
+        ['#statusBarAiTask', 'title', 'statusBar.aiTask'],
         ['#statusBarTranslator', 'title', 'statusBar.translator'],
         ['.translator-title', 'textContent', 'translator.title'],
         ['.translator-input', 'placeholder', 'translator.placeholder'],
