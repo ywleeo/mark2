@@ -2,69 +2,83 @@
 
 # Mark2
 
-Mark2 is a desktop workbench built for heavy writing, research, and content production.
-Markdown editing, code reading, document import, AI assistance, card export, and local file management — all in one app.
+Mark2 is a desktop Markdown app for focused writing and reading.
 
-![Mark2 overview](demo/demo.png)
+It brings local file management, Markdown editing, source mode, PDF reading, code viewing, math rendering, and card export into one workspace. AI is not a persistent sidebar that interrupts writing. It stays close to context: near the cursor, around selected text, or inside a lightweight current-document task dialog.
+
+![Mark2 main interface](demo/主界面展示.png)
 
 ## Why Mark2
 
-- Fast. Built on Tauri and vanilla JavaScript — light startup, direct interaction.
-- Comprehensive. Markdown, code, images, audio/video, PDF, spreadsheets, and Word documents in a single workspace.
-- Deep. AI understands the current document and its context — not a chat box floating outside the editor.
-- Polished. Built-in card export and themed presentation take you from writing to sharing in one flow.
+Mark2 is not trying to become a massive knowledge system. It is designed to be small, fast, simple, and genuinely useful for writing.
 
-## Core experience
+- **Small and fast**: Mark2 is built with Tauri, backed by Rust, and the app is under 30 MB. Startup and interaction are lightweight, so you do not need to open a heavy workspace just to write an article.
+- **Simple to learn**: many Markdown tools are powerful but crowded, with complex plugin systems and high setup cost. Mark2 keeps the common writing tools ready out of the box, so you can open it and start writing.
+- **AI inside the writing flow**: Mark2 does not treat AI as an agent that takes a prompt and outputs a full article in one shot. It works more like a writing partner: continuing at the cursor, suggesting ideas when you are stuck, polishing, expanding, shortening selected text, and summarizing or organizing the current document.
+- **Complete document support**: beyond Markdown, Mark2 supports PDF, code, images, audio/video, spreadsheets, and Word import. It is not just an `.md` editor; it brings reading, writing, organizing, and exporting into one document-centered workflow.
+- **Short path to output**: finished content can be exported directly as image cards, making it easy to share notes, arguments, excerpts, or article fragments.
 
-### AI assistant
+Mark2 is for people whose main output is text: articles, tutorials, stories, research notes, PDF reading notes, code documentation, and content that eventually needs to be revised, published, or shared. It does much more than you would expect from an app under 30 MB, while still staying lightweight to use.
 
-The AI assistant is tightly bound to the current document — it reads, rewrites, drafts paragraphs, polishes prose, and organizes material.
+## How Mark2 Differs From Obsidian And Notion
 
-![AI assistant](demo/ai.png)
+Mark2 is not trying to replace every document tool. It focuses on the workflow writers repeat every day: read source material, write, revise with AI, and export.
 
-### Markdown writing
+- If you need backlinks, knowledge graphs, and a large plugin ecosystem, Obsidian is a better fit. Mark2 does not build its core experience around graphs and plugins; it focuses more on the quality of individual documents and the reading experience around them.
+- If you need team collaboration, databases, project pages, and an online workspace, Notion is a better fit. Mark2 uses local files and Markdown, which works better for offline writing, long-term ownership, Git, and migration across tools.
+- If you want a lightweight desktop app that brings Markdown writing, PDF/code reading, AI assistance, and card export together, Mark2 is the more direct choice.
 
-Mark2's core workspace revolves around Markdown, with WYSIWYG editing, source mode, task lists, tables, math formulas, Mermaid diagrams, and more.
+## AI Writing
 
-![Markdown editing](demo/mermaid.png)
+### Continue From The Cursor
 
-### Math formulas
+A small AI entry appears around the current line. Ask AI to continue from the current document context; the result appears as ghost text first, then you decide whether to accept it.
 
-Built-in math rendering, suitable for technical docs, study notes, research records, and any content that needs equations.
+![AI continue trigger](demo/AI%20续写启动.png)
 
-![Math formulas](demo/math.png)
+![AI continue result](demo/AI%20续写效果.png)
 
-### Code & technical content
+### Get Writing Ideas
 
-Beyond Markdown, Mark2 handles code and technical documents well. Code files can be viewed and edited directly — great for writing READMEs, reading scripts, or tweaking config.
+When you are stuck, AI can suggest what to write next. Ideas are not forced into the document; they are directions you can insert and expand.
 
-![Code view](demo/code.png)
+![AI ideas](demo/AI%20提供%20ideas.png)
 
-### PDF & reference reading
+### Process The Current Document
 
-PDFs, images, media, and a wide range of attachment formats render directly in the workspace, making it easy to read source material while you write.
+For tasks like “summarize this document”, “check structure issues”, or “generate an outline from the current draft”, open the AI document task dialog and type an instruction. Simple answers stay in the dialog; document-shaped results open as a temporary document.
 
-![PDF reading](demo/pdf.png)
+## Markdown Writing And Reading
 
-### Card export
+Mark2 supports both WYSIWYG editing and source mode. It works for drafts, notes, technical docs, and long-form writing. The editor can adapt page width automatically, and you can also adjust reading margins manually.
 
-Document content can be quickly arranged into shareable card images. Mark2 ships with built-in card styles and export — suitable for social media posts, summary graphics, and visual excerpts.
+## Technical Content
 
-![Card export](demo/card.png)
+### Math
 
-### Dark mode
+Built-in KaTeX rendering works well for notes, tutorials, and research material with equations.
 
-For long writing and reading sessions, the dark theme fits late-night and focused workflows.
+![Math support](demo/支持公式.png)
 
-![Dark theme](demo/dark.png)
+### Code
 
-### Built-in terminal
+Code files can be opened and edited directly. Markdown code blocks are also styled for reading and quick copying.
 
-Mark2 includes a built-in terminal panel, so you can run scripts, view output, and handle local dev tasks without leaving the workspace.
+![Code support](demo/支持写代码.png)
 
-![Built-in terminal](demo/terminal.png)
+### PDF
 
-## Supported content types
+Read PDFs directly in Mark2 while writing Markdown notes in the same workspace.
+
+![PDF support](demo/支持看%20pdf%20文件.png)
+
+## Card Export
+
+Selected document content can be exported as image cards, suitable for sharing notes, excerpts, arguments, or article fragments.
+
+![Card export](demo/内容生成卡片.png)
+
+## Supported Content Types
 
 - Markdown
 - Code files
@@ -74,13 +88,12 @@ Mark2 includes a built-in terminal panel, so you can run scripts, view output, a
 - CSV / Excel spreadsheets
 - Word document import
 
-## What it's good for
+## Good For
 
-- Writing articles, picking topics, organizing material
-- Reading PDFs, documents, and code while taking notes
-- Using AI to polish, rewrite, or extend the current draft
+- Writing articles, fiction, scripts, tutorials, and research notes
+- Reading PDFs, code, and source material while organizing Markdown
+- Using AI for continuation, ideas, polishing, expansion, shortening, and document summaries
 - Exporting content as shareable cards
-- Doing "read → write → export" in a single workspace
 
 ## Install
 
@@ -88,7 +101,7 @@ Download the latest release from [GitHub Releases](../../releases) and drop it i
 
 ## Languages
 
-Mark2 supports Simplified Chinese, Traditional Chinese, and English. Switch under **Settings > General > Language** — applied instantly.
+Mark2 supports Simplified Chinese, Traditional Chinese, and English. Switch under **Settings > General > Language**.
 
 ## Development
 
@@ -98,7 +111,7 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
-## Tech stack
+## Tech Stack
 
 - [Tauri](https://tauri.app/)
 - [Vite](https://vitejs.dev/)
@@ -108,11 +121,9 @@ npm run tauri:build
 - [KaTeX](https://katex.org/)
 - [PDF.js](https://mozilla.github.io/pdf.js/)
 - [Mermaid](https://mermaid.js.org/)
-- [xterm.js](https://xtermjs.org/)
-- [Paged.js](https://pagedjs.org/)
 - [modern-screenshot](https://github.com/qq15725/modern-screenshot)
 
-## Project docs
+## Project Docs
 
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Development guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
