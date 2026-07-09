@@ -1,4 +1,4 @@
-import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { t } from '../../i18n/index.js';
 import { aiService } from '../../modules/ai-assistant/aiService.js';
@@ -117,6 +117,90 @@ function markInlineCompletionWidget(element) {
     return element;
 }
 
+/**
+ * 将 AI ghost text 做轻量 Markdown 预览。
+ * 这里不生成完整 TipTap 节点，只处理写作续写中最常见的行级/行内格式；
+ * 真正写入文档时仍由 Markdown parser 负责完整渲染。
+ */
+function appendInlineMarkdownPreview(parent, text) {
+    const source = typeof text === 'string' ? text : '';
+    const lines = source.split('\n');
+    const hasBlockLines = lines.length > 1
+        || lines.some(line => /^\s*(?:[-*+]\s+|\d+\.\s+|#{1,6}\s+)/.test(line));
+
+    if (!hasBlockLines) {
+        appendInlineMarks(parent, source);
+        return;
+    }
+
+    lines.forEach((line, index) => {
+        const row = document.createElement('span');
+        row.className = 'inline-completion-preview-line';
+
+        const bulletMatch = line.match(/^\s*[-*+]\s+(.+)$/);
+        const orderedMatch = line.match(/^\s*(\d+)\.\s+(.+)$/);
+        const headingMatch = line.match(/^\s*#{1,6}\s+(.+)$/);
+
+        if (bulletMatch) {
+            row.classList.add('inline-completion-preview-line--list');
+            const marker = document.createElement('span');
+            marker.className = 'inline-completion-preview-marker';
+            marker.textContent = '•';
+            row.appendChild(marker);
+            appendInlineMarks(row, bulletMatch[1]);
+        } else if (orderedMatch) {
+            row.classList.add('inline-completion-preview-line--list');
+            const marker = document.createElement('span');
+            marker.className = 'inline-completion-preview-marker';
+            marker.textContent = `${orderedMatch[1]}.`;
+            row.appendChild(marker);
+            appendInlineMarks(row, orderedMatch[2]);
+        } else if (headingMatch) {
+            row.classList.add('inline-completion-preview-line--heading');
+            appendInlineMarks(row, headingMatch[1]);
+        } else {
+            appendInlineMarks(row, line);
+        }
+
+        parent.appendChild(row);
+        if (index < lines.length - 1) {
+            parent.appendChild(document.createTextNode('\n'));
+        }
+    });
+}
+
+/**
+ * 渲染 ghost text 中的少量行内 Markdown 标记。
+ * @param {HTMLElement} parent - 目标节点
+ * @param {string} text - 待预览文本
+ */
+function appendInlineMarks(parent, text) {
+    const source = typeof text === 'string' ? text : '';
+    const pattern = /(\*\*([^*]+)\*\*|`([^`]+)`)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(source))) {
+        if (match.index > lastIndex) {
+            parent.appendChild(document.createTextNode(source.slice(lastIndex, match.index)));
+        }
+        if (match[2]) {
+            const strong = document.createElement('strong');
+            strong.textContent = match[2];
+            parent.appendChild(strong);
+        } else if (match[3]) {
+            const code = document.createElement('code');
+            code.textContent = match[3];
+            parent.appendChild(code);
+        }
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < source.length) {
+        parent.appendChild(document.createTextNode(source.slice(lastIndex)));
+    }
+}
+
 function createGhostWidget(text, loading, error) {
     if (loading) {
         const status = document.createElement('span');
@@ -150,7 +234,7 @@ function createGhostWidget(text, loading, error) {
 
     const ghost = document.createElement('span');
     ghost.className = 'inline-completion';
-    ghost.textContent = text;
+    appendInlineMarkdownPreview(ghost, text);
 
     const hint = document.createElement('span');
     hint.className = 'inline-completion-hint';
@@ -224,12 +308,7 @@ export function createInlineCompletionPlugin(handlers) {
                 }
                 if (value?.text && event.key === 'Tab') {
                     event.preventDefault();
-                    const insertPos = Math.min(value.pos ?? view.state.selection.from, view.state.doc.content.size);
-                    const tr = view.state.tr.insertText(value.text, insertPos);
-                    tr.setSelection(TextSelection.create(tr.doc, insertPos + value.text.length));
-                    tr.setMeta(inlineCompletionPluginKey, { type: 'clear' });
-                    view.dispatch(tr);
-                    handlers.onAccept?.(value.text);
+                    handlers.onAccept?.(value.text, value.pos);
                     return true;
                 }
                 if ((value?.text || value?.loading || value?.error) && event.key === 'Escape') {

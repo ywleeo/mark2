@@ -9,13 +9,15 @@ const logger = createLogger('inline-completion');
  * Markdown 编辑器内联续写控制器。
  */
 export class InlineCompletionManager {
-    constructor({ editor, getMarkdown }) {
+    constructor({ editor, getMarkdown, insertMarkdownAtCursor }) {
         this.editor = editor;
         this.getMarkdown = getMarkdown;
+        this.insertMarkdownAtCursor = insertMarkdownAtCursor;
         this.requestSeq = 0;
         this.handleKeydown = (event) => this.onKeydown(event);
         this.plugin = createInlineCompletionPlugin({
             onRequest: (view) => this.request(view),
+            onAccept: (text, pos) => this.accept(text, pos),
             onCancel: () => this.cancel(),
         });
         this.editor.registerPlugin(this.plugin);
@@ -57,10 +59,16 @@ export class InlineCompletionManager {
         const view = this.editor.view;
         if (!view || view.isDestroyed || !text) return;
         const insertPos = Math.min(pos ?? view.state.selection.from, view.state.doc.content.size);
-        const tr = view.state.tr.insertText(text, insertPos);
-        tr.setSelection(TextSelection.create(tr.doc, insertPos + text.length));
-        tr.setMeta(inlineCompletionPluginKey, { type: 'clear' });
-        view.dispatch(tr);
+        view.dispatch(view.state.tr
+            .setSelection(TextSelection.create(view.state.doc, insertPos))
+            .setMeta(inlineCompletionPluginKey, { type: 'clear' }));
+        if (typeof this.insertMarkdownAtCursor === 'function') {
+            this.insertMarkdownAtCursor(text);
+        } else {
+            const tr = view.state.tr.insertText(text, insertPos);
+            tr.setSelection(TextSelection.create(tr.doc, insertPos + text.length));
+            view.dispatch(tr);
+        }
         logger.debug('accept', { length: text.length });
     }
 

@@ -61,6 +61,32 @@
     white-space: pre-wrap;
 }
 
+.inline-completion-preview-line {
+    display: inline;
+}
+
+.inline-completion-preview-line--list {
+    display: block;
+    padding-left: 1.2em;
+    text-indent: -1.2em;
+}
+
+.inline-completion-preview-line--heading {
+    display: block;
+    font-weight: 700;
+}
+
+.inline-completion-preview-marker {
+    display: inline-block;
+    min-width: 1.2em;
+    text-indent: 0;
+}
+
+.inline-completion code {
+    font-family: var(--editor-mono-font, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    font-size: 0.92em;
+}
+
 .inline-completion-hint {
     display: inline;
     margin-left: 0.55em;

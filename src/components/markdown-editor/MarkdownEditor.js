@@ -157,6 +157,7 @@ export class MarkdownEditor {
         this.inlineCompletionManager = new InlineCompletionManager({
             editor: this.editor,
             getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
+            insertMarkdownAtCursor: (markdown) => this.insertAIContent(markdown),
         });
         this.selectionRewriteManager = new SelectionRewriteManager({
             editor: this.editor,
