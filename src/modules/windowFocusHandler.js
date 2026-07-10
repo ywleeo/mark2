@@ -17,6 +17,7 @@ import { confirm } from '@tauri-apps/plugin-dialog';
  * @param {Function} options.getActiveViewMode - 获取当前视图模式
  * @param {Function} options.scheduleLoadFile - 刷新文件的函数
  * @param {Object} options.documentRegistry - 文档注册表（用于清除内容缓存）
+ * @param {Object} options.documentSessions - 文档会话与外部冲突状态
  */
 export function createWindowFocusHandler(options = {}) {
     const {
@@ -29,6 +30,7 @@ export function createWindowFocusHandler(options = {}) {
         getActiveViewMode,
         scheduleLoadFile,
         documentRegistry,
+        documentSessions,
     } = options;
 
     let unlisten = null;
@@ -132,6 +134,7 @@ export function createWindowFocusHandler(options = {}) {
                     const isActive = currentNormalized === normalized;
                     const hasUnsavedChanges = hasUnsavedChangesForPath(normalized);
                     if (isActive && hasUnsavedChanges) {
+                        documentSessions?.markExternalConflict?.(normalized, { source: 'window-focus' });
                         const shouldReload = await confirm(
                             '检测到文件在外部被修改，是否重新加载并覆盖当前未保存内容？',
                             {
@@ -143,6 +146,7 @@ export function createWindowFocusHandler(options = {}) {
                         );
                         if (shouldReload && typeof scheduleLoadFile === 'function') {
                             await scheduleLoadFile(normalized);
+                            documentSessions?.clearExternalConflict?.(normalized);
                         }
                     } else if (!hasUnsavedChanges) {
                         if (isActive && typeof scheduleLoadFile === 'function') {
@@ -158,10 +162,16 @@ export function createWindowFocusHandler(options = {}) {
 
             if (latestModifiedTime !== previousModifiedTime) {
                 fileModifiedTimeCache.set(normalized, latestModifiedTime);
+                const cachedModifiedTime = documentRegistry?.getCachedEntry?.(normalized)?.modifiedTime ?? null;
+                if (cachedModifiedTime === latestModifiedTime) {
+                    // 手动保存已经刷新了 DocumentRegistry 的 mtime，不应在窗口重新聚焦时当作外部修改。
+                    continue;
+                }
                 const isActive = currentNormalized === normalized;
                 const hasUnsavedChanges = hasUnsavedChangesForPath(normalized);
 
                 if (isActive && hasUnsavedChanges) {
+                    documentSessions?.markExternalConflict?.(normalized, { source: 'window-focus' });
                     const shouldReload = await confirm(
                         '检测到文件在外部被修改，是否重新加载并覆盖当前未保存内容？',
                         {
@@ -173,6 +183,7 @@ export function createWindowFocusHandler(options = {}) {
                     );
                     if (shouldReload && typeof scheduleLoadFile === 'function') {
                         await scheduleLoadFile(normalized);
+                        documentSessions?.clearExternalConflict?.(normalized);
                     }
                     continue;
                 }

@@ -539,6 +539,7 @@ export function createAppBootstrap({
             normalizePath: normalizeFsPath,
             fileService: appServices.file,
             documentRegistry,
+            documentSessions,
             getEditor: () => editorRegistry.getMarkdownEditor(),
             getCodeEditor: () => editorRegistry.getCodeEditor(),
             getCurrentFile: () => appState.getCurrentFile(),

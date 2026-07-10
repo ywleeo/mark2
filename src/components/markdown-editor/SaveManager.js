@@ -1,6 +1,11 @@
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import { isAutoSaveEnabled } from '../../utils/editorSettings.js';
+import {
+    createExternalModificationConflict,
+    isExternalModificationConflict,
+} from '../../core/documents/DocumentConflict.js';
+import { reconcileSavedSnapshot } from '../../core/documents/SaveSnapshot.js';
 import { DEFAULT_AUTO_SAVE_DELAY, MIN_AUTO_SAVE_DELAY } from './constants.js';
 
 /**
@@ -101,7 +106,9 @@ export class SaveManager {
             return;
         }
         const result = await this.save({ reason: 'auto', sessionId });
-        if (!result && this.isContentChanged()) {
+        if (!result
+            && this.isContentChanged()
+            && !isExternalModificationConflict(this.lastSaveError)) {
             this.scheduleAutoSave();
         }
     }
@@ -120,6 +127,16 @@ export class SaveManager {
         }
 
         if (targetSessionId && !this.isSessionActive(targetSessionId)) return false;
+
+        if (this.documentSessions?.hasExternalConflict?.(targetFile)) {
+            this.lastSaveError = createExternalModificationConflict(targetFile);
+            if (reason === 'auto') {
+                Promise.resolve(this.callbacks.onAutoSaveError?.(this.lastSaveError)).catch(error => {
+                    console.warn('[SaveManager] 自动保存错误回调失败', error);
+                });
+            }
+            return false;
+        }
 
         let pendingMarkdown = null;
         if (this.isContentChanged()) {
@@ -162,10 +179,15 @@ export class SaveManager {
                     this.documentSessions.markLocalWrite(localWriteKey);
                 }
                 await services.file.writeText(targetFile, markdown);
+                this.documentSessions?.markLocalWrite?.(localWriteKey);
                 if (!targetSessionId || targetSessionId === this.getCurrentSessionId()) {
+                    const reconciliation = reconcileSavedSnapshot(markdown, this.getMarkdown());
                     this.setOriginalMarkdown(markdown);
-                    this.setContentChanged(false);
+                    this.setContentChanged(reconciliation.pendingChanges);
                     this.callbacks.onContentChange?.();
+                    if (reconciliation.pendingChanges && reason === 'auto') {
+                        this.scheduleAutoSave();
+                    }
                 }
                 return true;
             } catch (error) {
@@ -187,7 +209,11 @@ export class SaveManager {
         if (reason === 'auto') {
             if (result) {
                 Promise.resolve(
-                    this.callbacks.onAutoSaveSuccess?.({ skipped: false, filePath: targetFile })
+                    this.callbacks.onAutoSaveSuccess?.({
+                        skipped: false,
+                        filePath: targetFile,
+                        pendingChanges: this.isContentChanged(),
+                    })
                 ).catch(error => {
                     console.warn('[SaveManager] 自动保存回调失败', error);
                 });

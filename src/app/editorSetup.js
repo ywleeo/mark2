@@ -4,6 +4,8 @@
  */
 
 import { ZOOM_DEFAULT } from './viewController.js';
+import { isExternalModificationConflict } from '../core/documents/DocumentConflict.js';
+import { t } from '../i18n/index.js';
 
 /**
  * 创建编辑器回调函数
@@ -35,7 +37,7 @@ export function createEditorCallbacks({
             void updateWindowTitle();
             scheduleDocumentSnapshotSync();
         },
-        onAutoSaveSuccess: async ({ skipped, filePath }) => {
+        onAutoSaveSuccess: async ({ skipped, filePath, pendingChanges = false }) => {
             if (skipped) {
                 return;
             }
@@ -58,13 +60,24 @@ export function createEditorCallbacks({
             const modifiedTime = await documentRegistry.refreshModifiedTime?.(targetPath);
             await onFileSaved?.(targetPath, modifiedTime);
             if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
-                documentManager?.markDirty?.(targetPath, false);
-                appState.setHasUnsavedChanges(false);
+                const stillDirty = pendingChanges
+                    || editor?.hasUnsavedChanges?.()
+                    || codeEditor?.hasUnsavedChanges?.()
+                    || false;
+                documentManager?.markDirty?.(targetPath, stillDirty);
+                appState.setHasUnsavedChanges(stillDirty);
                 await updateWindowTitle();
             }
             scheduleDocumentSnapshotSync();
         },
         onAutoSaveError: (error) => {
+            if (isExternalModificationConflict(error)) {
+                appState.getStatusBarController?.()?.showProgress?.(
+                    t('fileConflict.autoSaveBlocked'),
+                    { state: 'error' }
+                );
+                return;
+            }
             console.error('自动保存失败:', error);
         },
     };

@@ -3,6 +3,7 @@ export function createDocumentSessionManager() {
     let sessionCounter = 0;
     const LOCAL_WRITE_SUPPRESSION_MS = 800;
     const localWriteSuppressions = new Map();
+    const externalConflicts = new Map();
 
     const normalizePathKey = (filePath) => {
         if (!filePath) {
@@ -58,6 +59,54 @@ export function createDocumentSessionManager() {
         }
         localWriteSuppressions.delete(key);
         return false;
+    }
+
+    /**
+     * 标记文件在本地仍有未保存内容时被外部修改。
+     * @param {string} filePath - 文件路径
+     * @param {Object} [details] - 冲突上下文
+     */
+    function markExternalConflict(filePath, details = {}) {
+        const key = normalizePathKey(filePath);
+        if (!key) return;
+        externalConflicts.set(key, {
+            filePath: key,
+            detectedAt: Date.now(),
+            ...details,
+        });
+    }
+
+    /**
+     * 查询文件是否存在尚未解决的外部修改冲突。
+     * @param {string} filePath - 文件路径
+     * @returns {boolean}
+     */
+    function hasExternalConflict(filePath) {
+        const key = normalizePathKey(filePath);
+        return Boolean(key && externalConflicts.has(key));
+    }
+
+    /**
+     * 返回外部修改冲突详情。
+     * @param {string} filePath - 文件路径
+     * @returns {Object|null}
+     */
+    function getExternalConflict(filePath) {
+        const key = normalizePathKey(filePath);
+        return key ? externalConflicts.get(key) || null : null;
+    }
+
+    /**
+     * 清除已解决的外部修改冲突。
+     * @param {string|null} filePath - 文件路径；为空时清空全部
+     */
+    function clearExternalConflict(filePath = null) {
+        if (!filePath) {
+            externalConflicts.clear();
+            return;
+        }
+        const key = normalizePathKey(filePath);
+        if (key) externalConflicts.delete(key);
     }
 
     function beginSession(filePath) {
@@ -135,6 +184,11 @@ export function createDocumentSessionManager() {
                 localWriteSuppressions.set(nextPath, deadline);
                 localWriteSuppressions.delete(oldPath);
             }
+            const conflict = externalConflicts.get(oldPath);
+            if (conflict) {
+                externalConflicts.set(nextPath, { ...conflict, filePath: nextPath });
+                externalConflicts.delete(oldPath);
+            }
         }
     }
 
@@ -150,5 +204,9 @@ export function createDocumentSessionManager() {
         markLocalWrite,
         clearLocalWriteSuppression,
         shouldIgnoreWatcherEvent,
+        markExternalConflict,
+        hasExternalConflict,
+        getExternalConflict,
+        clearExternalConflict,
     };
 }

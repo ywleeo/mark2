@@ -19,6 +19,12 @@ export function createFileWatcherController({
         }
         return documentSessions.shouldIgnoreWatcherEvent(filePath);
     };
+    const clearLocalWatcherFlag = (filePath) => {
+        fileTree?.clearExternalModification?.(filePath);
+    };
+    const markExternalConflict = (filePath, source) => {
+        documentSessions?.markExternalConflict?.(filePath, { source });
+    };
 
     function handleFolderWatcherEvent(watchedPath, event) {
         if (!fileTree) return;
@@ -43,6 +49,7 @@ export function createFileWatcherController({
             if (parentDir) dirsToRefresh.add(parentDir);
 
             if (shouldIgnoreLocalWrite(changedPath)) {
+                clearLocalWatcherFlag(changedPath);
                 return;
             }
             if (fileTree?.isFileOpen?.(changedPath)) {
@@ -51,11 +58,13 @@ export function createFileWatcherController({
                 const editorPath = editor ? normalizeFsPath(editor.currentFile) : null;
                 if (editor && editorPath === changedPath) {
                     if (typeof editor.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+                        markExternalConflict(changedPath, 'folder-watcher');
                         return;
                     }
                 }
                 if (codeEditor && normalizeFsPath(codeEditor.currentFile) === changedPath) {
                     if (typeof codeEditor.hasUnsavedChanges === 'function' && codeEditor.hasUnsavedChanges()) {
+                        markExternalConflict(changedPath, 'folder-watcher');
                         return;
                     }
                 }
@@ -72,6 +81,7 @@ export function createFileWatcherController({
         const normalizedPath = normalizeFsPath(filePath);
         if (!normalizedPath) return;
         if (shouldIgnoreLocalWrite(normalizedPath)) {
+            clearLocalWatcherFlag(normalizedPath);
             return;
         }
 
@@ -87,14 +97,17 @@ export function createFileWatcherController({
         const hasCachedChanges = cachedEntry?.hasChanges;
 
         if (isMarkdownActive && typeof editor?.hasUnsavedChanges === 'function' && editor.hasUnsavedChanges()) {
+            markExternalConflict(normalizedPath, 'file-watcher');
             return;
         }
 
         if (isCodeActive && codeEditor?.hasUnsavedChanges?.()) {
+            markExternalConflict(normalizedPath, 'file-watcher');
             return;
         }
 
         if (!isMarkdownActive && !isCodeActive && hasCachedChanges) {
+            markExternalConflict(normalizedPath, 'file-watcher-cache');
             return;
         }
 

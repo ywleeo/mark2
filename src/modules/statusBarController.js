@@ -344,7 +344,7 @@ export function createStatusBarController({
             const metadata = await fileService.metadata(filePath);
             if (!metadata || !metadata.modified_time) return null;
 
-            const date = new Date(metadata.modified_time * 1000);
+            const date = new Date(metadata.modified_time);
             const now = new Date();
 
             if (date.toDateString() === now.toDateString()) {

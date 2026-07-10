@@ -10,6 +10,8 @@ import {
 } from '../../utils/markdownFormatting.js';
 import { isAutoSaveEnabled } from '../../utils/editorSettings.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
+import { createExternalModificationConflict } from '../../core/documents/DocumentConflict.js';
+import { reconcileSavedSnapshot } from '../../core/documents/SaveSnapshot.js';
 import { resolveLanguageSupport } from './LanguageSupport.js';
 import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
 import {
@@ -769,10 +771,12 @@ export class CodeEditor {
         });
     }
 
-    markSaved() {
-        this.baseContent = this.getValue();
-        this.isDirty = false;
+    markSaved(savedContent = this.getValue()) {
+        const reconciliation = reconcileSavedSnapshot(savedContent, this.getValue());
+        this.baseContent = reconciliation.savedContent;
+        this.isDirty = reconciliation.pendingChanges;
         this.callbacks.onContentChange?.();
+        return reconciliation.pendingChanges;
     }
 
     scheduleAutoSave() {
@@ -807,6 +811,13 @@ export class CodeEditor {
         // untitled 文件无磁盘路径，跳过且不重新调度（防御性兜底，正常情况 scheduleAutoSave 已拦截）
         if (this.currentFile.startsWith('untitled://')) return;
         if (sessionId && !this.isSessionActive(sessionId)) return;
+        if (this.documentSessions?.hasExternalConflict?.(this.currentFile)) {
+            const error = createExternalModificationConflict(this.currentFile);
+            Promise.resolve(this.callbacks.onAutoSaveError?.(error)).catch(callbackError => {
+                console.warn('[CodeEditor] 自动保存错误回调失败', callbackError);
+            });
+            return;
+        }
         if (this.isSaving) {
             this.scheduleAutoSave();
             return;
@@ -829,10 +840,6 @@ export class CodeEditor {
             return;
         }
 
-        // 检查 await 期间用户是否继续编辑了内容
-        const currentRaw = this.getValue();
-        const userEditedDuringSave = currentRaw !== raw;
-
         const savePromise = (async () => {
             try {
                 const services = getAppServices();
@@ -840,13 +847,12 @@ export class CodeEditor {
                     this.documentSessions.markLocalWrite(localWriteKey);
                 }
                 await services.file.writeText(filePath, content);
+                this.documentSessions?.markLocalWrite?.(localWriteKey);
                 if (!sessionId || sessionId === this.currentSessionId) {
-                    if (userEditedDuringSave) {
-                        // 用户在写盘期间继续编辑了，不刷新编辑器，重新触发保存
-                        this.isDirty = true;
+                    const pendingChanges = this.markSaved(content);
+                    if (pendingChanges) {
                         this.scheduleAutoSave();
                     }
-                    this.markSaved();
                     if (hadFocusBeforeSave && this.isVisible && this.editor) {
                         this.editor.focus();
                     }
@@ -870,7 +876,11 @@ export class CodeEditor {
 
         if (result) {
             Promise.resolve(
-                this.callbacks.onAutoSaveSuccess?.({ skipped: false, filePath })
+                this.callbacks.onAutoSaveSuccess?.({
+                    skipped: false,
+                    filePath,
+                    pendingChanges: this.hasUnsavedChanges(),
+                })
             ).catch(error => {
                 console.warn('[CodeEditor] 自动保存回调失败', error);
             });

@@ -3,10 +3,11 @@ use font_kit::source::SystemSource;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::Path;
 use std::time::SystemTime;
 use tauri::Manager;
+use uuid::Uuid;
 
 #[cfg(target_os = "macos")]
 use objc2_app_kit::NSPasteboard;
@@ -92,7 +93,7 @@ pub fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
     let modified_time = modified
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
-        .as_secs();
+        .as_millis() as u64;
 
     Ok(FileMetadata { modified_time })
 }
@@ -166,8 +167,87 @@ pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 pub fn write_file(path: String, content: String) -> Result<(), String> {
-    fs::write(&path, content).map_err(|e| e.to_string())
+    write_file_atomically(Path::new(&path), content.as_bytes()).map_err(|error| error.to_string())
 }
+
+/**
+ * 将完整内容写入同目录临时文件后原子替换目标文件。
+ * 同目录保证 rename 不跨文件系统，sync_all 保证替换前数据已经交给操作系统落盘。
+ */
+fn write_file_atomically(path: &Path, content: &[u8]) -> io::Result<()> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("document");
+    let temp_path = parent.join(format!(".{file_name}.mark2-{}.tmp", Uuid::new_v4()));
+
+    let write_result = (|| -> io::Result<()> {
+        let mut temp_file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temp_path)?;
+
+        if let Ok(metadata) = fs::metadata(path) {
+            temp_file.set_permissions(metadata.permissions())?;
+        }
+
+        temp_file.write_all(content)?;
+        temp_file.sync_all()?;
+        drop(temp_file);
+
+        replace_file_atomically(&temp_path, path)?;
+        sync_parent_directory(parent);
+        Ok(())
+    })();
+
+    if write_result.is_err() {
+        let _ = fs::remove_file(&temp_path);
+    }
+    write_result
+}
+
+/** 使用平台原生语义原子替换目标文件。 */
+#[cfg(not(target_os = "windows"))]
+fn replace_file_atomically(source: &Path, target: &Path) -> io::Result<()> {
+    fs::rename(source, target)
+}
+
+/** Windows 的 rename 不能覆盖已有文件，使用 MoveFileExW 完成原子替换。 */
+#[cfg(target_os = "windows")]
+fn replace_file_atomically(source: &Path, target: &Path) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
+    };
+
+    let source_wide: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();
+    let target_wide: Vec<u16> = target.as_os_str().encode_wide().chain(Some(0)).collect();
+    let result = unsafe {
+        MoveFileExW(
+            source_wide.as_ptr(),
+            target_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if result == 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+/** Unix 下同步父目录，确保替换后的目录项在崩溃恢复后可见。 */
+#[cfg(unix)]
+fn sync_parent_directory(parent: &Path) {
+    if let Ok(directory) = fs::File::open(parent) {
+        let _ = directory.sync_all();
+    }
+}
+
+/** Windows 的 MoveFileExW WRITE_THROUGH 已覆盖目录项持久化。 */
+#[cfg(not(unix))]
+fn sync_parent_directory(_parent: &Path) {}
 
 #[tauri::command]
 pub fn append_log_entries(
@@ -372,4 +452,30 @@ pub fn reveal_in_file_manager(path: String) -> Result<(), String> {
     }
 
     reveal_in_file_manager_impl(&path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /** 验证原子写可覆盖旧内容，并且不会遗留临时文件。 */
+    #[test]
+    fn atomic_write_replaces_content_without_temp_files() {
+        let test_dir = std::env::temp_dir().join(format!("mark2-atomic-write-{}", Uuid::new_v4()));
+        fs::create_dir_all(&test_dir).expect("create test directory");
+        let target = test_dir.join("document.md");
+        fs::write(&target, "old content").expect("write initial content");
+
+        write_file_atomically(&target, b"new complete content").expect("atomic write");
+
+        assert_eq!(fs::read_to_string(&target).expect("read target"), "new complete content");
+        let remaining: Vec<_> = fs::read_dir(&test_dir)
+            .expect("read test directory")
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name())
+            .collect();
+        assert_eq!(remaining.len(), 1);
+
+        fs::remove_dir_all(&test_dir).expect("remove test directory");
+    }
 }

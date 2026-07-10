@@ -440,6 +440,11 @@
     "vault.confirmDeleteTitle": "Delete Entry",
     "vault.nameRequired": "Name is required",
 
+    "fileConflict.title": "File changed externally",
+    "fileConflict.message": "\"{name}\" changed outside Mark2 while you were editing. Overwrite the external version with your current content?",
+    "fileConflict.overwrite": "Overwrite",
+    "fileConflict.autoSaveBlocked": "Auto-save paused: file changed externally",
+
     "updater.checking": "Checking for updates…",
     "updater.upToDate": "You're up to date",
     "updater.downloading": "Downloading version {version}…",

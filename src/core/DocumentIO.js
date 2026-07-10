@@ -206,27 +206,35 @@ export function createDocumentIO(options = {}) {
         const activeViewMode = getActiveViewMode?.() || 'markdown';
 
         let content = '';
+        let contentResolved = false;
+        const editorMatchesFile = !editor?.currentFile || editor.currentFile === filePath;
+        const codeEditorMatchesFile = !codeEditor?.currentFile || codeEditor.currentFile === filePath;
 
-        if (activeViewMode === 'markdown' && editor?.getMarkdown) {
+        if (activeViewMode === 'markdown' && editorMatchesFile && editor?.getMarkdown) {
             content = editor.getMarkdown();
-        } else if (activeViewMode === 'code' && codeEditor) {
+            contentResolved = typeof content === 'string';
+        } else if (activeViewMode === 'code' && codeEditorMatchesFile && codeEditor) {
             content = codeEditor.getValue?.();
-        } else if (editor?.getMarkdown) {
+            contentResolved = typeof content === 'string';
+        } else if (editorMatchesFile && editor?.getMarkdown) {
             content = editor.getMarkdown();
+            contentResolved = typeof content === 'string';
         }
 
-        if (!content && codeEditor) {
+        if (!contentResolved && codeEditorMatchesFile && codeEditor) {
             content = codeEditor.getValue?.();
+            contentResolved = typeof content === 'string';
         }
 
-        if (!content && documentRegistry?.getCachedEntry) {
+        if (!contentResolved && documentRegistry?.getCachedEntry) {
             const cached = documentRegistry.getCachedEntry(filePath);
-            if (cached?.content) {
+            if (typeof cached?.content === 'string') {
                 content = cached.content;
+                contentResolved = true;
             }
         }
 
-        const normalized = normalizeNewlines(content);
+        const normalized = normalizeNewlines(contentResolved ? content : '');
         const totalLines = normalized ? normalized.split('\n').length : 0;
 
         return {

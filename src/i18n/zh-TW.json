@@ -439,6 +439,11 @@
   "vault.confirmDeleteTitle": "刪除條目",
   "vault.nameRequired": "請填寫名稱",
 
+  "fileConflict.title": "檔案已在外部修改",
+  "fileConflict.message": "你編輯期間，「{name}」已在 Mark2 外部發生修改。是否用目前內容覆寫外部版本？",
+  "fileConflict.overwrite": "覆寫外部版本",
+  "fileConflict.autoSaveBlocked": "自動儲存已暫停：檔案在外部被修改",
+
   "updater.checking": "正在檢查更新…",
   "updater.upToDate": "目前已是最新版本",
   "updater.downloading": "正在下載新版本 {version}…",

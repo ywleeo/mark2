@@ -2983,6 +2983,7 @@ dependencies = [
  "tokio-rustls 0.25.0",
  "trash",
  "uuid",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

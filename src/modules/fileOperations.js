@@ -129,6 +129,44 @@ export function createFileOperations({
         return normalized || path;
     };
 
+    /**
+     * 在手动覆盖外部修改前取得用户确认，并临时解除自动保存拦截。
+     * @param {string} filePath - 待保存文件
+     * @returns {Promise<{allowed:boolean,complete:(success:boolean)=>void}>}
+     */
+    async function prepareExternalConflictOverwrite(filePath) {
+        const pathKey = getSessionPathKey(filePath);
+        const hasConflict = Boolean(pathKey && documentSessions.hasExternalConflict?.(pathKey));
+        if (!hasConflict) {
+            return { allowed: true, complete: () => {} };
+        }
+
+        const shouldOverwrite = typeof confirm === 'function'
+            ? await confirm(t('fileConflict.message', { name: basename(filePath) }), {
+                title: t('fileConflict.title'),
+                kind: 'warning',
+                okLabel: t('fileConflict.overwrite'),
+                cancelLabel: t('common.cancel'),
+            })
+            : false;
+        if (!shouldOverwrite) {
+            return { allowed: false, complete: () => {} };
+        }
+
+        documentSessions.clearExternalConflict?.(pathKey);
+        return {
+            allowed: true,
+            complete: (success) => {
+                if (success) {
+                    documentSessions.clearExternalConflict?.(pathKey);
+                    getFileTree()?.clearExternalModification?.(pathKey);
+                } else {
+                    documentSessions.markExternalConflict?.(pathKey, { source: 'save-failed' });
+                }
+            },
+        };
+    }
+
     const rendererViewContext = viewManager.createRendererLoadContext?.() || {};
     const viewProtocol = rendererViewContext.view || viewManager.createViewProtocol?.() || null;
 
@@ -377,16 +415,24 @@ export function createFileOperations({
             if (isSpreadsheetFilePath(currentFile) && !isCsvFilePath(currentFile)) {
                 return await saveExcelAsCsv(currentFile, editor);
             }
+            const conflictResolution = await prepareExternalConflictOverwrite(currentFile);
+            if (!conflictResolution.allowed) {
+                return false;
+            }
             documentManager?.setSyncing?.(currentFile, true);
             let result;
             try {
                 result = await editor.save();
+            } catch (error) {
+                conflictResolution.complete(false);
+                throw error;
             } finally {
                 documentManager?.setSyncing?.(currentFile, false);
             }
             if (result) {
-                setHasUnsavedChanges(false);
-                documentManager?.markDirty?.(currentFile, false);
+                const stillDirty = editor.hasUnsavedChanges?.() || false;
+                setHasUnsavedChanges(stillDirty);
+                documentManager?.markDirty?.(currentFile, stillDirty);
                 saveCurrentEditorContentToCache();
                 await documentRegistry.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
@@ -394,12 +440,18 @@ export function createFileOperations({
                     path: currentFile,
                     activeViewMode,
                     writer: 'markdown-editor',
+                    pendingChanges: stillDirty,
                 });
             }
+            conflictResolution.complete(Boolean(result));
             return result;
         }
 
         if (activeViewMode === 'code' && codeEditor) {
+            const conflictResolution = await prepareExternalConflictOverwrite(currentFile);
+            if (!conflictResolution.allowed) {
+                return false;
+            }
             const localWriteKey = getSessionPathKey(currentFile);
             try {
                 const raw = codeEditor.getValue();
@@ -412,11 +464,14 @@ export function createFileOperations({
                 documentManager?.setSyncing?.(currentFile, true);
                 try {
                     await fileService.writeText(currentFile, content);
+                    documentSessions.markLocalWrite?.(localWriteKey);
                 } finally {
                     documentManager?.setSyncing?.(currentFile, false);
                 }
+                const latestRaw = codeEditor.getValue();
+                const editedDuringSave = latestRaw !== raw;
                 // 如果内容被格式化了，同步更新编辑器内容
-                if (content !== raw && codeEditor.editor) {
+                if (content !== raw && !editedDuringSave && codeEditor.editor) {
                     const position = codeEditor.getCurrentPosition();
                     codeEditor.suppressChange = true;
                     codeEditor.editor.dispatch({
@@ -429,9 +484,12 @@ export function createFileOperations({
                 }
                 const markdownCodeMode = getMarkdownCodeMode();
                 markdownCodeMode?.handleCodeSaved(content);
-                codeEditor.markSaved();
-                setHasUnsavedChanges(false);
-                documentManager?.markDirty?.(currentFile, false);
+                const stillDirty = codeEditor.markSaved(content);
+                if (stillDirty) {
+                    codeEditor.scheduleAutoSave?.();
+                }
+                setHasUnsavedChanges(stillDirty);
+                documentManager?.markDirty?.(currentFile, stillDirty);
                 saveCurrentEditorContentToCache();
                 await documentRegistry.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
@@ -440,7 +498,9 @@ export function createFileOperations({
                     activeViewMode,
                     writer: 'code-editor',
                     contentLength: typeof content === 'string' ? content.length : 0,
+                    pendingChanges: stillDirty,
                 });
+                conflictResolution.complete(true);
                 return true;
             } catch (error) {
                 if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
@@ -452,6 +512,7 @@ export function createFileOperations({
                     activeViewMode,
                     error,
                 });
+                conflictResolution.complete(false);
                 alert('保存失败: ' + error);
                 return false;
             }
@@ -577,12 +638,18 @@ export function createFileOperations({
         }
 
         const localWriteKey = getSessionPathKey(filePath);
+        const conflictResolution = await prepareExternalConflictOverwrite(filePath);
+        if (!conflictResolution.allowed) {
+            return false;
+        }
         try {
             if (localWriteKey && documentSessions.markLocalWrite) {
                 documentSessions.markLocalWrite(localWriteKey);
             }
             await fileService.writeText(filePath, cached.content);
+            documentSessions.markLocalWrite?.(localWriteKey);
             documentRegistry.clearEntry(filePath);
+            conflictResolution.complete(true);
             logger?.info?.('saveFile:done', {
                 requestedPath: filePath,
                 writer: 'cached-session',
@@ -599,6 +666,7 @@ export function createFileOperations({
                 writer: 'cached-session',
                 error,
             });
+            conflictResolution.complete(false);
             return false;
         }
     }
@@ -1080,6 +1148,7 @@ export function createFileOperations({
                 return;
             }
             fileTree?.clearExternalModification?.(filePath);
+            documentSessions.clearExternalConflict?.(getSessionPathKey(filePath));
             persistWorkspaceState();
 
             // 记录文件打开历史
