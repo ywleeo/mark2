@@ -22,20 +22,11 @@ function extractContentText(content) {
 }
 
 /**
- * 统计 reasoning 字段长度，只用于诊断 token 是否被思考过程耗尽。
- * @param {unknown} reasoning - reasoning 字段
- * @returns {number} reasoning 字符长度
- */
-function getReasoningLength(reasoning) {
-    return extractContentText(reasoning).length;
-}
-
-/**
  * 解析非流式 AI 返回，并提供不含正文的诊断元数据。
  * @param {string} body - API 原始响应体
  * @returns {{content:string,finishReason:string,reasoningLength:number,refusal:boolean,completionTokens:number|null}}
  */
-export function parseCompletionResponse(body) {
+export function parseNonStreamingResponse(body) {
     const data = JSON.parse(body || '{}');
     const choice = data?.choices?.[0] || {};
     const message = choice?.message || {};
@@ -47,7 +38,7 @@ export function parseCompletionResponse(body) {
         ?? data.content
         ?? data.text,
     );
-    const reasoningLength = getReasoningLength(
+    const reasoning = extractContentText(
         message.reasoning_content
         ?? message.reasoning
         ?? choice.reasoning_content
@@ -57,7 +48,7 @@ export function parseCompletionResponse(body) {
     return {
         content,
         finishReason: String(choice.finish_reason || data.finish_reason || ''),
-        reasoningLength,
+        reasoningLength: reasoning.length,
         refusal: Boolean(message.refusal || choice.refusal),
         completionTokens: Number.isFinite(data?.usage?.completion_tokens)
             ? data.usage.completion_tokens

@@ -376,6 +376,8 @@
     "aiFileTask.error.noCurrentFile": "请先打开一个文档",
     "aiFileTask.error.apiFailed": "AI 文档任务请求失败 ({status})",
     "aiFileTask.error.noContent": "AI 未返回有效内容",
+    "aiFileTask.error.invalidPlan": "AI 未能理解这次文档任务，请换一种说法后重试",
+    "aiFileTask.error.timeout": "AI 处理文档超时，请重试或换用响应更快的模型",
     "aiFileTask.error.tooManyConflicts": "输出文件重名过多，请换一个文件名",
     "aiWriting.title": "AI",
     "aiWriting.polish": "润色",

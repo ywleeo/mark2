@@ -3,7 +3,7 @@ import { t } from '../../i18n/index.js';
 import { aiService } from '../../modules/ai-assistant/aiService.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
 import { buildCompletionPrompts } from './CompletionPromptBuilder.js';
-import { parseCompletionResponse } from './CompletionResponseParser.js';
+import { parseNonStreamingResponse } from '../../modules/ai-assistant/services/nonStreamingResponseParser.js';
 import { sanitizeCompletionWithMeta } from './CompletionSanitizer.js';
 
 const logger = createLogger('inline-completion');
@@ -35,7 +35,7 @@ function getLengthPreset() {
 /**
  * 执行一次模型请求。
  * @param {object} options - 请求参数
- * @returns {Promise<ReturnType<typeof parseCompletionResponse>>} 模型正文与诊断信息
+ * @returns {Promise<ReturnType<typeof parseNonStreamingResponse>>} 模型正文与诊断信息
  */
 async function requestOnce({ provider, model, prompts, temperature }) {
     const baseUrl = aiService.getBaseUrlForScene('completion');
@@ -68,7 +68,7 @@ async function requestOnce({ provider, model, prompts, temperature }) {
         })();
         throw new Error(errorData.error?.message || t('inlineCompletion.error.apiFailed', { status: response.status }));
     }
-    return parseCompletionResponse(response.body);
+    return parseNonStreamingResponse(response.body);
 }
 
 /**

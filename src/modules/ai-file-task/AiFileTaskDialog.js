@@ -3,6 +3,7 @@ import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createStore } from '../../services/storage.js';
 import { t } from '../../i18n/index.js';
 import { AiFileTaskService } from './AiFileTaskService.js';
+import { DocumentTaskSession } from './DocumentTaskSession.js';
 import MarkdownIt from 'markdown-it';
 
 const store = createStore('ai-file-task');
@@ -78,6 +79,7 @@ export class AiFileTaskDialog {
         this.openResultAsUntitled = options.openResultAsUntitled || null;
         this.getStatusBarController = options.getStatusBarController || (() => null);
         this.service = options.service || new AiFileTaskService();
+        this.session = new DocumentTaskSession();
         this.root = null;
         this.currentPath = '';
         this.result = '';
@@ -93,9 +95,12 @@ export class AiFileTaskDialog {
      */
     open({ path }) {
         if (!path) return;
+        this.session.cancel();
+        this.pendingPath = '';
         this.currentPath = path;
         this.result = '';
         this.ensureElement();
+        this.setBusy(false);
         this.render();
         this.applyStoredLayout();
         this.root.classList.add('is-visible');
@@ -220,23 +225,28 @@ export class AiFileTaskDialog {
      * 执行 AI 文档任务。
      */
     async run() {
-        if (!this.root || !this.currentPath) return;
+        if (!this.root || !this.currentPath || this.isRunning) return;
         const instruction = this.root.querySelector('[name="instruction"]')?.value || '';
+        const task = this.session.begin(this.currentPath);
         this.setBusy(true, t('aiFileTask.running'));
         try {
-            const fileContent = await this.readCurrentFileContent();
+            const fileContent = await this.readCurrentFileContent(task.sourcePath);
+            if (!this.session.isCurrent(task) || !this.isVisible) return;
             const result = await this.service.runFileTask({
-                filePath: this.currentPath,
+                filePath: task.sourcePath,
                 fileContent,
                 instruction,
             });
+            if (!this.session.isCurrent(task) || !this.isVisible) return;
             this.result = result;
             if (result.action === 'open_document') {
-                const filename = result.filename || suggestResultFileName(instruction, this.currentPath);
+                const filename = result.filename || suggestResultFileName(instruction, task.sourcePath);
                 try {
                     await this.openResult(result.content, filename);
+                    if (!this.session.isCurrent(task) || !this.isVisible) return;
                     this.close();
                 } catch (error) {
+                    if (!this.session.isCurrent(task) || !this.isVisible) return;
                     result.action = 'show_answer';
                     this.renderResult(result);
                     this.setStatus(error?.message || String(error), 'error');
@@ -246,33 +256,38 @@ export class AiFileTaskDialog {
                 this.setStatus(t('aiFileTask.done'), 'success');
             }
         } catch (error) {
+            if (!this.session.isCurrent(task) || !this.isVisible) return;
             this.setStatus(error?.message || String(error), 'error');
         } finally {
+            if (!this.session.isCurrent(task)) return;
             this.setBusy(false);
             if (this.pendingPath && this.isVisible) {
-                this.updateCurrentFile(this.pendingPath);
+                const nextPath = this.pendingPath;
+                this.pendingPath = '';
+                this.updateCurrentFile(nextPath);
             }
         }
     }
 
     /**
      * 读取当前文档内容，优先使用内存中的 DocumentRegistry 快照。
+     * @param {string} [path] - 请求开始时绑定的源文件路径
      * @returns {Promise<string>}
      */
-    async readCurrentFileContent() {
+    async readCurrentFileContent(path = this.currentPath) {
         if (typeof this.saveCurrentEditorContentToCache === 'function') {
             this.saveCurrentEditorContentToCache();
         }
-        if (this.untitledFileManager?.isUntitledPath?.(this.currentPath)) {
-            return this.untitledFileManager.getContent?.(this.currentPath) || '';
+        if (this.untitledFileManager?.isUntitledPath?.(path)) {
+            return this.untitledFileManager.getContent?.(path) || '';
         }
         if (typeof this.getFileContent === 'function') {
-            const snapshot = await this.getFileContent(this.currentPath);
+            const snapshot = await this.getFileContent(path);
             if (snapshot && typeof snapshot.content === 'string') {
                 return snapshot.content;
             }
         }
-        return this.fileService.readText(this.currentPath);
+        return this.fileService.readText(path);
     }
 
     /**
@@ -496,6 +511,9 @@ export class AiFileTaskDialog {
      * 关闭任务面板。
      */
     close() {
+        this.session.cancel();
+        this.pendingPath = '';
+        this.setBusy(false);
         this.root?.classList.remove('is-visible');
         this.isVisible = false;
         document.getElementById('statusBarAiTask')?.classList.remove('is-active');
@@ -506,6 +524,7 @@ export class AiFileTaskDialog {
      * 销毁任务面板。
      */
     destroy() {
+        this.session.cancel();
         this.cleanups.forEach(fn => {
             if (typeof fn === 'function') fn();
         });

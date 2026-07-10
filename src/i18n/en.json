@@ -376,6 +376,8 @@
     "aiFileTask.error.noCurrentFile": "Open a document first",
     "aiFileTask.error.apiFailed": "AI document task request failed ({status})",
     "aiFileTask.error.noContent": "AI returned no content",
+    "aiFileTask.error.invalidPlan": "AI could not understand this document task. Rephrase the instruction and try again.",
+    "aiFileTask.error.timeout": "AI document processing timed out. Try again or choose a faster model.",
     "aiFileTask.error.tooManyConflicts": "Too many output filename conflicts. Use another name.",
     "aiWriting.title": "AI",
     "aiWriting.polish": "Polish",
