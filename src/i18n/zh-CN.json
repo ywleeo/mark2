@@ -358,6 +358,7 @@
     "inlineCompletion.error.noConfig": "未配置补齐模型，请在 AI 设置中配置后使用",
     "inlineCompletion.error.apiFailed": "AI 补齐请求失败 ({status})",
     "inlineCompletion.error.noContent": "AI 未返回补齐内容",
+    "inlineCompletion.error.timeout": "AI 续写思考时间过长，请重试或更换更快的模型",
     "inlineCompletion.writing": "AI 正在写",
     "inlineCompletion.hint": "Tab 接受 · Esc 取消",
     "inlineCompletion.settings": "续写设置",

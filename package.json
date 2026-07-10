@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "test": "node --test",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "tauri:build": "tauri build",

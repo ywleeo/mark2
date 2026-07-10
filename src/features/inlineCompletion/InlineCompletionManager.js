@@ -1,6 +1,7 @@
 import { TextSelection } from '@tiptap/pm/state';
 import { buildInlineCompletionContext, requestInlineCompletion } from './InlineCompletionProvider.js';
 import { createInlineCompletionPlugin, inlineCompletionPluginKey } from './InlineCompletionPlugin.js';
+import { CompletionSession } from './CompletionSession.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
 
 const logger = createLogger('inline-completion');
@@ -9,11 +10,12 @@ const logger = createLogger('inline-completion');
  * Markdown 编辑器内联续写控制器。
  */
 export class InlineCompletionManager {
-    constructor({ editor, getMarkdown, insertMarkdownAtCursor }) {
+    constructor({ editor, getMarkdown, markdownSerializer, insertMarkdownAtCursor }) {
         this.editor = editor;
         this.getMarkdown = getMarkdown;
+        this.markdownSerializer = markdownSerializer;
         this.insertMarkdownAtCursor = insertMarkdownAtCursor;
-        this.requestSeq = 0;
+        this.session = new CompletionSession();
         this.handleKeydown = (event) => this.onKeydown(event);
         this.plugin = createInlineCompletionPlugin({
             onRequest: (view) => this.request(view),
@@ -94,7 +96,7 @@ export class InlineCompletionManager {
     }
 
     cancel() {
-        this.requestSeq += 1;
+        this.session.cancel();
     }
 
     async request(view) {
@@ -102,8 +104,8 @@ export class InlineCompletionManager {
         const { state } = view;
         if (!state.selection.empty) return;
 
-        const requestId = ++this.requestSeq;
-        const pos = state.selection.from;
+        const snapshot = this.session.begin(view);
+        const pos = snapshot.from;
         view.focus();
         view.dispatch(state.tr
             .setSelection(TextSelection.create(state.doc, pos))
@@ -111,9 +113,13 @@ export class InlineCompletionManager {
         logger.debug('request:start', { pos });
 
         try {
-            const context = buildInlineCompletionContext(state, this.getMarkdown?.() || '');
+            const context = buildInlineCompletionContext(
+                state,
+                this.getMarkdown?.() || '',
+                this.markdownSerializer,
+            );
             const completion = await requestInlineCompletion(context);
-            if (requestId !== this.requestSeq || view.isDestroyed) return;
+            if (!this.session.isCurrent(snapshot, view)) return;
             view.dispatch(view.state.tr
                 .setSelection(TextSelection.create(view.state.doc, pos))
                 .setMeta(inlineCompletionPluginKey, {
@@ -124,7 +130,7 @@ export class InlineCompletionManager {
             view.focus();
             logger.debug('request:success', { length: completion.length });
         } catch (error) {
-            if (requestId !== this.requestSeq || view.isDestroyed) return;
+            if (!this.session.isCurrent(snapshot, view)) return;
             console.warn('[InlineCompletion] request:failed', error);
             view.dispatch(view.state.tr.setMeta(inlineCompletionPluginKey, {
                 type: 'error',
@@ -132,7 +138,7 @@ export class InlineCompletionManager {
                 error: error?.message || 'AI completion failed',
             }));
             setTimeout(() => {
-                if (requestId !== this.requestSeq || view.isDestroyed) return;
+                if (!this.session.isCurrent(snapshot, view)) return;
                 view.dispatch(view.state.tr.setMeta(inlineCompletionPluginKey, { type: 'clear' }));
             }, 1800);
         }

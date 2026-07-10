@@ -1,6 +1,8 @@
 import { aiProxyJsonRequest } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
 import { aiService } from '../../modules/ai-assistant/aiService.js';
+import { buildInlineCompletionContext } from '../inlineCompletion/CompletionContextBuilder.js';
+import { requestCompletion } from '../inlineCompletion/CompletionEngine.js';
 
 const BEFORE_LIMIT = 2600;
 const AFTER_LIMIT = 1200;
@@ -165,9 +167,10 @@ export function buildSelectionRewriteContext(state, selectedMarkdown, markdown) 
  * @param {import('@tiptap/pm/state').EditorState} state - 当前编辑器状态
  * @param {string} selectedMarkdown - 选区 Markdown，无选区为空
  * @param {string} markdown - 当前完整 Markdown
- * @returns {{selectedText: string, beforeSelection: string, afterSelection: string, outline: string}}
+ * @param {{serialize: Function}|null} serializer - Markdown serializer
+ * @returns {{selectedText: string, beforeSelection: string, afterSelection: string, outline: string, completionContext: object}}
  */
-export function buildWritingIdeaContext(state, selectedMarkdown, markdown) {
+export function buildWritingIdeaContext(state, selectedMarkdown, markdown, serializer = null) {
     const selection = state.selection;
     const from = selection?.from ?? 0;
     const to = selection?.to ?? from;
@@ -179,6 +182,7 @@ export function buildWritingIdeaContext(state, selectedMarkdown, markdown) {
         beforeSelection: clampAround(beforeText, BEFORE_LIMIT, false),
         afterSelection: clampAround(afterText, AFTER_LIMIT, true),
         outline: extractOutline(markdown),
+        completionContext: buildInlineCompletionContext(state, markdown, serializer),
     };
 }
 
@@ -268,71 +272,23 @@ ${scopeInstruction}
  * @returns {Promise<string>} 正文续写
  */
 export async function requestIdeaExpansion(ideaText, context) {
-    const provider = aiService.getProviderForScene('completion');
-    const model = aiService.getModelForScene('completion');
-    if (!provider?.apiKey || !model) {
-        throw new Error(t('inlineCompletion.error.noConfig'));
-    }
-
-    const res = await aiProxyJsonRequest({
-        method: 'POST',
-        url: `${provider.baseUrl}/chat/completions`,
-        apiKey: provider.apiKey,
-        body: {
-            model,
-            temperature: aiService.getTemperature(),
-            max_tokens: 800,
-            messages: [
-                {
-                    role: 'system',
-                    content: `你是 Markdown 写作续写助手。
-根据用户选择的灵感，在当前光标位置继续写一小段正文。
-只输出新增正文，不要解释，不要重复光标前已有内容。
-保持原文语言、文体、语气和 Markdown 格式。
-
-续写方式：
-1. 把灵感当作故事后续方向，不要把灵感压缩成一个完整故事梗概。
-2. 只写连载中的下一小段情节，推进一个具体场景、动作、对话或冲突。
-3. 不要在本次续写里完结故事、总结主题、升华感悟、给出命运定论或写大结局。
-4. 不要使用“原来/终于/从此/那一刻/老天爷/命运/一切都明白了”这类收束式表达。
-5. 多写细节和过程，少写结论；让故事后面仍然可以继续续写。`,
-                },
-                {
-                    role: 'user',
-                    content: `<Idea>
-${ideaText}
-</Idea>
-
-<DocumentOutline>
-${context.outline || '(无)'}
-</DocumentOutline>
-
-<BeforeCursorOrSelection>
-${context.beforeSelection || '(无)'}
-</BeforeCursorOrSelection>
-
-<SelectedText>
-${context.selectedText || '(无)'}
-</SelectedText>
-
-<AfterCursorOrSelection>
-${context.afterSelection || '(无)'}
-</AfterCursorOrSelection>`,
-                },
-            ],
+    const completionContext = context.completionContext || {
+        beforeCursor: context.beforeSelection || '',
+        afterCursor: context.afterSelection || '',
+        outline: context.outline || '',
+        writingMode: 'auto',
+        currentFormat: {
+            mode: 'paragraph',
+            insertionMode: 'inline',
+            blockType: 'paragraph',
+            listType: '',
+            beforeInBlock: '',
+            afterInBlock: '',
+            insideContainer: false,
+            instruction: '自然延续当前段落。',
         },
-    });
-
-    if (res.status < 200 || res.status >= 300) {
-        const errData = (() => { try { return JSON.parse(res.body || '{}'); } catch { return {}; } })();
-        throw new Error(errData.error?.message || t('inlineCompletion.error.apiFailed', { status: res.status }));
-    }
-
-    const content = sanitizeRewrite(parseAiContent(res.body));
-    if (!content) {
-        throw new Error(t('inlineCompletion.error.noContent'));
-    }
-    return content;
+    };
+    return requestCompletion(completionContext, { ideaText });
 }
 
 /**

@@ -12,6 +12,7 @@ export class AiWritingEntryManager {
         editor,
         getMarkdown,
         getSelectedMarkdown,
+        markdownSerializer,
         inlineCompletionManager,
         insertTextAtCursor,
         insertMarkdownAtCursor,
@@ -19,6 +20,7 @@ export class AiWritingEntryManager {
         this.editor = editor;
         this.getMarkdown = getMarkdown;
         this.getSelectedMarkdown = getSelectedMarkdown;
+        this.markdownSerializer = markdownSerializer;
         this.inlineCompletionManager = inlineCompletionManager;
         this.insertTextAtCursor = insertTextAtCursor;
         this.insertMarkdownAtCursor = insertMarkdownAtCursor;
@@ -549,7 +551,12 @@ export class AiWritingEntryManager {
         this.showPanel({ loading: true });
 
         const selected = state.selection.empty ? '' : this.getSelectedMarkdown?.();
-        const context = buildWritingIdeaContext(state, selected || '', this.getMarkdown?.() || '');
+        const context = buildWritingIdeaContext(
+            state,
+            selected || '',
+            this.getMarkdown?.() || '',
+            this.markdownSerializer,
+        );
         try {
             const ideas = await requestWritingIdeas(context);
             if (requestId !== this.requestSeq) return;

@@ -358,6 +358,7 @@
     "inlineCompletion.error.noConfig": "Completion model not configured, please set it up in AI settings",
     "inlineCompletion.error.apiFailed": "AI completion request failed ({status})",
     "inlineCompletion.error.noContent": "AI returned no completion",
+    "inlineCompletion.error.timeout": "AI took too long to continue writing. Try again or choose a faster model",
     "inlineCompletion.writing": "AI is writing",
     "inlineCompletion.hint": "Tab to accept · Esc to cancel",
     "inlineCompletion.settings": "Completion Settings",

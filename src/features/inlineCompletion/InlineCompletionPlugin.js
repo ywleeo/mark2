@@ -275,7 +275,7 @@ export function createInlineCompletionPlugin(handlers) {
                 if (meta?.type === 'clear') {
                     return { text: '', pos: null, loading: false, error: '' };
                 }
-                if (tr.docChanged && (value.text || value.loading || value.error)) {
+                if ((tr.docChanged || tr.selectionSet) && (value.text || value.loading || value.error)) {
                     return { text: '', pos: null, loading: false, error: '' };
                 }
                 if (value.pos != null) {
