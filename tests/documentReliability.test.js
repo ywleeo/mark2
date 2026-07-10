@@ -9,6 +9,7 @@ import {
 } from '../src/core/documents/DocumentConflict.js';
 import { reconcileSavedSnapshot } from '../src/core/documents/SaveSnapshot.js';
 import { createDocumentSessionManager } from '../src/modules/documentSessionManager.js';
+import { normalizeContentLoadArguments } from '../src/components/markdown-editor/ContentLoader.js';
 
 test('保存期间继续编辑时，旧快照写盘后仍保持待保存状态', () => {
     const result = reconcileSavedSnapshot('写盘快照', '写盘快照\n继续输入');
@@ -124,6 +125,26 @@ test('空白活跃文档不会回退到代码编辑器或缓存里的旧内容',
         content: '',
         totalLines: 0,
     });
+});
+
+test('无 session 的内存文档首次加载不会把虚拟路径当成正文', () => {
+    const content = '# AI 生成文档\n\n这是实际内容。';
+    assert.deepEqual(
+        normalizeContentLoadArguments(null, 'untitled://AI-结果.md', content),
+        {
+            session: null,
+            filePath: 'untitled://AI-结果.md',
+            content,
+        }
+    );
+    assert.deepEqual(
+        normalizeContentLoadArguments('/docs/file.md', content),
+        {
+            session: null,
+            filePath: '/docs/file.md',
+            content,
+        }
+    );
 });
 
 test('外部冲突跟随路径重命名并可显式解决', () => {

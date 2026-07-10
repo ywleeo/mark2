@@ -1,10 +1,10 @@
 // 代码块复制功能模块
 import { addClickHandler } from '../utils/PointerHelper.js';
-import { checkIcon } from '../icons/uiIcons.js';
+import { copyButtonIcon } from '../icons/uiIcons.js';
 
 // 常量配置
-const COPY_BUTTON_ICON = '<i class="code-copy-button__icon toolbar-icon toolbar-icon--uicon fi fi-rr-copy" aria-hidden="true"></i>';
-const COPY_BUTTON_CHECK_ICON = checkIcon({ className: 'code-copy-button__icon', size: 16, strokeWidth: 2 });
+const COPY_BUTTON_ICON = copyButtonIcon();
+const COPY_BUTTON_CHECK_ICON = copyButtonIcon({ success: true });
 const COPY_FEEDBACK_DURATION = 1600;
 const COPY_BUTTON_OFFSET = 8;
 const COPY_BUTTON_SIZE = 28;

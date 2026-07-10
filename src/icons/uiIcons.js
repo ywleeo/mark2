@@ -31,13 +31,6 @@ function uicon(name, options = {}) {
     return `<i class="${className} fi fi-rr-${name}" aria-hidden="true"></i>`;
 }
 
-export function copyIcon(options = {}) {
-    return lineIcon(`
-        <rect x="8" y="8" width="10" height="10" rx="2"/>
-        <path d="M6 16V7.8A1.8 1.8 0 0 1 7.8 6H16"/>
-    `, options);
-}
-
 export function checkIcon(options = {}) {
     return lineIcon('<path d="m5 12.5 4.1 4.1L19 6.8"/>', {
         strokeWidth: 2,
@@ -54,3 +47,17 @@ export const fileMenuIcons = {
     reveal: (options = {}) => uicon('eye', options),
     delete: (options = {}) => uicon('trash', options),
 };
+
+/**
+ * 渲染全局复制按钮图标，保证代码块、AI 结果等入口使用同一视觉资源。
+ * @param {{success?:boolean}} [options] - 是否显示复制成功状态
+ * @returns {string} 图标 HTML
+ */
+export function copyButtonIcon(options = {}) {
+    if (options.success) {
+        return checkIcon({ className: 'code-copy-button__icon', size: 16, strokeWidth: 2 });
+    }
+    return fileMenuIcons.copy({
+        className: 'code-copy-button__icon toolbar-icon toolbar-icon--uicon',
+    });
+}

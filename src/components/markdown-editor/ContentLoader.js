@@ -26,6 +26,33 @@ function createSafeTextSelection(doc, from, to) {
 }
 
 /**
+ * 归一化 ContentLoader.loadFile 的两种兼容调用签名。
+ * `session` 可以为 null；此时仍必须把第二、三个参数解释为路径和正文。
+ *
+ * @param {object|string|null|undefined} sessionOrPath - 文档会话或直接文件路径
+ * @param {string} maybeFilePath - 会话签名中的路径，或直接签名中的正文
+ * @param {string} maybeContent - 会话签名中的正文
+ * @returns {{session:object|null,filePath:string,content:string}}
+ */
+export function normalizeContentLoadArguments(sessionOrPath, maybeFilePath, maybeContent) {
+    const usesSessionSignature = sessionOrPath == null || (
+        typeof sessionOrPath === 'object' && 'id' in sessionOrPath
+    );
+    if (usesSessionSignature) {
+        return {
+            session: sessionOrPath ?? null,
+            filePath: maybeFilePath,
+            content: maybeContent,
+        };
+    }
+    return {
+        session: null,
+        filePath: sessionOrPath,
+        content: maybeFilePath,
+    };
+}
+
+/**
  * 管理文档内容的加载、解析和序列化。
  *
  * 持有文档相关状态：
@@ -150,13 +177,11 @@ export class ContentLoader {
     /** 加载文件内容，支持标签页状态恢复。 */
     async loadFile(sessionOrPath, maybeFilePath, maybeContent, options = {}) {
         const { autoFocus = true, tabId = null, onReady = null } = options;
-
-        let session = null, filePath = sessionOrPath, content = maybeFilePath;
-        if (sessionOrPath && typeof sessionOrPath === 'object' && 'id' in sessionOrPath) {
-            session = sessionOrPath;
-            filePath = maybeFilePath;
-            content = maybeContent;
-        }
+        const { session, filePath, content } = normalizeContentLoadArguments(
+            sessionOrPath,
+            maybeFilePath,
+            maybeContent
+        );
 
         const sessionId = session?.id ?? this.currentSessionId ?? null;
         if (session && !this._isSessionActive(sessionId)) return;

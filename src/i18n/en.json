@@ -368,6 +368,7 @@
     "aiFileTask.openHint": "AI will decide from your instruction: simple answers stay here; document-shaped results open as a temporary document.",
     "aiFileTask.resultPlaceholder": "Simple answers will appear here after submission.",
     "aiFileTask.run": "Submit Instruction",
+    "aiFileTask.copyResult": "Copy result",
     "aiFileTask.copied": "Copied to clipboard",
     "aiFileTask.running": "AI is processing the document...",
     "aiFileTask.done": "Done",

@@ -367,6 +367,7 @@
   "aiFileTask.openHint": "AI 會根據指令判斷：簡單回答會顯示在這裡，需要形成文件時會開啟為臨時文件。",
   "aiFileTask.resultPlaceholder": "提交後，簡單回答會顯示在這裡。",
   "aiFileTask.run": "提交指令",
+  "aiFileTask.copyResult": "複製結果",
   "aiFileTask.copied": "已複製到剪貼簿",
   "aiFileTask.running": "AI 正在處理文件...",
   "aiFileTask.done": "處理完成",

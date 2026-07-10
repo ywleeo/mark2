@@ -88,8 +88,18 @@
 }
 
 .ai-file-task__result {
+    position: relative;
     min-height: 0;
     padding-top: 2px;
+}
+
+.ai-file-task__copy {
+    position: static;
+    flex: 0 0 auto;
+}
+
+.ai-file-task__copy[hidden] {
+    display: none;
 }
 
 .ai-file-task__answer {
@@ -174,10 +184,18 @@
 }
 
 .ai-file-task__status {
+    flex: 0 1 auto;
     min-height: 16px;
     color: var(--translator-muted);
     font-size: 12px;
     line-height: 1.35;
+}
+
+.ai-file-task__status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 24px;
 }
 
 .ai-file-task__status[data-state='success'] {

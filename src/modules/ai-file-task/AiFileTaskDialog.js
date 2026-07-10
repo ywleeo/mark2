@@ -2,7 +2,9 @@ import { basename } from '../../utils/pathUtils.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createStore } from '../../services/storage.js';
 import { t } from '../../i18n/index.js';
+import { copyButtonIcon } from '../../icons/uiIcons.js';
 import { AiFileTaskService } from './AiFileTaskService.js';
+import { DocumentTaskResultStore } from './DocumentTaskResultStore.js';
 import { DocumentTaskSession } from './DocumentTaskSession.js';
 import MarkdownIt from 'markdown-it';
 
@@ -79,14 +81,17 @@ export class AiFileTaskDialog {
         this.openResultAsUntitled = options.openResultAsUntitled || null;
         this.getStatusBarController = options.getStatusBarController || (() => null);
         this.service = options.service || new AiFileTaskService();
+        this.resultStore = options.resultStore || new DocumentTaskResultStore();
         this.session = new DocumentTaskSession();
         this.root = null;
         this.currentPath = '';
-        this.result = '';
+        this.result = null;
+        this.instruction = '';
         this.pendingPath = '';
         this.cleanups = [];
         this.isVisible = false;
         this.isRunning = false;
+        this.copyFeedbackTimer = null;
     }
 
     /**
@@ -98,7 +103,7 @@ export class AiFileTaskDialog {
         this.session.cancel();
         this.pendingPath = '';
         this.currentPath = path;
-        this.result = '';
+        this.restoreDocumentResult(path);
         this.ensureElement();
         this.setBusy(false);
         this.render();
@@ -125,10 +130,11 @@ export class AiFileTaskDialog {
             return;
         }
         this.currentPath = path;
-        this.result = '';
         this.pendingPath = '';
+        this.restoreDocumentResult(path);
         this.updateFileDisplay();
-        this.resetResultDisplay();
+        this.renderResultDisplay();
+        this.updateInstructionDisplay();
         this.setStatus('');
     }
 
@@ -147,6 +153,7 @@ export class AiFileTaskDialog {
             if (!action) return;
             if (action === 'close') this.close();
             if (action === 'run') void this.run();
+            if (action === 'copy-result') void this.copyResult();
         }, {
             shouldHandle: (event) => Boolean(event.target?.closest?.('[data-action]')),
             preventDefault: true,
@@ -172,6 +179,7 @@ export class AiFileTaskDialog {
     render() {
         if (!this.root) return;
         const fileName = basename(this.currentPath);
+        const instruction = this.instruction || t('aiFileTask.defaultInstruction');
         this.root.innerHTML = `
             <div class="translator-resize-handle ai-file-task__resize-handle" aria-hidden="true"></div>
             <header class="translator-header ai-file-task__header">
@@ -189,17 +197,22 @@ export class AiFileTaskDialog {
             <main class="translator-body ai-file-task__body" role="dialog" aria-modal="false" aria-label="${escapeHtml(t('aiFileTask.title'))}">
                 <label class="ai-file-task__field">
                     <span>${escapeHtml(t('aiFileTask.instruction'))}</span>
-                    <textarea class="translator-input ai-file-task__input" name="instruction" rows="5">${escapeHtml(t('aiFileTask.defaultInstruction'))}</textarea>
+                    <textarea class="translator-input ai-file-task__input" name="instruction" rows="5">${escapeHtml(instruction)}</textarea>
                 </label>
                 <div class="ai-file-task__hint">${escapeHtml(t('aiFileTask.openHint'))}</div>
                 <button type="button" class="translator-submit ai-file-task__submit" data-action="run">${escapeHtml(t('aiFileTask.run'))}</button>
                 <div class="translator-result ai-file-task__result" data-ref="result">
                     <div class="translator-placeholder">${escapeHtml(t('aiFileTask.resultPlaceholder'))}</div>
                 </div>
-                <div class="ai-file-task__status" data-ref="status"></div>
+                <div class="ai-file-task__status-row">
+                    <div class="ai-file-task__status" data-ref="status"></div>
+                    <button type="button" class="code-copy-button is-visible ai-file-task__copy" data-action="copy-result" title="${escapeHtml(t('aiFileTask.copyResult'))}" aria-label="${escapeHtml(t('aiFileTask.copyResult'))}" hidden>
+                        ${copyButtonIcon()}
+                    </button>
+                </div>
             </main>
         `;
-        if (this.result) this.renderResult(this.result);
+        this.renderResultDisplay();
     }
 
     /**
@@ -216,9 +229,33 @@ export class AiFileTaskDialog {
      * 当前文件切换后重置旧结果展示，避免旧回答被误认为属于新文件。
      */
     resetResultDisplay() {
+        this.clearCopyFeedback();
         const el = this.root?.querySelector('[data-ref="result"]');
         if (!el) return;
         el.innerHTML = `<div class="translator-placeholder">${escapeHtml(t('aiFileTask.resultPlaceholder'))}</div>`;
+        this.syncResultActions();
+    }
+
+    /** 恢复当前文档持久化的最后一次回答和对应指令。 */
+    restoreDocumentResult(path) {
+        const saved = this.resultStore.get(path);
+        this.result = saved?.content ? { content: saved.content } : null;
+        this.instruction = saved?.instruction || '';
+    }
+
+    /** 根据当前状态显示持久化结果或占位提示。 */
+    renderResultDisplay() {
+        if (this.result?.content) {
+            this.renderResult(this.result);
+        } else {
+            this.resetResultDisplay();
+        }
+    }
+
+    /** 把恢复的任务指令同步到输入框。 */
+    updateInstructionDisplay() {
+        const input = this.root?.querySelector('[name="instruction"]');
+        if (input) input.value = this.instruction || t('aiFileTask.defaultInstruction');
     }
 
     /**
@@ -227,6 +264,7 @@ export class AiFileTaskDialog {
     async run() {
         if (!this.root || !this.currentPath || this.isRunning) return;
         const instruction = this.root.querySelector('[name="instruction"]')?.value || '';
+        this.instruction = instruction;
         const task = this.session.begin(this.currentPath);
         this.setBusy(true, t('aiFileTask.running'));
         try {
@@ -248,10 +286,12 @@ export class AiFileTaskDialog {
                 } catch (error) {
                     if (!this.session.isCurrent(task) || !this.isVisible) return;
                     result.action = 'show_answer';
+                    this.rememberResult(task.sourcePath, result, instruction);
                     this.renderResult(result);
                     this.setStatus(error?.message || String(error), 'error');
                 }
             } else {
+                this.rememberResult(task.sourcePath, result, instruction);
                 this.renderResult(result);
                 this.setStatus(t('aiFileTask.done'), 'success');
             }
@@ -313,8 +353,63 @@ export class AiFileTaskDialog {
     renderResult(result) {
         const el = this.root?.querySelector('[data-ref="result"]');
         if (!el) return;
-        el.innerHTML = `<div class="ai-file-task__answer">${renderBasicMarkdown(result?.content || '')}</div>`;
+        const content = result?.content || '';
+        el.innerHTML = `<div class="ai-file-task__answer">${renderBasicMarkdown(content)}</div>`;
+        this.syncResultActions();
         this.growToFitResult();
+    }
+
+    /** 根据当前结果控制状态行中的结果操作。 */
+    syncResultActions() {
+        const copyButton = this.root?.querySelector('[data-action="copy-result"]');
+        if (copyButton) copyButton.hidden = !this.result?.content;
+    }
+
+    /** 保存当前回答，供关闭面板、切换 tab 或重启应用后恢复。 */
+    rememberResult(path, result, instruction) {
+        if (!result?.content) return;
+        this.result = { content: result.content };
+        this.resultStore.set(path, { content: result.content, instruction });
+    }
+
+    /** 将当前回答的原始 Markdown 复制到系统剪贴板。 */
+    async copyResult() {
+        const content = this.result?.content;
+        if (!content) return;
+        try {
+            await navigator.clipboard.writeText(content);
+            const button = this.root?.querySelector('[data-action="copy-result"]');
+            if (button) {
+                button.classList.add('copy-success');
+                button.innerHTML = copyButtonIcon({ success: true });
+                button.title = t('aiFileTask.copied');
+                button.setAttribute('aria-label', t('aiFileTask.copied'));
+            }
+            this.setStatus(t('aiFileTask.copied'), 'success');
+            this.clearCopyFeedback();
+            this.copyFeedbackTimer = window.setTimeout(() => this.restoreCopyButton(), 1800);
+        } catch (error) {
+            this.setStatus(error?.message || String(error), 'error');
+        }
+    }
+
+    /** 清理复制成功反馈定时器。 */
+    clearCopyFeedback() {
+        if (this.copyFeedbackTimer !== null) {
+            window.clearTimeout(this.copyFeedbackTimer);
+            this.copyFeedbackTimer = null;
+        }
+    }
+
+    /** 把复制按钮从成功对勾恢复为复制图标。 */
+    restoreCopyButton() {
+        this.copyFeedbackTimer = null;
+        const button = this.root?.querySelector('[data-action="copy-result"]');
+        if (!button) return;
+        button.classList.remove('copy-success');
+        button.innerHTML = copyButtonIcon();
+        button.title = t('aiFileTask.copyResult');
+        button.setAttribute('aria-label', t('aiFileTask.copyResult'));
     }
 
     /**
@@ -525,6 +620,7 @@ export class AiFileTaskDialog {
      */
     destroy() {
         this.session.cancel();
+        this.clearCopyFeedback();
         this.cleanups.forEach(fn => {
             if (typeof fn === 'function') fn();
         });
