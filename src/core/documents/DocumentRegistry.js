@@ -7,8 +7,7 @@
  *   - 兼容 fileSession 的 API 形状,作为原地替换,调用方无需改动。
  *
  * 设计要点:
- *   - dirty 永远从 DocumentModel 读取,编辑器通过 applyEditorSnapshot 将自身 dirty
- *     与序列化后的内容同步到 Document,解决 TipTap 非幂等序列化带来的 dirty 误判。
+ *   - dirty 永远从 DocumentModel 的 revision 状态机派生；编辑器只提交内容快照。
  *   - saveCurrentEditorContentToCache 只是把编辑器内部状态同步到 Document,
  *     并保留原 fileSession 的行为语义(未变更时不写入内容)。
  */
@@ -36,6 +35,9 @@ function snapshotFromDocument(doc) {
         hasChanges: doc.dirty,
         viewMode: doc.viewMode,
         modifiedTime: doc.getModifiedTime() || null,
+        revision: doc.getRevision(),
+        persistedRevision: doc.getPersistedRevision(),
+        saveState: doc.getSaveState(),
     };
 }
 
@@ -60,8 +62,35 @@ export function createDocumentRegistry({
 
     /** @type {Map<string, DocumentModel>} */
     const documents = new Map();
+    const documentUnsubscribers = new Map();
+    const listeners = new Set();
     /** @type {Map<string, { content: any, hasChanges: boolean, viewMode: string, modifiedTime: number|null, error?: any }>} */
     const nonTextCache = new Map();
+
+    /** 注册 DocumentModel，并把模型事件转发给注册表订阅者。 */
+    function registerDocumentModel(path, doc) {
+        documentUnsubscribers.get(path)?.();
+        documents.set(path, doc);
+        const unsubscribe = doc.subscribe(event => {
+            const payload = { path: doc.uri, event, document: doc };
+            for (const listener of listeners) {
+                try {
+                    listener(payload);
+                } catch (error) {
+                    console.error('[DocumentRegistry] listener 异常:', error);
+                }
+            }
+        });
+        documentUnsubscribers.set(path, unsubscribe);
+        return doc;
+    }
+
+    /** 移除 DocumentModel 及其事件订阅。 */
+    function removeDocumentModel(path) {
+        documentUnsubscribers.get(path)?.();
+        documentUnsubscribers.delete(path);
+        documents.delete(path);
+    }
 
     async function fetchModifiedTime(path) {
         if (!path || typeof fileService?.metadata !== 'function') return null;
@@ -119,7 +148,7 @@ export function createDocumentRegistry({
                 viewMode: resolvedViewMode,
                 content: typeof originalContent === 'string' ? originalContent : content,
             });
-            documents.set(currentFile, doc);
+            registerDocumentModel(currentFile, doc);
         }
         doc.applyEditorSnapshot({
             content,
@@ -140,7 +169,7 @@ export function createDocumentRegistry({
                     if (latest !== null) {
                         const cachedMt = doc.getModifiedTime();
                         if (!cachedMt || cachedMt !== latest) {
-                            documents.delete(filePath);
+                            removeDocumentModel(filePath);
                         }
                     }
                 }
@@ -162,7 +191,7 @@ export function createDocumentRegistry({
                 nonTextCache.delete(filePath);
             }
         } else {
-            documents.delete(filePath);
+            removeDocumentModel(filePath);
             nonTextCache.delete(filePath);
         }
 
@@ -230,7 +259,7 @@ export function createDocumentRegistry({
                 content,
                 modifiedTime: modifiedTime || 0,
             });
-            documents.set(filePath, doc);
+            registerDocumentModel(filePath, doc);
             return snapshotFromDocument(doc);
         } catch (error) {
             if (
@@ -265,7 +294,7 @@ export function createDocumentRegistry({
         if (mt === null) return null;
         const doc = documents.get(filePath);
         if (doc) {
-            doc._modifiedTime = mt;
+            doc.updateModifiedTime(mt);
         }
         const nonText = nonTextCache.get(filePath);
         if (nonText) {
@@ -275,11 +304,13 @@ export function createDocumentRegistry({
     }
 
     function clearEntry(filePath) {
-        documents.delete(filePath);
+        removeDocumentModel(filePath);
         nonTextCache.delete(filePath);
     }
 
     function clearAll() {
+        documentUnsubscribers.forEach(unsubscribe => unsubscribe());
+        documentUnsubscribers.clear();
         documents.clear();
         nonTextCache.clear();
     }
@@ -289,6 +320,8 @@ export function createDocumentRegistry({
 
         const doc = documents.get(oldPath);
         if (doc) {
+            documentUnsubscribers.get(oldPath)?.();
+            documentUnsubscribers.delete(oldPath);
             documents.delete(oldPath);
             const defaultViewMode = getViewModeForPath(newPath);
             if (defaultViewMode === 'markdown') {
@@ -299,7 +332,7 @@ export function createDocumentRegistry({
                 doc.viewMode = defaultViewMode;
             }
             doc.rename(newPath);
-            documents.set(newPath, doc);
+            registerDocumentModel(newPath, doc);
         }
 
         const nonText = nonTextCache.get(oldPath);
@@ -350,10 +383,23 @@ export function createDocumentRegistry({
     function markSaved(path, content, modifiedTime) {
         const doc = documents.get(path);
         if (!doc) return;
-        if (typeof content === 'string') {
-            doc._content = content;
-        }
-        doc.markSaved(modifiedTime);
+        const token = doc.beginSave(typeof content === 'string' ? content : doc.getContent());
+        doc.commitSave(token, modifiedTime);
+    }
+
+    /** 创建指定文档的保存令牌。 */
+    function beginSave(path, content) {
+        return documents.get(path)?.beginSave(content) || null;
+    }
+
+    /** 提交指定文档的保存令牌。 */
+    function commitSave(path, token, modifiedTime) {
+        return documents.get(path)?.commitSave(token, modifiedTime) ?? false;
+    }
+
+    /** 标记指定文档保存失败。 */
+    function failSave(path, token, error) {
+        documents.get(path)?.failSave(token, error);
     }
 
     /**
@@ -365,9 +411,16 @@ export function createDocumentRegistry({
         let doc = documents.get(uri);
         if (!doc) {
             doc = new DocumentModel({ uri, viewMode: resolvedViewMode, content });
-            documents.set(uri, doc);
+            registerDocumentModel(uri, doc);
         }
         return doc;
+    }
+
+    /** 订阅所有 DocumentModel 状态变化。 */
+    function subscribe(listener) {
+        if (typeof listener !== 'function') return () => {};
+        listeners.add(listener);
+        return () => listeners.delete(listener);
     }
 
     return {
@@ -384,6 +437,10 @@ export function createDocumentRegistry({
         acquireDocument,
         isDirty,
         markSaved,
+        beginSave,
+        commitSave,
+        failSave,
         registerInMemoryDocument,
+        subscribe,
     };
 }

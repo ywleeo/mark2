@@ -72,6 +72,11 @@ export function createUntitledController({
         const untitledPath = untitledFileManager.createImportFile(suggestedName, options);
         untitledFileManager.setContent(untitledPath, content);
         const displayName = untitledFileManager.getDisplayName(untitledPath);
+        const documentModel = documentRegistry.registerInMemoryDocument(untitledPath, {
+            viewMode: 'markdown',
+            content,
+        });
+        if (content.length > 0) documentModel.markUnpersisted();
 
         documentManager.openDocument(untitledPath, {
             activate: true,
@@ -79,7 +84,6 @@ export function createUntitledController({
             tabId: untitledPath,
             viewMode: 'markdown',
             label: displayName,
-            dirty: content.length > 0,
         });
         requestAnimationFrame(() => {
             getTabManager()?.render();
@@ -101,7 +105,11 @@ export function createUntitledController({
             activateMarkdownView();
             // 等浏览器完成 layout 后再设置内容，避免在尺寸未确定的容器里渲染
             await new Promise(resolve => requestAnimationFrame(resolve));
-            await editor.loadFile(untitledPath, content, undefined, { tabId: untitledPath });
+            await editor.attachDocument(documentModel, {
+                session: null,
+                tabId: untitledPath,
+                autoFocus: true,
+            });
             setTimeout(() => editor.focus?.(), 50);
         }
 

@@ -419,20 +419,15 @@ export function createFileOperations({
             if (!conflictResolution.allowed) {
                 return false;
             }
-            documentManager?.setSyncing?.(currentFile, true);
             let result;
             try {
                 result = await editor.save();
             } catch (error) {
                 conflictResolution.complete(false);
                 throw error;
-            } finally {
-                documentManager?.setSyncing?.(currentFile, false);
             }
             if (result) {
                 const stillDirty = editor.hasUnsavedChanges?.() || false;
-                setHasUnsavedChanges(stillDirty);
-                documentManager?.markDirty?.(currentFile, stillDirty);
                 saveCurrentEditorContentToCache();
                 await documentRegistry.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
@@ -453,21 +448,27 @@ export function createFileOperations({
                 return false;
             }
             const localWriteKey = getSessionPathKey(currentFile);
+            let saveToken = null;
+            let ownsSaveLock = false;
             try {
+                // 手动保存与自动保存共用一条写盘车道，避免旧快照后完成而覆盖新内容。
+                if (codeEditor.isSaving) {
+                    if (!codeEditor.activeSavePromise) return false;
+                    const previousSaveSucceeded = await codeEditor.activeSavePromise;
+                    if (!previousSaveSucceeded || getCurrentFile() !== currentFile) return false;
+                }
+                codeEditor.isSaving = true;
+                ownsSaveLock = true;
                 const raw = codeEditor.getValue();
                 const content = typeof codeEditor.getValueForSave === 'function'
                     ? codeEditor.getValueForSave()
                     : raw;
+                saveToken = codeEditor.beginSave?.(content) || null;
                 if (localWriteKey && documentSessions.markLocalWrite) {
                     documentSessions.markLocalWrite(localWriteKey);
                 }
-                documentManager?.setSyncing?.(currentFile, true);
-                try {
-                    await fileService.writeText(currentFile, content);
-                    documentSessions.markLocalWrite?.(localWriteKey);
-                } finally {
-                    documentManager?.setSyncing?.(currentFile, false);
-                }
+                await fileService.writeText(currentFile, content);
+                documentSessions.markLocalWrite?.(localWriteKey);
                 const latestRaw = codeEditor.getValue();
                 const editedDuringSave = latestRaw !== raw;
                 // 如果内容被格式化了，同步更新编辑器内容
@@ -482,14 +483,10 @@ export function createFileOperations({
                         codeEditor.setPositionOnly(position.lineNumber, position.column);
                     }
                 }
-                const markdownCodeMode = getMarkdownCodeMode();
-                markdownCodeMode?.handleCodeSaved(content);
-                const stillDirty = codeEditor.markSaved(content);
+                const stillDirty = codeEditor.markSaved(content, saveToken);
                 if (stillDirty) {
                     codeEditor.scheduleAutoSave?.();
                 }
-                setHasUnsavedChanges(stillDirty);
-                documentManager?.markDirty?.(currentFile, stillDirty);
                 saveCurrentEditorContentToCache();
                 await documentRegistry.refreshModifiedTime?.(currentFile);
                 await updateWindowTitle();
@@ -503,6 +500,7 @@ export function createFileOperations({
                 conflictResolution.complete(true);
                 return true;
             } catch (error) {
+                codeEditor.failSave?.(saveToken, error);
                 if (localWriteKey && documentSessions.clearLocalWriteSuppression) {
                     documentSessions.clearLocalWriteSuppression(localWriteKey);
                 }
@@ -515,6 +513,8 @@ export function createFileOperations({
                 conflictResolution.complete(false);
                 alert('保存失败: ' + error);
                 return false;
+            } finally {
+                if (ownsSaveLock) codeEditor.isSaving = false;
             }
         }
 
@@ -549,8 +549,6 @@ export function createFileOperations({
             });
             const saved = await saveUntitledFile(untitledPath, content);
             if (saved) {
-                setHasUnsavedChanges(false);
-                documentManager?.markDirty?.(untitledPath, false);
                 await updateWindowTitle();
                 logger?.info?.('saveUntitledFile:done', {
                     path: untitledPath,
@@ -588,20 +586,21 @@ export function createFileOperations({
             : true;
         if (!ok) return false;
 
-        // 写云期间 tab 上把脏黄点显示成 progress 动效
-        documentManager?.setSyncing?.(untitledPath, true);
+        const targetDocument = documentRegistry.getDocument?.(untitledPath) || null;
+        const saveToken = targetDocument?.beginSave?.(content) || null;
         let saved;
         try {
             saved = await pushCloudDocument({ path: untitledPath, content, filename: displayName });
-        } finally {
-            documentManager?.setSyncing?.(untitledPath, false);
+        } catch (error) {
+            targetDocument?.failSave?.(saveToken, error);
+            throw error;
         }
         if (saved) {
-            setHasUnsavedChanges(false);
-            documentManager?.markDirty?.(untitledPath, false);
+            targetDocument?.commitSave?.(saveToken);
             untitledFileManager?.markAsSaved?.(untitledPath);
             await updateWindowTitle();
         } else {
+            targetDocument?.failSave?.(saveToken, new Error('云端保存失败'));
             // 用户已确认保存但写云失败(网络/配额等):给出反馈,否则 ⌘S / 分享会静默无响应
             try {
                 const { message } = await import('@tauri-apps/plugin-dialog');
@@ -918,32 +917,46 @@ export function createFileOperations({
                 viewProtocol?.activate?.(untitledViewMode);
                 const untitledContent = untitledFileManager.getContent?.(filePath) || '';
                 const cloudBacked = untitledFileManager?.isCloudBacked?.(filePath);
-                // 云端文档脏状态须在 loadFile 之前捕获:loadFile 会触发 onContentChange→markDirty(false),
-                // 加载后编辑器又必报 clean,二者都会冲掉「编辑过 / 重启恢复出」的未保存状态。
+                // 云端文档的落盘状态来自内存模型，切换 tab 时继续保留。
                 const cloudDirtyBeforeLoad = cloudBacked
                     ? Boolean(documentManager?.getDocumentByPath?.(filePath)?.dirty)
                     : false;
+                let untitledDocument = documentRegistry.getDocument?.(filePath)
+                    || documentRegistry.registerInMemoryDocument?.(filePath, {
+                        viewMode: untitledViewMode,
+                        content: untitledContent,
+                    });
+                if (untitledDocument && !untitledDocument.dirty
+                    && untitledDocument.getContent() !== untitledContent) {
+                    untitledDocument.reloadFromDisk(untitledContent);
+                }
+                const untitledDirty = cloudBacked ? cloudDirtyBeforeLoad : true;
+                if (untitledDirty) untitledDocument?.markUnpersisted?.();
                 if (untitledViewMode === 'code') {
                     if (codeEditor) {
-                        await codeEditor.show(filePath, untitledContent, null, session, { autoFocus, tabId });
+                        await codeEditor.attachDocument(untitledDocument, {
+                            session,
+                            tabId,
+                            autoFocus,
+                            language: null,
+                        });
                         if (shouldAbort('untitled-code-load')) {
                             return;
                         }
                     }
                 } else {
                     if (editor) {
-                        await editor.loadFile(session, filePath, untitledContent, { autoFocus });
+                        await editor.attachDocument(untitledDocument, {
+                            session,
+                            tabId,
+                            autoFocus,
+                        });
                         if (shouldAbort('untitled-editor-load')) {
                             return;
                         }
                     }
                 }
-                // 普通 untitled 未存盘,始终 dirty(loadFile 会 markDirty(false),这里覆盖回 true)。
-                // 云端 untitled 已存在云上:用加载前捕获的真实脏状态,既保留编辑/重启恢复出的未保存,
-                // 又不会因「刚加载编辑器报 clean」而误清,也不会因切 tab 误标脏。
-                const untitledDirty = cloudBacked ? cloudDirtyBeforeLoad : true;
-                documentManager?.markDirty?.(filePath, untitledDirty);
-                setHasUnsavedChanges(untitledDirty);
+                // 普通 untitled 尚无磁盘基线；云端 untitled 则沿用模型中的真实 dirty。
                 // 不 await updateWindowTitle：Tauri 的 win.setTitle() 会调用原生窗口 API，
                 // macOS 上可能导致 WebView 焦点丢失。标题更新不需要阻塞加载流程。
                 void updateWindowTitle();

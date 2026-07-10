@@ -141,6 +141,9 @@ export class MarkdownEditor {
                 // 不应污染 undo 历史，否则会错误重置合并窗口
                 if (transaction?.getMeta?.('addToHistory') === false) return;
                 this.contentLoader.contentChanged = true;
+                this._currentDocument?.applyEditorChange?.(this.contentLoader.getMarkdown(), {
+                    source: 'markdown-editor',
+                });
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
                 this.saveManager?.scheduleAutoSave();
@@ -254,6 +257,7 @@ export class MarkdownEditor {
                 return this.contentLoader.getMarkdown();
             },
             getCurrentFile: () => this.getDocumentFilePath(),
+            getDocument: () => this._currentDocument,
             getCurrentSessionId: () => this.contentLoader.currentSessionId,
             isSessionActive: (id) => this.contentLoader._isSessionActive(id),
             isLoadingFile: () => this.contentLoader.isLoadingFile,
@@ -411,6 +415,11 @@ export class MarkdownEditor {
         if (event.type === 'reload') {
             const nextContent = this._currentDocument.getContent();
             void this.contentLoader?.setContent?.(nextContent, false, { resetHistory: true });
+        } else if (event.type === 'dirty') {
+            this.contentLoader.contentChanged = Boolean(event.dirty);
+        } else if (event.type === 'saved') {
+            this.contentLoader.originalMarkdown = this._currentDocument.getOriginalContent();
+            this.contentLoader.contentChanged = Boolean(event.pendingChanges);
         } else if (event.type === 'rename') {
             this.renameDocumentPath(event.oldUri, event.newUri);
         }
@@ -424,8 +433,13 @@ export class MarkdownEditor {
 
     // 保存
     save(options)                               { return this.saveManager?.save(options) ?? Promise.resolve(false); }
-    hasUnsavedChanges()                         { return !!this.contentLoader.contentChanged; }
-    markSaved()                                 { if (this.contentLoader) this.contentLoader.contentChanged = false; }
+    hasUnsavedChanges()                         {
+        return this._currentDocument?.dirty ?? Boolean(this.contentLoader.contentChanged);
+    }
+    markSaved()                                 {
+        this._currentDocument?.markSaved?.();
+        if (this.contentLoader) this.contentLoader.contentChanged = false;
+    }
     get currentFile()                           { return this.contentLoader?.loadedFilePath ?? null; }
     renameDocumentPath(oldPath, newPath)        { return this.contentLoader?.renameLoadedFilePath?.(oldPath, newPath); }
 

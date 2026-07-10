@@ -7,6 +7,7 @@ export class AppState {
         // ========== 文件相关状态 ==========
         this.currentFile = null;
         this.hasUnsavedChanges = false;
+        this._unsavedChangesProvider = null;
 
         // ========== 编辑器设置 ==========
         this.editorSettings = null;
@@ -100,11 +101,24 @@ export class AppState {
     }
 
     getHasUnsavedChanges() {
+        if (this._unsavedChangesProvider) {
+            return Boolean(this._unsavedChangesProvider());
+        }
         return this.hasUnsavedChanges;
     }
 
     setHasUnsavedChanges(value) {
+        // 非 DocumentModel 视图（如 SVG/CSV 源码切换）仍使用这个兼容值；
+        // 文本文档存在模型时，读取端会始终优先采用 provider。
         this.hasUnsavedChanges = Boolean(value);
+    }
+
+    /**
+     * 注入活动 DocumentModel 的 dirty 派生函数，替代全局布尔副本。
+     * @param {Function|null} provider - dirty 查询函数
+     */
+    setUnsavedChangesProvider(provider) {
+        this._unsavedChangesProvider = typeof provider === 'function' ? provider : null;
     }
 
     // ========== 编辑器设置管理 ==========

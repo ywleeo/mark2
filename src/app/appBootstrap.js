@@ -207,7 +207,6 @@ export function createAppBootstrap({
             editorRegistry,
             appState,
             documentRegistry,
-            documentManager,
             normalizeFsPath,
             updateWindowTitle,
             scheduleDocumentSnapshotSync,
@@ -292,6 +291,7 @@ export function createAppBootstrap({
             view: viewManager.createViewProtocol(),
             saveCurrentEditorContentToCache,
             getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
+            getDocument: (filePath) => documentRegistry.getDocument(filePath),
         });
         appState.setMarkdownCodeMode(markdownCodeMode);
 

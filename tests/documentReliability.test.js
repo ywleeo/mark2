@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createDocumentIO } from '../src/core/DocumentIO.js';
+import { DocumentModel, DOCUMENT_SAVE_STATE } from '../src/core/documents/DocumentModel.js';
+import { createDocumentManager } from '../src/core/documents/DocumentManager.js';
 import {
     createExternalModificationConflict,
     isExternalModificationConflict,
@@ -17,6 +19,87 @@ test('保存期间继续编辑时，旧快照写盘后仍保持待保存状态',
 test('保存完成且内容未变化时可以标记为干净', () => {
     const result = reconcileSavedSnapshot('完整内容', '完整内容');
     assert.equal(result.pendingChanges, false);
+});
+
+test('DocumentModel 保存期间继续编辑时只提交保存快照的 revision', () => {
+    const document = new DocumentModel({
+        uri: '/tmp/revision.md',
+        viewMode: 'markdown',
+        content: '磁盘内容',
+    });
+
+    document.applyEditorChange('第一版');
+    const token = document.beginSave('第一版');
+    document.applyEditorChange('第一版\n保存期间继续输入');
+
+    assert.equal(document.getSaveState(), DOCUMENT_SAVE_STATE.SAVING);
+    assert.equal(document.commitSave(token), true);
+    assert.equal(document.getOriginalContent(), '第一版');
+    assert.equal(document.getContent(), '第一版\n保存期间继续输入');
+    assert.equal(document.getSaveState(), DOCUMENT_SAVE_STATE.DIRTY);
+});
+
+test('DocumentModel 撤销回最近写盘内容时自动恢复 clean', () => {
+    const document = new DocumentModel({
+        uri: '/tmp/undo.md',
+        viewMode: 'code',
+        content: 'const saved = true;\n',
+    });
+
+    document.applyEditorChange('const saved = false;\n');
+    assert.equal(document.dirty, true);
+
+    document.applyEditorChange('const saved = true;\n');
+    assert.equal(document.dirty, false);
+    assert.equal(document.getSaveState(), DOCUMENT_SAVE_STATE.CLEAN);
+    assert.equal(document.getRevision(), document.getPersistedRevision());
+});
+
+test('DocumentModel 保存失败时保留 dirty 并记录 error 状态', () => {
+    const document = new DocumentModel({
+        uri: '/tmp/error.md',
+        viewMode: 'markdown',
+        content: 'before',
+    });
+    document.applyEditorChange('after');
+    const token = document.beginSave();
+    document.failSave(token, new Error('disk full'));
+
+    assert.equal(document.dirty, true);
+    assert.equal(document.getSaveState(), DOCUMENT_SAVE_STATE.ERROR);
+    assert.match(document.getLastError().message, /disk full/);
+});
+
+test('DocumentManager 只投影 DocumentModel 的 dirty 与 saving 状态', () => {
+    const path = '/tmp/projected.md';
+    const document = new DocumentModel({ uri: path, viewMode: 'markdown', content: 'saved' });
+    let registryListener = null;
+    const documentRegistry = {
+        getDocument: candidate => candidate === path ? document : null,
+        isDirty: candidate => candidate === path ? document.dirty : false,
+        subscribe: listener => {
+            registryListener = listener;
+            return () => { registryListener = null; };
+        },
+    };
+    document.subscribe(event => registryListener?.({ path, event, document }));
+    const manager = createDocumentManager({
+        documentRegistry,
+        normalizePath: value => value,
+        appState: {
+            setCurrentFile() {},
+        },
+    });
+
+    manager.openDocument(path, { activate: true, viewMode: 'markdown' });
+    document.applyEditorChange('changed');
+    assert.equal(manager.getDocumentByPath(path).dirty, true);
+
+    const token = document.beginSave();
+    assert.equal(manager.getDocumentByPath(path).syncing, true);
+    document.commitSave(token);
+    assert.equal(manager.getDocumentByPath(path).dirty, false);
+    assert.equal(manager.getDocumentByPath(path).syncing, false);
 });
 
 test('空白活跃文档不会回退到代码编辑器或缓存里的旧内容', () => {

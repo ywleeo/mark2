@@ -1,29 +1,27 @@
 /**
- * DocumentModel —— 单一真源文档模型。
+ * DocumentModel —— 文档内容与保存状态的唯一真源。
  *
- * 职责：
- *   - 持有一份权威内容（_content）与磁盘基线（_originalContent）。
- *   - dirty 由 `_content !== _originalContent` 派生，不允许外部写 dirty。
- *   - 通过订阅通知视图层：内容变更、保存、reload、rename。
- *   - 通过 acquire/release 做引用计数，为多视图共享同一文档做准备。
- *
- * 设计要点：
- *   - 二进制/不可编辑的 viewMode（image/pdf/media/docx/pptx/spreadsheet）始终 dirty = false。
- *   - TipTap 序列化非幂等：未修改时严禁把 editor.getMarkdown() 回写为 _content；
- *     本类保证只在调用方显式 setContent(next, { source: 'editor' }) 时才更新 _content。
- *   - 不做磁盘 I/O，只管内存中的真源。实际读写由 fileService / SaveManager 负责。
+ * 编辑器只负责展示和产生内容快照；dirty、saving、error 以及保存期间继续编辑的
+ * 判定全部由本模型依据 revision 状态机完成。
  */
 
 const DIRTY_CAPABLE_VIEW_MODES = new Set(['markdown', 'code']);
 
+export const DOCUMENT_SAVE_STATE = Object.freeze({
+    CLEAN: 'clean',
+    DIRTY: 'dirty',
+    SAVING: 'saving',
+    ERROR: 'error',
+});
+
 export class DocumentModel {
     /**
-     * @param {Object} init
-     * @param {string} init.uri            文档唯一标识（磁盘路径或 untitled://...）
-     * @param {string} init.viewMode       视图模式（markdown/code/image/pdf/...）
-     * @param {string} [init.content]      初始内容（磁盘加载得到）
-     * @param {number} [init.modifiedTime] 磁盘 mtime（毫秒）
-     * @param {string} [init.tabId]        关联 tab id（若与 uri 不同）
+     * @param {Object} init - 文档初始化参数
+     * @param {string} init.uri - 文档唯一路径
+     * @param {string} init.viewMode - 文档视图模式
+     * @param {string} [init.content] - 初始磁盘内容
+     * @param {number} [init.modifiedTime] - 磁盘修改时间
+     * @param {string} [init.tabId] - 关联 tab id
      */
     constructor({ uri, viewMode, content = '', modifiedTime = 0, tabId = null }) {
         if (!uri) throw new Error('DocumentModel 需要 uri');
@@ -32,124 +30,232 @@ export class DocumentModel {
         this.uri = uri;
         this.viewMode = viewMode;
         this.tabId = tabId || uri;
-
-        this._content = content;
-        this._originalContent = content;
+        this._content = typeof content === 'string' ? content : '';
+        this._originalContent = this._content;
         this._modifiedTime = modifiedTime;
+        this._revision = 0;
+        this._persistedRevision = 0;
+        this._saveState = DOCUMENT_SAVE_STATE.CLEAN;
+        this._activeSave = null;
+        this._saveCounter = 0;
+        this._lastError = null;
         this._listeners = new Set();
         this._refCount = 0;
-        // 显式 dirty 覆盖:当编辑器序列化非幂等(TipTap)时,
-        // _content===_originalContent 并不可靠,允许调用方直接告知 dirty 真值。
-        // null 表示无覆盖,使用 _content vs _originalContent 比较。
-        this._explicitDirty = null;
     }
 
-    /**
-     * 当前内容。调用方可自由读取，修改必须走 setContent。
-     */
+    /** @returns {string} 当前编辑内容。 */
     getContent() {
         return this._content;
     }
 
-    /**
-     * 磁盘基线。用于 TipTap 等非幂等序列化场景：未 dirty 时直接返回原文避免回环腐蚀。
-     */
+    /** @returns {string} 最近一次成功写盘的精确内容。 */
     getOriginalContent() {
         return this._originalContent;
     }
 
-    /**
-     * 磁盘 mtime（毫秒）。外部变更检测用。
-     */
+    /** @returns {number} 当前编辑版本。 */
+    getRevision() {
+        return this._revision;
+    }
+
+    /** @returns {number} 最近成功写盘的版本。 */
+    getPersistedRevision() {
+        return this._persistedRevision;
+    }
+
+    /** @returns {string} 当前保存状态。 */
+    getSaveState() {
+        return this._saveState;
+    }
+
+    /** @returns {Error|null} 最近一次保存错误。 */
+    getLastError() {
+        return this._lastError;
+    }
+
+    /** @returns {number} 磁盘修改时间。 */
     getModifiedTime() {
         return this._modifiedTime;
     }
 
-    /**
-     * 派生 dirty。binary/不可编辑类视图永远返回 false。
-     * 若调用方设置了显式 dirty 覆盖(editor 场景),以覆盖值为准。
-     */
+    /** 仅刷新磁盘元信息，不改变内容 revision。 */
+    updateModifiedTime(modifiedTime) {
+        if (typeof modifiedTime === 'number' && modifiedTime > 0) {
+            this._modifiedTime = modifiedTime;
+        }
+    }
+
+    /** dirty 只由 revision 差异派生。 */
     get dirty() {
         if (!DIRTY_CAPABLE_VIEW_MODES.has(this.viewMode)) return false;
-        if (this._explicitDirty !== null) return this._explicitDirty;
-        return this._content !== this._originalContent;
+        return this._revision !== this._persistedRevision;
     }
 
     /**
-     * 编辑器侧批量同步内容与 dirty(tab 切换/保存前)。
-     * 避免 TipTap 序列化非幂等带来的 dirty 误判。
-     * @param {Object} snapshot
-     * @param {string} snapshot.content
-     * @param {string} [snapshot.originalContent]
-     * @param {boolean} snapshot.dirty
+     * 接收编辑器产生的新内容快照并推进 revision。
+     * @param {string} next - 编辑器当前内容
+     * @param {Object} [options] - 更新元数据
+     * @returns {number} 更新后的 revision
+     */
+    applyEditorChange(next, options = {}) {
+        const value = typeof next === 'string' ? next : '';
+        if (value === this._content) return this._revision;
+
+        const previousDirty = this.dirty;
+        this._content = value;
+        this._revision += 1;
+        if (this._saveState !== DOCUMENT_SAVE_STATE.SAVING) {
+            // 内容撤销回最近一次写盘快照时，本 revision 与磁盘在语义上重新一致。
+            // revision 仍保持单调递增，避免保存令牌和异步回调出现倒退版本。
+            if (value === this._originalContent) {
+                this._persistedRevision = this._revision;
+                this._setSaveState(DOCUMENT_SAVE_STATE.CLEAN);
+            } else {
+                this._setSaveState(DOCUMENT_SAVE_STATE.DIRTY);
+            }
+        }
+        this._emit({
+            type: 'content',
+            source: options.source || 'editor',
+            revision: this._revision,
+        });
+        this._emitDirtyChange(previousDirty);
+        return this._revision;
+    }
+
+    /**
+     * 同步编辑器缓存。dirty=false 不能清除一个已经 dirty 的模型。
+     * @param {Object} snapshot - 编辑器快照
      */
     applyEditorSnapshot({ content, originalContent, dirty }) {
-        if (typeof content === 'string') this._content = content;
-        if (typeof originalContent === 'string') this._originalContent = originalContent;
-        const prevDirty = this.dirty;
-        this._explicitDirty = Boolean(dirty);
-        if (this.dirty !== prevDirty) {
-            this._emit({ type: 'dirty', dirty: this.dirty });
+        const value = typeof content === 'string' ? content : this._content;
+        if (dirty) {
+            if (typeof originalContent === 'string' && !this.dirty) {
+                this._originalContent = originalContent;
+            }
+            if (value !== this._content || !this.dirty) {
+                this.applyEditorChange(value, { source: 'editor-snapshot' });
+            }
+            return;
+        }
+
+        if (!this.dirty) {
+            this._content = value;
+            if (typeof originalContent === 'string') {
+                this._originalContent = originalContent;
+            }
         }
     }
 
     /**
-     * 更新内容。
+     * 兼容受控内容更新；编辑器来源会推进 revision，外部 reload 应使用 reloadFromDisk。
      * @param {string} next - 新内容
-     * @param {Object} [opts]
-     * @param {string} [opts.source] - 来源标识（editor / cache / external）
+     * @param {Object} [options] - 更新元数据
      */
-    setContent(next, opts = {}) {
-        const value = typeof next === 'string' ? next : '';
-        if (value === this._content) return;
-        const prevDirty = this.dirty;
-        this._content = value;
-        this._emit({ type: 'content', source: opts.source || 'unknown' });
-        if (this.dirty !== prevDirty) {
-            this._emit({ type: 'dirty', dirty: this.dirty });
-        }
+    setContent(next, options = {}) {
+        this.applyEditorChange(next, options);
     }
 
     /**
-     * 保存后调用：把当前内容作为新基线，并刷新 mtime。
-     * @param {number} modifiedTime - 新 mtime（毫秒）
+     * 创建保存令牌，锁定本次实际写盘的 revision 和内容。
+     * @param {string} [content] - 本次写盘内容
+     * @returns {{id:number,revision:number,content:string}}
+     */
+    beginSave(content = this._content) {
+        const snapshotContent = typeof content === 'string' ? content : '';
+        // 序列化可能只在保存时完成；更新快照内容但不把同一次编辑重复计为新 revision。
+        this._content = snapshotContent;
+        const token = Object.freeze({
+            id: ++this._saveCounter,
+            revision: this._revision,
+            content: snapshotContent,
+        });
+        this._activeSave = token;
+        this._lastError = null;
+        this._setSaveState(DOCUMENT_SAVE_STATE.SAVING, { token });
+        return token;
+    }
+
+    /**
+     * 提交成功写盘的保存令牌；若期间 revision 已推进，状态仍保持 dirty。
+     * @param {{id:number,revision:number,content:string}} token - beginSave 返回的令牌
+     * @param {number} [modifiedTime] - 新磁盘修改时间
+     * @returns {boolean} 提交后是否仍有未保存内容
+     */
+    commitSave(token, modifiedTime) {
+        if (!token || this._activeSave?.id !== token.id) {
+            return this.dirty;
+        }
+        const previousDirty = this.dirty;
+        this._originalContent = token.content;
+        this._persistedRevision = token.revision;
+        this._activeSave = null;
+        this._lastError = null;
+        if (typeof modifiedTime === 'number' && modifiedTime > 0) {
+            this._modifiedTime = modifiedTime;
+        }
+        this._setSaveState(this.dirty ? DOCUMENT_SAVE_STATE.DIRTY : DOCUMENT_SAVE_STATE.CLEAN, { token });
+        this._emit({
+            type: 'saved',
+            modifiedTime: this._modifiedTime,
+            revision: token.revision,
+            pendingChanges: this.dirty,
+        });
+        this._emitDirtyChange(previousDirty);
+        return this.dirty;
+    }
+
+    /**
+     * 记录保存失败并保留当前 dirty。
+     * @param {Object|null} token - 保存令牌
+     * @param {unknown} error - 保存错误
+     */
+    failSave(token, error) {
+        if (token && this._activeSave?.id !== token.id) return;
+        this._activeSave = null;
+        this._lastError = error instanceof Error ? error : new Error(String(error || '保存失败'));
+        this._setSaveState(DOCUMENT_SAVE_STATE.ERROR, { error: this._lastError });
+    }
+
+    /**
+     * 兼容旧调用：把当前 revision 作为保存版本提交。
+     * @param {number} [modifiedTime] - 新磁盘修改时间
      */
     markSaved(modifiedTime) {
-        const prevDirty = this.dirty;
-        this._originalContent = this._content;
-        this._explicitDirty = false;
-        if (typeof modifiedTime === 'number' && modifiedTime > 0) {
-            this._modifiedTime = modifiedTime;
-        }
-        this._emit({ type: 'saved', modifiedTime: this._modifiedTime });
-        if (this.dirty !== prevDirty) {
-            this._emit({ type: 'dirty', dirty: this.dirty });
-        }
+        const token = this.beginSave(this._content);
+        this.commitSave(token, modifiedTime);
+    }
+
+    /** 将新建或导入内容标记为尚未落盘，不接受可能误清状态的布尔参数。 */
+    markUnpersisted() {
+        const previousDirty = this.dirty;
+        if (!this.dirty) this._revision += 1;
+        this._setSaveState(DOCUMENT_SAVE_STATE.DIRTY);
+        this._emitDirtyChange(previousDirty);
     }
 
     /**
-     * 外部文件被改动后 reload：重写内容与基线。
-     * @param {string} content
-     * @param {number} [modifiedTime]
+     * 从磁盘重新加载并重置 revision 状态机。
+     * @param {string} content - 磁盘内容
+     * @param {number} [modifiedTime] - 磁盘修改时间
      */
     reloadFromDisk(content, modifiedTime) {
-        const prevDirty = this.dirty;
+        const previousDirty = this.dirty;
         this._content = typeof content === 'string' ? content : '';
         this._originalContent = this._content;
-        this._explicitDirty = null;
+        this._revision += 1;
+        this._persistedRevision = this._revision;
+        this._activeSave = null;
+        this._lastError = null;
         if (typeof modifiedTime === 'number' && modifiedTime > 0) {
             this._modifiedTime = modifiedTime;
         }
-        this._emit({ type: 'reload', modifiedTime: this._modifiedTime });
-        if (this.dirty !== prevDirty) {
-            this._emit({ type: 'dirty', dirty: this.dirty });
-        }
+        this._setSaveState(DOCUMENT_SAVE_STATE.CLEAN);
+        this._emit({ type: 'reload', modifiedTime: this._modifiedTime, revision: this._revision });
+        this._emitDirtyChange(previousDirty);
     }
 
-    /**
-     * 重命名文档：更新 uri。
-     * @param {string} nextUri
-     */
+    /** @param {string} nextUri - 新文档路径。 */
     rename(nextUri) {
         if (!nextUri || nextUri === this.uri) return;
         const oldUri = this.uri;
@@ -158,31 +264,46 @@ export class DocumentModel {
         this._emit({ type: 'rename', oldUri, newUri: nextUri });
     }
 
-    /**
-     * 订阅文档事件。
-     * @param {(event: Object) => void} listener
-     * @returns {() => void} 退订函数
-     */
+    /** @param {(event:Object)=>void} listener - 文档事件监听器。 */
     subscribe(listener) {
         if (typeof listener !== 'function') return () => {};
         this._listeners.add(listener);
         return () => this._listeners.delete(listener);
     }
 
+    /** @returns {number} 增加后的引用数。 */
     acquire() {
         this._refCount += 1;
         return this._refCount;
     }
 
+    /** @returns {number} 减少后的引用数。 */
     release() {
         if (this._refCount > 0) this._refCount -= 1;
         return this._refCount;
     }
 
+    /** @returns {number} 当前引用数。 */
     getRefCount() {
         return this._refCount;
     }
 
+    /** 更新保存状态并广播。 */
+    _setSaveState(nextState, details = {}) {
+        if (this._saveState === nextState) return;
+        const previousState = this._saveState;
+        this._saveState = nextState;
+        this._emit({ type: 'save-state', previousState, state: nextState, ...details });
+    }
+
+    /** dirty 发生变化时广播派生状态。 */
+    _emitDirtyChange(previousDirty) {
+        if (this.dirty !== previousDirty) {
+            this._emit({ type: 'dirty', dirty: this.dirty, revision: this._revision });
+        }
+    }
+
+    /** 安全广播文档事件。 */
     _emit(event) {
         for (const listener of this._listeners) {
             try {

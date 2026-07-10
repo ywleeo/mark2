@@ -4,6 +4,7 @@ export function createMarkdownCodeMode({
     view,
     saveCurrentEditorContentToCache = null,
     getFileContent = null,
+    getDocument = null,
 }) {
     if (typeof detectLanguageForPath !== 'function') {
         throw new Error('createMarkdownCodeMode 需要提供 detectLanguageForPath');
@@ -14,8 +15,6 @@ export function createMarkdownCodeMode({
     if (!view || typeof view.activate !== 'function') {
         throw new Error('createMarkdownCodeMode 需要提供 view 协议');
     }
-
-    let toggleState = null;
 
     function getElementScrollRatio(element) {
         if (!element) return null;
@@ -147,14 +146,20 @@ export function createMarkdownCodeMode({
                 : null;
             const cursorRatio = editorMatchesFile ? editor.getCursorViewportRatio?.() : null;
 
-            toggleState = {
-                originalMarkdown: editorMatchesFile ? editor.originalMarkdown : markdownContent,
-            };
-
             editor?.saveViewStateForTab?.(currentFile);
             view.activate('code');
             const language = detectLanguageForPath(currentFile) || 'plaintext';
-            await codeEditor.show(currentFile, markdownContent, language, null, { tabId: currentFile });
+            const documentModel = getDocument?.(currentFile) || null;
+            if (documentModel) {
+                await codeEditor.attachDocument(documentModel, {
+                    session: null,
+                    tabId: currentFile,
+                    autoFocus: true,
+                    language,
+                });
+            } else {
+                await codeEditor.show(currentFile, markdownContent, language, null, { tabId: currentFile });
+            }
             editor?.refreshSearch?.();
 
             // md/code 切换时，源视图当前 scroll ratio 优先于目标视图历史 scroll；光标只作为定位兜底。
@@ -173,17 +178,10 @@ export function createMarkdownCodeMode({
                 });
             }
 
-            if (hasChanges) {
-                codeEditor.isDirty = true;
-                codeEditor.callbacks?.onContentChange?.();
-            } else {
-                codeEditor.markSaved();
-            }
-
             return {
                 changed: true,
                 nextViewMode: 'code',
-                hasUnsavedChanges: hasChanges,
+                hasUnsavedChanges: documentModel?.dirty ?? hasChanges,
             };
         }
 
@@ -206,7 +204,16 @@ export function createMarkdownCodeMode({
 
             codeEditor?.saveViewStateForTab?.(currentFile);
             view.activate('markdown');
-            await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });
+            const documentModel = getDocument?.(currentFile) || null;
+            if (documentModel) {
+                await editor.attachDocument(documentModel, {
+                    session: null,
+                    tabId: currentFile,
+                    autoFocus: true,
+                });
+            } else {
+                await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });
+            }
             editor?.refreshSearch?.();
 
             // md/code 切换时，源视图当前 scroll ratio 优先于目标视图历史 scroll；光标只作为定位兜底。
@@ -231,19 +238,10 @@ export function createMarkdownCodeMode({
                 });
             }
 
-            if (hasChanges && toggleState?.originalMarkdown !== undefined) {
-                editor.originalMarkdown = toggleState.originalMarkdown;
-            }
-
-            editor.contentChanged = hasChanges;
-            toggleState = null;
-
-            codeEditor.markSaved();
-
             return {
                 changed: true,
                 nextViewMode: 'markdown',
-                hasUnsavedChanges: hasChanges,
+                hasUnsavedChanges: documentModel?.dirty ?? hasChanges,
             };
         }
 
@@ -251,18 +249,11 @@ export function createMarkdownCodeMode({
     }
 
     function reset() {
-        toggleState = null;
-    }
-
-    function handleCodeSaved(content) {
-        if (toggleState) {
-            toggleState.originalMarkdown = content;
-        }
+        // 模式切换不再维护独立快照，DocumentModel 持有唯一内容和 dirty 状态。
     }
 
     return {
         toggle,
         reset,
-        handleCodeSaved,
     };
 }

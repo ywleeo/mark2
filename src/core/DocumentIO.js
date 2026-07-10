@@ -183,7 +183,6 @@ export function createDocumentIO(options = {}) {
         getEditor,
         getCodeEditor,
         getActiveViewMode,
-        setHasUnsavedChanges,
         saveCurrentEditorContentToCache,
         documentRegistry,
         updateWindowTitle,
@@ -288,9 +287,10 @@ export function createDocumentIO(options = {}) {
 
     async function commitDocumentChanges({ filePath, nextContent, metadata }) {
         const sanitized = normalizeNewlines(nextContent);
+        documentRegistry?.getDocument?.(filePath)?.applyEditorChange?.(sanitized, {
+            source: 'document-io',
+        });
         applyContentToEditors(sanitized);
-
-        setHasUnsavedChanges?.(true);
 
         saveCurrentEditorContentToCache?.({
             currentFile: filePath,

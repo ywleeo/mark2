@@ -81,12 +81,6 @@ const featureLogger = createLogger('features');
 const exportLogger = createLogger('export');
 const viewLogger = createLogger('views');
 featureLogger.info('Mark2 Tauri 版本已启动');
-const documentManager = createDocumentManager({
-    appState,
-    normalizePath: normalizeFsPath,
-    logger: documentLogger,
-    traceRecorder,
-});
 const commandManager = createCommandManager({
     logger: commandLogger,
     traceRecorder,
@@ -126,6 +120,19 @@ const documentRegistry = createDocumentRegistry({
     fileService: ensureFileService(),
     getViewModeForPath,
     isCsvFilePath,
+});
+const documentManager = createDocumentManager({
+    appState,
+    normalizePath: normalizeFsPath,
+    logger: documentLogger,
+    traceRecorder,
+    documentRegistry,
+});
+appState.setUnsavedChangesProvider(() => {
+    const activePath = documentManager.getActivePath();
+    if (!activePath) return false;
+    const documentModel = documentRegistry.getDocument(activePath);
+    return documentModel ? documentModel.dirty : appState.hasUnsavedChanges;
 });
 const documentSessions = createDocumentSessionManager();
 let appServices = null;
@@ -387,7 +394,6 @@ const documentIO = createDocumentIO({
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getActiveViewMode: () => appState.getActiveViewMode(),
-    setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
     saveCurrentEditorContentToCache,
     documentRegistry,
     updateWindowTitle,

@@ -292,6 +292,9 @@ export class CodeEditor {
             if (update.docChanged && !this.suppressChange) {
                 const currentContent = update.state.doc.toString();
                 this.isDirty = currentContent !== this.baseContent;
+                this._currentDocument?.applyEditorChange?.(currentContent, {
+                    source: 'code-editor',
+                });
                 this.callbacks.onContentChange?.();
                 this.notifyContentMutation();
                 this.scheduleAutoSave();
@@ -483,6 +486,11 @@ export class CodeEditor {
             this.suppressChange = false;
             this.baseContent = nextContent;
             this.isDirty = false;
+        } else if (event.type === 'dirty') {
+            this.isDirty = Boolean(event.dirty);
+        } else if (event.type === 'saved') {
+            this.baseContent = this._currentDocument.getOriginalContent();
+            this.isDirty = Boolean(event.pendingChanges);
         } else if (event.type === 'rename') {
             if (this.currentFile === event.oldUri) {
                 this.currentFile = event.newUri;
@@ -667,7 +675,7 @@ export class CodeEditor {
     }
 
     hasUnsavedChanges() {
-        return !!this.isDirty;
+        return this._currentDocument?.dirty ?? Boolean(this.isDirty);
     }
 
     getCurrentLineNumber() {
@@ -771,12 +779,23 @@ export class CodeEditor {
         });
     }
 
-    markSaved(savedContent = this.getValue()) {
+    beginSave(savedContent = this.getValue(), documentModel = this._currentDocument) {
+        return documentModel?.beginSave?.(savedContent) || null;
+    }
+
+    failSave(saveToken, error, documentModel = this._currentDocument) {
+        documentModel?.failSave?.(saveToken, error);
+    }
+
+    markSaved(savedContent = this.getValue(), saveToken = null, documentModel = this._currentDocument) {
         const reconciliation = reconcileSavedSnapshot(savedContent, this.getValue());
+        const pendingChanges = saveToken
+            ? documentModel?.commitSave?.(saveToken) ?? reconciliation.pendingChanges
+            : reconciliation.pendingChanges;
         this.baseContent = reconciliation.savedContent;
-        this.isDirty = reconciliation.pendingChanges;
+        this.isDirty = pendingChanges;
         this.callbacks.onContentChange?.();
-        return reconciliation.pendingChanges;
+        return pendingChanges;
     }
 
     scheduleAutoSave() {
@@ -839,6 +858,10 @@ export class CodeEditor {
             this.isSaving = false;
             return;
         }
+        const targetDocument = this._currentDocument?.uri === filePath
+            ? this._currentDocument
+            : null;
+        const saveToken = this.beginSave(content, targetDocument);
 
         const savePromise = (async () => {
             try {
@@ -849,17 +872,20 @@ export class CodeEditor {
                 await services.file.writeText(filePath, content);
                 this.documentSessions?.markLocalWrite?.(localWriteKey);
                 if (!sessionId || sessionId === this.currentSessionId) {
-                    const pendingChanges = this.markSaved(content);
+                    const pendingChanges = this.markSaved(content, saveToken, targetDocument);
                     if (pendingChanges) {
                         this.scheduleAutoSave();
                     }
                     if (hadFocusBeforeSave && this.isVisible && this.editor) {
                         this.editor.focus();
                     }
+                } else {
+                    targetDocument?.commitSave?.(saveToken);
                 }
                 logger.debug('自动保存成功', { filePath });
                 return true;
             } catch (error) {
+                this.failSave(saveToken, error, targetDocument);
                 if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {
                     this.documentSessions.clearLocalWriteSuppression(localWriteKey);
                 }

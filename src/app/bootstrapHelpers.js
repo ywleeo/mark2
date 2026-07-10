@@ -51,7 +51,6 @@ export function createBootstrapHelpers(deps) {
 
     function clearActiveFileView() {
         documentManager?.clearActiveDocument?.();
-        appState.setHasUnsavedChanges(false);
         handleToolbarOnFileChange(null);
         handleCardSidebarOnFileChange(null);
         documentSessions.closeActiveSession();

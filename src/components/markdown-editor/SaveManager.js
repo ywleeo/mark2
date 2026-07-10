@@ -5,7 +5,6 @@ import {
     createExternalModificationConflict,
     isExternalModificationConflict,
 } from '../../core/documents/DocumentConflict.js';
-import { reconcileSavedSnapshot } from '../../core/documents/SaveSnapshot.js';
 import { DEFAULT_AUTO_SAVE_DELAY, MIN_AUTO_SAVE_DELAY } from './constants.js';
 
 /**
@@ -14,6 +13,7 @@ import { DEFAULT_AUTO_SAVE_DELAY, MIN_AUTO_SAVE_DELAY } from './constants.js';
  * 依赖注入（全部通过 getter 函数，避免状态快照）：
  *   getMarkdown()           — 获取当前序列化后的 Markdown 字符串
  *   getCurrentFile()        — 获取当前文件路径
+ *   getDocument()           — 获取当前 DocumentModel
  *   getCurrentSessionId()   — 获取当前会话 ID
  *   isSessionActive(id)     — 判断某会话是否仍然有效
  *   isLoadingFile()         — 是否正在加载文件（加载期间推迟自动保存）
@@ -29,6 +29,7 @@ export class SaveManager {
     constructor({
         getMarkdown,
         getCurrentFile,
+        getDocument = null,
         getCurrentSessionId,
         isSessionActive,
         isLoadingFile,
@@ -42,6 +43,7 @@ export class SaveManager {
     }) {
         this.getMarkdown = getMarkdown;
         this.getCurrentFile = getCurrentFile;
+        this.getDocument = getDocument;
         this.getCurrentSessionId = getCurrentSessionId;
         this.isSessionActive = isSessionActive;
         this.isLoadingFile = isLoadingFile;
@@ -117,6 +119,8 @@ export class SaveManager {
         const { force = false, reason = 'manual', sessionId: explicitSessionId = null } = options;
         const targetSessionId = explicitSessionId ?? this.getCurrentSessionId() ?? null;
         const targetFile = this.getCurrentFile();
+        const documentCandidate = this.getDocument?.() || null;
+        const targetDocument = documentCandidate?.uri === targetFile ? documentCandidate : null;
 
         if (!targetFile) return false;
 
@@ -171,9 +175,11 @@ export class SaveManager {
         this.lastSaveError = null;
 
         const localWriteKey = normalizeFsPath(targetFile) || targetFile;
+        let saveToken = null;
         const savePromise = (async () => {
             try {
                 const markdown = pendingMarkdown ?? this.getMarkdown();
+                saveToken = targetDocument?.beginSave?.(markdown) || null;
                 const services = getAppServices();
                 if (localWriteKey && this.documentSessions?.markLocalWrite) {
                     this.documentSessions.markLocalWrite(localWriteKey);
@@ -181,16 +187,21 @@ export class SaveManager {
                 await services.file.writeText(targetFile, markdown);
                 this.documentSessions?.markLocalWrite?.(localWriteKey);
                 if (!targetSessionId || targetSessionId === this.getCurrentSessionId()) {
-                    const reconciliation = reconcileSavedSnapshot(markdown, this.getMarkdown());
+                    const pendingChanges = saveToken
+                        ? targetDocument.commitSave(saveToken)
+                        : this.getMarkdown() !== markdown;
                     this.setOriginalMarkdown(markdown);
-                    this.setContentChanged(reconciliation.pendingChanges);
+                    this.setContentChanged(pendingChanges);
                     this.callbacks.onContentChange?.();
-                    if (reconciliation.pendingChanges && reason === 'auto') {
+                    if (pendingChanges && reason === 'auto') {
                         this.scheduleAutoSave();
                     }
+                } else if (saveToken) {
+                    targetDocument.commitSave(saveToken);
                 }
                 return true;
             } catch (error) {
+                targetDocument?.failSave?.(saveToken, error);
                 if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {
                     this.documentSessions.clearLocalWriteSuppression(localWriteKey);
                 }

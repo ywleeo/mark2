@@ -15,7 +15,6 @@ export function createCodeRenderer() {
                 detectLanguageForPath,
                 view,
                 restoreScrollPosition,
-                setHasUnsavedChanges,
                 updateWindowTitle,
                 shouldAutoFocus,
                 tabId,
@@ -51,7 +50,6 @@ export function createCodeRenderer() {
             restoreScrollPosition?.(filePath, 'code');
             markdownEditor?.refreshSearch?.();
 
-            setHasUnsavedChanges?.(fileData.hasChanges);
             await updateWindowTitle?.();
 
             return true;

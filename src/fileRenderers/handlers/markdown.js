@@ -14,7 +14,6 @@ export function createMarkdownRenderer() {
                 editorRegistry,
                 view,
                 restoreMarkdownScrollPosition,
-                setHasUnsavedChanges,
                 updateWindowTitle,
                 shouldAutoFocus,
             } = ctx;
@@ -46,7 +45,6 @@ export function createMarkdownRenderer() {
                 }
             }
 
-            setHasUnsavedChanges?.(fileData.hasChanges);
             await updateWindowTitle?.();
 
             return true;

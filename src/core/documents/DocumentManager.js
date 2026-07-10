@@ -1,6 +1,6 @@
 /**
- * 文档真源管理器。
- * 当前阶段只收敛最关键的文档身份与 dirty 状态，保留旧模块作为兼容层。
+ * 文档生命周期管理器。
+ * 只管理 tab、激活状态和文档身份；dirty 与保存状态由 DocumentModel 投影。
  */
 
 /**
@@ -49,6 +49,7 @@ export function createDocumentManager(options = {}) {
         normalizePath,
         logger,
         traceRecorder,
+        documentRegistry,
     } = options;
 
     const documents = new Map();
@@ -56,6 +57,21 @@ export function createDocumentManager(options = {}) {
     const listeners = new Set();
     let activeDocumentPath = null;
     let lastActiveSnapshot = null;
+
+    /** 从 DocumentModel 读取派生 dirty，DocumentManager 不再保存副本。 */
+    function resolveDirty(path) {
+        return Boolean(path && documentRegistry?.isDirty?.(path));
+    }
+
+    /** 给内部 tab 文档暴露只读 dirty 属性。 */
+    function attachDirtyProjection(doc) {
+        Object.defineProperty(doc, 'dirty', {
+            configurable: true,
+            enumerable: true,
+            get: () => resolveDirty(doc.path),
+        });
+        return doc;
+    }
 
     /**
      * 发送事件给所有订阅者。
@@ -100,7 +116,7 @@ export function createDocumentManager(options = {}) {
             tabId: doc.tabId,
             kind: doc.kind,
             viewMode: doc.viewMode,
-            dirty: Boolean(doc.dirty),
+            dirty: resolveDirty(doc.path),
             syncing: Boolean(doc.syncing),
             active: Boolean(doc.active),
             sessionId: doc.sessionId,
@@ -109,19 +125,16 @@ export function createDocumentManager(options = {}) {
         };
     }
 
-    /**
-     * 将活动文档状态同步到 AppState 兼容层。
-     */
+    /** 将活动文档身份同步到 AppState；dirty 由 provider 实时读取。 */
     function syncActiveDocumentToAppState() {
         if (!appState) {
             return;
         }
         const activeDocument = activeDocumentPath ? documents.get(activeDocumentPath) || null : null;
         appState.setCurrentFile(activeDocument?.path || null);
-        appState.setHasUnsavedChanges(Boolean(activeDocument?.dirty));
         const nextSnapshot = {
             activePath: activeDocument?.path || null,
-            dirty: Boolean(activeDocument?.dirty),
+            dirty: resolveDirty(activeDocument?.path),
             tabId: activeDocument?.tabId || null,
         };
         if (!isShallowEqual(lastActiveSnapshot, nextSnapshot)) {
@@ -143,23 +156,55 @@ export function createDocumentManager(options = {}) {
         }
 
         const existing = documents.get(normalizedPath);
-        const nextDocument = {
+        const nextDocument = attachDirtyProjection({
             id: normalizedPath,
             path: normalizedPath,
             tabId: patch.tabId ?? existing?.tabId ?? normalizedPath,
             kind: patch.kind ?? existing?.kind ?? 'file',
             viewMode: patch.viewMode ?? existing?.viewMode ?? null,
-            dirty: patch.dirty ?? existing?.dirty ?? false,
             active: patch.active ?? existing?.active ?? false,
             sessionId: patch.sessionId ?? existing?.sessionId ?? null,
             label: patch.label ?? existing?.label ?? null,
             // pinned=true 代表"固定打开"（file tab 或 untitled）；
             // pinned=false 代表"临时预览"（shared tab），不会进入 openOrder
             pinned: patch.pinned ?? existing?.pinned ?? true,
-        };
+        });
         documents.set(normalizedPath, nextDocument);
         return nextDocument;
     }
+
+    /**
+     * 将 DocumentModel 的派生状态投影到 tab 生命周期层。
+     * DocumentManager 只转发事件，不保存 dirty 副本。
+     */
+    documentRegistry?.subscribe?.(({ path, event, document: model }) => {
+        const managedDocument = documents.get(path);
+        if (!managedDocument || !event) return;
+
+        if (event.type === 'save-state') {
+            managedDocument.syncing = event.state === 'saving';
+        }
+        if (activeDocumentPath === path) {
+            syncActiveDocumentToAppState();
+        }
+
+        if (event.type === 'dirty') {
+            logger?.info?.('documentDirtyChanged', {
+                path,
+                dirty: model.dirty,
+                revision: model.getRevision?.(),
+            });
+            traceRecorder?.record?.('documents', 'dirty', { path, dirty: model.dirty });
+            emit({
+                type: 'dirty',
+                path,
+                dirty: model.dirty,
+                document: toPublicDocument(managedDocument),
+            });
+        } else if (event.type === 'save-state') {
+            emit({ type: 'update', path, document: toPublicDocument(managedDocument) });
+        }
+    });
 
     return {
         /**
@@ -176,8 +221,18 @@ export function createDocumentManager(options = {}) {
 
             const previousDocument = documents.get(normalizedPath);
             const nextDocument = ensureDocument(normalizedPath, options);
+            if (options.dirty !== undefined) {
+                let model = documentRegistry?.getDocument?.(normalizedPath);
+                if (!model && (options.kind === 'untitled' || options.kind === 'import')) {
+                    model = documentRegistry?.registerInMemoryDocument?.(normalizedPath, {
+                        viewMode: options.viewMode || 'markdown',
+                        content: '',
+                    });
+                }
+                if (options.dirty) model?.markUnpersisted?.();
+            }
             // 仅 pinned 文档进入 openOrder（file tab 列表）。
-            // unpinned → 只在 documents 中存在（供 markDirty / 内容管理），不会作为 file tab 渲染。
+            // unpinned → 只在 documents 中存在（供内容管理），不会作为 file tab 渲染。
             // 如果之前是 unpinned 现在变 pinned，也要补进 openOrder
             const previouslyPinned = previousDocument ? previousDocument.pinned !== false : false;
             const isNowPinned = nextDocument.pinned !== false;
@@ -331,7 +386,10 @@ export function createDocumentManager(options = {}) {
                 // active 由 activate/close 等流程维护，不接受来自 patch 的覆盖。
                 const already = documents.get(normalizedNew);
                 if (already && patch) {
-                    const { active: _active, ...safePatch } = patch;
+                    const { active: _active, dirty: requestedDirty, ...safePatch } = patch;
+                    if (requestedDirty) {
+                        documentRegistry?.getDocument?.(normalizedNew)?.markUnpersisted?.();
+                    }
                     if (Object.keys(safePatch).length > 0) {
                         Object.assign(already, safePatch, {
                             id: normalizedNew,
@@ -344,13 +402,17 @@ export function createDocumentManager(options = {}) {
                 return already || null;
             }
 
-            const nextDocument = {
+            const { dirty: requestedDirty, ...safePatch } = patch;
+            const nextDocument = attachDirtyProjection({
                 ...existing,
-                ...patch,
+                ...safePatch,
                 id: normalizedNew,
                 path: normalizedNew,
-                tabId: patch.tabId ?? existing.tabId ?? normalizedNew,
-            };
+                tabId: safePatch.tabId ?? existing.tabId ?? normalizedNew,
+            });
+            if (requestedDirty) {
+                documentRegistry?.getDocument?.(normalizedNew)?.markUnpersisted?.();
+            }
 
             documents.delete(normalizedOld);
             documents.set(normalizedNew, nextDocument);
@@ -379,64 +441,6 @@ export function createDocumentManager(options = {}) {
                 document: toPublicDocument(nextDocument),
             });
             return nextDocument;
-        },
-
-        /**
-         * 标记文档 dirty 状态。
-         * @param {string} path - 文档路径
-         * @param {boolean} dirty - dirty 状态
-         */
-        markDirty(path, dirty) {
-            const normalizedPath = normalizeDocumentPath(normalizePath, path);
-            if (!normalizedPath) {
-                return;
-            }
-            const document = ensureDocument(normalizedPath);
-            const nextDirty = Boolean(dirty);
-            if (document.dirty === nextDirty) {
-                return;
-            }
-            document.dirty = nextDirty;
-            if (activeDocumentPath === normalizedPath) {
-                syncActiveDocumentToAppState();
-            }
-            logger?.info?.('markDirty', {
-                path: normalizedPath,
-                dirty: nextDirty,
-                active: activeDocumentPath === normalizedPath,
-            });
-            traceRecorder?.record?.('documents', 'dirty', {
-                path: normalizedPath,
-                dirty: nextDirty,
-            });
-            emit({
-                type: 'dirty',
-                path: normalizedPath,
-                dirty: nextDirty,
-                document: toPublicDocument(document),
-            });
-        },
-
-        // 保存进行中状态:tab 上把脏黄点显示成 progress 动效,保存结束(成功/失败)清除
-        setSyncing(path, syncing) {
-            const normalizedPath = normalizeDocumentPath(normalizePath, path);
-            if (!normalizedPath) {
-                return;
-            }
-            const document = documents.get(normalizedPath);
-            if (!document) {
-                return;
-            }
-            const next = Boolean(syncing);
-            if (document.syncing === next) {
-                return;
-            }
-            document.syncing = next;
-            emit({
-                type: 'update',
-                path: normalizedPath,
-                document: toPublicDocument(document),
-            });
         },
 
         /**

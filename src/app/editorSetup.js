@@ -16,7 +16,6 @@ export function createEditorCallbacks({
     editorRegistry,
     appState,
     documentRegistry,
-    documentManager,
     normalizeFsPath,
     updateWindowTitle,
     scheduleDocumentSnapshotSync,
@@ -24,20 +23,10 @@ export function createEditorCallbacks({
 }) {
     return {
         onContentChange: () => {
-            const editor = editorRegistry.getMarkdownEditor();
-            const codeEditor = editorRegistry.getCodeEditor();
-            const currentFile = documentManager?.getActivePath?.() || appState.getCurrentFile();
-            const hasUnsaved = editor?.hasUnsavedChanges()
-                || codeEditor?.hasUnsavedChanges()
-                || false;
-            if (currentFile) {
-                documentManager?.markDirty?.(currentFile, hasUnsaved);
-            }
-            appState.setHasUnsavedChanges(hasUnsaved);
             void updateWindowTitle();
             scheduleDocumentSnapshotSync();
         },
-        onAutoSaveSuccess: async ({ skipped, filePath, pendingChanges = false }) => {
+        onAutoSaveSuccess: async ({ skipped, filePath }) => {
             if (skipped) {
                 return;
             }
@@ -60,12 +49,7 @@ export function createEditorCallbacks({
             const modifiedTime = await documentRegistry.refreshModifiedTime?.(targetPath);
             await onFileSaved?.(targetPath, modifiedTime);
             if (normalizeFsPath(currentFile) === normalizeFsPath(targetPath)) {
-                const stillDirty = pendingChanges
-                    || editor?.hasUnsavedChanges?.()
-                    || codeEditor?.hasUnsavedChanges?.()
-                    || false;
-                documentManager?.markDirty?.(targetPath, stillDirty);
-                appState.setHasUnsavedChanges(stillDirty);
+                // dirty 已由 DocumentModel 保存 token 的提交结果派生。
                 await updateWindowTitle();
             }
             scheduleDocumentSnapshotSync();
