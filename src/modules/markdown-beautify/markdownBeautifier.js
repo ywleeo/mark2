@@ -1,15 +1,16 @@
 import { aiService } from '../ai-assistant/aiService.js';
 import { aiProxyJsonRequest } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
+import { withAiMarkdownOutputRules } from '../../utils/aiMarkdownOutputRules.js';
 
 const MAX_LINES = 300;
 
-const SYSTEM_PROMPT = `你是一个 Markdown 排版专家。请对用户提供的文本进行 Markdown 格式美化。
+const SYSTEM_PROMPT = withAiMarkdownOutputRules(`你是一个 Markdown 排版专家。请对用户提供的文本进行 Markdown 格式美化。
 
 严格遵守以下规则：
 1. 所有原始内容必须完整保留，不得增加、删减或修改任何实质性内容
 2. 只优化排版格式，例如添加合适的标题层级、列表、代码块标记、强调、引用块等
-3. 直接输出美化后的 Markdown，不要附加任何解释或说明`;
+3. 直接输出美化后的 Markdown，不要附加任何解释或说明`);
 
 export async function beautifyMarkdown(text) {
     const lineCount = (text.match(/\n/g) ?? []).length + 1;

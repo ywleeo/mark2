@@ -19,10 +19,10 @@ export class DocumentTaskClient {
 
     /**
      * 执行一次文档任务模型请求。
-     * @param {{messages:Array,temperature:number,timeoutMs:number,phase:string,attempt?:number}} options - 请求参数
-     * @returns {Promise<ReturnType<typeof parseNonStreamingResponse>>}
+     * @param {{messages:Array,temperature:number,timeoutMs:number,phase:string,attempt?:number,tools?:Array}} options - 请求参数
+     * @returns {Promise<ReturnType<typeof parseNonStreamingResponse> & {rawBody:string}>}
      */
-    async complete({ messages, temperature, timeoutMs, phase, attempt = 1 }) {
+    async complete({ messages, temperature, timeoutMs, phase, attempt = 1, tools = [] }) {
         const provider = aiService.getProviderForScene('documentTask');
         const model = aiService.getModelForScene('documentTask');
         if (!provider?.apiKey || !model) {
@@ -36,7 +36,12 @@ export class DocumentTaskClient {
                 url: `${aiService.getBaseUrlForScene('documentTask')}/chat/completions`,
                 apiKey: provider.apiKey,
                 timeoutMs,
-                body: { model, temperature, messages },
+                body: {
+                    model,
+                    temperature,
+                    messages,
+                    ...(tools.length ? { tools } : {}),
+                },
             });
         } catch (error) {
             if (/timeout|timed out|超时/i.test(String(error?.message || error))) {
@@ -63,8 +68,8 @@ export class DocumentTaskClient {
             completionTokens: parsed.completionTokens,
             refusal: parsed.refusal,
         };
-        if (parsed.content.trim()) logger.info('response:received', summary);
+        if (parsed.content.trim() || tools.length) logger.info('response:received', summary);
         else logger.warn('response:empty', summary);
-        return parsed;
+        return { ...parsed, rawBody: response.body };
     }
 }

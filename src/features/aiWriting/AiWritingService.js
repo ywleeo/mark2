@@ -1,8 +1,14 @@
 import { aiProxyJsonRequest } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
 import { aiService } from '../../modules/ai-assistant/aiService.js';
+import { withAiMarkdownOutputRules } from '../../utils/aiMarkdownOutputRules.js';
 import { buildInlineCompletionContext } from '../inlineCompletion/CompletionContextBuilder.js';
 import { requestCompletion } from '../inlineCompletion/CompletionEngine.js';
+import {
+    createWritingIdeasTool,
+    createWritingIdeasToolChoice,
+    parseWritingIdeasToolResponse,
+} from './WritingIdeasTool.js';
 
 const BEFORE_LIMIT = 2600;
 const AFTER_LIMIT = 1200;
@@ -12,14 +18,6 @@ const MODE_INSTRUCTIONS = {
     polish: '润色这段内容：保持原意和信息量，改善表达、节奏和可读性。',
     expand: '扩写这段内容：保持原文语气和观点，补充必要细节，让表达更充分。',
     shorten: '精简这段内容：保留关键信息和语气，删除冗余，让表达更紧凑。',
-};
-
-const IDEA_TYPE_LABELS = {
-    angle: '角度',
-    example: '例子',
-    structure: '结构',
-    question: '问题',
-    title: '标题',
 };
 
 function stripFences(text) {
@@ -52,7 +50,7 @@ function clampAround(text, limit, fromStart = false) {
 }
 
 function buildSystemPrompt(mode) {
-    return `你是一个 Markdown 写作改稿助手。
+    return withAiMarkdownOutputRules(`你是一个 Markdown 写作改稿助手。
 任务：${MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.polish}
 
 要求：
@@ -60,7 +58,7 @@ function buildSystemPrompt(mode) {
 2. 保持原文语言、写作风格、语气和 Markdown 结构。
 3. 不要改写选区外的内容，也不要重复选区外上下文。
 4. 如果选区是列表、标题、引用或表格片段，尽量保持同类 Markdown 格式。
-5. 输出必须可以直接替换用户选中的原文。`;
+5. 输出必须可以直接替换用户选中的原文。`);
 }
 
 function sanitizeRewrite(raw) {
@@ -78,69 +76,6 @@ function parseAiContent(body) {
             .trim();
     }
     return typeof content === 'string' ? content : '';
-}
-
-function parseJsonArray(content) {
-    let text = stripFences(content).trim();
-    const start = text.indexOf('[');
-    const end = text.lastIndexOf(']');
-    if (start >= 0 && end > start) {
-        text = text.slice(start, end + 1);
-    }
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? parsed : [];
-}
-
-function parseIdeasPayload(content) {
-    const text = stripFences(content).trim();
-    if (!text) return [];
-
-    try {
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) return parsed;
-        if (Array.isArray(parsed?.ideas)) return parsed.ideas;
-        if (Array.isArray(parsed?.items)) return parsed.items;
-        if (Array.isArray(parsed?.suggestions)) return parsed.suggestions;
-    } catch {
-        // Fall through to partial JSON and plain-text parsing.
-    }
-
-    try {
-        const parsed = parseJsonArray(text);
-        if (parsed.length) return parsed;
-    } catch {
-        // Fall through to plain-text parsing.
-    }
-
-    return text
-        .split('\n')
-        .map(line => line
-            .replace(/^\s*(?:[-*•]|\d+[.)、]|[一二三四五六七八九十]+[、.])\s*/u, '')
-            .trim())
-        .filter(Boolean)
-        .filter(line => !/^(ideas?|灵感|寫作靈感|writing ideas?)[:：]?$/i.test(line))
-        .slice(0, 5)
-        .map(line => ({ type: 'angle', text: line, why: '' }));
-}
-
-function normalizeIdeas(rawIdeas) {
-    return rawIdeas
-        .map((item, index) => {
-            if (typeof item === 'string') {
-                return { id: `idea-${index}`, type: 'angle', text: item.trim(), why: '' };
-            }
-            const type = ['angle', 'example', 'structure', 'question', 'title'].includes(item?.type)
-                ? item.type
-                : 'angle';
-            return {
-                id: `idea-${index}`,
-                type,
-                typeLabel: IDEA_TYPE_LABELS[type] || IDEA_TYPE_LABELS.angle,
-                text: typeof item?.text === 'string' ? item.text.trim() : '',
-                why: typeof item?.why === 'string' ? item.why.trim() : '',
-            };
-        })
-        .filter(item => item.text);
 }
 
 /**
@@ -201,6 +136,7 @@ export async function requestWritingIdeas(context) {
     const scopeInstruction = context.selectedText
         ? '用户选中了文档中的一段内容。围绕选区提供可继续展开、换角度、补例子或优化结构的灵感。'
         : '用户在光标处卡住了。根据当前上下文提供下一步可写的灵感。';
+    const ideasTool = createWritingIdeasTool();
 
     const userPrompt = `<DocumentOutline>
 ${context.outline || '(无)'}
@@ -225,7 +161,6 @@ ${context.afterSelection || '(无)'}
         body: {
             model,
             temperature: Math.max(aiService.getTemperature(), 0.7),
-            max_tokens: 700,
             messages: [
                 {
                     role: 'system',
@@ -238,14 +173,12 @@ ${scopeInstruction}
 3. 不要输出解释性前言。
 4. 灵感只提供“下一步可以写什么”，不要写完整故事梗概、结局、主题总结或人生感悟。
 5. 灵感应保留未解决的问题或冲突，方便继续展开。
-6. 只输出 JSON 数组，不要用代码块包裹。
-格式：
-[
-  {"type":"angle|example|structure|question|title","text":"具体灵感","why":"为什么适合当前上下文"}
-]`,
+6. 必须调用 ${ideasTool.function.name} 提交结果，不要在正文中输出结果。`,
                 },
                 { role: 'user', content: userPrompt },
             ],
+            tools: [ideasTool],
+            tool_choice: createWritingIdeasToolChoice(),
         },
     });
 
@@ -255,8 +188,7 @@ ${scopeInstruction}
     }
 
     try {
-        const content = parseAiContent(res.body);
-        const ideas = normalizeIdeas(parseIdeasPayload(content));
+        const ideas = parseWritingIdeasToolResponse(res.body);
         if (ideas.length === 0) throw new Error(t('aiWriting.error.noIdeas'));
         return ideas;
     } catch (error) {

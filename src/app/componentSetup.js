@@ -77,7 +77,7 @@ export function setupStatusBar({
         });
     }
 
-    // AI 当前文档任务入口：不常驻聊天侧栏，只对正在打开的文档执行一次性指令。
+    // AI 当前文档任务入口：打开单工作稿侧栏，不保留聊天历史。
     const aiTaskBtn = document.getElementById('statusBarAiTask');
     if (aiTaskBtn) {
         addClickHandler(aiTaskBtn, () => {

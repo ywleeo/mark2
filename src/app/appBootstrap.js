@@ -39,7 +39,7 @@ import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windo
 import { setupSecretCloudSwitch } from './secretCloudSwitch.js';
 import { AppMenu } from '../components/AppMenu.js';
 import { VaultPanel } from '../components/VaultPanel.js';
-import { AiFileTaskDialog } from '../modules/ai-file-task/AiFileTaskDialog.js';
+import { AiFileTaskSidebar } from '../modules/ai-file-task/AiFileTaskSidebar.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
 import { EVENT_IDS } from '../core/eventIds.js';
 
@@ -177,20 +177,33 @@ export function createAppBootstrap({
 
         setupViewPanes(appState);
 
-        const aiFileTaskDialog = new AiFileTaskDialog({
+        const aiFileTaskSidebar = new AiFileTaskSidebar({
             fileService: appServices.file,
             getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
             untitledFileManager,
             saveCurrentEditorContentToCache,
             openResultAsUntitled: ({ content, filename }) => handleImportAsUntitled(content, filename),
+            insertResult: (content) => {
+                if (appState.getActiveViewMode() === 'code') {
+                    const editor = editorRegistry.getCodeEditor();
+                    if (!editor?.insertTextAtCursor) return false;
+                    editor.insertTextAtCursor(content);
+                    return true;
+                }
+                if (appState.getActiveViewMode() !== 'markdown') return false;
+                const editor = editorRegistry.getMarkdownEditor();
+                if (!editor?.insertAIContent) return false;
+                editor.insertAIContent(content);
+                return true;
+            },
             getStatusBarController: () => appState.getStatusBarController(),
         });
         const unsubscribeAiFileTaskCurrentFile = appState.onCurrentFileChange((path) => {
-            aiFileTaskDialog.updateCurrentFile(path);
+            aiFileTaskSidebar.updateCurrentFile(path);
         });
-        appState.setCleanupFunction('aiFileTaskDialog', () => {
+        appState.setCleanupFunction('aiFileTaskSidebar', () => {
             unsubscribeAiFileTaskCurrentFile();
-            aiFileTaskDialog.destroy();
+            aiFileTaskSidebar.destroy();
         });
 
         setupStatusBar({
@@ -200,7 +213,7 @@ export function createAppBootstrap({
             normalizeFsPath,
             handleZoomControl,
             updateZoomDisplayForActiveView,
-            onAiDocumentTask: (path) => aiFileTaskDialog.open({ path }),
+            onAiDocumentTask: (path) => aiFileTaskSidebar.open({ path }),
         });
 
         const editorCallbacks = createEditorCallbacks({

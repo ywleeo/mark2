@@ -1,5 +1,15 @@
 // 剪贴板增强模块 - 复制时添加内联样式
 
+/**
+ * 判断剪贴板 HTML 是否由 ProseMirror 的结构化序列化器生成。
+ * 这类内容携带开放深度和节点上下文，不能用浏览器 Range 克隆结果覆盖。
+ * @param {string} html - 剪贴板中的 HTML
+ * @returns {boolean}
+ */
+export function isProseMirrorClipboardHtml(html) {
+    return typeof html === 'string' && /\bdata-pm-slice\s*=/i.test(html);
+}
+
 export class ClipboardEnhancer {
     constructor(element) {
         this.element = element;
@@ -21,11 +31,17 @@ export class ClipboardEnhancer {
 
         try {
             const range = selection.getRangeAt(0);
+            const nativeHtml = event.clipboardData?.getData('text/html') || '';
+            const nativeText = event.clipboardData?.getData('text/plain') || '';
 
-            // 克隆选中的内容
-            const fragment = range.cloneContents();
+            // ProseMirror 已经序列化过的内容必须作为结构来源，否则 TaskItem
+            // 等 NodeView 的控件 DOM 会和正文拆开。普通选区才回退到 Range 克隆。
             const container = document.createElement('div');
-            container.appendChild(fragment);
+            if (isProseMirrorClipboardHtml(nativeHtml)) {
+                container.innerHTML = nativeHtml;
+            } else {
+                container.appendChild(range.cloneContents());
+            }
 
             // 找到所有选中范围内的原始元素（用于获取计算样式）
             const originalElements = this.getSelectedElements(range);
@@ -61,7 +77,7 @@ export class ClipboardEnhancer {
                 const raw = el.textContent || '';
                 el.textContent = raw.replace(/\n/g, '');
             });
-            const text = container.textContent || '';
+            const text = nativeText || container.textContent || '';
 
             event.clipboardData.setData('text/html', html);
             event.clipboardData.setData('text/plain', text);
