@@ -2,6 +2,7 @@ const READ_DOCUMENT_TOOL = 'read_current_document';
 const READ_DRAFT_TOOL = 'read_current_draft';
 const READ_INITIAL_TASK_TOOL = 'read_initial_task';
 const RUN_SUBTASK_TOOL = 'run_subtask';
+const CREATE_DOCUMENT_TOOL = 'create_document';
 
 /**
  * 创建 AI 文档任务可自主调用的资源与子任务工具。
@@ -49,6 +50,32 @@ export function createDocumentTaskAgentTools() {
                         context: { type: 'string', maxLength: 48000, description: '你选择提供给子任务的必要上下文；不需要时传空字符串。' },
                     },
                     required: ['objective', 'context'],
+                },
+            },
+        },
+        {
+            type: 'function',
+            function: {
+                name: CREATE_DOCUMENT_TOOL,
+                description: '创建一个新的 Markdown 文档标签页，并把指定内容写入其中。仅在你判断当前任务需要实际创建文档时调用；工具会真实执行，不要用文字假装已创建。',
+                parameters: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        filename: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 160,
+                            description: '建议文件名，应以 .md 结尾。',
+                        },
+                        content: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 200000,
+                            description: '要写入新文档的完整 Markdown 内容。',
+                        },
+                    },
+                    required: ['filename', 'content'],
                 },
             },
         },
@@ -139,4 +166,13 @@ export function getDocumentTaskResourceKey(name) {
  */
 export function isDocumentTaskSubtaskTool(name) {
     return name === RUN_SUBTASK_TOOL;
+}
+
+/**
+ * 判断工具是否为创建文档操作。
+ * @param {string} name - 工具名
+ * @returns {boolean} 是否为创建文档工具
+ */
+export function isDocumentTaskCreateDocumentTool(name) {
+    return name === CREATE_DOCUMENT_TOOL;
 }

@@ -45,6 +45,7 @@ test('文档任务只向模型暴露能力，不提供任务类型枚举', () =>
         'read_current_draft',
         'read_initial_task',
         'run_subtask',
+        'create_document',
     ]);
     assert.equal(JSON.stringify(tools).includes('context_scope'), false);
     assert.equal(JSON.stringify(tools).includes('synthesize'), false);
@@ -104,6 +105,40 @@ test('模型可以自行规划子任务并在后续调用中综合结果', async
     assert.equal(result, '综合后的最终结果');
     assert.equal(calls.some(call => call.phase === 'subtask'), true);
     assert.equal(calls.at(-1).messages.some(message => message.role === 'tool' && message.content === '子任务发现'), true);
+});
+
+test('模型可以自主创建新文档并获得真实执行结果', async () => {
+    const calls = [];
+    const created = [];
+    const client = {
+        async complete(options) {
+            calls.push(structuredClone(options));
+            if (calls.length === 1) {
+                return {
+                    content: '',
+                    rawBody: createToolResponse('create_document', {
+                        filename: '修改意见.md',
+                        content: '# 修改意见\n\n- 调整结尾',
+                    }),
+                };
+            }
+            return { content: '已创建新文档。', rawBody: '{"choices":[{"message":{"content":"已创建新文档。"}}]}' };
+        },
+    };
+    const result = await new DocumentTaskEngine({ client }).execute({
+        filePath: '/docs/story.md',
+        fileContent: '正文',
+        currentResult: '- 调整结尾',
+        instruction: '把这些意见写到新文档里',
+        createDocument: async (document) => {
+            created.push(document);
+            return { path: 'untitled://修改意见.md' };
+        },
+    });
+
+    assert.equal(result, '已创建新文档。');
+    assert.deepEqual(created, [{ filename: '修改意见.md', content: '# 修改意见\n\n- 调整结尾' }]);
+    assert.match(calls[1].messages.at(-1).content, /untitled:\/\/修改意见\.md/);
 });
 
 test('工具调用解析不从正文猜测模型决策', () => {

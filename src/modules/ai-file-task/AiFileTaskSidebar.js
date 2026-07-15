@@ -51,6 +51,21 @@ function createFallbackFilename(sourcePath) {
 }
 
 /**
+ * 清理模型建议的新文档名，禁止路径片段进入 untitled 虚拟路径。
+ * @param {string} value - 模型建议文件名
+ * @param {string} sourcePath - 当前源文档路径
+ * @returns {string} 安全的 Markdown 文件名
+ */
+function normalizeAgentFilename(value, sourcePath) {
+    const rawName = basename(String(value || '').trim())
+        .replace(/[\u0000-\u001f\u007f]/g, '')
+        .trim();
+    const fallback = createFallbackFilename(sourcePath);
+    const name = rawName || fallback;
+    return /\.md$/i.test(name) ? name : `${name}.md`;
+}
+
+/**
  * 当前文档的 AI 工作稿侧栏。
  * 每次提示词都作为新的当前任务交给自主执行器，不保存聊天历史。
  */
@@ -357,6 +372,20 @@ export class AiFileTaskSidebar {
                 currentResult: oldContent,
                 initialInstruction: this.initialInstruction,
                 instruction,
+                createDocument: async ({ filename, content }) => {
+                    if (!this.session.isCurrent(task) || !this.isVisible) {
+                        throw new Error('当前文档任务已经失效');
+                    }
+                    if (typeof this.openResultAsUntitled !== 'function') {
+                        throw new Error('当前界面无法创建新文档');
+                    }
+                    const safeFilename = normalizeAgentFilename(filename, task.sourcePath);
+                    const path = await this.openResultAsUntitled({
+                        content: String(content || ''),
+                        filename: safeFilename,
+                    });
+                    return { path, filename: safeFilename };
+                },
             });
             if (!this.initialInstruction) this.initialInstruction = instruction;
             if (!this.filename) this.filename = createFallbackFilename(task.sourcePath);
