@@ -228,7 +228,7 @@ let bootstrap;
 // 这些函数实现在 appBootstrap.js，wireApp 只保留一行转发
 function persistWorkspaceState(...args) { return bootstrap.persistWorkspaceState(...args); }
 function clearActiveFileView() { return bootstrap.clearActiveFileView(); }
-function saveCurrentEditorContentToCache() { return bootstrap.saveCurrentEditorContentToCache(); }
+function saveCurrentEditorContentToCache(snapshot) { return bootstrap.saveCurrentEditorContentToCache(snapshot); }
 async function updateExportMenuState() { return bootstrap.updateExportMenuState(); }
 function handleSidebarStateChange(s) { return bootstrap.handleSidebarStateChange(s); }
 
@@ -325,7 +325,7 @@ const editorActions = createEditorActions({
     getCsvTableMode: () => appState.getCsvTableMode(),
     getCurrentFile: () => getActiveDocumentPath(),
     setHasUnsavedChanges: (value) => { appState.setHasUnsavedChanges(value); },
-    saveCurrentEditorContentToCache: () => { saveCurrentEditorContentToCache(); },
+    saveCurrentEditorContentToCache: (snapshot) => { saveCurrentEditorContentToCache(snapshot); },
     persistWorkspaceState,
     updateWindowTitle,
     documentRegistry,
@@ -417,6 +417,7 @@ const workspaceController = createWorkspaceController({
     workspaceManager,
     untitledFileManager,
     documentManager,
+    documentRegistry,
 });
 
 // ========== Untitled 控制器（在 fileOperations 前创建，避免 TDZ）==========
@@ -436,6 +437,7 @@ const untitledController = createUntitledController({
     activateCodeView,
     getUpdateWindowTitle: () => updateWindowTitle,
     getSaveCurrentEditorContentToCache: () => saveCurrentEditorContentToCache,
+    getPersistWorkspaceState: () => persistWorkspaceState,
     getLoadFile: () => loadFile,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,

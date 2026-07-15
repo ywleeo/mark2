@@ -377,11 +377,23 @@ export class MarkdownEditor {
      */
     async attachDocument(doc, options = {}) {
         if (!doc) return false;
-        const { session = null, tabId = null, autoFocus = true, onReady = null } = options;
+        const {
+            session = null,
+            tabId = null,
+            autoFocus = true,
+            onReady = null,
+            discardViewState = false,
+        } = options;
         const filePath = doc.uri;
         const content = doc.getContent();
 
         this.prepareForDocument(session, filePath, tabId);
+        // 从源码模式返回时，CodeMirror 文本才是唯一可信输入。prepareForDocument
+        // 会先保存隐藏的旧 TipTap 状态，因此必须在其后清除，避免 restore 把用户
+        // 已删除的 list/bold/italic 等 Markdown 结构重新带回编辑器。
+        if (discardViewState && tabId) {
+            this.tabStateManager?.forget(tabId);
+        }
         const result = await this.loadFile(session, filePath, content, { autoFocus, tabId, onReady });
 
         // 跨 tab 保留的 dirty:恢复编辑器侧 originalMarkdown 基线，并同步到 DM

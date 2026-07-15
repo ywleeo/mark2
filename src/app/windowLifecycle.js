@@ -254,6 +254,11 @@ export function createWindowLifecycle({
                         }
 
                         untitledFileManager.setContent(tab.path, content);
+                        // 当前编辑器是关闭瞬间的最终真源；同步模型后，工作区采集器
+                        // 才不会用尚未来得及更新的旧模型覆盖最新正文。
+                        documentRegistry.getDocument?.(tab.path)?.applyEditorChange?.(content, {
+                            source: 'window-close',
+                        });
                     }
                 }
 

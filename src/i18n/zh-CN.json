@@ -376,7 +376,7 @@
     "aiFileTask.previewResult": "预览",
     "aiFileTask.newTask": "新任务",
     "aiFileTask.insertResult": "插入文档",
-    "aiFileTask.openResult": "打开文档",
+    "aiFileTask.openResult": "新建文档",
     "aiFileTask.inserted": "已插入当前文档",
     "aiFileTask.undoDone": "已恢复上一版",
     "aiFileTask.copyResult": "复制结果",

@@ -6,6 +6,7 @@
 import { ZOOM_DEFAULT } from './viewController.js';
 import { isExternalModificationConflict } from '../core/documents/DocumentConflict.js';
 import { t } from '../i18n/index.js';
+import { createUntitledPersistenceScheduler } from './untitledPersistenceScheduler.js';
 
 /**
  * 创建编辑器回调函数
@@ -19,12 +20,21 @@ export function createEditorCallbacks({
     normalizeFsPath,
     updateWindowTitle,
     scheduleDocumentSnapshotSync,
+    persistWorkspaceState,
+    isUntitledPath,
     onFileSaved,
 }) {
+    const untitledPersistence = createUntitledPersistenceScheduler({
+        getCurrentFile: () => appState.getCurrentFile(),
+        isUntitledPath,
+        persistWorkspaceState,
+    });
+
     return {
         onContentChange: () => {
             void updateWindowTitle();
             scheduleDocumentSnapshotSync();
+            untitledPersistence.schedule();
         },
         onAutoSaveSuccess: async ({ skipped, filePath }) => {
             if (skipped) {

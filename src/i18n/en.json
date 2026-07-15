@@ -376,7 +376,7 @@
     "aiFileTask.previewResult": "Preview",
     "aiFileTask.newTask": "New Task",
     "aiFileTask.insertResult": "Insert",
-    "aiFileTask.openResult": "Open",
+    "aiFileTask.openResult": "Create document",
     "aiFileTask.inserted": "Inserted into the current document",
     "aiFileTask.undoDone": "Previous version restored",
     "aiFileTask.copyResult": "Copy result",

@@ -93,13 +93,25 @@ export function createMarkdownCodeMode({
      * 拿不到就跳过保存——比如另一个 tab 残留），然后从 DocumentModel 读。
      * 这样切换不再依赖编辑器内存，杜绝跨 tab 内容污染。
      */
-    async function loadAuthoritativeContent({ currentFile, activeViewMode, editor, codeEditor, fallback }) {
+    async function loadAuthoritativeContent({
+        currentFile,
+        activeViewMode,
+        editor,
+        codeEditor,
+        trustedSourceContent = null,
+        sourceHasChanges = false,
+    }) {
         if (typeof saveCurrentEditorContentToCache === 'function') {
             try {
                 saveCurrentEditorContentToCache({ currentFile, activeViewMode, editor, codeEditor });
             } catch (error) {
                 console.warn('[markdownCodeMode] saveCache 失败，仍尝试从 DM 读取', error);
             }
+        }
+        // 当前可见编辑器且文件身份匹配时，它产生的精确快照就是本次切换输入。
+        // 不能再异步回读缓存/磁盘，否则旧 TipTap 状态可能覆盖刚在 CodeMirror 中完成的结构修改。
+        if (typeof trustedSourceContent === 'string') {
+            return { content: trustedSourceContent, hasChanges: Boolean(sourceHasChanges) };
         }
         if (typeof getFileContent === 'function') {
             try {
@@ -111,7 +123,27 @@ export function createMarkdownCodeMode({
                 console.warn('[markdownCodeMode] getFileContent 失败，回退到内存内容', error);
             }
         }
-        return { content: typeof fallback === 'string' ? fallback : '', hasChanges: false };
+        return { content: '', hasChanges: false };
+    }
+
+    /**
+     * 在目标编辑器绑定前确认 DocumentModel 与来源编辑器快照一致。
+     * @param {object|null} documentModel - 当前文档模型
+     * @param {string} content - 来源编辑器的精确内容
+     * @param {boolean} hasChanges - 来源编辑器是否有未保存修改
+     */
+    function synchronizeDocumentModel(documentModel, content, hasChanges) {
+        if (!documentModel || typeof content !== 'string') return;
+        if (documentModel.getContent?.() === content) return;
+        if (hasChanges || documentModel.dirty) {
+            documentModel.applyEditorChange?.(content, { source: 'view-mode-switch' });
+            return;
+        }
+        documentModel.applyEditorSnapshot?.({
+            content,
+            originalContent: content,
+            dirty: false,
+        });
     }
 
     async function toggle({
@@ -130,13 +162,15 @@ export function createMarkdownCodeMode({
         if (activeViewMode === 'markdown') {
             // 编辑器只有真的装着 currentFile 才信任它的内存内容做 fallback
             const editorMatchesFile = editor.currentFile === currentFile && !editor.isLoading?.();
-            const inMemoryFallback = editorMatchesFile ? (editor.getMarkdown() || '') : '';
+            const sourceContent = editorMatchesFile ? (editor.getMarkdown() || '') : null;
+            const sourceHasChanges = editorMatchesFile ? Boolean(editor.hasUnsavedChanges?.()) : false;
             const { content: markdownContent, hasChanges } = await loadAuthoritativeContent({
                 currentFile,
                 activeViewMode: 'markdown',
                 editor,
                 codeEditor,
-                fallback: inMemoryFallback,
+                trustedSourceContent: sourceContent,
+                sourceHasChanges,
             });
 
             // 光标位置同样只在编辑器装的就是当前文件时才取
@@ -150,6 +184,7 @@ export function createMarkdownCodeMode({
             view.activate('code');
             const language = detectLanguageForPath(currentFile) || 'plaintext';
             const documentModel = getDocument?.(currentFile) || null;
+            synchronizeDocumentModel(documentModel, markdownContent, hasChanges);
             if (documentModel) {
                 await codeEditor.attachDocument(documentModel, {
                     session: null,
@@ -187,15 +222,17 @@ export function createMarkdownCodeMode({
 
         if (activeViewMode === 'code') {
             const codeMatchesFile = codeEditor.currentFile === currentFile && !codeEditor.isLoading?.();
-            const inMemoryFallback = codeMatchesFile
+            const sourceContent = codeMatchesFile
                 ? codeEditor.getValue()
-                : '';
+                : null;
+            const sourceHasChanges = codeMatchesFile ? Boolean(codeEditor.hasUnsavedChanges?.()) : false;
             const { content: codeContent, hasChanges } = await loadAuthoritativeContent({
                 currentFile,
                 activeViewMode: 'code',
                 editor,
                 codeEditor,
-                fallback: inMemoryFallback,
+                trustedSourceContent: sourceContent,
+                sourceHasChanges,
             });
 
             const pos = codeMatchesFile ? codeEditor.getCurrentPosition?.() : null;
@@ -205,11 +242,15 @@ export function createMarkdownCodeMode({
             codeEditor?.saveViewStateForTab?.(currentFile);
             view.activate('markdown');
             const documentModel = getDocument?.(currentFile) || null;
+            synchronizeDocumentModel(documentModel, codeContent, hasChanges);
             if (documentModel) {
                 await editor.attachDocument(documentModel, {
                     session: null,
                     tabId: currentFile,
                     autoFocus: true,
+                    // CodeMirror 的当前源码是模式切换的真源；不能恢复切换前缓存的
+                    // TipTap EditorState，否则已删除的 Markdown 标记会在下次保存时复活。
+                    discardViewState: true,
                 });
             } else {
                 await editor.loadFile(currentFile, codeContent, undefined, { tabId: currentFile });

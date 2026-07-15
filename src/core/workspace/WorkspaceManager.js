@@ -86,7 +86,8 @@ export function createWorkspaceManager(options = {}) {
                 && tab?.path === nextTab.path
                 && tab?.label === nextTab.label
                 && tab?.content === nextTab.content
-                && Boolean(tab?.hasChanges) === Boolean(nextTab.hasChanges);
+                && Boolean(tab?.hasChanges) === Boolean(nextTab.hasChanges)
+                && tab?.viewMode === nextTab.viewMode;
         });
     }
 
@@ -211,6 +212,10 @@ export function createWorkspaceManager(options = {}) {
         logger?.info?.('workspace:persist', {
             currentFile: nextState.currentFile || null,
             openFiles: Array.isArray(nextState.openFiles) ? nextState.openFiles.length : 0,
+            untitledTabs: Array.isArray(nextState.untitledTabs) ? nextState.untitledTabs.length : 0,
+            untitledContentLength: Array.isArray(nextState.untitledTabs)
+                ? nextState.untitledTabs.reduce((total, tab) => total + (tab?.content?.length || 0), 0)
+                : 0,
             sharedTabPath: nextState.sharedTabPath || null,
         });
         traceRecorder?.record?.('workspace', 'persist', {

@@ -223,6 +223,8 @@ export function createAppBootstrap({
             normalizeFsPath,
             updateWindowTitle,
             scheduleDocumentSnapshotSync,
+            persistWorkspaceState,
+            isUntitledPath: path => untitledFileManager.isUntitledPath(path),
             onFileSaved: async (filePath, modifiedTime) => {
                 await windowFocusHandler?.syncFileModifiedTime?.(filePath, modifiedTime);
             },

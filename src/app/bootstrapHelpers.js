@@ -80,11 +80,18 @@ export function createBootstrapHelpers(deps) {
         scheduleWorkspaceContextSync();
     }
 
-    function saveCurrentEditorContentToCache() {
-        const currentFile = documentManager?.getActivePath?.() || appState.getCurrentFile();
-        const activeViewMode = appState.getActiveViewMode();
-        const editor = editorRegistry.getMarkdownEditor();
-        const codeEditor = editorRegistry.getCodeEditor();
+    /**
+     * 将指定编辑器快照同步到 DocumentModel。
+     * 模式切换会显式传入来源编辑器，不能再回读可能已经变化的全局活动状态。
+     * @param {{currentFile?:string,activeViewMode?:string,editor?:object,codeEditor?:object}} [snapshot] - 可选的明确来源
+     */
+    function saveCurrentEditorContentToCache(snapshot = {}) {
+        const currentFile = snapshot.currentFile
+            || documentManager?.getActivePath?.()
+            || appState.getCurrentFile();
+        const activeViewMode = snapshot.activeViewMode || appState.getActiveViewMode();
+        const editor = snapshot.editor || editorRegistry.getMarkdownEditor();
+        const codeEditor = snapshot.codeEditor || editorRegistry.getCodeEditor();
 
         if (currentFile && untitledFileManager.isUntitledPath(currentFile)) {
             let content = '';

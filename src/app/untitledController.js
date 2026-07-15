@@ -19,6 +19,7 @@ export function createUntitledController({
     activateCodeView,
     getUpdateWindowTitle,
     getSaveCurrentEditorContentToCache,
+    getPersistWorkspaceState,
     getLoadFile,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
@@ -55,6 +56,9 @@ export function createUntitledController({
         if (pipelineLoad) {
             await pipelineLoad(untitledPath, { tabId: untitledPath });
         }
+
+        // 空白 tab 本身也是用户工作区状态，创建完成后立即落本地快照。
+        getPersistWorkspaceState?.()?.();
 
         // updateWindowTitle / scheduleWorkspaceContextSync / scheduleDocumentSnapshotSync
         // 已由 pipeline loadFile → performLoad → setCurrentFile 内部调用，无需重复。
@@ -114,6 +118,9 @@ export function createUntitledController({
         }
 
         void getUpdateWindowTitle()();
+        // AI/导入文档不经过常规 loadFile 收尾，需在正文和 DocumentModel
+        // 都就绪后主动持久化，避免应用重启前没有其他 UI 操作时丢失。
+        getPersistWorkspaceState?.()?.();
         scheduleWorkspaceContextSync();
         scheduleDocumentSnapshotSync();
 

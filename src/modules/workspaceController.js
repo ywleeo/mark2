@@ -8,6 +8,7 @@ export function createWorkspaceController({
     workspaceManager,
     untitledFileManager,
     documentManager = null,
+    documentRegistry = null,
 }) {
     if (typeof getCurrentFile !== 'function') {
         throw new Error('workspaceController 需要提供 getCurrentFile');
@@ -197,11 +198,12 @@ export function createWorkspaceController({
                 return;
             }
 
-            const content = untitledFileManager.getContent?.(path) || '';
-            // 空 untitled tab 不持久化——下次启动没必要恢复一个空编辑器
-            if (!content.trim()) {
-                return;
-            }
+            // DocumentModel 是编辑内容真源；untitledFileManager 仅作为启动快照仓库。
+            // 优先读取模型，避免 AI 新文档或尚未切换 tab 的编辑只存在模型里。
+            const modelContent = documentRegistry?.getDocument?.(path)?.getContent?.();
+            const content = typeof modelContent === 'string'
+                ? modelContent
+                : (untitledFileManager.getContent?.(path) || '');
             const cloudBacked = untitledFileManager.isCloudBacked?.(path) || false;
             snapshotMap.set(path, {
                 path,
@@ -217,6 +219,7 @@ export function createWorkspaceController({
                     : (untitledFileManager.hasUnsavedChanges?.(path) || false),
                 cloudBacked,
                 cloudFileId: untitledFileManager.getCloudFileId?.(path) ?? null,
+                viewMode: doc.viewMode === 'code' ? 'code' : 'markdown',
             });
         });
 
@@ -393,6 +396,7 @@ export function createWorkspaceController({
                             : (!cloudBacked && typeof tab.content === 'string' && tab.content.trim().length > 0),
                         cloudBacked,
                         cloudFileId: tab.cloudFileId ?? null,
+                        viewMode: tab.viewMode === 'code' ? 'code' : 'markdown',
                     };
                 })
             : [];
@@ -439,11 +443,18 @@ export function createWorkspaceController({
             }
         }
         for (const tab of sanitizedUntitledTabs) {
+            // 必须先用持久化正文恢复 DocumentModel，再投影 tab/dirty 状态。
+            // 若先以空内容创建并标脏，后续加载会把空模型当作未保存真源，正文将丢失。
+            const restoredDocument = documentRegistry?.registerInMemoryDocument?.(tab.path, {
+                viewMode: tab.viewMode,
+                content: tab.content,
+            });
+            if (tab.hasChanges) restoredDocument?.markUnpersisted?.();
             documentManager.openDocument(tab.path, {
                 kind: 'untitled',
                 tabId: tab.path,
                 label: tab.label,
-                viewMode: 'markdown',
+                viewMode: tab.viewMode,
                 dirty: Boolean(tab.hasChanges),
                 activate: false,
             });
