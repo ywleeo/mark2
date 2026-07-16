@@ -362,6 +362,13 @@ export class AiFileTaskSidebar {
 
         const task = this.session.begin(this.currentPath);
         const oldContent = this.result?.content || '';
+        // 新提示词代表一轮新的输出。上一版仅保留在本次请求的内存上下文中，
+        // 不再继续显示或作为“当前结果”持久化，避免用户误认为旧稿是本轮产物。
+        this.result = null;
+        this.isEditing = false;
+        this.resultStore.remove(this.currentPath);
+        this.renderDraft();
+        this.syncActions();
         this.setBusy(true);
         try {
             const fileContent = await this.readCurrentFileContent(task.sourcePath);
@@ -559,7 +566,7 @@ export class AiFileTaskSidebar {
         });
     }
 
-    /** 设置运行状态，保留当前工作稿但锁定会冲突的操作。 */
+    /** 设置运行状态并锁定会与生成流程冲突的操作。 */
     setBusy(busy) {
         this.isRunning = busy;
         this.root?.classList.toggle('is-busy', busy);
