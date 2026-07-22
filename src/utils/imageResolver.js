@@ -3,6 +3,69 @@ import { basename, dirname } from './pathUtils.js';
 import { createLogger } from '../core/diagnostics/Logger.js';
 
 const logger = createLogger('image-resolver');
+const pendingAccessRequests = new Map();
+
+/**
+ * 将文件系统异常转换为可稳定匹配的文本。
+ * Tauri 在不同平台可能返回字符串、Error 或带 code/kind 的普通对象。
+ */
+function describeFsError(error) {
+    if (!error) return '';
+    if (typeof error === 'string') return error.toLowerCase();
+    const parts = [error.code, error.kind, error.name, error.message];
+    return parts.filter(value => typeof value === 'string').join(' ').toLowerCase();
+}
+
+/**
+ * 只有明确的权限错误才允许弹出授权面板。
+ * 文件不存在、路径错误等异常无法通过授权修复，不能误导用户反复授权。
+ */
+export function isFileAccessPermissionError(error) {
+    const description = describeFsError(error);
+    if (!description) return false;
+
+    const missingPathPatterns = [
+        'enoent',
+        'notfound',
+        'not found',
+        'no such file or directory',
+        'os error 2',
+        'cannot find the file',
+        'cannot find the path',
+        '找不到指定的文件',
+        '找不到指定的路径',
+    ];
+    if (missingPathPatterns.some(pattern => description.includes(pattern))) {
+        return false;
+    }
+
+    const permissionPatterns = [
+        'eacces',
+        'eperm',
+        'permissiondenied',
+        'permission denied',
+        'operation not permitted',
+        'access denied',
+        'not allowed',
+        'forbidden',
+        'os error 1',
+        'os error 13',
+        '权限不足',
+        '拒绝访问',
+    ];
+    return permissionPatterns.some(pattern => description.includes(pattern));
+}
+
+/** 判断目标文件是否位于用户授权的目录内。 */
+function isPathInsideDirectory(filePath, directoryPath) {
+    const normalize = value => value.replace(/\\/g, '/').replace(/\/+$/, '');
+    const file = normalize(filePath);
+    const directory = normalize(directoryPath);
+    const caseInsensitive = /^[A-Za-z]:\//.test(file) || /^[A-Za-z]:\//.test(directory);
+    const comparableFile = caseInsensitive ? file.toLowerCase() : file;
+    const comparableDirectory = caseInsensitive ? directory.toLowerCase() : directory;
+    return comparableFile === comparableDirectory || comparableFile.startsWith(`${comparableDirectory}/`);
+}
 
 // 检查是否是外部图片 URL
 export function isExternalImageSrc(src) {
@@ -176,7 +239,7 @@ export function detectMimeType(path) {
 }
 
 // 从文件系统读取二进制文件
-async function requestFileAccess(filePath) {
+async function requestFileAccessOnce(filePath) {
     if (typeof window === 'undefined' || !window.__TAURI__) {
         return null;
     }
@@ -207,6 +270,12 @@ async function requestFileAccess(filePath) {
             return null;
         }
 
+        const selectedPath = selections[0]?.path;
+        if (typeof selectedPath !== 'string' || !isPathInsideDirectory(filePath, selectedPath)) {
+            logger.warn('选择的目录不包含待读取图片', { filePath, selectedPath });
+            return null;
+        }
+
         // 保存 security-scoped bookmark（保存的是文件夹权限）
         const { rememberSecurityScopes } = await import('../services/securityScopeService.js');
         await rememberSecurityScopes(selections);
@@ -216,6 +285,22 @@ async function requestFileAccess(filePath) {
         console.warn('[imageResolver] 请求文件访问权限失败', error);
         return null;
     }
+}
+
+/**
+ * 同一目录下多张图片并发解析时共用一次授权，避免重复弹出选择器。
+ */
+async function requestFileAccess(filePath) {
+    const folderPath = dirname(filePath);
+    if (!folderPath) return null;
+    if (pendingAccessRequests.has(folderPath)) {
+        return await pendingAccessRequests.get(folderPath);
+    }
+
+    const pending = requestFileAccessOnce(filePath)
+        .finally(() => pendingAccessRequests.delete(folderPath));
+    pendingAccessRequests.set(folderPath, pending);
+    return await pending;
 }
 
 export async function readBinaryFromFs(path, options = {}) {
@@ -232,7 +317,10 @@ export async function readBinaryFromFs(path, options = {}) {
                 return await fsApi.readBinaryFile(path);
             } catch (fallbackError) {
                 // 如果两次都失败，且允许请求权限，则请求用户授权
-                if (options.requestAccessOnError && typeof window !== 'undefined' && window.__TAURI__) {
+                if (options.requestAccessOnError
+                    && isFileAccessPermissionError(fallbackError)
+                    && typeof window !== 'undefined'
+                    && window.__TAURI__) {
                     logger.info('文件读取失败，请求用户授权', { path });
                     const granted = await requestFileAccess(path);
                     if (granted) {
@@ -253,7 +341,10 @@ export async function readBinaryFromFs(path, options = {}) {
         }
 
         // 如果允许请求权限且在 Tauri 环境
-        if (options.requestAccessOnError && typeof window !== 'undefined' && window.__TAURI__) {
+        if (options.requestAccessOnError
+            && isFileAccessPermissionError(error)
+            && typeof window !== 'undefined'
+            && window.__TAURI__) {
             logger.info('文件读取失败，请求用户授权', { path });
             const granted = await requestFileAccess(path);
             if (granted) {
