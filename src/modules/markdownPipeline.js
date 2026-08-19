@@ -6,6 +6,7 @@ import katex from 'katex';
 import { MarkdownParser, MarkdownSerializer, MarkdownSerializerState } from 'prosemirror-markdown';
 import { DOMParser as PMDOMParser } from '@tiptap/pm/model';
 import { markdownItCjkEmphasis } from '../utils/markdownItCjkEmphasis.js';
+import { addDetailsBlockMarkdownRule } from './detailsBlockMarkdown.js';
 
 function listIsTight(tokens, i) {
     while (++i < tokens.length) {
@@ -102,6 +103,9 @@ function createMarkdownTokenizer() {
     });
 
     md.use(markdownItCjkEmphasis);
+
+    // details 必须在通用 html_block 之前识别，否则开始/正文/结束会被拆成互不关联的块。
+    addDetailsBlockMarkdownRule(md);
 
     md.use(texmath, {
         engine: katex,
@@ -284,6 +288,14 @@ export function createMarkdownParser(schema) {
         math_inline_double: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
         math_block: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
         math_block_eqno: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
+        details: {
+            block: 'detailsBlock',
+            getAttrs: tok => ({
+                ...(tok.meta?.attrs || {}),
+                sourcepos: getSourcepos(tok),
+            }),
+        },
+        details_summary: { block: 'detailsSummary' },
     };
 
     const parser = new MarkdownParser(schema, tokenizer, tokens);
@@ -599,6 +611,21 @@ function renderInlineContent(state, node) {
     return subState.out.trim();
 }
 
+/**
+ * 从指定子节点开始序列化块级内容，供 details 等自带结构标签的容器复用。
+ * @param {MarkdownSerializerState} state - 当前序列化状态
+ * @param {import('@tiptap/pm/model').Node} parent - 父节点
+ * @param {number} startIndex - 首个需要序列化的子节点索引
+ * @returns {string}
+ */
+function renderBlockContentFrom(state, parent, startIndex) {
+    const subState = new MarkdownSerializerState(state.nodes, state.marks, state.options);
+    for (let index = startIndex; index < parent.childCount; index += 1) {
+        subState.render(parent.child(index), parent, index);
+    }
+    return subState.out.trimEnd();
+}
+
 export function createMarkdownSerializer(schema) {
     void schema;
     const nodes = {
@@ -725,6 +752,22 @@ export function createMarkdownSerializer(schema) {
         mathInline(state, node) {
             const latex = node.attrs?.latex || '';
             state.write(`$${latex}$`);
+        },
+        detailsBlock(state, node) {
+            const summaryNode = node.firstChild;
+            const summary = summaryNode ? renderInlineContent(state, summaryNode) : '';
+            const body = renderBlockContentFrom(state, node, 1);
+            const { open, sourcepos, ...htmlAttrs } = node.attrs || {};
+            void sourcepos;
+            const attributes = `${open ? ' open' : ''}${serializeHtmlAttributes(htmlAttrs)}`;
+            let markdown = `<details${attributes}>\n<summary>${summary}</summary>`;
+            if (body) markdown += `\n\n${body}`;
+            markdown += '\n</details>';
+            state.text(markdown, false);
+            state.closeBlock(node);
+        },
+        detailsSummary(state, node) {
+            state.renderInline(node, false);
         },
         image(state, node) {
             const alt = state.esc(node.attrs?.alt || '');
