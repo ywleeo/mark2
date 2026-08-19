@@ -21,6 +21,7 @@ import { MermaidBlock } from '../../extensions/MermaidBlock.js';
 import { VideoBlock } from '../../extensions/VideoBlock.js';
 import { CsvTableNode } from '../../extensions/CsvTableNode.js';
 import { MathBlock, MathInline } from '../../extensions/MathBlock.js';
+import { DetailsBlock, DetailsSummary } from '../../extensions/DetailsBlock.js';
 import { DisableInlineCodeShortcut } from '../../extensions/DisableInlineCodeShortcut.js';
 import { SourcePos } from '../../extensions/SourcePos.js';
 import { TableSelectionGuard } from '../../extensions/TableSelectionGuard.js';
@@ -138,6 +139,8 @@ export function createEditorExtensions(lowlight) {
         CsvTableNode,
         MathBlock,
         MathInline,
+        DetailsBlock,
+        DetailsSummary,
         SourcePos,
         CodeBlockLowlight.configure({
             lowlight,

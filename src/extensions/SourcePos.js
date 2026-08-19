@@ -25,6 +25,7 @@ export const SourcePos = Extension.create({
                     'tableHeader',
                     'mermaidBlock',
                     'videoBlock',
+                    'detailsBlock',
                     'image',
                 ],
                 attributes: {

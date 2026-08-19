@@ -1,6 +1,10 @@
 let mermaidPromise = null;
 let mermaidInstance = null;
 
+// Mermaid 的 Gantt 等图表会读取渲染宿主宽度计算 viewBox。这里使用稳定宽度，
+// 既避免宿主随窗口变化导致同一份缓存产生不同 SVG，也覆盖编辑器允许的最大页面宽度。
+const MERMAID_RENDER_HOST_WIDTH = 1200;
+
 // mermaid.render(id, text) 不传第三个参数时，它会把临时渲染 div 直接挂到 document.body 上。
 // body 是 display:flex; flex-wrap:wrap，这个临时 div 会立刻成为 flex item，布局成右侧
 // 一个 column 闪一下再被自身 remove —— 这是"打开 md 文件时右侧 200px 空 column 闪现"
@@ -10,7 +14,7 @@ function getMermaidRenderHost() {
     if (_mermaidHost && _mermaidHost.isConnected) return _mermaidHost;
     _mermaidHost = document.createElement('div');
     _mermaidHost.id = 'mermaid-offscreen-host';
-    _mermaidHost.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;visibility:hidden;pointer-events:none;overflow:hidden;';
+    _mermaidHost.style.cssText = `position:fixed;left:-9999px;top:0;width:${MERMAID_RENDER_HOST_WIDTH}px;height:0;visibility:hidden;pointer-events:none;overflow:hidden;`;
     document.body.appendChild(_mermaidHost);
     return _mermaidHost;
 }
@@ -1017,6 +1021,7 @@ async function renderSingleMermaid(element) {
             element.innerHTML = cached.svg;
             const svgElement = element.querySelector('svg');
             if (svgElement) {
+                svgElement.style.maxWidth = '100%';
                 stripSvgBackground(svgElement);
                 polishFlowchart(svgElement);
                 polishSequence(svgElement);
@@ -1049,6 +1054,7 @@ async function renderSingleMermaid(element) {
             svgElement.setAttribute('preserveAspectRatio', 'xMidYMid meet');
             svgElement.style.overflow = 'visible';
             svgElement.style.display = 'block';
+            svgElement.style.maxWidth = '100%';
             svgElement.style.background = 'transparent';
 
             // 移除 mermaid 内部的背景矩形
