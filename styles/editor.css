@@ -5,7 +5,8 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 0 30px;
+    /* 外层容器留白适用于全部主题，并随窗口宽度平滑调整。 */
+    padding: 20px clamp(32px, 4vw, 52px) 48px;
     box-sizing: border-box;
 }
 
@@ -28,7 +29,8 @@
 
 /* Tiptap 编辑器样式 */
 .tiptap-editor {
-    padding: 0;
+    /* 正文自身保留独立留白，避免内容紧贴容器边界。 */
+    padding: 8px clamp(8px, 1.2vw, 16px) 40px;
     min-height: 100%;
     outline: none;
     font-size: calc(var(--editor-font-size, 16px) * var(--editor-zoom-scale, 1));
