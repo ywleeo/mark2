@@ -44,10 +44,6 @@ MAS 发布参见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 的「MAS 发布自�
 - 开发规范：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)（点击事件处理用 `addClickHandler`、MAS 发布）
 - 调试规范：[docs/DEBUG_CONVENTIONS.md](docs/DEBUG_CONVENTIONS.md)
 
-## mark2 cloud 后端联调
-
-后端代码在另一个 repo（`looneyren/mark2-web-api`）。默认 baseURL 指生产 `https://mark2.altron.cc`，需要切本地时在 devtools 里手动 `localStorage.setItem('cloudServerBaseUrl', 'http://localhost:8787')`，刷新生效。
-
 ## 改 bug 时注意
 
 - 没明确定位到问题之前先不改代码，先和用户一起定位问题

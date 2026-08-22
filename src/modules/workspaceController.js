@@ -204,21 +204,13 @@ export function createWorkspaceController({
             const content = typeof modelContent === 'string'
                 ? modelContent
                 : (untitledFileManager.getContent?.(path) || '');
-            const cloudBacked = untitledFileManager.isCloudBacked?.(path) || false;
             snapshotMap.set(path, {
                 path,
                 label: typeof doc.label === 'string'
                     ? doc.label
                     : (untitledFileManager.getDisplayName?.(path) || path),
                 content,
-                // 云端文档用真实脏状态(doc.dirty);普通 untitled 始终视为有更改。
-                // 注意 untitledFileManager.hasUnsavedChanges 把「有内容」也当作有更改,
-                // 对云端文档会误判,故云端文档不用它。
-                hasChanges: cloudBacked
-                    ? Boolean(doc?.dirty)
-                    : (untitledFileManager.hasUnsavedChanges?.(path) || false),
-                cloudBacked,
-                cloudFileId: untitledFileManager.getCloudFileId?.(path) ?? null,
+                hasChanges: untitledFileManager.hasUnsavedChanges?.(path) || false,
                 viewMode: doc.viewMode === 'code' ? 'code' : 'markdown',
             });
         });
@@ -383,7 +375,6 @@ export function createWorkspaceController({
                         && untitledFileManager.isUntitledPath(tab.path);
                 })
                 .map((tab) => {
-                    const cloudBacked = Boolean(tab.cloudBacked);
                     return {
                         path: tab.path,
                         label: typeof tab.label === 'string'
@@ -392,10 +383,7 @@ export function createWorkspaceController({
                         content: typeof tab.content === 'string' ? tab.content : '',
                         hasChanges: typeof tab.hasChanges === 'boolean'
                             ? tab.hasChanges
-                            // 云端文档默认干净,普通 untitled 有内容即视为有更改
-                            : (!cloudBacked && typeof tab.content === 'string' && tab.content.trim().length > 0),
-                        cloudBacked,
-                        cloudFileId: tab.cloudFileId ?? null,
+                            : (typeof tab.content === 'string' && tab.content.trim().length > 0),
                         viewMode: tab.viewMode === 'code' ? 'code' : 'markdown',
                     };
                 })

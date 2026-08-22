@@ -7,8 +7,8 @@
  */
 
 import { manualCheckUpdate } from '../modules/autoUpdater.js';
-import { EXPORT_IDS } from './exportSetup.js';
 import { shareCurrentDocument } from '../modules/share/shareDocument.js';
+import { EXPORT_IDS } from './exportSetup.js';
 
 /**
  * 构造 registerCoreCommands 所需的 handlers 字典。
@@ -132,12 +132,11 @@ export function createCommandHandlers(deps) {
         onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
         onCopyPlainText: () => appState.getMarkdownToolbarManager()?.copyPlainText?.(),
         onShareLink: () => shareCurrentDocument({
-            getMarkdown: () => editorRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
+            // 源码模式必须读取 CodeEditor，避免分享尚未同步回预览编辑器的旧内容。
+            getMarkdown: () => appState.getActiveViewMode() === 'code'
+                ? editorRegistry.getCodeEditor()?.getValue?.() || ''
+                : editorRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
             getCurrentFile: () => appState.getCurrentFile(),
-            // 用全局脏标记(已 OR 了 markdown + code 两个编辑器,见 editorSetup),
-            // 否则源码视图下编辑云文件会漏判,分享出云端旧版
-            getIsDirty: () => appState.getHasUnsavedChanges(),
-            saveCurrentFile,
         }),
         onNewUntitled: handleCreateUntitled,
         onNewFile: handleCreateNewFile,

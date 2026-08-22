@@ -289,7 +289,6 @@ export class MarkdownToolbarManager {
                 this.copyPlainText();
                 return;
             }
-            // 生成 mark2 cloud 分享链接
             if (action === 'shareLink') {
                 this.dispatchCommand(COMMAND_IDS.DOCUMENT_SHARE_LINK, action);
                 return;

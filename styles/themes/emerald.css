@@ -448,6 +448,25 @@
     margin-top: 0.9em;
 }
 
+/* 中文标题依靠字号建立层级，降低字重以避免复杂笔画在长文中结块。 */
+.tiptap-editor[data-theme-appearance] h1,
+.tiptap-editor[data-theme-appearance] h2,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h1,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h2 {
+    font-weight: 600;
+}
+
+.tiptap-editor[data-theme-appearance] h3,
+.tiptap-editor[data-theme-appearance] h4,
+.tiptap-editor[data-theme-appearance] h5,
+.tiptap-editor[data-theme-appearance] h6,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h3,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h4,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h5,
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) h6 {
+    font-weight: 500;
+}
+
 .code-copy-button {
     color: rgba(52, 64, 60, 0.58);
     opacity: 0;

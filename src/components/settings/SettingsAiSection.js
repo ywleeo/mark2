@@ -12,8 +12,6 @@ export function renderSettingsAiSection(translate) {
     return `
         <!-- AI 场景设置 -->
         <section class="settings-body hidden" data-tab-content="ai">
-            <div data-ref="cloudAccountSlot"></div>
-
             <div class="settings-section-label">${translate('settings.apiKeys')}</div>
             <div class="ai-keys-list" data-ref="aiKeysList"></div>
 

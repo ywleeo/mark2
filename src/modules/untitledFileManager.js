@@ -139,7 +139,7 @@ export function createUntitledFileManager() {
     /**
      * 为导入操作创建 untitled 文件，使用原文件名作为建议保存名
      */
-    function createImportFile(suggestedName, options = {}) {
+    function createImportFile(suggestedName) {
         const name = suggestedName || 'untitled.md';
         let path = `${UNTITLED_PROTOCOL}${name}`;
         if (untitledFiles.has(path)) {
@@ -150,25 +150,11 @@ export function createUntitledFileManager() {
             while (untitledFiles.has(`${UNTITLED_PROTOCOL}${base}-${i}${ext}`)) i++;
             path = `${UNTITLED_PROTOCOL}${base}-${i}${ext}`;
         }
-        // cloudBacked:内容已存在云端,关闭时无需询问保存
-        // cloudFileId:云文件夹文档对应的 storage file id,用于"改完存回云端"(分享打开的无此 id)
         untitledFiles.set(path, {
             content: '',
             hasChanges: false,
-            cloudBacked: !!options.cloudBacked,
-            cloudFileId: options.cloudFileId ?? null,
         });
         return path;
-    }
-
-    // 该 untitled 文档是否有云端副本(云文件夹 / 分享打开的)→ 关闭时不问保存
-    function isCloudBacked(path) {
-        return Boolean(untitledFiles.get(path)?.cloudBacked);
-    }
-
-    // 云文件夹文档对应的 storage file id(没有则 null)→ 可 PUT 回写
-    function getCloudFileId(path) {
-        return untitledFiles.get(path)?.cloudFileId ?? null;
     }
 
     /**
@@ -187,8 +173,6 @@ export function createUntitledFileManager() {
             path,
             content: typeof value?.content === 'string' ? value.content : '',
             hasChanges: Boolean(value?.hasChanges),
-            cloudBacked: Boolean(value?.cloudBacked),
-            cloudFileId: value?.cloudFileId ?? null,
         }));
     }
 
@@ -210,16 +194,12 @@ export function createUntitledFileManager() {
             }
 
             const content = typeof entry?.content === 'string' ? entry.content : '';
-            const cloudBacked = Boolean(entry?.cloudBacked);
-            // 云端文档已存在云上,重启恢复时初始即干净(除非快照里确实记录了未保存编辑)
             const hasChanges = typeof entry?.hasChanges === 'boolean'
                 ? entry.hasChanges
-                : (!cloudBacked && content.trim().length > 0);
+                : content.trim().length > 0;
             untitledFiles.set(path, {
                 content,
                 hasChanges,
-                cloudBacked,
-                cloudFileId: entry?.cloudFileId ?? null,
             });
 
             const index = extractUntitledIndex(path);
@@ -235,8 +215,6 @@ export function createUntitledFileManager() {
         isUntitledPath,
         createUntitledFile,
         createImportFile,
-        isCloudBacked,
-        getCloudFileId,
         getContent,
         setContent,
         hasUnsavedChanges,

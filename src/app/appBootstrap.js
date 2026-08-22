@@ -10,13 +10,6 @@ import { createCsvTableMode } from '../modules/csvTableMode.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
 import { setupAutoUpdater } from '../modules/autoUpdater.js';
-// Cloud provider plugins：每个 plugin 在自己的 import 副作用里自注册到 cloudProviderRegistry
-import '../modules/cloud-account/plugin.js';
-import { bootstrapCloudPlugins } from '../modules/ai-assistant/cloudProviderRegistry.js';
-import { setupOpenSharedDocumentListener } from '../modules/share/openSharedDocument.js';
-import { setupAccountTitlebarIcon } from '../modules/cloud-account/accountPopover.js';
-import { CloudFolder } from '../components/CloudFolder.js';
-import { features as appFeatures } from '../config/features.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
@@ -36,7 +29,6 @@ import { createEditorCallbacks, setupEditors } from './editorSetup.js';
 import { setupStatusBar, setupFileTree, setupTabManager } from './componentSetup.js';
 import { setupToolbarEvents } from './eventSetup.js';
 import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windowControls.js';
-import { setupSecretCloudSwitch } from './secretCloudSwitch.js';
 import { AppMenu } from '../components/AppMenu.js';
 import { VaultPanel } from '../components/VaultPanel.js';
 import { AiFileTaskSidebar } from '../modules/ai-file-task/AiFileTaskSidebar.js';
@@ -169,6 +161,11 @@ export function createAppBootstrap({
     // ========== 主初始化流程 ==========
 
     async function initializeApplication() {
+        // 编辑器创建前先恢复排版变量，避免 WebKit 使用默认字重完成首次字形选择。
+        const loadedSettings = loadEditorSettings();
+        appState.setEditorSettings(loadedSettings);
+        applyEditorSettings(loadedSettings);
+
         // windowFocusHandler 先声明，让 editorCallbacks 闭包可以捕获到该绑定
         let windowFocusHandler = null;
 
@@ -373,69 +370,12 @@ export function createAppBootstrap({
 
         await restoreWorkspaceStateFromStorage();
 
-        const loadedSettings = loadEditorSettings();
-        appState.setEditorSettings(loadedSettings);
-        applyEditorSettings(loadedSettings);
+        // CodeEditor 依赖实例方法，创建完成后再同步同一份启动配置。
         codeEditor.applyPreferences?.(loadedSettings);
         saveEditorSettings(loadedSettings);
 
         setupTitlebarControls();
         setupThemeToggle(appState);
-        // 隐藏暗号(非输入态依次按 j j l l)切换 mark2 Cloud 开关 —— 必须无条件注册,关闭时也能用它开启
-        appState.setCleanupFunction('secretCloudSwitch', setupSecretCloudSwitch());
-        if (appFeatures.cloudAccount) {
-            setupAccountTitlebarIcon();
-
-            const cloudFolderEl = document.getElementById('cloudFolder');
-            if (cloudFolderEl) {
-                const cloudFolder = new CloudFolder(cloudFolderEl, {
-                    openAsUntitled: ({ content, filename, cloudFileId }) =>
-                        handleImportAsUntitled(content, filename, null, { cloudBacked: true, cloudFileId }),
-                    getCurrentFile: () => appState.getCurrentFile?.() ?? null,
-                    onCurrentFileChange: (listener) => appState.onCurrentFileChange?.(listener),
-                    getCloudFileId: (path) => untitledFileManager.getCloudFileId?.(path) ?? null,
-                    clearLocalSelection: () => appState.getFileTree()?.clearSelection?.(),
-                    // 已打开同源 tab 时聚焦它,返回是否命中 → 避免重复点叠开多个 tab
-                    focusDocumentIfOpen: (path) => {
-                        const tm = appState.getTabManager();
-                        const tabs = tm?.getAllTabs?.() || [];
-                        // 宽松匹配:untitled 路径可能被规范化,先精确再按 identity key 比
-                        const key = getPathIdentityKey(normalizeFsPath(path));
-                        const tab = tabs.find((t) => t && (
-                            t.path === path ||
-                            getPathIdentityKey(normalizeFsPath(t.path)) === key
-                        ));
-                        if (!tab) return false;
-                        void activateTabTransition(tab, { autoFocus: true });
-                        return true;
-                    },
-                    // 重启后内存映射丢失时,靠持久化的 cloudFileId 反查已恢复的 untitled tab
-                    findOpenPathByCloudId: (fileId) => {
-                        const tm = appState.getTabManager();
-                        const tabs = tm?.getAllTabs?.() || [];
-                        for (const tab of tabs) {
-                            if (tab?.path && untitledFileManager.getCloudFileId?.(tab.path) === fileId) {
-                                return tab.path;
-                            }
-                        }
-                        return null;
-                    },
-                    writeTextFile: (path, content) => appServices.file.writeText(path, content),
-                    readLocalText: (path) => appServices.file.readText(path),
-                    pickUploadFiles: async () => {
-                        const { open } = await import('@tauri-apps/plugin-dialog');
-                        const sel = await open({ multiple: true });
-                        return Array.isArray(sel) ? sel : (sel ? [sel] : []);
-                    },
-                    pickSaveTarget: async (defaultName) => {
-                        const { save } = await import('@tauri-apps/plugin-dialog');
-                        return await save({ defaultPath: defaultName });
-                    },
-                    confirm,
-                });
-                appState.setCleanupFunction('cloudFolder', () => cloudFolder.destroy());
-            }
-        }
 
         const settingsDialog = new coreModules.SettingsDialog({ onSubmit: handleSettingsSubmit });
         appState.setSettingsDialog(settingsDialog);
@@ -516,11 +456,6 @@ export function createAppBootstrap({
         }
 
         setupLinkNavigationListener();
-        // mark2://open?share=<uuid>  → 从 cloud 取分享内容,开成本地 untitled tab
-        await setupOpenSharedDocumentListener({
-            openAsUntitled: ({ content, filename }) =>
-                handleImportAsUntitled(content, filename, null, { cloudBacked: true }),
-        });
         appState.setCleanupFunction('sidebarResizer', setupSidebarResizer());
 
         const fileDropController = createFileDropController({ openPathsFromSelection });
@@ -536,7 +471,6 @@ export function createAppBootstrap({
         void updateExportMenuState();
         void updateRecentMenu();
         setupAutoUpdater();
-        bootstrapCloudPlugins();
 
         const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),

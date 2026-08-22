@@ -89,7 +89,6 @@ export function createFileOperations({
     getStatusBarController,
     getTabManager,
     confirm,
-    pushCloudDocument,
 }) {
     if (typeof getFileTree !== 'function') throw new Error('fileOperations 需要 getFileTree');
     if (typeof getEditor !== 'function') throw new Error('fileOperations 需要 getEditor');
@@ -388,11 +387,6 @@ export function createFileOperations({
 
         // 处理 untitled 文件的保存
         if (untitledFileManager?.isUntitledPath?.(currentFile)) {
-            // 云文件夹打开的文档:⌘S 确认后写回云端原文件,而非本地另存为
-            const cloudFileId = untitledFileManager?.getCloudFileId?.(currentFile);
-            if (cloudFileId && typeof pushCloudDocument === 'function') {
-                return saveCloudFileFromEditor(currentFile);
-            }
             return saveUntitledFileFromEditor(currentFile);
         }
 
@@ -558,59 +552,6 @@ export function createFileOperations({
             return saved;
         }
         return false;
-    }
-
-    /**
-     * 云文件夹打开的文档:⌘S → 确认后把内容写回云端原文件(PUT update)。
-     */
-    async function saveCloudFileFromEditor(untitledPath) {
-        const editor = getEditor();
-        const codeEditor = getCodeEditor();
-        const activeViewMode = getActiveViewMode();
-
-        let content = '';
-        if (activeViewMode === 'markdown' && editor) {
-            content = editor.getMarkdown?.() || '';
-        } else if (activeViewMode === 'code' && codeEditor) {
-            content = codeEditor.getValue?.() || '';
-        }
-
-        const displayName = untitledFileManager?.getDisplayName?.(untitledPath) || 'untitled.md';
-        // 按用户要求:⌘S 也先确认再写回云端
-        const ok = typeof confirm === 'function'
-            ? await confirm(t('cloudFolder.saveToCloud.confirmSave', { name: displayName }), {
-                title: t('cloudFolder.saveToCloud.title'),
-                okLabel: t('cloudFolder.saveToCloud.save'),
-                cancelLabel: t('common.cancel'),
-            })
-            : true;
-        if (!ok) return false;
-
-        const targetDocument = documentRegistry.getDocument?.(untitledPath) || null;
-        const saveToken = targetDocument?.beginSave?.(content) || null;
-        let saved;
-        try {
-            saved = await pushCloudDocument({ path: untitledPath, content, filename: displayName });
-        } catch (error) {
-            targetDocument?.failSave?.(saveToken, error);
-            throw error;
-        }
-        if (saved) {
-            targetDocument?.commitSave?.(saveToken);
-            untitledFileManager?.markAsSaved?.(untitledPath);
-            await updateWindowTitle();
-        } else {
-            targetDocument?.failSave?.(saveToken, new Error('云端保存失败'));
-            // 用户已确认保存但写云失败(网络/配额等):给出反馈,否则 ⌘S / 分享会静默无响应
-            try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                await message(t('cloudFolder.saveToCloud.failed', { name: displayName }), {
-                    title: t('cloudFolder.saveToCloud.title'),
-                    kind: 'error',
-                });
-            } catch (_) {}
-        }
-        return saved;
     }
 
     async function saveFile(filePath) {
@@ -916,11 +857,6 @@ export function createFileOperations({
                 const untitledViewMode = initialViewMode === 'code' ? 'code' : 'markdown';
                 viewProtocol?.activate?.(untitledViewMode);
                 const untitledContent = untitledFileManager.getContent?.(filePath) || '';
-                const cloudBacked = untitledFileManager?.isCloudBacked?.(filePath);
-                // 云端文档的落盘状态来自内存模型，切换 tab 时继续保留。
-                const cloudDirtyBeforeLoad = cloudBacked
-                    ? Boolean(documentManager?.getDocumentByPath?.(filePath)?.dirty)
-                    : false;
                 let untitledDocument = documentRegistry.getDocument?.(filePath)
                     || documentRegistry.registerInMemoryDocument?.(filePath, {
                         viewMode: untitledViewMode,
@@ -930,8 +866,7 @@ export function createFileOperations({
                     && untitledDocument.getContent() !== untitledContent) {
                     untitledDocument.reloadFromDisk(untitledContent);
                 }
-                const untitledDirty = cloudBacked ? cloudDirtyBeforeLoad : true;
-                if (untitledDirty) untitledDocument?.markUnpersisted?.();
+                untitledDocument?.markUnpersisted?.();
                 if (untitledViewMode === 'code') {
                     if (codeEditor) {
                         await codeEditor.attachDocument(untitledDocument, {

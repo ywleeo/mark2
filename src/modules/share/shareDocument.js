@@ -1,45 +1,43 @@
 /**
- * 把当前 markdown 文档上传到 mark2 cloud 并生成公开分享链接。
- *
- * 流程:
- * 1. 检查 cloud 登录态(没登录 → toast 提示去 Settings 登录)
- * 2. 取当前文档 markdown 原文(空内容 → toast 提示)
- * 3. multipart 上传到 /api/storage/upload → 拿 file_id
- * 4. POST /api/shares 创建无密码、无过期的公开链接
- * 5. 把链接复制到剪贴板,toast 反馈(成功 / 配额超 / 失败)
- *
- * 调用方负责注入 getMarkdown / getCurrentFile 两个 getter,
- * 这里只做编排,不直接依赖 editorRegistry / appState 实例。
+ * 当前 Markdown 文档的 GitHub Gist 分享编排。
+ * 模块只依赖注入的内容 getter，不直接持有编辑器或全局状态。
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import { basename } from '../../utils/pathUtils.js';
-import { api, ServerError } from '../cloud-account/serverApi.js';
-import { getState } from '../cloud-account/accountState.js';
-import { untitledFileManager } from '../untitledFileManager.js';
 import { t } from '../../i18n/index.js';
+import { loadGistShareSettings } from './gistSettings.js';
 import { showShareToast } from './shareToast.js';
 
-function buildFilename(currentFile) {
+/**
+ * 根据当前文件生成可读且稳定的 HTML 文件名。
+ * @param {string|null} currentFile - 当前文件路径或 untitled URI。
+ * @returns {string}
+ */
+export function buildGistFilename(currentFile) {
     if (currentFile && !String(currentFile).startsWith('untitled://')) {
         const name = basename(currentFile);
-        if (name) return /\.md$/i.test(name) ? name : `${name}.md`;
+        if (name) return `${name.replace(/\.[^.]+$/, '') || 'document'}.html`;
     }
     const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-    return `untitled-${stamp}.md`;
+    return `untitled-${stamp}.html`;
 }
 
 /**
- * @param {Object} deps
- * @param {() => string} deps.getMarkdown - 返回当前 markdown 原文
- * @param {() => string|null} deps.getCurrentFile - 返回当前文档路径(用来推文件名)
- * @param {() => boolean} [deps.getIsDirty] - 当前文档是否有未保存修改
- * @param {() => Promise<boolean>} [deps.saveCurrentFile] - 保存当前文档(云文件→写回云端),返回是否保存成功
- * @returns {Promise<{ uuid:string, url:string } | null>}
+ * 将当前 Markdown 上传为 Secret Gist，并把访问链接复制到剪贴板。
+ * @param {Object} deps - 由命令层注入的文档依赖。
+ * @param {() => string} deps.getMarkdown - 返回当前 Markdown 原文。
+ * @param {() => string|null} deps.getCurrentFile - 返回当前文件路径。
+ * @returns {Promise<{id: string, url: string}|null>}
  */
-export async function shareCurrentDocument({ getMarkdown, getCurrentFile, getIsDirty, saveCurrentFile } = {}) {
-    const { token, status } = getState();
-    if (!token || status !== 'logged-in') {
-        showShareToast({ title: t('share.notLoggedIn'), variant: 'error' });
+export async function shareCurrentDocument({ getMarkdown, getCurrentFile } = {}) {
+    const { apiKey } = loadGistShareSettings();
+    if (!apiKey) {
+        showShareToast({
+            title: t('share.apiKeyMissing'),
+            hint: t('share.apiKeyMissingHint'),
+            variant: 'error',
+        });
         return null;
     }
 
@@ -50,49 +48,51 @@ export async function shareCurrentDocument({ getMarkdown, getCurrentFile, getIsD
     }
 
     const currentFile = typeof getCurrentFile === 'function' ? getCurrentFile() : null;
-    const filename = buildFilename(currentFile);
-    // 云文件夹打开的文档已在 storage 里,分享直接引用其 file_id,无需重传
-    const cloudFileId = currentFile ? untitledFileManager.getCloudFileId?.(currentFile) : null;
-
-    // 云文件有未保存修改时,from-storage 分享的是云端旧版本。先走「保存到云端」(复用其确认),
-    // 保存成功才分享,用户取消保存则不分享旧版。
-    if (cloudFileId && typeof getIsDirty === 'function' && getIsDirty()
-        && typeof saveCurrentFile === 'function') {
-        const saved = await saveCurrentFile();
-        if (!saved) return null;
-    }
-
-    // toast 现在默认常驻,等成功 / 失败 toast 自然替换
+    const filename = buildGistFilename(currentFile);
     showShareToast({ title: t('share.uploading') });
 
     try {
-        let share;
-        if (cloudFileId) {
-            // 云文件:引用已有 storage 文件生成分享,不重传内容
-            share = await api.shareFromStorage({ file_id: cloudFileId, token });
-        } else {
-            // 本地文件:一步直传内容生成分享。内容进 share_files(独立配额),不会出现在云文件夹列表里
-            const blob = new Blob([markdown], { type: 'text/markdown' });
-            share = await api.shareUpload({ blob, filename, token });
-        }
+        // 分享页渲染器依赖 Markdown 与 Mermaid，仅在用户实际分享时按需加载。
+        const { buildSharePageHtml } = await import('./sharePageBuilder.js');
+        const pageHtml = await buildSharePageHtml({
+            markdown,
+            currentFile,
+            title: filename.replace(/\.html$/i, ''),
+        });
+        const result = await invoke('create_gist_share', {
+            request: {
+                apiKey,
+                filename,
+                content: pageHtml,
+                description: `Shared from Mark2: ${filename}`,
+            },
+        });
 
         try {
-            await navigator.clipboard.writeText(share.url);
-        } catch (e) {
-            console.warn('[share] clipboard 写入失败,链接仍然可用:', e);
+            await navigator.clipboard.writeText(result.url);
+        } catch (error) {
+            console.warn('[gist-share] 分享成功，但写入剪贴板失败', error);
         }
 
-        showShareToast({ title: t('share.copied'), hint: share.url });
-        return share;
-    } catch (e) {
-        const detail = (e && (e.body?.detail || e.message)) || '';
-        if (e instanceof ServerError && e.status === 401) {
-            showShareToast({ title: t('share.notLoggedIn'), variant: 'error' });
-        } else if (e instanceof ServerError && (e.status === 402 || e.status === 403)) {
-            showShareToast({ title: t('share.quotaExceeded'), variant: 'error' });
-        } else {
-            showShareToast({ title: t('share.failed'), hint: detail, variant: 'error' });
-        }
+        showShareToast({ title: t('share.copied'), linkUrl: result.url });
+        return result;
+    } catch (error) {
+        const message = String(error || '');
+        const isAuthError = message.includes('gist_auth:');
+        showShareToast({
+            title: t(isAuthError ? 'share.apiKeyInvalid' : 'share.failed'),
+            hint: isAuthError ? t('share.apiKeyInvalidHint') : stripErrorPrefix(message),
+            variant: 'error',
+        });
         return null;
     }
+}
+
+/**
+ * 去掉内部错误分类前缀，只向用户展示可读详情。
+ * @param {string} message - Tauri 命令返回的错误字符串。
+ * @returns {string}
+ */
+function stripErrorPrefix(message) {
+    return message.replace(/^gist_[a-z]+:\s*/i, '').trim();
 }

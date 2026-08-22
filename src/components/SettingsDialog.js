@@ -4,15 +4,14 @@ import { t, getLocale, setLocale } from '../i18n/index.js';
 import { KeybindingsSettings } from './KeybindingsSettings.js';
 import { saveCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { PROVIDER_PRESETS } from '../modules/ai-assistant/providerPresets.js';
-import {
-    getCloudProvider,
-    listCloudProviders,
-    subscribeRegistry,
-} from '../modules/ai-assistant/cloudProviderRegistry.js';
 import { invoke } from '@tauri-apps/api/core';
 import { isMac } from '../utils/platform.js';
 import { createLogger } from '../core/diagnostics/Logger.js';
 import { renderSettingsAiSection } from './settings/SettingsAiSection.js';
+import { renderSettingsShareSection } from './settings/SettingsShareSection.js';
+import { loadGistShareSettings, saveGistApiKey } from '../modules/share/gistSettings.js';
+
+const GIST_TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Mark2';
 
 const DEFAULT_APP_EXTENSIONS = ['md', 'markdown', 'mkd', 'txt', 'json'];
 const logger = createLogger('settings');
@@ -77,6 +76,7 @@ export class SettingsDialog {
                             <button type="button" class="settings-tab" data-tab="editor">${t('settings.tabMarkdown')}</button>
                             <button type="button" class="settings-tab" data-tab="code">${t('settings.tabCode')}</button>
                             <button type="button" class="settings-tab" data-tab="ai">${t('settings.tabAi')}</button>
+                            <button type="button" class="settings-tab" data-tab="share">${t('settings.tabShare')}</button>
                             <button type="button" class="settings-tab" data-tab="keybindings">${t('settings.tabKeybindings')}</button>
                         </nav>
                     </header>
@@ -161,6 +161,10 @@ export class SettingsDialog {
                                 <input type="number" name="lineHeight" min="1.0" max="3.0" step="0.1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.letterSpacing')}</span>
+                                <input type="number" name="letterSpacing" min="-2" max="10" step="0.1" class="settings-row__control" />
+                            </label>
+                            <label class="settings-row">
                                 <span class="settings-row__label">${t('settings.fontWeight')}</span>
                                 <select name="fontWeight" class="settings-row__control">
                                     <option value="100">${t('settings.weightThin')}</option>
@@ -223,6 +227,7 @@ export class SettingsDialog {
                     </section>
 
                     ${renderSettingsAiSection(t)}
+                    ${renderSettingsShareSection(t)}
 
                     <footer class="settings-footer">
                         <button type="button" class="btn secondary" data-action="cancel">${t('settings.cancel')}</button>
@@ -246,6 +251,7 @@ export class SettingsDialog {
         this.fontFamilySelect = this.form.querySelector('select[name="fontFamily"]');
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
         this.lineHeightInput = this.form.querySelector('input[name="lineHeight"]');
+        this.letterSpacingInput = this.form.querySelector('input[name="letterSpacing"]');
         this.fontWeightSelect = this.form.querySelector('select[name="fontWeight"]');
 
         // Language
@@ -274,24 +280,25 @@ export class SettingsDialog {
         this.documentTaskModelSelectEl = this.root.querySelector('[data-ref="documentTaskModelSelect"]');
         this.aiConfiguredProviders = []; // [{ id, apiKey, isCustom?, name?, baseUrl?, models? }]
 
-        // Cloud plugin 入口：每个 plugin 的 mountSettingsSlot 都把自己的 UI 插到这里
-        this.cloudAccountSlot = this.root.querySelector('[data-ref="cloudAccountSlot"]');
-        if (this.cloudAccountSlot) {
-            for (const plugin of listCloudProviders()) {
-                if (typeof plugin.mountSettingsSlot === 'function') {
-                    const destroy = plugin.mountSettingsSlot(this.cloudAccountSlot);
-                    if (typeof destroy === 'function') this.cleanupFunctions.push(destroy);
+        // Gist 分享设置字段与创建 Token 外链。
+        this.gistApiKeyInput = this.form.querySelector('input[name="gistApiKey"]');
+        this.createGistTokenButton = this.form.querySelector('[data-action="createGistToken"]');
+        if (this.createGistTokenButton) {
+            const cleanup = addClickHandler(this.createGistTokenButton, async () => {
+                try {
+                    await invoke('open_path_in_browser', { path: GIST_TOKEN_URL });
+                } catch (error) {
+                    console.error('[SettingsDialog] 无法打开 GitHub Token 页面', error);
                 }
-            }
+            });
+            this.cleanupFunctions.push(cleanup);
         }
 
-        // cloud plugin 状态 / AI 配置变化时刷新 model 下拉
+        // AI 配置变化时刷新模型下拉。
         const refreshModels = () => {
             if (!this.isOpen) return;
             void this._refreshAiModelSelectsFromService();
         };
-        this._cloudUnsub = subscribeRegistry(refreshModels);
-        this.cleanupFunctions.push(() => this._cloudUnsub && this._cloudUnsub());
         getAiService().then((svc) => {
             const unsub = svc.subscribe((event) => {
                 if (event.type === 'config') refreshModels();
@@ -464,7 +471,15 @@ export class SettingsDialog {
         this.syncFontSelection(editorPrefs.fontFamily || '');
         this.fontSizeInput.value = Number(editorPrefs.fontSize) || 16;
         this.lineHeightInput.value = Number(editorPrefs.lineHeight) || 1.6;
+        this.letterSpacingInput.value = Number.isFinite(Number(editorPrefs.letterSpacing))
+            ? Number(editorPrefs.letterSpacing)
+            : 0;
         this.syncFontWeight(editorPrefs.fontWeight);
+
+        const gistSettings = loadGistShareSettings();
+        if (this.gistApiKeyInput) {
+            this.gistApiKeyInput.value = gistSettings.apiKey;
+        }
 
         // Code 模式设置
         this._setSelectValue(this.codeThemeSelect, editorPrefs.codeTheme || 'auto');
@@ -474,9 +489,7 @@ export class SettingsDialog {
         this._setSelectValue(this.codeFontWeightSelect, String(editorPrefs.codeFontWeight || 400));
         // AI 场景设置 - 从 aiService 读取
         const aiConfig = await this.loadAiConfig();
-        // 过滤掉 cloud plugin（由登录态自动接入，不应出现在用户配置列表）
         this.aiConfiguredProviders = (aiConfig.providers || [])
-            .filter(p => !getCloudProvider(p.id))
             .map(p => ({ ...p }));
         this._setSelectValue(this.aiCreativitySelect, aiConfig.preferences?.creativity || 'medium');
         this._setSelectValue(this.aiCompletionLengthSelect, aiConfig.preferences?.completionLength || 'medium');
@@ -564,9 +577,7 @@ export class SettingsDialog {
 
     async _refreshAiModelSelectsFromService() {
         const cfg = await this.loadAiConfig();
-        // cloud plugin 由 registry 自动接入，不写入 user config 列表
         this.aiConfiguredProviders = (cfg.providers || [])
-            .filter(p => !getCloudProvider(p.id))
             .map(p => ({ ...p }));
         this._renderAiKeysList();
         this._renderModelSelects(
@@ -614,11 +625,15 @@ export class SettingsDialog {
         const appearance = (this.appearanceSelect?.value || 'system').toLowerCase();
         const fontSize = Number(this.fontSizeInput.value);
         const lineHeight = Number(this.lineHeightInput.value);
+        const letterSpacing = Number(this.letterSpacingInput.value);
         const fontFamily = (this.fontFamilySelect.value || '').trim();
         const fontWeight = Number(this.fontWeightSelect.value);
 
         const normalizedSize = Number.isFinite(fontSize) ? this.clamp(fontSize, 10, 48) : 16;
         const normalizedLineHeight = Number.isFinite(lineHeight) ? this.clamp(lineHeight, 1.0, 3.0) : 1.6;
+        const normalizedLetterSpacing = Number.isFinite(letterSpacing)
+            ? this.clamp(letterSpacing, -2, 10)
+            : 0;
 
         // Code 模式设置
         const codeTheme = (this.codeThemeSelect.value || '').trim();
@@ -644,6 +659,7 @@ export class SettingsDialog {
             appearance: ['light', 'dark', 'system'].includes(appearance) ? appearance : 'system',
             fontSize: normalizedSize,
             lineHeight: Number(normalizedLineHeight.toFixed(2)),
+            letterSpacing: Number(normalizedLetterSpacing.toFixed(2)),
             fontFamily: fontFamily || '',
             fontWeight: Number.isFinite(fontWeight) ? fontWeight : 400,
             codeTheme: codeTheme || 'auto',
@@ -684,6 +700,9 @@ export class SettingsDialog {
             },
         };
         await this.saveAiConfig(aiConfig);
+
+        // 分享凭据由分享模块独立保存，不进入 editor settings。
+        saveGistApiKey(this.gistApiKeyInput?.value || '');
 
         // 保存自定义快捷键
         if (this.keybindingsSettings) {
@@ -984,7 +1003,7 @@ export class SettingsDialog {
         if (existing) { existing.remove(); return; }
 
         const addedIds = new Set(this.aiConfiguredProviders.map(p => p.id));
-        // PROVIDER_PRESETS 不含 cloud（cloud 由 registry 接入），直接按 id 去重即可
+        // 预置 Provider 按稳定 ID 去重，避免重复添加。
         const availablePresets = PROVIDER_PRESETS.filter(p => !addedIds.has(p.id));
 
         const form = document.createElement('div');
@@ -1126,33 +1145,12 @@ export class SettingsDialog {
             blank.textContent = '— ' + t('settings.selectModel') + ' —';
             fragment.appendChild(blank);
 
-            // 已可用的 cloud plugin 自动注入（无需用户在 ai-keys 列表里手动加）
-            const enriched = [...this.aiConfiguredProviders];
-            for (const plugin of listCloudProviders()) {
-                if (plugin.isAvailable() && !enriched.some(p => p.id === plugin.id)) {
-                    enriched.unshift({ id: plugin.id, apiKey: '' });
-                }
-            }
-            enriched.forEach(provider => {
-                const cloudPlugin = getCloudProvider(provider.id);
-                const preset = cloudPlugin?.preset || PROVIDER_PRESETS.find(p => p.id === provider.id);
-                // cloud plugin：仅可用时显示，model 列表来自 plugin 凭据；普通 provider 要求填了 apiKey
-                if (cloudPlugin) {
-                    if (!cloudPlugin.isAvailable()) return;
-                } else if (!provider.apiKey) {
-                    return;
-                }
-                let models;
-                if (cloudPlugin) {
-                    const cred = cloudPlugin.getCredentials() || {};
-                    models = (Array.isArray(cred.models) && cred.models.length > 0)
-                        ? cred.models
-                        : (preset?.models || []);
-                } else {
-                    models = provider.isCustom
-                        ? (provider.models || [])
-                        : (provider.fetchedModels?.length ? provider.fetchedModels : (preset?.models || []));
-                }
+            this.aiConfiguredProviders.forEach(provider => {
+                const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
+                if (!provider.apiKey) return;
+                const models = provider.isCustom
+                    ? (provider.models || [])
+                    : (provider.fetchedModels?.length ? provider.fetchedModels : (preset?.models || []));
                 const name = provider.isCustom ? provider.name : (preset?.name || provider.id);
                 if (models.length === 0) return;
 

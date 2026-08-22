@@ -8,46 +8,6 @@ import {
 import { t } from '../../i18n/index.js';
 import { createStore } from '../../services/storage.js';
 import { PROVIDER_PRESETS } from './providerPresets.js';
-import {
-    getCloudProvider,
-    listCloudProviders,
-    subscribeRegistry,
-} from './cloudProviderRegistry.js';
-
-/**
- * gpt mini / nano 类小模型(包括 fallback 占位 gpt-4o-mini)。
- * 用前缀边界避免误伤 "gemini-*-flash" 里的 "mini" 子串。
- */
-function isMiniModel(model) {
-    return /(?:^|[-_/.])(?:mini|nano)/i.test(model || '');
-}
-
-/**
- * 从 model 列表里挑 cloud 默认模型:
- * 1. 列表里有 plugin 声明的 preferred(如 deepseek-v4-flash)→ 用它
- * 2. 否则第一个非 mini/nano 的模型(避免默认到 gpt mini)
- * 3. 兜底列表第一个
- */
-function pickCloudDefaultModel(ids, preferredId) {
-    if (preferredId && ids.includes(preferredId)) return preferredId;
-    return ids.find((m) => !isMiniModel(m)) || ids[0];
-}
-
-/**
- * Cloud provider 运行时解析：通过 plugin 接口拿凭据，合并 preset 默认值。
- */
-function resolveCloudProvider(plugin) {
-    const cred = plugin.getCredentials() || {};
-    const models = (Array.isArray(cred.models) && cred.models.length > 0)
-        ? cred.models
-        : plugin.preset.models;
-    return {
-        ...plugin.preset,
-        baseUrl: cred.baseUrl || plugin.preset.baseUrl || '',
-        apiKey: plugin.isAvailable() ? (cred.apiKey || '') : '',
-        models,
-    };
-}
 
 const store = createStore('ai');
 store.migrateFrom('ai-config', 'config');
@@ -130,68 +90,6 @@ class AiService {
         this.listeners = new Set();
         this.activeTasks = new Map();
         this.config = this.loadConfig();
-        // cloud plugin 注册 / 登录态变化 / profile 拉取等都广播到 registry
-        subscribeRegistry(() => this.ensureCloudDefaults());
-    }
-
-    /**
-     * 对所有 cloud plugin 自动维护 model 默认值：
-     * - 登录后：对应槽位为空时自动填 plugin 的 preferred 默认模型(避免 gpt mini)
-     * - 拿到真实 model 列表后：把旧的 gpt mini 默认(含 fallback 抢占的 gpt-4o-mini)
-     *   升级到 preferred 模型(如 deepseek-v4-flash)
-     * - 登出后：清掉指向该 plugin 的槽位，避免下拉里残留 "孤立 option"
-     * 永远不覆盖用户已选的非 cloud 槽位，也不动用户手选的非 mini 云模型。
-     */
-    ensureCloudDefaults() {
-        for (const plugin of listCloudProviders()) {
-            if (!plugin.isAvailable()) {
-                const next = { ...this.config };
-                let dirty = false;
-                for (const slot of ['translationModel', 'beautifyModel', 'completionModel', 'documentTaskModel']) {
-                    if (next[slot]?.providerId === plugin.id) {
-                        next[slot] = null;
-                        dirty = true;
-                    }
-                }
-                if (next.assistantModel || next.fastModel) {
-                    delete next.assistantModel;
-                    delete next.fastModel;
-                    dirty = true;
-                }
-                if (dirty) this.saveConfig(next);
-                continue;
-            }
-            const cred = plugin.getCredentials() || {};
-            // 真实拉取到的列表(非 preset fallback);只有它就绪时才迁移旧默认
-            const fetched = (Array.isArray(cred.models) && cred.models.length > 0)
-                ? cred.models
-                : null;
-            const ids = fetched || plugin.preset.models || [];
-            if (ids.length === 0) continue;
-
-            const preferred = plugin.preset.defaultModel || null;
-            const pick = pickCloudDefaultModel(ids, preferred);
-            const canMigrate = !!(fetched && preferred && ids.includes(preferred));
-
-            const next = { ...this.config };
-            let dirty = false;
-            for (const slot of ['translationModel', 'beautifyModel', 'completionModel', 'documentTaskModel']) {
-                const cur = next[slot];
-                if (!cur?.providerId) {
-                    // 空槽:填默认(优先 preferred)
-                    next[slot] = { providerId: plugin.id, model: pick };
-                    dirty = true;
-                } else if (canMigrate
-                    && cur.providerId === plugin.id
-                    && cur.model !== preferred
-                    && isMiniModel(cur.model)) {
-                    // 旧的 gpt mini 默认 → 升级到 preferred,不动用户手选的非 mini 模型
-                    next[slot] = { providerId: plugin.id, model: preferred };
-                    dirty = true;
-                }
-            }
-            if (dirty) this.saveConfig(next);
-        }
     }
 
     // ── 配置管理 ──────────────────────────────────────────
@@ -266,7 +164,6 @@ class AiService {
         const normalizeModelSlot = (slot) => {
             if (!slot?.providerId || !slot?.model) return null;
             const valid = presetIds.has(slot.providerId)
-                || !!getCloudProvider(slot.providerId)
                 || providers.some(p => p.id === slot.providerId && p.isCustom);
             if (!valid) return null;
             return { providerId: slot.providerId, model: slot.model };
@@ -292,12 +189,8 @@ class AiService {
         };
     }
 
-    // 合并 preset 定义和用户 apiKey，或返回自定义 provider；cloud plugin 走运行时解析
+    // 合并 preset 定义和用户 apiKey，或返回自定义 provider。
     getProviderConfig(providerId) {
-        const cloudPlugin = getCloudProvider(providerId);
-        if (cloudPlugin) {
-            return resolveCloudProvider(cloudPlugin);
-        }
         const preset = PROVIDER_PRESETS.find(p => p.id === providerId);
         if (preset) {
             const userCfg = this.config.providers.find(p => p.id === providerId);

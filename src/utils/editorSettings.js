@@ -11,6 +11,7 @@ export const defaultEditorSettings = {
     appearance: 'system',
     fontSize: 16,
     lineHeight: 1.6,
+    letterSpacing: 0,
     fontFamily: '',
     fontWeight: 400,
     codeTheme: 'auto',
@@ -73,6 +74,13 @@ export function normalizeEditorSettings(candidate) {
             if (Number.isFinite(height)) {
                 const clampedHeight = clamp(height, 1.0, 3.0);
                 prefs.lineHeight = Number(clampedHeight.toFixed(2));
+            }
+        }
+
+        if (candidate.letterSpacing !== undefined) {
+            const spacing = Number(candidate.letterSpacing);
+            if (Number.isFinite(spacing)) {
+                prefs.letterSpacing = Number(clamp(spacing, -2, 10).toFixed(2));
             }
         }
 
@@ -204,6 +212,7 @@ export function applyEditorSettings(settings) {
 
     root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
     root.style.setProperty('--editor-line-height', prefs.lineHeight.toString());
+    root.style.setProperty('--editor-letter-spacing', `${prefs.letterSpacing}px`);
     root.style.setProperty('--editor-font-weight', prefs.fontWeight.toString());
 
     if (prefs.fontFamily && prefs.fontFamily.length > 0) {

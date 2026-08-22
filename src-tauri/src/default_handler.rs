@@ -163,4 +163,3 @@ pub fn set_as_default_app(
         Err("Only supported on macOS".to_string())
     }
 }
-
