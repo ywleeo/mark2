@@ -620,7 +620,7 @@ export class TabManager {
     }
 
     startPointerDrag(tabId, tabElement, event, options = {}) {
-        if (!tabId || !tabElement || !this.container) {
+        if (!tabId || !tabElement || !this.container || !this.root) {
             return;
         }
 
@@ -639,7 +639,7 @@ export class TabManager {
             tabElement.parentNode.insertBefore(placeholder, tabElement);
         }
 
-        const containerRect = this.container.getBoundingClientRect();
+        const rootRect = this.root.getBoundingClientRect();
         const tabRect = tabElement.getBoundingClientRect();
         const startClientX = typeof options.startClientX === 'number'
             ? options.startClientX
@@ -654,7 +654,6 @@ export class TabManager {
             placeholderElement: placeholder,
             startClientX,
             lastClientX: event.clientX,
-            startScrollLeft: this.container.scrollLeft,
         };
 
         this.isDraggingTabs = true;
@@ -672,16 +671,16 @@ export class TabManager {
         tabElement.style.pointerEvents = 'none';
         tabElement.style.zIndex = '3';
         tabElement.style.position = 'absolute';
-        tabElement.style.left = `${tabRect.left - containerRect.left + this.container.scrollLeft}px`;
-        tabElement.style.top = `${tabRect.top - containerRect.top}px`;
+        tabElement.style.left = `${tabRect.left - rootRect.left}px`;
+        tabElement.style.top = `${tabRect.top - rootRect.top}px`;
         tabElement.style.width = `${tabRect.width}px`;
         tabElement.style.height = `${tabRect.height}px`;
-        this.container.appendChild(tabElement);
+        // 将拖动视觉提升到不滚动的 tab bar，避免列表收缩导致 scrollLeft 回弹时 tab 偏离鼠标。
+        this.root.appendChild(tabElement);
         this.movePlaceholderToIndex(originIndex);
         this.container?.classList.add('tab-dragging');
         const initialDelta = event.clientX - startClientX;
-        const scrollDelta = this.container.scrollLeft - this.pointerDragState.startScrollLeft;
-        tabElement.style.transform = `translateX(${initialDelta - scrollDelta}px)`;
+        tabElement.style.transform = `translateX(${initialDelta}px)`;
     }
 
     handleGlobalPointerMove(event) {
@@ -718,8 +717,7 @@ export class TabManager {
 
         const state = this.pointerDragState;
         state.lastClientX = event.clientX;
-        const scrollDelta = this.container.scrollLeft - state.startScrollLeft;
-        const deltaX = event.clientX - state.startClientX - scrollDelta;
+        const deltaX = event.clientX - state.startClientX;
         state.tabElement.style.transform = `translateX(${deltaX}px)`;
 
         const target = this.calculateDropTarget(event.clientX, {
