@@ -34,6 +34,8 @@ import { VaultPanel } from '../components/VaultPanel.js';
 import { AiFileTaskSidebar } from '../modules/ai-file-task/AiFileTaskSidebar.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
 import { EVENT_IDS } from '../core/eventIds.js';
+import { PaneLayout } from '../components/PaneLayout.js';
+import { SecondaryPaneRuntime } from './secondaryPaneRuntime.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -44,6 +46,9 @@ export function createAppBootstrap({
     featureManager,
     exportManager,
     workspaceManager,
+    paneManager,
+    paneRuntimeRegistry,
+    getActivePaneContext,
     editorRegistry,
     documentSessions,
     documentRegistry,
@@ -174,6 +179,194 @@ export function createAppBootstrap({
 
         setupViewPanes(appState);
 
+        const paneLayout = new PaneLayout({
+            paneManager,
+            onCloseSecondary: () => { void requestCloseSecondary(); },
+            onPromoteSecondary: () => { void promoteSecondaryToPrimary(); },
+            onSplitRatioCommit: () => persistWorkspaceState(),
+        }).mount();
+        appState.setCleanupFunction('paneLayout', () => paneLayout.destroy());
+
+        const secondaryFileWatchOwner = 'pane:secondary';
+        const secondaryRuntime = new SecondaryPaneRuntime({
+            constructors: coreModules,
+            paneManager,
+            documentRegistry,
+            rendererRegistry: appState.getRendererRegistry(),
+            fileService: appServices.file,
+            detectLanguageForPath,
+            getViewModeForPath: path => viewManager.resolveViewMode(path),
+            getEditorSettings: () => appState.getEditorSettings(),
+            getContentZoom: () => appState.getContentZoom(),
+            onContentChange: ({ dirty }) => {
+                paneLayout.setSecondaryDirty(dirty);
+                void updateWindowTitle();
+                scheduleDocumentSnapshotSync();
+            },
+            onAutoSaveSuccess: async () => {
+                persistWorkspaceState();
+            },
+            onAutoSaveError: error => {
+                console.error('[SecondaryPane] 保存失败', error);
+                appState.getStatusBarController?.()?.showProgress?.(
+                    `副栏保存失败: ${error?.message || error}`,
+                    { state: 'error' },
+                );
+            },
+            onLoaded: async ({ path }) => {
+                await appState.getFileTree()?.watchFile?.(path, {
+                    ownerId: secondaryFileWatchOwner,
+                });
+                persistWorkspaceState();
+                await syncFocusedPaneUi();
+            },
+            onReleased: ({ path }) => {
+                appState.getFileTree()?.stopWatchingFile?.(path, {
+                    ownerId: secondaryFileWatchOwner,
+                });
+            },
+        });
+        paneRuntimeRegistry.register('secondary', secondaryRuntime);
+        appState.setCleanupFunction('secondaryPaneRuntime', () => {
+            paneRuntimeRegistry.unregister('secondary');
+            secondaryRuntime.destroy();
+        });
+
+        /**
+         * 将应用级工具栏和状态栏投影到当前获得焦点的 Pane。
+         */
+        async function syncFocusedPaneUi() {
+            const context = getActivePaneContext();
+            const activeRegistry = context.editorRegistry;
+            const statusBar = appState.getStatusBarController();
+            const editor = activeRegistry?.getMarkdownEditor?.();
+            const codeEditor = activeRegistry?.getCodeEditor?.();
+            const viewMode = context.viewMode;
+            const wordCount = viewMode === 'markdown'
+                ? statusBar?.calculateWordCount?.({ activeViewMode: viewMode, editor, codeEditor })
+                : null;
+            const lineCount = viewMode === 'code'
+                ? statusBar?.calculateLineCount?.({ activeViewMode: viewMode, editor, codeEditor })
+                : null;
+            const lastModified = await statusBar?.getLastModifiedTime?.(context.documentPath);
+            statusBar?.updateStatusBar?.({
+                filePath: context.documentPath,
+                wordCount,
+                lineCount,
+                lastModified,
+                isDirty: Boolean(context.documentPath && documentRegistry.isDirty(context.documentPath)),
+            });
+            syncToolbarWithCurrentContext();
+        }
+        const unsubscribeFocusedPaneUi = paneManager.subscribe(() => {
+            if (!paneManager.getSecondaryPane().documentPath && secondaryRuntime.getDocumentPath()) {
+                secondaryRuntime.close();
+            }
+            void syncFocusedPaneUi();
+        });
+        appState.setCleanupFunction('focusedPaneUi', unsubscribeFocusedPaneUi);
+
+        /**
+         * 处理副栏 dirty 文档的保存 / 放弃 / 取消三路决策。
+         * 系统确认框只有两个按钮，因此用第二次明确确认承载“不保存”分支。
+         * @param {string} actionLabel - 即将执行的动作文案。
+         * @returns {Promise<boolean>} 是否允许继续。
+         */
+        async function resolveSecondaryDirtyDocument(actionLabel) {
+            if (!secondaryRuntime.isDirty()) {
+                return true;
+            }
+            const shouldSave = await confirm(`副栏文档有未保存修改，是否保存后${actionLabel}？`, {
+                title: `${actionLabel}副栏文档`,
+                kind: 'warning',
+                okLabel: `保存并${actionLabel}`,
+                cancelLabel: '其他选项',
+            });
+            if (shouldSave) {
+                return secondaryRuntime.save();
+            }
+            const shouldDiscard = await confirm(`确定放弃副栏文档的未保存修改并${actionLabel}吗？`, {
+                title: '放弃修改',
+                kind: 'warning',
+                okLabel: `不保存并${actionLabel}`,
+                cancelLabel: '取消',
+            });
+            if (!shouldDiscard) {
+                return false;
+            }
+            return secondaryRuntime.discardChanges();
+        }
+
+        /**
+         * 阻止主栏专属文件命令误作用于副栏焦点。
+         * @param {string} commandName - 命令中文名。
+         * @returns {boolean} 固定返回 false。
+         */
+        function rejectSecondaryPrimaryOnlyCommand(commandName) {
+            appState.getStatusBarController?.()?.showProgress?.(
+                `副栏暂不支持${commandName}，请先提升到主栏`,
+                { state: 'warning' },
+            );
+            return false;
+        }
+
+        /**
+         * 保存副栏已有修改后打开新的对比文档。
+         * @param {string} path - 新副栏文档路径。
+         * @returns {Promise<boolean>} 是否成功打开。
+         */
+        async function openInSecondary(path) {
+            if (!path) return false;
+            if (untitledFileManager.isUntitledPath(path)) {
+                appState.getStatusBarController?.()?.showProgress?.(
+                    '临时文档请先保存为文件，再在副栏中打开',
+                    { state: 'warning' },
+                );
+                return false;
+            }
+            if (path === paneManager.getPrimaryPane().documentPath) {
+                paneManager.focusPane('primary');
+                return false;
+            }
+            const previousPath = secondaryRuntime.getDocumentPath();
+            if (previousPath && previousPath !== path
+                && !await resolveSecondaryDirtyDocument('切换')) {
+                return false;
+            }
+            return secondaryRuntime.loadDocument(normalizeFsPath(path) || path);
+        }
+
+        /**
+         * 关闭副栏，dirty 文档必须先明确保存。
+         * @returns {Promise<boolean>} 是否成功关闭。
+         */
+        async function requestCloseSecondary() {
+            if (!await resolveSecondaryDirtyDocument('关闭')) {
+                return false;
+            }
+            secondaryRuntime.close();
+            paneManager.closeSecondary();
+            persistWorkspaceState();
+            return true;
+        }
+
+        /**
+         * 把副栏文档提升到主标签，并关闭副栏。
+         * @returns {Promise<boolean>} 是否成功提升。
+         */
+        async function promoteSecondaryToPrimary() {
+            const path = secondaryRuntime.getDocumentPath();
+            if (!path) return false;
+            if (secondaryRuntime.isDirty() && !await secondaryRuntime.save()) {
+                return false;
+            }
+            secondaryRuntime.close();
+            paneManager.closeSecondary();
+            await handleFileSelect(path);
+            persistWorkspaceState();
+            return true;
+        }
+
         const aiFileTaskSidebar = new AiFileTaskSidebar({
             fileService: appServices.file,
             getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
@@ -181,14 +374,15 @@ export function createAppBootstrap({
             saveCurrentEditorContentToCache,
             openResultAsUntitled: ({ content, filename }) => handleImportAsUntitled(content, filename),
             insertResult: (content) => {
-                if (appState.getActiveViewMode() === 'code') {
-                    const editor = editorRegistry.getCodeEditor();
+                const context = getActivePaneContext();
+                if (context.viewMode === 'code') {
+                    const editor = context.editorRegistry.getCodeEditor();
                     if (!editor?.insertTextAtCursor) return false;
                     editor.insertTextAtCursor(content);
                     return true;
                 }
-                if (appState.getActiveViewMode() !== 'markdown') return false;
-                const editor = editorRegistry.getMarkdownEditor();
+                if (context.viewMode !== 'markdown') return false;
+                const editor = context.editorRegistry.getMarkdownEditor();
                 if (!editor?.insertAIContent) return false;
                 editor.insertAIContent(content);
                 return true;
@@ -211,6 +405,7 @@ export function createAppBootstrap({
             handleZoomControl,
             updateZoomDisplayForActiveView,
             onAiDocumentTask: (path) => aiFileTaskSidebar.open({ path }),
+            getCurrentFile: () => getActivePaneContext().documentPath,
         });
 
         const editorCallbacks = createEditorCallbacks({
@@ -365,10 +560,32 @@ export function createAppBootstrap({
             },
             documentRegistry,
             documentSessions,
+            getAdditionalFileContexts: () => {
+                const path = secondaryRuntime.getDocumentPath();
+                return path
+                    ? [{
+                        path,
+                        documentSessions: secondaryRuntime.documentSessions,
+                        reload: targetPath => secondaryRuntime.loadDocument(targetPath, {
+                            focus: false,
+                            forceReload: true,
+                        }),
+                    }]
+                    : [];
+            },
         });
         appState.setFileWatcherController(fileWatcherController);
 
         await restoreWorkspaceStateFromStorage();
+        const restoredSecondaryPath = paneManager.getSecondaryPane().documentPath;
+        if (restoredSecondaryPath) {
+            const restored = await secondaryRuntime.loadDocument(restoredSecondaryPath, { focus: false });
+            if (!restored) {
+                secondaryRuntime.close();
+                paneManager.closeSecondary();
+            }
+            paneManager.focusPane('primary');
+        }
 
         // CodeEditor 依赖实例方法，创建完成后再同步同一份启动配置。
         codeEditor.applyPreferences?.(loadedSettings);
@@ -411,6 +628,31 @@ export function createAppBootstrap({
                 toggleCsvTableMode,
                 toggleMarkdownToolbar,
                 toggleAppTheme,
+                getActivePaneContext,
+                openInSecondary: path => openInSecondary(path),
+                closeSecondary: () => requestCloseSecondary(),
+                promoteSecondary: () => promoteSecondaryToPrimary(),
+                toggleFocusedSourceView: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? secondaryRuntime.toggleSourceMode()
+                    : undefined,
+                saveFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? secondaryRuntime.save()
+                    : saveCurrentFile(),
+                saveFocusedDocumentAs: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? rejectSecondaryPrimaryOnlyCommand('另存为')
+                    : saveCurrentFileAs(),
+                closeFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? requestCloseSecondary()
+                    : closeActiveTab(),
+                deleteFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? rejectSecondaryPrimaryOnlyCommand('删除')
+                    : handleDeleteActiveFile(),
+                moveFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? rejectSecondaryPrimaryOnlyCommand('移动')
+                    : handleMoveActiveFile(),
+                renameFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
+                    ? rejectSecondaryPrimaryOnlyCommand('重命名')
+                    : handleRenameActiveFile(),
                 openFileOrFolder,
                 openFileOnly,
                 openFolderOnly,
@@ -474,12 +716,13 @@ export function createAppBootstrap({
 
         const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
-            getEditorRegistry: () => editorRegistry,
-            getCurrentFilePath: () => appState.getCurrentFile(),
+            getEditorRegistry: () => getActivePaneContext().editorRegistry,
+            getCurrentFilePath: () => getActivePaneContext().documentPath,
         });
         appState.setMarkdownToolbarManager(markdownToolbarManager);
         markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);
         syncToolbarWithCurrentContext();
+        void syncFocusedPaneUi();
 
         setupToolbarEvents({ handleToolbarOnViewModeChange, handleToolbarOnFileChange });
 

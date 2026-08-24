@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createDocumentIO } from '../src/core/DocumentIO.js';
 import { DocumentModel, DOCUMENT_SAVE_STATE } from '../src/core/documents/DocumentModel.js';
 import { createDocumentManager } from '../src/core/documents/DocumentManager.js';
+import { createDocumentRegistry } from '../src/core/documents/DocumentRegistry.js';
 import {
     createExternalModificationConflict,
     isExternalModificationConflict,
@@ -164,4 +165,27 @@ test('外部修改错误使用稳定错误码供自动保存停止重试', () =>
     const error = createExternalModificationConflict('/tmp/conflict.md');
     assert.equal(isExternalModificationConflict(error), true);
     assert.equal(error.filePath, '/tmp/conflict.md');
+});
+
+test('Pane 租约阻止标签关闭时销毁仍在使用的文档模型', async () => {
+    const path = '/tmp/leased.md';
+    const registry = createDocumentRegistry({
+        fileService: {
+            readText: async () => '内容',
+            readSpreadsheet: async () => ({ sheets: [] }),
+            readBinaryBase64: async () => '',
+            metadata: async () => ({ modified_time: 1 }),
+        },
+        getViewModeForPath: () => 'markdown',
+    });
+
+    const document = await registry.acquireDocument(path, { ownerId: 'pane:secondary' });
+    assert.equal(document.getRefCount(), 1);
+    assert.equal(registry.getLeaseCount(path), 1);
+    assert.equal(registry.clearEntry(path), false);
+    assert.equal(registry.getDocument(path), document);
+
+    assert.equal(registry.releaseDocument(path, 'pane:secondary'), 0);
+    assert.equal(registry.clearEntry(path), true);
+    assert.equal(registry.getDocument(path), null);
 });

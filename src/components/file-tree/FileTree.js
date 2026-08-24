@@ -521,7 +521,12 @@ export class FileTree {
     async watchFolder(path) { return this.watcher?.watchFolder(path); }
     stopWatchingFolder(path = null) { this.watcher?.stopWatchingFolder(path); }
     async watchFile(path, options = {}) { return this.watcher?.watchFile(path, options); }
-    stopWatchingFile(path) { this.watcher?.stopWatchingFile(path); }
+    /**
+     * 释放指定所有者持有的文件监听；未传所有者时保持原有主栏调用语义。
+     * @param {string} path - 文件路径。
+     * @param {{ownerId?:string,force?:boolean}} options - 监听所有权选项。
+     */
+    stopWatchingFile(path, options = {}) { this.watcher?.stopWatchingFile(path, options); }
     async ensureFileWatcherHealth(path, options = {}) { return this.watcher?.ensureFileWatcherHealth(path, options); }
     async restartFileWatcher(path, options = {}) { return this.watcher?.restartFileWatcher(path, options); }
     consumeExternalModification(path) { return this.watcher?.consumeExternalModification(path); }

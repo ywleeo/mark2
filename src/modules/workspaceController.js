@@ -9,6 +9,7 @@ export function createWorkspaceController({
     untitledFileManager,
     documentManager = null,
     documentRegistry = null,
+    paneManager = null,
 }) {
     if (typeof getCurrentFile !== 'function') {
         throw new Error('workspaceController 需要提供 getCurrentFile');
@@ -230,6 +231,23 @@ export function createWorkspaceController({
         return canonicalizeWorkspacePath(sharedPath);
     }
 
+    /**
+     * 从 PaneManager 采集固定左右布局快照。
+     * @returns {Object} 可持久化的布局数据。
+     */
+    function collectPaneLayoutForPersistence() {
+        const snapshot = paneManager?.getSnapshot?.();
+        if (!snapshot) {
+            return workspaceManager.getSnapshot().layout;
+        }
+        return {
+            mode: snapshot.mode,
+            splitRatio: snapshot.splitRatio,
+            secondaryDocumentPath: snapshot.panes.secondary.documentPath,
+            secondaryViewMode: snapshot.panes.secondary.viewMode,
+        };
+    }
+
     function persistWorkspaceState(overrides = {}, options = {}) {
         try {
             const fileTree = getFileTree();
@@ -252,6 +270,7 @@ export function createWorkspaceController({
                 openFiles: openFilesState,
                 untitledTabs: collectUntitledTabsForPersistence(),
                 sharedTabPath: collectSharedTabPathForPersistence(),
+                layout: collectPaneLayoutForPersistence(),
                 ...overrides,
             };
 
@@ -271,6 +290,9 @@ export function createWorkspaceController({
             }
             if (!Object.prototype.hasOwnProperty.call(overrides, 'sharedTabPath')) {
                 nextState.sharedTabPath = collectSharedTabPathForPersistence();
+            }
+            if (!Object.prototype.hasOwnProperty.call(overrides, 'layout')) {
+                nextState.layout = collectPaneLayoutForPersistence();
             }
 
             workspaceManager.persistWorkspaceState(nextState, options);
@@ -353,6 +375,42 @@ export function createWorkspaceController({
         }
 
         return validFiles;
+    }
+
+    /**
+     * 校验工作区中持久化的副栏文档，缺失文件自动降级为单栏。
+     * @param {Object|null} rawLayout - 原始布局快照。
+     * @param {string|null} primaryPath - 恢复后的主栏路径。
+     * @returns {Promise<Object>} 可应用的布局快照。
+     */
+    async function sanitizePaneLayout(rawLayout, primaryPath) {
+        const fallback = {
+            mode: 'single',
+            splitRatio: rawLayout?.splitRatio ?? 0.5,
+            secondaryDocumentPath: null,
+            secondaryViewMode: null,
+        };
+        if (rawLayout?.mode !== 'dual' || !isNonEmptyString(rawLayout.secondaryDocumentPath)) {
+            return fallback;
+        }
+
+        const secondaryPath = rawLayout.secondaryDocumentPath;
+        if ((getPathIdentityKey(secondaryPath) ?? secondaryPath) === (getPathIdentityKey(primaryPath) ?? primaryPath)) {
+            return fallback;
+        }
+        if (untitledFileManager.isUntitledPath(secondaryPath)) {
+            return fallback;
+        }
+        try {
+            await fileService.metadata(secondaryPath);
+            if (await fileService.isDirectory(secondaryPath)) {
+                return fallback;
+            }
+            return { ...rawLayout, secondaryDocumentPath: canonicalizeWorkspacePath(secondaryPath) };
+        } catch (error) {
+            console.warn('跳过无效的副栏文件', secondaryPath, error);
+            return fallback;
+        }
     }
 
     async function restoreWorkspaceStateFromStorage() {
@@ -487,6 +545,12 @@ export function createWorkspaceController({
             targetFileToRestore = sanitizedSharedTabPath;
         }
 
+        const sanitizedLayout = await sanitizePaneLayout(
+            stored.layout,
+            targetFileToRestore,
+        );
+        paneManager?.restoreLayout?.(sanitizedLayout);
+
         if (targetFileToRestore) {
             fileTree?.selectFile(targetFileToRestore);
         }
@@ -499,6 +563,7 @@ export function createWorkspaceController({
             openFiles: openFilesSnapshot,
             untitledTabs: sanitizedUntitledTabs,
             sharedTabPath: sanitizedSharedTabPath,
+            layout: sanitizedLayout,
         }, { force: true });
     }
 

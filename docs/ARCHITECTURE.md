@@ -19,12 +19,13 @@
 
 Mark2 当前采用“核心 Manager + 装配层 + 业务模块 + UI 组件”的分层结构。
 
-核心业务由以下 7 个 Manager 承接：
+核心业务由以下 8 个 Manager 承接：
 
 | Manager             | 职责                                                            |
 | ------------------- | --------------------------------------------------------------- |
 | `DocumentManager`   | 文档身份、激活态、rename、dirty、保存目标路径                   |
 | `WorkspaceManager`  | open files、shared tab、sidebar 状态、workspace snapshot 持久化 |
+| `PaneManager`       | 单栏/左右双栏、主副栏文档分配、焦点栏、分栏比例               |
 | `ViewManager`       | 视图模式解析、renderer 分发、视图激活协议                       |
 | `CommandManager`    | 系统命令注册与执行                                              |
 | `KeybindingManager` | 快捷键与命令绑定                                                |
@@ -46,6 +47,7 @@ flowchart TB
     subgraph Core ["调度层"]
         CMD["CommandManager"]
         WS["WorkspaceManager"]
+        PANE["PaneManager"]
         NAV["navigationController"]
     end
 
@@ -65,6 +67,7 @@ flowchart TB
     CMD --> FEAT
     CMD --> EXP
     WS --> NAV
+    PANE --> NAV
     NAV --> DOC
     DOC --> VIEW
     EXP --> VIEW
@@ -90,6 +93,7 @@ src/
     export/             ExportManager
     features/           FeatureManager
     views/              ViewManager
+    layout/             PaneManager（固定左右文档栏状态）
     workspace/          WorkspaceManager
     DocumentIO.js       文档读写 IO
     EventBus.js         事件总线
@@ -182,11 +186,35 @@ handleFileSelect
 
 它维护：
 
-- workspace 快照字段（`openFiles`、`sharedTabPath`、`currentFile`、sidebar 状态）
+- workspace 快照字段（`openFiles`、`sharedTabPath`、`currentFile`、sidebar 状态、`layout`）
 - 应用启动时从快照向 `DocumentManager` 还原文档列表
 - workspace persist（将 DocumentManager 的当前 openOrder 写回快照）
 
 注意：运行时 tab 列表的真源是 `DocumentManager`，WorkspaceManager 只在启动和持久化时介入。
+
+### 2b. PaneManager / Pane Runtime
+
+`PaneManager` 是文档栏布局的唯一状态真源，只支持 `single` 和固定左右 `dual` 两种模式，不提供上下、嵌套或任意方向抽象。
+
+- 主栏沿用 `DocumentManager`、标签栏、文件树和原有 `EditorRegistry`
+- 副栏只分配一个对比文档，不复制标签栏和文件树
+- `focusedPaneId` 决定保存、撤销、重做、查找和工具栏的命令目标
+- `splitRatio` 限制为 25%–75%，并写入工作区快照
+- 同一文档不能同时占据主副栏；主栏接管副栏文档时自动关闭副栏
+- `untitled://` 临时文档不进入副栏，必须先在主栏保存为真实文件
+
+副栏由 `SecondaryPaneRuntime` 延迟创建独立的 `EditorRegistry`、编辑器/查看器实例与 `DocumentSessionManager`。两个 Runtime 可编辑不同文档；文本内容仍通过共享 `DocumentRegistry` 和 lease 引用协议管理，避免副栏释放时误清主栏缓存。
+
+副栏加载采用串行事务：读取和渲染期间只维护候选状态，最后一次请求才可以提交 `currentPath`、视图和 lease；失败时恢复上一份已提交文档。副栏文件监听同样使用 `ownerId` 租约，主栏标签和副栏可以共享同一个原生 watcher，只有最后一个 owner 释放后才真正停止监听。
+
+```text
+PaneManager（布局与焦点）
+  ├─ primary -> DocumentManager + tabs/tree + primary EditorRegistry
+  └─ secondary -> single document + SecondaryPaneRuntime + scoped EditorRegistry
+                         └─ shared DocumentRegistry（内容真源与 lease）
+```
+
+应用级命令必须从 `getActivePaneContext()` 获取目标栏；文件树、标签导航和工作区恢复必须继续读取 `DocumentManager.activePath`，两者不可混用。
 
 ### 3. ViewManager
 

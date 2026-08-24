@@ -149,6 +149,7 @@
   "toolbar.videoDialogUrl": "影片網址",
   "toolbar.videoDialogFilter": "影片檔案",
 
+  "contextMenu.openInSecondary": "在副欄開啟",
   "contextMenu.newFile": "新增檔案",
   "contextMenu.newFolder": "新增資料夾",
   "contextMenu.rename": "重新命名",

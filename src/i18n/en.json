@@ -150,6 +150,7 @@
     "toolbar.videoDialogUrl": "Video URL",
     "toolbar.videoDialogFilter": "Videos",
 
+    "contextMenu.openInSecondary": "Open in Side Pane",
     "contextMenu.newFile": "New File",
     "contextMenu.newFolder": "New Folder",
     "contextMenu.rename": "Rename",

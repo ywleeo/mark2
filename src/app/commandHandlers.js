@@ -32,6 +32,17 @@ export function createCommandHandlers(deps) {
         toggleCsvTableMode,
         toggleMarkdownToolbar,
         toggleAppTheme,
+        getActivePaneContext,
+        openInSecondary,
+        closeSecondary,
+        promoteSecondary,
+        toggleFocusedSourceView,
+        saveFocusedDocument,
+        saveFocusedDocumentAs,
+        closeFocusedDocument,
+        deleteFocusedDocument,
+        moveFocusedDocument,
+        renameFocusedDocument,
         // file operations
         openFileOrFolder,
         openFileOnly,
@@ -58,11 +69,19 @@ export function createCommandHandlers(deps) {
 
     // ── cut / copy / paste 共享的 editor 选择逻辑 ──
     const getActiveEditor = () => {
-        const viewMode = appState.getActiveViewMode();
-        if (viewMode === 'markdown') return editorRegistry.getMarkdownEditor();
-        if (viewMode === 'code') return editorRegistry.getCodeEditor();
+        const context = getActivePaneContext?.();
+        const viewMode = context?.viewMode || appState.getActiveViewMode();
+        const activeRegistry = context?.editorRegistry || editorRegistry;
+        if (viewMode === 'markdown') return activeRegistry.getMarkdownEditor();
+        if (viewMode === 'code') return activeRegistry.getCodeEditor();
         return null;
     };
+
+    /**
+     * 返回当前焦点栏的编辑器注册表。
+     * @returns {Object} Pane 作用域 EditorRegistry。
+     */
+    const getActiveEditorRegistry = () => getActivePaneContext?.()?.editorRegistry || editorRegistry;
 
     return {
         onAbout: showAboutDialog,
@@ -72,14 +91,14 @@ export function createCommandHandlers(deps) {
         },
         onUndo: () => getActiveEditor()?.undo?.() ?? false,
         onRedo: () => getActiveEditor()?.redo?.() ?? false,
-        onSelectAll: () => editorRegistry.getMarkdownEditor()?.selectAll?.(),
+        onSelectAll: () => getActiveEditor()?.selectAll?.(),
         onCut: async () => {
             const editor = getActiveEditor();
             if (editor) {
                 const text = editor.getSelectionText?.() || editor.getSelectedMarkdown?.() || '';
                 if (text) {
                     await navigator.clipboard.writeText(text);
-                    const viewMode = appState.getActiveViewMode();
+                    const viewMode = getActivePaneContext?.()?.viewMode || appState.getActiveViewMode();
                     if (viewMode === 'markdown' && editor.editor) {
                         editor.editor.chain().focus().deleteSelection().run();
                     } else if (viewMode === 'code' && editor.replaceSelectionWithText) {
@@ -124,6 +143,10 @@ export function createCommandHandlers(deps) {
         onExportPdf: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_PDF),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
+        onOpenInSecondary: ({ path } = {}) => openInSecondary?.(path),
+        onCloseSecondary: closeSecondary,
+        onPromoteSecondary: promoteSecondary,
+        onToggleFocusedSourceView: toggleFocusedSourceView,
         onToggleMarkdownCodeView: toggleMarkdownCodeMode,
         // embed 视图(HTML 等)下 ⌘E 在渲染预览 ↔ CodeMirror 源码间切换
         onToggleHtmlEmbedView: toggleEmbedCodeMode,
@@ -131,23 +154,28 @@ export function createCommandHandlers(deps) {
         onToggleTheme: () => toggleAppTheme(appState),
         onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
         onCopyPlainText: () => appState.getMarkdownToolbarManager()?.copyPlainText?.(),
-        onShareLink: () => shareCurrentDocument({
+        onShareLink: () => {
+            const context = getActivePaneContext?.();
+            const activeRegistry = context?.editorRegistry || editorRegistry;
+            const viewMode = context?.viewMode || appState.getActiveViewMode();
+            return shareCurrentDocument({
             // 源码模式必须读取 CodeEditor，避免分享尚未同步回预览编辑器的旧内容。
-            getMarkdown: () => appState.getActiveViewMode() === 'code'
-                ? editorRegistry.getCodeEditor()?.getValue?.() || ''
-                : editorRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
-            getCurrentFile: () => appState.getCurrentFile(),
-        }),
+                getMarkdown: () => viewMode === 'code'
+                    ? activeRegistry.getCodeEditor()?.getValue?.() || ''
+                    : activeRegistry.getMarkdownEditor()?.getMarkdown?.() || '',
+                getCurrentFile: () => context?.documentPath || appState.getCurrentFile(),
+            });
+        },
         onNewUntitled: handleCreateUntitled,
         onNewFile: handleCreateNewFile,
-        onDeleteActiveFile: handleDeleteActiveFile,
-        onMoveActiveFile: handleMoveActiveFile,
-        onRenameActiveFile: handleRenameActiveFile,
-        onFind: () => editorRegistry.getMarkdownEditor()?.showSearch?.(),
-        onSelectSearchMatches: () => editorRegistry.getMarkdownEditor()?.selectAllSearchMatches?.(),
-        onSave: saveCurrentFile,
-        onSaveAs: saveCurrentFileAs,
-        onCloseTab: closeActiveTab,
+        onDeleteActiveFile: deleteFocusedDocument || handleDeleteActiveFile,
+        onMoveActiveFile: moveFocusedDocument || handleMoveActiveFile,
+        onRenameActiveFile: renameFocusedDocument || handleRenameActiveFile,
+        onFind: () => getActiveEditorRegistry().getMarkdownEditor()?.showSearch?.(),
+        onSelectSearchMatches: () => getActiveEditorRegistry().getMarkdownEditor()?.selectAllSearchMatches?.(),
+        onSave: saveFocusedDocument || saveCurrentFile,
+        onSaveAs: saveFocusedDocumentAs || saveCurrentFileAs,
+        onCloseTab: closeFocusedDocument || closeActiveTab,
         onReopenTab: reopenLastClosedTab,
         onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleCsvTableView: toggleCsvTableMode,

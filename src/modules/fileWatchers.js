@@ -10,20 +10,34 @@ export function createFileWatcherController({
     scheduleLoadFile,
     documentRegistry,
     documentSessions,
+    getAdditionalFileContexts = () => [],
 }) {
     const folderRefreshTimers = new Map();
     const fileRefreshTimers = new Map();
     const shouldIgnoreLocalWrite = (filePath) => {
-        if (!filePath || !documentSessions || typeof documentSessions.shouldIgnoreWatcherEvent !== 'function') {
+        if (!filePath) {
             return false;
         }
-        return documentSessions.shouldIgnoreWatcherEvent(filePath);
+        const sessions = [
+            documentSessions,
+            ...getAdditionalFileContexts().map(context => context?.documentSessions),
+        ].filter(Boolean);
+        let shouldIgnore = false;
+        for (const session of sessions) {
+            shouldIgnore = Boolean(session.shouldIgnoreWatcherEvent?.(filePath)) || shouldIgnore;
+        }
+        return shouldIgnore;
     };
     const clearLocalWatcherFlag = (filePath) => {
         fileTree?.clearExternalModification?.(filePath);
     };
     const markExternalConflict = (filePath, source) => {
         documentSessions?.markExternalConflict?.(filePath, { source });
+        for (const context of getAdditionalFileContexts()) {
+            if (normalizeFsPath(context?.path) === normalizeFsPath(filePath)) {
+                context.documentSessions?.markExternalConflict?.(filePath, { source });
+            }
+        }
     };
 
     function handleFolderWatcherEvent(watchedPath, event) {
@@ -154,13 +168,25 @@ export function createFileWatcherController({
         const timer = setTimeout(async () => {
             fileRefreshTimers.delete(normalizedPath);
             const currentFilePath = normalizeFsPath(getCurrentFile());
+            const additionalContext = getAdditionalFileContexts().find(context => {
+                return normalizeFsPath(context?.path) === normalizedPath;
+            });
             const isTrackedOpenFile = typeof fileTree?.isFileOpen === 'function'
                 ? fileTree.isFileOpen(normalizedPath)
                 : false;
             const isActiveFile = currentFilePath === normalizedPath;
 
-            if (!isTrackedOpenFile && !isActiveFile) {
+            if (!isTrackedOpenFile && !isActiveFile && !additionalContext) {
                 documentRegistry.clearEntry(normalizedPath);
+                return;
+            }
+
+            if (additionalContext?.reload) {
+                try {
+                    await additionalContext.reload(normalizedPath);
+                } catch (error) {
+                    console.error('刷新附加 Pane 文件失败:', error);
+                }
                 return;
             }
 

@@ -31,6 +31,7 @@ export function createFileMenuActions(options = {}) {
         viewManager,
         getActiveViewMode,
         activateTabTransition,
+        paneManager = null,
     } = options;
 
     if (typeof confirm !== 'function') {
@@ -391,6 +392,7 @@ export function createFileMenuActions(options = {}) {
             : (basename(normalizedNew) || normalizedNew);
 
         documentRegistry.renameEntry(normalizedOld, normalizedNew);
+        paneManager?.renameDocumentPath?.(normalizedOld, normalizedNew);
         // file tab 路径变化时把导航历史车道一起改键，避免重命名后丢失后退 / 前进
         navigationHistory.rekeyLane(normalizedOld, normalizedNew);
 

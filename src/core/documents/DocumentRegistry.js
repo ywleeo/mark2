@@ -63,6 +63,8 @@ export function createDocumentRegistry({
     /** @type {Map<string, DocumentModel>} */
     const documents = new Map();
     const documentUnsubscribers = new Map();
+    /** @type {Map<string, Set<string>>} */
+    const documentLeases = new Map();
     const listeners = new Set();
     /** @type {Map<string, { content: any, hasChanges: boolean, viewMode: string, modifiedTime: number|null, error?: any }>} */
     const nonTextCache = new Map();
@@ -303,15 +305,22 @@ export function createDocumentRegistry({
         return mt;
     }
 
-    function clearEntry(filePath) {
+    function clearEntry(filePath, options = {}) {
+        const activeLeases = documentLeases.get(filePath);
+        if (activeLeases?.size > 0 && options.force !== true) {
+            return false;
+        }
         removeDocumentModel(filePath);
+        documentLeases.delete(filePath);
         nonTextCache.delete(filePath);
+        return true;
     }
 
     function clearAll() {
         documentUnsubscribers.forEach(unsubscribe => unsubscribe());
         documentUnsubscribers.clear();
         documents.clear();
+        documentLeases.clear();
         nonTextCache.clear();
     }
 
@@ -344,6 +353,12 @@ export function createDocumentRegistry({
                 viewMode: defaultViewMode || nonText.viewMode,
             });
         }
+
+        const leases = documentLeases.get(oldPath);
+        if (leases) {
+            documentLeases.delete(oldPath);
+            documentLeases.set(newPath, leases);
+        }
     }
 
     /**
@@ -358,15 +373,61 @@ export function createDocumentRegistry({
      * 仅对可编辑的文本类视图(markdown/code)返回 Document;二进制/媒体类返回 null。
      * 调用方可通过返回值驱动视图 attachDocument 流程。
      *
-     * 注意:当前 acquire 未启用 refCount 计数;tab 关闭仍用 clearEntry 销毁 Document,
-     * 多视图共享场景(Phase 4+)再引入 release。
+     * 当传入 ownerId 时会建立幂等租约，避免关闭标签时销毁仍被另一 Pane 使用的模型。
      */
     async function acquireDocument(path, options = {}) {
         if (!path) return null;
-        const existing = documents.get(path);
-        if (existing) return existing;
-        await getFileContent(path, options);
-        return documents.get(path) || null;
+        let doc = documents.get(path);
+        if (!doc) {
+            await getFileContent(path, options);
+            doc = documents.get(path) || null;
+        }
+        const ownerId = typeof options.ownerId === 'string' && options.ownerId.trim()
+            ? options.ownerId.trim()
+            : null;
+        if (doc && ownerId) {
+            let leases = documentLeases.get(path);
+            if (!leases) {
+                leases = new Set();
+                documentLeases.set(path, leases);
+            }
+            if (!leases.has(ownerId)) {
+                leases.add(ownerId);
+                doc.acquire();
+            }
+        }
+        return doc;
+    }
+
+    /**
+     * 释放一个 Pane 对文档模型的租约。
+     * @param {string} path - 文档路径。
+     * @param {string} ownerId - 稳定的租约所有者标识。
+     * @returns {number} 释放后的引用数。
+     */
+    function releaseDocument(path, ownerId) {
+        const normalizedOwnerId = typeof ownerId === 'string' ? ownerId.trim() : '';
+        if (!path || !normalizedOwnerId) {
+            return documents.get(path)?.getRefCount?.() || 0;
+        }
+        const leases = documentLeases.get(path);
+        const doc = documents.get(path);
+        if (!leases?.delete(normalizedOwnerId)) {
+            return doc?.getRefCount?.() || 0;
+        }
+        if (leases.size === 0) {
+            documentLeases.delete(path);
+        }
+        return doc?.release?.() || 0;
+    }
+
+    /**
+     * 查询某文档当前持有的租约数量。
+     * @param {string} path - 文档路径。
+     * @returns {number} 租约数量。
+     */
+    function getLeaseCount(path) {
+        return documentLeases.get(path)?.size || 0;
     }
 
     /**
@@ -435,6 +496,8 @@ export function createDocumentRegistry({
         // 新增 API(DocumentModel 通道)
         getDocument,
         acquireDocument,
+        releaseDocument,
+        getLeaseCount,
         isDirty,
         markSaved,
         beginSave,

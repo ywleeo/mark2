@@ -107,6 +107,7 @@ export function createWorkspaceManager(options = {}) {
 
         return left.currentFile === right.currentFile
             && left.sharedTabPath === right.sharedTabPath
+            && arePlainObjectsEqual(left.layout, right.layout)
             && areArraysEqual(left.openFiles, right.openFiles)
             && areUntitledTabsEqual(left.untitledTabs, right.untitledTabs)
             && areArraysEqual(left.sidebar?.rootPaths, right.sidebar?.rootPaths)
@@ -137,6 +138,7 @@ export function createWorkspaceManager(options = {}) {
                 : null,
             openFiles: Array.isArray(state?.openFiles) ? [...state.openFiles] : [],
             untitledTabs: Array.isArray(state?.untitledTabs) ? [...state.untitledTabs] : [],
+            layout: state?.layout ? { ...state.layout } : null,
         };
     }
 

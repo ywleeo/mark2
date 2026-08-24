@@ -1,6 +1,7 @@
 const WATCHER_VERIFICATION_COOLDOWN_MS = 5000;
 const WATCHER_STALE_THRESHOLD_MS = 300000;
 const FOLDER_WATCH_DEBOUNCE_MS = 200;
+const DEFAULT_FILE_WATCH_OWNER = 'legacy:default';
 
 export class FileWatcher {
     constructor(options = {}) {
@@ -96,12 +97,29 @@ export class FileWatcher {
         }
         const normalizedPath = this.normalizePath?.(path);
         if (!normalizedPath) return;
+        const ownerId = typeof options.ownerId === 'string' && options.ownerId.trim()
+            ? options.ownerId.trim()
+            : DEFAULT_FILE_WATCH_OWNER;
 
         const existingState = this.fileWatchers.get(normalizedPath);
         if (existingState) {
+            existingState.owners?.add(ownerId);
             existingState.lastVerificationTimestamp = Date.now();
             return;
         }
+
+        // 先登记占位状态，确保并发 owner 能合并，并允许加载完成前安全释放。
+        const watcherState = {
+            unwatch: null,
+            owners: new Set([ownerId]),
+            hasReceivedEvent: false,
+            lastEventTimestamp: null,
+            lastVerificationTimestamp: Date.now(),
+            lastRebuildTimestamp: Date.now(),
+            pendingVerification: null,
+            externallyModified: false,
+        };
+        this.fileWatchers.set(normalizedPath, watcherState);
 
         try {
             const { watch } = await import('@tauri-apps/plugin-fs');
@@ -122,30 +140,40 @@ export class FileWatcher {
                 { recursive: false, delayMs: 50 }
             );
 
-            const watcherState = {
-                unwatch,
-                hasReceivedEvent: false,
-                lastEventTimestamp: null,
-                lastVerificationTimestamp: Date.now(),
-                lastRebuildTimestamp: Date.now(),
-                pendingVerification: null,
-                externallyModified: false,
-            };
-
-            this.fileWatchers.set(normalizedPath, watcherState);
+            // 创建期间最后一个 owner 可能已释放，此时立即回收刚建立的原生 watcher。
+            if (this.fileWatchers.get(normalizedPath) !== watcherState
+                || watcherState.owners.size === 0) {
+                try { unwatch(); } catch (_) { /* noop */ }
+                return;
+            }
+            watcherState.unwatch = unwatch;
         } catch (error) {
+            if (this.fileWatchers.get(normalizedPath) === watcherState) {
+                this.fileWatchers.delete(normalizedPath);
+            }
             console.error('文件监听失败:', { path: normalizedPath, options, error });
             throw error;
         }
     }
 
-    stopWatchingFile(path) {
+    stopWatchingFile(path, options = {}) {
         const normalizedPath = this.normalizePath?.(path);
         if (!normalizedPath) return;
 
         const watcherState = this.fileWatchers.get(normalizedPath);
         if (!watcherState) {
             return;
+        }
+
+        const force = options.force === true;
+        const ownerId = typeof options.ownerId === 'string' && options.ownerId.trim()
+            ? options.ownerId.trim()
+            : DEFAULT_FILE_WATCH_OWNER;
+        if (!force && watcherState.owners instanceof Set) {
+            watcherState.owners.delete(ownerId);
+            if (watcherState.owners.size > 0) {
+                return;
+            }
         }
 
         const { unwatch } = watcherState;
@@ -227,10 +255,19 @@ export class FileWatcher {
             return;
         }
 
-        this.stopWatchingFile(normalizedPath);
+        const owners = state?.owners instanceof Set && state.owners.size > 0
+            ? Array.from(state.owners)
+            : [DEFAULT_FILE_WATCH_OWNER];
+        this.stopWatchingFile(normalizedPath, { force: true });
 
         try {
-            await this.watchFile(normalizedPath, { ...options, reason: options.reason ?? 'restart' });
+            for (const ownerId of owners) {
+                await this.watchFile(normalizedPath, {
+                    ...options,
+                    ownerId,
+                    reason: options.reason ?? 'restart',
+                });
+            }
         } catch (error) {
             console.error('重建文件监听失败:', { path: normalizedPath, error, options });
         }
@@ -287,7 +324,7 @@ export class FileWatcher {
     dispose() {
         this.stopWatchingFolder();
         Array.from(this.fileWatchers.keys()).forEach((path) => {
-            this.stopWatchingFile(path);
+            this.stopWatchingFile(path, { force: true });
         });
         this.fileWatchers.clear();
     }

@@ -22,6 +22,7 @@ export function setupStatusBar({
     handleZoomControl,
     updateZoomDisplayForActiveView,
     onAiDocumentTask,
+    getCurrentFile = () => appState.getCurrentFile(),
 }) {
     const statusBarElement = requireElementById('statusBar', '未找到状态栏元素 statusBar');
     const statusBarFilePathElement = requireElementById('statusBarPath', '状态栏缺少文件路径区域');
@@ -60,7 +61,7 @@ export function setupStatusBar({
     appState.setStatusBarController(statusBarController);
     statusBarController.updateStatusBar();
     statusBarController.setupStatusBarPathInteraction({
-        getCurrentFile: () => appState.getCurrentFile(),
+        getCurrentFile,
     });
     statusBarController.setupZoomControls({
         onZoomIn: () => handleZoomControl(ZOOM_STEP),
@@ -81,7 +82,7 @@ export function setupStatusBar({
     const aiTaskBtn = document.getElementById('statusBarAiTask');
     if (aiTaskBtn) {
         addClickHandler(aiTaskBtn, () => {
-            const currentFile = appState.getCurrentFile();
+            const currentFile = getCurrentFile();
             if (!currentFile) {
                 statusBarController.showProgress(t('aiFileTask.error.noCurrentFile'), { state: 'error' });
                 statusBarController.hideProgress({ delay: 1800 });

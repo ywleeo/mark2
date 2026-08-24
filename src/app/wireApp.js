@@ -35,6 +35,7 @@ import { createFeatureManager } from '../core/features/FeatureManager.js';
 import { createExportManager } from '../core/export/ExportManager.js';
 import { createWorkspaceManager } from '../core/workspace/WorkspaceManager.js';
 import { createViewManager } from '../core/views/ViewManager.js';
+import { createPaneManager, PANE_IDS } from '../core/layout/PaneManager.js';
 import { createEmbedCodeMode } from '../modules/embedCodeMode.js';
 import { createDocumentSessionManager } from '../modules/documentSessionManager.js';
 import { untitledFileManager } from '../modules/untitledFileManager.js';
@@ -44,6 +45,7 @@ import { createLayoutControls } from './layoutControls.js';
 import { createWorkspaceSyncController, createDocumentSnapshotSyncController } from './syncControllers.js';
 import { AppState } from '../state/AppState.js';
 import { EditorRegistry } from '../state/EditorRegistry.js';
+import { PaneRuntimeRegistry } from '../state/PaneRuntimeRegistry.js';
 import { createEditorHistoryController } from './editorHistoryController.js';
 import { createToolbarController } from './toolbarController.js';
 import { invalidateMermaidTheme } from '../utils/mermaidRenderer.js';
@@ -70,6 +72,7 @@ export function wireApp() {
 // ========== 状态管理实例 ==========
 const appState = new AppState();
 const editorRegistry = new EditorRegistry();
+const paneRuntimeRegistry = new PaneRuntimeRegistry();
 const rendererRegistry = new RendererRegistry();
 const traceRecorder = createTraceRecorder();
 const documentLogger = createLogger('documents');
@@ -79,6 +82,7 @@ const workspaceLogger = createLogger('workspace');
 const featureLogger = createLogger('features');
 const exportLogger = createLogger('export');
 const viewLogger = createLogger('views');
+const paneLogger = createLogger('panes');
 featureLogger.info('Mark2 Tauri 版本已启动');
 const commandManager = createCommandManager({
     logger: commandLogger,
@@ -127,7 +131,30 @@ const documentManager = createDocumentManager({
     traceRecorder,
     documentRegistry,
 });
+const paneManager = createPaneManager({ logger: paneLogger });
+
+/**
+ * 将现有标签激活事件投影到主栏，不让 PaneManager 成为第二套标签真源。
+ * 副栏接入后仍只会通过显式的“在副栏打开”命令更新。
+ */
+const unsubscribeDocumentPaneSync = documentManager.subscribe((event) => {
+    if (event?.type === 'activate') {
+        paneManager.syncPrimaryDocument(event.path || null, {
+            viewMode: event.document?.viewMode || null,
+        });
+        paneManager.focusPane(PANE_IDS.PRIMARY);
+        return;
+    }
+    if (event?.type === 'rename') {
+        paneManager.renameDocumentPath(event.oldPath, event.newPath);
+    }
+});
+appState.setCleanupFunction('documentPaneSync', unsubscribeDocumentPaneSync);
 appState.setUnsavedChangesProvider(() => {
+    const secondaryPath = paneManager.getSecondaryPane().documentPath;
+    if (secondaryPath && documentRegistry.isDirty(secondaryPath)) {
+        return true;
+    }
     const activePath = documentManager.getActivePath();
     if (!activePath) return false;
     const documentModel = documentRegistry.getDocument(activePath);
@@ -136,8 +163,37 @@ appState.setUnsavedChangesProvider(() => {
 const documentSessions = createDocumentSessionManager();
 let appServices = null;
 
+function getActivePaneContext() {
+    const pane = paneManager.getFocusedPane();
+    const paneId = pane?.id || PANE_IDS.PRIMARY;
+    const runtime = paneRuntimeRegistry.get(paneId);
+    return {
+        paneId,
+        documentPath: pane?.documentPath || null,
+        viewMode: runtime?.getActiveViewMode?.() || pane?.viewMode || appState.getActiveViewMode(),
+        editorRegistry: runtime?.editorRegistry || editorRegistry,
+        documentSessions: runtime?.documentSessions || documentSessions,
+        runtime,
+    };
+}
+
+/**
+ * 返回主栏文档路径。
+ * 该兼容入口只服务于文件树、标签页、工作区恢复等主栏基础设施；
+ * 需要跟随焦点的命令必须显式读取 getActivePaneContext()，避免副栏焦点污染主栏导航。
+ * @returns {string|null} 主栏活动文档路径。
+ */
 function getActiveDocumentPath() {
     return documentManager.getActivePath();
+}
+
+/**
+ * 同步当前活动栏视图模式，并保留 AppState 兼容镜像。
+ * @param {string} mode - 新视图模式。
+ */
+function setActivePaneViewMode(mode) {
+    appState.setActiveViewMode(mode);
+    paneManager.setPaneViewMode(getActivePaneContext().paneId, mode);
 }
 
 function setActiveDocumentPath(path, metadata = {}) {
@@ -251,7 +307,7 @@ const viewController = createViewController({
     getUnsupportedPane: () => appState.getPaneElement('unsupported'),
     getViewContainer: () => appState.getPaneElement('viewContainer'),
     getStatusBarController: () => appState.getStatusBarController(),
-    setActiveViewModeState: (mode) => { appState.setActiveViewMode(mode); },
+    setActiveViewModeState: (mode) => { setActivePaneViewMode(mode); },
     getActiveViewModeState: () => appState.getActiveViewMode(),
     setContentZoomState: (value) => { appState.setContentZoom(value); },
     getContentZoomState: () => appState.getContentZoom(),
@@ -302,6 +358,13 @@ const viewManager = createViewManager({
     logger: viewLogger,
     traceRecorder,
 });
+paneRuntimeRegistry.register(PANE_IDS.PRIMARY, {
+    id: PANE_IDS.PRIMARY,
+    editorRegistry,
+    documentSessions,
+    getActiveViewMode: () => appState.getActiveViewMode(),
+    getDocumentPath: () => paneManager.getPrimaryPane().documentPath,
+});
 
 // embed(渲染视图)↔ code 切换:源码走真正的 CodeMirror,⌘E 触发
 const embedCodeMode = createEmbedCodeMode({
@@ -315,7 +378,7 @@ appState.setEmbedCodeMode(embedCodeMode);
 // ========== 编辑器动作 ==========
 const editorActions = createEditorActions({
     getActiveViewMode: () => appState.getActiveViewMode(),
-    setActiveViewMode: (mode) => { appState.setActiveViewMode(mode); },
+    setActiveViewMode: (mode) => { setActivePaneViewMode(mode); },
     getEditor: () => editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => editorRegistry.getCodeEditor(),
     getMarkdownCodeMode: () => appState.getMarkdownCodeMode(),
@@ -342,6 +405,18 @@ const {
     requestActiveEditorContext,
 } = editorActions;
 
+/**
+ * 根据当前焦点栏切换 Markdown 可视/源码模式。
+ * @returns {Promise<boolean>|boolean} 是否完成切换。
+ */
+function toggleFocusedMarkdownCodeMode() {
+    const context = getActivePaneContext();
+    if (context.paneId === PANE_IDS.SECONDARY) {
+        return context.runtime?.toggleSourceMode?.() ?? false;
+    }
+    return toggleMarkdownCodeMode();
+}
+
 // ========== 布局控制 ==========
 const layoutControls = createLayoutControls({
     getStatusBarController: () => appState.getStatusBarController(),
@@ -355,24 +430,25 @@ const {
 
 // ========== 工具栏控制器 ==========
 const toolbarController = createToolbarController({
-    getMarkdownEditor: () => editorRegistry.getMarkdownEditor(),
-    getCodeEditor: () => editorRegistry.getCodeEditor(),
-    getCurrentFile: () => getActiveDocumentPath(),
+    getMarkdownEditor: () => getActivePaneContext().editorRegistry.getMarkdownEditor(),
+    getCodeEditor: () => getActivePaneContext().editorRegistry.getCodeEditor(),
+    getCurrentFile: () => getActivePaneContext().documentPath,
     // 导航历史车道 id：固定文档用路径、shared 预览位用 sharedTabId
     getNavLaneId: () => {
-        const currentFile = getActiveDocumentPath();
+        const currentFile = getActivePaneContext().documentPath;
         if (!currentFile) return null;
+        if (getActivePaneContext().paneId === PANE_IDS.SECONDARY) return null;
         const pinned = documentManager?.getDocumentByPath?.(currentFile)?.pinned === true;
         return pinned ? currentFile : (appState.getTabManager()?.sharedTabId ?? 'shared-preview');
     },
-    getActiveViewMode: () => appState.getActiveViewMode(),
+    getActiveViewMode: () => getActivePaneContext().viewMode,
     executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
     getMarkdownToolbarManager: () => appState.getMarkdownToolbarManager(),
     setMarkdownToolbarManager: (m) => appState.setMarkdownToolbarManager(m),
     getCardExportSidebar: () => featureManager.getFeatureApi('card-export'),
     getAppServices: () => appServices,
-    getEditorRegistry: () => editorRegistry,
-    getToggleMarkdownCodeMode: () => toggleMarkdownCodeMode,
+    getEditorRegistry: () => getActivePaneContext().editorRegistry,
+    getToggleMarkdownCodeMode: () => toggleFocusedMarkdownCodeMode,
     isMarkdownFilePath,
     MarkdownToolbarManager,
 });
@@ -417,6 +493,7 @@ const workspaceController = createWorkspaceController({
     untitledFileManager,
     documentManager,
     documentRegistry,
+    paneManager,
 });
 
 // ========== Untitled 控制器（在 fileOperations 前创建，避免 TDZ）==========
@@ -580,6 +657,7 @@ const {
     viewManager,
     getActiveViewMode: () => appState.getActiveViewMode(),
     activateTabTransition,
+    paneManager,
 });
 
 // ========== 最近文件 ==========
@@ -605,6 +683,9 @@ bootstrap = createAppBootstrap({
     featureManager,
     exportManager,
     workspaceManager,
+    paneManager,
+    paneRuntimeRegistry,
+    getActivePaneContext,
     editorRegistry,
     documentSessions,
     documentRegistry,

@@ -113,16 +113,46 @@
 
     <!-- 主内容区 -->
     <div class="content-wrapper">
-        <!-- 标签栏 -->
-        <div id="tabBar" class="tab-bar"></div>
+        <!-- 文档栏头部：标签只属于主栏，副栏使用紧凑文档头。 -->
+        <div id="paneHeaderRow" class="pane-header-row">
+            <div id="primaryPaneHeader" class="pane-header pane-header--primary" data-pane-id="primary">
+                <div id="tabBar" class="tab-bar"></div>
+            </div>
+            <div id="secondaryPaneHeader" class="pane-header pane-header--secondary" data-pane-id="secondary" aria-hidden="true">
+                <div class="secondary-pane-title" title="">
+                    <span class="secondary-pane-title__name">副栏</span>
+                    <span class="secondary-pane-title__dirty" aria-label="未保存" hidden>●</span>
+                </div>
+                <div class="secondary-pane-actions">
+                    <button id="secondaryPanePromote" class="secondary-pane-action" type="button" title="在主栏打开" aria-label="在主栏打开">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M14 5h5v5"/>
+                            <path d="m19 5-7 7"/>
+                            <path d="M12 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/>
+                        </svg>
+                    </button>
+                    <button id="secondaryPaneClose" class="secondary-pane-action" type="button" title="关闭副栏" aria-label="关闭副栏">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="m7 7 10 10M17 7 7 17"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
 
         <!-- Markdown 工具栏（应用级固定栏，由 MarkdownToolbarManager 填充） -->
         <div id="markdownToolbar" class="md-toolbar"></div>
 
         <!-- 编辑器/预览区 -->
         <div id="contentArea" class="content-area">
-            <div class="content-main">
+            <div id="primaryPane" class="content-main document-pane document-pane--primary is-focused" data-pane-id="primary">
                 <div id="viewContent" class="view-content"></div>
+            </div>
+            <div id="paneResizer" class="pane-resizer" role="separator" aria-label="调整左右栏宽度" aria-orientation="vertical" aria-hidden="true"></div>
+            <div id="secondaryPane" class="content-main document-pane document-pane--secondary" data-pane-id="secondary" aria-hidden="true">
+                <div id="secondaryViewContent" class="view-content secondary-view-content">
+                    <div class="secondary-pane-empty" aria-live="polite">选择一个文件在副栏打开</div>
+                </div>
             </div>
         </div>
 

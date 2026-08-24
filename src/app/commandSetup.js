@@ -67,6 +67,10 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, () => handlers.onToggleSidebar?.(), '切换侧边栏');
     register(COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR, () => handlers.onToggleStatusBar?.(), '切换状态栏');
     register(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, async () => {
+        const focusedResult = await handlers.onToggleFocusedSourceView?.();
+        if (focusedResult !== undefined) {
+            return focusedResult;
+        }
         if (await handlers.onToggleSvgCodeView?.()) {
             return true;
         }
@@ -78,6 +82,9 @@ export function registerCoreCommands(options = {}) {
         }
         return await handlers.onToggleMarkdownCodeView?.();
     }, '切换源码视图');
+    register(COMMAND_IDS.VIEW_OPEN_IN_SECONDARY, (payload) => handlers.onOpenInSecondary?.(payload), '在副栏打开');
+    register(COMMAND_IDS.VIEW_CLOSE_SECONDARY, () => handlers.onCloseSecondary?.(), '关闭副栏');
+    register(COMMAND_IDS.VIEW_PROMOTE_SECONDARY, () => handlers.onPromoteSecondary?.(), '在主栏打开副栏文档');
     register(COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, () => handlers.onToggleMarkdownToolbar?.(), '切换 Markdown 工具栏');
     register(COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, () => handlers.onToggleTranslator?.(), '切换翻译面板');
     register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');

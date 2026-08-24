@@ -48,6 +48,10 @@ export class FileTreeContextMenu {
         menu.className = 'file-tree-context-menu hidden';
         menu.innerHTML = `
             <div class="file-tree-context-menu__group">
+                ${this.renderMenuItem('open-secondary', t('contextMenu.openInSecondary'), this.getMenuIcon('open-secondary'), 'file-only')}
+            </div>
+            <div class="file-tree-context-menu__separator" aria-hidden="true"></div>
+            <div class="file-tree-context-menu__group">
                 ${this.renderMenuItem('create-file', t('contextMenu.newFile'), this.getMenuIcon('create-file'), 'folder-only')}
                 ${this.renderMenuItem('create-folder', t('contextMenu.newFolder'), this.getMenuIcon('create-folder'), 'folder-only')}
             </div>
@@ -127,6 +131,12 @@ export class FileTreeContextMenu {
             'copy-path': fileMenuIcons.copy(iconOptions),
             reveal: fileMenuIcons.reveal(iconOptions),
             delete: fileMenuIcons.delete(iconOptions),
+            'open-secondary': `
+                <svg class="file-tree-context-menu__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="14" rx="2"/>
+                    <path d="M12 5v14"/>
+                </svg>
+            `,
         };
 
         return icons[action] || '';
@@ -212,6 +222,15 @@ export class FileTreeContextMenu {
         folderOnlyItems.forEach(item => {
             item.style.display = isFolder ? '' : 'none';
         });
+        const fileOnlyItems = this.element.querySelectorAll('.file-only');
+        fileOnlyItems.forEach(item => {
+            item.style.display = isFolder ? 'none' : '';
+        });
+        // 副栏只承载可落盘的对比文件，临时文档需先在主栏完成保存。
+        const openSecondaryItem = this.element.querySelector('[data-action="open-secondary"]');
+        if (openSecondaryItem && !isFolder) {
+            openSecondaryItem.style.display = this.targetPath?.startsWith('untitled://') ? 'none' : '';
+        }
 
         // 根目录（用户加进工作区的顶层文件夹）不允许删除，避免误把整个工作区扔回收站
         const isRootFolder = isFolder && this.targetItem?.dataset?.isRoot === 'true';
@@ -346,6 +365,7 @@ export class FileTreeContextMenu {
             'copy-path': COMMAND_IDS.WORKSPACE_COPY_PATH,
             reveal: COMMAND_IDS.WORKSPACE_REVEAL_IN_FINDER,
             delete: COMMAND_IDS.WORKSPACE_DELETE_ENTRY,
+            'open-secondary': COMMAND_IDS.VIEW_OPEN_IN_SECONDARY,
         };
 
         return commandMap[action] || null;

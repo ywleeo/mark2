@@ -25,6 +25,7 @@
 | 类型 | 归属 |
 | --- | --- |
 | 文档身份、rename、dirty、save | `DocumentManager` |
+| 左右栏分配、焦点栏、分栏比例 | `PaneManager` |
 | open files、shared tab、workspace 恢复 | `WorkspaceManager` |
 | 视图模式、renderer 分发、pane 切换 | `ViewManager` |
 | 菜单、快捷键、toolbar、context menu 动作 | `CommandManager` |

@@ -387,6 +387,97 @@ body.sidebar-resizing .sidebar-resizer::before {
     display: none;
 }
 
+/* 左右文档栏头部。标签栏始终只属于主栏。 */
+.pane-header-row {
+    --primary-pane-width: 50%;
+    display: flex;
+    flex: 0 0 auto;
+    min-width: 0;
+    background: var(--sidebar-bg, #f5f6f8);
+}
+
+.pane-header {
+    min-width: 0;
+}
+
+.pane-header--primary {
+    flex: 1 1 auto;
+}
+
+.pane-header--secondary {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
+    padding: 4px 8px 5px 10px;
+    color: var(--tab-text-color, rgba(21, 23, 26, 0.8));
+    border-left: 1px solid var(--sidebar-border, var(--border-color, #ddd));
+    box-shadow: inset 0 -1px 0 var(--sidebar-border, var(--border-color, #ddd));
+    -webkit-app-region: drag;
+}
+
+body.is-dual-pane .pane-header--primary {
+    flex: 0 0 var(--primary-pane-width);
+}
+
+body.is-dual-pane .pane-header--secondary {
+    display: flex;
+    flex: 1 1 0;
+}
+
+.secondary-pane-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1;
+    -webkit-app-region: no-drag;
+}
+
+.secondary-pane-title__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.secondary-pane-title__dirty {
+    flex: 0 0 auto;
+    color: var(--tab-dirty-color, #d97706);
+    font-size: 7px;
+}
+
+.secondary-pane-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+    -webkit-app-region: no-drag;
+}
+
+.secondary-pane-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+}
+
+.secondary-pane-action:hover {
+    color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
+    background: var(--tab-hover-bg, rgba(255, 255, 255, 0.9));
+}
+
+.secondary-pane-action svg {
+    width: 15px;
+    height: 15px;
+}
+
 .tab-list {
     display: flex;
     align-items: center;
@@ -606,6 +697,87 @@ body.sidebar-resizing .sidebar-resizer::before {
     min-height: 0;
     overflow: hidden;
     background: var(--content-bg, #ffffff);
+}
+
+/* 固定左右双栏布局，不包含上下或嵌套方向逻辑。 */
+.document-pane {
+    position: relative;
+}
+
+.document-pane--primary {
+    flex: 1 1 auto;
+}
+
+.document-pane--secondary,
+.pane-resizer {
+    display: none;
+}
+
+body.is-dual-pane .document-pane--primary {
+    flex: 0 0 var(--primary-pane-width, 50%);
+}
+
+body.is-dual-pane .document-pane--secondary {
+    display: flex;
+    flex: 1 1 0;
+}
+
+body.is-dual-pane .pane-resizer {
+    position: relative;
+    z-index: 6;
+    display: block;
+    width: 8px;
+    flex: 0 0 8px;
+    margin-left: -4px;
+    margin-right: -4px;
+    cursor: col-resize;
+    background: transparent;
+    touch-action: none;
+}
+
+.pane-resizer::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 3px;
+    width: 1px;
+    background: var(--sidebar-border, var(--border-color, #ddd));
+}
+
+.pane-resizer:hover::before,
+body.is-pane-resizing .pane-resizer::before {
+    width: 2px;
+    background: var(--sidebar-resizer-active, rgba(0, 0, 0, 0.12));
+}
+
+body.is-pane-resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
+.document-pane.is-focused::after {
+    content: '';
+    position: absolute;
+    z-index: 5;
+    inset: 0;
+    border: 1px solid transparent;
+    pointer-events: none;
+}
+
+body.is-dual-pane .document-pane.is-focused::after {
+    border-color: color-mix(in srgb, var(--tab-active-text-color, #4f7cff) 22%, transparent);
+}
+
+.secondary-view-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.secondary-pane-empty {
+    padding: 24px;
+    color: var(--status-text, rgba(21, 23, 26, 0.55));
+    font-size: 12px;
+    text-align: center;
 }
 
 .status-bar {

@@ -5,6 +5,12 @@ const store = createStore('workspace');
 store.migrateFrom('mark2:workspaceState', 'state');
 
 const UNTITLED_PROTOCOL = 'untitled://';
+const DEFAULT_PANE_LAYOUT = Object.freeze({
+    mode: 'single',
+    splitRatio: 0.5,
+    secondaryDocumentPath: null,
+    secondaryViewMode: null,
+});
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
@@ -32,6 +38,56 @@ function canonicalizeWorkspacePath(value) {
 
 function isUntitledPath(value) {
     return typeof value === 'string' && value.startsWith(UNTITLED_PROTOCOL);
+}
+
+/**
+ * 创建默认的固定左右布局快照。
+ * @returns {Object} 默认单栏布局。
+ */
+function createDefaultPaneLayout() {
+    return { ...DEFAULT_PANE_LAYOUT };
+}
+
+/**
+ * 规范化持久化的左右布局数据。
+ * @param {unknown} candidate - 原始布局快照。
+ * @returns {Object} 安全的布局快照。
+ */
+function normalizePaneLayout(candidate) {
+    const normalized = createDefaultPaneLayout();
+    if (!candidate || typeof candidate !== 'object') {
+        return normalized;
+    }
+
+    const ratio = Number(candidate.splitRatio);
+    if (Number.isFinite(ratio)) {
+        normalized.splitRatio = Math.min(0.75, Math.max(0.25, ratio));
+    }
+
+    const rawSecondaryPath = typeof candidate.secondaryDocumentPath === 'string'
+        ? candidate.secondaryDocumentPath.trim()
+        : '';
+    if (!rawSecondaryPath) {
+        return normalized;
+    }
+
+    // 副栏不恢复 untitled：临时文档必须先在主栏保存为真实文件。
+    normalized.secondaryDocumentPath = isUntitledPath(rawSecondaryPath)
+        ? null
+        : canonicalizeWorkspacePath(rawSecondaryPath);
+    if (!normalized.secondaryDocumentPath) {
+        return normalized;
+    }
+
+    normalized.mode = candidate.mode === 'dual' ? 'dual' : 'single';
+    normalized.secondaryViewMode = isNonEmptyString(candidate.secondaryViewMode)
+        ? candidate.secondaryViewMode.trim()
+        : null;
+    if (normalized.mode !== 'dual') {
+        normalized.secondaryDocumentPath = null;
+        normalized.secondaryViewMode = null;
+    }
+    return normalized;
 }
 
 /**
@@ -215,6 +271,7 @@ export function createDefaultWorkspaceState() {
         openFiles: [],
         untitledTabs: [],
         sharedTabPath: null,
+        layout: createDefaultPaneLayout(),
     };
 }
 
@@ -252,6 +309,7 @@ export function normalizeWorkspaceState(candidate) {
     if (Array.isArray(candidate.untitledTabs)) {
         normalized.untitledTabs = normalizeUntitledTabs(candidate.untitledTabs);
     }
+    normalized.layout = normalizePaneLayout(candidate.layout);
     if (typeof candidate.sharedTabPath === 'string' && !isUntitledPath(candidate.sharedTabPath)) {
         normalized.sharedTabPath = canonicalizeWorkspacePath(candidate.sharedTabPath);
     }
@@ -264,6 +322,11 @@ export function normalizeWorkspaceState(candidate) {
         normalized.currentFile = matchedUntitled?.path || null;
     } else {
         normalized.currentFile = resolveCanonicalCurrentFile(candidate.currentFile, normalized.openFiles);
+    }
+    if (normalized.currentFile
+        && normalized.layout.secondaryDocumentPath
+        && getPathIdentityKey(normalized.currentFile) === getPathIdentityKey(normalized.layout.secondaryDocumentPath)) {
+        normalized.layout = createDefaultPaneLayout();
     }
     normalized.sidebar.expandedFolders = filterExpandedFoldersByRoots(
         normalized.sidebar.expandedFolders,
