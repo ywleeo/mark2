@@ -13,6 +13,7 @@ const COMMAND_TO_MENU_IDS = {
     'app.open': 'open-file',
     'app.openFile': 'open-file',
     'app.settings': 'settings',
+    'feature.vault.toggle': 'vault-open',
     'export.currentView.image': 'export-image',
     'export.currentView.pdf': 'export-pdf',
     'view.toggleSidebar': 'toggle-sidebar',
@@ -130,6 +131,7 @@ export class AppMenu {
                 ]
             },
             { id: 'settings', label: t('menu.settings'), shortcut: 'Ctrl+,', command: COMMAND_IDS.APP_SETTINGS, menuId: 'settings' },
+            { id: 'vault', label: t('menu.vault'), shortcut: 'Ctrl+Shift+K', command: COMMAND_IDS.FEATURE_VAULT_TOGGLE, menuId: 'vault-open' },
             {
                 id: 'help',
                 label: t('menu.help'),

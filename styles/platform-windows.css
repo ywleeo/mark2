@@ -1,0 +1,22 @@
+/* Windows WebView2 平台适配。
+ * 全屏 backdrop-filter 会持续重采样底层页面，在部分显卡和驱动上显著增加输入延迟。
+ * 此层只降级大面积遮罩，保留各组件的小面积装饰效果与其他平台视觉表现。
+ */
+
+:root.platform-windows {
+    --settings-backdrop: rgba(15, 23, 42, 0.18);
+}
+
+:root.platform-windows[data-theme-appearance='dark'] {
+    --settings-backdrop: rgba(0, 0, 0, 0.42);
+}
+
+:root.platform-windows .settings-modal,
+:root.platform-windows .vault-modal,
+:root.platform-windows .about-overlay,
+:root.platform-windows .about-dialog,
+:root.platform-windows .image-modal-backdrop,
+:root.platform-windows .card-export-flow__backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}

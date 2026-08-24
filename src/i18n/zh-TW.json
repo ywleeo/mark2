@@ -21,6 +21,7 @@
   "menu.paste": "貼上",
   "menu.selectAll": "全選",
   "menu.settings": "設定",
+  "menu.vault": "保險箱",
   "menu.toggleSidebar": "切換側邊欄",
   "menu.toggleStatusBar": "切換狀態列",
   "menu.toggleToolbar": "切換 Markdown 工具列",
