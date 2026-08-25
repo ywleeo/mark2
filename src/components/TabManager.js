@@ -1,4 +1,4 @@
-import { addClickHandler } from '../utils/PointerHelper.js';
+import { addClickHandler, addMiddleClickHandler } from '../utils/PointerHelper.js';
 import { basename } from '../utils/pathUtils.js';
 import { t } from '../i18n/index.js';
 
@@ -536,6 +536,15 @@ export class TabManager {
                     this.setActiveTab(tab.id);
                 });
                 this.cleanupFunctions.push(cleanup2);
+
+                // 中键关闭与关闭按钮共用同一事务入口，确保未保存内容和 shared tab 正确处理。
+                const cleanupMiddleClick = addMiddleClickHandler(tabElement, () => {
+                    if (this.isDraggingTabs || this.pointerDragState || this.draggedTabId) {
+                        return;
+                    }
+                    void this.handleTabClose(tab.id);
+                });
+                this.cleanupFunctions.push(cleanupMiddleClick);
 
                 const suppressContextMenu = (e) => e.preventDefault();
                 tabElement.addEventListener('contextmenu', suppressContextMenu);

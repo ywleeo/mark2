@@ -99,3 +99,78 @@ export function addClickHandler(element, handler, options = {}) {
         element.removeEventListener('click', onClick);
     };
 }
+
+/**
+ * 为元素添加防重复触发的鼠标中键处理。
+ * 同时监听 pointerup 与 auxclick，以兼容 WebKit/WebView2 的事件差异。
+ * @param {HTMLElement} element - 目标元素
+ * @param {Function} handler - 中键回调
+ * @param {Object} options - 配置选项
+ * @param {Function} options.shouldHandle - 可选，判断是否应该处理事件
+ * @param {Boolean} options.preventDefault - 可选，是否阻止默认行为（默认 true）
+ * @returns {Function|undefined} 清理函数
+ */
+export function addMiddleClickHandler(element, handler, options = {}) {
+    if (!element || typeof handler !== 'function') {
+        return undefined;
+    }
+
+    const state = { handled: false };
+    const { shouldHandle, preventDefault = true } = options;
+
+    /** 判断并消费一次有效的鼠标中键事件。 */
+    const handleEvent = (event) => {
+        if (!event || event.button !== 1) return false;
+        if (typeof shouldHandle === 'function' && !shouldHandle(event)) return false;
+        if (preventDefault) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        handler(event);
+        return true;
+    };
+
+    /** 在按下阶段阻止浏览器进入中键自动滚动模式。 */
+    const onPointerDown = (event) => {
+        if (event.pointerType !== 'mouse' || event.button !== 1) return;
+        if (typeof shouldHandle === 'function' && !shouldHandle(event)) return;
+        if (preventDefault) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
+
+    /** 优先在 pointerup 阶段处理，以获得与普通点击一致的即时反馈。 */
+    const onPointerUp = (event) => {
+        if (event.pointerType !== 'mouse' || event.button !== 1) return;
+        if (!handleEvent(event)) return;
+        state.handled = true;
+        setTimeout(() => {
+            state.handled = false;
+        }, 0);
+    };
+
+    /** auxclick 作为不派发 PointerEvent 的 WebView 兼容回退。 */
+    const onAuxClick = (event) => {
+        if (event.button !== 1) return;
+        if (state.handled) {
+            state.handled = false;
+            if (preventDefault) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            return;
+        }
+        handleEvent(event);
+    };
+
+    element.addEventListener('pointerdown', onPointerDown);
+    element.addEventListener('pointerup', onPointerUp);
+    element.addEventListener('auxclick', onAuxClick);
+
+    return () => {
+        element.removeEventListener('pointerdown', onPointerDown);
+        element.removeEventListener('pointerup', onPointerUp);
+        element.removeEventListener('auxclick', onAuxClick);
+    };
+}
