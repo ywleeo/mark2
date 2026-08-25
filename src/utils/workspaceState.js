@@ -323,11 +323,6 @@ export function normalizeWorkspaceState(candidate) {
     } else {
         normalized.currentFile = resolveCanonicalCurrentFile(candidate.currentFile, normalized.openFiles);
     }
-    if (normalized.currentFile
-        && normalized.layout.secondaryDocumentPath
-        && getPathIdentityKey(normalized.currentFile) === getPathIdentityKey(normalized.layout.secondaryDocumentPath)) {
-        normalized.layout = createDefaultPaneLayout();
-    }
     normalized.sidebar.expandedFolders = filterExpandedFoldersByRoots(
         normalized.sidebar.expandedFolders,
         normalized.sidebar.rootPaths

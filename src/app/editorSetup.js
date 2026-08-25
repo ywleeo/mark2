@@ -103,12 +103,14 @@ export function setupEditors({
     const editor = new MarkdownEditor(appState.getPaneElement('markdown'), editorCallbacks, {
         documentSessions,
         getCurrentFile: () => appState.getCurrentFile(),
+        documentChangeSource: 'pane:primary:markdown',
     });
     editorRegistry.register('markdown', editor);
 
     // 初始化代码编辑器
     const codeEditor = new CodeEditor(appState.getPaneElement('code'), editorCallbacks, {
         documentSessions,
+        documentChangeSource: 'pane:primary:code',
     });
     editorRegistry.register('code', codeEditor);
     codeEditor.applyPreferences?.(appState.getEditorSettings());

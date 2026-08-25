@@ -26,6 +26,8 @@ import { ImagePasteHandler } from './ImagePasteHandler.js';
 import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
 
+let markdownEditorInstanceSequence = 0;
+
 function extractCsvFromDoc(doc) {
     if (!doc) return null;
     let csv = null;
@@ -88,6 +90,8 @@ export class MarkdownEditor {
         this._lowlight = createConfiguredLowlight();
         this._currentDocument = null;
         this._docUnsub = null;
+        this._documentChangeSource = options.documentChangeSource
+            || `markdown-editor:${++markdownEditorInstanceSequence}`;
         this._documentSessions = options?.documentSessions ?? null;
         this._autoSaveDelayMs = options.autoSaveDelayMs;
         this._getDocumentFilePath = typeof options?.getCurrentFile === 'function'
@@ -142,7 +146,7 @@ export class MarkdownEditor {
                 if (transaction?.getMeta?.('addToHistory') === false) return;
                 this.contentLoader.contentChanged = true;
                 this._currentDocument?.applyEditorChange?.(this.contentLoader.getMarkdown(), {
-                    source: 'markdown-editor',
+                    source: this._documentChangeSource,
                 });
                 this.callbacks.onContentChange?.();
                 this.searchBoxManager?.handleContentMutated('markdown');
@@ -424,9 +428,10 @@ export class MarkdownEditor {
 
     _handleDocumentEvent(event) {
         if (!event || !this._currentDocument) return;
-        if (event.type === 'reload') {
-            const nextContent = this._currentDocument.getContent();
-            void this.contentLoader?.setContent?.(nextContent, false, { resetHistory: true });
+        if (event.type === 'content' && event.source !== this._documentChangeSource) {
+            void this._applyDocumentContentFromModel(event.revision, false);
+        } else if (event.type === 'reload') {
+            void this._applyDocumentContentFromModel(event.revision, true);
         } else if (event.type === 'dirty') {
             this.contentLoader.contentChanged = Boolean(event.dirty);
         } else if (event.type === 'saved') {
@@ -435,6 +440,32 @@ export class MarkdownEditor {
         } else if (event.type === 'rename') {
             this.renameDocumentPath(event.oldUri, event.newUri);
         }
+    }
+
+    /**
+     * 将共享 DocumentModel 的最新内容应用到当前 TipTap 视图。
+     * 同步事务不进入本地历史，也不会再次回写模型；revision 守卫防止异步收尾覆盖较新状态。
+     * @param {number} revision - 触发同步的模型版本。
+     * @param {boolean} resetHistory - 是否按磁盘重载语义重置选区。
+     * @returns {Promise<boolean>} 是否完成同步。
+     */
+    async _applyDocumentContentFromModel(revision, resetHistory) {
+        const doc = this._currentDocument;
+        const nextContent = doc?.getContent?.();
+        if (!doc || typeof nextContent !== 'string' || !this.contentLoader) {
+            return false;
+        }
+
+        const applied = await this.contentLoader.setContent(nextContent, false, { resetHistory });
+        if (!applied || this._currentDocument !== doc) {
+            return false;
+        }
+        if (Number.isFinite(revision) && doc.getRevision?.() !== revision) {
+            return this._applyDocumentContentFromModel(doc.getRevision(), resetHistory);
+        }
+        this.contentLoader.originalMarkdown = doc.getOriginalContent();
+        this.contentLoader.contentChanged = doc.dirty;
+        return true;
     }
     setContent(markdown, focus, opts)           {
         return this.contentLoader.setContent(markdown, focus, opts);

@@ -164,6 +164,7 @@ export class DocumentModel {
     beginSave(content = this._content) {
         const snapshotContent = typeof content === 'string' ? content : '';
         // 序列化可能只在保存时完成；更新快照内容但不把同一次编辑重复计为新 revision。
+        const contentChangedBySerialization = snapshotContent !== this._content;
         this._content = snapshotContent;
         const token = Object.freeze({
             id: ++this._saveCounter,
@@ -172,6 +173,14 @@ export class DocumentModel {
         });
         this._activeSave = token;
         this._lastError = null;
+        if (contentChangedBySerialization) {
+            // JSON 格式化、Markdown 尾部空行等保存期规范化也必须同步给所有绑定视图。
+            this._emit({
+                type: 'content',
+                source: 'save-snapshot',
+                revision: this._revision,
+            });
+        }
         this._setSaveState(DOCUMENT_SAVE_STATE.SAVING, { token });
         return token;
     }

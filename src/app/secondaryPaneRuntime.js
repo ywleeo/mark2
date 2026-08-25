@@ -156,12 +156,16 @@ export class SecondaryPaneRuntime {
             {
                 documentSessions: this.documentSessions,
                 getCurrentFile: () => this.loadingPath || this.currentPath,
+                documentChangeSource: 'pane:secondary:markdown',
             },
         );
         const codeEditor = new CodeEditor(
             this.paneElements.get('code'),
             callbacks,
-            { documentSessions: this.documentSessions },
+            {
+                documentSessions: this.documentSessions,
+                documentChangeSource: 'pane:secondary:code',
+            },
         );
         const imageViewer = new ImageViewer(this.paneElements.get('image'));
         const mediaViewer = new MediaViewer(this.paneElements.get('media'));
@@ -503,9 +507,6 @@ export class SecondaryPaneRuntime {
             return false;
         }
         this.initialize();
-        if (filePath === this.paneManager.getPrimaryPane().documentPath) {
-            return false;
-        }
 
         const previous = {
             path: this.currentPath,
@@ -583,10 +584,6 @@ export class SecondaryPaneRuntime {
                 this.loadingViewMode = null;
                 return false;
             }
-            if (filePath === this.paneManager.getPrimaryPane().documentPath) {
-                throw new Error('目标文档已在主栏打开，副栏加载事务已取消');
-            }
-
             this.detachInactiveEditors(targetViewMode);
             if (previous.path && previous.path !== filePath) {
                 this.registry.releaseDocument(previous.path, SECONDARY_DOCUMENT_OWNER);

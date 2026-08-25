@@ -161,6 +161,9 @@ export function createDocumentRegistry({
 
     async function getFileContent(filePath, options = {}) {
         const { skipCache = false } = options;
+        // 文本编辑器可能同时绑定同一个 DocumentModel。强制刷新和 mtime 变化时
+        // 必须原地 reload，不能替换对象，否则另一 Pane 会继续持有失联的旧模型。
+        let documentToReload = null;
 
         if (!skipCache) {
             const doc = documents.get(filePath);
@@ -171,17 +174,16 @@ export function createDocumentRegistry({
                     if (latest !== null) {
                         const cachedMt = doc.getModifiedTime();
                         if (!cachedMt || cachedMt !== latest) {
-                            removeDocumentModel(filePath);
+                            documentToReload = doc;
                         }
                     }
                 }
-                const stillThere = documents.get(filePath);
-                if (stillThere) {
+                if (!documentToReload) {
                     const defaultViewMode = getViewModeForPath(filePath);
-                    if (defaultViewMode === 'markdown' && stillThere.viewMode !== 'markdown') {
-                        stillThere.viewMode = 'markdown';
+                    if (defaultViewMode === 'markdown' && doc.viewMode !== 'markdown') {
+                        doc.viewMode = 'markdown';
                     }
-                    return snapshotFromDocument(stillThere);
+                    return snapshotFromDocument(doc);
                 }
             }
             const cached = nonTextCache.get(filePath);
@@ -193,7 +195,12 @@ export function createDocumentRegistry({
                 nonTextCache.delete(filePath);
             }
         } else {
-            removeDocumentModel(filePath);
+            const existingDocument = documents.get(filePath);
+            if (existingDocument && TEXT_VIEW_MODES.has(existingDocument.viewMode)) {
+                documentToReload = existingDocument;
+            } else {
+                removeDocumentModel(filePath);
+            }
             nonTextCache.delete(filePath);
         }
 
@@ -255,6 +262,11 @@ export function createDocumentRegistry({
 
             const content = await readText(filePath);
             const resolvedViewMode = TEXT_VIEW_MODES.has(viewMode) ? viewMode : 'code';
+            if (documentToReload) {
+                documentToReload.viewMode = resolvedViewMode;
+                documentToReload.reloadFromDisk(content, modifiedTime || 0);
+                return snapshotFromDocument(documentToReload);
+            }
             const doc = new DocumentModel({
                 uri: filePath,
                 viewMode: resolvedViewMode,

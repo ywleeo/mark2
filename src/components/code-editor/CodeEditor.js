@@ -1,5 +1,5 @@
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, rectangularSelection, crosshairCursor, drawSelection, Decoration } from '@codemirror/view';
-import { EditorState, EditorSelection, Compartment, StateField, StateEffect } from '@codemirror/state';
+import { EditorState, EditorSelection, Compartment, StateField, StateEffect, Transaction } from '@codemirror/state';
 import { defaultKeymap, indentWithTab, history, undo, redo, isolateHistory } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
 import { getAppServices } from '../../services/appServices.js';
@@ -22,6 +22,37 @@ import {
 } from './constants.js';
 
 const logger = createLogger('code-editor');
+let codeEditorInstanceSequence = 0;
+
+/**
+ * 计算把当前文本更新为目标文本所需的最小单段替换。
+ * CodeMirror 会据此映射光标与历史位置，避免整篇替换导致视图跳动。
+ * @param {string} current - 编辑器当前文本。
+ * @param {string} next - DocumentModel 最新文本。
+ * @returns {{from:number,to:number,insert:string}|null} CodeMirror changes 规格。
+ */
+function createMinimalTextChange(current, next) {
+    if (current === next) return null;
+    let prefixLength = 0;
+    const sharedLength = Math.min(current.length, next.length);
+    while (prefixLength < sharedLength && current[prefixLength] === next[prefixLength]) {
+        prefixLength += 1;
+    }
+
+    let currentSuffix = current.length;
+    let nextSuffix = next.length;
+    while (currentSuffix > prefixLength
+        && nextSuffix > prefixLength
+        && current[currentSuffix - 1] === next[nextSuffix - 1]) {
+        currentSuffix -= 1;
+        nextSuffix -= 1;
+    }
+    return {
+        from: prefixLength,
+        to: currentSuffix,
+        insert: next.slice(prefixLength, nextSuffix),
+    };
+}
 
 /**
  * 规范化表格中 <br> + 空行的模式，防止 markdown 表格断裂。
@@ -146,6 +177,8 @@ export class CodeEditor {
 
         this._currentDocument = null;
         this._docUnsub = null;
+        this._documentChangeSource = options.documentChangeSource
+            || `code-editor:${++codeEditorInstanceSequence}`;
 
         // 保存时自动格式化
         this.formatOnSave = options.formatOnSave ?? true;
@@ -293,7 +326,7 @@ export class CodeEditor {
                 const currentContent = update.state.doc.toString();
                 this.isDirty = currentContent !== this.baseContent;
                 this._currentDocument?.applyEditorChange?.(currentContent, {
-                    source: 'code-editor',
+                    source: this._documentChangeSource,
                 });
                 this.callbacks.onContentChange?.();
                 this.notifyContentMutation();
@@ -476,16 +509,10 @@ export class CodeEditor {
 
     _handleDocumentEvent(event) {
         if (!event || !this._currentDocument) return;
-        if (event.type === 'reload' && this.editor) {
-            const nextContent = this._currentDocument.getContent();
-            if (typeof nextContent !== 'string') return;
-            this.suppressChange = true;
-            this.editor.dispatch({
-                changes: { from: 0, to: this.editor.state.doc.length, insert: nextContent }
-            });
-            this.suppressChange = false;
-            this.baseContent = nextContent;
-            this.isDirty = false;
+        if (event.type === 'content' && event.source !== this._documentChangeSource) {
+            this._applyDocumentContentFromModel();
+        } else if (event.type === 'reload') {
+            this._applyDocumentContentFromModel();
         } else if (event.type === 'dirty') {
             this.isDirty = Boolean(event.dirty);
         } else if (event.type === 'saved') {
@@ -496,6 +523,35 @@ export class CodeEditor {
                 this.currentFile = event.newUri;
             }
         }
+    }
+
+    /**
+     * 将共享 DocumentModel 内容增量同步到 CodeMirror。
+     * 远端 Pane 的修改不进入当前 Pane 的撤销栈，也不会触发第二次自动保存。
+     * @returns {boolean} 是否更新了编辑器文本。
+     */
+    _applyDocumentContentFromModel() {
+        if (!this.editor || !this._currentDocument) return false;
+        const nextContent = this._currentDocument.getContent();
+        if (typeof nextContent !== 'string') return false;
+        const currentContent = this.editor.state.doc.toString();
+        const changes = createMinimalTextChange(currentContent, nextContent);
+        if (changes) {
+            this.suppressChange = true;
+            try {
+                this.editor.dispatch({
+                    changes,
+                    annotations: Transaction.addToHistory.of(false),
+                });
+            } finally {
+                this.suppressChange = false;
+            }
+            this.notifyContentMutation();
+        }
+        this.baseContent = this._currentDocument.getOriginalContent();
+        this.isDirty = this._currentDocument.dirty;
+        this.callbacks.onContentChange?.();
+        return Boolean(changes);
     }
 
     _applyThemeForLanguage(language) {

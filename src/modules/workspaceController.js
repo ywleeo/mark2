@@ -380,10 +380,9 @@ export function createWorkspaceController({
     /**
      * 校验工作区中持久化的副栏文档，缺失文件自动降级为单栏。
      * @param {Object|null} rawLayout - 原始布局快照。
-     * @param {string|null} primaryPath - 恢复后的主栏路径。
      * @returns {Promise<Object>} 可应用的布局快照。
      */
-    async function sanitizePaneLayout(rawLayout, primaryPath) {
+    async function sanitizePaneLayout(rawLayout) {
         const fallback = {
             mode: 'single',
             splitRatio: rawLayout?.splitRatio ?? 0.5,
@@ -395,9 +394,6 @@ export function createWorkspaceController({
         }
 
         const secondaryPath = rawLayout.secondaryDocumentPath;
-        if ((getPathIdentityKey(secondaryPath) ?? secondaryPath) === (getPathIdentityKey(primaryPath) ?? primaryPath)) {
-            return fallback;
-        }
         if (untitledFileManager.isUntitledPath(secondaryPath)) {
             return fallback;
         }
@@ -545,10 +541,7 @@ export function createWorkspaceController({
             targetFileToRestore = sanitizedSharedTabPath;
         }
 
-        const sanitizedLayout = await sanitizePaneLayout(
-            stored.layout,
-            targetFileToRestore,
-        );
+        const sanitizedLayout = await sanitizePaneLayout(stored.layout);
         paneManager?.restoreLayout?.(sanitizedLayout);
 
         if (targetFileToRestore) {

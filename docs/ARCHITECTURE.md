@@ -178,7 +178,7 @@ handleFileSelect
 - 对二进制文件维持轻量 cache
 - 保持原 fileSession 的 API 形状，调用方无需改动
 
-编辑器（`MarkdownEditor` / `CodeEditor`）通过 `attachDocument(doc)` 统一接入 DocumentModel，dirty 基线从 doc 读取，不再依赖外部拼装的 `fileData`。
+编辑器（`MarkdownEditor` / `CodeEditor`）通过 `attachDocument(doc)` 统一接入 DocumentModel，dirty 基线从 doc 读取，不再依赖外部拼装的 `fileData`。同一文档绑定多个编辑器时，每个实例使用独立的 change source：本地编辑先提交模型，其他实例消费 `content` 事件更新视图，且同步事务不进入接收方撤销栈、不重复触发自动保存。
 
 ### 2. WorkspaceManager
 
@@ -200,10 +200,10 @@ handleFileSelect
 - 副栏只分配一个对比文档，不复制标签栏和文件树
 - `focusedPaneId` 决定保存、撤销、重做、查找和工具栏的命令目标
 - `splitRatio` 限制为 25%–75%，并写入工作区快照
-- 同一文档不能同时占据主副栏；主栏接管副栏文档时自动关闭副栏
+- 同一文档允许同时占据主副栏，两边共享唯一 `DocumentModel`，但保留独立光标、选区、滚动位置和撤销栈
 - `untitled://` 临时文档不进入副栏，必须先在主栏保存为真实文件
 
-副栏由 `SecondaryPaneRuntime` 延迟创建独立的 `EditorRegistry`、编辑器/查看器实例与 `DocumentSessionManager`。两个 Runtime 可编辑不同文档；文本内容仍通过共享 `DocumentRegistry` 和 lease 引用协议管理，避免副栏释放时误清主栏缓存。
+副栏由 `SecondaryPaneRuntime` 延迟创建独立的 `EditorRegistry`、编辑器/查看器实例与 `DocumentSessionManager`。两个 Runtime 可编辑不同文档，也可编辑同一文档；文本内容通过共享 `DocumentRegistry` 和 lease 引用协议管理，避免副栏释放时误清主栏缓存。同路径保存、保存期格式化和外部文件刷新都在原 `DocumentModel` 上提交，保证两个视图持续绑定同一对象。
 
 副栏加载采用串行事务：读取和渲染期间只维护候选状态，最后一次请求才可以提交 `currentPath`、视图和 lease；失败时恢复上一份已提交文档。副栏文件监听同样使用 `ownerId` 租约，主栏标签和副栏可以共享同一个原生 watcher，只有最后一个 owner 释放后才真正停止监听。
 

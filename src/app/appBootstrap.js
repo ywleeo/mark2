@@ -324,10 +324,6 @@ export function createAppBootstrap({
                 );
                 return false;
             }
-            if (path === paneManager.getPrimaryPane().documentPath) {
-                paneManager.focusPane('primary');
-                return false;
-            }
             const previousPath = secondaryRuntime.getDocumentPath();
             if (previousPath && previousPath !== path
                 && !await resolveSecondaryDirtyDocument('切换')) {

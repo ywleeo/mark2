@@ -189,13 +189,6 @@ export function createPaneManager({ logger } = {}) {
             if (Object.prototype.hasOwnProperty.call(options, 'viewMode')) {
                 state.panes.primary.viewMode = options.viewMode || null;
             }
-            if (state.panes.primary.documentPath
-                && state.panes.primary.documentPath === state.panes.secondary.documentPath) {
-                state.mode = PANE_LAYOUT_MODES.SINGLE;
-                state.focusedPaneId = PANE_IDS.PRIMARY;
-                state.panes.secondary.documentPath = null;
-                state.panes.secondary.viewMode = null;
-            }
             return commit('primary-document', previous, {
                 paneId: PANE_IDS.PRIMARY,
                 documentPath: state.panes.primary.documentPath,
@@ -203,7 +196,7 @@ export function createPaneManager({ logger } = {}) {
         },
 
         /**
-         * 打开副栏并分配一个不同于主栏的文档。
+         * 打开副栏并分配文档；主副栏可共享同一路径的 DocumentModel。
          * @param {string} documentPath - 副栏文档路径。
          * @param {{viewMode?:string|null,focus?:boolean}} options - 打开选项。
          * @returns {{opened:boolean,reason?:string}} 打开结果。
@@ -213,10 +206,6 @@ export function createPaneManager({ logger } = {}) {
             if (!normalizedPath) {
                 return { opened: false, reason: 'invalid-path' };
             }
-            if (normalizedPath === state.panes.primary.documentPath) {
-                return { opened: false, reason: 'already-open-in-primary' };
-            }
-
             const previous = createSnapshot(state);
             state.mode = PANE_LAYOUT_MODES.DUAL;
             state.panes.secondary.documentPath = normalizedPath;
@@ -299,8 +288,7 @@ export function createPaneManager({ logger } = {}) {
             const previous = createSnapshot(state);
             const secondaryPath = normalizeDocumentPath(layout?.secondaryDocumentPath);
             const canRestoreDual = layout?.mode === PANE_LAYOUT_MODES.DUAL
-                && secondaryPath
-                && secondaryPath !== state.panes.primary.documentPath;
+                && secondaryPath;
 
             state.splitRatio = normalizeSplitRatio(layout?.splitRatio);
             state.focusedPaneId = PANE_IDS.PRIMARY;
