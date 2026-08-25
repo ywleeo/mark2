@@ -170,6 +170,9 @@
   "sidebar.folders": "資料夾",
   "sidebar.openFile": "開啟檔案",
   "sidebar.openFolder": "開啟資料夾",
+  "sidebar.openClipboardFolderTitle": "開啟資料夾",
+  "sidebar.openClipboardFolderConfirm": "是否開啟以下路徑？\n{path}",
+  "sidebar.openClipboardFolderOk": "開啟",
 
   "tab.newTab": "新增分頁",
 

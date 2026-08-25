@@ -8,6 +8,7 @@
     overflow: visible;
     user-select: none;
     -webkit-user-select: none;
+    outline: none;
 }
 
 /* 区域容器 */

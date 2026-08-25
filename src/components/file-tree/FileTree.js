@@ -147,14 +147,7 @@ export class FileTree {
 
         this.externalDropHandler = new ExternalDropHandler({
             container: this.container,
-            openPathsFromSelection: (paths, options = {}) => {
-                const opener = getExternalDropOpener();
-                if (!opener) {
-                    console.warn('[FileTree] openPathsFromSelection 未注入，无法处理外部拖拽');
-                    return;
-                }
-                return opener(paths, options);
-            },
+            openPathsFromSelection: (paths, options = {}) => this.openPathsFromSelection(paths, options),
             ensureSecurityScope: (path) => this.ensureSecurityScope(path),
         });
 
@@ -224,6 +217,22 @@ export class FileTree {
         } catch (error) {
             console.warn('[fileTree] 捕获安全权限失败', error);
         }
+    }
+
+    /**
+     * 通过应用级路径入口打开外部文件或文件夹。
+     * 拖放和文件树空白区粘贴共用此通道，避免各自复制工作区加载逻辑。
+     * @param {Array<string|Object>} paths - 外部选择项。
+     * @param {Object} options - 打开来源等附加信息。
+     * @returns {Promise<unknown>|undefined} 打开操作结果。
+     */
+    openPathsFromSelection(paths, options = {}) {
+        const opener = getExternalDropOpener();
+        if (!opener) {
+            console.warn('[FileTree] openPathsFromSelection 未注入，无法处理外部路径');
+            return undefined;
+        }
+        return opener(paths, options);
     }
 
     normalizePath(path) {

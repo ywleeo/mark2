@@ -122,10 +122,10 @@ pub fn read_binary_base64(path: String) -> Result<String, String> {
 #[cfg(target_os = "macos")]
 #[tauri::command]
 pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
+    use crate::macos_security::nsstring_to_string;
     use objc2::rc::autoreleasepool;
     use objc2::ClassType;
     use objc2_foundation::NSArray;
-    use crate::macos_security::nsstring_to_string;
 
     unsafe {
         autoreleasepool(|_| {
@@ -159,10 +159,76 @@ pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 #[tauri::command]
 pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
-    Err("此功能仅在 macOS 上可用".to_string())
+    use std::os::windows::ffi::OsStringExt;
+    use std::ptr::null_mut;
+    use std::thread;
+    use std::time::Duration;
+    use windows_sys::Win32::System::DataExchange::{
+        CloseClipboard, GetClipboardData, OpenClipboard,
+    };
+    use windows_sys::Win32::System::Ole::CF_HDROP;
+    use windows_sys::Win32::UI::Shell::DragQueryFileW;
+
+    /** 确保所有退出路径都会归还系统剪贴板锁。 */
+    struct ClipboardGuard;
+    impl Drop for ClipboardGuard {
+        fn drop(&mut self) {
+            unsafe {
+                CloseClipboard();
+            }
+        }
+    }
+
+    unsafe {
+        // Explorer 或其他程序可能短暂持有剪贴板，做有限重试避免偶发粘贴失败。
+        let mut opened = false;
+        for _ in 0..5 {
+            if OpenClipboard(null_mut()) != 0 {
+                opened = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        if !opened {
+            return Err("无法读取系统剪贴板".to_string());
+        }
+        let _guard = ClipboardGuard;
+
+        let drop_handle = GetClipboardData(CF_HDROP as u32);
+        if drop_handle.is_null() {
+            return Ok(Vec::new());
+        }
+
+        let file_count = DragQueryFileW(drop_handle, u32::MAX, null_mut(), 0);
+        let mut file_paths = Vec::with_capacity(file_count as usize);
+        for index in 0..file_count {
+            let path_length = DragQueryFileW(drop_handle, index, null_mut(), 0);
+            if path_length == 0 {
+                continue;
+            }
+            let mut buffer = vec![0u16; path_length as usize + 1];
+            let written =
+                DragQueryFileW(drop_handle, index, buffer.as_mut_ptr(), buffer.len() as u32);
+            if written == 0 {
+                continue;
+            }
+            file_paths.push(
+                std::ffi::OsString::from_wide(&buffer[..written as usize])
+                    .to_string_lossy()
+                    .into_owned(),
+            );
+        }
+        Ok(file_paths)
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[tauri::command]
+pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
+    Ok(Vec::new())
 }
 
 #[tauri::command]

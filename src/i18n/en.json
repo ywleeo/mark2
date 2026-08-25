@@ -171,6 +171,9 @@
     "sidebar.folders": "FOLDERS",
     "sidebar.openFile": "Open File",
     "sidebar.openFolder": "Open Folder",
+    "sidebar.openClipboardFolderTitle": "Open Folder",
+    "sidebar.openClipboardFolderConfirm": "Open the following path?\n{path}",
+    "sidebar.openClipboardFolderOk": "Open",
 
     "tab.newTab": "New Tab",
 

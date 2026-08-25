@@ -171,6 +171,9 @@
     "sidebar.folders": "文件夹",
     "sidebar.openFile": "打开文件",
     "sidebar.openFolder": "打开文件夹",
+    "sidebar.openClipboardFolderTitle": "打开文件夹",
+    "sidebar.openClipboardFolderConfirm": "是否打开以下路径？\n{path}",
+    "sidebar.openClipboardFolderOk": "打开",
 
     "tab.newTab": "新建标签页",
 

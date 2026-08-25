@@ -1,5 +1,7 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { isInternalDrag } from '../../utils/dragState.js';
+import { readClipboardFilePaths } from '../../api/clipboard.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * FileTree 的事件处理模块
@@ -15,6 +17,13 @@ export class FileTreeEvents {
         this._onTreeDrop = null;
         this._onTreeDragEnter = null;
         this._onMouseMoveDuringDrag = null;
+        this._onTreeKeyDown = null;
+        this._onTreePaste = null;
+        this._onTreeBlur = null;
+        this._onDocumentPointerDown = null;
+        this._blankAreaClickCleanup = null;
+        this._blankAreaPasteArmed = false;
+        this._clipboardPastePending = false;
         this._sectionCleanupFunctions = [];
     }
 
@@ -24,6 +33,134 @@ export class FileTreeEvents {
     setupEventListeners() {
         this.setupSectionToggles();
         this.setupDragAndDrop();
+        this.setupBlankAreaPaste();
+    }
+
+    /**
+     * 判断点击目标是否属于文件树的非交互空白区域。
+     * @param {EventTarget|null} target - 原始点击目标。
+     * @returns {boolean} 是否允许把后续粘贴解释为打开路径。
+     */
+    isBlankTreeArea(target) {
+        if (!(target instanceof Element) || !this.fileTree.container.contains(target)) {
+            return false;
+        }
+        return !target.closest([
+            '.tree-file',
+            '.tree-folder-header',
+            '.open-file-item',
+            '.section-header',
+            'button',
+            'input',
+            'textarea',
+            '[contenteditable="true"]',
+        ].join(','));
+    }
+
+    /**
+     * 让文件树空白处成为显式粘贴目标，避免抢占编辑器和重命名输入框的 Cmd/Ctrl+V。
+     */
+    setupBlankAreaPaste() {
+        const container = this.fileTree.container;
+        container.tabIndex = -1;
+        this._blankAreaClickCleanup = addClickHandler(container, (event) => {
+            const isBlankArea = this.isBlankTreeArea(event.target);
+            this._blankAreaPasteArmed = isBlankArea;
+            if (isBlankArea) {
+                container.focus({ preventScroll: true });
+            }
+        }, { preventDefault: false });
+
+        this._onTreeKeyDown = (event) => {
+            const isPasteShortcut = (event.metaKey || event.ctrlKey)
+                && !event.altKey
+                && event.key?.toLowerCase() === 'v';
+            if (!isPasteShortcut || !this._blankAreaPasteArmed) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            if (this._clipboardPastePending) return;
+            void this.handleBlankAreaPaste();
+        };
+        // macOS 原生 Paste 菜单可能直接派发 paste 而不经过 DOM keydown，需保留同一入口。
+        this._onTreePaste = (event) => {
+            if (!this._blankAreaPasteArmed) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (this._clipboardPastePending) return;
+            void this.handleBlankAreaPaste();
+        };
+        this._onTreeBlur = () => {
+            this._blankAreaPasteArmed = false;
+        };
+        // 子节点的 addClickHandler 可能阻止冒泡且保留容器焦点，捕获阶段负责可靠解除粘贴目标。
+        this._onDocumentPointerDown = (event) => {
+            if (!this.isBlankTreeArea(event.target)) {
+                this._blankAreaPasteArmed = false;
+            }
+        };
+        container.addEventListener('keydown', this._onTreeKeyDown);
+        container.addEventListener('paste', this._onTreePaste);
+        container.addEventListener('blur', this._onTreeBlur);
+        document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
+    }
+
+    /**
+     * 读取剪贴板中的文件夹，确认后通过现有工作区入口打开。
+     * 文件路径会被忽略，本交互仅承担“复制文件夹后打开路径”的职责。
+     * @returns {Promise<boolean>} 是否确认并发起了打开操作。
+     */
+    async handleBlankAreaPaste() {
+        this._clipboardPastePending = true;
+        try {
+            const clipboardPaths = await readClipboardFilePaths();
+            const uniquePaths = Array.from(new Set(
+                clipboardPaths
+                    .map(path => this.fileTree.normalizePath(path))
+                    .filter(Boolean),
+            ));
+            if (uniquePaths.length === 0) return false;
+
+            const fileService = this.fileTree.ensureFileService();
+            const folderPaths = [];
+            for (const path of uniquePaths) {
+                try {
+                    if (await fileService.isDirectory(path)) {
+                        folderPaths.push(path);
+                    }
+                } catch (error) {
+                    console.warn('[FileTree] 跳过无法访问的剪贴板路径', { path, error });
+                }
+            }
+            if (folderPaths.length === 0) return false;
+
+            const { confirm } = await import('@tauri-apps/plugin-dialog');
+            const pathSummary = folderPaths.length === 1
+                ? folderPaths[0]
+                : folderPaths.map(path => `• ${path}`).join('\n');
+            const shouldOpen = await confirm(
+                t('sidebar.openClipboardFolderConfirm', { path: pathSummary }),
+                {
+                    title: t('sidebar.openClipboardFolderTitle'),
+                    kind: 'info',
+                    okLabel: t('sidebar.openClipboardFolderOk'),
+                    cancelLabel: t('common.cancel'),
+                },
+            );
+            if (!shouldOpen) return false;
+
+            for (const path of folderPaths) {
+                await this.fileTree.ensureSecurityScope(path);
+            }
+            await this.fileTree.openPathsFromSelection(folderPaths, { source: 'clipboard' });
+            return true;
+        } catch (error) {
+            console.warn('[FileTree] 从剪贴板打开文件夹失败', error);
+            return false;
+        } finally {
+            this._clipboardPastePending = false;
+        }
     }
 
     /**
@@ -199,6 +336,19 @@ export class FileTreeEvents {
         if (this._onMouseMoveDuringDrag) {
             window.removeEventListener('mousemove', this._onMouseMoveDuringDrag);
         }
+        if (this._onTreeKeyDown) {
+            this.fileTree.container.removeEventListener('keydown', this._onTreeKeyDown);
+        }
+        if (this._onTreePaste) {
+            this.fileTree.container.removeEventListener('paste', this._onTreePaste);
+        }
+        if (this._onTreeBlur) {
+            this.fileTree.container.removeEventListener('blur', this._onTreeBlur);
+        }
+        if (this._onDocumentPointerDown) {
+            document.removeEventListener('pointerdown', this._onDocumentPointerDown, true);
+        }
+        this._blankAreaClickCleanup?.();
 
         // 清空引用
         this._onTreeDragOver = null;
@@ -206,6 +356,13 @@ export class FileTreeEvents {
         this._onTreeDrop = null;
         this._onTreeDragEnter = null;
         this._onMouseMoveDuringDrag = null;
+        this._onTreeKeyDown = null;
+        this._onTreePaste = null;
+        this._onTreeBlur = null;
+        this._onDocumentPointerDown = null;
+        this._blankAreaClickCleanup = null;
+        this._blankAreaPasteArmed = false;
+        this._clipboardPastePending = false;
 
     }
 }
