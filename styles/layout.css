@@ -544,20 +544,13 @@ body.is-dual-pane .pane-header--secondary {
 }
 
 .tab.is-dragging {
-    opacity: 0.95;
+    opacity: 1;
     cursor: grabbing;
     z-index: 3;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.tab-placeholder {
-    margin-top: 0;
-    flex: 0 0 var(--tab-placeholder-width, 8px);
-    height: calc(100% - 1px);
-    border: 1px dashed var(--tab-border-color, #ddd);
-    border-radius: 7px;
-    background: transparent;
-    pointer-events: none;
+    color: var(--tab-active-text-color, rgba(21, 23, 26, 0.95));
+    background:
+        linear-gradient(var(--tab-active-bg), var(--tab-active-bg)),
+        var(--sidebar-bg, #f5f6f8);
 }
 
 .tab-rename-input {

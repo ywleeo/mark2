@@ -3,6 +3,9 @@ import { basename } from '../utils/pathUtils.js';
 import { t } from '../i18n/index.js';
 
 const TAB_DRAG_ACTIVATION_THRESHOLD = 4;
+const TAB_SHIFT_ANIMATION_MS = 140;
+const TAB_AUTO_SCROLL_EDGE = 40;
+const TAB_AUTO_SCROLL_MAX_SPEED = 14;
 
 export class TabManager {
     constructor(containerElement, callbacks = {}) {
@@ -12,6 +15,7 @@ export class TabManager {
         this.sharedTabId = 'shared-preview';
         this.sharedTab = null;
         this.fileTabs = [];
+        this.visibleTabOrder = [];
         this.activeTabId = null;
         this.documentManager = null;
         this._dmUnsub = null;
@@ -22,17 +26,22 @@ export class TabManager {
         this.pointerDragState = null;
         this.pendingDragCandidate = null;
         this.isDraggingTabs = false;
+        this.tabShiftAnimations = new Map();
+        this.dragAutoScrollFrame = null;
         this.dragReleaseSuppressedUntil = 0;
         this.handleGlobalPointerMove = this.handleGlobalPointerMove.bind(this);
         this.handleGlobalPointerUp = this.handleGlobalPointerUp.bind(this);
+        this.handleGlobalKeyDown = this.handleGlobalKeyDown.bind(this);
         if (typeof window !== 'undefined') {
             window.addEventListener('pointermove', this.handleGlobalPointerMove);
             window.addEventListener('pointerup', this.handleGlobalPointerUp);
             window.addEventListener('pointercancel', this.handleGlobalPointerUp);
+            window.addEventListener('keydown', this.handleGlobalKeyDown);
             this.persistentCleanups.push(() => {
                 window.removeEventListener('pointermove', this.handleGlobalPointerMove);
                 window.removeEventListener('pointerup', this.handleGlobalPointerUp);
                 window.removeEventListener('pointercancel', this.handleGlobalPointerUp);
+                window.removeEventListener('keydown', this.handleGlobalKeyDown);
             });
         }
         this.render();
@@ -83,11 +92,66 @@ export class TabManager {
     }
 
     getAllTabs() {
-        const tabs = [];
+        const tabsById = new Map(this.fileTabs.map(tab => [tab.id, tab]));
         if (this.sharedTab) {
-            tabs.push(this.sharedTab);
+            tabsById.set(this.sharedTabId, this.sharedTab);
         }
-        return tabs.concat(this.fileTabs);
+
+        const orderedTabs = [];
+        const addedIds = new Set();
+        this.visibleTabOrder.forEach((tabId) => {
+            const tab = tabsById.get(tabId);
+            if (!tab || addedIds.has(tabId)) return;
+            orderedTabs.push(tab);
+            addedIds.add(tabId);
+        });
+        tabsById.forEach((tab, tabId) => {
+            if (addedIds.has(tabId)) return;
+            orderedTabs.push(tab);
+        });
+        return orderedTabs;
+    }
+
+    /**
+     * 将 DocumentManager 的固定 tab 顺序合并到当前可见顺序，并保留临时预览 tab 的插入位置。
+     * 新出现的 tab 一律追加到末尾；固定 tab 的相对顺序始终以 DocumentManager 为准。
+     */
+    reconcileVisibleTabOrder() {
+        const fileIds = this.fileTabs.map(tab => tab.id);
+        const availableIds = new Set(fileIds);
+        if (this.sharedTab) {
+            availableIds.add(this.sharedTabId);
+        }
+
+        const nextOrder = [];
+        const seen = new Set();
+        this.visibleTabOrder.forEach((tabId) => {
+            if (!availableIds.has(tabId) || seen.has(tabId)) return;
+            nextOrder.push(tabId);
+            seen.add(tabId);
+        });
+        fileIds.forEach((tabId) => {
+            if (seen.has(tabId)) return;
+            nextOrder.push(tabId);
+            seen.add(tabId);
+        });
+        if (this.sharedTab && !seen.has(this.sharedTabId)) {
+            nextOrder.push(this.sharedTabId);
+        }
+
+        if (this.sharedTab) {
+            const fileIterator = fileIds[Symbol.iterator]();
+            this.visibleTabOrder = nextOrder.map((tabId) => {
+                if (tabId === this.sharedTabId) return tabId;
+                return fileIterator.next().value;
+            }).filter(Boolean);
+            for (const remainingFileId of fileIterator) {
+                this.visibleTabOrder.push(remainingFileId);
+            }
+            return;
+        }
+
+        this.visibleTabOrder = fileIds;
     }
 
     /**
@@ -113,6 +177,11 @@ export class TabManager {
         if (!event || !event.type) return;
         const relevant = ['open', 'close', 'activate', 'rename', 'reorder', 'update', 'dirty'];
         if (!relevant.includes(event.type)) return;
+        if (event.type === 'rename' && event.oldPath && event.newPath) {
+            this.visibleTabOrder = this.visibleTabOrder.map((tabId) => (
+                tabId === event.oldPath ? event.newPath : tabId
+            ));
+        }
         // 同步重建，避免调用方读 fileTabs 时看到过期状态（microtask 延迟会出问题）
         this._rebuildFromDocumentManager();
     }
@@ -138,8 +207,13 @@ export class TabManager {
         });
 
         if (this.sharedTab && openDocs.some(d => d.path === this.sharedTab.path)) {
+            this.visibleTabOrder = this.visibleTabOrder.map((tabId) => (
+                tabId === this.sharedTabId ? this.sharedTab.path : tabId
+            ));
             this.sharedTab = null;
         }
+
+        this.reconcileVisibleTabOrder();
 
         if (this.sharedTab) {
             const sharedDoc = dm.getDocumentByPath?.(this.sharedTab.path);
@@ -184,6 +258,9 @@ export class TabManager {
             path,
             label: fileName,
         };
+        // 每次从 Tree 打开新的预览文件，都把复用的预览 tab 移到可见顺序末尾。
+        this.visibleTabOrder = this.visibleTabOrder.filter(tabId => tabId !== this.sharedTabId);
+        this.visibleTabOrder.push(this.sharedTabId);
         this.setActiveTab(this.sharedTabId, { silent: true });
         this.render();
     }
@@ -200,6 +277,7 @@ export class TabManager {
         }
         const removedSharedTab = this.sharedTab;
         this.sharedTab = null;
+        this.visibleTabOrder = this.visibleTabOrder.filter(tabId => tabId !== this.sharedTabId);
         if (this.activeTabId === this.sharedTabId) {
             this.activeTabId = nextActiveTabId;
         }
@@ -329,6 +407,7 @@ export class TabManager {
                 child.remove();
             }
         });
+        this.reconcileVisibleTabOrder();
         const tabs = this.getAllTabs();
 
         tabs.forEach(tab => {
@@ -464,9 +543,7 @@ export class TabManager {
                     tabElement.removeEventListener('contextmenu', suppressContextMenu);
                 });
 
-                if (tab.type === 'file') {
-                    this.enableTabDragging(tabElement, tab);
-                }
+                this.enableTabDragging(tabElement, tab);
             }
 
             this.container.appendChild(tabElement);
@@ -561,62 +638,202 @@ export class TabManager {
         });
     }
 
-    createDragPlaceholder(tabElement) {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'tab-placeholder';
-        const width = Math.max(4, Math.min((tabElement.offsetWidth || 80) * 0.25, 12));
-        placeholder.style.setProperty('--tab-placeholder-width', `${width}px`);
-        placeholder.style.height = `${tabElement.offsetHeight}px`;
-        placeholder.dataset.tabPlaceholder = 'true';
-        return placeholder;
+    /** 返回当前 tab 列表中的真实 tab 元素，不包含新建按钮等辅助节点。 */
+    getRenderedTabElements() {
+        if (!this.container) return [];
+        return Array.from(this.container.children).filter(element => (
+            element?.classList?.contains('tab')
+        ));
     }
 
-    movePlaceholderToIndex(index) {
-        const state = this.pointerDragState;
-        if (!state || !state.placeholderElement || !this.container) {
-            return;
-        }
-
-        const { placeholderElement, tabId } = state;
-        const siblings = Array.from(
-            this.container.querySelectorAll('.tab[data-tab-type="file"]')
-        ).filter(element => element.dataset.tabId !== tabId);
-
-        const safeIndex = Math.max(0, Math.min(index, siblings.length));
-        const referenceNode = siblings[safeIndex] || null;
-
-        if (referenceNode) {
-            this.container.insertBefore(placeholderElement, referenceNode);
-        } else {
-            this.container.appendChild(placeholderElement);
-        }
+    /** 返回当前 DOM 中的 tab 可见顺序。 */
+    getRenderedTabOrder() {
+        return this.getRenderedTabElements()
+            .map(element => element.dataset.tabId)
+            .filter(Boolean);
     }
 
-    restoreDraggedTabPosition(state) {
-        if (!state || !state.placeholderElement || !state.tabElement) {
-            return;
-        }
-
-        const { placeholderElement, tabElement } = state;
-        if (placeholderElement.parentNode) {
-            placeholderElement.parentNode.insertBefore(tabElement, placeholderElement);
-            placeholderElement.parentNode.removeChild(placeholderElement);
-        }
+    /**
+     * 按指定顺序重排现有 tab DOM，不触发完整 render。
+     * @param {string[]} order - tab id 顺序
+     */
+    applyRenderedTabOrder(order = []) {
+        if (!this.container) return;
+        const elementsById = new Map(
+            this.getRenderedTabElements().map(element => [element.dataset.tabId, element]),
+        );
+        order.forEach((tabId) => {
+            const element = elementsById.get(tabId);
+            if (!element) return;
+            this.container.appendChild(element);
+            elementsById.delete(tabId);
+        });
+        elementsById.forEach(element => this.container.appendChild(element));
     }
 
+    /** 捕获非拖动 tab 的屏幕位置，供 FLIP 动画计算使用。 */
+    captureTabRects(excludeElement = null) {
+        const rects = new Map();
+        this.getRenderedTabElements().forEach((element) => {
+            if (element === excludeElement) return;
+            rects.set(element, element.getBoundingClientRect());
+        });
+        return rects;
+    }
+
+    /** 取消尚未完成的 tab 让位动画。 */
+    cancelTabShiftAnimations() {
+        this.tabShiftAnimations.forEach((animation) => {
+            try { animation.cancel(); } catch {}
+        });
+        this.tabShiftAnimations.clear();
+    }
+
+    /**
+     * 使用 FLIP 动画让被挤开的 tab 平滑移动到新位置。
+     * @param {Map<HTMLElement, DOMRect>} previousRects - DOM 调整前的位置
+     * @param {HTMLElement} draggedElement - 正在拖动的真实 tab
+     */
+    animateTabReflow(previousRects, draggedElement) {
+        this.getRenderedTabElements().forEach((element) => {
+            if (element === draggedElement) return;
+            const previousRect = previousRects.get(element);
+            if (!previousRect) return;
+            const nextRect = element.getBoundingClientRect();
+            const deltaX = previousRect.left - nextRect.left;
+            if (Math.abs(deltaX) < 0.5 || typeof element.animate !== 'function') return;
+
+            const animation = element.animate([
+                { transform: `translateX(${deltaX}px)` },
+                { transform: 'translateX(0)' },
+            ], {
+                duration: TAB_SHIFT_ANIMATION_MS,
+                easing: 'cubic-bezier(0.2, 0, 0, 1)',
+            });
+            this.tabShiftAnimations.set(element, animation);
+            animation.addEventListener('finish', () => {
+                if (this.tabShiftAnimations.get(element) === animation) {
+                    this.tabShiftAnimations.delete(element);
+                }
+            }, { once: true });
+            animation.addEventListener('cancel', () => {
+                if (this.tabShiftAnimations.get(element) === animation) {
+                    this.tabShiftAnimations.delete(element);
+                }
+            }, { once: true });
+        });
+    }
+
+    /** 清理真实拖动 tab 上的临时视觉状态。 */
     resetDraggedTabStyles(tabElement) {
-        if (!tabElement) {
-            return;
-        }
+        if (!tabElement) return;
         tabElement.style.transition = '';
         tabElement.style.transform = '';
-        tabElement.style.position = '';
-        tabElement.style.left = '';
-        tabElement.style.top = '';
-        tabElement.style.width = '';
-        tabElement.style.height = '';
         tabElement.style.pointerEvents = '';
         tabElement.style.zIndex = '';
+        tabElement.style.willChange = '';
+    }
+
+    /**
+     * 更新真实 tab 的拖动位移，使其视觉位置始终跟随鼠标。
+     * @param {number} clientX - 当前鼠标横坐标
+     */
+    updateDraggedTabTransform(clientX) {
+        const state = this.pointerDragState;
+        if (!state?.tabElement) return;
+        const currentRect = state.tabElement.getBoundingClientRect();
+        const layoutLeft = currentRect.left - state.translateX;
+        const desiredLeft = state.originVisualLeft + (clientX - state.startClientX);
+        state.translateX = desiredLeft - layoutLeft;
+        state.tabElement.style.transform = `translateX(${state.translateX}px)`;
+    }
+
+    /**
+     * 把正在拖动的真实 tab 移到目标索引，并驱动其他 tab 让位动画。
+     * @param {number} rawIndex - 排除拖动 tab 后的插入索引
+     * @returns {boolean} DOM 顺序是否发生变化
+     */
+    moveDraggedTabToIndex(rawIndex) {
+        const state = this.pointerDragState;
+        if (!state?.tabElement || !this.container) return false;
+
+        const siblings = this.getRenderedTabElements().filter(element => element !== state.tabElement);
+        const safeIndex = Math.max(0, Math.min(rawIndex, siblings.length));
+        const currentOrder = this.getRenderedTabOrder();
+        const desiredOrder = siblings.map(element => element.dataset.tabId);
+        desiredOrder.splice(safeIndex, 0, state.tabId);
+        if (currentOrder.length === desiredOrder.length
+            && currentOrder.every((tabId, index) => tabId === desiredOrder[index])) {
+            return false;
+        }
+
+        const previousRects = this.captureTabRects(state.tabElement);
+        this.cancelTabShiftAnimations();
+        const referenceElement = siblings[safeIndex] || null;
+        this.container.insertBefore(state.tabElement, referenceElement);
+        this.visibleTabOrder = this.getRenderedTabOrder();
+        this.animateTabReflow(previousRects, state.tabElement);
+        return true;
+    }
+
+    /** 根据鼠标位置更新拖动 tab 和实时插入位置。 */
+    updatePointerDragPosition(clientX) {
+        const state = this.pointerDragState;
+        if (!state) return;
+        state.lastClientX = clientX;
+        this.updateDraggedTabTransform(clientX);
+        const target = this.calculateDropTarget(clientX, { excludeTabId: state.tabId });
+        if (target && typeof target.index === 'number') {
+            const moved = this.moveDraggedTabToIndex(target.index);
+            if (moved) this.updateDraggedTabTransform(clientX);
+        }
+    }
+
+    /** 停止拖拽期间的边缘自动滚动。 */
+    stopDragAutoScroll() {
+        if (this.pointerDragState) {
+            this.pointerDragState.autoScrollVelocity = 0;
+        }
+        if (this.dragAutoScrollFrame !== null && typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this.dragAutoScrollFrame);
+        }
+        this.dragAutoScrollFrame = null;
+    }
+
+    /**
+     * 鼠标靠近滚动列表边缘时持续滚动，并重新计算实时插入位置。
+     * @param {number} clientX - 当前鼠标横坐标
+     */
+    updateDragAutoScroll(clientX) {
+        const state = this.pointerDragState;
+        if (!state || !this.container || typeof requestAnimationFrame !== 'function') return;
+        const rect = this.container.getBoundingClientRect();
+        let velocity = 0;
+        if (clientX < rect.left + TAB_AUTO_SCROLL_EDGE) {
+            const ratio = Math.min(1, (rect.left + TAB_AUTO_SCROLL_EDGE - clientX) / TAB_AUTO_SCROLL_EDGE);
+            velocity = -TAB_AUTO_SCROLL_MAX_SPEED * ratio;
+        } else if (clientX > rect.right - TAB_AUTO_SCROLL_EDGE) {
+            const ratio = Math.min(1, (clientX - (rect.right - TAB_AUTO_SCROLL_EDGE)) / TAB_AUTO_SCROLL_EDGE);
+            velocity = TAB_AUTO_SCROLL_MAX_SPEED * ratio;
+        }
+        state.autoScrollVelocity = velocity;
+        if (velocity === 0 || this.dragAutoScrollFrame !== null) return;
+
+        const tick = () => {
+            this.dragAutoScrollFrame = null;
+            const activeState = this.pointerDragState;
+            if (!activeState || !this.container || activeState.autoScrollVelocity === 0) return;
+            const previousScrollLeft = this.container.scrollLeft;
+            this.container.scrollLeft += activeState.autoScrollVelocity;
+            if (this.container.scrollLeft !== previousScrollLeft) {
+                this.updatePointerDragPosition(activeState.lastClientX);
+            } else {
+                activeState.autoScrollVelocity = 0;
+                return;
+            }
+            this.dragAutoScrollFrame = requestAnimationFrame(tick);
+        };
+        this.dragAutoScrollFrame = requestAnimationFrame(tick);
     }
 
     startPointerDrag(tabId, tabElement, event, options = {}) {
@@ -629,17 +846,9 @@ export class TabManager {
         }
 
         const pointerId = event.pointerId;
-        const originIndex = this.fileTabs.findIndex(item => item.id === tabId);
-        if (originIndex === -1) {
+        if (!this.getAllTabs().some(item => item.id === tabId)) {
             return;
         }
-
-        const placeholder = this.createDragPlaceholder(tabElement);
-        if (tabElement.parentNode) {
-            tabElement.parentNode.insertBefore(placeholder, tabElement);
-        }
-
-        const rootRect = this.root.getBoundingClientRect();
         const tabRect = tabElement.getBoundingClientRect();
         const startClientX = typeof options.startClientX === 'number'
             ? options.startClientX
@@ -648,12 +857,14 @@ export class TabManager {
         this.pointerDragState = {
             tabId,
             pointerId,
-            originIndex,
-            pendingIndex: originIndex,
             tabElement,
-            placeholderElement: placeholder,
             startClientX,
             lastClientX: event.clientX,
+            originVisualLeft: tabRect.left,
+            translateX: 0,
+            autoScrollVelocity: 0,
+            originOrder: this.getRenderedTabOrder(),
+            originVisibleTabOrder: this.visibleTabOrder.slice(),
         };
 
         this.isDraggingTabs = true;
@@ -670,17 +881,10 @@ export class TabManager {
         tabElement.style.transition = 'none';
         tabElement.style.pointerEvents = 'none';
         tabElement.style.zIndex = '3';
-        tabElement.style.position = 'absolute';
-        tabElement.style.left = `${tabRect.left - rootRect.left}px`;
-        tabElement.style.top = `${tabRect.top - rootRect.top}px`;
-        tabElement.style.width = `${tabRect.width}px`;
-        tabElement.style.height = `${tabRect.height}px`;
-        // 将拖动视觉提升到不滚动的 tab bar，避免列表收缩导致 scrollLeft 回弹时 tab 偏离鼠标。
-        this.root.appendChild(tabElement);
-        this.movePlaceholderToIndex(originIndex);
+        tabElement.style.willChange = 'transform';
         this.container?.classList.add('tab-dragging');
-        const initialDelta = event.clientX - startClientX;
-        tabElement.style.transform = `translateX(${initialDelta}px)`;
+        this.updatePointerDragPosition(event.clientX);
+        this.updateDragAutoScroll(event.clientX);
     }
 
     handleGlobalPointerMove(event) {
@@ -715,22 +919,8 @@ export class TabManager {
 
         event.preventDefault();
 
-        const state = this.pointerDragState;
-        state.lastClientX = event.clientX;
-        const deltaX = event.clientX - state.startClientX;
-        state.tabElement.style.transform = `translateX(${deltaX}px)`;
-
-        const target = this.calculateDropTarget(event.clientX, {
-            excludeTabId: state.tabId,
-        });
-
-        if (target && typeof target.index === 'number') {
-            state.pendingIndex = target.index;
-            this.movePlaceholderToIndex(target.index);
-        } else {
-            state.pendingIndex = state.originIndex;
-            this.movePlaceholderToIndex(state.originIndex);
-        }
+        this.updatePointerDragPosition(event.clientX);
+        this.updateDragAutoScroll(event.clientX);
     }
 
     handleGlobalPointerUp(event) {
@@ -740,11 +930,21 @@ export class TabManager {
             this.draggedTabId = null;
             return;
         }
+        if (event.type === 'pointercancel') {
+            if (this.pointerDragState?.pointerId === event.pointerId) {
+                event.preventDefault();
+                this.cancelPointerDrag();
+            } else if (this.pendingDragCandidate?.pointerId === event.pointerId) {
+                this.pendingDragCandidate = null;
+            }
+            return;
+        }
         if (this.pointerDragState && event.pointerId === this.pointerDragState.pointerId) {
             event.preventDefault();
 
             const state = this.pointerDragState;
             const tabElement = state.tabElement;
+            const finalOrder = this.getRenderedTabOrder();
 
             if (typeof tabElement.releasePointerCapture === 'function') {
                 try {
@@ -752,14 +952,12 @@ export class TabManager {
                 } catch {}
             }
 
-            this.restoreDraggedTabPosition(state);
+            this.stopDragAutoScroll();
+            this.cancelTabShiftAnimations();
+            this.visibleTabOrder = finalOrder;
             this.resetDraggedTabStyles(tabElement);
             tabElement.classList.remove('is-dragging');
             this.container?.classList.remove('tab-dragging');
-
-            const targetIndex = typeof state.pendingIndex === 'number'
-                ? state.pendingIndex
-                : state.originIndex;
 
             this.pointerDragState = null;
             this.draggedTabId = null;
@@ -768,13 +966,20 @@ export class TabManager {
                 ? performance.now()
                 : Date.now();
             this.dragReleaseSuppressedUntil = suppressionWindow + 60;
-            this.applyFileTabReorder(state.tabId, targetIndex);
+            this.commitPointerDragOrder(state, finalOrder);
             return;
         }
 
         if (this.pendingDragCandidate && event.pointerId === this.pendingDragCandidate.pointerId) {
             this.pendingDragCandidate = null;
         }
+    }
+
+    /** 按 Escape 取消当前拖拽并恢复开始前的 tab 顺序。 */
+    handleGlobalKeyDown(event) {
+        if (event?.key !== 'Escape' || !this.pointerDragState) return;
+        event.preventDefault();
+        this.cancelPointerDrag();
     }
 
     cancelPointerDrag() {
@@ -785,7 +990,10 @@ export class TabManager {
                     state.tabElement.releasePointerCapture(state.pointerId);
                 } catch {}
             }
-            this.restoreDraggedTabPosition(state);
+            this.stopDragAutoScroll();
+            this.cancelTabShiftAnimations();
+            this.applyRenderedTabOrder(state.originOrder);
+            this.visibleTabOrder = state.originVisibleTabOrder.slice();
             this.resetDraggedTabStyles(state.tabElement);
             state.tabElement.classList.remove('is-dragging');
         }
@@ -807,11 +1015,10 @@ export class TabManager {
             return null;
         }
 
-        const fileTabElements = Array.from(
-            this.container.querySelectorAll('.tab[data-tab-type="file"]')
-        ).filter(element => !excludeTabId || element.dataset.tabId !== excludeTabId);
+        const tabElements = this.getRenderedTabElements()
+            .filter(element => !excludeTabId || element.dataset.tabId !== excludeTabId);
 
-        if (fileTabElements.length === 0) {
+        if (tabElements.length === 0) {
             return {
                 element: null,
                 index: 0,
@@ -821,8 +1028,8 @@ export class TabManager {
 
         const x = typeof clientX === 'number' ? clientX : 0;
 
-        for (let i = 0; i < fileTabElements.length; i += 1) {
-            const element = fileTabElements[i];
+        for (let i = 0; i < tabElements.length; i += 1) {
+            const element = tabElements[i];
             const rect = element.getBoundingClientRect();
             const midpoint = rect.left + rect.width / 2;
             if (x < midpoint) {
@@ -834,34 +1041,47 @@ export class TabManager {
             }
         }
 
-        const lastElement = fileTabElements[fileTabElements.length - 1];
+        const lastElement = tabElements[tabElements.length - 1];
         return {
             element: lastElement,
-            index: fileTabElements.length,
+            index: tabElements.length,
             position: 'after',
         };
     }
 
-    applyFileTabReorder(tabId, rawIndex) {
-        const currentIndex = this.fileTabs.findIndex(tab => tab.id === tabId);
-        if (currentIndex === -1) {
+    /**
+     * 提交一次拖拽事务：固定 tab 只写入最终顺序，预览 tab 则按落点转为固定文档。
+     * @param {Object} state - 已结束的拖拽状态
+     * @param {string[]} finalOrder - 最终可见 tab 顺序
+     */
+    commitPointerDragOrder(state, finalOrder) {
+        if (!state || !Array.isArray(finalOrder) || !this.documentManager) return;
+        const draggedTab = this.getAllTabs().find(tab => tab.id === state.tabId);
+        if (!draggedTab) return;
+
+        if (draggedTab.type === 'shared') {
+            const visibleIndex = finalOrder.indexOf(this.sharedTabId);
+            const pinnedIndex = finalOrder
+                .slice(0, Math.max(0, visibleIndex))
+                .filter(tabId => tabId !== this.sharedTabId)
+                .length;
+            this.visibleTabOrder = finalOrder.map(tabId => (
+                tabId === this.sharedTabId ? draggedTab.path : tabId
+            ));
+            const pinnedDocument = this.documentManager.pinDocument?.(draggedTab.path, {
+                index: pinnedIndex,
+                activate: false,
+            });
+            if (!pinnedDocument) {
+                this.visibleTabOrder = finalOrder.slice();
+                this.render();
+            }
             return;
         }
 
-        let targetIndex = rawIndex;
-        if (targetIndex < 0) {
-            targetIndex = 0;
-        }
-        if (targetIndex > this.fileTabs.length) {
-            targetIndex = this.fileTabs.length;
-        }
-
-        const nextTabs = this.fileTabs.slice();
-        const [movedTab] = nextTabs.splice(currentIndex, 1);
-        nextTabs.splice(targetIndex, 0, movedTab);
-
-        // dm 'reorder' 事件会驱动 fileTree/tabManager 重新派生 + 触发持久化
-        this.documentManager.reorderDocuments(nextTabs.map(tab => tab.path));
+        const nextFileOrder = finalOrder.filter(tabId => tabId !== this.sharedTabId);
+        this.documentManager.reorderDocuments(nextFileOrder);
+        this.updateActiveState();
     }
 
     updateTabPath(oldPath, newPath, newLabel = null) {

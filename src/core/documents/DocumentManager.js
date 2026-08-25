@@ -88,9 +88,18 @@ export function createDocumentManager(options = {}) {
         }
     }
 
-    function ensureOrderEntry(path, atStart = false) {
+    /**
+     * 把文档加入固定 tab 顺序；未指定位置时始终追加到末尾。
+     * @param {string} path - 文档路径
+     * @param {{atStart?: boolean, atIndex?: number}} options - 插入位置选项
+     * @returns {boolean} 是否新增了顺序项
+     */
+    function ensureOrderEntry(path, options = {}) {
         if (!openOrder.includes(path)) {
-            if (atStart) {
+            if (Number.isInteger(options.atIndex)) {
+                const safeIndex = Math.max(0, Math.min(options.atIndex, openOrder.length));
+                openOrder.splice(safeIndex, 0, path);
+            } else if (options.atStart === true) {
                 openOrder.unshift(path);
             } else {
                 openOrder.push(path);
@@ -238,7 +247,10 @@ export function createDocumentManager(options = {}) {
             const isNowPinned = nextDocument.pinned !== false;
             let isNewOpen = false;
             if (isNowPinned) {
-                isNewOpen = ensureOrderEntry(normalizedPath, options.atStart === true);
+                isNewOpen = ensureOrderEntry(normalizedPath, {
+                    atStart: options.atStart === true,
+                    atIndex: options.atIndex,
+                });
                 if (!previouslyPinned && previousDocument) {
                     isNewOpen = true;
                 }
@@ -309,6 +321,32 @@ export function createDocumentManager(options = {}) {
                 viewMode: nextDocument.viewMode,
             });
             return nextDocument;
+        },
+
+        /**
+         * 将临时预览文档固定到指定 tab 位置。
+         * 固定事件会同步驱动 TabManager 与文件树“打开的文件”列表更新。
+         * @param {string} path - 临时预览文档路径
+         * @param {{index?: number, activate?: boolean}} options - 固定位置与激活选项
+         * @returns {Object|null} 固定后的文档
+         */
+        pinDocument(path, options = {}) {
+            const normalizedPath = normalizeDocumentPath(normalizePath, path);
+            if (!normalizedPath) {
+                return null;
+            }
+            const existing = documents.get(normalizedPath);
+            if (!existing) {
+                return null;
+            }
+            if (existing.pinned !== false) {
+                return toPublicDocument(existing);
+            }
+            return this.openDocument(normalizedPath, {
+                pinned: true,
+                activate: options.activate === true,
+                atIndex: Number.isInteger(options.index) ? options.index : undefined,
+            });
         },
 
         /**
