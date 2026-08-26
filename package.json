@@ -3,7 +3,7 @@
   "productName": "Mark2",
   "version": "1.7.57",
   "type": "module",
-  "description": "一个基于 Tauri 的 Markdown 阅读器",
+  "description": "\u4e00\u4e2a\u57fa\u4e8e Tauri \u7684 Markdown \u9605\u8bfb\u5668",
   "license": "MIT",
   "author": "ywleeo",
   "repository": {
@@ -85,5 +85,8 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.1",
     "vite": "^7.1.12"
+  },
+  "overrides": {
+    "linkify-it": "5.0.2"
   }
 }
