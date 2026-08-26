@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mark2 — 专注写作与阅读的 Markdown 桌面应用</title>
+<meta name="description" content="Mark2 是一个小、快、简单、真正适合写作的 Markdown 桌面应用，把文件管理、Markdown 编辑、PDF 阅读、代码查看、公式渲染和卡片导出放在同一个工作区。AI 融入写作过程。">
+<meta name="keywords" content="Mark2, Markdown, Markdown 编辑器, Tauri, 写作, 笔记, PDF, AI 写作">
+<meta property="og:title" content="Mark2 — 专注写作与阅读的 Markdown 桌面应用">
+<meta property="og:description" content="小、快、简单、真正适合写作的 Markdown 应用。AI 融入写作过程，支持 PDF/代码/公式/卡片导出。">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #181b22;
+    --card-2: #1f232e;
+    --text: #e7e9ee;
+    --muted: #a6adbb;
+    --accent: #6ea8fe;
+    --accent-2: #9b8cff;
+    --border: #2a2f3a;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  header { position: sticky; top: 0; z-index: 10; background: rgba(15,17,21,.82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); }
+  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; font-size: 16px; font-weight: 800; color: #0f1115; }
+  .nav-links { display: flex; gap: 22px; font-size: 15px; }
+  .nav-links a { color: var(--muted); }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+  .hero { padding: 84px 0 56px; text-align: center; }
+  .hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -1px; line-height: 1.05; background: linear-gradient(120deg, #fff, var(--accent) 60%, var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero .sub { margin-top: 18px; font-size: 20px; color: var(--muted); max-width: 640px; margin-left: auto; margin-right: auto; }
+  .badges { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .badges img { height: 20px; }
+  .cta { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  .btn { padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0f1115; }
+  .btn-primary:hover { text-decoration: none; filter: brightness(1.05); }
+  .btn-ghost { border-color: var(--border); color: var(--text); background: var(--card); }
+  .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
+
+  section { padding: 48px 0; }
+  .section-title { font-size: 30px; font-weight: 700; margin-bottom: 8px; }
+  .section-sub { color: var(--muted); margin-bottom: 32px; max-width: 720px; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+  .card .ico { font-size: 26px; }
+  .card h3 { font-size: 18px; margin: 12px 0 6px; }
+  .card p { color: var(--muted); font-size: 14.5px; }
+
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .shot { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .shot img { width: 100%; display: block; }
+  .shot .cap { padding: 10px 16px; color: var(--muted); font-size: 13px; }
+
+  footer { border-top: 1px solid var(--border); padding: 34px 0 44px; color: var(--muted); font-size: 14px; text-align: center; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 760px) {
+    .hero h1 { font-size: 40px; }
+    .grid { grid-template-columns: 1fr; }
+    .shots { grid-template-columns: 1fr; }
+    .nav-links { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#"><span class="logo">M</span>Mark2</a>
+    <nav class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#shots">截图</a>
+      <a href="#download">下载</a>
+      <a href="https://github.com/ywleeo/mark2">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero wrap">
+  <h1>Mark2</h1>
+  <p class="sub">小、快、简单、真正适合写作的 Markdown 桌面应用。把文件管理、编辑、阅读、AI 辅助和卡片导出放在同一个工作区。</p>
+  <div class="badges">
+    <img src="https://img.shields.io/badge/Tauri-2.0-8B5CF6" alt="Tauri 2.0">
+    <img src="https://img.shields.io/github/license/ywleeo/mark2" alt="License">
+    <img src="https://img.shields.io/github/v/release/ywleeo/mark2" alt="Release">
+    <img src="https://img.shields.io/github/downloads/ywleeo/mark2/total" alt="Downloads">
+    <img src="https://img.shields.io/badge/macOS-passing-brightgreen" alt="macOS">
+    <img src="https://img.shields.io/badge/Windows-passing-brightgreen" alt="Windows">
+  </div>
+  <div class="cta">
+    <a class="btn btn-primary" href="https://github.com/ywleeo/mark2/releases/latest" target="_blank" rel="noopener">⬇ 下载 Mark2（macOS · Windows）</a>
+    <a class="btn btn-ghost" href="https://github.com/ywleeo/mark2" target="_blank" rel="noopener">查看 GitHub</a>
+  </div>
+  <div style="margin-top:26px;color:var(--muted);font-size:14px">安装包不到 30 MB。底下是 Rust + WebView，用起来轻快。</div>
+</section>
+
+<section id="features" class="wrap">
+  <h2 class="section-title">为什么用 Mark2</h2>
+  <p class="section-sub">不做庞大的知识系统，只做一件小事——让你顺顺利地写东西。</p>
+  <div class="grid">
+    <div class="card">
+      <div class="ico">✍️</div>
+      <h3>AI 融入写作过程</h3>
+      <p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简，也能基于当前文档总结整理。</p>
+    </div>
+    <div class="card">
+      <div class="ico">📄</div>
+      <h3>文档能力完整</h3>
+      <p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p>
+    </div>
+    <div class="card">
+      <div class="ico">🧮</div>
+      <h3>公式与图表</h3>
+      <p>内嵌 LaTeX 公式与 Mermaid 图表渲染，写技术内容、论文、笔记都顺手。</p>
+    </div>
+    <div class="card">
+      <div class="ico">⚡</div>
+      <h3>很小，也很快</h3>
+      <p>基于 Tauri，底层是 Rust，安装包不到 30 MB。不需要为写一篇文章打开一个沉重的工作台。</p>
+    </div>
+    <div class="card">
+      <div class="ico">🗂️</div>
+      <h3>本地文件，随时管理</h3>
+      <p>使用本地文件和 Markdown，适合离线写作、长期保留、Git 管理与跨工具迁移。</p>
+    </div>
+    <div class="card">
+      <div class="ico">🖼️</div>
+      <h3>一键导出卡片</h3>
+      <p>把笔记、观点、摘录或文章片段快速导出成卡片图，方便分享。</p>
+    </div>
+  </div>
+</section>
+
+<section id="shots" class="wrap">
+  <h2 class="section-title">界面一览</h2>
+  <p class="section-sub">写作、阅读、AI 协作和卡片导出，都在一个轻量工作区里。</p>
+  <div class="shots">
+    <figure class="shot"><img src="assets/main.png" alt="Mark2 主界面"><figcaption class="cap">Mark2 主界面</figcaption></figure>
+    <figure class="shot"><img src="assets/ai-continue.png" alt="AI 续写启动"><figcaption class="cap">AI 续写启动</figcaption></figure>
+    <figure class="shot"><img src="assets/ai-refine.png" alt="AI 续写效果"><figcaption class="cap">AI 续写效果</figcaption></figure>
+    <figure class="shot"><img src="assets/math.png" alt="支持公式"><figcaption class="cap">公式渲染</figcaption></figure>
+    <figure class="shot"><img src="assets/pdf.png" alt="支持看 PDF"><figcaption class="cap">PDF 阅读</figcaption></figure>
+    <figure class="shot"><img src="assets/card-export.png" alt="内容生成卡片"><figcaption class="cap">内容导出卡片</figcaption></figure>
+  </div>
+</section>
+
+<section id="download" class="wrap">
+  <h2 class="section-title">下载</h2>
+  <p class="section-sub">从 GitHub Releases 下载对应平台的安装包，或直接访问仓库了解更完整的说明。</p>
+  <div class="cta" style="justify-content:flex-start">
+    <a class="btn btn-primary" href="https://github.com/ywleeo/mark2/releases/latest" target="_blank" rel="noopener">⬇ 下载最新版（macOS · Windows）</a>
+    <a class="btn btn-ghost" href="https://github.com/ywleeo/mark2" target="_blank" rel="noopener">GitHub 仓库</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><strong>Mark2</strong> · 专注写作与阅读的 Markdown 桌面应用</p>
+    <p style="margin-top:8px">基于 <a href="https://tauri.app" target="_blank" rel="noopener">Tauri</a> 构建 · <a href="https://github.com/ywleeo/mark2/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> · 由 <a href="https://github.com/ywleeo" target="_blank" rel="noopener">ywleeo</a> 维护</p>
+  </div>
+</footer>
+
+</body>
+</html>
