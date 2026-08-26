@@ -11,72 +11,86 @@
 <meta property="og:type" content="website">
 <style>
   :root {
-    --bg: #0f1115;
-    --card: #181b22;
-    --card-2: #1f232e;
-    --text: #e7e9ee;
-    --muted: #a6adbb;
-    --accent: #6ea8fe;
-    --accent-2: #9b8cff;
-    --border: #2a2f3a;
-    --radius: 16px;
+    --bg: #fdfdfb;          /* 米白底，文纸感 */
+    --paper: #ffffff;
+    --ink: #1a1a1a;         /* 墨黑 */
+    --ink-soft: #3a3a3a;
+    --ink-muted: #6f6f6f;   /* 淡墨 */
+    --ink-faint: #9b9b9b;
+    --hairline: #e6e3dc;    /* 浅宣纸色细线 */
+    --radius: 6px;          /* 克制的圆角 */
+    --serif: "Songti SC", "Noto Serif SC", "STSong", "SimSun", "Source Han Serif SC", "Hiragino Mincho ProN", Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--sans);
     background: var(--bg);
-    color: var(--text);
-    line-height: 1.6;
+    color: var(--ink);
+    line-height: 1.75;
+    font-size: 16px;
     -webkit-font-smoothing: antialiased;
+    letter-spacing: .01em;
   }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  a { color: var(--ink); text-decoration: none; transition: opacity .15s ease; }
+  a:hover { opacity: .72; text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
 
-  header { position: sticky; top: 0; z-index: 10; background: rgba(15,17,21,.82); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
-  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); }
-  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: grid; place-items: center; font-size: 16px; font-weight: 800; color: #0f1115; }
-  .nav-links { display: flex; gap: 22px; font-size: 15px; }
-  .nav-links a { color: var(--muted); }
-  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  header { background: rgba(253,253,251,.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hairline); }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 600; font-size: 20px; color: var(--ink); letter-spacing: .06em; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; font-size: 15px; font-weight: 700; font-family: var(--serif); }
+  .nav-links { display: flex; gap: 26px; font-size: 15px; }
+  .nav-links a { color: var(--ink-muted); }
+  .nav-links a:hover { color: var(--ink); }
 
-  .hero { padding: 84px 0 56px; text-align: center; }
-  .hero h1 { font-size: 56px; font-weight: 800; letter-spacing: -1px; line-height: 1.05; background: linear-gradient(120deg, #fff, var(--accent) 60%, var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .hero .sub { margin-top: 18px; font-size: 20px; color: var(--muted); max-width: 640px; margin-left: auto; margin-right: auto; }
-  .badges { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .hero { padding: 84px 0 40px; text-align: center; }
+  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: 56px; letter-spacing: .12em; line-height: 1.2; color: var(--ink); }
+  .hero .sub { margin: 24px auto 0; font-size: 18px; color: var(--ink-muted); max-width: 620px; }
+  .badges { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .badges img { height: 20px; }
-  .cta { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
-  .btn { padding: 13px 26px; border-radius: 12px; font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; }
-  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0f1115; }
-  .btn-primary:hover { text-decoration: none; filter: brightness(1.05); }
-  .btn-ghost { border-color: var(--border); color: var(--text); background: var(--card); }
-  .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
 
-  section { padding: 48px 0; }
-  .section-title { font-size: 30px; font-weight: 700; margin-bottom: 8px; }
-  .section-sub { color: var(--muted); margin-bottom: 32px; max-width: 720px; }
+  .cta { margin-top: 36px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: center; }
+  .btn { padding: 13px 30px; border-radius: var(--radius); font-size: 16px; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink); font-family: var(--serif); }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { background: #000; opacity: 1; }
+  .btn-ghost { background: transparent; color: var(--ink); }
+  .btn-ghost:hover { background: rgba(26,26,26,.05); opacity: 1; }
+  .os-note { flex-basis: 100%; text-align: center; color: var(--ink-faint); font-size: 13px; letter-spacing: .06em; margin-top: 2px; }
 
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
-  .card .ico { font-size: 26px; }
-  .card h3 { font-size: 18px; margin: 12px 0 6px; }
-  .card p { color: var(--muted); font-size: 14.5px; }
+  section { padding: 56px 0; }
+  .section-head { text-align: center; margin-bottom: 44px; }
+  .section-title { font-family: var(--serif); font-weight: 600; font-size: 30px; letter-spacing: .1em; color: var(--ink); }
+  .section-sub { color: var(--ink-muted); margin-top: 12px; font-size: 15px; }
 
-  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-  .shot { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
+  .card { background: var(--paper); border: 1px solid var(--hairline); padding: 30px 26px; text-align: center; }
+  .card .ico { font-size: 24px; color: var(--ink-soft); }
+  .card h3 { font-family: var(--serif); font-size: 18px; margin: 14px 0 8px; font-weight: 600; letter-spacing: .05em; }
+  .card p { color: var(--ink-muted); font-size: 14.5px; }
+
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; }
+  .shot { background: var(--paper); border: 1px solid var(--hairline); overflow: hidden; }
   .shot img { width: 100%; display: block; }
-  .shot .cap { padding: 10px 16px; color: var(--muted); font-size: 13px; }
+  .shot .cap { padding: 12px 18px; color: var(--ink-muted); font-size: 13px; border-top: 1px solid var(--hairline); text-align: center; letter-spacing: .05em; }
 
-  footer { border-top: 1px solid var(--border); padding: 34px 0 44px; color: var(--muted); font-size: 14px; text-align: center; }
-  footer a { color: var(--muted); }
+  #download { padding-bottom: 96px; }
+  #download .cta { margin-top: 28px; }
+
+  footer { border-top: 1px solid var(--hairline); padding: 34px 0 46px; }
+  .foot { text-align: center; color: var(--ink-faint); font-size: 14px; letter-spacing: .05em; }
+  .foot strong { color: var(--ink-soft); font-family: var(--serif); font-weight: 600; letter-spacing: .1em; }
+  .foot a { color: var(--ink-muted); }
+  .foot .line { margin: 6px 0; }
 
   @media (max-width: 760px) {
     .hero h1 { font-size: 40px; }
     .grid { grid-template-columns: 1fr; }
     .shots { grid-template-columns: 1fr; }
-    .nav-links { gap: 14px; }
+    .nav-links { gap: 16px; }
+    .cta { flex-direction: column; width: 100%; }
+    .btn { width: 100%; justify-content: center; }
   }
 </style>
 </head>
@@ -96,62 +110,43 @@
 
 <section class="hero wrap">
   <h1>Mark2</h1>
-  <p class="sub">小、快、简单、真正适合写作的 Markdown 桌面应用。把文件管理、编辑、阅读、AI 辅助和卡片导出放在同一个工作区。</p>
+  <p class="sub">小、快、简单、真正适合写作的 Markdown 桌面应用。把文件管理、编辑、阅读、AI 辅助和卡片导出，放在同一个安静的工作区。</p>
   <div class="badges">
-    <img src="https://img.shields.io/badge/Tauri-2.0-8B5CF6" alt="Tauri 2.0">
+    <img src="https://img.shields.io/badge/Tauri-2.0-333333" alt="Tauri 2.0">
     <img src="https://img.shields.io/github/license/ywleeo/mark2" alt="License">
     <img src="https://img.shields.io/github/v/release/ywleeo/mark2" alt="Release">
     <img src="https://img.shields.io/github/downloads/ywleeo/mark2/total" alt="Downloads">
-    <img src="https://img.shields.io/badge/macOS-passing-brightgreen" alt="macOS">
-    <img src="https://img.shields.io/badge/Windows-passing-brightgreen" alt="Windows">
+    <img src="https://img.shields.io/badge/macOS-%E2%9C%93-333333" alt="macOS">
+    <img src="https://img.shields.io/badge/Windows-%E2%9C%93-333333" alt="Windows">
   </div>
-  <div class="cta">
-    <a class="btn btn-primary" href="https://github.com/ywleeo/mark2/releases/latest" target="_blank" rel="noopener">⬇ 下载 Mark2（macOS · Windows）</a>
-    <a class="btn btn-ghost" href="https://github.com/ywleeo/mark2" target="_blank" rel="noopener">查看 GitHub</a>
+  <div class="cta" id="download-cta">
+    <a class="btn btn-primary" id="dl-mac" href="https://github.com/ywleeo/mark2/releases/latest">⬇ 下载 macOS 版</a>
+    <a class="btn btn-ghost" id="dl-win" href="https://github.com/ywleeo/mark2/releases/latest">⬇ 下载 Windows 版</a>
+    <a class="btn btn-ghost" href="https://github.com/ywleeo/mark2">GitHub 仓库</a>
+    <span class="os-note" id="os-note">安装包不到 30 MB</span>
   </div>
-  <div style="margin-top:26px;color:var(--muted);font-size:14px">安装包不到 30 MB。底下是 Rust + WebView，用起来轻快。</div>
 </section>
 
 <section id="features" class="wrap">
-  <h2 class="section-title">为什么用 Mark2</h2>
-  <p class="section-sub">不做庞大的知识系统，只做一件小事——让你顺顺利地写东西。</p>
+  <div class="section-head">
+    <h2 class="section-title">为什么用 Mark2</h2>
+    <p class="section-sub">不做庞大的知识系统，只做一件小事——让你顺顺利地写东西。</p>
+  </div>
   <div class="grid">
-    <div class="card">
-      <div class="ico">✍️</div>
-      <h3>AI 融入写作过程</h3>
-      <p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简，也能基于当前文档总结整理。</p>
-    </div>
-    <div class="card">
-      <div class="ico">📄</div>
-      <h3>文档能力完整</h3>
-      <p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p>
-    </div>
-    <div class="card">
-      <div class="ico">🧮</div>
-      <h3>公式与图表</h3>
-      <p>内嵌 LaTeX 公式与 Mermaid 图表渲染，写技术内容、论文、笔记都顺手。</p>
-    </div>
-    <div class="card">
-      <div class="ico">⚡</div>
-      <h3>很小，也很快</h3>
-      <p>基于 Tauri，底层是 Rust，安装包不到 30 MB。不需要为写一篇文章打开一个沉重的工作台。</p>
-    </div>
-    <div class="card">
-      <div class="ico">🗂️</div>
-      <h3>本地文件，随时管理</h3>
-      <p>使用本地文件和 Markdown，适合离线写作、长期保留、Git 管理与跨工具迁移。</p>
-    </div>
-    <div class="card">
-      <div class="ico">🖼️</div>
-      <h3>一键导出卡片</h3>
-      <p>把笔记、观点、摘录或文章片段快速导出成卡片图，方便分享。</p>
-    </div>
+    <div class="card"><div class="ico">✍️</div><h3>AI 融入写作过程</h3><p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简，也能基于当前文档总结整理。</p></div>
+    <div class="card"><div class="ico">📄</div><h3>文档能力完整</h3><p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p></div>
+    <div class="card"><div class="ico">🧮</div><h3>公式与图表</h3><p>内嵌 LaTeX 公式与 Mermaid 图表渲染，写技术内容、论文、笔记都顺手。</p></div>
+    <div class="card"><div class="ico">⚡</div><h3>很小，也很快</h3><p>基于 Tauri，底层是 Rust，安装包不到 30 MB。无需为写一篇文章打开沉重的工作台。</p></div>
+    <div class="card"><div class="ico">🗂️</div><h3>本地文件，随时管理</h3><p>使用本地文件和 Markdown，适合离线写作、长期保留、Git 管理与跨工具迁移。</p></div>
+    <div class="card"><div class="ico">🖼️</div><h3>一键导出卡片</h3><p>把笔记、观点、摘录或文章片段快速导出成卡片图，方便分享。</p></div>
   </div>
 </section>
 
 <section id="shots" class="wrap">
-  <h2 class="section-title">界面一览</h2>
-  <p class="section-sub">写作、阅读、AI 协作和卡片导出，都在一个轻量工作区里。</p>
+  <div class="section-head">
+    <h2 class="section-title">界面一览</h2>
+    <p class="section-sub">写作、阅读、AI 协作和卡片导出，都在一个轻量工作区里。</p>
+  </div>
   <div class="shots">
     <figure class="shot"><img src="assets/main.png" alt="Mark2 主界面"><figcaption class="cap">Mark2 主界面</figcaption></figure>
     <figure class="shot"><img src="assets/ai-continue.png" alt="AI 续写启动"><figcaption class="cap">AI 续写启动</figcaption></figure>
@@ -163,20 +158,51 @@
 </section>
 
 <section id="download" class="wrap">
-  <h2 class="section-title">下载</h2>
-  <p class="section-sub">从 GitHub Releases 下载对应平台的安装包，或直接访问仓库了解更完整的说明。</p>
-  <div class="cta" style="justify-content:flex-start">
-    <a class="btn btn-primary" href="https://github.com/ywleeo/mark2/releases/latest" target="_blank" rel="noopener">⬇ 下载最新版（macOS · Windows）</a>
-    <a class="btn btn-ghost" href="https://github.com/ywleeo/mark2" target="_blank" rel="noopener">GitHub 仓库</a>
+  <div class="section-head">
+    <h2 class="section-title">下载</h2>
+    <p class="section-sub">我们会根据你的系统呈现对应的安装包入口；也欢迎到 GitHub 查看完整说明。</p>
+  </div>
+  <div class="cta">
+    <a class="btn btn-primary" id="dl-mac-2" href="https://github.com/ywleeo/mark2/releases/latest">⬇ 下载 macOS 版</a>
+    <a class="btn btn-ghost" id="dl-win-2" href="https://github.com/ywleeo/mark2/releases/latest">⬇ 下载 Windows 版</a>
+    <a class="btn btn-ghost" href="https://github.com/ywleeo/mark2">GitHub 仓库</a>
+    <span class="os-note" id="os-note-2">安装包不到 30 MB</span>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">
-    <p><strong>Mark2</strong> · 专注写作与阅读的 Markdown 桌面应用</p>
-    <p style="margin-top:8px">基于 <a href="https://tauri.app" target="_blank" rel="noopener">Tauri</a> 构建 · <a href="https://github.com/ywleeo/mark2/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> · 由 <a href="https://github.com/ywleeo" target="_blank" rel="noopener">ywleeo</a> 维护</p>
+  <div class="wrap foot">
+    <p class="line"><strong>Mark2</strong> · 专注写作与阅读的 Markdown 桌面应用</p>
+    <p class="line">基于 <a href="https://tauri.app" target="_blank" rel="noopener">Tauri</a> 构建 · <a href="https://github.com/ywleeo/mark2/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> · 由 <a href="https://github.com/ywleeo" target="_blank" rel="noopener">ywleeo</a> 维护</p>
   </div>
 </footer>
+
+<script>
+(function () {
+  function detectOS() {
+    var ua = navigator.userAgent || '';
+    if (/Macintosh|Mac OS X|iPhone|iPad|iPod/.test(ua)) return 'mac';
+    if (/Windows|Win32|Win64/.test(ua)) return 'win';
+    return 'other';
+  }
+  var os = detectOS();
+  var pairs = [
+    ['dl-mac', 'dl-win', 'os-note'],
+    ['dl-mac-2', 'dl-win-2', 'os-note-2']
+  ];
+  function style(macEl, winEl, noteEl) {
+    function setPrimary(el) { el.classList.add('btn-primary'); el.classList.remove('btn-ghost'); }
+    function setGhost(el) { el.classList.add('btn-ghost'); el.classList.remove('btn-primary'); }
+    if (os === 'mac') { setPrimary(macEl); setGhost(winEl); noteEl.textContent = '已检测系统：macOS'; }
+    else if (os === 'win') { setPrimary(winEl); setGhost(macEl); noteEl.textContent = '已检测系统：Windows'; }
+    else { noteEl.textContent = '按你的系统选择对应版本'; }
+    if (os === 'win') { macEl.parentNode.insertBefore(winEl, macEl); }
+  }
+  pairs.forEach(function (p) {
+    style(document.getElementById(p[0]), document.getElementById(p[1]), document.getElementById(p[2]));
+  });
+})();
+</script>
 
 </body>
 </html>
