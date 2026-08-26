@@ -2,6 +2,8 @@
 
 # Mark2
 
+[![Tauri](https://img.shields.io/badge/Tauri-2.0-8B5CF6)](https://tauri.app) [![MIT License](https://img.shields.io/github/license/ywleeo/mark2)](LICENSE) [![release](https://img.shields.io/github/v/release/ywleeo/mark2)](https://github.com/ywleeo/mark2/releases) [![downloads](https://img.shields.io/github/downloads/ywleeo/mark2/total)](https://github.com/ywleeo/mark2/releases) [![macOS](https://img.shields.io/badge/macOS-passing-brightgreen)](https://github.com/ywleeo/mark2/releases) [![Windows](https://img.shields.io/badge/Windows-passing-brightgreen)](https://github.com/ywleeo/mark2/releases) [![build:macOS](https://img.shields.io/github/actions/workflow/status/ywleeo/mark2/build-macos-dmg.yml?branch=main)](https://github.com/ywleeo/mark2/actions/workflows/build-macos-dmg.yml) [![build:Windows](https://img.shields.io/github/actions/workflow/status/ywleeo/mark2/build-windows.yml?branch=main)](https://github.com/ywleeo/mark2/actions/workflows/build-windows.yml)
+
 Mark2 是一个专注写作和阅读的 Markdown 桌面应用。
 
 它把文件管理、Markdown 编辑、源码模式、PDF 阅读、代码查看、公式渲染和卡片导出放在同一个工作区。AI 不作为常驻侧边栏打断写作，而是贴近具体上下文：在光标附近提供续写和灵感，在选中内容上做润色、扩写、精简，也可以对当前文档执行一次明确的处理指令。

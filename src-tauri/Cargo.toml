@@ -3,6 +3,8 @@ name = "mark2-tauri"
 version = "1.7.57"
 edition = "2021"
 rust-version = "1.77.2"
+license = "MIT"
+description = "一个基于 Tauri 的 Markdown 阅读器"
 
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }

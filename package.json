@@ -4,6 +4,12 @@
   "version": "1.7.57",
   "type": "module",
   "description": "一个基于 Tauri 的 Markdown 阅读器",
+  "license": "MIT",
+  "author": "ywleeo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ywleeo/mark2.git"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
