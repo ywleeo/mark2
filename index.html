@@ -9,6 +9,7 @@
 <meta property="og:title" content="Mark2 — 专注写作与阅读的 Markdown 桌面应用">
 <meta property="og:description" content="小、快、简单、真正适合写作的 Markdown 应用。AI 融入写作过程，支持 PDF/代码/公式/卡片导出。">
 <meta property="og:type" content="website">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 <style>
   :root {
     --bg: #fdfdfb;          /* 米白底，文纸感 */
@@ -40,12 +41,13 @@
   header { background: rgba(253,253,251,.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hairline); }
   .nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
   .brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 600; font-size: 20px; color: var(--ink); letter-spacing: .06em; }
-  .brand .logo { width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: var(--paper); display: grid; place-items: center; font-size: 15px; font-weight: 700; font-family: var(--serif); }
+  .brand .logo { width: 34px; height: 34px; display: block; border-radius: 6px; }
   .nav-links { display: flex; gap: 26px; font-size: 15px; }
   .nav-links a { color: var(--ink-muted); }
   .nav-links a:hover { color: var(--ink); }
 
-  .hero { padding: 84px 0 40px; text-align: center; }
+  .hero { padding: 72px 0 40px; text-align: center; }
+  .hero-logo { width: 72px; height: 72px; display: inline-block; margin-bottom: 6px; border-radius: 12px; }
   .hero h1 { font-family: var(--serif); font-weight: 600; font-size: 56px; letter-spacing: .12em; line-height: 1.2; color: var(--ink); }
   .hero .sub { margin: 24px auto 0; font-size: 18px; color: var(--ink-muted); max-width: 620px; }
   .badges { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -98,7 +100,7 @@
 
 <header>
   <div class="wrap nav">
-    <a class="brand" href="#"><span class="logo">M</span>Mark2</a>
+    <a class="brand" href="#"><img class="logo" src="assets/logo.svg" alt="Mark2 logo">Mark2</a>
     <nav class="nav-links">
       <a href="#features">功能</a>
       <a href="#shots">截图</a>
@@ -109,6 +111,7 @@
 </header>
 
 <section class="hero wrap">
+  <img class="hero-logo" src="assets/logo.svg" alt="Mark2">
   <h1>Mark2</h1>
   <p class="sub">小、快、简单、真正适合写作的 Markdown 桌面应用。把文件管理、编辑、阅读、AI 辅助和卡片导出，放在同一个安静的工作区。</p>
   <div class="badges">
