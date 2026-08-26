@@ -2,7 +2,7 @@
 
 # Mark2
 
-[![Tauri](https://img.shields.io/badge/Tauri-2.0-8B5CF6)](https://tauri.app) [![MIT License](https://img.shields.io/github/license/ywleeo/mark2)](LICENSE) [![release](https://img.shields.io/github/v/release/ywleeo/mark2)](https://github.com/ywleeo/mark2/releases) [![downloads](https://img.shields.io/github/downloads/ywleeo/mark2/total)](https://github.com/ywleeo/mark2/releases) [![macOS](https://img.shields.io/badge/macOS-passing-brightgreen)](https://github.com/ywleeo/mark2/releases) [![Windows](https://img.shields.io/badge/Windows-passing-brightgreen)](https://github.com/ywleeo/mark2/releases) [![build:macOS](https://img.shields.io/github/actions/workflow/status/ywleeo/mark2/build-macos-dmg.yml?branch=main)](https://github.com/ywleeo/mark2/actions/workflows/build-macos-dmg.yml) [![build:Windows](https://img.shields.io/github/actions/workflow/status/ywleeo/mark2/build-windows.yml?branch=main)](https://github.com/ywleeo/mark2/actions/workflows/build-windows.yml)
+[![Tauri](https://img.shields.io/badge/Tauri-2.0-8B5CF6)](https://tauri.app) [![MIT License](https://img.shields.io/github/license/ywleeo/mark2)](LICENSE) [![release](https://img.shields.io/github/v/release/ywleeo/mark2)](https://github.com/ywleeo/mark2/releases) [![downloads](https://img.shields.io/github/downloads/ywleeo/mark2/total)](https://github.com/ywleeo/mark2/releases) [![macOS](https://img.shields.io/badge/macOS-passing-brightgreen)](https://github.com/ywleeo/mark2/releases) [![Windows](https://img.shields.io/badge/Windows-passing-brightgreen)](https://github.com/ywleeo/mark2/releases)
 
 Mark2 是一个专注写作和阅读的 Markdown 桌面应用。
 
