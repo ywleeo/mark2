@@ -68,7 +68,8 @@
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
   .card { background: var(--paper); border: 1px solid var(--hairline); padding: 30px 26px; text-align: center; }
-  .card .ico { font-size: 24px; color: var(--ink-soft); }
+  .card .ico { color: var(--ink-soft); }
+  .card .ico svg { width: 26px; height: 26px; display: inline-block; vertical-align: middle; }
   .card h3 { font-family: var(--serif); font-size: 18px; margin: 14px 0 8px; font-weight: 600; letter-spacing: .05em; }
   .card p { color: var(--ink-muted); font-size: 14.5px; }
 
@@ -136,12 +137,12 @@
     <p class="section-sub">不做庞大的知识系统，只做一件小事——让你顺顺利地写东西。</p>
   </div>
   <div class="grid">
-    <div class="card"><div class="ico">✍️</div><h3>AI 融入写作过程</h3><p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简，也能基于当前文档总结整理。</p></div>
-    <div class="card"><div class="ico">📄</div><h3>文档能力完整</h3><p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p></div>
-    <div class="card"><div class="ico">🧮</div><h3>公式与图表</h3><p>内嵌 LaTeX 公式与 Mermaid 图表渲染，写技术内容、论文、笔记都顺手。</p></div>
-    <div class="card"><div class="ico">⚡</div><h3>很小，也很快</h3><p>基于 Tauri，底层是 Rust，安装包不到 30 MB。无需为写一篇文章打开沉重的工作台。</p></div>
-    <div class="card"><div class="ico">🗂️</div><h3>本地文件，随时管理</h3><p>使用本地文件和 Markdown，适合离线写作、长期保留、Git 管理与跨工具迁移。</p></div>
-    <div class="card"><div class="ico">🖼️</div><h3>一键导出卡片</h3><p>把笔记、观点、摘录或文章片段快速导出成卡片图，方便分享。</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div><h3>AI 融入写作过程</h3><p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简，也能基于当前文档总结整理。</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><h3>文档能力完整</h3><p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5H6l7 7-7 7h12"/></svg></div><h3>公式与图表</h3><p>内嵌 LaTeX 公式与 Mermaid 图表渲染，写技术内容、论文、笔记都顺手。</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><h3>很小，也很快</h3><p>基于 Tauri，底层是 Rust，安装包不到 30 MB。无需为写一篇文章打开沉重的工作台。</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div><h3>本地文件，随时管理</h3><p>使用本地文件和 Markdown，适合离线写作、长期保留、Git 管理与跨工具迁移。</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><h3>一键导出卡片</h3><p>把笔记、观点、摘录或文章片段快速导出成卡片图，方便分享。</p></div>
   </div>
 </section>
 
