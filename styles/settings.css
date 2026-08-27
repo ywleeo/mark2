@@ -1341,6 +1341,23 @@ input[type="number"]::-webkit-inner-spin-button {
 .keybindings-list {
     display: flex;
     flex-direction: column;
+    gap: 14px;
+}
+
+.keybindings-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.keybindings-group__title {
+    margin: 0;
+    padding: 4px 0 5px;
+    border-bottom: 1px solid var(--settings-divider);
+    color: var(--settings-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .keybindings-row {

@@ -143,7 +143,7 @@ function shouldSkipInlineHtml(content) {
 
 // 支持的行内 HTML 标签（与 HtmlSupport.js 中的 HtmlInline 保持一致）
 const SUPPORTED_INLINE_TAGS = new Set([
-    'span', 'kbd', 'small', 'mark', 'abbr', 'cite', 'time', 'var', 'samp', 'dfn', 'ins', 'del'
+    'span', 'kbd', 'small', 'mark', 'abbr', 'cite', 'time', 'var', 'samp', 'dfn', 'ins', 'del', 'u'
 ]);
 
 // 解析 HTML 开始标签，返回 { tag, attrs } 或 null

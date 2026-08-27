@@ -8,6 +8,7 @@
 
 import { manualCheckUpdate } from '../modules/autoUpdater.js';
 import { shareCurrentDocument } from '../modules/share/shareDocument.js';
+import { isMarkdownFilePath } from '../utils/fileTypeUtils.js';
 import { EXPORT_IDS } from './exportSetup.js';
 
 /**
@@ -83,6 +84,23 @@ export function createCommandHandlers(deps) {
      */
     const getActiveEditorRegistry = () => getActivePaneContext?.()?.editorRegistry || editorRegistry;
 
+    /**
+     * 将 Markdown 编辑动作交给当前焦点栏对应的工具栏执行器。
+     * 工具栏即使处于隐藏状态也持有当前编辑器代理，因此快捷键不依赖 UI 可见性。
+     * @param {string} action - Markdown 动作名
+     * @param {object} payload - 动作参数
+     * @returns {boolean|undefined}
+     */
+    const executeMarkdownAction = (action, payload = {}) => {
+        const context = getActivePaneContext?.();
+        const viewMode = context?.viewMode || appState.getActiveViewMode();
+        const documentPath = context?.documentPath || appState.getCurrentFile();
+        if (!isMarkdownFilePath(documentPath) || !['markdown', 'code', 'split'].includes(viewMode)) {
+            return false;
+        }
+        return appState.getMarkdownToolbarManager()?.executeMarkdownAction?.(action, payload);
+    };
+
     return {
         onAbout: showAboutDialog,
         onQuit: async () => {
@@ -134,6 +152,7 @@ export function createCommandHandlers(deps) {
             }
             document.execCommand('paste');
         },
+        onMarkdownAction: executeMarkdownAction,
         onOpen: openFileOrFolder,
         onOpenFile: openFileOnly,
         onOpenFolder: openFolderOnly,

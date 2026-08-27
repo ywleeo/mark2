@@ -7,19 +7,25 @@
 import { t } from '../i18n/index.js';
 import { isMac } from '../utils/platform.js';
 import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
-import { DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
+import { APP_DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
+import { keyboardEventToShortcut } from '../core/commands/keybindingUtils.js';
+import {
+    MARKDOWN_DEFAULT_KEYBINDINGS,
+    MARKDOWN_SHORTCUT_GROUPS,
+} from '../modules/markdown-shortcuts/markdownShortcutDefinitions.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 
 /**
  * 可自定义的命令列表（过滤掉重复的 commandId，只保留主快捷键）。
  */
-const CUSTOMIZABLE_COMMANDS = [
+const GENERAL_COMMANDS = [
     COMMAND_IDS.APP_OPEN,
     COMMAND_IDS.DOCUMENT_SAVE,
     COMMAND_IDS.EDITOR_FIND,
     COMMAND_IDS.DOCUMENT_NEW_UNTITLED,
     COMMAND_IDS.DOCUMENT_CLOSE_TAB,
+    COMMAND_IDS.DOCUMENT_REOPEN_TAB,
     COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE,
     COMMAND_IDS.VIEW_TOGGLE_SIDEBAR,
     COMMAND_IDS.DOCUMENT_DELETE,
@@ -30,6 +36,22 @@ const CUSTOMIZABLE_COMMANDS = [
     COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES,
     COMMAND_IDS.DOCUMENT_COPY_MARKDOWN,
     COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT,
+];
+
+/** 设置页完整分组，Markdown 分组直接复用命令贡献定义。 */
+const KEYBINDING_GROUPS = [
+    { id: 'general', labelKey: 'settings.kb.groupGeneral', commandIds: GENERAL_COMMANDS },
+    ...MARKDOWN_SHORTCUT_GROUPS.map(group => ({
+        id: group.id,
+        labelKey: group.labelKey,
+        commandIds: group.commands.map(command => command.commandId),
+    })),
+];
+
+/** 设置页可编辑的默认快捷键，由应用与 Markdown 模块分别贡献。 */
+const EDITABLE_DEFAULT_KEYBINDINGS = [
+    ...APP_DEFAULT_KEYBINDINGS,
+    ...MARKDOWN_DEFAULT_KEYBINDINGS,
 ];
 
 /**
@@ -52,13 +74,17 @@ const COMMAND_LABELS = {
     [COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES]: 'settings.kb.selectAllMatches',
     [COMMAND_IDS.DOCUMENT_COPY_MARKDOWN]: 'settings.kb.copyMarkdown',
     [COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT]: 'settings.kb.copyPlainText',
+    ...Object.fromEntries(
+        MARKDOWN_SHORTCUT_GROUPS.flatMap(group => group.commands)
+            .map(command => [command.commandId, command.labelKey])
+    ),
 };
 
 /**
  * 获取命令的默认快捷键。
  */
 function getDefaultShortcut(commandId) {
-    const entry = DEFAULT_KEYBINDINGS.find(([id]) => id === commandId);
+    const entry = EDITABLE_DEFAULT_KEYBINDINGS.find(([id]) => id === commandId);
     return entry ? entry[1] : '';
 }
 
@@ -73,6 +99,7 @@ function formatShortcut(shortcut) {
         .map(token => {
             const t = token.trim().toLowerCase();
             if (t === 'mod') return isMac ? '⌘' : 'Ctrl';
+            if (t === 'ctrl') return isMac ? '⌃' : 'Ctrl';
             if (t === 'shift') return isMac ? '⇧' : 'Shift';
             if (t === 'alt') return isMac ? '⌥' : 'Alt';
             if (t === 'delete') return isMac ? '⌫' : 'Del';
@@ -82,36 +109,6 @@ function formatShortcut(shortcut) {
             return token.trim().charAt(0).toUpperCase() + token.trim().slice(1);
         })
         .join(isMac ? ' ' : ' + ');
-}
-
-/**
- * 从 KeyboardEvent 构建快捷键字符串。
- * @returns {string|null} 快捷键字符串，如果只按了修饰键返回 null
- */
-function eventToShortcut(event) {
-    const key = event.key;
-
-    // 忽略纯修饰键
-    if (['Meta', 'Control', 'Shift', 'Alt'].includes(key)) {
-        return null;
-    }
-
-    const parts = [];
-    if (event.metaKey || event.ctrlKey) parts.push('Mod');
-    if (event.shiftKey) parts.push('Shift');
-    if (event.altKey) parts.push('Alt');
-
-    // 规范化 key 名
-    let normalizedKey = key;
-    if (key === ' ') normalizedKey = 'Space';
-    else if (key.length === 1) normalizedKey = key.toUpperCase();
-    else {
-        // 首字母大写
-        normalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
-    }
-
-    parts.push(normalizedKey);
-    return parts.join('+');
 }
 
 export class KeybindingsSettings {
@@ -127,6 +124,8 @@ export class KeybindingsSettings {
     }
 
     render() {
+        this.stopRecording();
+        this.disposeClickHandlers();
         this.container.innerHTML = '';
 
         // 标题行
@@ -146,44 +145,64 @@ export class KeybindingsSettings {
         list.className = 'keybindings-list';
         this.container.appendChild(list);
 
-        for (const commandId of CUSTOMIZABLE_COMMANDS) {
-            const currentShortcut = this.customBindings[commandId] ?? getDefaultShortcut(commandId);
-            const isCustom = commandId in this.customBindings;
+        for (const group of KEYBINDING_GROUPS) {
+            const groupEl = document.createElement('section');
+            groupEl.className = 'keybindings-group';
+            groupEl.dataset.groupId = group.id;
 
-            const row = document.createElement('div');
-            row.className = 'keybindings-row';
-            row.dataset.commandId = commandId;
+            const groupTitle = document.createElement('h3');
+            groupTitle.className = 'keybindings-group__title';
+            groupTitle.textContent = t(group.labelKey);
+            groupEl.appendChild(groupTitle);
 
-            const label = document.createElement('span');
-            label.className = 'keybindings-row__label';
-            label.textContent = t(COMMAND_LABELS[commandId]);
-            row.appendChild(label);
-
-            const right = document.createElement('div');
-            right.className = 'keybindings-row__right';
-
-            const kbd = document.createElement('button');
-            kbd.type = 'button';
-            kbd.className = 'keybindings-row__shortcut' + (isCustom ? ' keybindings-row__shortcut--custom' : '');
-            kbd.textContent = formatShortcut(currentShortcut);
-            kbd.title = t('settings.kb.clickToRecord');
-            right.appendChild(kbd);
-
-            if (isCustom) {
-                const resetSingle = document.createElement('button');
-                resetSingle.type = 'button';
-                resetSingle.className = 'keybindings-row__reset';
-                resetSingle.textContent = '↺';
-                resetSingle.title = t('settings.kb.resetSingle');
-                right.appendChild(resetSingle);
-                this.cleanupFunctions.push(addClickHandler(resetSingle, () => this.resetSingle(commandId)));
+            for (const commandId of group.commandIds) {
+                groupEl.appendChild(this.createCommandRow(commandId));
             }
-
-            row.appendChild(right);
-            list.appendChild(row);
-
-            this.cleanupFunctions.push(addClickHandler(kbd, () => this.startRecording(commandId, kbd)));
+            list.appendChild(groupEl);
         }
+    }
+
+    /**
+     * 创建一条快捷键设置行。
+     * @param {string} commandId - 命令 ID
+     * @returns {HTMLElement}
+     */
+    createCommandRow(commandId) {
+        const currentShortcut = this.customBindings[commandId] ?? getDefaultShortcut(commandId);
+        const isCustom = commandId in this.customBindings;
+
+        const row = document.createElement('div');
+        row.className = 'keybindings-row';
+        row.dataset.commandId = commandId;
+
+        const label = document.createElement('span');
+        label.className = 'keybindings-row__label';
+        label.textContent = t(COMMAND_LABELS[commandId]);
+        row.appendChild(label);
+
+        const right = document.createElement('div');
+        right.className = 'keybindings-row__right';
+
+        const kbd = document.createElement('button');
+        kbd.type = 'button';
+        kbd.className = 'keybindings-row__shortcut' + (isCustom ? ' keybindings-row__shortcut--custom' : '');
+        kbd.textContent = formatShortcut(currentShortcut);
+        kbd.title = t('settings.kb.clickToRecord');
+        right.appendChild(kbd);
+
+        if (isCustom) {
+            const resetSingle = document.createElement('button');
+            resetSingle.type = 'button';
+            resetSingle.className = 'keybindings-row__reset';
+            resetSingle.textContent = '↺';
+            resetSingle.title = t('settings.kb.resetSingle');
+            right.appendChild(resetSingle);
+            this.cleanupFunctions.push(addClickHandler(resetSingle, () => this.resetSingle(commandId)));
+        }
+
+        row.appendChild(right);
+        this.cleanupFunctions.push(addClickHandler(kbd, () => this.startRecording(commandId, kbd)));
+        return row;
     }
 
     startRecording(commandId, kbdEl) {
@@ -191,6 +210,7 @@ export class KeybindingsSettings {
         this.stopRecording();
 
         this.recordingCommandId = commandId;
+        document.documentElement.dataset.keybindingRecording = 'true';
         kbdEl.textContent = t('settings.kb.recording');
         kbdEl.classList.add('keybindings-row__shortcut--recording');
 
@@ -205,7 +225,7 @@ export class KeybindingsSettings {
                 return;
             }
 
-            const shortcut = eventToShortcut(event);
+            const shortcut = keyboardEventToShortcut(event);
             if (!shortcut) return; // 纯修饰键，继续等待
 
             this.customBindings[commandId] = shortcut;
@@ -221,6 +241,9 @@ export class KeybindingsSettings {
         if (this._recordingHandler) {
             document.removeEventListener('keydown', this._recordingHandler, true);
             this._recordingHandler = null;
+        }
+        if (typeof document !== 'undefined') {
+            delete document.documentElement.dataset.keybindingRecording;
         }
         this.recordingCommandId = null;
     }
@@ -242,11 +265,16 @@ export class KeybindingsSettings {
         return { ...this.customBindings };
     }
 
-    destroy() {
-        this.stopRecording();
+    /** 释放当前渲染批次创建的点击处理器。 */
+    disposeClickHandlers() {
         for (const fn of this.cleanupFunctions) {
-            try { fn(); } catch {}
+            try { fn?.(); } catch {}
         }
         this.cleanupFunctions = [];
+    }
+
+    destroy() {
+        this.stopRecording();
+        this.disposeClickHandlers();
     }
 }

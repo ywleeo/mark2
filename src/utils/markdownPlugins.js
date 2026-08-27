@@ -250,6 +250,7 @@ export function createConfiguredTurndownService() {
         'samp',
         'dfn',
         'ins',
+        'u',
     ];
     const preservedBlockTags = ['div'];
     [...preservedInlineTags, ...preservedBlockTags].forEach(tagName => {

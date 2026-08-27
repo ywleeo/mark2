@@ -164,41 +164,29 @@ export function createEditorExtensions(lowlight) {
         HtmlDiv,
         HtmlInline,
         AiEditHighlight,
-        // Cmd+B：选中文本加粗时自动补空格，避免中文场景粘连
-        // 注意：undo/redo 快捷键统一交给全局 KeybindingManager 处理，
-        // 不在此扩展注册 Mod-z/Mod-Shift-z/Mod-y，否则会与 document 层 handler 双触发
+        // StarterKit 内各格式扩展自带固定键位。统一命令层在 document 捕获阶段先处理
+        // 当前有效绑定；若用户已改键，这里吞掉旧的 TipTap 默认键位，避免“改键后旧键仍生效”。
         Extension.create({
-            name: 'boldAutoSpace',
+            name: 'suppressBuiltInFormattingShortcuts',
+            priority: 1000,
             addKeyboardShortcuts() {
-                return {
-                    'Mod-b': () => {
-                        if (isEditorComposing(this.editor)) return false;
-                        const { state } = this.editor;
-                        const { from, to, empty } = state.selection;
-                        if (empty || this.editor.isActive('bold')) {
-                            return this.editor.commands.toggleBold();
-                        }
-                        const doc = state.doc;
-                        const $from = state.selection.$from;
-                        const isAtBlockStart = $from.parentOffset === 0;
-                        const charBefore = from > 0 ? doc.textBetween(from - 1, from) : '';
-                        const charAfter = to < doc.content.size
-                            ? doc.textBetween(to, Math.min(to + 1, doc.content.size))
-                            : '';
-                        const needSpaceBefore = !isAtBlockStart && charBefore !== '' && charBefore !== ' ' && charBefore !== '\n';
-                        const needSpaceAfter = charAfter !== '' && charAfter !== ' ' && charAfter !== '\n';
-                        if (!needSpaceBefore && !needSpaceAfter) {
-                            return this.editor.commands.toggleBold();
-                        }
-                        const { tr } = state;
-                        let offset = 0;
-                        if (needSpaceAfter) tr.insertText(' ', to);
-                        if (needSpaceBefore) { tr.insertText(' ', from); offset = 1; }
-                        tr.setSelection(TextSelection.create(tr.doc, from + offset, to + offset));
-                        this.editor.view.dispatch(tr);
-                        return this.editor.commands.toggleBold();
-                    },
+                const consume = () => !isEditorComposing(this.editor);
+                const shortcuts = {
+                    'Mod-b': consume,
+                    'Mod-B': consume,
+                    'Mod-i': consume,
+                    'Mod-I': consume,
+                    'Mod-e': consume,
+                    'Mod-Shift-s': consume,
+                    'Mod-Shift-S': consume,
+                    'Mod-Shift-b': consume,
+                    'Mod-Shift-7': consume,
+                    'Mod-Shift-8': consume,
                 };
+                for (let level = 1; level <= 6; level += 1) {
+                    shortcuts[`Mod-Alt-${level}`] = consume;
+                }
+                return shortcuts;
             },
         }),
         // Ctrl-a/e → code block 内行首/行尾（macOS emacs 风格）

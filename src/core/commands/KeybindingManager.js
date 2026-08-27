@@ -4,70 +4,7 @@
  */
 
 import { isMac } from '../../utils/platform.js';
-
-/**
- * 规范化快捷键 token。
- * @param {string} token - 原始 token
- * @returns {string}
- */
-function normalizeToken(token) {
-    const normalized = String(token || '').trim().toLowerCase();
-    if (normalized === 'cmd' || normalized === 'ctrl' || normalized === 'mod') {
-        return 'mod';
-    }
-    if (normalized === 'space' || normalized === 'spacebar' || normalized === ' ') {
-        return 'space';
-    }
-    if (normalized === 'esc') {
-        return 'escape';
-    }
-    return normalized;
-}
-
-/**
- * 解析快捷键字符串。
- * @param {string} shortcut - 类似 `Mod+Shift+L`
- * @returns {{shortcut: string, modifiers: Object, key: string}}
- */
-function parseShortcut(shortcut) {
-    const tokens = String(shortcut || '')
-        .split('+')
-        .map(normalizeToken)
-        .filter(Boolean);
-
-    const parsed = {
-        shortcut,
-        modifiers: {
-            mod: false,
-            shift: false,
-            alt: false,
-        },
-        key: '',
-    };
-
-    tokens.forEach((token) => {
-        if (token === 'mod' || token === 'shift' || token === 'alt') {
-            parsed.modifiers[token] = true;
-            return;
-        }
-        parsed.key = token;
-    });
-
-    return parsed;
-}
-
-/**
- * 读取事件的规范化按键名。
- * @param {KeyboardEvent} event - 键盘事件
- * @returns {string}
- */
-function getEventKey(event) {
-    const key = typeof event?.key === 'string' ? event.key : '';
-    if (key === ' ') {
-        return 'space';
-    }
-    return normalizeToken(key);
-}
+import { getKeyboardEventKey, parseShortcut } from './keybindingUtils.js';
 
 /**
  * 判断事件是否匹配快捷键定义。
@@ -88,7 +25,10 @@ function matchesBinding(binding, event) {
     if (Boolean(binding.modifiers.alt) !== Boolean(event.altKey)) {
         return false;
     }
-    return getEventKey(event) === binding.key;
+    if (isMac && Boolean(binding.modifiers.ctrl) !== Boolean(event.ctrlKey)) {
+        return false;
+    }
+    return getKeyboardEventKey(event) === binding.key;
 }
 
 /**
@@ -144,12 +84,20 @@ export function createKeybindingManager(options = {}) {
         }
 
         const handler = (event) => {
+            if (event?.isComposing) {
+                return;
+            }
+            if (typeof document !== 'undefined'
+                && document.documentElement?.dataset?.keybindingRecording === 'true') {
+                return;
+            }
             for (const binding of bindings) {
                 if (!matchesBinding(binding.parsed, event)) {
                     continue;
                 }
 
                 event.preventDefault();
+                event.stopPropagation();
                 logger?.info?.('keybinding:triggered', {
                     commandId: binding.commandId,
                     shortcut: binding.shortcut,
@@ -162,8 +110,9 @@ export function createKeybindingManager(options = {}) {
             }
         };
 
-        target.addEventListener('keydown', handler);
-        return () => target.removeEventListener('keydown', handler);
+        // 在捕获阶段先于 TipTap 内置键位执行，确保用户自定义绑定拥有最终解释权。
+        target.addEventListener('keydown', handler, true);
+        return () => target.removeEventListener('keydown', handler, true);
     }
 
     return {

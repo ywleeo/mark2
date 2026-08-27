@@ -4,6 +4,10 @@
  */
 
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
+import {
+    MARKDOWN_DEFAULT_KEYBINDINGS,
+    MARKDOWN_SHORTCUT_COMMANDS,
+} from '../modules/markdown-shortcuts/markdownShortcutDefinitions.js';
 import { isWindows } from '../utils/platform.js';
 import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
 
@@ -45,6 +49,16 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.EDITOR_COPY, () => handlers.onCopy?.(), '复制');
     register(COMMAND_IDS.EDITOR_PASTE, () => handlers.onPaste?.(), '粘贴');
     register(COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, () => handlers.onSelectSearchMatches?.(), '选中全部搜索结果');
+    MARKDOWN_SHORTCUT_COMMANDS.forEach((definition) => {
+        register(
+            definition.commandId,
+            (payload = {}) => handlers.onMarkdownAction?.(
+                definition.action,
+                { ...(definition.payload || {}), ...payload }
+            ),
+            definition.title
+        );
+    });
     register(COMMAND_IDS.DOCUMENT_SAVE, () => handlers.onSave?.(), '保存当前文档');
     register(COMMAND_IDS.DOCUMENT_SAVE_AS, () => handlers.onSaveAs?.(), '另存为');
     register(COMMAND_IDS.DOCUMENT_CLOSE_TAB, () => handlers.onCloseTab?.(), '关闭当前标签');
@@ -109,10 +123,11 @@ export function registerCoreCommands(options = {}) {
 }
 
 /**
- * 默认快捷键定义表。
+ * 应用级默认快捷键定义表。
  * 每项为 [commandId, shortcut]，一个命令可以有多条快捷键。
+ * Markdown 编辑快捷键由 markdown-shortcuts 模块独立贡献。
  */
-export const DEFAULT_KEYBINDINGS = [
+export const APP_DEFAULT_KEYBINDINGS = Object.freeze([
     [COMMAND_IDS.APP_OPEN, 'Mod+O'],
     [COMMAND_IDS.EDITOR_UNDO, 'Mod+Z'],
     [COMMAND_IDS.EDITOR_REDO, 'Mod+Shift+Z'],
@@ -134,7 +149,13 @@ export const DEFAULT_KEYBINDINGS = [
     [COMMAND_IDS.FEATURE_TOC_TOGGLE, 'Mod+H'],
     [COMMAND_IDS.FEATURE_VAULT_TOGGLE, 'Mod+Shift+K'],
     [COMMAND_IDS.APP_SETTINGS, 'Mod+,'],
-];
+].map(binding => Object.freeze(binding)));
+
+/** 运行时使用的完整默认快捷键表，只在装配层合并各模块贡献。 */
+const ALL_DEFAULT_KEYBINDINGS = Object.freeze([
+    ...APP_DEFAULT_KEYBINDINGS,
+    ...MARKDOWN_DEFAULT_KEYBINDINGS,
+]);
 
 /**
  * 注册应用默认快捷键，并合并用户自定义覆盖。
@@ -154,7 +175,7 @@ export function registerDefaultKeybindings(options = {}) {
         disposers.push(keybindingManager.registerBinding({ commandId, shortcut }));
     };
 
-    for (const [commandId, defaultShortcut] of DEFAULT_KEYBINDINGS) {
+    for (const [commandId, defaultShortcut] of ALL_DEFAULT_KEYBINDINGS) {
         if (commandId in customBindings) {
             // 用户自定义：只注册一次
             if (registered.has(commandId)) continue;

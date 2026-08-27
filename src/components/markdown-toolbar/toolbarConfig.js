@@ -1,6 +1,6 @@
 /**
  * Markdown 工具栏按钮配置
- * 包含所有按钮的图标、标题和快捷键
+ * 包含所有按钮的图标与标题；快捷键统一由 Markdown 快捷键贡献模块维护。
  */
 import { t } from '../../i18n/index.js';
 
@@ -32,86 +32,70 @@ const unorderedListIcon = listIcon(`
 export const BUTTON_CONFIG = {
     bold: {
         icon: textIcon('B', 'toolbar-icon--bold'),
-        title: `${t('toolbar.bold')} (Ctrl+B)`,
-        shortcut: 'Ctrl+B'
+        title: t('toolbar.bold')
     },
     italic: {
         icon: textIcon('I', 'toolbar-icon--italic'),
-        title: `${t('toolbar.italic')} (Ctrl+I)`,
-        shortcut: 'Ctrl+I'
+        title: t('toolbar.italic')
     },
     strikethrough: {
         icon: textIcon('S', 'toolbar-icon--strike'),
-        title: t('toolbar.strikethrough'),
-        shortcut: 'Ctrl+Shift+S'
+        title: t('toolbar.strikethrough')
     },
     heading1: {
         icon: textIcon('H1', 'toolbar-icon--heading-level'),
-        title: t('toolbar.heading1'),
-        shortcut: 'Ctrl+1'
+        title: t('toolbar.heading1')
     },
     heading2: {
         icon: textIcon('H2', 'toolbar-icon--heading-level'),
-        title: t('toolbar.heading2'),
-        shortcut: 'Ctrl+2'
+        title: t('toolbar.heading2')
     },
     heading3: {
         icon: textIcon('H3', 'toolbar-icon--heading-level'),
-        title: t('toolbar.heading3'),
-        shortcut: 'Ctrl+3'
+        title: t('toolbar.heading3')
     },
     code: {
         icon: uicon('square-code'),
-        title: t('toolbar.code'),
-        shortcut: 'Ctrl+`'
+        title: t('toolbar.code')
     },
     quote: {
         icon: textIcon('“”', 'toolbar-icon--quote'),
-        title: t('toolbar.quote'),
-        shortcut: 'Ctrl+Shift+>'
+        title: t('toolbar.quote')
     },
     unorderedList: {
         icon: unorderedListIcon,
-        title: t('toolbar.unorderedList'),
-        shortcut: 'Ctrl+Shift+8'
+        title: t('toolbar.unorderedList')
     },
     orderedList: {
         icon: listIcon(`
             <path class="toolbar-icon--fill" d="M2.75 11.8V4.25H1.35V2.7h3.3v9.1h-1.9Z"/>
             <path d="M6.6 4h6.2M6.6 8h6.2M6.6 12h6.2"/>
         `),
-        title: t('toolbar.orderedList'),
-        shortcut: 'Ctrl+Shift+7'
+        title: t('toolbar.orderedList')
     },
     taskList: {
         icon: uicon('list-check'),
-        title: t('toolbar.taskList'),
-        shortcut: 'Ctrl+Shift+9'
+        title: t('toolbar.taskList')
     },
     link: {
         icon: uicon('link'),
-        title: t('toolbar.link'),
-        shortcut: 'Ctrl+K'
+        title: t('toolbar.link')
     },
     image: {
         icon: uicon('picture'),
-        title: t('toolbar.image'),
-        shortcut: 'Ctrl+Shift+I'
+        title: t('toolbar.image')
     },
     table: {
         icon: uicon('table'),
-        title: t('toolbar.table'),
-        shortcut: 'Ctrl+Shift+T'
+        title: t('toolbar.table')
     },
     horizontalRule: {
         icon: uicon('hr'),
-        title: t('toolbar.horizontalRule'),
-        shortcut: 'Ctrl+Shift+-'
+        title: t('toolbar.horizontalRule')
     },
     codeBlock: {
         icon: uicon('brackets-curly'),
-        title: t('toolbar.codeBlock'),
-        shortcut: 'Ctrl+Shift+C'
+        title: t('toolbar.codeBlock')
     },
     clearFormatting: {
         icon: uicon('eraser'),
@@ -135,8 +119,7 @@ export const BUTTON_CONFIG = {
     },
     toggleViewMode: {
         icon: uicon('file-code'),
-        title: t('toolbar.toggleViewMode'),
-        shortcut: 'Ctrl+E'
+        title: t('toolbar.toggleViewMode')
     },
     toc: {
         icon: uicon('document'),

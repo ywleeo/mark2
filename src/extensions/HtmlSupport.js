@@ -155,6 +155,7 @@ export const HtmlInline = Mark.create({
             { tag: 'dfn' },
             { tag: 'ins' },
             { tag: 'del' },
+            { tag: 'u' },
         ];
     },
 

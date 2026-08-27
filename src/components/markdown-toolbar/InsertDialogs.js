@@ -1,5 +1,5 @@
 /**
- * 链接 / 图片 / 视频插入对话框
+ * 链接 / 图片 / 视频 / 数学块插入对话框
  * 用友好的输入界面替代「往文档塞 Markdown 骨架让用户改占位符」。
  * 仿 SheetPickerDialog 的 overlay + Promise 模式。
  */
@@ -270,6 +270,25 @@ export function showVideoDialog({ url = '', currentDir = null } = {}) {
                         if (picked) setValue(picked);
                     },
                 },
+            },
+        ],
+    });
+}
+
+/**
+ * 插入 LaTeX 数学块对话框。
+ * @param {{latex?:string}} options - 初始公式
+ * @returns {Promise<{latex:string}|null>}
+ */
+export function showMathBlockDialog({ latex = '' } = {}) {
+    return showInputDialog({
+        title: t('toolbar.mathBlockDialogTitle'),
+        fields: [
+            {
+                key: 'latex',
+                label: t('toolbar.mathBlockDialogLatex'),
+                value: latex,
+                placeholder: 'E = mc^2',
             },
         ],
     });

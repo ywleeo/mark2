@@ -6,6 +6,7 @@
  * 通过构造函数接收 toolbar 引用,从中读取 editor 并在需要时回调 toolbar(如 emoji)。
  */
 import { liftTarget } from '@tiptap/pm/transform';
+import { TextSelection } from '@tiptap/pm/state';
 
 export class ToolbarTipTapHandlers {
     constructor(toolbar) {
@@ -45,9 +46,11 @@ export class ToolbarTipTapHandlers {
     handleAction(action) {
         switch (action) {
             case 'bold':
-                return this.runCommand(chain => chain.toggleBold());
+                return this.toggleBoldWithSpacing();
             case 'italic':
                 return this.runCommand(chain => chain.toggleItalic());
+            case 'underline':
+                return this.runCommand(chain => chain.toggleMark('htmlInline', { tag: 'u' }));
             case 'strikethrough':
                 return this.runCommand(chain => chain.toggleStrike());
             case 'code':
@@ -58,12 +61,26 @@ export class ToolbarTipTapHandlers {
                 return this.runCommand(chain => chain.toggleHeading({ level: 2 }), { blockedNodes: ['mermaidBlock'] });
             case 'heading3':
                 return this.runCommand(chain => chain.toggleHeading({ level: 3 }), { blockedNodes: ['mermaidBlock'] });
+            case 'heading4':
+                return this.runCommand(chain => chain.toggleHeading({ level: 4 }), { blockedNodes: ['mermaidBlock'] });
+            case 'heading5':
+                return this.runCommand(chain => chain.toggleHeading({ level: 5 }), { blockedNodes: ['mermaidBlock'] });
+            case 'heading6':
+                return this.runCommand(chain => chain.toggleHeading({ level: 6 }), { blockedNodes: ['mermaidBlock'] });
+            case 'increaseHeading':
+                return this.adjustHeadingLevel('increase');
+            case 'decreaseHeading':
+                return this.adjustHeadingLevel('decrease');
             case 'quote':
                 return this.runCommand(chain => chain.toggleBlockquote(), { blockedNodes: ['mermaidBlock'] });
             case 'unorderedList':
                 return this.runCommand(chain => chain.toggleBulletList(), { blockedNodes: ['mermaidBlock'] });
             case 'orderedList':
                 return this.runCommand(chain => chain.toggleOrderedList(), { blockedNodes: ['mermaidBlock'] });
+            case 'indent':
+                return this.adjustListIndent('indent');
+            case 'outdent':
+                return this.adjustListIndent('outdent');
             case 'taskList':
                 if (typeof this.editor.commands?.toggleTaskList === 'function') {
                     return this.runCommand(chain => chain.toggleTaskList(), { blockedNodes: ['mermaidBlock'] });
@@ -79,6 +96,8 @@ export class ToolbarTipTapHandlers {
                 return this.runCommand(chain => chain.setHorizontalRule(), { blockedNodes: ['mermaidBlock'] });
             case 'codeBlock':
                 return this.handleCodeAsBlock();
+            case 'mathBlock':
+                return this.handleMathBlock();
             case 'clearFormatting':
                 return this.clearFormatting();
             case 'emoji':
@@ -88,6 +107,110 @@ export class ToolbarTipTapHandlers {
             default:
                 return false;
         }
+    }
+
+    /**
+     * 加粗选区并在中文等紧邻文本场景自动补空格。
+     * 该逻辑由统一命令与工具栏共用，避免只在 TipTap 固定 Mod+B 键位生效。
+     * @returns {boolean|string}
+     */
+    toggleBoldWithSpacing() {
+        if (!this.isEditor()) return false;
+        if (this.isSelectionInsideNode(['mermaidBlock'])) return 'blocked';
+
+        const { state } = this.editor;
+        const { from, to, empty } = state.selection;
+        const boldType = state.schema.marks.bold;
+        const isBold = Boolean(boldType?.isInSet(state.selection.$from.marks()));
+        if (empty || isBold) {
+            return this.runCommand(chain => chain.toggleBold());
+        }
+
+        const { doc, tr } = state;
+        const $from = state.selection.$from;
+        const isAtBlockStart = $from.parentOffset === 0;
+        const charBefore = from > 0 ? doc.textBetween(from - 1, from) : '';
+        const charAfter = to < doc.content.size
+            ? doc.textBetween(to, Math.min(to + 1, doc.content.size))
+            : '';
+        const needSpaceBefore = !isAtBlockStart && charBefore !== '' && charBefore !== ' ' && charBefore !== '\n';
+        const needSpaceAfter = charAfter !== '' && charAfter !== ' ' && charAfter !== '\n';
+
+        if (!needSpaceBefore && !needSpaceAfter) {
+            return this.runCommand(chain => chain.toggleBold());
+        }
+
+        let offset = 0;
+        if (needSpaceAfter) tr.insertText(' ', to);
+        if (needSpaceBefore) {
+            tr.insertText(' ', from);
+            offset = 1;
+        }
+        tr.setSelection(TextSelection.create(tr.doc, from + offset, to + offset));
+        this.editor.view.dispatch(tr);
+        return this.runCommand(chain => chain.toggleBold());
+    }
+
+    /**
+     * 按“标题层级”调整当前块：正文 → H6 → … → H1，反向则回到正文。
+     * @param {'increase'|'decrease'} direction - 调整方向
+     * @returns {boolean|string}
+     */
+    adjustHeadingLevel(direction) {
+        if (!this.isEditor()) return false;
+        if (this.isSelectionInsideNode(['mermaidBlock'])) return 'blocked';
+
+        const { $from } = this.editor.state.selection;
+        let currentLevel = 0;
+        for (let depth = $from.depth; depth >= 0; depth -= 1) {
+            const node = $from.node(depth);
+            if (node.type.name === 'heading') {
+                currentLevel = Number(node.attrs.level) || 1;
+                break;
+            }
+        }
+
+        if (direction === 'increase') {
+            const nextLevel = currentLevel === 0 ? 6 : Math.max(1, currentLevel - 1);
+            return this.runCommand(
+                chain => chain.setHeading({ level: nextLevel }),
+                { blockedNodes: ['mermaidBlock'] }
+            ) || 'blocked';
+        }
+
+        if (currentLevel === 0) return 'blocked';
+        if (currentLevel >= 6) {
+            return this.runCommand(
+                chain => chain.setParagraph(),
+                { blockedNodes: ['mermaidBlock'] }
+            ) || 'blocked';
+        }
+        return this.runCommand(
+            chain => chain.setHeading({ level: currentLevel + 1 }),
+            { blockedNodes: ['mermaidBlock'] }
+        ) || 'blocked';
+    }
+
+    /**
+     * 调整当前列表项层级，支持普通列表与任务列表。
+     * @param {'indent'|'outdent'} direction - 调整方向
+     * @returns {boolean|string}
+     */
+    adjustListIndent(direction) {
+        if (!this.isEditor()) return false;
+        const { $from } = this.editor.state.selection;
+        let itemType = null;
+        for (let depth = $from.depth; depth >= 0; depth -= 1) {
+            const nodeName = $from.node(depth).type.name;
+            if (nodeName === 'taskItem' || nodeName === 'listItem') {
+                itemType = nodeName;
+                break;
+            }
+        }
+        if (!itemType) return 'blocked';
+        return direction === 'indent'
+            ? this.runCommand(chain => chain.sinkListItem(itemType))
+            : this.runCommand(chain => chain.liftListItem(itemType));
     }
 
     /**
@@ -143,6 +266,28 @@ export class ToolbarTipTapHandlers {
             .run();
 
         return true;
+    }
+
+    /**
+     * 打开公式输入框并插入可序列化为 `$$` 的数学块。
+     * @returns {boolean|string}
+     */
+    handleMathBlock() {
+        if (!this.isEditor()) return false;
+        if (this.isSelectionInsideNode(['mermaidBlock'])) return 'blocked';
+        void this._runMathBlockDialog();
+        return true;
+    }
+
+    /** 执行数学块输入流程。 */
+    async _runMathBlockDialog() {
+        const { showMathBlockDialog } = await import('./InsertDialogs.js');
+        const result = await showMathBlockDialog();
+        if (!result?.latex) return;
+        this.editor.chain().focus().insertContent({
+            type: 'mathBlock',
+            attrs: { latex: result.latex },
+        }).run();
     }
 
     clearFormatting() {

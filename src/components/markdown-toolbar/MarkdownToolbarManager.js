@@ -487,6 +487,27 @@ export class MarkdownToolbarManager {
     }
 
     /**
+     * 执行统一命令层派发的 Markdown 编辑动作。
+     * @param {string} action - 工具栏动作名
+     * @param {object} payload - 动作参数
+     * @returns {boolean}
+     */
+    executeMarkdownAction(action, payload = {}) {
+        if (!this.toolbar) {
+            logger.warn('Markdown action skipped: toolbar not initialized', { action });
+            return false;
+        }
+
+        if (action === 'heading') {
+            this.toolbar.applyHeading(Number(payload.level) || 0);
+            return true;
+        }
+
+        this.toolbar.handleAction(action);
+        return true;
+    }
+
+    /**
      * 复制 markdown 内容到剪贴板。
      * 有选区时复制选中内容的 markdown 原文，无选区时复制整篇。
      */

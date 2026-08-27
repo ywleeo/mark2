@@ -3,7 +3,7 @@
  * 使用 CSS hover 实现子菜单展开
  */
 import { COMMAND_IDS } from '../core/commands/commandIds.js';
-import { DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
+import { APP_DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
 import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t } from '../i18n/index.js';
@@ -73,7 +73,7 @@ export class AppMenu {
             const commandId = entry[0];
 
             const customShortcut = this.customBindings[commandId];
-            const defaultEntry = DEFAULT_KEYBINDINGS.find(([id]) => id === commandId);
+            const defaultEntry = APP_DEFAULT_KEYBINDINGS.find(([id]) => id === commandId);
             const defaultShortcut = defaultEntry ? formatShortcut(defaultEntry[1]) : '';
             const displayShortcut = customShortcut ? formatShortcut(customShortcut) : defaultShortcut;
 

@@ -143,9 +143,6 @@ export class MarkdownToolbar {
         };
         window.addEventListener('resize', this._onWindowResize);
 
-        // 绑定键盘快捷键
-        this.bindShortcuts();
-
         // 恢复居中模式状态
         this.restoreCenterContentState();
 
@@ -334,20 +331,29 @@ export class MarkdownToolbar {
         const actions = {
             bold: () => pm.toggleFormat('**', '**'),
             italic: () => pm.toggleFormat('*', '*'),
+            underline: () => pm.toggleFormat('<u>', '</u>'),
             strikethrough: () => pm.toggleFormat('~~', '~~'),
             code: () => pm.toggleFormat('`', '`'),
             heading1: () => pm.toggleHeading(1),
             heading2: () => pm.toggleHeading(2),
             heading3: () => pm.toggleHeading(3),
+            heading4: () => pm.toggleHeading(4),
+            heading5: () => pm.toggleHeading(5),
+            heading6: () => pm.toggleHeading(6),
+            increaseHeading: () => pm.adjustHeadingLevel('increase'),
+            decreaseHeading: () => pm.adjustHeadingLevel('decrease'),
             quote: () => pm.togglePrefix('> '),
             unorderedList: () => pm.togglePrefix('- '),
             orderedList: () => pm.togglePrefix('1. '),
+            indent: () => pm.adjustIndent('indent'),
+            outdent: () => pm.adjustIndent('outdent'),
             taskList: () => pm.insertTaskListFallback(),
             link: () => pm.insertLink(),
             image: () => pm.insertImage(),
             table: () => pm.insertTable(),
             horizontalRule: () => pm.insertHorizontalRule(),
             codeBlock: () => pm.insertCodeBlock(),
+            mathBlock: () => pm.insertMathBlock(),
             clearFormatting: () => pm.clearFormatting(),
             emoji: () => this.handleEmojiPicker(),
             video: () => pm.insertVideo()
@@ -375,47 +381,6 @@ export class MarkdownToolbar {
             this.plainMarkdown.setHeading(level);
         }
         this.emit('action', 'heading');
-    }
-
-    /**
-     * 绑定键盘快捷键
-     */
-    bindShortcuts() {
-        if (!this.editor) return;
-
-        const shortcuts = {};
-
-        // 构建快捷键映射
-        Object.entries(this.buttonConfig).forEach(([buttonType, config]) => {
-            if (config && config.shortcut) {
-                shortcuts[config.shortcut.toLowerCase()] = buttonType;
-            }
-        });
-
-        // TipTap 编辑器快捷键绑定
-        if (typeof this.editor.view !== 'undefined') {
-            // TipTap 使用 ProseMirror 的快捷键系统
-            // 这里只是示例，实际应该通过扩展添加
-        }
-        // 普通 textarea 快捷键绑定
-        else if (this.editor.addEventListener) {
-            this.editor.addEventListener('keydown', (e) => {
-                const key = [];
-                if (e.ctrlKey) key.push('ctrl');
-                if (e.shiftKey) key.push('shift');
-                if (e.altKey) key.push('alt');
-                if (e.metaKey) key.push('meta');
-                key.push(e.key.toLowerCase());
-
-                const shortcut = key.join('+');
-                const action = shortcuts[shortcut];
-
-                if (action) {
-                    e.preventDefault();
-                    this.handleAction(action);
-                }
-            });
-        }
     }
 
     /**

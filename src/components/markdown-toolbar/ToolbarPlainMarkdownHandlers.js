@@ -69,6 +69,32 @@ export class ToolbarPlainMarkdownHandlers {
         this.replaceLine(newLine, selection);
     }
 
+    /**
+     * 调整源码模式下当前行的标题级别。
+     * @param {'increase'|'decrease'} direction - 调整方向
+     * @returns {boolean}
+     */
+    adjustHeadingLevel(direction) {
+        const { selection, line } = this.getSelectedText();
+        const match = line.match(/^(#{1,6})\s/);
+        const currentLevel = match ? match[1].length : 0;
+        let nextLevel = currentLevel;
+
+        if (direction === 'increase') {
+            nextLevel = currentLevel === 0 ? 6 : Math.max(1, currentLevel - 1);
+        } else if (currentLevel >= 6) {
+            nextLevel = 0;
+        } else if (currentLevel > 0) {
+            nextLevel = currentLevel + 1;
+        } else {
+            return false;
+        }
+
+        const stripped = line.replace(/^#{1,6}\s/, '');
+        this.replaceLine(nextLevel ? `${'#'.repeat(nextLevel)} ${stripped}` : stripped, selection);
+        return true;
+    }
+
     togglePrefix(prefix) {
         const { selection, line } = this.getSelectedText();
         if (line.startsWith(prefix)) {
@@ -78,6 +104,34 @@ export class ToolbarPlainMarkdownHandlers {
             const newLine = prefix + line;
             this.replaceLine(newLine, selection);
         }
+    }
+
+    /**
+     * 调整源码模式下选中行或当前行的四空格缩进。
+     * @param {'indent'|'outdent'} direction - 调整方向
+     * @returns {boolean}
+     */
+    adjustIndent(direction) {
+        const editor = this.editor;
+        if (!editor || typeof editor.value !== 'string' || typeof editor.setRangeText !== 'function') {
+            return false;
+        }
+
+        const start = editor.selectionStart ?? 0;
+        const end = editor.selectionEnd ?? start;
+        const lineStart = editor.value.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+        const nextNewline = editor.value.indexOf('\n', end);
+        const lineEnd = nextNewline === -1 ? editor.value.length : nextNewline;
+        const selectedLines = editor.value.slice(lineStart, lineEnd);
+        const updated = direction === 'indent'
+            ? selectedLines.split('\n').map(line => `    ${line}`).join('\n')
+            : selectedLines.split('\n').map(line => line.replace(/^(?: {1,4}|\t)/, '')).join('\n');
+
+        if (updated === selectedLines) return false;
+        editor.focus?.();
+        editor.setRangeText(updated, lineStart, lineEnd, 'select');
+        editor.dispatchEvent?.(new Event('input', { bubbles: true }));
+        return true;
     }
 
     // --- 插入 ---
@@ -171,6 +225,20 @@ export class ToolbarPlainMarkdownHandlers {
         } else {
             this.insertTextAtCursor(codeBlock);
         }
+    }
+
+    /** 打开公式输入框，并在源码模式插入数学块。 */
+    insertMathBlock() {
+        void this._runMathBlockDialog();
+    }
+
+    /** 执行源码模式数学块输入流程。 */
+    async _runMathBlockDialog() {
+        const { showMathBlockDialog } = await import('./InsertDialogs.js');
+        const result = await showMathBlockDialog();
+        if (!result?.latex) return;
+        this.insertTextAtCursor(`\n$$\n${result.latex}\n$$\n`);
+        this.editor?.focus?.();
     }
 
     insertTaskListFallback() {
@@ -271,11 +339,9 @@ export class ToolbarPlainMarkdownHandlers {
                 const selectedText = editor.value.substring(start, end);
 
                 const lineStart = editor.value.lastIndexOf('\n', start) + 1;
-                const lineEnd = editor.value.indexOf('\n', end);
-                const line = editor.value.substring(
-                    lineStart,
-                    lineEnd === -1 ? editor.value.length : lineEnd
-                );
+                const nextLineBreak = editor.value.indexOf('\n', end);
+                const lineEnd = nextLineBreak === -1 ? editor.value.length : nextLineBreak;
+                const line = editor.value.substring(lineStart, lineEnd);
 
                 return {
                     selectedText,
