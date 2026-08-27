@@ -40,16 +40,18 @@ test('同步主栏文档保持单栏模式', () => {
 });
 
 /**
- * 验证副栏不能重复打开主栏当前文档。
+ * 验证主副栏可以共享同一路径，由上层 DocumentModel 保证内容同步。
  */
-test('副栏拒绝与主栏相同的文档', () => {
+test('副栏允许与主栏打开同一文档', () => {
     const manager = createPaneManager();
     manager.syncPrimaryDocument('/workspace/a.md');
 
     const result = manager.openSecondary('/workspace/a.md');
 
-    assert.deepEqual(result, { opened: false, reason: 'already-open-in-primary' });
-    assert.equal(manager.getMode(), PANE_LAYOUT_MODES.SINGLE);
+    assert.deepEqual(result, { opened: true });
+    assert.equal(manager.getMode(), PANE_LAYOUT_MODES.DUAL);
+    assert.equal(manager.getPrimaryPane().documentPath, '/workspace/a.md');
+    assert.equal(manager.getSecondaryPane().documentPath, '/workspace/a.md');
 });
 
 /**
@@ -136,16 +138,16 @@ test('恢复双栏布局后默认聚焦主栏', () => {
 });
 
 /**
- * 验证主标签切到副栏同一文件时自动收起副栏，避免同一路径双写。
+ * 验证主栏切到副栏同一文件时仍保留双栏共享视图。
  */
-test('主栏接管副栏文档时自动降级为单栏', () => {
+test('主栏切换到副栏同一文档时保持双栏', () => {
     const manager = createPaneManager();
     manager.syncPrimaryDocument('/workspace/a.md');
     manager.openSecondary('/workspace/b.md');
 
     manager.syncPrimaryDocument('/workspace/b.md', { viewMode: 'markdown' });
 
-    assert.equal(manager.getMode(), PANE_LAYOUT_MODES.SINGLE);
+    assert.equal(manager.getMode(), PANE_LAYOUT_MODES.DUAL);
     assert.equal(manager.getPrimaryPane().documentPath, '/workspace/b.md');
-    assert.equal(manager.getSecondaryPane().documentPath, null);
+    assert.equal(manager.getSecondaryPane().documentPath, '/workspace/b.md');
 });

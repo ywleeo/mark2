@@ -35,7 +35,7 @@ test('双栏快照保留副栏文档并约束拖动比例', () => {
     });
 });
 
-test('主副栏指向同一文档时安全降级为单栏', () => {
+test('主副栏指向同一文档时保留双栏共享布局', () => {
     const normalized = normalizeWorkspaceState({
         currentFile: '/tmp/same.md',
         openFiles: ['/tmp/same.md'],
@@ -47,8 +47,8 @@ test('主副栏指向同一文档时安全降级为单栏', () => {
         },
     });
 
-    assert.equal(normalized.layout.mode, 'single');
-    assert.equal(normalized.layout.secondaryDocumentPath, null);
+    assert.equal(normalized.layout.mode, 'dual');
+    assert.equal(normalized.layout.secondaryDocumentPath, '/tmp/same.md');
 });
 
 test('不存在的副栏 untitled 快照不会被恢复', () => {
