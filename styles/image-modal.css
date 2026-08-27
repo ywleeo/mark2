@@ -10,6 +10,8 @@
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
+    /* 使用不透明的内容区底色，避免透明图片透出下层原图形成重影。 */
+    background: var(--content-bg, #fdfdfd);
     transition: opacity 200ms ease, visibility 0s linear 200ms;
 }
 
@@ -24,9 +26,8 @@
 .image-modal-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.88);
-    backdrop-filter: blur(12px) saturate(1.4);
-    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    /* 弹层与图片透明区域共用同一实色画布，不再采样或模糊下层页面。 */
+    background: transparent;
     cursor: default;
 }
 
@@ -42,7 +43,8 @@
 /* image — no CSS transform/transition; JS fully controls transform */
 .image-modal-img {
     border-radius: 6px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    /* 透明图片不添加矩形投影，避免把图片画布边界误显示为黑色块。 */
+    box-shadow: none;
     cursor: zoom-in;
     user-select: none;
     -webkit-user-select: none;

@@ -17,9 +17,12 @@ use objc2_foundation::NSURL;
 #[cfg(target_os = "macos")]
 use crate::macos_security::move_path_to_trash;
 
+/// 文件系统层向前端暴露的稳定元数据。
 #[derive(Serialize)]
 pub struct FileMetadata {
     pub modified_time: u64,
+    pub created_time: Option<u64>,
+    pub file_size: u64,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -87,6 +90,7 @@ pub fn is_directory(path: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+/// 读取文件大小以及文件系统可提供的创建、修改时间。
 pub fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
     let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
     let modified = metadata.modified().map_err(|e| e.to_string())?;
@@ -94,8 +98,18 @@ pub fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_err(|e| e.to_string())?
         .as_millis() as u64;
+    let created_time = metadata.created().ok().and_then(|created| {
+        created
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()
+            .map(|duration| duration.as_millis() as u64)
+    });
 
-    Ok(FileMetadata { modified_time })
+    Ok(FileMetadata {
+        modified_time,
+        created_time,
+        file_size: metadata.len(),
+    })
 }
 
 #[tauri::command]
@@ -541,6 +555,23 @@ mod tests {
             .map(|entry| entry.file_name())
             .collect();
         assert_eq!(remaining.len(), 1);
+
+        fs::remove_dir_all(&test_dir).expect("remove test directory");
+    }
+
+    /** 验证文件元数据包含准确体积，并提供可用的文件系统时间。 */
+    #[test]
+    fn file_metadata_includes_size_and_times() {
+        let test_dir = std::env::temp_dir().join(format!("mark2-file-metadata-{}", Uuid::new_v4()));
+        fs::create_dir_all(&test_dir).expect("create test directory");
+        let target = test_dir.join("image.png");
+        fs::write(&target, b"image-bytes").expect("write image fixture");
+
+        let metadata = get_file_metadata(target.to_string_lossy().into_owned()).expect("read metadata");
+
+        assert_eq!(metadata.file_size, 11);
+        assert!(metadata.modified_time > 0);
+        assert!(metadata.created_time.map_or(true, |timestamp| timestamp > 0));
 
         fs::remove_dir_all(&test_dir).expect("remove test directory");
     }

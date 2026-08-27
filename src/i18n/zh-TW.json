@@ -437,5 +437,8 @@
   "updater.ready.hint": "點擊重啟以完成更新",
   "updater.restart": "立即重啟",
   "updater.dismissLater": "稍後",
-  "updater.close": "關閉"
+  "updater.close": "關閉",
+
+  "imageViewer.createdAt": "建立 {value}",
+  "imageViewer.modifiedAt": "修改 {value}"
 }

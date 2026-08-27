@@ -438,5 +438,8 @@
     "updater.ready.hint": "Click restart to finish the update",
     "updater.restart": "Restart now",
     "updater.dismissLater": "Later",
-    "updater.close": "Close"
+    "updater.close": "Close",
+
+    "imageViewer.createdAt": "Created {value}",
+    "imageViewer.modifiedAt": "Modified {value}"
 }

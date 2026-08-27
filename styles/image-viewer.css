@@ -26,8 +26,8 @@
     max-width: 100%;
     max-height: calc(100vh - 200px);
     object-fit: contain;
-    border-radius: 8px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    /* alpha 直接透出查看器背景，图片与内容区保持同一视觉层级。 */
+    background: transparent;
     cursor: zoom-in;
     transition: opacity 0.15s ease;
 }
@@ -51,6 +51,15 @@
     text-align: center;
     word-break: break-all;
     max-width: 600px;
+}
+
+.image-viewer-metadata {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-secondary, #666666);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    white-space: pre-line;
 }
 
 .image-viewer-message {

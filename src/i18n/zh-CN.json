@@ -438,5 +438,8 @@
     "updater.ready.hint": "点击重启以完成更新",
     "updater.restart": "立即重启",
     "updater.dismissLater": "稍后",
-    "updater.close": "关闭"
+    "updater.close": "关闭",
+
+    "imageViewer.createdAt": "创建 {value}",
+    "imageViewer.modifiedAt": "修改 {value}"
 }
