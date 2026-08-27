@@ -105,6 +105,10 @@ export class SettingsDialog {
                                 <input type="number" name="tabFontSize" min="9" max="24" step="1" class="settings-row__control" />
                             </label>
                             <label class="settings-row">
+                                <span class="settings-row__label">${t('settings.showTabCloseButton')}</span>
+                                <input type="checkbox" name="showTabCloseButton" class="settings-row__control settings-row__control--toggle" />
+                            </label>
+                            <label class="settings-row">
                                 <span class="settings-row__label">${t('settings.sidebarFontSize')}</span>
                                 <input type="number" name="sidebarFontSize" min="9" max="24" step="1" class="settings-row__control" />
                             </label>
@@ -259,6 +263,7 @@ export class SettingsDialog {
 
         // 通用：tab / sidebar / toc 字号
         this.tabFontSizeInput = this.form.querySelector('input[name="tabFontSize"]');
+        this.showTabCloseButtonCheckbox = this.form.querySelector('input[name="showTabCloseButton"]');
         this.sidebarFontSizeInput = this.form.querySelector('input[name="sidebarFontSize"]');
         this.tocFontSizeInput = this.form.querySelector('input[name="tocFontSize"]');
         this.autoSaveCheckbox = this.form.querySelector('input[name="autoSave"]');
@@ -456,6 +461,9 @@ export class SettingsDialog {
         if (this.tabFontSizeInput) {
             this.tabFontSizeInput.value = Number(editorPrefs.tabFontSize) || 12;
         }
+        if (this.showTabCloseButtonCheckbox) {
+            this.showTabCloseButtonCheckbox.checked = editorPrefs.showTabCloseButton !== false;
+        }
         if (this.sidebarFontSizeInput) {
             this.sidebarFontSizeInput.value = Number(editorPrefs.sidebarFontSize) || 12;
         }
@@ -651,6 +659,9 @@ export class SettingsDialog {
         const normalizedTabSize = Number.isFinite(tabFontSize) ? this.clamp(tabFontSize, 9, 24) : 12;
         const normalizedSidebarSize = Number.isFinite(sidebarFontSize) ? this.clamp(sidebarFontSize, 9, 24) : 12;
         const normalizedTocSize = Number.isFinite(tocFontSize) ? this.clamp(tocFontSize, 9, 24) : 12;
+        const showTabCloseButton = this.showTabCloseButtonCheckbox
+            ? Boolean(this.showTabCloseButtonCheckbox.checked)
+            : true;
         const autoSave = this.autoSaveCheckbox ? Boolean(this.autoSaveCheckbox.checked) : true;
         const allowAutoUpdate = this.allowAutoUpdateCheckbox ? Boolean(this.allowAutoUpdateCheckbox.checked) : true;
 
@@ -668,6 +679,7 @@ export class SettingsDialog {
             codeFontFamily: codeFontFamily || '',
             codeFontWeight: Number.isFinite(codeFontWeight) ? codeFontWeight : 400,
             tabFontSize: normalizedTabSize,
+            showTabCloseButton,
             sidebarFontSize: normalizedSidebarSize,
             tocFontSize: normalizedTocSize,
             autoSave,

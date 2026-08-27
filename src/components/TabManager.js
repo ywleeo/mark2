@@ -1,6 +1,7 @@
 import { addClickHandler, addMiddleClickHandler } from '../utils/PointerHelper.js';
 import { basename } from '../utils/pathUtils.js';
 import { t } from '../i18n/index.js';
+import { getTabWheelScrollLeft } from './tab-manager/tabWheelScroll.js';
 
 const TAB_DRAG_ACTIVATION_THRESHOLD = 4;
 const TAB_SHIFT_ANIMATION_MS = 140;
@@ -32,6 +33,14 @@ export class TabManager {
         this.handleGlobalPointerMove = this.handleGlobalPointerMove.bind(this);
         this.handleGlobalPointerUp = this.handleGlobalPointerUp.bind(this);
         this.handleGlobalKeyDown = this.handleGlobalKeyDown.bind(this);
+        this.handleTabListWheel = this.handleTabListWheel.bind(this);
+        if (this.container) {
+            const tabList = this.container;
+            tabList.addEventListener('wheel', this.handleTabListWheel, { passive: false });
+            this.persistentCleanups.push(() => {
+                tabList.removeEventListener('wheel', this.handleTabListWheel);
+            });
+        }
         if (typeof window !== 'undefined') {
             window.addEventListener('pointermove', this.handleGlobalPointerMove);
             window.addEventListener('pointerup', this.handleGlobalPointerUp);
@@ -45,6 +54,22 @@ export class TabManager {
             });
         }
         this.render();
+    }
+
+    /**
+     * 将标签栏上的纵向滚轮转换为横向滚动，同时保留触控板原生横向手势。
+     * 只有标签栏仍可沿目标方向滚动时才阻止默认行为，避免在边界处锁住滚轮。
+     * @param {WheelEvent} event - 标签列表的滚轮事件
+     */
+    handleTabListWheel(event) {
+        const tabList = this.container;
+        if (!tabList || !event || event.defaultPrevented) return;
+
+        const nextScrollLeft = getTabWheelScrollLeft(tabList, event);
+        if (nextScrollLeft === null) return;
+
+        tabList.scrollLeft = nextScrollLeft;
+        event.preventDefault();
     }
 
     /**
@@ -504,6 +529,17 @@ export class TabManager {
                 closeButton.className = 'tab-close';
                 closeButton.type = 'button';
                 closeButton.textContent = '×';
+                closeButton.title = t('settings.kb.closeTab');
+                closeButton.setAttribute('aria-label', t('settings.kb.closeTab'));
+
+                // 状态与关闭动作使用同一固定槽位，但保持为独立元素。
+                // 隐藏关闭按钮时，未保存圆点和保存中转圈仍可正常展示。
+                const actionSlot = document.createElement('span');
+                actionSlot.className = 'tab-action-slot';
+                const statusIndicator = document.createElement('span');
+                statusIndicator.className = 'tab-status';
+                statusIndicator.setAttribute('aria-hidden', 'true');
+                actionSlot.append(statusIndicator, closeButton);
 
                 // 使用统一的点击处理函数
                 const cleanup1 = addClickHandler(closeButton, (event) => {
@@ -523,7 +559,7 @@ export class TabManager {
                 });
                 this.cleanupFunctions.push(cleanup1);
 
-                tabElement.appendChild(closeButton);
+                tabElement.appendChild(actionSlot);
 
                 const cleanup2 = addClickHandler(tabElement, async () => {
                     if (this.isDraggingTabs) {

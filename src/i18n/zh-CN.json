@@ -209,6 +209,7 @@
     "settings.systemFonts": "系统字体",
     "settings.language": "语言",
     "settings.tabFontSize": "标签页字号",
+    "settings.showTabCloseButton": "显示标签关闭按钮",
     "settings.sidebarFontSize": "侧边栏字号",
     "settings.tocFontSize": "大纲字号",
     "settings.autoSave": "自动保存",

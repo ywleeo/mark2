@@ -209,6 +209,7 @@
     "settings.systemFonts": "System Fonts",
     "settings.language": "Language",
     "settings.tabFontSize": "Tab Font Size",
+    "settings.showTabCloseButton": "Show Tab Close Buttons",
     "settings.sidebarFontSize": "Sidebar Font Size",
     "settings.tocFontSize": "TOC Font Size",
     "settings.autoSave": "Auto Save",

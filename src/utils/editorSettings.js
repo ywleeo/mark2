@@ -20,6 +20,7 @@ export const defaultEditorSettings = {
     codeFontFamily: '',
     codeFontWeight: 400,
     tabFontSize: 12,
+    showTabCloseButton: true,
     sidebarFontSize: 12,
     tocFontSize: 12,
     autoSave: true,
@@ -143,6 +144,10 @@ export function normalizeEditorSettings(candidate) {
             }
         }
 
+        if (candidate.showTabCloseButton !== undefined) {
+            prefs.showTabCloseButton = candidate.showTabCloseButton !== false;
+        }
+
         if (candidate.sidebarFontSize !== undefined) {
             const size = Number(candidate.sidebarFontSize);
             if (Number.isFinite(size)) {
@@ -232,6 +237,9 @@ export function applyEditorSettings(settings) {
     }
 
     root.style.setProperty('--tab-font-size', `${prefs.tabFontSize}px`);
+    root.dataset.tabCloseButtonVisibility = prefs.showTabCloseButton === false
+        ? 'hidden'
+        : 'visible';
     root.style.setProperty('--sidebar-font-size', `${prefs.sidebarFontSize}px`);
     root.style.setProperty('--toc-font-size', `${prefs.tocFontSize}px`);
 

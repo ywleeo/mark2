@@ -208,6 +208,7 @@
   "settings.systemFonts": "系統字型",
   "settings.language": "語言",
   "settings.tabFontSize": "頁籤字型大小",
+  "settings.showTabCloseButton": "顯示頁籤關閉按鈕",
   "settings.sidebarFontSize": "側邊欄字型大小",
   "settings.tocFontSize": "大綱字型大小",
   "settings.autoSave": "自動儲存",

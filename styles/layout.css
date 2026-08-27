@@ -570,6 +570,27 @@ body.is-dual-pane .pane-header--secondary {
     box-shadow: 0 0 0 2px var(--tab-focus-shadow-color, rgba(107, 226, 117, 0.25));
 }
 
+.tab-action-slot {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tab-close,
+.tab-status {
+    position: absolute;
+    inset: 0;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .tab-close {
     appearance: none;
     border: none;
@@ -579,14 +600,8 @@ body.is-dual-pane .pane-header--secondary {
     padding: 0;
     margin: 0;
     cursor: pointer;
-    /* 固定尺寸 + flex 居中：✕ / ● 符号切换时按钮尺寸恒定，避免 tab 高度抖动 */
-    width: 14px;
-    height: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
     color: var(--tab-close-color, rgba(21, 23, 26, 0.4));
+    visibility: visible;
     transition: color 0.15s ease;
 }
 
@@ -594,38 +609,44 @@ body.is-dual-pane .pane-header--secondary {
     color: var(--tab-close-hover-color, rgba(21, 23, 26, 0.85));
 }
 
-/* Dirty indicator: dot by default, × on hover */
-.tab.is-dirty .tab-close {
-    font-size: 0;
+/* 状态指示器与关闭动作解耦，避免隐藏关闭按钮时丢失未保存/保存中状态。 */
+.tab-status {
+    pointer-events: none;
+    visibility: hidden;
     color: var(--tab-dirty-color, rgba(220, 100, 40, 0.85));
 }
 
-.tab.is-dirty .tab-close::before {
+.tab-status::before {
     content: '●';
     font-size: 9px;
     display: inline-block;
 }
 
+.tab.is-dirty .tab-status {
+    visibility: visible;
+}
+
+.tab.is-dirty .tab-close {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.tab.is-dirty:hover .tab-status {
+    visibility: hidden;
+}
+
 .tab.is-dirty:hover .tab-close {
-    font-size: 13px;
-    color: var(--tab-close-color, rgba(21, 23, 26, 0.4));
+    visibility: visible;
+    pointer-events: auto;
 }
 
-.tab.is-dirty:hover .tab-close::before {
-    content: none;
+/* 保存中把脏点替换成转圈 progress，并始终禁用关闭动作。 */
+.tab.is-syncing .tab-status,
+.tab.is-syncing:hover .tab-status {
+    visibility: visible;
 }
 
-.tab.is-dirty:hover .tab-close:hover {
-    color: var(--tab-close-hover-color, rgba(21, 23, 26, 0.85));
-}
-
-/* Saving indicator: 保存中把脏点替换成转圈 progress(优先于 is-dirty) */
-.tab.is-syncing .tab-close {
-    font-size: 0;
-    color: transparent;
-}
-
-.tab.is-syncing .tab-close::before {
+.tab.is-syncing .tab-status::before {
     content: '';
     display: inline-block;
     width: 9px;
@@ -636,13 +657,26 @@ body.is-dual-pane .pane-header--secondary {
     animation: tab-sync-spin 0.7s linear infinite;
 }
 
-/* 保存中:hover 不切换成 ✕,保持转圈(避免误关正在保存的 tab) */
+.tab.is-syncing .tab-close,
 .tab.is-syncing:hover .tab-close {
-    font-size: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
-.tab.is-syncing:hover .tab-close::before {
-    content: '';
+/* 隐藏关闭按钮时，干净标签不再保留操作槽占位，让标签文字保持视觉居中。 */
+:root[data-tab-close-button-visibility='hidden'] .tab:not(.is-dirty):not(.is-syncing) .tab-action-slot {
+    display: none;
+}
+
+/* 未保存与保存中标签仍保留状态指示器，中键关闭逻辑不受影响。 */
+:root[data-tab-close-button-visibility='hidden'] .tab-close,
+:root[data-tab-close-button-visibility='hidden'] .tab.is-dirty:hover .tab-close {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+:root[data-tab-close-button-visibility='hidden'] .tab.is-dirty:hover .tab-status {
+    visibility: visible;
 }
 
 @keyframes tab-sync-spin {
