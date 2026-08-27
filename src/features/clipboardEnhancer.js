@@ -1,4 +1,115 @@
-// 剪贴板增强模块 - 复制时添加内联样式
+// 剪贴板增强模块：复制时补齐展示样式，粘贴时清理外部富文本样式。
+
+const REMOVED_ELEMENT_SELECTOR = 'script, style, meta, link, title, xml';
+const UNWRAPPED_INLINE_TAGS = new Set(['SPAN', 'FONT', 'O:P']);
+const BLOCK_TAGS = new Set([
+    'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DIV', 'DL', 'FIELDSET',
+    'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+    'HEADER', 'HR', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'UL',
+]);
+
+/**
+ * 根据富文本 CSS 提取 Markdown 能表达的行内语义。
+ * @param {string} style - 元素的 style 属性
+ * @returns {string[]}
+ */
+function getSemanticTagsFromStyle(style) {
+    if (!style) return [];
+    const tags = [];
+    const fontWeight = style.match(/(?:^|;)\s*font-weight\s*:\s*([^;]+)/i)?.[1]?.trim().toLowerCase() || '';
+    const numericWeight = Number.parseInt(fontWeight, 10);
+    if (fontWeight === 'bold' || fontWeight === 'bolder' || (Number.isFinite(numericWeight) && numericWeight >= 600)) {
+        tags.push('strong');
+    }
+    if (/(?:^|;)\s*font-style\s*:\s*(?:italic|oblique)\b/i.test(style)) {
+        tags.push('em');
+    }
+    if (/(?:^|;)\s*text-decoration(?:-line)?\s*:[^;]*\bline-through\b/i.test(style)) {
+        tags.push('s');
+    }
+    return tags;
+}
+
+/**
+ * 用语义标签包裹元素内容，让 CSS 粗体、斜体和删除线能够转换为 Markdown 标记。
+ * @param {Element} element - 待转换的富文本元素
+ * @param {Document} documentRef - 当前 WebView 文档
+ */
+function promoteVisualStyleToSemanticTags(element, documentRef) {
+    const currentTag = element.tagName?.toLowerCase() || '';
+    const semanticTags = getSemanticTagsFromStyle(element.getAttribute('style') || '')
+        .filter(tag => !(
+            (tag === 'strong' && (currentTag === 'strong' || currentTag === 'b'))
+            || (tag === 'em' && (currentTag === 'em' || currentTag === 'i'))
+            || (tag === 's' && (currentTag === 's' || currentTag === 'strike' || currentTag === 'del'))
+        ));
+
+    for (const tag of semanticTags) {
+        const wrapper = documentRef.createElement(tag);
+        while (element.firstChild) wrapper.appendChild(element.firstChild);
+        element.appendChild(wrapper);
+    }
+}
+
+/**
+ * 仅保留 Markdown 结构解析需要的 HTML 属性。
+ * @param {Element} element - 待清理的元素
+ */
+function removePresentationalAttributes(element) {
+    const tag = element.tagName?.toLowerCase() || '';
+    const allowedByTag = {
+        a: new Set(['href', 'title']),
+        img: new Set(['src', 'alt', 'title']),
+        ol: new Set(['start']),
+        li: new Set(['value']),
+        td: new Set(['colspan', 'rowspan']),
+        th: new Set(['colspan', 'rowspan']),
+        input: new Set(['type', 'checked']),
+    };
+    const allowed = allowedByTag[tag] || new Set();
+
+    for (const attribute of Array.from(element.attributes || [])) {
+        const name = attribute.name.toLowerCase();
+        const isCodeLanguage = tag === 'code'
+            && name === 'class'
+            && /(?:^|\s)language-[\w-]+(?:\s|$)/i.test(attribute.value);
+        if (!allowed.has(name) && !isCodeLanguage) {
+            element.removeAttribute(attribute.name);
+        }
+    }
+}
+
+/**
+ * 将没有块级子节点的外部 div 转为普通段落；纯容器 div 则直接展开。
+ * @param {Element} element - div 元素
+ * @param {Document} documentRef - 当前 WebView 文档
+ */
+function normalizeExternalDiv(element, documentRef) {
+    const hasBlockChild = Array.from(element.children || [])
+        .some(child => BLOCK_TAGS.has(child.tagName));
+    if (hasBlockChild) {
+        element.replaceWith(...Array.from(element.childNodes));
+        return;
+    }
+
+    const paragraph = documentRef.createElement('p');
+    while (element.firstChild) paragraph.appendChild(element.firstChild);
+    element.replaceWith(paragraph);
+}
+
+/**
+ * 在缺少 DOM 的测试或非浏览器环境中执行保守清洗。
+ * @param {string} html - 外部剪贴板 HTML
+ * @returns {string}
+ */
+function sanitizeHtmlWithoutDom(html) {
+    return html
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(script|style|title|xml)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+        .replace(/<(?:meta|link)\b[^>]*\/?\s*>/gi, '')
+        .replace(/<\/?(?:span|font|o:p)\b[^>]*>/gi, '')
+        .replace(/\s(?:style|class|id|lang|dir)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+}
 
 /**
  * 判断剪贴板 HTML 是否由 ProseMirror 的结构化序列化器生成。
@@ -10,6 +121,39 @@ export function isProseMirrorClipboardHtml(html) {
     return typeof html === 'string' && /\bdata-pm-slice\s*=/i.test(html);
 }
 
+/**
+ * 清理 Word、网页等外部来源的剪贴板 HTML，只留下 Markdown 可表达的语义结构。
+ * ProseMirror 自身生成的 HTML 携带切片上下文，必须原样保留。
+ * @param {string} html - 剪贴板 HTML
+ * @param {Document|null} documentRef - 可选的 DOM 文档，主要用于测试
+ * @returns {string}
+ */
+export function sanitizePastedHtml(html, documentRef = globalThis.document) {
+    if (typeof html !== 'string' || !html || isProseMirrorClipboardHtml(html)) return html;
+    if (!documentRef?.createElement) return sanitizeHtmlWithoutDom(html);
+
+    const template = documentRef.createElement('template');
+    template.innerHTML = html.replace(/<!--[\s\S]*?-->/g, '');
+    const root = template.content || template;
+    root.querySelectorAll(REMOVED_ELEMENT_SELECTOR).forEach(element => element.remove());
+
+    // 自内向外处理，确保展开 span/font 时已经完成其子节点的清洗。
+    const elements = Array.from(root.querySelectorAll('*')).reverse();
+    for (const element of elements) {
+        promoteVisualStyleToSemanticTags(element, documentRef);
+        removePresentationalAttributes(element);
+
+        if (UNWRAPPED_INLINE_TAGS.has(element.tagName)) {
+            element.replaceWith(...Array.from(element.childNodes));
+        } else if (element.tagName === 'DIV') {
+            normalizeExternalDiv(element, documentRef);
+        }
+    }
+
+    return template.innerHTML;
+}
+
+/** 复制选区时为外部富文本目标补齐计算样式。 */
 export class ClipboardEnhancer {
     constructor(element) {
         this.element = element;

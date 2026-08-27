@@ -7,7 +7,7 @@ import { InlineCompletionManager } from '../../features/inlineCompletion/InlineC
 import { AiWritingEntryManager } from '../../features/aiWriting/AiWritingEntryManager.js';
 import { SelectionRewriteManager } from '../../features/aiWriting/SelectionRewriteManager.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
-import { ClipboardEnhancer } from '../../features/clipboardEnhancer.js';
+import { ClipboardEnhancer, sanitizePastedHtml } from '../../features/clipboardEnhancer.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { ImageModal } from '../ImageModal.js';
 import { listen } from '@tauri-apps/api/event';
@@ -117,6 +117,9 @@ export class MarkdownEditor {
             parseOptions: { preserveWhitespace: 'full' },
             editorProps: {
                 attributes: { class: 'tiptap-editor', 'data-markdown-editor-host': 'true' },
+                // 外部富文本先清除字体、字号、颜色和行距等展示属性，再交给
+                // ProseMirror 解析其标题、列表、链接、强调等语义结构。
+                transformPastedHTML: html => sanitizePastedHtml(html),
                 clipboardTextParser: (text, context, plain) => {
                     if (plain || !mdParser) return null;
                     let bodyText = text;
