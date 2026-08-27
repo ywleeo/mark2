@@ -347,13 +347,32 @@ export class SecondaryPaneRuntime {
                 fileData.content,
                 { forceReload },
             );
-        } else if (targetViewMode === 'docx' || targetViewMode === 'pptx') {
+        } else if (targetViewMode === 'pptx') {
             this.view.activate('unsupported');
             this.editorRegistry.getUnsupportedViewer()?.show?.(
                 filePath,
                 '该导入型文件暂不支持在副栏直接预览',
             );
             return 'unsupported';
+        } else if (targetViewMode === 'docx') {
+            const renderer = this.resolveRenderer(filePath, targetViewMode);
+            if (!renderer) {
+                throw new Error('缺少副栏 docx renderer');
+            }
+            const rendered = await renderer.load(this.createRendererContext({
+                filePath,
+                session,
+                fileData,
+                doc,
+                targetViewMode,
+                autoFocus: focus,
+                forceReload,
+            }));
+            if (rendered === false) {
+                throw new Error('副栏 docx renderer 加载失败');
+            }
+            // DOCX 数据模式由 renderer 解析，最终显示在通用 embed 面板中。
+            return this.loadingViewMode || 'embed';
         } else if (targetViewMode === 'unsupported') {
             this.view.activate('unsupported');
             this.editorRegistry.getUnsupportedViewer()?.show?.(filePath, fileData.error);

@@ -253,10 +253,9 @@ export function createFileOperations({
                         }
                     }
                 } else {
-                    // docx/spreadsheet 等导入型文件不加入 open list，直接触发文件选择
-                    // 这类文件会被渲染器转成 untitled tab，不应在文件树中留下持久 tab
+                    // PPTX 仍属于导入型文件；DOCX/电子表格已经支持原文件只读预览，按普通文件打开。
                     const viewMode = viewManager.resolveViewMode(resolvedPath);
-                    const isImportType = viewMode === 'docx' || viewMode === 'pptx' || viewMode === 'spreadsheet';
+                    const isImportType = viewMode === 'pptx';
                     if (!isImportType) {
                         fileTree.addToOpenFiles(resolvedPath);
                     }
@@ -768,8 +767,8 @@ export function createFileOperations({
             const initialViewMode = viewManager.resolveViewMode(filePath);
             const renderer = viewManager.getRendererForPath(filePath);
 
-            // 导入型文件（docx/spreadsheet）：不影响当前编辑器状态，只读文件并触发导入
-            if (importAsUntitled && (initialViewMode === 'docx' || initialViewMode === 'pptx' || initialViewMode === 'spreadsheet')) {
+            // PPTX 暂时保留导入流程；DOCX/电子表格直接进入只读原格式预览。
+            if (importAsUntitled && initialViewMode === 'pptx') {
                 const statusBar = getStatusBarController?.();
                 statusBar?.showProgress?.('正在读取文件…');
                 try {

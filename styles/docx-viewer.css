@@ -1,0 +1,44 @@
+/**
+ * DOCX 原格式预览样式。
+ * 文档自身的字体、段落、表格与分页规则由 docx-preview 注入，本文件只约束承载层。
+ */
+
+.docx-preview {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    padding: 24px;
+    background: #d9dde3;
+    color: #111827;
+    font-size: calc(16px * var(--content-zoom, 1));
+}
+
+.docx-preview__styles {
+    display: contents;
+}
+
+.docx-preview__body {
+    min-width: max-content;
+}
+
+/* docx-preview 生成的页面保持 Word 页面尺寸，窄窗口通过外层滚动查看。 */
+.docx-preview__body > .docx-wrapper {
+    box-sizing: border-box;
+    min-height: 100%;
+    padding: 24px !important;
+    background: transparent !important;
+}
+
+.docx-preview__body .docx-wrapper > section.docx {
+    margin: 0 auto 24px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.18);
+}
+
+:root[data-theme-appearance='dark'] .docx-preview {
+    background: #25272b;
+}
+
+:root[data-theme-appearance='dark'] .docx-preview__body .docx-wrapper > section.docx {
+    box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45);
+}

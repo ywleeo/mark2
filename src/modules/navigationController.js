@@ -284,7 +284,7 @@ export function createNavigationController({
             await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
             getEditor?.()?.refreshSearch?.();
 
-            // 检查 importAsUntitled 是否已将当前文件切换到 untitled 路径（如 docx/xlsx 导入）
+            // 检查导入型文件是否已切换到 untitled 路径（当前仅 PPTX 保留该流程）。
             const currentFileAfterLoad = getCurrentFile?.();
             const wasImportedAsUntitled = currentFileAfterLoad !== filePath
                 && untitledFileManager?.isUntitledPath?.(currentFileAfterLoad)
