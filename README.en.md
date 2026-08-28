@@ -4,9 +4,9 @@
 
 Mark2 is a desktop Markdown app for focused writing and reading.
 
-It brings local file management, Markdown editing, source mode, PDF reading, code viewing, math rendering, and card export into one workspace. AI is not a persistent sidebar that interrupts writing. It stays close to context: near the cursor, around selected text, or inside a lightweight current-document task dialog.
+It brings local file management, Markdown editing, source mode, document outline, code viewing, math and Mermaid rendering, PDF reading, and card export into one workspace. AI is not a persistent sidebar that interrupts writing. It stays close to context: near the cursor, around selected text, or inside a lightweight current-document task.
 
-![Mark2 main interface](demo/主界面展示.png)
+![Mark2 main interface](demo/主界面.png)
 
 ## Why Mark2
 
@@ -15,7 +15,7 @@ Mark2 is not trying to become a massive knowledge system. It is designed to be s
 - **Small and fast**: Mark2 is built with Tauri, backed by Rust, and the app is under 30 MB. Startup and interaction are lightweight, so you do not need to open a heavy workspace just to write an article.
 - **Simple to learn**: many Markdown tools are powerful but crowded, with complex plugin systems and high setup cost. Mark2 keeps the common writing tools ready out of the box, so you can open it and start writing.
 - **AI inside the writing flow**: Mark2 does not treat AI as an agent that takes a prompt and outputs a full article in one shot. It works more like a writing partner: continuing at the cursor, suggesting ideas when you are stuck, polishing, expanding, shortening selected text, and summarizing or organizing the current document.
-- **Complete document support**: beyond Markdown, Mark2 supports PDF, code, images, audio/video, spreadsheets, and Word import. It is not just an `.md` editor; it brings reading, writing, organizing, and exporting into one document-centered workflow.
+- **Complete document support**: beyond Markdown, Mark2 supports PDF, code, images, audio/video, spreadsheets, Word import, and Mermaid diagrams. It is not just an `.md` editor; it brings reading, writing, organizing, and exporting into one document-centered workflow.
 - **Short path to output**: finished content can be exported directly as image cards, making it easy to share notes, arguments, excerpts, or article fragments.
 
 Mark2 is for people whose main output is text: articles, tutorials, stories, research notes, PDF reading notes, code documentation, and content that eventually needs to be revised, published, or shared. It does much more than you would expect from an app under 30 MB, while still staying lightweight to use.
@@ -28,55 +28,53 @@ Mark2 is not trying to replace every document tool. It focuses on the workflow w
 - If you need team collaboration, databases, project pages, and an online workspace, Notion is a better fit. Mark2 uses local files and Markdown, which works better for offline writing, long-term ownership, Git, and migration across tools.
 - If you want a lightweight desktop app that brings Markdown writing, PDF/code reading, AI assistance, and card export together, Mark2 is the more direct choice.
 
-## AI Writing
+## Features
 
-### Continue From The Cursor
+### AI Writing
 
-A small AI entry appears around the current line. Ask AI to continue from the current document context; the result appears as ghost text first, then you decide whether to accept it.
+#### Continue From The Cursor
 
-![AI continue trigger](demo/AI%20续写启动.png)
+A small AI entry appears around the current line. Ask AI to continue from the current document context; the result appears as ghost text first, then you decide whether to accept it with `Tab` or cancel with `Esc`.
 
-![AI continue result](demo/AI%20续写效果.png)
+![AI continue](demo/AI%20续写.png)
 
-### Get Writing Ideas
+#### Process The Current Document
 
-When you are stuck, AI can suggest what to write next. Ideas are not forced into the document; they are directions you can insert and expand.
+The AI document assistant sidebar treats each input as a fresh task. The model can read the current document, the previous draft, or the initial task on its own, and can also plan multiple subtasks before combining results; the app does not infer the task type from keywords or UI state. Results stay in the sidebar, where you can keep editing, copy, insert, or open them as a temporary document.
 
-![AI ideas](demo/AI%20提供%20ideas.png)
+![AI document assistant](demo/AI%20文档助手.png)
 
-### Process The Current Document
+### Writing And Reading
 
-For tasks like “summarize this document”, “check structure issues”, or “generate an outline from the current draft”, open the AI document task dialog and type an instruction. Simple answers stay in the dialog; document-shaped results open as a temporary document.
+Mark2 supports both WYSIWYG editing and source mode. It works for drafts, notes, technical docs, and long-form writing. The editor can adapt page width automatically, and you can also adjust reading margins manually; the right-side document outline helps you locate and jump quickly, which is handy for long documents.
 
-## Markdown Writing And Reading
+![Document outline](demo/文档目录.png)
 
-Mark2 supports both WYSIWYG editing and source mode. It works for drafts, notes, technical docs, and long-form writing. The editor can adapt page width automatically, and you can also adjust reading margins manually.
+### Technical Content
 
-## Technical Content
-
-### Math
+#### Math
 
 Built-in KaTeX rendering works well for notes, tutorials, and research material with equations.
 
-![Math support](demo/支持公式.png)
+![Math support](demo/数学公式.png)
 
-### Code
+#### Code
 
-Code files can be opened and edited directly. Markdown code blocks are also styled for reading and quick copying.
+Code files can be opened and edited directly, with syntax highlighting, line numbers, and inline comments; Markdown code blocks are also styled for reading and quick copying.
 
-![Code support](demo/支持写代码.png)
+![Code editing](demo/代码编辑.png)
 
-### PDF
+#### Mermaid Diagrams
 
-Read PDFs directly in Mark2 while writing Markdown notes in the same workspace.
+Render Mermaid flowcharts, sequence diagrams, and more right inside Markdown, which is handy for drawing architecture, flows, and relationships in your documents.
 
-![PDF support](demo/支持看%20pdf%20文件.png)
+![Mermaid diagram](demo/mermaid.png)
 
-## Card Export
+### Card Export
 
-Selected document content can be exported as image cards, suitable for sharing notes, excerpts, arguments, or article fragments.
+Selected document content can be exported as image cards, with several built-in layout styles, suitable for sharing notes, excerpts, arguments, or article fragments.
 
-![Card export](demo/内容生成卡片.png)
+![Generate card](demo/生成%20card.png)
 
 ## Supported Content Types
 
@@ -87,6 +85,7 @@ Selected document content can be exported as image cards, suitable for sharing n
 - PDF
 - CSV / Excel spreadsheets
 - Word document import
+- Mermaid diagrams
 
 ## Good For
 
