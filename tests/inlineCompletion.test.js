@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { Schema } from '@tiptap/pm/model';
+import { EditorState } from '@tiptap/pm/state';
 import { buildInlineCompletionContext } from '../src/features/inlineCompletion/CompletionContextBuilder.js';
 import { buildCompletionPrompts } from '../src/features/inlineCompletion/CompletionPromptBuilder.js';
 import { parseNonStreamingResponse } from '../src/modules/ai-assistant/services/nonStreamingResponseParser.js';
@@ -8,6 +10,7 @@ import {
     sanitizeCompletionWithMeta,
 } from '../src/features/inlineCompletion/CompletionSanitizer.js';
 import { CompletionSession } from '../src/features/inlineCompletion/CompletionSession.js';
+import { acceptCompletion } from '../src/features/inlineCompletion/CompletionAcceptance.js';
 
 /**
  * 创建列表光标场景的最小 ProseMirror 状态替身。
@@ -84,6 +87,27 @@ test('清理器删除完全重复前缀，但不会在去重为空时恢复旧�
     assert.equal(sanitizeCompletionWithMeta(beforeCursor, context, 500).reason, 'duplicate-only');
 });
 
+test('清理器删除 AI 输出开头复述的中文短句，只保留新增续写', () => {
+    const context = {
+        beforeCursor: '我捡了一只',
+        currentFormat: { insertionMode: 'inline', beforeInBlock: '我捡了一只' },
+    };
+
+    assert.equal(
+        sanitizeCompletion('我捡了一只流浪猫。双琥珀色的眼睛直直地看着我。', context, 500),
+        '流浪猫。双琥珀色的眼睛直直地看着我。',
+    );
+});
+
+test('清理器保留单个汉字的偶然衔接重叠，避免误删新词', () => {
+    const context = {
+        beforeCursor: '这是他的',
+        currentFormat: { insertionMode: 'inline', beforeInBlock: '这是他的' },
+    };
+
+    assert.equal(sanitizeCompletion('的确令人意外。', context, 500), '的确令人意外。');
+});
+
 test('返回解析器兼容分段正文并识别 reasoning-only 返回', () => {
     const segmented = parseNonStreamingResponse(JSON.stringify({
         choices: [{
@@ -112,6 +136,44 @@ test('行内英文续写自动保留单词边界', () => {
         currentFormat: { insertionMode: 'inline' },
     };
     assert.equal(sanitizeCompletion('fast and focused.', context, 500), ' fast and focused.');
+});
+
+test('Tab 接受段落内续写时使用行内插入而不新建段落', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'block+' },
+            paragraph: { content: 'text*', group: 'block' },
+            text: { group: 'inline' },
+        },
+    });
+    let state = EditorState.create({
+        schema,
+        doc: schema.node('doc', null, [schema.node('paragraph', null, [schema.text('原文')])]),
+    });
+    const view = {
+        isDestroyed: false,
+        state,
+        dispatch(transaction) {
+            state = state.apply(transaction);
+            this.state = state;
+        },
+    };
+    acceptCompletion({
+        view,
+        text: '续写内容',
+        pos: 3,
+        insertionMode: 'inline',
+        insertInlineAtCursor(text) {
+            const transaction = view.state.tr.insertText(text, view.state.selection.from);
+            view.dispatch(transaction);
+        },
+        insertMarkdownAtCursor() {
+            assert.fail('行内续写不应走块级 Markdown 插入');
+        },
+    });
+
+    assert.equal(view.state.doc.childCount, 1);
+    assert.equal(view.state.doc.textContent, '原文续写内容');
 });
 
 test('统一 prompt 根据上下文判断文体并携带可选灵感', () => {

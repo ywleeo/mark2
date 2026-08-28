@@ -1,6 +1,7 @@
 import { t } from '../../i18n/index.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createAiWritingBadge } from './AiWritingBadge.js';
+import { createLineGutterAnchor } from './AiWritingPositioning.js';
 import { buildWritingIdeaContext, requestIdeaExpansion, requestWritingIdeas } from './AiWritingService.js';
 
 /**
@@ -32,6 +33,7 @@ export class AiWritingEntryManager {
         this.hintShowFrame = null;
         this.hintPositionFrame = null;
         this.scrollContainer = null;
+        this.viewportResizeObserver = null;
         this.lastCompactHintPosition = null;
         this.requestSeq = 0;
         this.expandedHintOpenedAt = 0;
@@ -59,6 +61,11 @@ export class AiWritingEntryManager {
         this.editor?.view?.dom?.addEventListener('keydown', this.keydownHandler, true);
         this.scrollContainer = this.getScrollContainer();
         this.scrollContainer?.addEventListener('scroll', this.viewportChangeHandler, { passive: true });
+        if (this.scrollContainer && typeof ResizeObserver === 'function') {
+            // sidebar 显隐、拖动及双栏切换都会改变编辑视口，统一由视口尺寸变化驱动重定位。
+            this.viewportResizeObserver = new ResizeObserver(this.viewportChangeHandler);
+            this.viewportResizeObserver.observe(this.scrollContainer);
+        }
         document.addEventListener('scroll', this.viewportChangeHandler, true);
         window.addEventListener('resize', this.viewportChangeHandler);
         document.addEventListener('mousedown', this.documentPointerHandler, true);
@@ -71,6 +78,8 @@ export class AiWritingEntryManager {
         this.editor?.off?.('transaction', this.transactionHandler);
         this.editor?.view?.dom?.removeEventListener('keydown', this.keydownHandler, true);
         this.scrollContainer?.removeEventListener('scroll', this.viewportChangeHandler);
+        this.viewportResizeObserver?.disconnect();
+        this.viewportResizeObserver = null;
         this.scrollContainer = null;
         document.removeEventListener('scroll', this.viewportChangeHandler, true);
         window.removeEventListener('resize', this.viewportChangeHandler);
@@ -384,13 +393,8 @@ export class AiWritingEntryManager {
     }
 
     getLineGutterAnchor(pos) {
-        const view = this.editor.view;
         const lineCoords = this.getCaretLineCoords(pos);
-        return {
-            left: 261,
-            top: lineCoords.top,
-            bottom: lineCoords.bottom,
-        };
+        return createLineGutterAnchor(this.getEditorViewportRect(), lineCoords);
     }
 
     /**
@@ -654,7 +658,11 @@ export class AiWritingEntryManager {
         try {
             const text = await requestIdeaExpansion(idea.text, context);
             if (requestId !== this.requestSeq) return;
-            this.inlineCompletionManager?.showSuggestion(text, this.editor?.state?.selection?.from);
+            this.inlineCompletionManager?.showSuggestion(
+                text,
+                this.editor?.state?.selection?.from,
+                context.currentFormat?.insertionMode || 'inline',
+            );
             this.hidePanel(false);
         } catch (error) {
             if (requestId !== this.requestSeq) return;

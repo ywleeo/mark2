@@ -260,23 +260,29 @@ export function createInlineCompletionPlugin(handlers) {
     return new Plugin({
         key: inlineCompletionPluginKey,
         state: {
-            init: () => ({ text: '', pos: null, loading: false, error: '' }),
+            init: () => ({ text: '', pos: null, loading: false, error: '', insertionMode: 'inline' }),
             apply(tr, value) {
                 const meta = tr.getMeta(inlineCompletionPluginKey);
                 if (meta?.type === 'loading') {
-                    return { text: '', pos: meta.pos, loading: true, error: '' };
+                    return { text: '', pos: meta.pos, loading: true, error: '', insertionMode: 'inline' };
                 }
                 if (meta?.type === 'suggest') {
-                    return { text: meta.text || '', pos: meta.pos, loading: false, error: '' };
+                    return {
+                        text: meta.text || '',
+                        pos: meta.pos,
+                        loading: false,
+                        error: '',
+                        insertionMode: meta.insertionMode === 'block' ? 'block' : 'inline',
+                    };
                 }
                 if (meta?.type === 'error') {
-                    return { text: '', pos: meta.pos, loading: false, error: meta.error || '' };
+                    return { text: '', pos: meta.pos, loading: false, error: meta.error || '', insertionMode: 'inline' };
                 }
                 if (meta?.type === 'clear') {
-                    return { text: '', pos: null, loading: false, error: '' };
+                    return { text: '', pos: null, loading: false, error: '', insertionMode: 'inline' };
                 }
                 if ((tr.docChanged || tr.selectionSet) && (value.text || value.loading || value.error)) {
-                    return { text: '', pos: null, loading: false, error: '' };
+                    return { text: '', pos: null, loading: false, error: '', insertionMode: 'inline' };
                 }
                 if (value.pos != null) {
                     const mapped = tr.mapping.map(value.pos);
@@ -308,7 +314,7 @@ export function createInlineCompletionPlugin(handlers) {
                 }
                 if (value?.text && event.key === 'Tab') {
                     event.preventDefault();
-                    handlers.onAccept?.(value.text, value.pos);
+                    handlers.onAccept?.(value.text, value.pos, value.insertionMode);
                     return true;
                 }
                 if ((value?.text || value?.loading || value?.error) && event.key === 'Escape') {

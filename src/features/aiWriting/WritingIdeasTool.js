@@ -11,13 +11,15 @@ const IDEA_TYPE_LABELS = {
 
 /**
  * 生成写作灵感的 function calling 定义。
+ * @param {{strict?:boolean}} options - 是否要求 provider 严格校验 JSON Schema。
  * @returns {{type:string,function:object}} OpenAI-compatible tool 定义
  */
-export function createWritingIdeasTool() {
+export function createWritingIdeasTool({ strict = false } = {}) {
     return {
         type: 'function',
         function: {
             name: TOOL_NAME,
+            ...(strict ? { strict: true } : {}),
             description: '提交 5 条结构化的写作灵感。',
             parameters: {
                 type: 'object',

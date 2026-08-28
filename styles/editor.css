@@ -810,6 +810,15 @@
     filter: invert(0.88) hue-rotate(180deg);
 }
 
+/*
+ * Mermaid 的 htmlLabels 会继承 Markdown 深色主题的浅色段落文字，随后又被
+ * 外层 SVG filter 反转成深色。这里设置的是“反转前”的中性黑，最终显示为
+ * 高对比浅灰；必须覆盖到 foreignObject 内的 p，不能只改 nodeLabel 容器。
+ */
+:root[data-theme-appearance='dark'] .tiptap-editor .mermaid svg foreignObject * {
+    color: #000000 !important;
+}
+
 /* mermaid 图内部微调 */
 .tiptap-editor .mermaid svg text {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;

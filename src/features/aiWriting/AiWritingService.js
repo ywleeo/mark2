@@ -4,6 +4,7 @@ import { aiService } from '../../modules/ai-assistant/aiService.js';
 import { withAiMarkdownOutputRules } from '../../utils/aiMarkdownOutputRules.js';
 import { buildInlineCompletionContext } from '../inlineCompletion/CompletionContextBuilder.js';
 import { requestCompletion } from '../inlineCompletion/CompletionEngine.js';
+import { getForcedToolCallCompatibility } from '../../modules/ai-assistant/providerCompatibility.js';
 import {
     createWritingIdeasTool,
     createWritingIdeasToolChoice,
@@ -136,7 +137,8 @@ export async function requestWritingIdeas(context) {
     const scopeInstruction = context.selectedText
         ? '用户选中了文档中的一段内容。围绕选区提供可继续展开、换角度、补例子或优化结构的灵感。'
         : '用户在光标处卡住了。根据当前上下文提供下一步可写的灵感。';
-    const ideasTool = createWritingIdeasTool();
+    const compatibility = getForcedToolCallCompatibility(provider, model);
+    const ideasTool = createWritingIdeasTool({ strict: compatibility.strictToolSchema });
 
     const userPrompt = `<DocumentOutline>
 ${context.outline || '(无)'}
@@ -156,7 +158,7 @@ ${context.afterSelection || '(无)'}
 
     const res = await aiProxyJsonRequest({
         method: 'POST',
-        url: `${provider.baseUrl}/chat/completions`,
+        url: `${compatibility.baseUrl}/chat/completions`,
         apiKey: provider.apiKey,
         body: {
             model,
@@ -179,6 +181,7 @@ ${scopeInstruction}
             ],
             tools: [ideasTool],
             tool_choice: createWritingIdeasToolChoice(),
+            ...compatibility.body,
         },
     });
 

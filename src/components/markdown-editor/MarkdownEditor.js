@@ -1,4 +1,6 @@
 import { Editor } from '@tiptap/core';
+import { Fragment } from '@tiptap/pm/model';
+import { TextSelection } from '@tiptap/pm/state';
 import { createConfiguredLowlight } from '../../utils/highlightConfig.js';
 import { isSpreadsheetFilePath } from '../../utils/fileTypeUtils.js';
 import { createMarkdownParser, createMarkdownSerializer } from '../../modules/markdownPipeline.js';
@@ -168,6 +170,7 @@ export class MarkdownEditor {
             editor: this.editor,
             getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
             markdownSerializer,
+            insertInlineAtCursor: (markdown) => this.insertInlineAIContent(markdown),
             insertMarkdownAtCursor: (markdown) => this.insertAIContent(markdown),
         });
         this.selectionRewriteManager = new SelectionRewriteManager({
@@ -572,6 +575,47 @@ export class MarkdownEditor {
             }
         }
         return state.doc.textBetween(from, to, '\n');
+    }
+
+    /**
+     * 在当前文本块内插入 AI Markdown，不创建新的顶层段落。
+     * 代码块保留模型原始文本；其他文本块解析行内 marks，并把意外多行收敛到当前行。
+     * @param {string} markdown - AI 返回的行内 Markdown
+     * @returns {void}
+     */
+    insertInlineAIContent(markdown) {
+        if (!this.editor || typeof markdown !== 'string' || !markdown) return;
+        const { state, view } = this.editor;
+        const { from, to, $from } = state.selection;
+        if ($from.parent.type?.name === 'codeBlock') {
+            this.insertTextAtCursor(markdown);
+            return;
+        }
+
+        const normalizedMarkdown = markdown.replace(/[ \t]*\n+[ \t]*/g, ' ');
+        const coreMarkdown = normalizedMarkdown.trim();
+        if (!coreMarkdown) return;
+        const leadingWhitespace = normalizedMarkdown.match(/^[ \t]+/)?.[0] || '';
+        const trailingWhitespace = normalizedMarkdown.match(/[ \t]+$/)?.[0] || '';
+        const processed = preprocessMarkdown(coreMarkdown);
+        const parsed = this.contentLoader.markdownParser?.parse(processed) ?? null;
+        let inlineContent = parsed?.firstChild?.isTextblock ? parsed.firstChild.content : null;
+        if (!inlineContent) {
+            this.insertTextAtCursor(normalizedMarkdown);
+            return;
+        }
+        if (leadingWhitespace) {
+            inlineContent = Fragment.from(state.schema.text(leadingWhitespace)).append(inlineContent);
+        }
+        if (trailingWhitespace) {
+            inlineContent = inlineContent.append(Fragment.from(state.schema.text(trailingWhitespace)));
+        }
+
+        const transaction = state.tr.replaceWith(from, to, inlineContent);
+        transaction.setSelection(TextSelection.create(transaction.doc, from + inlineContent.size));
+        view.dispatch(transaction);
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
     }
 
     // AI 内容插入

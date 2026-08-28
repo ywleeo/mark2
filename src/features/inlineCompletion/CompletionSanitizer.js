@@ -14,23 +14,47 @@ function stripProtocolWrappers(text) {
 }
 
 /**
- * 只删除与光标前文本完全相同的输出前缀，避免模糊匹配误伤正文。
- * @param {string} completion - 模型输出
- * @param {string} beforeCursor - 光标前 Markdown
- * @returns {string} 去重结果
+ * 判断重叠前缀是否足以证明模型复述了已有内容。
+ * 中文短语信息密度高，两个连续汉字即可确认；拉丁文本使用更保守的四字符阈值。
+ *
+ * @param {string} overlap - 候选重叠文本。
+ * @param {boolean} isWholeCurrentBlock - 是否完整覆盖当前光标前的段落文本。
+ * @returns {boolean} 是否应删除该重叠。
  */
-function removeExactDuplicatePrefix(completion, beforeCursor) {
-    const before = String(beforeCursor || '');
-    let value = String(completion || '');
-    const maxOverlap = Math.min(800, before.length, value.length);
+function isMeaningfulDuplicate(overlap, isWholeCurrentBlock) {
+    const visible = overlap.trim();
+    if (!visible) return false;
+    if (isWholeCurrentBlock) return true;
+    const cjkCount = (visible.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu) || []).length;
+    return cjkCount >= 2 || visible.length >= 4;
+}
 
-    for (let length = maxOverlap; length >= 8; length -= 1) {
-        if (before.endsWith(value.slice(0, length))) {
-            value = value.slice(length);
-            break;
-        }
+/**
+ * 删除模型输出开头与光标前内容的最长精确重叠，只保留真正新增的续写。
+ *
+ * @param {string} completion - 模型输出。
+ * @param {object} context - 当前续写上下文。
+ * @returns {string} 去重结果。
+ */
+function removeDuplicatePrefix(completion, context) {
+    const value = String(completion || '');
+    const currentBlock = String(context.currentFormat?.beforeInBlock || '');
+    const sources = [
+        { text: currentBlock, isCurrentBlock: true },
+        { text: String(context.beforeCursor || ''), isCurrentBlock: false },
+    ].filter(source => source.text);
+    const longestSource = Math.max(0, ...sources.map(source => source.text.length));
+    const maxOverlap = Math.min(800, value.length, longestSource);
+
+    for (let length = maxOverlap; length >= 1; length -= 1) {
+        const overlap = value.slice(0, length);
+        const duplicated = sources.some(source => (
+            source.text.endsWith(overlap)
+            && isMeaningfulDuplicate(overlap, source.isCurrentBlock && source.text.length === length)
+        ));
+        if (duplicated) return value.slice(length).trimStart();
     }
-    return value.trimStart();
+    return value;
 }
 
 /**
@@ -69,7 +93,7 @@ function ensureInlineBoundary(text, context) {
 }
 
 /**
- * 清理模型协议包装和完全重复前缀。这里刻意不重写 Markdown 结构。
+ * 清理模型协议包装和与光标前内容重复的输出前缀。这里刻意不重写 Markdown 结构。
  * @param {string} raw - 模型原始文本
  * @param {object} context - 续写上下文
  * @param {number} maxChars - 最大字符数
@@ -78,7 +102,7 @@ function ensureInlineBoundary(text, context) {
 export function sanitizeCompletionWithMeta(raw, context, maxChars) {
     const unwrapped = stripProtocolWrappers(raw);
     if (!unwrapped) return { text: '', reason: 'empty-response' };
-    const deduped = removeExactDuplicatePrefix(unwrapped, context.beforeCursor);
+    const deduped = removeDuplicatePrefix(unwrapped, context);
     if (!deduped) return { text: '', reason: 'duplicate-only' };
     return {
         text: ensureInlineBoundary(clampCompletionLength(deduped, maxChars), context),
