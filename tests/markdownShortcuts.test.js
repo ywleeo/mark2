@@ -56,7 +56,7 @@ test('Markdown 快捷键定义具有唯一命令和无冲突默认键位', () =>
     assert.equal(new Set(allShortcuts).size, allShortcuts.length);
 });
 
-test('Markdown 命令通过统一命令层透传动作与标题参数', async () => {
+test('Markdown 命令通过统一命令层透传切换动作', async () => {
     const registered = new Map();
     const calls = [];
     const commandManager = {
@@ -78,9 +78,64 @@ test('Markdown 命令通过统一命令层透传动作与标题参数', async ()
     await registered.get(COMMAND_IDS.MARKDOWN_HEADING_4)();
     await registered.get(COMMAND_IDS.MARKDOWN_QUOTE)();
     assert.deepEqual(calls, [
-        { action: 'heading', payload: { level: 4 } },
+        { action: 'heading4', payload: {} },
         { action: 'quote', payload: {} },
     ]);
+});
+
+test('源码模式连续执行同级标题动作会在标题与正文之间切换', () => {
+    for (let level = 1; level <= 6; level += 1) {
+        const editor = createTextEditor('标题', 0, 0);
+        const handlers = new ToolbarPlainMarkdownHandlers({ editor });
+
+        handlers.toggleHeading(level);
+        assert.equal(editor.value, `${'#'.repeat(level)} 标题`);
+
+        handlers.toggleHeading(level);
+        assert.equal(editor.value, '标题');
+    }
+});
+
+test('源码模式代码块快捷键会包裹文本并在再次执行时移除围栏', () => {
+    const editor = createTextEditor('const answer = 42;', 0, 18);
+    const handlers = new ToolbarPlainMarkdownHandlers({ editor });
+
+    assert.equal(handlers.toggleCodeBlock(), true);
+    assert.equal(editor.value, '```\nconst answer = 42;\n```');
+
+    assert.equal(handlers.toggleCodeBlock(), true);
+    assert.equal(editor.value, 'const answer = 42;');
+
+    const fencedEditor = createTextEditor('前文\n```js\nconst value = 1;\n```\n后文', 14, 14);
+    const fencedHandlers = new ToolbarPlainMarkdownHandlers({ editor: fencedEditor });
+    assert.equal(fencedHandlers.toggleCodeBlock(), true);
+    assert.equal(fencedEditor.value, '前文\nconst value = 1;\n后文');
+
+    const nestedFenceEditor = createTextEditor('示例：```', 0, 6);
+    const nestedFenceHandlers = new ToolbarPlainMarkdownHandlers({ editor: nestedFenceEditor });
+    assert.equal(nestedFenceHandlers.toggleCodeBlock(), true);
+    assert.equal(nestedFenceEditor.value, '````\n示例：```\n````');
+});
+
+test('源码模式有序和无序列表快捷键会取消同类型并转换不同类型', () => {
+    const orderedEditor = createTextEditor('1. 条目', 3, 3);
+    const orderedHandlers = new ToolbarPlainMarkdownHandlers({ editor: orderedEditor });
+    assert.equal(orderedHandlers.toggleList('unordered'), true);
+    assert.equal(orderedEditor.value, '- 条目');
+    assert.equal(orderedHandlers.toggleList('unordered'), true);
+    assert.equal(orderedEditor.value, '条目');
+
+    const unorderedEditor = createTextEditor('  * 条目', 4, 4);
+    const unorderedHandlers = new ToolbarPlainMarkdownHandlers({ editor: unorderedEditor });
+    assert.equal(unorderedHandlers.toggleList('ordered'), true);
+    assert.equal(unorderedEditor.value, '  1. 条目');
+    assert.equal(unorderedHandlers.toggleList('ordered'), true);
+    assert.equal(unorderedEditor.value, '  条目');
+
+    const multiLineEditor = createTextEditor('1. 第一项\n2) 第二项', 0, 13);
+    const multiLineHandlers = new ToolbarPlainMarkdownHandlers({ editor: multiLineEditor });
+    assert.equal(multiLineHandlers.toggleList('unordered'), true);
+    assert.equal(multiLineEditor.value, '- 第一项\n- 第二项');
 });
 
 test('Shift 与 Alt 改写 event.key 时仍按基础键帽识别快捷键', async () => {

@@ -1,4 +1,85 @@
 /**
+ * 查找选区或光标所在的 Markdown 围栏代码块。
+ * @param {string} text - Markdown 源码
+ * @param {number} start - 选区起点
+ * @param {number} end - 选区终点
+ * @returns {{start:number,end:number,contentStart:number,contentEnd:number}|null}
+ */
+function findEnclosingCodeFence(text, start, end) {
+    const lines = text.split('\n');
+    let offset = 0;
+    let opening = null;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (!opening) {
+            const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+            if (match) {
+                opening = {
+                    start: offset,
+                    marker: match[1][0],
+                    markerLength: match[1].length,
+                    contentStart: offset + line.length + (index < lines.length - 1 ? 1 : 0),
+                };
+            }
+        } else {
+            const closingMarker = line.trim();
+            const isClosing = closingMarker.length >= opening.markerLength
+                && [...closingMarker].every(character => character === opening.marker);
+            if (isClosing) {
+                const block = {
+                    start: opening.start,
+                    end: offset + line.length,
+                    contentStart: opening.contentStart,
+                    contentEnd: offset,
+                };
+                if (start >= block.start && end <= block.end) {
+                    return block;
+                }
+                opening = null;
+            }
+        }
+
+        offset += line.length + (index < lines.length - 1 ? 1 : 0);
+    }
+
+    return null;
+}
+
+/**
+ * 创建不会与代码内容冲突的反引号围栏。
+ * @param {string} code - 待包裹的代码内容
+ * @returns {string}
+ */
+function createCodeFenceMarker(code) {
+    const longestRun = [...code.matchAll(/`+/g)]
+        .reduce((maximum, match) => Math.max(maximum, match[0].length), 0);
+    return '`'.repeat(Math.max(3, longestRun + 1));
+}
+
+/**
+ * 解析一行 Markdown 的列表标记、缩进和正文。
+ * @param {string} line - Markdown 行
+ * @returns {{type:'task'|'unordered'|'ordered'|null,indentation:string,content:string}}
+ */
+function parseListLine(line) {
+    const markerMatch = line.match(/^(\s*)(?:([-+*]\s+\[[ xX]\]\s+)|([-+*]\s+)|(\d+[.)]\s+))/);
+    const indentation = markerMatch?.[1] || line.match(/^\s*/)?.[0] || '';
+    const type = markerMatch?.[2]
+        ? 'task'
+        : markerMatch?.[3]
+            ? 'unordered'
+            : markerMatch?.[4]
+                ? 'ordered'
+                : null;
+    return {
+        type,
+        indentation,
+        content: markerMatch ? line.slice(markerMatch[0].length) : line.slice(indentation.length),
+    };
+}
+
+/**
  * 工具栏的"纯 Markdown 文本"处理器。
  * 作为非 TipTap 编辑器(如 textarea/CodeMirror)的 fallback,
  * 也作为 TipTap 不支持某个动作时的兜底(taskList fallback、普通文本操作)。
@@ -104,6 +185,31 @@ export class ToolbarPlainMarkdownHandlers {
             const newLine = prefix + line;
             this.replaceLine(newLine, selection);
         }
+    }
+
+    /**
+     * 切换当前行的列表类型；同类型取消列表，不同类型直接转换。
+     * @param {'unordered'|'ordered'} listType - 目标列表类型
+     * @returns {boolean}
+     */
+    toggleList(listType) {
+        const { selection, line } = this.getSelectedText();
+        const lines = line.split('\n');
+        const parsedLines = lines.map(parseListLine);
+        const nonEmptyLines = parsedLines.filter(parsed => parsed.content.trim() || parsed.type);
+        const shouldRemove = nonEmptyLines.length > 0
+            && nonEmptyLines.every(parsed => parsed.type === listType);
+        const marker = listType === 'ordered' ? '1. ' : '- ';
+        const updated = lines.map((sourceLine, index) => {
+            if (!sourceLine.trim()) return sourceLine;
+            const parsed = parsedLines[index];
+            return shouldRemove
+                ? `${parsed.indentation}${parsed.content}`
+                : `${parsed.indentation}${marker}${parsed.content}`;
+        }).join('\n');
+
+        this.replaceLine(updated, selection);
+        return true;
     }
 
     /**
@@ -214,17 +320,41 @@ export class ToolbarPlainMarkdownHandlers {
         this.insertTextAtCursor('\n---\n');
     }
 
-    insertCodeBlock() {
-        const { selectedText } = this.getSelectedText();
-        const code = selectedText || '代码内容';
-        const codeBlock = `\n\`\`\`\n${code}\n\`\`\`\n`;
-
-        if (selectedText) {
-            const { selection } = this.getSelectedText();
-            this.replaceSelection(codeBlock, selection);
-        } else {
-            this.insertTextAtCursor(codeBlock);
+    /**
+     * 在普通文本与围栏代码块之间切换，支持光标位于已有围栏内部的场景。
+     * @returns {boolean}
+     */
+    toggleCodeBlock() {
+        const editor = this.editor;
+        if (!editor || typeof editor.value !== 'string' || typeof editor.setRangeText !== 'function') {
+            return false;
         }
+
+        const selectionInfo = this.getSelectedText();
+        const { selectedText, selection, line } = selectionInfo;
+        const enclosingFence = findEnclosingCodeFence(editor.value, selection.start, selection.end);
+        let rangeStart;
+        let rangeEnd;
+        let replacement;
+
+        if (enclosingFence) {
+            rangeStart = enclosingFence.start;
+            rangeEnd = enclosingFence.end;
+            replacement = editor.value.slice(enclosingFence.contentStart, enclosingFence.contentEnd);
+            // 去掉围栏闭合行前必需的一个换行，保留正文自身的额外空行。
+            if (replacement.endsWith('\n')) replacement = replacement.slice(0, -1);
+        } else {
+            rangeStart = selectedText ? selection.start : selection.lineStart;
+            rangeEnd = selectedText ? selection.end : selection.lineEnd;
+            const code = selectedText || line || '代码内容';
+            const fence = createCodeFenceMarker(code);
+            replacement = `${fence}\n${code}\n${fence}`;
+        }
+
+        editor.focus?.();
+        editor.setRangeText(replacement, rangeStart, rangeEnd, 'select');
+        editor.dispatchEvent?.(new Event('input', { bubbles: true }));
+        return true;
     }
 
     /** 打开公式输入框，并在源码模式插入数学块。 */

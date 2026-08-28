@@ -23,8 +23,8 @@ const PARAGRAPH_COMMANDS = [
     defineMarkdownShortcut({ commandId: COMMAND_IDS.MARKDOWN_PARAGRAPH, action: 'heading', payload: { level: 0 }, defaultShortcut: 'Mod+0', labelKey: 'settings.kb.mdParagraph', title: 'Markdown 正文' }),
     ...[1, 2, 3, 4, 5, 6].map(level => defineMarkdownShortcut({
         commandId: COMMAND_IDS[`MARKDOWN_HEADING_${level}`],
-        action: 'heading',
-        payload: { level },
+        // 快捷键复用工具栏的 toggle 动作，同级标题再次执行时回到正文。
+        action: `heading${level}`,
         defaultShortcut: `Mod+${level}`,
         labelKey: `settings.kb.mdHeading${level}`,
         title: `Markdown ${level} 级标题`,
