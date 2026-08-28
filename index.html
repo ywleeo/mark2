@@ -73,10 +73,20 @@
   .card h3 { font-family: var(--serif); font-size: 18px; margin: 14px 0 8px; font-weight: 600; letter-spacing: .05em; }
   .card p { color: var(--ink-muted); font-size: 14.5px; }
 
-  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; }
-  .shot { background: var(--paper); border: 1px solid var(--hairline); overflow: hidden; }
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .shot { background: var(--paper); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(26,26,26,.04); transition: transform .18s ease, box-shadow .18s ease; }
+  .shot:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(26,26,26,.09); }
   .shot img { width: 100%; display: block; }
-  .shot .cap { padding: 12px 18px; color: var(--ink-muted); font-size: 13px; border-top: 1px solid var(--hairline); text-align: center; letter-spacing: .05em; }
+  .shot .cap { padding: 14px 18px 16px; color: var(--ink-muted); font-size: 13.5px; border-top: 1px solid var(--hairline); line-height: 1.6; }
+  .shot .cap .tag { display: inline-block; font-size: 11px; letter-spacing: .12em; color: var(--ink); background: var(--bg); border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 10px; margin-right: 8px; vertical-align: middle; }
+
+  .shot-featured { background: var(--paper); border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(26,26,26,.05); margin-bottom: 6px; }
+  .shot-featured img { width: 100%; display: block; }
+  .shot-featured .cap { padding: 16px 22px; color: var(--ink-muted); font-size: 14px; border-top: 1px solid var(--hairline); text-align: center; letter-spacing: .04em; }
+
+  .shot-group { margin-top: 34px; }
+  .shot-group-title { font-family: var(--serif); font-size: 19px; font-weight: 600; letter-spacing: .08em; color: var(--ink); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+  .shot-group-title::before { content: ""; width: 20px; height: 1.5px; background: var(--ink); display: inline-block; margin-top: 1px; }
 
   #download { padding-bottom: 96px; }
   #download .cta { margin-top: 28px; }
@@ -151,13 +161,42 @@
     <h2 class="section-title">界面一览</h2>
     <p class="section-sub">写作、阅读、AI 协作和卡片导出，都在一个轻量工作区里。</p>
   </div>
-  <div class="shots">
-    <figure class="shot"><img src="assets/main.png" alt="Mark2 主界面"><figcaption class="cap">Mark2 主界面</figcaption></figure>
-    <figure class="shot"><img src="assets/ai-continue.png" alt="AI 续写启动"><figcaption class="cap">AI 续写启动</figcaption></figure>
-    <figure class="shot"><img src="assets/ai-refine.png" alt="AI 续写效果"><figcaption class="cap">AI 续写效果</figcaption></figure>
-    <figure class="shot"><img src="assets/math.png" alt="支持公式"><figcaption class="cap">公式渲染</figcaption></figure>
-    <figure class="shot"><img src="assets/pdf.png" alt="支持看 PDF"><figcaption class="cap">PDF 阅读</figcaption></figure>
-    <figure class="shot"><img src="assets/card-export.png" alt="内容生成卡片"><figcaption class="cap">内容导出卡片</figcaption></figure>
+
+  <figure class="shot-featured">
+    <img src="assets/main.png" alt="Mark2 主界面" loading="eager">
+    <figcaption class="cap">主界面 · 左侧文件树，右侧所见即所得编辑与预览</figcaption>
+  </figure>
+
+  <div class="shot-group">
+    <h3 class="shot-group-title">AI 辅助写作</h3>
+    <div class="shots">
+      <figure class="shot"><img src="assets/ai-continue.png" alt="AI 续写" loading="lazy"><figcaption class="cap"><span class="tag">AI</span><span class="desc">在光标处续写，生成内容以 Ghost Text 呈现，Tab 接受 / Esc 取消</span></figcaption></figure>
+      <figure class="shot"><img src="assets/ai-doc.png" alt="AI 文档助手" loading="lazy"><figcaption class="cap"><span class="tag">AI</span><span class="desc">AI 文档助手侧栏 · 处理当前文档，结果可编辑、插入或打开</span></figcaption></figure>
+    </div>
+  </div>
+
+  <div class="shot-group">
+    <h3 class="shot-group-title">写作与阅读</h3>
+    <div class="shots">
+      <figure class="shot"><img src="assets/toc.png" alt="文档目录" loading="lazy"><figcaption class="cap"><span class="tag">大纲</span><span class="desc">右侧文档大纲 · 长文快速定位与跳转</span></figcaption></figure>
+      <figure class="shot"><img src="assets/math.png" alt="数学公式" loading="lazy"><figcaption class="cap"><span class="tag">KaTeX</span><span class="desc">数学公式渲染 · 适合笔记、教程与研究材料</span></figcaption></figure>
+    </div>
+  </div>
+
+  <div class="shot-group">
+    <h3 class="shot-group-title">技术内容</h3>
+    <div class="shots">
+      <figure class="shot"><img src="assets/code.png" alt="代码编辑" loading="lazy"><figcaption class="cap"><span class="tag">代码</span><span class="desc">代码直接打开编辑 · 语法高亮、行号与中文注释</span></figcaption></figure>
+      <figure class="shot"><img src="assets/mermaid.png" alt="Mermaid 图表" loading="lazy"><figcaption class="cap"><span class="tag">Mermaid</span><span class="desc">流程图、时序图在 Markdown 中直接渲染</span></figcaption></figure>
+    </div>
+  </div>
+
+  <div class="shot-group">
+    <h3 class="shot-group-title">卡片导出</h3>
+    <figure class="shot-featured">
+      <img src="assets/card-export.png" alt="内容生成卡片" loading="lazy">
+      <figcaption class="cap">选中文档内容即可导出成图片卡片 · 多种排版风格，适合分享</figcaption>
+    </figure>
   </div>
 </section>
 
