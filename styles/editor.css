@@ -1231,21 +1231,60 @@
 
 /* 表格样式 */
 .tiptap-editor .tableWrapper {
-    overflow-x: auto;
+    max-width: 100%;
     margin: 1em 0;
-    scrollbar-width: thin;
+    /* 使用编辑器基准字号直接计算，避免嵌套表格按 em 逐层缩小。 */
+    font-size: calc(var(--editor-font-size, 16px) * 0.92 * var(--editor-zoom-scale, 1));
 }
 
-.tiptap-editor .tableWrapper::-webkit-scrollbar {
+/*
+ * 六列以内的常规 Markdown 表格收敛到正文宽度。overflow: clip 不会创建
+ * 嵌套滚动容器，从根源上避开 WKWebView 在纵向滚动时合成横向滚动层的开销。
+ */
+.tiptap-editor .tableWrapper--responsive {
+    overflow: clip;
+}
+
+.tiptap-editor .tableWrapper--responsive table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+}
+
+.tiptap-editor .tableWrapper--responsive col {
+    width: auto !important;
+    min-width: 0 !important;
+}
+
+.tiptap-editor .tableWrapper--responsive td,
+.tiptap-editor .tableWrapper--responsive th {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+/*
+ * 多列表格保留横向浏览能力；paint containment 和独立 stacking context
+ * 将超宽表格的重绘限制在自身区域，避免影响整篇文档的绘制树。
+ */
+.tiptap-editor .tableWrapper--scrollable {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    contain: paint;
+    isolation: isolate;
+}
+
+.tiptap-editor .tableWrapper--scrollable::-webkit-scrollbar {
     height: 6px;
 }
 
-.tiptap-editor .tableWrapper::-webkit-scrollbar-thumb {
+.tiptap-editor .tableWrapper--scrollable::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 3px;
 }
 
-.tiptap-editor .tableWrapper::-webkit-scrollbar-track {
+.tiptap-editor .tableWrapper--scrollable::-webkit-scrollbar-track {
     background: transparent;
 }
 
