@@ -7,6 +7,7 @@ import { addClickHandler } from '../../utils/PointerHelper.js';
 import { CARD_TEMPLATES } from './cardTemplates.js';
 import { renderCardToDataUrl } from './cardExportPipeline.js';
 import { t } from '../../i18n/index.js';
+import { cardExportIcons } from '../../icons/uiIcons.js';
 
 const DISPLAY_WIDTH = 340;
 const DISPLAY_HEIGHT = Math.round(DISPLAY_WIDTH * (1280 / 960)); // 453px, 3:4
@@ -42,59 +43,34 @@ export class CardExportFlow {
                 <div class="card-export-flow__header">
                     <div class="card-export-flow__header-left">
                         <button type="button" class="card-export-flow__back-btn" aria-label="返回" style="display:none">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
+                            ${cardExportIcons.back()}
                         </button>
                         <span class="card-export-flow__title">${t('cardExport.title')}</span>
                     </div>
                     <div class="card-export-flow__header-actions">
                         <div class="cef-normal-actions">
                             <button type="button" class="card-export-flow__expand-btn" aria-label="展开多卡" disabled>
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <rect x="1.5" y="3" width="5.5" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-                                    <rect x="9" y="3" width="5.5" height="10" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-                                </svg>
+                                ${cardExportIcons.multiCard()}
                             </button>
                             <button type="button" class="card-export-flow__export-btn" aria-label="导出 PNG" disabled>
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M8 2v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                    <path d="M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                </svg>
+                                ${cardExportIcons.download()}
                             </button>
                             <button type="button" class="card-export-flow__close" aria-label="关闭">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                </svg>
+                                ${cardExportIcons.close()}
                             </button>
                         </div>
                         <div class="cef-expand-actions" style="display:none">
                             <button type="button" class="card-export-flow__font-down-btn" aria-label="减小字号">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M2.5 12L5.5 4l3 8M3.7 9.5h3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M10.5 8h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                </svg>
+                                ${cardExportIcons.fontDecrease()}
                             </button>
                             <button type="button" class="card-export-flow__font-up-btn" aria-label="放大字号">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M2.5 12L5.5 4l3 8M3.7 9.5h3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M10.5 8h4M12.5 6v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                </svg>
+                                ${cardExportIcons.fontIncrease()}
                             </button>
                             <button type="button" class="card-export-flow__download-all-btn" aria-label="下载全部">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M5 2v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                    <path d="M3 6.5l2 2 2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M11 2v6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                    <path d="M9 6.5l2 2 2-2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M2 13h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-                                </svg>
+                                ${cardExportIcons.downloadAll()}
                             </button>
                             <button type="button" class="card-export-flow__close" aria-label="关闭">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                </svg>
+                                ${cardExportIcons.close()}
                             </button>
                         </div>
                     </div>

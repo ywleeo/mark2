@@ -149,8 +149,16 @@
     background: transparent;
     border-radius: 6px;
     cursor: pointer;
-    color: rgba(15, 23, 42, 0.4);
+    color: rgba(31, 36, 44, 0.62);
     transition: background 0.15s, color 0.15s;
+}
+
+/* 导出流程与主工具栏共用单色、圆角线性视觉语言。 */
+.card-export-flow__icon {
+    display: block;
+    flex: none;
+    width: 16px;
+    height: 16px;
 }
 .card-export-flow__expand-btn:hover:not(:disabled),
 .card-export-flow__export-btn:hover:not(:disabled),
@@ -160,21 +168,16 @@
 .card-export-flow__font-up-btn:hover:not(:disabled),
 .card-export-flow__close:hover {
     background: rgba(15, 23, 42, 0.06);
-    color: rgba(15, 23, 42, 0.8);
+    color: rgba(31, 36, 44, 0.88);
 }
 .card-export-flow__expand-btn:disabled,
 .card-export-flow__export-btn:disabled,
 .card-export-flow__download-all-btn:disabled,
 .card-export-flow__font-down-btn:disabled,
 .card-export-flow__font-up-btn:disabled {
-    opacity: 0.3;
+    opacity: 0.28;
     cursor: default;
 }
-.card-export-flow__export-btn:not(:disabled) { color: #2563eb; }
-.card-export-flow__expand-btn:not(:disabled) { color: #0891b2; }
-.card-export-flow__download-all-btn:not(:disabled) { color: #059669; }
-.card-export-flow__font-down-btn:not(:disabled),
-.card-export-flow__font-up-btn:not(:disabled) { color: #7c3aed; }
 
 .card-export-flow__page-label {
     text-align: center;
@@ -267,12 +270,7 @@
 :root[data-theme-appearance='dark'] .card-export-flow__download-all-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__font-down-btn,
 :root[data-theme-appearance='dark'] .card-export-flow__font-up-btn,
-:root[data-theme-appearance='dark'] .card-export-flow__close { color: rgba(148, 163, 184, 0.6); }
-:root[data-theme-appearance='dark'] .card-export-flow__export-btn:not(:disabled) { color: #60a5fa; }
-:root[data-theme-appearance='dark'] .card-export-flow__expand-btn:not(:disabled) { color: #22d3ee; }
-:root[data-theme-appearance='dark'] .card-export-flow__download-all-btn:not(:disabled) { color: #34d399; }
-:root[data-theme-appearance='dark'] .card-export-flow__font-down-btn:not(:disabled),
-:root[data-theme-appearance='dark'] .card-export-flow__font-up-btn:not(:disabled) { color: #a78bfa; }
+:root[data-theme-appearance='dark'] .card-export-flow__close { color: rgba(217, 225, 244, 0.68); }
 :root[data-theme-appearance='dark'] .card-export-flow__expand-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__export-btn:hover:not(:disabled),
 :root[data-theme-appearance='dark'] .card-export-flow__back-btn:hover,
@@ -328,6 +326,16 @@
     margin: 0;
     min-height: 0;
     flex: none;
+}
+
+/* 链接继承卡片主题色，并固定 visited 状态，保证预览与导出结果稳定一致。 */
+.card-preview-card__content a,
+.card-preview-card__content a:visited {
+    color: var(--card-link-color, currentColor);
+    text-decoration-line: underline;
+    text-decoration-color: currentColor;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.14em;
 }
 
 /* 防止 block 元素出现滚动条，长内容统一折行 */
@@ -430,6 +438,7 @@
 }
 
 .card-preview-card--warm-linen .card-preview-card__content {
+    --card-link-color: #8a5a20;
     color: #3d2e1a;
     font-family: 'STKaiti', 'Kaiti SC', 'KaiTi', '楷体', 'DFKai-SB', serif;
     font-size: 13.5px;
@@ -512,6 +521,7 @@
 }
 
 .card-preview-card--gradient-blush .card-preview-card__content {
+    --card-link-color: #7c3aed;
     color: #2d1b3d;
     font-family: 'ZCOOL KuaiLe', 'PingFang SC', sans-serif;
     font-size: 14px;
@@ -578,6 +588,7 @@
 }
 
 .card-preview-card--ink-stone .card-preview-card__content {
+    --card-link-color: #f2c94c;
     color: rgba(248, 240, 220, 0.88);
     font-family: 'Noto Serif SC', 'STSong', 'Songti SC', serif;
     font-size: 13.5px;
@@ -714,6 +725,7 @@
 }
 
 .card-preview-card--hand-note .card-preview-card__content {
+    --card-link-color: #b45309;
     color: #3d2f1a;
     font-family: 'Long Cang', 'Hannotate SC', 'Hanzipen SC', cursive;
     font-size: 17px;
@@ -796,6 +808,7 @@
 }
 
 .card-preview-card--song-paper .card-preview-card__content {
+    --card-link-color: #be185d;
     color: #1f1b16;
     font-family: 'Noto Serif SC', 'Source Han Serif SC', 'STSong', 'Songti SC', 'SimSun', serif;
     font-size: 14px;
@@ -912,6 +925,7 @@
 }
 
 .card-preview-card--code-night .card-preview-card__content {
+    --card-link-color: #58a6ff;
     color: #e6edf3;
     font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
     font-size: 11.5px;
