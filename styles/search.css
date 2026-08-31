@@ -2,11 +2,12 @@
 .search-box {
     display: none;
     flex-direction: column;
-    position: fixed;
-    top: calc(var(--titlebar-height, 30px) + 84px);
-    right: 22px;
+    position: absolute;
+    top: 12px;
+    right: 14px;
     z-index: 460;
-    width: min(420px, calc(100vw - 44px));
+    width: min(420px, calc(100% - 28px));
+    box-sizing: border-box;
     background: var(--search-box-bg);
     border: 1px solid var(--search-box-border);
     border-radius: 10px;
@@ -22,7 +23,7 @@
 }
 
 .search-box:not(.is-find-only) {
-    width: min(460px, calc(100vw - 44px));
+    width: min(460px, calc(100% - 28px));
 }
 
 .search-box.is-find-only .replace-input,

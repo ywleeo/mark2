@@ -2,12 +2,20 @@
 import { searchPluginKey } from '../extensions/SearchExtension.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t } from '../i18n/index.js';
+import { createSearchBoxView } from './searchBoxView.js';
 
 // 查找框管理类
 export class SearchBoxManager {
-    constructor(editor, codeEditor = null) {
+    /**
+     * 创建绑定到单个文档栏的搜索管理器。
+     * @param {Object} editor - 当前栏的 Markdown 编辑器。
+     * @param {Object|null} codeEditor - 当前栏的代码编辑器。
+     * @param {HTMLElement|null} hostElement - 当前 document pane 宿主。
+     */
+    constructor(editor, codeEditor = null, hostElement = null) {
         this.editor = editor; // Markdown 编辑器
         this.codeEditor = codeEditor; // 代码编辑器
+        this.hostElement = hostElement;
         this.searchBox = null;
         this.searchInput = null;
         this.replaceInput = null;
@@ -46,8 +54,8 @@ export class SearchBoxManager {
     initSearchBox() {
         if (typeof document === 'undefined') return;
 
-        // 获取 HTML 中已有的搜索框元素
-        this.searchBox = document.querySelector('.search-box');
+        // 每个文档栏创建自己的搜索框，杜绝双栏实例共享 DOM 和事件。
+        this.searchBox = createSearchBoxView(this.hostElement, t);
         if (!this.searchBox) return;
 
         this.searchInput = this.searchBox.querySelector('.search-input');
@@ -95,7 +103,9 @@ export class SearchBoxManager {
 
         // 全局 ESC 键监听（用于失焦时也能关闭搜索框）
         this.globalKeyHandler = (e) => {
-            if (e.key === 'Escape' && this.searchBox?.classList.contains('is-visible')) {
+            if (e.key === 'Escape'
+                && this.searchBox?.classList.contains('is-visible')
+                && this.isFocusedPane()) {
                 this.hideSearch();
             }
         };
@@ -118,6 +128,16 @@ export class SearchBoxManager {
             const toggleCleanup = addClickHandler(toggleReplaceBtn, () => this.toggleReplaceRow());
             this.cleanupFunctions.push(toggleCleanup);
         }
+    }
+
+    /**
+     * 判断该搜索框是否属于当前焦点栏。
+     * 单栏或脱离 PaneLayout 的兼容场景默认视为当前栏。
+     * @returns {boolean} 是否应响应全局键盘操作。
+     */
+    isFocusedPane() {
+        const pane = this.searchBox?.closest?.('.document-pane');
+        return !pane || pane.classList.contains('is-focused');
     }
 
     // 显示查找框（withReplace 显式传入时切换替换行；不传则保留上次状态）
@@ -471,7 +491,11 @@ export class SearchBoxManager {
             this.codeEditorChangeCleanup = null;
         }
 
+        // 搜索框由当前 Manager 创建，也必须随实例销毁，避免副栏重建后残留 UI。
+        this.searchBox?.remove();
+
         // 清理引用
+        this.hostElement = null;
         this.searchBox = null;
         this.searchInput = null;
         this.replaceInput = null;

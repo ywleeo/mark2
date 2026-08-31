@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双栏搜索框隔离测试</title>
+    <link rel="stylesheet" href="../../styles/search.css">
+    <style>
+        :root {
+            --search-box-bg: rgba(255, 255, 255, 0.92);
+            --search-box-border: rgba(38, 43, 51, 0.12);
+            --search-box-shadow: 0 18px 52px rgba(15, 23, 42, 0.14);
+            --search-input-bg: rgba(255, 255, 255, 0.7);
+            --search-input-bg-focus: #fff;
+            --search-input-border: rgba(38, 43, 51, 0.14);
+            --search-input-border-focus: rgba(38, 43, 51, 0.3);
+            --search-input-focus-shadow: rgba(79, 115, 128, 0.16);
+            --search-input-text: rgba(15, 23, 42, 0.92);
+            --search-input-placeholder: rgba(15, 23, 42, 0.4);
+            --search-info-text: rgba(15, 23, 42, 0.55);
+            --search-button-text: rgba(15, 23, 42, 0.6);
+            --search-button-text-hover: rgba(15, 23, 42, 0.95);
+            --search-button-hover-bg: rgba(15, 23, 42, 0.06);
+            --search-button-active-bg: rgba(15, 23, 42, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, sans-serif; }
+        .content-area { display: flex; width: 100vw; height: 100vh; }
+        .document-pane { position: relative; flex: 1 1 0; min-width: 0; overflow: hidden; border-right: 1px solid #ddd; }
+        .document-pane:last-child { border-right: 0; }
+        .document-title { padding: 84px 22px 0; color: #64748b; }
+    </style>
+</head>
+<body>
+    <main class="content-area">
+        <section id="primaryPane" class="document-pane is-focused">
+            <div class="document-title">主栏文档：alpha alpha</div>
+        </section>
+        <section id="secondaryPane" class="document-pane">
+            <div class="document-title">副栏文档：beta beta</div>
+        </section>
+    </main>
+    <script type="module">
+        import { SearchBoxManager } from '../../src/features/searchBox.js';
+
+        /**
+         * 创建记录搜索词的代码编辑器替身。
+         * @param {string[]} calls - 搜索调用记录。
+         * @returns {Object} SearchBoxManager 所需的最小代码编辑器协议。
+         */
+        function createCodeEditorStub(calls) {
+            return {
+                isVisible: true,
+                setSearchTerm(term) {
+                    calls.push(term);
+                    return { total: 2, current: 0 };
+                },
+                clearSearch() {},
+                nextSearchResult() { return { total: 2, current: 1 }; },
+                prevSearchResult() { return { total: 2, current: 0 }; },
+            };
+        }
+
+        const primaryCalls = [];
+        const secondaryCalls = [];
+        const primaryManager = new SearchBoxManager(
+            {},
+            createCodeEditorStub(primaryCalls),
+            document.getElementById('primaryPane'),
+        );
+        const secondaryManager = new SearchBoxManager(
+            {},
+            createCodeEditorStub(secondaryCalls),
+            document.getElementById('secondaryPane'),
+        );
+
+        primaryManager.searchBox.classList.add('is-visible');
+        secondaryManager.searchBox.classList.add('is-visible');
+        primaryManager.searchInput.value = 'alpha';
+        primaryManager.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        secondaryManager.searchInput.value = 'beta';
+        secondaryManager.searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+        document.body.dataset.primarySearchCalls = JSON.stringify(primaryCalls);
+        document.body.dataset.secondarySearchCalls = JSON.stringify(secondaryCalls);
+    </script>
+</body>
+</html>

@@ -192,7 +192,11 @@ export class MarkdownEditor {
             insertMarkdownAtCursor: (markdown) => this.insertAIContent(markdown),
         });
         this.aiWritingEntryManager.setup();
-        this.searchBoxManager = new SearchBoxManager(this.editor);
+        this.searchBoxManager = new SearchBoxManager(
+            this.editor,
+            null,
+            this.viewElement.closest('.document-pane'),
+        );
         this.clipboardEnhancer = new ClipboardEnhancer(this.element);
         this.imageModal = new ImageModal();
         this.tableToolbar = new TableBubbleToolbar(this.editor, this.viewElement);
