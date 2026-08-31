@@ -22,6 +22,8 @@ import { addClickHandler } from '../utils/PointerHelper.js';
 const GENERAL_COMMANDS = [
     COMMAND_IDS.APP_OPEN,
     COMMAND_IDS.DOCUMENT_SAVE,
+    COMMAND_IDS.EDITOR_UNDO,
+    COMMAND_IDS.EDITOR_REDO,
     COMMAND_IDS.EDITOR_FIND,
     COMMAND_IDS.DOCUMENT_NEW_UNTITLED,
     COMMAND_IDS.DOCUMENT_CLOSE_TAB,
@@ -60,6 +62,8 @@ const EDITABLE_DEFAULT_KEYBINDINGS = [
 const COMMAND_LABELS = {
     [COMMAND_IDS.APP_OPEN]: 'settings.kb.open',
     [COMMAND_IDS.DOCUMENT_SAVE]: 'settings.kb.save',
+    [COMMAND_IDS.EDITOR_UNDO]: 'settings.kb.undo',
+    [COMMAND_IDS.EDITOR_REDO]: 'settings.kb.redo',
     [COMMAND_IDS.EDITOR_FIND]: 'settings.kb.find',
     [COMMAND_IDS.DOCUMENT_NEW_UNTITLED]: 'settings.kb.newTab',
     [COMMAND_IDS.DOCUMENT_CLOSE_TAB]: 'settings.kb.closeTab',

@@ -275,6 +275,8 @@
     "settings.kb.recording": "请按快捷键...",
     "settings.kb.open": "打开",
     "settings.kb.save": "保存",
+    "settings.kb.undo": "撤销",
+    "settings.kb.redo": "重做",
     "settings.kb.find": "查找",
     "settings.kb.newTab": "新建标签页",
     "settings.kb.closeTab": "关闭标签页",

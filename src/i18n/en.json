@@ -275,6 +275,8 @@
     "settings.kb.recording": "Press shortcut...",
     "settings.kb.open": "Open",
     "settings.kb.save": "Save",
+    "settings.kb.undo": "Undo",
+    "settings.kb.redo": "Redo",
     "settings.kb.find": "Find",
     "settings.kb.newTab": "New Tab",
     "settings.kb.closeTab": "Close Tab",

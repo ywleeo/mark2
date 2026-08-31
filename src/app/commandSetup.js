@@ -8,7 +8,7 @@ import {
     MARKDOWN_DEFAULT_KEYBINDINGS,
     MARKDOWN_SHORTCUT_COMMANDS,
 } from '../modules/markdown-shortcuts/markdownShortcutDefinitions.js';
-import { isWindows } from '../utils/platform.js';
+import { isMac, isWindows } from '../utils/platform.js';
 import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
 
 /**
@@ -123,6 +123,20 @@ export function registerCoreCommands(options = {}) {
 }
 
 /**
+ * 重做键位按平台惯例分流，与 VSCode / Typora 等主流编辑器保持一致：
+ * - macOS 只用 Mod+Shift+Z。Apple HIG 及原生应用均为 ⇧⌘Z，⌘Y 在 Mac 上不表示重做
+ *   （VSCode 的 kbOpts 也是用 mac 覆盖去掉 Ctrl+Y 的；Office 系用 ⌘Y 属自成一派）。
+ * - Windows / Linux 主键位 Mod+Y，另保留 Mod+Shift+Z 作为次键位。
+ * 排在前面的那条会作为菜单和设置页展示的主键位。
+ */
+const REDO_KEYBINDINGS = isMac
+    ? [[COMMAND_IDS.EDITOR_REDO, 'Mod+Shift+Z']]
+    : [
+        [COMMAND_IDS.EDITOR_REDO, 'Mod+Y'],
+        [COMMAND_IDS.EDITOR_REDO, 'Mod+Shift+Z'],
+    ];
+
+/**
  * 应用级默认快捷键定义表。
  * 每项为 [commandId, shortcut]，一个命令可以有多条快捷键。
  * Markdown 编辑快捷键由 markdown-shortcuts 模块独立贡献。
@@ -130,7 +144,7 @@ export function registerCoreCommands(options = {}) {
 export const APP_DEFAULT_KEYBINDINGS = Object.freeze([
     [COMMAND_IDS.APP_OPEN, 'Mod+O'],
     [COMMAND_IDS.EDITOR_UNDO, 'Mod+Z'],
-    [COMMAND_IDS.EDITOR_REDO, 'Mod+Shift+Z'],
+    ...REDO_KEYBINDINGS,
     [COMMAND_IDS.EDITOR_SELECT_SEARCH_MATCHES, 'Mod+Shift+L'],
     [COMMAND_IDS.DOCUMENT_SAVE, 'Mod+S'],
     [COMMAND_IDS.DOCUMENT_SAVE_AS, 'Mod+Shift+S'],

@@ -274,6 +274,8 @@
   "settings.kb.recording": "請按快速鍵...",
   "settings.kb.open": "開啟",
   "settings.kb.save": "儲存",
+  "settings.kb.undo": "復原",
+  "settings.kb.redo": "重做",
   "settings.kb.find": "尋找",
   "settings.kb.newTab": "新增分頁",
   "settings.kb.closeTab": "關閉分頁",
