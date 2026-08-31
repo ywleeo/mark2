@@ -66,7 +66,6 @@
     border-left-color: rgba(63, 143, 130, 0.45);
     color: var(--em-muted);
     background: rgba(63, 143, 130, 0.045);
-    font-size: 0.9em;
     margin-right: 1.5em;
     margin-left: 1.5em;
     padding-top: 0.35em;
@@ -301,7 +300,6 @@
     border-left-color: rgba(141, 207, 195, 0.5);
     color: var(--em-muted);
     background: rgba(141, 207, 195, 0.045);
-    font-size: 0.9em;
     margin-right: 1.5em;
     margin-left: 1.5em;
     padding-top: 0.35em;
@@ -424,7 +422,6 @@
 [data-theme-appearance] .tiptap-editor:not([data-theme-appearance]) pre {
     padding: 14px 18px;
     border-radius: 6px;
-    line-height: 1.36;
 }
 
 .tiptap-editor[data-theme-appearance] h2 + pre,
