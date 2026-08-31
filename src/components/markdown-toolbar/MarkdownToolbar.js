@@ -74,6 +74,22 @@ export class MarkdownToolbar {
         if (this.tocPanel) {
             this.tocPanel.setEditor(editor);
         }
+
+        // 工具栏是应用级单例，会在主栏/副栏之间来回切换目标编辑器；
+        // 副栏又是懒创建的，所以每次换栏都要重新投影一次居中排版状态。
+        this.syncCenteredContentState();
+    }
+
+    /**
+     * 返回当前工具栏正在操作的 Markdown 面板。
+     * 双栏下必须由编辑器 DOM 反查所属面板，不能用全局选择器——那样永远命中主栏。
+     * @returns {HTMLElement|null} 活动 Markdown 面板。
+     */
+    getActiveMarkdownPane() {
+        const editorDom = this.editor?.view?.dom;
+        return editorDom?.closest?.('.view-pane.markdown-pane')
+            // 代码视图等场景取不到 TipTap DOM，退回文档流里的第一个面板（主栏）。
+            || document.querySelector('.view-pane.markdown-pane');
     }
 
     /**
@@ -519,7 +535,7 @@ export class MarkdownToolbar {
         this.tocPanel = new TocPanel();
 
         // 查找 Markdown 面板容器
-        const markdownPane = document.querySelector('.markdown-pane');
+        const markdownPane = this.getActiveMarkdownPane();
         if (markdownPane) {
             this.tocPanel.init(markdownPane);
 
@@ -550,27 +566,8 @@ export class MarkdownToolbar {
      * 切换内容居中模式
      */
     toggleCenterContent() {
-        const markdownPane = document.querySelector('.view-pane.markdown-pane');
-        if (!markdownPane) {
-            return false;
-        }
-
-        const isCentered = markdownPane.classList.toggle('content-centered');
-        this.applyCenteredContentWidth(markdownPane);
-
-        // 更新按钮状态
-        const button = this.container?.querySelector('[data-action="centerContent"]');
-        if (button) {
-            button.classList.toggle('toolbar-button--active', isCentered);
-        }
-
-        store.set('contentCentered', isCentered);
-        if (isCentered) {
-            this.enablePageWidthHandle(markdownPane);
-        } else {
-            this.disablePageWidthHandle();
-        }
-
+        store.set('contentCentered', !store.get('contentCentered'));
+        this.syncCenteredContentState();
         return true;
     }
 
@@ -578,16 +575,30 @@ export class MarkdownToolbar {
      * 恢复居中模式状态
      */
     restoreCenterContentState() {
-        if (!store.get('contentCentered')) return;
-        const markdownPane = document.querySelector('.view-pane.markdown-pane');
-        if (markdownPane) {
-            markdownPane.classList.add('content-centered');
-            this.applyCenteredContentWidth(markdownPane);
-            this.enablePageWidthHandle(markdownPane);
-        }
+        this.syncCenteredContentState();
+    }
+
+    /**
+     * 把居中排版偏好投影到全部 Markdown 面板，并把页宽手柄挂到当前活动栏。
+     * 居中是排版偏好而非单栏状态，所以主栏和副栏保持一致；
+     * 手柄只有一个，跟随工具栏当前操作的那一栏。
+     */
+    syncCenteredContentState() {
+        const isCentered = Boolean(store.get('contentCentered'));
+
+        document.querySelectorAll('.view-pane.markdown-pane').forEach((pane) => {
+            pane.classList.toggle('content-centered', isCentered);
+            this.applyCenteredContentWidth(pane);
+        });
+
         const button = this.container?.querySelector('[data-action="centerContent"]');
-        if (button) {
-            button.classList.add('toolbar-button--active');
+        button?.classList.toggle('toolbar-button--active', isCentered);
+
+        const activePane = isCentered ? this.getActiveMarkdownPane() : null;
+        if (activePane) {
+            this.enablePageWidthHandle(activePane);
+        } else {
+            this.disablePageWidthHandle();
         }
     }
 
@@ -605,13 +616,24 @@ export class MarkdownToolbar {
     }
 
     /**
+     * 把保存的页宽同时应用到主栏和副栏。
+     */
+    applyCenteredContentWidthToPanes() {
+        document.querySelectorAll('.view-pane.markdown-pane')
+            .forEach((pane) => this.applyCenteredContentWidth(pane));
+    }
+
+    /**
      * 开启居中排版页宽拖拽手柄。
      */
     enablePageWidthHandle(markdownPane) {
-        if (!markdownPane || this.pageWidthHandle?.isConnected) {
+        if (!markdownPane) return;
+        if (this.pageWidthHandle?.parentElement === markdownPane) {
             this.updatePageWidthHandlePosition();
             return;
         }
+        // 换栏时手柄连同拖拽监听整体重建，避免闭包仍指向上一栏的面板。
+        this.disablePageWidthHandle();
 
         const handle = document.createElement('button');
         handle.type = 'button';
@@ -622,7 +644,7 @@ export class MarkdownToolbar {
 
         const onPointerDown = (event) => {
             if (event.button !== 0) return;
-            const editorEl = this.getCenteredEditorElement();
+            const editorEl = this.getCenteredEditorElement(markdownPane);
             const contentEl = markdownPane.querySelector('.markdown-content');
             if (!editorEl || !contentEl) return;
             event.preventDefault();
@@ -646,8 +668,9 @@ export class MarkdownToolbar {
             event.preventDefault();
             const rawWidth = Math.round(state.startWidth + (event.clientX - state.startX) * 2);
             const width = this.clampPageWidth(rawWidth, state.maxWidth);
-            markdownPane.style.setProperty('--markdown-centered-width', `${width}px`);
             store.set('contentCenteredWidth', width);
+            // 页宽是全局排版偏好，拖拽时两栏一起变，避免副栏留着旧宽度。
+            this.applyCenteredContentWidthToPanes();
             this.updatePageWidthHandlePosition();
         };
 
@@ -703,8 +726,9 @@ export class MarkdownToolbar {
     updatePageWidthHandlePosition() {
         const handle = this.pageWidthHandle;
         if (!handle?.isConnected) return;
-        const markdownPane = document.querySelector('.view-pane.markdown-pane.content-centered');
-        const editorEl = this.getCenteredEditorElement();
+        // 手柄就挂在它服务的那一栏里，直接用宿主面板，别再全局查一遍。
+        const markdownPane = handle.parentElement;
+        const editorEl = this.getCenteredEditorElement(markdownPane);
         if (!markdownPane || !editorEl) return;
 
         const paneRect = markdownPane.getBoundingClientRect();
@@ -718,10 +742,12 @@ export class MarkdownToolbar {
     }
 
     /**
-     * 返回居中模式下正在显示的 TipTap 编辑器 DOM。
+     * 返回指定面板在居中模式下正在显示的 TipTap 编辑器 DOM。
+     * @param {HTMLElement|null} [markdownPane] - 目标面板，默认取当前活动栏。
      */
-    getCenteredEditorElement() {
-        return document.querySelector('.view-pane.markdown-pane.content-centered .markdown-content .tiptap-editor');
+    getCenteredEditorElement(markdownPane = this.getActiveMarkdownPane()) {
+        if (!markdownPane?.classList.contains('content-centered')) return null;
+        return markdownPane.querySelector('.markdown-content .tiptap-editor');
     }
 
     /**

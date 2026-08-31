@@ -46,6 +46,8 @@ export class TocPanel {
             };
             this.editor.on('update', this.editorUpdateHandler);
         }
+        // 大纲面板是应用级单例，编辑器换栏后滚动容器必须跟着换到那一栏。
+        this.bindScrollEvent();
         this.markDirty();
     }
 
@@ -139,10 +141,10 @@ export class TocPanel {
      * 绑定滚动事件，用于高亮当前可见的标题
      */
     bindScrollEvent() {
-        // 查找 Markdown 面板的滚动容器
-        const markdownPane = document.querySelector('.markdown-pane');
-        if (!markdownPane) return;
+        const markdownPane = this.resolveScrollContainer();
+        if (!markdownPane || markdownPane === this.scrollContainer) return;
 
+        this.unbindScrollEvent();
         this.scrollContainer = markdownPane;
 
         this.scrollHandler = this.debounce(() => {
@@ -150,6 +152,28 @@ export class TocPanel {
         }, 100);
 
         this.scrollContainer.addEventListener('scroll', this.scrollHandler);
+    }
+
+    /**
+     * 解绑当前滚动监听。
+     */
+    unbindScrollEvent() {
+        if (this.scrollContainer && this.scrollHandler) {
+            this.scrollContainer.removeEventListener('scroll', this.scrollHandler);
+        }
+        this.scrollContainer = null;
+        this.scrollHandler = null;
+    }
+
+    /**
+     * 找到当前编辑器所属的 Markdown 面板作为滚动容器。
+     * 双栏下不能用全局选择器——那样永远命中主栏。
+     * @returns {HTMLElement|null} 滚动容器。
+     */
+    resolveScrollContainer() {
+        const editorDom = this.editor?.view?.dom;
+        return editorDom?.closest?.('.view-pane.markdown-pane')
+            || document.querySelector('.view-pane.markdown-pane');
     }
 
     /**
@@ -678,9 +702,7 @@ export class TocPanel {
         }
 
         // 清理滚动事件
-        if (this.scrollContainer && this.scrollHandler) {
-            this.scrollContainer.removeEventListener('scroll', this.scrollHandler);
-        }
+        this.unbindScrollEvent();
 
         // 清理目录项点击事件
         this.clickCleanups.forEach(cleanup => {
