@@ -348,6 +348,10 @@ export function createAppBootstrap({
 
         /**
          * 把副栏文档提升到主标签，并关闭副栏。
+         * 关闭副栏后直接走"打开文件"那条路径（addToOpenFiles + selectFile），
+         * 与 ⌘O、拖拽打开完全一致，拿到的是固定 tab。
+         * 早先用 handleFileSelect 会落进 shared 预览位，之后关闭该 tab 时
+         * wasActive 判定失败，导致不回落到剩余 tab、正文残留。
          * @returns {Promise<boolean>} 是否成功提升。
          */
         async function promoteSecondaryToPrimary() {
@@ -358,10 +362,36 @@ export function createAppBootstrap({
             }
             secondaryRuntime.close();
             paneManager.closeSecondary();
-            await handleFileSelect(path);
+            await openPathsFromSelection([path]);
             persistWorkspaceState();
             return true;
         }
+
+        // 主栏被清空而副栏还有文档时，关掉副栏并把它的文件按新开 tab 的方式打开，
+        // 不留"空栏对着有内容的栏"这种状态。
+        let autoPromoteScheduled = false;
+        const unsubscribeAutoPromote = paneManager.subscribe(event => {
+            // 只认"主栏文档变更"这一种事务，避免启动恢复等中间态被误判。
+            if (event?.type !== 'primary-document' || autoPromoteScheduled) {
+                return;
+            }
+            if (event.snapshot?.panes?.primary?.documentPath
+                || !event.snapshot?.panes?.secondary?.documentPath) {
+                return;
+            }
+            autoPromoteScheduled = true;
+            // 等这轮 pane 事务派发完再动，不在订阅回调里递归改状态。
+            queueMicrotask(async () => {
+                try {
+                    await promoteSecondaryToPrimary();
+                } catch (error) {
+                    console.error('[Panes] 自动提升副栏失败', error);
+                } finally {
+                    autoPromoteScheduled = false;
+                }
+            });
+        });
+        appState.setCleanupFunction('autoPromoteSecondary', unsubscribeAutoPromote);
 
         const aiFileTaskSidebar = new AiFileTaskSidebar({
             fileService: appServices.file,
