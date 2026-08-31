@@ -1,5 +1,6 @@
 import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
 import { EVENT_IDS } from '../core/eventIds.js';
+import { PANE_IDS } from '../core/layout/PaneManager.js';
 import { t } from '../i18n/index.js';
 import { navigationHistory } from './navigationHistory.js';
 
@@ -51,6 +52,7 @@ export function createNavigationController({
     saveUntitledFile,
     eventBus,
     rememberScrollPosition,
+    openInSecondary,
 }) {
     if (typeof getFileTree !== 'function') {
         throw new Error('navigationController 需要提供 getFileTree');
@@ -721,9 +723,15 @@ export function createNavigationController({
 
     function setupLinkNavigationListener() {
         window.addEventListener('open-file', async (event) => {
-            const { path } = event.detail || {};
+            const { path, paneId } = event.detail || {};
             if (!path) {
                 console.error('open-file 事件缺少 path');
+                return;
+            }
+
+            // 副栏文档里的链接在副栏内跳转：主栏的标签和当前文档不受影响。
+            if (paneId === PANE_IDS.SECONDARY) {
+                await openInSecondary?.(path);
                 return;
             }
 

@@ -298,6 +298,7 @@ export class MarkdownEditor {
         this.linkHandler = new LinkHandler(this.element, {
             getViewElement: () => this.viewElement,
             getCurrentFile: () => this.contentLoader.loadedFilePath,
+            getPaneId: () => this.viewElement?.closest?.('.document-pane')?.dataset?.paneId ?? null,
         });
         this.linkHandler.setup();
 

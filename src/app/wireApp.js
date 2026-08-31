@@ -30,6 +30,7 @@ import { createDocumentManager } from '../core/documents/DocumentManager.js';
 import { createLogger } from '../core/diagnostics/Logger.js';
 import { createTraceRecorder } from '../core/diagnostics/TraceRecorder.js';
 import { createCommandManager } from '../core/commands/CommandManager.js';
+import { COMMAND_IDS } from '../core/commands/commandIds.js';
 import { createKeybindingManager } from '../core/commands/KeybindingManager.js';
 import { createFeatureManager } from '../core/features/FeatureManager.js';
 import { createExportManager } from '../core/export/ExportManager.js';
@@ -613,6 +614,11 @@ const {
     saveUntitledFile,
     eventBus,
     rememberScrollPosition,
+    // 命令在 bootstrap 阶段才注册，这里只做惰性派发。
+    openInSecondary: (path) => commandManager.executeCommand(
+        COMMAND_IDS.VIEW_OPEN_IN_SECONDARY,
+        { path },
+    ),
 });
 
 // ========== 文件菜单操作 ==========

@@ -8,10 +8,11 @@ import { normalizeFsPath } from '../../utils/pathUtils.js';
  * - 相对路径触发 open-file 事件
  */
 export class LinkHandler {
-    constructor(element, { getViewElement, getCurrentFile }) {
+    constructor(element, { getViewElement, getCurrentFile, getPaneId }) {
         this.element = element;
         this.getViewElement = getViewElement;
         this.getCurrentFile = getCurrentFile;
+        this.getPaneId = getPaneId;
         this.cleanup = null;
     }
 
@@ -141,7 +142,10 @@ export class LinkHandler {
             const normalizedTarget = this.ensureMarkdownExtension(
                 normalizeFsPath(targetPath) || targetPath
             );
-            window.dispatchEvent(new CustomEvent('open-file', { detail: { path: normalizedTarget } }));
+            // 带上来源栏：副栏里的链接必须留在副栏，不能挤掉主栏正在编辑的文档。
+            window.dispatchEvent(new CustomEvent('open-file', {
+                detail: { path: normalizedTarget, paneId: this.getPaneId?.() ?? null },
+            }));
         } catch (error) {
             console.error('打开文档链接失败:', error);
         }
