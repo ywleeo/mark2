@@ -238,12 +238,10 @@
     overflow-x: hidden !important;
 }
 
-/* Markdown 编辑器滚动条 - thin 样式 */
-.view-pane.markdown-pane.is-active {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-}
-
+/* Markdown 编辑器滚动条 - 2px 极细样式。
+   不要在这里声明标准属性 scrollbar-width / scrollbar-color：新版 WebKit
+   支持标准属性后会用它覆盖 ::-webkit-scrollbar，thin 会退回 13px 的经典
+   滚动条并常驻占位，下面的 width: 2px 就完全失效了。 */
 .view-pane.markdown-pane.is-active::-webkit-scrollbar {
     width: 2px;
     -webkit-appearance: none;
@@ -262,11 +260,7 @@
     background: rgba(0, 0, 0, 0.35);
 }
 
-/* 深色模式 */
-:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active {
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-}
-
+/* 深色模式。同样不声明 scrollbar-color，否则暗色下又会切回标准属性分支。 */
 :root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
 }

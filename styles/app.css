@@ -64,20 +64,17 @@
     font-weight: 500;
 }
 
+/* 每个 view-pane 都自带滚动容器（markdown / code / image / media /
+   spreadsheet / pdf / embed 各自 overflow: auto），容器层不再参与滚动。
+   此前这里是 overflow-y: scroll 再用 :has() 白名单逐个关掉，白名单漏了
+   code / image / media / embed / unsupported，且 .html-pane 已改名为
+   .embed-pane 变成死选择器，导致这些视图常驻一条空滚动槽。 */
 .view-content {
     position: relative;
     flex: 1;
-    overflow-y: scroll;
-    overflow-x: hidden;
+    overflow: hidden;
     min-height: 0;
     background: var(--content-bg, #ffffff);
-}
-
-.view-content:has(.markdown-pane.is-active),
-.view-content:has(.pdf-pane.is-active),
-.view-content:has(.html-pane.is-active),
-.view-content:has(.spreadsheet-pane.is-active) {
-    overflow: hidden;
 }
 
 .view-pane {
