@@ -1,4 +1,9 @@
 import { addClickHandler } from '../utils/PointerHelper.js';
+import {
+    hasTextSelectionWithin,
+    isCellContentTruncated,
+    writeCellValueToCopyEvent,
+} from './spreadsheet-viewer/cellInteraction.js';
 
 const MIN_ZOOM_SCALE = 0.6;
 const MAX_ZOOM_SCALE = 2.4;
@@ -30,8 +35,10 @@ export class SpreadsheetViewer {
         this.sheets = [];
         this.activeSheetIndex = 0;
         this.sheetTabsElement = null;
+        this.bodyElement = null;
         this.tableWrapperElement = null;
         this.emptyStateElement = null;
+        this.cellTooltipElement = null;
         this.gridElement = null;
         this.headerWrapperElement = null;
         this.headerElement = null;
@@ -41,7 +48,18 @@ export class SpreadsheetViewer {
         this.virtualState = null;
         this.scrollAnimationFrame = null;
         this.handleViewportScroll = this.handleViewportScroll.bind(this);
+        this.handleCellActivation = this.handleCellActivation.bind(this);
+        this.handleCellPointerOver = this.handleCellPointerOver.bind(this);
+        this.handleCellPointerOut = this.handleCellPointerOut.bind(this);
+        this.handleTooltipPointerEnter = this.handleTooltipPointerEnter.bind(this);
+        this.handleTooltipPointerLeave = this.handleTooltipPointerLeave.bind(this);
+        this.handleViewportCopy = this.handleViewportCopy.bind(this);
         this.viewportResizeObserver = null;
+        this.selectedCell = null;
+        this.selectedCellElement = null;
+        this.hoveredCellElement = null;
+        this.tooltipHideTimer = null;
+        this.copyFeedbackTimer = null;
         this.zoomScale = 1;
         this.init();
         this.applyZoom();
@@ -55,6 +73,7 @@ export class SpreadsheetViewer {
             </div>
             <div class="spreadsheet-viewer__body">
                 <div class="spreadsheet-viewer__table-wrapper" tabindex="0"></div>
+                <div class="spreadsheet-viewer__cell-tooltip" role="tooltip" aria-hidden="true"></div>
                 <div class="spreadsheet-viewer__empty-state" aria-hidden="true">
                     暂无可显示的数据
                 </div>
@@ -62,8 +81,16 @@ export class SpreadsheetViewer {
         `;
 
         this.sheetTabsElement = this.container.querySelector('.spreadsheet-viewer__tabs');
+        this.bodyElement = this.container.querySelector('.spreadsheet-viewer__body');
         this.tableWrapperElement = this.container.querySelector('.spreadsheet-viewer__table-wrapper');
+        this.cellTooltipElement = this.container.querySelector('.spreadsheet-viewer__cell-tooltip');
         this.emptyStateElement = this.container.querySelector('.spreadsheet-viewer__empty-state');
+        addClickHandler(this.tableWrapperElement, this.handleCellActivation);
+        this.tableWrapperElement.addEventListener('pointerover', this.handleCellPointerOver);
+        this.tableWrapperElement.addEventListener('pointerout', this.handleCellPointerOut);
+        this.tableWrapperElement.addEventListener('copy', this.handleViewportCopy);
+        this.cellTooltipElement.addEventListener('pointerenter', this.handleTooltipPointerEnter);
+        this.cellTooltipElement.addEventListener('pointerleave', this.handleTooltipPointerLeave);
     }
 
     hide() {
@@ -75,6 +102,8 @@ export class SpreadsheetViewer {
     }
 
     clear() {
+        this.clearCellSelection();
+        this.hideCellTooltip();
         this.currentFile = null;
         this.sheets = [];
         this.activeSheetIndex = 0;
@@ -160,6 +189,9 @@ export class SpreadsheetViewer {
             return;
         }
 
+        this.clearCellSelection();
+        this.hideCellTooltip();
+
         const activeSheet = this.sheets[this.activeSheetIndex];
         if (!activeSheet || !Array.isArray(activeSheet.rows) || activeSheet.rows.length === 0) {
             this.tableWrapperElement.innerHTML = '';
@@ -224,6 +256,7 @@ export class SpreadsheetViewer {
             return;
         }
         this.disposeViewportObserver();
+        this.hideCellTooltip();
         if (this.viewportElement) {
             this.viewportElement.removeEventListener('scroll', this.handleViewportScroll);
         }
@@ -344,6 +377,7 @@ export class SpreadsheetViewer {
     }
 
     handleViewportScroll() {
+        this.hideCellTooltip();
         if (this.scrollAnimationFrame) {
             window.cancelAnimationFrame(this.scrollAnimationFrame);
         }
@@ -378,6 +412,7 @@ export class SpreadsheetViewer {
         }
 
         const fragment = document.createDocumentFragment();
+        this.selectedCellElement = null;
         for (let rowIndex = start; rowIndex < end; rowIndex += 1) {
             fragment.appendChild(this.renderRow(rowIndex, rows[rowIndex], columnCount, columnWidths));
         }
@@ -393,6 +428,7 @@ export class SpreadsheetViewer {
         rowElement.setAttribute('role', 'row');
         const indexCell = document.createElement('div');
         indexCell.className = 'spreadsheet-grid__cell spreadsheet-grid__cell--index';
+        indexCell.setAttribute('role', 'rowheader');
         indexCell.textContent = (rowIndex + 1).toString();
         indexCell.style.setProperty('--col-width', `${ROW_INDEX_COLUMN_WIDTH}px`);
         rowElement.appendChild(indexCell);
@@ -400,11 +436,237 @@ export class SpreadsheetViewer {
         for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
             const cell = document.createElement('div');
             cell.className = 'spreadsheet-grid__cell';
+            cell.setAttribute('role', 'gridcell');
+            cell.setAttribute('aria-selected', 'false');
+            cell.tabIndex = -1;
+            cell.dataset.rowIndex = rowIndex.toString();
+            cell.dataset.columnIndex = columnIndex.toString();
             cell.style.setProperty('--col-width', `${columnWidths[columnIndex] || 120}px`);
             const value = rowData?.[columnIndex] ?? '';
             cell.textContent = value;
+            if (this.selectedCell?.rowIndex === rowIndex && this.selectedCell?.columnIndex === columnIndex) {
+                cell.classList.add('is-selected');
+                cell.setAttribute('aria-selected', 'true');
+                this.selectedCellElement = cell;
+            }
             rowElement.appendChild(cell);
         }
         return rowElement;
+    }
+
+    /**
+     * 从事件目标解析可选择的数据单元格，排除列标和行号。
+     * @param {EventTarget|null} target - 指针事件目标。
+     * @returns {HTMLElement|null} 命中的数据单元格。
+     */
+    getDataCellFromTarget(target) {
+        const cell = target?.closest?.('.spreadsheet-grid__cell');
+        if (!cell || cell.classList.contains('spreadsheet-grid__cell--header')
+            || cell.classList.contains('spreadsheet-grid__cell--index')) {
+            return null;
+        }
+        return cell;
+    }
+
+    /**
+     * 处理单击选中；若用户正在拖选或双击选词，则保留原生文本选择。
+     * @param {PointerEvent|MouseEvent} event - 单元格激活事件。
+     */
+    handleCellActivation(event) {
+        const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
+        if (hasTextSelectionWithin(this.viewportElement, selection)) {
+            return;
+        }
+
+        const cell = this.getDataCellFromTarget(event.target);
+        if (!cell) {
+            this.clearCellSelection();
+            return;
+        }
+
+        this.selectCell(cell);
+        cell.focus?.({ preventScroll: true });
+    }
+
+    /**
+     * 将一个数据单元格设为当前选中项。
+     * @param {HTMLElement} cell - 需要选中的数据单元格。
+     */
+    selectCell(cell) {
+        if (this.selectedCellElement && this.selectedCellElement !== cell) {
+            this.selectedCellElement.classList.remove('is-selected', 'is-copied');
+            this.selectedCellElement.setAttribute('aria-selected', 'false');
+        }
+
+        const rowIndex = Number.parseInt(cell.dataset.rowIndex, 10);
+        const columnIndex = Number.parseInt(cell.dataset.columnIndex, 10);
+        if (!Number.isInteger(rowIndex) || !Number.isInteger(columnIndex)) {
+            return;
+        }
+
+        this.selectedCell = {
+            rowIndex,
+            columnIndex,
+            value: this.virtualState?.rows?.[rowIndex]?.[columnIndex] ?? cell.textContent ?? '',
+        };
+        this.selectedCellElement = cell;
+        cell.classList.add('is-selected');
+        cell.setAttribute('aria-selected', 'true');
+    }
+
+    /**
+     * 清除当前单元格选择以及复制反馈状态。
+     */
+    clearCellSelection() {
+        if (this.copyFeedbackTimer) {
+            window.clearTimeout(this.copyFeedbackTimer);
+            this.copyFeedbackTimer = null;
+        }
+        if (this.selectedCellElement) {
+            this.selectedCellElement.classList.remove('is-selected', 'is-copied');
+            this.selectedCellElement.setAttribute('aria-selected', 'false');
+        }
+        this.selectedCell = null;
+        this.selectedCellElement = null;
+    }
+
+    /**
+     * 在单元格内容被截断时显示完整值浮层。
+     * @param {PointerEvent} event - 指针进入事件。
+     */
+    handleCellPointerOver(event) {
+        const cell = this.getDataCellFromTarget(event.target);
+        if (!cell || cell === this.hoveredCellElement) {
+            return;
+        }
+        this.hoveredCellElement = cell;
+        if (!isCellContentTruncated(cell)) {
+            this.hideCellTooltip();
+            return;
+        }
+        this.showCellTooltip(cell);
+    }
+
+    /**
+     * 在指针真正离开当前单元格时关闭完整内容浮层。
+     * @param {PointerEvent} event - 指针离开事件。
+     */
+    handleCellPointerOut(event) {
+        const cell = this.getDataCellFromTarget(event.target);
+        if (!cell || cell.contains(event.relatedTarget)) {
+            return;
+        }
+        this.scheduleCellTooltipHide();
+    }
+
+    /**
+     * 根据单元格位置展示不会撑开虚拟行高的完整内容浮层。
+     * @param {HTMLElement} cell - 内容发生截断的单元格。
+     */
+    showCellTooltip(cell) {
+        if (!this.cellTooltipElement || !this.bodyElement) {
+            return;
+        }
+
+        if (this.tooltipHideTimer) {
+            window.clearTimeout(this.tooltipHideTimer);
+            this.tooltipHideTimer = null;
+        }
+        const tooltip = this.cellTooltipElement;
+        const bodyRect = this.bodyElement.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const edgeGap = 8;
+        const cellGap = 6;
+        tooltip.textContent = cell.textContent ?? '';
+        tooltip.style.maxWidth = `${Math.max(160, Math.min(520, bodyRect.width - (edgeGap * 2)))}px`;
+        tooltip.style.left = `${edgeGap}px`;
+        tooltip.style.top = `${edgeGap}px`;
+        tooltip.classList.add('is-visible');
+        tooltip.setAttribute('aria-hidden', 'false');
+
+        const tooltipWidth = tooltip.offsetWidth;
+        const tooltipHeight = tooltip.offsetHeight;
+        const preferredLeft = cellRect.left - bodyRect.left;
+        const maxLeft = Math.max(edgeGap, bodyRect.width - tooltipWidth - edgeGap);
+        const left = Math.min(Math.max(edgeGap, preferredLeft), maxLeft);
+        const belowTop = cellRect.bottom - bodyRect.top + cellGap;
+        const aboveTop = cellRect.top - bodyRect.top - tooltipHeight - cellGap;
+        const maxTop = Math.max(edgeGap, bodyRect.height - tooltipHeight - edgeGap);
+        const top = belowTop + tooltipHeight <= bodyRect.height - edgeGap ? belowTop : Math.max(edgeGap, aboveTop);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${Math.min(top, maxTop)}px`;
+    }
+
+    /**
+     * 隐藏完整内容浮层并释放当前 Hover 引用。
+     */
+    hideCellTooltip() {
+        if (this.tooltipHideTimer) {
+            window.clearTimeout(this.tooltipHideTimer);
+            this.tooltipHideTimer = null;
+        }
+        this.hoveredCellElement = null;
+        if (!this.cellTooltipElement) {
+            return;
+        }
+        this.cellTooltipElement.classList.remove('is-visible');
+        this.cellTooltipElement.setAttribute('aria-hidden', 'true');
+        this.cellTooltipElement.textContent = '';
+    }
+
+    /**
+     * 短暂延迟关闭浮层，让指针可以从单元格跨过间隙进入浮层。
+     */
+    scheduleCellTooltipHide() {
+        if (this.tooltipHideTimer) {
+            window.clearTimeout(this.tooltipHideTimer);
+        }
+        this.tooltipHideTimer = window.setTimeout(() => {
+            this.tooltipHideTimer = null;
+            this.hideCellTooltip();
+        }, 100);
+    }
+
+    /**
+     * 指针进入浮层时保持其显示，允许滚动或选择完整内容。
+     */
+    handleTooltipPointerEnter() {
+        if (this.tooltipHideTimer) {
+            window.clearTimeout(this.tooltipHideTimer);
+            this.tooltipHideTimer = null;
+        }
+    }
+
+    /**
+     * 指针离开浮层后立即关闭完整内容提示。
+     */
+    handleTooltipPointerLeave() {
+        this.hideCellTooltip();
+    }
+
+    /**
+     * 复制选中单元格的完整原始值，同时尊重用户主动选中的局部文本。
+     * @param {ClipboardEvent} event - 表格视口触发的复制事件。
+     */
+    handleViewportCopy(event) {
+        if (!this.selectedCell) {
+            return;
+        }
+        const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
+        if (hasTextSelectionWithin(this.viewportElement, selection)) {
+            return;
+        }
+        if (!writeCellValueToCopyEvent(event, this.selectedCell.value)) {
+            return;
+        }
+
+        this.selectedCellElement?.classList.add('is-copied');
+        if (this.copyFeedbackTimer) {
+            window.clearTimeout(this.copyFeedbackTimer);
+        }
+        this.copyFeedbackTimer = window.setTimeout(() => {
+            this.selectedCellElement?.classList.remove('is-copied');
+            this.copyFeedbackTimer = null;
+        }, 280);
     }
 }
