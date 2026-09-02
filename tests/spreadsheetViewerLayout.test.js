@@ -28,3 +28,29 @@ test('电子表格横向滚动后表头裁剪层仍覆盖完整视口', async ()
     assert.match(declarations, /width:\s*100%\s*;/);
     assert.match(declarations, /overflow:\s*hidden\s*;/);
 });
+
+/**
+ * 验证 Sheet 标签停靠在 View 左下边缘，并采用紧凑的 Excel 式视觉契约。
+ */
+test('工作表标签使用 View 内贴边 Excel 式 Sheet Dock', async () => {
+    const [componentSource, css] = await Promise.all([
+        readFile(new URL('../src/components/SpreadsheetViewer.js', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/spreadsheet-viewer.css', import.meta.url), 'utf8'),
+    ]);
+    const sheetBarDeclarations = getRuleDeclarations(css, '.spreadsheet-viewer__sheet-bar');
+    const tabDeclarations = getRuleDeclarations(css, '.spreadsheet-viewer__tab');
+    const activeIndicatorDeclarations = getRuleDeclarations(css, '.spreadsheet-viewer__tab.is-active::after');
+
+    assert.match(componentSource, /spreadsheet-viewer__body[\s\S]*spreadsheet-viewer__sheet-bar/);
+    assert.doesNotMatch(componentSource, /spreadsheet-viewer__toolbar/);
+    assert.match(sheetBarDeclarations, /position:\s*absolute\s*;/);
+    assert.match(sheetBarDeclarations, /bottom:\s*8px\s*;/);
+    assert.match(sheetBarDeclarations, /left:\s*0\s*;/);
+    assert.match(sheetBarDeclarations, /width:\s*max-content\s*;/);
+    assert.match(sheetBarDeclarations, /height:\s*32px\s*;/);
+    assert.match(sheetBarDeclarations, /border-left:\s*0\s*;/);
+    assert.match(sheetBarDeclarations, /border-radius:\s*0 5px 0 0\s*;/);
+    assert.match(sheetBarDeclarations, /box-shadow:\s*none\s*;/);
+    assert.match(tabDeclarations, /border-radius:\s*0\s*;/);
+    assert.match(activeIndicatorDeclarations, /background:\s*#217346\s*;/);
+});

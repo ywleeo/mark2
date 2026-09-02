@@ -23,25 +23,38 @@
     --spreadsheet-zoom: 1;
 }
 
-.spreadsheet-viewer__toolbar {
+.spreadsheet-viewer__sheet-bar {
+    /* 贴住视图左下边缘，并为原生横向滚动条保留操作空间。 */
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    z-index: 5;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 16px;
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(249, 250, 251, 0.9);
-    backdrop-filter: blur(6px);
-    gap: 12px;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(70%, calc(100% - 48px));
+    height: 32px;
+    overflow: hidden;
+    padding-left: 6px;
+    border: 1px solid #d6d9dd;
+    border-left: 0;
+    border-radius: 0 5px 0 0;
+    background: #f1f2f4;
+    box-shadow: none;
 }
 
 .spreadsheet-viewer__tabs {
     display: flex;
     align-items: center;
-    gap: 6px;
+    width: max-content;
+    max-width: 100%;
+    height: 30px;
+    gap: 0;
+    min-width: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
-    padding-bottom: 4px;
     scrollbar-width: none;
 }
 
@@ -50,32 +63,54 @@
 }
 
 .spreadsheet-viewer__tabs-placeholder {
+    align-self: center;
+    padding: 0 10px;
     font-size: 12px;
     color: rgba(15, 23, 42, 0.5);
 }
 
 .spreadsheet-viewer__tab {
-    border: 1px solid rgba(99, 102, 241, 0.25);
-    background: rgba(99, 102, 241, 0.08);
-    color: #4c1d95;
-    padding: 4px 12px;
-    border-radius: 14px;
+    position: relative;
+    align-self: stretch;
+    min-width: 68px;
+    border: 0;
+    border-right: 1px solid #d7dbe0;
+    background: transparent;
+    color: #374151;
+    padding: 0 13px;
+    border-radius: 0;
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.12s ease, color 0.12s ease;
     flex: 0 0 auto;
     white-space: nowrap;
 }
 
 .spreadsheet-viewer__tab.is-active {
-    background: rgba(99, 102, 241, 0.18);
-    border-color: rgba(99, 102, 241, 0.45);
-    color: #312e81;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+    background: #ffffff;
+    color: #185c37;
+    font-weight: 600;
+}
+
+.spreadsheet-viewer__tab.is-active::after {
+    content: '';
+    position: absolute;
+    right: 8px;
+    bottom: 0;
+    left: 8px;
+    height: 2px;
+    background: #217346;
 }
 
 .spreadsheet-viewer__tab:hover:not(.is-active) {
-    border-color: rgba(99, 102, 241, 0.45);
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.spreadsheet-viewer__tab:focus-visible {
+    z-index: 1;
+    outline: 2px solid #217346;
+    outline-offset: -2px;
 }
 
 .spreadsheet-viewer__body {
@@ -271,9 +306,11 @@
     color: rgba(228, 233, 246, 0.9);
 }
 
-:root[data-theme-appearance='dark'] .spreadsheet-viewer__toolbar {
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-    background: rgba(30, 30, 30, 0.9);
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__sheet-bar {
+    border-color: rgba(255, 255, 255, 0.14);
+    border-left: 0;
+    background: #252525;
+    box-shadow: none;
 }
 
 :root[data-theme-appearance='dark'] .spreadsheet-viewer__tabs-placeholder {
@@ -281,16 +318,23 @@
 }
 
 :root[data-theme-appearance='dark'] .spreadsheet-viewer__tab {
-    border-color: rgba(139, 142, 241, 0.3);
-    background: rgba(139, 142, 241, 0.1);
-    color: rgba(180, 178, 255, 0.9);
+    border-right-color: rgba(255, 255, 255, 0.1);
+    background: transparent;
+    color: rgba(228, 233, 246, 0.72);
 }
 
 :root[data-theme-appearance='dark'] .spreadsheet-viewer__tab.is-active {
-    background: rgba(139, 142, 241, 0.2);
-    border-color: rgba(139, 142, 241, 0.5);
-    color: rgba(200, 198, 255, 0.95);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: #333333;
+    color: #8bd5a7;
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__tab.is-active::after {
+    background: #33a663;
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-viewer__tab:hover:not(.is-active) {
+    background: #383838;
+    color: rgba(255, 255, 255, 0.92);
 }
 
 :root[data-theme-appearance='dark'] .spreadsheet-viewer__table-wrapper {

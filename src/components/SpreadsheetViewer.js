@@ -68,14 +68,14 @@ export class SpreadsheetViewer {
     init() {
         this.container.classList.add('spreadsheet-viewer');
         this.container.innerHTML = `
-            <div class="spreadsheet-viewer__toolbar">
-                <div class="spreadsheet-viewer__tabs" role="tablist" aria-label="工作表"></div>
-            </div>
             <div class="spreadsheet-viewer__body">
                 <div class="spreadsheet-viewer__table-wrapper" tabindex="0"></div>
                 <div class="spreadsheet-viewer__cell-tooltip" role="tooltip" aria-hidden="true"></div>
                 <div class="spreadsheet-viewer__empty-state" aria-hidden="true">
                     暂无可显示的数据
+                </div>
+                <div class="spreadsheet-viewer__sheet-bar">
+                    <div class="spreadsheet-viewer__tabs" role="tablist" aria-label="工作表"></div>
                 </div>
             </div>
         `;
