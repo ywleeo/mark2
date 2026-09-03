@@ -173,8 +173,17 @@
     will-change: transform;
 }
 
+.spreadsheet-grid__merge-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
 .spreadsheet-grid__row {
     display: flex;
+    box-sizing: border-box;
     min-width: max-content;
 }
 
@@ -209,6 +218,26 @@
     border-right: none;
 }
 
+/* 占位格保留行内列宽，实际内容和边框由独立合并层统一绘制。 */
+.spreadsheet-grid__cell--merge-placeholder {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.spreadsheet-grid__cell--merged {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    min-height: 0;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+    pointer-events: auto;
+}
+
+.spreadsheet-grid__cell--merged:hover {
+    background: #f0f4ff;
+}
+
 .spreadsheet-grid__cell--header {
     font-weight: 600;
     text-transform: uppercase;
@@ -237,10 +266,18 @@
 
 .spreadsheet-grid__cell.is-selected,
 .spreadsheet-grid__row:hover .spreadsheet-grid__cell.is-selected {
-    position: relative;
     z-index: 1;
     background: #eef2ff;
     box-shadow: inset 0 0 0 2px #6366f1;
+}
+
+.spreadsheet-grid__cell.is-selected:not(.spreadsheet-grid__cell--merged) {
+    position: relative;
+}
+
+.spreadsheet-grid__cell--merged.is-selected {
+    position: absolute;
+    z-index: 2;
 }
 
 .spreadsheet-grid__cell.is-copied {
@@ -377,6 +414,14 @@
 
 :root[data-theme-appearance='dark'] .spreadsheet-grid__cell--header + .spreadsheet-grid__cell--header {
     border-left-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell--merged {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme-appearance='dark'] .spreadsheet-grid__cell--merged:hover {
+    background: #1e2230;
 }
 
 :root[data-theme-appearance='dark'] .spreadsheet-grid__cell.is-selected,

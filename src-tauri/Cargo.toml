@@ -2,7 +2,7 @@
 name = "mark2-tauri"
 version = "1.7.62"
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.88"
 license = "MIT"
 description = "一个基于 Tauri 的 Markdown 阅读器"
 
@@ -26,7 +26,7 @@ base64 = "0.21"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 parking_lot = "0.12"
 futures-util = "0.3"
-calamine = "0.24"
+calamine = "=0.36.1"
 tokio-rustls = "0.25"
 trash = "3"
 percent-encoding = "2.3"

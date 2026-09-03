@@ -4,6 +4,14 @@ import {
     isCellContentTruncated,
     writeCellValueToCopyEvent,
 } from './spreadsheet-viewer/cellInteraction.js';
+import {
+    calculateGridExtent,
+    calculateMergedRegionRect,
+    findMergedRegionAtColumn,
+    getMergedRegionsForRow,
+    getMergedRegionsInWindow,
+    normalizeMergedRegions,
+} from './spreadsheet-viewer/mergeLayout.js';
 
 const MIN_ZOOM_SCALE = 0.6;
 const MAX_ZOOM_SCALE = 2.4;
@@ -193,7 +201,9 @@ export class SpreadsheetViewer {
         this.hideCellTooltip();
 
         const activeSheet = this.sheets[this.activeSheetIndex];
-        if (!activeSheet || !Array.isArray(activeSheet.rows) || activeSheet.rows.length === 0) {
+        const hasRows = Array.isArray(activeSheet?.rows) && activeSheet.rows.length > 0;
+        const hasMerges = Array.isArray(activeSheet?.merges) && activeSheet.merges.length > 0;
+        if (!activeSheet || (!hasRows && !hasMerges)) {
             this.tableWrapperElement.innerHTML = '';
             this.disposeViewportObserver();
             if (this.viewportElement) {
@@ -217,7 +227,7 @@ export class SpreadsheetViewer {
         this.emptyStateElement.classList.add('is-hidden');
         const normalizedRows = normalizeRows(activeSheet.rows);
         this.setupGridStructure();
-        this.virtualState = this.buildVirtualState(normalizedRows);
+        this.virtualState = this.buildVirtualState(normalizedRows, activeSheet.merges);
         this.renderGridHeader();
         this.updateSpacerHeight();
         this.resetViewportScroll();
@@ -293,8 +303,15 @@ export class SpreadsheetViewer {
         }
     }
 
-    buildVirtualState(rows) {
-        const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+    /**
+     * 建立当前 Sheet 的虚拟滚动状态，并让合并区域参与表格边界计算。
+     * @param {Array<Array<string>>} rows - 归一化后的单元格数据。
+     * @param {Array<Object>} rawMerges - 后端返回的合并区域。
+     * @returns {Object} 虚拟表格状态。
+     */
+    buildVirtualState(rows, rawMerges = []) {
+        const merges = normalizeMergedRegions(rawMerges);
+        const { rowCount, columnCount } = calculateGridExtent(rows, merges);
         const columnWidths = new Array(columnCount).fill(120);
         rows.forEach((row) => {
             row.forEach((cell, columnIndex) => {
@@ -305,6 +322,8 @@ export class SpreadsheetViewer {
         });
         return {
             rows,
+            merges,
+            rowCount,
             columnCount,
             columnWidths,
             renderedRange: { start: -1, end: -1 },
@@ -358,9 +377,9 @@ export class SpreadsheetViewer {
         if (!this.spacerElement || !this.virtualState) {
             return;
         }
-        const { rows, columnWidths } = this.virtualState;
+        const { rowCount, columnWidths } = this.virtualState;
         const headerHeight = this.headerWrapperElement ? this.headerWrapperElement.offsetHeight : 0;
-        const totalHeight = headerHeight + rows.length * this.getRowHeight();
+        const totalHeight = headerHeight + rowCount * this.getRowHeight();
         const totalWidth = ROW_INDEX_COLUMN_WIDTH + columnWidths.reduce((sum, w) => sum + w, 0);
         this.spacerElement.style.height = `${totalHeight}px`;
         this.spacerElement.style.width = `${totalWidth * this.zoomScale}px`;
@@ -394,8 +413,14 @@ export class SpreadsheetViewer {
         if (!this.virtualState || !this.viewportElement || !this.visibleRowsElement) {
             return;
         }
-        const { rows, columnCount, columnWidths, renderedRange } = this.virtualState;
-        if (!rows.length) {
+        const {
+            rows,
+            rowCount,
+            columnCount,
+            columnWidths,
+            renderedRange,
+        } = this.virtualState;
+        if (!rowCount) {
             this.visibleRowsElement.innerHTML = '';
             return;
         }
@@ -405,7 +430,7 @@ export class SpreadsheetViewer {
         const scrollTop = Math.max(0, rawScrollTop - headerHeight);
         const viewportHeight = this.viewportElement.clientHeight || 0;
         const start = Math.max(0, Math.floor(scrollTop / rowHeight) - ROW_BUFFER);
-        const end = Math.min(rows.length, start + Math.ceil(viewportHeight / rowHeight) + (ROW_BUFFER * 2));
+        const end = Math.min(rowCount, start + Math.ceil(viewportHeight / rowHeight) + (ROW_BUFFER * 2));
 
         if (!force && renderedRange.start === start && renderedRange.end === end) {
             return;
@@ -416,6 +441,7 @@ export class SpreadsheetViewer {
         for (let rowIndex = start; rowIndex < end; rowIndex += 1) {
             fragment.appendChild(this.renderRow(rowIndex, rows[rowIndex], columnCount, columnWidths));
         }
+        fragment.appendChild(this.renderMergedCells(start, end, columnWidths, rowHeight));
         this.visibleRowsElement.innerHTML = '';
         this.visibleRowsElement.appendChild(fragment);
         this.visibleRowsElement.style.transform = `translateY(${headerHeight + start * rowHeight}px)`;
@@ -426,6 +452,7 @@ export class SpreadsheetViewer {
         const rowElement = document.createElement('div');
         rowElement.className = 'spreadsheet-grid__row';
         rowElement.setAttribute('role', 'row');
+        rowElement.style.height = `${this.getRowHeight()}px`;
         const indexCell = document.createElement('div');
         indexCell.className = 'spreadsheet-grid__cell spreadsheet-grid__cell--index';
         indexCell.setAttribute('role', 'rowheader');
@@ -433,6 +460,7 @@ export class SpreadsheetViewer {
         indexCell.style.setProperty('--col-width', `${ROW_INDEX_COLUMN_WIDTH}px`);
         rowElement.appendChild(indexCell);
 
+        const rowMerges = getMergedRegionsForRow(this.virtualState?.merges || [], rowIndex);
         for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
             const cell = document.createElement('div');
             cell.className = 'spreadsheet-grid__cell';
@@ -444,7 +472,12 @@ export class SpreadsheetViewer {
             cell.style.setProperty('--col-width', `${columnWidths[columnIndex] || 120}px`);
             const value = rowData?.[columnIndex] ?? '';
             cell.textContent = value;
-            if (this.selectedCell?.rowIndex === rowIndex && this.selectedCell?.columnIndex === columnIndex) {
+            const mergedRegion = findMergedRegionAtColumn(rowMerges, columnIndex);
+            if (mergedRegion) {
+                cell.classList.add('spreadsheet-grid__cell--merge-placeholder');
+                cell.setAttribute('aria-hidden', 'true');
+            } else if (this.selectedCell?.rowIndex === rowIndex
+                && this.selectedCell?.columnIndex === columnIndex) {
                 cell.classList.add('is-selected');
                 cell.setAttribute('aria-selected', 'true');
                 this.selectedCellElement = cell;
@@ -452,6 +485,70 @@ export class SpreadsheetViewer {
             rowElement.appendChild(cell);
         }
         return rowElement;
+    }
+
+    /**
+     * 为当前虚拟窗口创建独立的合并单元格覆盖层，支持跨窗口的纵向合并。
+     * @param {number} startRow - 当前渲染起始行（包含）。
+     * @param {number} endRow - 当前渲染结束行（不包含）。
+     * @param {Array<number>} columnWidths - 未缩放的列宽。
+     * @param {number} rowHeight - 已缩放的固定行高。
+     * @returns {HTMLElement} 合并单元格覆盖层。
+     */
+    renderMergedCells(startRow, endRow, columnWidths, rowHeight) {
+        const layer = document.createElement('div');
+        layer.className = 'spreadsheet-grid__merge-layer';
+        const merges = getMergedRegionsInWindow(
+            this.virtualState?.merges || [],
+            startRow,
+            endRow,
+        );
+
+        merges.forEach((region) => {
+            layer.appendChild(this.createMergedCell(region, startRow, columnWidths, rowHeight));
+        });
+        return layer;
+    }
+
+    /**
+     * 创建一个可选择、可复制并带无障碍跨度信息的合并单元格。
+     * @param {Object} region - 已归一化的合并区域。
+     * @param {number} renderedStartRow - 当前虚拟窗口起始行。
+     * @param {Array<number>} columnWidths - 未缩放的列宽。
+     * @param {number} rowHeight - 已缩放的固定行高。
+     * @returns {HTMLElement} 合并单元格元素。
+     */
+    createMergedCell(region, renderedStartRow, columnWidths, rowHeight) {
+        const cell = document.createElement('div');
+        const rect = calculateMergedRegionRect(
+            region,
+            columnWidths,
+            rowHeight,
+            this.zoomScale,
+            renderedStartRow,
+            ROW_INDEX_COLUMN_WIDTH,
+        );
+        cell.className = 'spreadsheet-grid__cell spreadsheet-grid__cell--merged';
+        cell.setAttribute('role', 'gridcell');
+        cell.setAttribute('aria-colspan', String(region.endColumn - region.startColumn + 1));
+        cell.setAttribute('aria-rowspan', String(region.endRow - region.startRow + 1));
+        cell.setAttribute('aria-selected', 'false');
+        cell.tabIndex = -1;
+        cell.dataset.rowIndex = String(region.startRow);
+        cell.dataset.columnIndex = String(region.startColumn);
+        cell.style.left = `${rect.left}px`;
+        cell.style.top = `${rect.top}px`;
+        cell.style.width = `${rect.width}px`;
+        cell.style.height = `${rect.height}px`;
+        cell.textContent = this.virtualState?.rows?.[region.startRow]?.[region.startColumn] ?? '';
+
+        if (this.selectedCell?.rowIndex === region.startRow
+            && this.selectedCell?.columnIndex === region.startColumn) {
+            cell.classList.add('is-selected');
+            cell.setAttribute('aria-selected', 'true');
+            this.selectedCellElement = cell;
+        }
+        return cell;
     }
 
     /**

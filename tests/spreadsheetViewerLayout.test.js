@@ -30,6 +30,16 @@ test('电子表格横向滚动后表头裁剪层仍覆盖完整视口', async ()
 });
 
 /**
+ * 验证行边框计入固定行高，避免跨行合并区域产生累计像素偏差。
+ */
+test('虚拟表格行边框不会增加实际固定行高', async () => {
+    const css = await readFile(new URL('../styles/spreadsheet-viewer.css', import.meta.url), 'utf8');
+    const declarations = getRuleDeclarations(css, '.spreadsheet-grid__row');
+
+    assert.match(declarations, /box-sizing:\s*border-box\s*;/);
+});
+
+/**
  * 验证 Sheet 标签停靠在 View 左下边缘，并采用紧凑的 Excel 式视觉契约。
  */
 test('工作表标签使用 View 内贴边 Excel 式 Sheet Dock', async () => {
