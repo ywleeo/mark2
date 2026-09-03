@@ -2855,7 +2855,7 @@ dependencies = [
 
 [[package]]
 name = "mark2-tauri"
-version = "1.7.61"
+version = "1.7.62"
 dependencies = [
  "aes-gcm",
  "axum",
