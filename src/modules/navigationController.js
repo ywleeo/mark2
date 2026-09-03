@@ -3,6 +3,7 @@ import { EVENT_IDS } from '../core/eventIds.js';
 import { PANE_IDS } from '../core/layout/PaneManager.js';
 import { t } from '../i18n/index.js';
 import { navigationHistory } from './navigationHistory.js';
+import { isActiveContentTab } from './navigation/tabActivity.js';
 
 function normalizeComparablePath(fileTree, value) {
     if (!value) {
@@ -120,6 +121,27 @@ export function createNavigationController({
 
         const fallbackIndex = Math.min(currentIndex, remainingTabs.length - 1);
         return remainingTabs[fallbackIndex] || null;
+    }
+
+    /**
+     * 判断待关闭标签是否仍承载当前内容视图。
+     * 文件被外部删除时，侧边栏选中态可能先于标签和文档状态清空，因此不能只依赖 fileTree.currentFile。
+     * @param {Object|null} tab - 待判断的标签。
+     * @returns {boolean} 标签是否为当前活动内容。
+     */
+    function isCurrentContentTab(tab) {
+        const tabManager = getTabManager();
+        const fileTree = getFileTree();
+        return isActiveContentTab({
+            tab,
+            activeTabId: tabManager?.activeTabId || null,
+            activePaths: [
+                getCurrentFile?.(),
+                documentManager?.getActivePath?.(),
+                fileTree?.currentFile,
+            ],
+            normalizePath: value => normalizeComparablePath(fileTree, value),
+        });
     }
 
     /**
@@ -416,10 +438,7 @@ export function createNavigationController({
             }
 
             const normalizedTarget = normalizeComparablePath(fileTree, tab.path);
-            const currentNormalized = normalizeComparablePath(fileTree, fileTree?.currentFile);
-            const targetIdentity = getPathIdentityKey(normalizedTarget);
-            const currentIdentity = getPathIdentityKey(currentNormalized);
-            const wasActive = Boolean(targetIdentity) && targetIdentity === currentIdentity;
+            const wasActive = isCurrentContentTab(tab);
 
             const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
 
@@ -444,10 +463,7 @@ export function createNavigationController({
         }
 
         if (tab.type === 'shared') {
-            const currentNormalized = normalizeComparablePath(fileTree, fileTree?.currentFile);
-            const targetNormalized = normalizeComparablePath(fileTree, tab.path);
-            const wasActive = Boolean(getPathIdentityKey(currentNormalized))
-                && getPathIdentityKey(currentNormalized) === getPathIdentityKey(targetNormalized);
+            const wasActive = isCurrentContentTab(tab);
             const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
 
             if (tab.path) {
@@ -644,8 +660,7 @@ export function createNavigationController({
         untitledFileManager?.removeUntitledFile?.(targetPath);
 
         // 清理视图状态
-        const currentFile = getCurrentFile();
-        const wasActive = currentFile === targetPath;
+        const wasActive = isCurrentContentTab(tab);
         const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
         tabManager?.removeFileTab?.(targetPath);
         if (wasActive) {
