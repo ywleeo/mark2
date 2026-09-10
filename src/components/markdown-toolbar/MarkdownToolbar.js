@@ -14,6 +14,8 @@ const store = createStore('toolbar');
 const CENTERED_WIDTH_MIN = 560;
 const CENTERED_WIDTH_MAX = 1180;
 const CENTERED_WIDTH_GUTTER = 56;
+const CENTERED_WIDTH_EDGE_HIT_RADIUS = 18;
+const CENTERED_WIDTH_HANDLE_HALF_HEIGHT = 36;
 
 /**
  * Markdown工具栏类
@@ -37,6 +39,7 @@ export class MarkdownToolbar {
         this._navUnsubscribe = null;
         this.pageWidthHandle = null;
         this.pageWidthDragState = null;
+        this.pageWidthHoverState = null;
         this.pageWidthCleanup = null;
         this.pageWidthResizeObserver = null;
         this.options = {
@@ -642,11 +645,48 @@ export class MarkdownToolbar {
         markdownPane.appendChild(handle);
         this.pageWidthHandle = handle;
 
+        const onPanePointerMove = (event) => {
+            if (this.pageWidthDragState) return;
+            const editorEl = this.getCenteredEditorElement(markdownPane);
+            if (!editorEl) {
+                this.hidePageWidthHandle();
+                return;
+            }
+
+            const editorRect = editorEl.getBoundingClientRect();
+            const leftDistance = Math.abs(event.clientX - editorRect.left);
+            const rightDistance = Math.abs(event.clientX - editorRect.right);
+            const nearestDistance = Math.min(leftDistance, rightDistance);
+            if (nearestDistance > CENTERED_WIDTH_EDGE_HIT_RADIUS) {
+                this.hidePageWidthHandle();
+                return;
+            }
+
+            this.pageWidthHoverState = {
+                edge: leftDistance <= rightDistance ? 'left' : 'right',
+                clientY: event.clientY,
+            };
+            this.updatePageWidthHandlePosition();
+        };
+
+        const onPanePointerLeave = () => {
+            if (!this.pageWidthDragState) this.hidePageWidthHandle();
+        };
+
+        const onPaneScroll = () => {
+            if (this.pageWidthDragState) {
+                this.updatePageWidthHandlePosition();
+            } else {
+                this.hidePageWidthHandle();
+            }
+        };
+
         const onPointerDown = (event) => {
             if (event.button !== 0) return;
             const editorEl = this.getCenteredEditorElement(markdownPane);
             const contentEl = markdownPane.querySelector('.markdown-content');
-            if (!editorEl || !contentEl) return;
+            const edge = this.pageWidthHoverState?.edge;
+            if (!editorEl || !contentEl || !edge) return;
             event.preventDefault();
             event.stopPropagation();
 
@@ -654,40 +694,55 @@ export class MarkdownToolbar {
             const editorRect = editorEl.getBoundingClientRect();
             this.pageWidthDragState = {
                 pointerId: event.pointerId,
+                edge,
                 startX: event.clientX,
                 startWidth: editorRect.width,
                 maxWidth: this.getCenteredWidthMax(contentRect.width),
             };
+            handle.setPointerCapture?.(event.pointerId);
             document.body.classList.add('is-resizing-markdown-page');
             handle.classList.add('is-dragging');
         };
 
         const onPointerMove = (event) => {
             const state = this.pageWidthDragState;
-            if (!state) return;
+            if (!state || event.pointerId !== state.pointerId) return;
             event.preventDefault();
-            const rawWidth = Math.round(state.startWidth + (event.clientX - state.startX) * 2);
+            const direction = state.edge === 'left' ? -1 : 1;
+            const rawWidth = Math.round(
+                state.startWidth + (event.clientX - state.startX) * 2 * direction,
+            );
             const width = this.clampPageWidth(rawWidth, state.maxWidth);
             store.set('contentCenteredWidth', width);
             // 页宽是全局排版偏好，拖拽时两栏一起变，避免副栏留着旧宽度。
             this.applyCenteredContentWidthToPanes();
+            this.pageWidthHoverState = { edge: state.edge, clientY: event.clientY };
             this.updatePageWidthHandlePosition();
         };
 
         const finishDrag = (event) => {
             const state = this.pageWidthDragState;
-            if (!state) return;
+            if (!state || event.pointerId !== state.pointerId) return;
+            if (handle.hasPointerCapture?.(state.pointerId)) {
+                handle.releasePointerCapture(state.pointerId);
+            }
             handle.classList.remove('is-dragging');
             document.body.classList.remove('is-resizing-markdown-page');
             this.pageWidthDragState = null;
-            this.updatePageWidthHandlePosition();
+            this.hidePageWidthHandle();
         };
 
+        markdownPane.addEventListener('pointermove', onPanePointerMove);
+        markdownPane.addEventListener('pointerleave', onPanePointerLeave);
+        markdownPane.addEventListener('scroll', onPaneScroll);
         handle.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', finishDrag);
         window.addEventListener('pointercancel', finishDrag);
         this.pageWidthCleanup = () => {
+            markdownPane.removeEventListener('pointermove', onPanePointerMove);
+            markdownPane.removeEventListener('pointerleave', onPanePointerLeave);
+            markdownPane.removeEventListener('scroll', onPaneScroll);
             handle.removeEventListener('pointerdown', onPointerDown);
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', finishDrag);
@@ -715,30 +770,52 @@ export class MarkdownToolbar {
         this.pageWidthResizeObserver?.disconnect();
         this.pageWidthResizeObserver = null;
         this.pageWidthDragState = null;
+        this.pageWidthHoverState = null;
         document.body.classList.remove('is-resizing-markdown-page');
         this.pageWidthHandle?.remove();
         this.pageWidthHandle = null;
     }
 
     /**
-     * 根据当前编辑器实际边界摆放页宽手柄。
+     * 隐藏未处于拖拽状态的页宽手柄。
+     */
+    hidePageWidthHandle() {
+        if (this.pageWidthDragState) return;
+        this.pageWidthHoverState = null;
+        this.pageWidthHandle?.classList.remove('is-visible');
+    }
+
+    /**
+     * 根据当前编辑器边界和指针纵坐标摆放页宽手柄。
      */
     updatePageWidthHandlePosition() {
         const handle = this.pageWidthHandle;
-        if (!handle?.isConnected) return;
+        const hoverState = this.pageWidthHoverState;
+        if (!handle?.isConnected || !hoverState) {
+            handle?.classList.remove('is-visible');
+            return;
+        }
         // 手柄就挂在它服务的那一栏里，直接用宿主面板，别再全局查一遍。
         const markdownPane = handle.parentElement;
         const editorEl = this.getCenteredEditorElement(markdownPane);
         if (!markdownPane || !editorEl) return;
 
         const paneRect = markdownPane.getBoundingClientRect();
-        const contentRect = markdownPane.querySelector('.markdown-content')?.getBoundingClientRect();
         const editorRect = editorEl.getBoundingClientRect();
-        const x = editorRect.right - paneRect.left + 10;
-        const y = (contentRect?.top ?? editorRect.top) - paneRect.top + 72;
+        const edgeX = hoverState.edge === 'left' ? editorRect.left : editorRect.right;
+        const x = edgeX - paneRect.left + markdownPane.scrollLeft;
+        const minY = CENTERED_WIDTH_HANDLE_HALF_HEIGHT;
+        const maxY = Math.max(minY, paneRect.height - CENTERED_WIDTH_HANDLE_HALF_HEIGHT);
+        const viewportY = Math.min(
+            Math.max(hoverState.clientY - paneRect.top, minY),
+            maxY,
+        );
+        const y = viewportY + markdownPane.scrollTop;
 
         handle.style.left = `${Math.round(x)}px`;
         handle.style.top = `${Math.round(y)}px`;
+        handle.dataset.edge = hoverState.edge;
+        handle.classList.add('is-visible');
     }
 
     /**

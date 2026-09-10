@@ -407,7 +407,10 @@
     "aiWriting.insertIdea": "插入",
     "aiWriting.ideaPrefix": "想法：",
     "aiWriting.working": "AI 正在改...",
+    "aiWriting.done": "改写完成",
     "aiWriting.error": "AI 改写失败",
+    "aiWriting.error.noContent": "AI 未返回改写内容，请重试",
+    "aiWriting.error.documentChanged": "文档已发生变化，请重新选择后再试",
     "aiWriting.error.noIdeas": "AI 没有返回可用灵感，请重试",
     "cardExport.title": "卡片",
 

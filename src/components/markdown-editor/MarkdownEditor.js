@@ -538,10 +538,12 @@ export class MarkdownEditor {
         const clone = contentRoot.cloneNode(true);
         clone.querySelectorAll([
             '[data-inline-completion-widget]',
+            '[data-selection-rewrite-widget]',
             '.ai-writing-cursor-hint',
             '.ai-writing-menu',
             '.ai-writing-inspiration-panel',
         ].join(', ')).forEach(node => node.remove());
+        clone.querySelectorAll('.selection-rewrite-range').forEach(node => node.replaceWith(...node.childNodes));
         clone.removeAttribute('contenteditable');
         clone.querySelectorAll('[contenteditable]').forEach(node => node.removeAttribute('contenteditable'));
         return clone.innerHTML.trim();
@@ -655,7 +657,7 @@ export class MarkdownEditor {
     }
 
     replaceRangeWithMarkdown(from, to, markdown) {
-        if (!this.editor || typeof markdown !== 'string') return;
+        if (!this.editor || typeof markdown !== 'string') return null;
         const processed = preprocessMarkdown(markdown);
         const parsed = this.contentLoader.markdownParser?.parse(processed) ?? null;
         this.editor.chain().focus()
@@ -663,8 +665,10 @@ export class MarkdownEditor {
             .deleteSelection()
             .insertContent(parsed ? parsed.content : markdown)
             .run();
+        const insertedTo = this.editor.state.selection?.to ?? from;
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.scheduleMermaidRender();
+        return { from, to: Math.max(from, insertedTo) };
     }
 
     insertAfterSelectionWithAIContent(markdown) {

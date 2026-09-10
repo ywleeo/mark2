@@ -5,12 +5,14 @@
  */
 
 .html-embed {
+    --html-preview-background: #ffffff;
+    --html-preview-color-scheme: light;
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    background: #ffffff;
+    background: var(--html-preview-background);
 }
 
 /* 预览 / 源码 用 ⌘E 切换,不放 UI 按钮 */
@@ -22,9 +24,11 @@
     min-height: 0;
     flex: 1 1 auto;
     border: none;
-    background: #ffffff;
+    background: var(--html-preview-background);
+    color-scheme: var(--html-preview-color-scheme);
 }
 
 :root[data-theme-appearance='dark'] .html-embed {
-    background: #111111;
+    --html-preview-background: #111111;
+    --html-preview-color-scheme: dark;
 }

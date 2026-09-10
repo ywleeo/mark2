@@ -4,6 +4,17 @@ use std::io::{Read, Seek, SeekFrom};
 use tauri::http::header::{ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use tauri::http::{Response, StatusCode};
 
+const HTML_PREVIEW_SCROLLBAR_STYLE: &str = r#"<style data-mark2-preview-style>
+html { scrollbar-width: thin !important; scrollbar-color: rgba(127, 127, 127, 0.55) transparent !important; }
+html::-webkit-scrollbar,
+body::-webkit-scrollbar { width: 6px !important; height: 6px !important; -webkit-appearance: none; }
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track { background: transparent !important; }
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb { background: rgba(127, 127, 127, 0.55) !important; border-radius: 3px !important; }
+</style>"#;
+
+/// 根据本地文件扩展名返回 stream 协议的响应类型。
 fn guess_mime(path: &str) -> &'static str {
     let lower = path.to_lowercase();
     if lower.ends_with(".mp3") {
@@ -69,6 +80,35 @@ fn guess_mime(path: &str) -> &'static str {
     }
 }
 
+/// 判断本地文件是否应当作为 HTML 预览文档处理。
+fn is_html_path(path: &str) -> bool {
+    let lower = path.to_lowercase();
+    lower.ends_with(".html") || lower.ends_with(".htm")
+}
+
+/// 向 HTML 预览文档注入应用级细滚动条样式，不修改磁盘上的源文件。
+fn inject_html_preview_style(buffer: Vec<u8>) -> Vec<u8> {
+    let html = match String::from_utf8(buffer) {
+        Ok(html) => html,
+        Err(error) => return error.into_bytes(),
+    };
+    if html.contains("data-mark2-preview-style") {
+        return html.into_bytes();
+    }
+
+    let lower = html.to_ascii_lowercase();
+    let insert_at = lower
+        .rfind("</head>")
+        .or_else(|| lower.rfind("</html>"))
+        .unwrap_or(html.len());
+    let mut preview_html = String::with_capacity(html.len() + HTML_PREVIEW_SCROLLBAR_STYLE.len());
+    preview_html.push_str(&html[..insert_at]);
+    preview_html.push_str(HTML_PREVIEW_SCROLLBAR_STYLE);
+    preview_html.push_str(&html[insert_at..]);
+    preview_html.into_bytes()
+}
+
+/// 构造本地媒体或 HTML 文件的 stream 协议响应。
 pub fn build_stream_response(
     request: &tauri::http::Request<Vec<u8>>,
 ) -> Result<tauri::http::Response<Vec<u8>>, Box<dyn std::error::Error>> {
@@ -83,6 +123,20 @@ pub fn build_stream_response(
     let mut file = File::open(&file_path).map_err(|e| e.to_string())?;
     let metadata = file.metadata().map_err(|e| e.to_string())?;
     let file_size = metadata.len();
+
+    // HTML 预览需要修改完整文档，不能走字节范围响应，否则注入点可能落在分片之外。
+    if is_html_path(&file_path) {
+        let mut buffer = Vec::with_capacity(file_size as usize);
+        file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
+        let buffer = inject_html_preview_style(buffer);
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(CONTENT_TYPE, guess_mime(&file_path))
+            .header(CONTENT_LENGTH, buffer.len().to_string())
+            .body(buffer)
+            .map_err(|e| e.into());
+    }
+
     let mut status = StatusCode::OK;
     let mut start: u64 = 0;
     let mut end: u64 = file_size.saturating_sub(1);
@@ -136,4 +190,40 @@ pub fn build_stream_response(
     }
 
     response.body(buffer).map_err(|e| e.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{inject_html_preview_style, HTML_PREVIEW_SCROLLBAR_STYLE};
+
+    /// 样式应插入 head 末尾，确保作用于 iframe 内部的真实滚动容器。
+    #[test]
+    fn injects_preview_style_before_head_end() {
+        let source = b"<!doctype html><html><head><title>x</title></head><body>x</body></html>";
+        let result = String::from_utf8(inject_html_preview_style(source.to_vec())).unwrap();
+
+        assert!(result.contains(HTML_PREVIEW_SCROLLBAR_STYLE));
+        assert!(
+            result.find(HTML_PREVIEW_SCROLLBAR_STYLE).unwrap() < result.find("</head>").unwrap()
+        );
+    }
+
+    /// 缺少完整 HTML 结构时仍应追加样式，兼容可直接预览的 HTML 片段。
+    #[test]
+    fn appends_preview_style_to_html_fragment() {
+        let source = b"<main>fragment</main>";
+        let result = String::from_utf8(inject_html_preview_style(source.to_vec())).unwrap();
+
+        assert!(result.ends_with(HTML_PREVIEW_SCROLLBAR_STYLE));
+    }
+
+    /// 已注入文档不应重复追加样式。
+    #[test]
+    fn does_not_duplicate_preview_style() {
+        let source = format!("<html><head>{HTML_PREVIEW_SCROLLBAR_STYLE}</head></html>");
+        let result =
+            String::from_utf8(inject_html_preview_style(source.clone().into_bytes())).unwrap();
+
+        assert_eq!(result, source);
+    }
 }

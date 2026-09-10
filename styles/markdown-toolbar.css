@@ -236,14 +236,14 @@
 .view-pane.markdown-pane.is-active {
     overflow-y: auto !important;
     overflow-x: hidden !important;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68)) transparent;
 }
 
-/* Markdown 编辑器滚动条 - 2px 极细样式。
-   不要在这里声明标准属性 scrollbar-width / scrollbar-color：新版 WebKit
-   支持标准属性后会用它覆盖 ::-webkit-scrollbar，thin 会退回 13px 的经典
-   滚动条并常驻占位，下面的 width: 2px 就完全失效了。 */
+/* 与 HTML Preview 共用文件视图滚动条规格；伪元素用于旧版 WebKit 回退。 */
 .view-pane.markdown-pane.is-active::-webkit-scrollbar {
-    width: 2px;
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
     -webkit-appearance: none;
 }
 
@@ -252,21 +252,12 @@
 }
 
 .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 1px;
+    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68));
+    border-radius: 3px;
 }
 
 .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.35);
-}
-
-/* 深色模式。同样不声明 scrollbar-color，否则暗色下又会切回标准属性分支。 */
-:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-}
-
-:root[data-theme-appearance='dark'] .view-pane.markdown-pane.is-active::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.64));
 }
 
 .view-pane.markdown-pane > * {
@@ -751,10 +742,6 @@
 
 
 /* 居中排版模式 */
-.view-pane.markdown-pane.content-centered {
-    position: relative;
-}
-
 .view-pane.markdown-pane.content-centered .markdown-content {
     display: block;
 }
@@ -777,10 +764,11 @@
     background: transparent;
     color: rgba(31, 41, 55, 0.28);
     cursor: ew-resize;
+    touch-action: none;
     opacity: 0;
-    pointer-events: auto;
-    transform: translateY(-50%);
-    transition: opacity 160ms ease, color 160ms ease, background 160ms ease;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: opacity 120ms ease, color 120ms ease;
 }
 
 .markdown-page-width-handle::before {
@@ -793,18 +781,18 @@
     border-radius: 999px;
     background: currentColor;
     opacity: 0.72;
+    box-shadow: 0 0 8px color-mix(in srgb, currentColor 32%, transparent);
 }
 
-.view-pane.markdown-pane.content-centered:hover .markdown-page-width-handle,
-.markdown-page-width-handle:hover,
+.markdown-page-width-handle.is-visible,
 .markdown-page-width-handle.is-dragging {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .markdown-page-width-handle:hover,
 .markdown-page-width-handle.is-dragging {
     color: rgba(59, 130, 246, 0.72);
-    background: rgba(59, 130, 246, 0.08);
 }
 
 body.is-resizing-markdown-page,
@@ -820,7 +808,6 @@ body.is-resizing-markdown-page * {
 :root[data-theme-appearance='dark'] .markdown-page-width-handle:hover,
 :root[data-theme-appearance='dark'] .markdown-page-width-handle.is-dragging {
     color: rgba(147, 197, 253, 0.78);
-    background: rgba(147, 197, 253, 0.1);
 }
 
 /* 按钮激活状态 */

@@ -407,7 +407,10 @@
     "aiWriting.insertIdea": "Insert",
     "aiWriting.ideaPrefix": "Idea: ",
     "aiWriting.working": "AI is rewriting...",
+    "aiWriting.done": "Rewrite complete",
     "aiWriting.error": "AI rewrite failed",
+    "aiWriting.error.noContent": "AI returned no rewrite. Try again.",
+    "aiWriting.error.documentChanged": "The document changed. Select the text and try again.",
     "aiWriting.error.noIdeas": "AI did not return usable ideas. Try again.",
     "cardExport.title": "Card",
 

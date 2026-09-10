@@ -69,8 +69,9 @@ export class TocPanel {
             <button type="button" class="toc-panel__toggle-position" title="${t('toc.togglePosition')}" aria-label="${t('toc.togglePosition')}">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="4" y="5" width="16" height="14" rx="3" />
-                    <path d="M10 5v14" />
-                    <path d="M14 9l3 3-3 3" />
+                    <path d="M8 12h8" />
+                    <path d="m10.5 9.5-2.5 2.5 2.5 2.5" />
+                    <path d="m13.5 9.5 2.5 2.5-2.5 2.5" />
                 </svg>
             </button>
         `;

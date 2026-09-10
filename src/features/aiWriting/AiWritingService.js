@@ -1,8 +1,8 @@
 import { aiProxyJsonRequest } from '../../api/aiProxy.js';
 import { t } from '../../i18n/index.js';
 import { aiService } from '../../modules/ai-assistant/aiService.js';
-import { withAiMarkdownOutputRules } from '../../utils/aiMarkdownOutputRules.js';
-import { buildInlineCompletionContext } from '../inlineCompletion/CompletionContextBuilder.js';
+import { createLogger } from '../../core/diagnostics/Logger.js';
+import { parseNonStreamingResponse } from '../../modules/ai-assistant/services/nonStreamingResponseParser.js';
 import { requestCompletion } from '../inlineCompletion/CompletionEngine.js';
 import { getForcedToolCallCompatibility } from '../../modules/ai-assistant/providerCompatibility.js';
 import {
@@ -10,16 +10,20 @@ import {
     createWritingIdeasToolChoice,
     parseWritingIdeasToolResponse,
 } from './WritingIdeasTool.js';
+import {
+    buildSelectionRewriteContext,
+    buildSelectionRewriteRequestBody,
+    buildWritingIdeaContext,
+} from './AiWritingBuilders.js';
 
-const BEFORE_LIMIT = 2600;
-const AFTER_LIMIT = 1200;
-const OUTLINE_LIMIT = 1400;
+export {
+    buildSelectionRewriteContext,
+    buildSelectionRewriteRequestBody,
+    buildWritingIdeaContext,
+} from './AiWritingBuilders.js';
 
-const MODE_INSTRUCTIONS = {
-    polish: '润色这段内容：保持原意和信息量，改善表达、节奏和可读性。',
-    expand: '扩写这段内容：保持原文语气和观点，补充必要细节，让表达更充分。',
-    shorten: '精简这段内容：保留关键信息和语气，删除冗余，让表达更紧凑。',
-};
+const SELECTION_REWRITE_TIMEOUT_MS = 45000;
+const logger = createLogger('selection-rewrite');
 
 function stripFences(text) {
     let value = String(text || '').trim();
@@ -35,91 +39,8 @@ function stripAssistantPreamble(text) {
         .trim();
 }
 
-function extractOutline(markdown) {
-    const lines = String(markdown || '').split('\n');
-    const outline = lines
-        .filter(line => /^#{1,6}\s+\S/.test(line.trim()))
-        .map(line => line.trim())
-        .join('\n');
-    return outline.length > OUTLINE_LIMIT ? outline.slice(0, OUTLINE_LIMIT).trimEnd() : outline;
-}
-
-function clampAround(text, limit, fromStart = false) {
-    const value = String(text || '');
-    if (value.length <= limit) return value;
-    return fromStart ? value.slice(0, limit).trimEnd() : value.slice(-limit).trimStart();
-}
-
-function buildSystemPrompt(mode) {
-    return withAiMarkdownOutputRules(`你是一个 Markdown 写作改稿助手。
-任务：${MODE_INSTRUCTIONS[mode] || MODE_INSTRUCTIONS.polish}
-
-要求：
-1. 只输出改写后的选中内容，不要解释，不要加标题，不要用代码块包裹。
-2. 保持原文语言、写作风格、语气和 Markdown 结构。
-3. 不要改写选区外的内容，也不要重复选区外上下文。
-4. 如果选区是列表、标题、引用或表格片段，尽量保持同类 Markdown 格式。
-5. 输出必须可以直接替换用户选中的原文。`);
-}
-
 function sanitizeRewrite(raw) {
     return stripAssistantPreamble(stripFences(raw)).trim();
-}
-
-function parseAiContent(body) {
-    const data = JSON.parse(body || '{}');
-    const choice = data?.choices?.[0];
-    const content = choice?.message?.content ?? choice?.text;
-    if (Array.isArray(content)) {
-        return content
-            .map(part => (typeof part === 'string' ? part : part?.text || ''))
-            .join('')
-            .trim();
-    }
-    return typeof content === 'string' ? content : '';
-}
-
-/**
- * 生成选区改写上下文。
- * @param {import('@tiptap/pm/state').EditorState} state - 当前编辑器状态
- * @param {string} selectedMarkdown - 已序列化的选区 Markdown
- * @param {string} markdown - 当前完整 Markdown
- * @returns {{selectedText: string, beforeSelection: string, afterSelection: string, outline: string}}
- */
-export function buildSelectionRewriteContext(state, selectedMarkdown, markdown) {
-    const { from, to } = state.selection;
-    const beforeText = state.doc.textBetween(0, from, '\n', '\n');
-    const afterText = state.doc.textBetween(to, state.doc.content.size, '\n', '\n');
-    return {
-        selectedText: String(selectedMarkdown || '').trim(),
-        beforeSelection: clampAround(beforeText, BEFORE_LIMIT, false),
-        afterSelection: clampAround(afterText, AFTER_LIMIT, true),
-        outline: extractOutline(markdown),
-    };
-}
-
-/**
- * 生成写作灵感上下文。
- * @param {import('@tiptap/pm/state').EditorState} state - 当前编辑器状态
- * @param {string} selectedMarkdown - 选区 Markdown，无选区为空
- * @param {string} markdown - 当前完整 Markdown
- * @param {{serialize: Function}|null} serializer - Markdown serializer
- * @returns {{selectedText: string, beforeSelection: string, afterSelection: string, outline: string, completionContext: object}}
- */
-export function buildWritingIdeaContext(state, selectedMarkdown, markdown, serializer = null) {
-    const selection = state.selection;
-    const from = selection?.from ?? 0;
-    const to = selection?.to ?? from;
-    const beforeText = state.doc.textBetween(0, from, '\n', '\n');
-    const afterText = state.doc.textBetween(to, state.doc.content.size, '\n', '\n');
-    const selectedText = selectedMarkdown || (selection?.empty ? '' : state.doc.textBetween(from, to, '\n', '\n'));
-    return {
-        selectedText: String(selectedText || '').trim(),
-        beforeSelection: clampAround(beforeText, BEFORE_LIMIT, false),
-        afterSelection: clampAround(afterText, AFTER_LIMIT, true),
-        outline: extractOutline(markdown),
-        completionContext: buildInlineCompletionContext(state, markdown, serializer),
-    };
 }
 
 /**
@@ -255,29 +176,64 @@ ${context.selectedText}
 ${context.afterSelection || '(无)'}
 </AfterSelection>`;
 
-    const res = await aiProxyJsonRequest({
-        method: 'POST',
-        url: `${provider.baseUrl}/chat/completions`,
-        apiKey: provider.apiKey,
-        body: {
+    /**
+     * 执行一次改写请求，并返回清理后的正文。
+     * @param {number} attempt - 当前尝试次数
+     * @param {string} retryInstruction - 空响应重试指令
+     * @returns {Promise<string>} 改写正文，空字符串代表 provider 未返回正文
+     */
+    const requestOnce = async (attempt, retryInstruction = '') => {
+        let res;
+        try {
+            res = await aiProxyJsonRequest({
+                method: 'POST',
+                url: `${aiService.getBaseUrlForScene('completion')}/chat/completions`,
+                apiKey: provider.apiKey,
+                timeoutMs: SELECTION_REWRITE_TIMEOUT_MS,
+                body: buildSelectionRewriteRequestBody({
+                    mode,
+                    model,
+                    temperature: attempt === 1
+                        ? aiService.getTemperature()
+                        : Math.min(aiService.getTemperature(), 0.4),
+                    userPrompt,
+                    retryInstruction,
+                }),
+            });
+        } catch (error) {
+            if (/timeout|timed out|超时/i.test(String(error?.message || error))) {
+                throw new Error(t('inlineCompletion.error.timeout'));
+            }
+            throw error;
+        }
+
+        if (res.status < 200 || res.status >= 300) {
+            const errData = (() => { try { return JSON.parse(res.body || '{}'); } catch { return {}; } })();
+            throw new Error(errData.error?.message || t('inlineCompletion.error.apiFailed', { status: res.status }));
+        }
+
+        const parsed = parseNonStreamingResponse(res.body);
+        const content = sanitizeRewrite(parsed.content);
+        logger[content ? 'info' : 'warn']('response:received', {
             model,
-            temperature: aiService.getTemperature(),
-            max_tokens: mode === 'expand' ? 1200 : 800,
-            messages: [
-                { role: 'system', content: buildSystemPrompt(mode) },
-                { role: 'user', content: userPrompt },
-            ],
-        },
-    });
+            attempt,
+            finishReason: parsed.finishReason || '(none)',
+            contentLength: parsed.content.length,
+            reasoningLength: parsed.reasoningLength,
+            completionTokens: parsed.completionTokens,
+            refusal: parsed.refusal,
+            outputLength: content.length,
+        });
+        return content;
+    };
 
-    if (res.status < 200 || res.status >= 300) {
-        const errData = (() => { try { return JSON.parse(res.body || '{}'); } catch { return {}; } })();
-        throw new Error(errData.error?.message || t('inlineCompletion.error.apiFailed', { status: res.status }));
-    }
+    const first = await requestOnce(1);
+    if (first) return first;
 
-    const content = sanitizeRewrite(parseAiContent(res.body));
-    if (!content) {
-        throw new Error(t('inlineCompletion.error.noContent'));
-    }
-    return content;
+    const retry = await requestOnce(
+        2,
+        '上一次没有生成最终正文。减少思考，直接输出可替换选区的改写结果。',
+    );
+    if (retry) return retry;
+    throw new Error(t('aiWriting.error.noContent'));
 }
