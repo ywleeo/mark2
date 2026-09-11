@@ -12,10 +12,16 @@ const SYSTEM_PROMPT = withAiMarkdownOutputRules(`你是一个 Markdown 排版专
 2. 只优化排版格式，例如添加合适的标题层级、列表、代码块标记、强调、引用块等
 3. 直接输出美化后的 Markdown，不要附加任何解释或说明`);
 
-export async function beautifyMarkdown(text) {
+/**
+ * 请求模型美化 Markdown 排版。
+ * @param {string} text - 待排版 Markdown。
+ * @param {{maxLines?:number|null}} options - 行数上限；null 表示整篇模式不预先截断。
+ * @returns {Promise<string>} 美化后的 Markdown。
+ */
+export async function beautifyMarkdown(text, { maxLines = MAX_LINES } = {}) {
     const lineCount = (text.match(/\n/g) ?? []).length + 1;
-    if (lineCount > MAX_LINES) {
-        throw new Error(t('beautify.error.tooManyLines', { max: MAX_LINES, current: lineCount }));
+    if (Number.isFinite(maxLines) && lineCount > maxLines) {
+        throw new Error(t('beautify.error.tooManyLines', { max: maxLines, current: lineCount }));
     }
 
     const provider = aiService.getProviderForScene('beautify');

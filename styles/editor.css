@@ -479,6 +479,30 @@
     backdrop-filter: blur(20px);
     color: rgba(31, 36, 44, 0.82);
     font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68)) transparent;
+}
+
+/* Ideas 结果与 Markdown 文件视图使用同一套 thin、无槽滚动条。 */
+.ai-writing-inspiration-panel::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+    -webkit-appearance: none;
+}
+
+.ai-writing-inspiration-panel::-webkit-scrollbar-track,
+.ai-writing-inspiration-panel::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.ai-writing-inspiration-panel::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68));
+    border: 0;
+    border-radius: 3px;
+}
+
+.ai-writing-inspiration-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.64));
 }
 
 .ai-writing-inspiration-panel__header {

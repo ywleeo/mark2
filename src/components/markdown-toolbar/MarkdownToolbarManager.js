@@ -2,6 +2,7 @@ import { MarkdownToolbar } from './index.js';
 import { COMMAND_IDS } from '../../core/commands/commandIds.js';
 import { createStore } from '../../services/storage.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
+import { aiService } from '../../modules/ai-assistant/aiService.js';
 
 const store = createStore('toolbar');
 store.migrateFrom('markdown-toolbar-theme', 'theme', { parse: 'raw' });
@@ -62,6 +63,7 @@ export class MarkdownToolbarManager {
             position: 'top',
             theme: this.getTheme(),
             getCurrentFilePath: this._getCurrentFilePath,
+            getAiWritingState: () => this.getAiWritingState(),
         });
 
         // 设置编辑器
@@ -258,6 +260,12 @@ export class MarkdownToolbarManager {
             this.saveTheme(theme);
         });
 
+        // AI 菜单在打开时已冻结选区；执行层只消费动作，不再重新猜测上下文。
+        this.toolbar.on('ai-action', ({ action, range, anchor }) => {
+            const markdownEditor = this._getEditorRegistry?.()?.getMarkdownEditor?.();
+            markdownEditor?.runAiWritingAction?.(action, { range, anchor });
+        });
+
         // 监听工具栏动作
         this.toolbar.on('action', (action) => {
             // 处理视图模式切换
@@ -303,6 +311,32 @@ export class MarkdownToolbarManager {
                 return;
             }
         });
+    }
+
+    /**
+     * 汇总 AI 菜单所需的配置与选区状态。
+     * API Key 和场景模型分开判断，使部分配置完成时仍可看到可用能力与缺项提示。
+     * @returns {{hasApiKey:boolean,editorAvailable:boolean,completionConfigured:boolean,beautifyConfigured:boolean,selectionRange:object|null}}
+     */
+    getAiWritingState() {
+        const config = aiService.getConfig?.() || {};
+        const hasApiKey = Array.isArray(config.providers)
+            && config.providers.some(provider => Boolean(String(provider?.apiKey || '').trim()));
+        const completionProvider = aiService.getProviderForScene('completion');
+        const beautifyProvider = aiService.getProviderForScene('beautify');
+        const editorAvailable = this.editorType === 'tiptap';
+        const selection = editorAvailable ? this.editorInstance?.state?.selection : null;
+        const selectionRange = selection && !selection.empty
+            ? { from: selection.from, to: selection.to }
+            : null;
+
+        return {
+            hasApiKey,
+            editorAvailable,
+            completionConfigured: Boolean(completionProvider?.apiKey && aiService.getModelForScene('completion')),
+            beautifyConfigured: Boolean(beautifyProvider?.apiKey && aiService.getModelForScene('beautify')),
+            selectionRange,
+        };
     }
 
     /**

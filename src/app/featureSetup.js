@@ -8,11 +8,11 @@ import { initCardExport } from '../modules/card-export/index.js';
 
 /**
  * 注册当前应用的核心功能模块。
- * @param {{featureManager: Object, context: Object}} options - Feature 装配参数
+ * @param {{featureManager: Object}} options - Feature 装配参数
  * @returns {Function}
  */
 export function registerCoreFeatures(options = {}) {
-    const { featureManager, context = {} } = options;
+    const { featureManager } = options;
     if (!featureManager || typeof featureManager.registerFeature !== 'function') {
         throw new Error('registerCoreFeatures 需要 featureManager');
     }
@@ -26,9 +26,7 @@ export function registerCoreFeatures(options = {}) {
         id: 'card-export',
         title: '卡片导出',
         mount() {
-            return initCardExport({
-                getMarkdownEditor: () => context.getEditorRegistry?.()?.getMarkdownEditor?.(),
-            });
+            return initCardExport();
         },
         unmount(api) {
             api?.destroy?.();

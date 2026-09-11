@@ -6,7 +6,10 @@ import { ToolbarEmojiPicker } from './ToolbarEmojiPicker.js';
 import { ToolbarPlainMarkdownHandlers } from './ToolbarPlainMarkdownHandlers.js';
 import { ToolbarTipTapHandlers } from './ToolbarTipTapHandlers.js';
 import { ToolbarSelect } from './ToolbarSelect.js';
+import { ToolbarAiMenu } from './ToolbarAiMenu.js';
+import { dismissToolbarNotice, showToolbarNotice } from './ToolbarNotice.js';
 import { ToolbarOverflowMenu } from './ToolbarOverflowMenu.js';
+import { t } from '../../i18n/index.js';
 import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
 
@@ -33,6 +36,7 @@ export class MarkdownToolbar {
         this.emojiPicker = null;
         this.tocPanel = null;
         this.selects = [];
+        this.aiMenu = null;
         this.overflowMenu = null;
         this.resizeObserver = null;
         this._onWindowResize = null;
@@ -139,7 +143,7 @@ export class MarkdownToolbar {
 
         left.append(fixed, divider, flow, this.overflowMenu.getElement());
 
-        // 右侧视图操作区：切换视图模式 / 复制 / 居中，始终可见
+        // 右侧常驻区：AI 入口与视图模式切换始终可见。
         const right = document.createElement('div');
         right.className = 'markdown-toolbar__right';
         TOOLBAR_GROUPS.right.forEach(type => this._appendItem(right, type));
@@ -193,7 +197,22 @@ export class MarkdownToolbar {
      * 向容器追加一个工具栏项：下拉（SELECT_CONFIGS）或普通按钮
      */
     _appendItem(parent, type) {
-        if (SELECT_CONFIGS[type]) {
+        if (type === 'aiWriting') {
+            this.aiMenu = new ToolbarAiMenu({
+                icon: this.buttonConfig.aiWriting.icon,
+                getState: () => {
+                    dismissToolbarNotice();
+                    return this.options.getAiWritingState?.() || {};
+                },
+                onAction: payload => this.emit('ai-action', payload),
+                onMissingConfig: anchor => showToolbarNotice({
+                    anchor,
+                    title: t('aiWriting.noConfigTitle'),
+                    hint: t('aiWriting.noConfigHint'),
+                }),
+            });
+            parent.appendChild(this.aiMenu.getElement());
+        } else if (SELECT_CONFIGS[type]) {
             const select = new ToolbarSelect({
                 ...SELECT_CONFIGS[type],
                 onSelect: this._getSelectHandler(type),
@@ -239,6 +258,10 @@ export class MarkdownToolbar {
 
         this.selects.forEach(select => select.destroy());
         this.selects = [];
+
+        this.aiMenu?.destroy();
+        this.aiMenu = null;
+        dismissToolbarNotice();
 
         this.overflowMenu?.destroy();
         this.overflowMenu = null;

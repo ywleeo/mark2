@@ -8,6 +8,7 @@ import { CodeCopyManager } from '../../features/codeCopy.js';
 import { InlineCompletionManager } from '../../features/inlineCompletion/InlineCompletionManager.js';
 import { AiWritingEntryManager } from '../../features/aiWriting/AiWritingEntryManager.js';
 import { SelectionRewriteManager } from '../../features/aiWriting/SelectionRewriteManager.js';
+import { DocumentBeautifyManager } from '../../features/aiWriting/DocumentBeautifyManager.js';
 import { SearchBoxManager } from '../../features/searchBox.js';
 import { ClipboardEnhancer, sanitizePastedHtml } from '../../features/clipboardEnhancer.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
@@ -75,6 +76,7 @@ export class MarkdownEditor {
         this.inlineCompletionManager = null;
         this.aiWritingEntryManager = null;
         this.selectionRewriteManager = null;
+        this.documentBeautifyManager = null;
         this.searchBoxManager = null;
         this.clipboardEnhancer = null;
         this.imageModal = null;
@@ -178,20 +180,29 @@ export class MarkdownEditor {
             viewElement: this.viewElement,
             getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
             getSelectedMarkdown: () => this.getSelectedMarkdown(),
+            getRangeMarkdown: (from, to) => this.getRangeMarkdown(from, to),
             replaceRangeWithMarkdown: (from, to, markdown) => this.replaceRangeWithMarkdown(from, to, markdown),
-            onInspiration: () => this.aiWritingEntryManager?.openInspiration(),
+            onInspiration: range => this.aiWritingEntryManager?.openInspiration({ range }),
         });
         this.selectionRewriteManager.setup();
         this.aiWritingEntryManager = new AiWritingEntryManager({
             editor: this.editor,
             getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
             getSelectedMarkdown: () => this.getSelectedMarkdown(),
+            getRangeMarkdown: (from, to) => this.getRangeMarkdown(from, to),
             markdownSerializer,
             inlineCompletionManager: this.inlineCompletionManager,
             insertTextAtCursor: (text) => this.insertTextAtCursor(text),
             insertMarkdownAtCursor: (markdown) => this.insertAIContent(markdown),
+            insertMarkdownAtPosition: (markdown, position) => this.replaceRangeWithMarkdown(position, position, markdown),
         });
-        this.aiWritingEntryManager.setup();
+        // AI 入口统一放到 toolbar；这里只保留 Ideas 结果面板，不再监听光标显示左侧图标。
+        this.aiWritingEntryManager.setup({ cursorEntry: false });
+        this.documentBeautifyManager = new DocumentBeautifyManager({
+            markdownEditor: this,
+            getMarkdown: () => this.contentLoader?.getMarkdown?.() || '',
+            replaceDocumentWithMarkdown: markdown => this.replaceDocumentWithMarkdown(markdown),
+        });
         this.searchBoxManager = new SearchBoxManager(
             this.editor,
             null,
@@ -571,6 +582,18 @@ export class MarkdownEditor {
         const { state } = this.editor;
         if (!state || state.selection.empty) return '';
         const { from, to } = state.selection;
+        return this.getRangeMarkdown(from, to);
+    }
+
+    /**
+     * 序列化指定 ProseMirror 范围，供 Toolbar 冻结选区后复用。
+     * @param {number} from - 起始位置。
+     * @param {number} to - 结束位置。
+     * @returns {string} Markdown 片段。
+     */
+    getRangeMarkdown(from, to) {
+        if (!this.editor || !Number.isFinite(from) || !Number.isFinite(to) || to <= from) return '';
+        const { state } = this.editor;
         const serializer = this.contentLoader?.markdownSerializer;
         if (serializer) {
             try {
@@ -648,12 +671,40 @@ export class MarkdownEditor {
     replaceSelectionWithAIContent(markdown) { this.insertAIContent(markdown); }
 
     showAiWriting() {
-        this.aiWritingEntryManager?.openForCurrentContext();
+        this.aiWritingEntryManager?.openInspiration();
     }
 
     runSelectionAiAction(mode, range = null) {
         if (range) return this.selectionRewriteManager?.executeForSelectionRange(mode, range) ?? false;
         return this.selectionRewriteManager?.executeForCurrentSelection(mode) ?? false;
+    }
+
+    /**
+     * 执行 toolbar 发出的统一 AI 写作动作。
+     * @param {string} action - AI 动作名。
+     * @param {{range?:object|null,anchor?:HTMLElement|null}} options - 点击时冻结的上下文。
+     * @returns {boolean} 是否已接收动作。
+     */
+    runAiWritingAction(action, { range = null, anchor = null } = {}) {
+        if (!this.editor?.state) return false;
+        if (action === 'continue') {
+            const position = Number.isFinite(range?.to) ? range.to : this.editor.state.selection.from;
+            this.editor.commands.setTextSelection({ from: position, to: position });
+            void this.inlineCompletionManager?.request(this.editor.view);
+            return true;
+        }
+        if (action === 'inspiration') {
+            void this.aiWritingEntryManager?.openInspiration({ range, anchor });
+            return true;
+        }
+        if (action === 'beautifyDocument') {
+            void this.documentBeautifyManager?.execute();
+            return true;
+        }
+        if (['polish', 'shorten', 'expand'].includes(action)) {
+            return this.runSelectionAiAction(action, range);
+        }
+        return false;
     }
 
     replaceRangeWithMarkdown(from, to, markdown) {
@@ -669,6 +720,26 @@ export class MarkdownEditor {
         this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
         this.scheduleMermaidRender();
         return { from, to: Math.max(from, insertedTo) };
+    }
+
+    /**
+     * 以一次可撤销 transaction 替换整篇正文，保留 ContentLoader 管理的 frontmatter。
+     * @param {string} markdown - 美化后的正文 Markdown。
+     * @returns {boolean} 是否替换成功。
+     */
+    replaceDocumentWithMarkdown(markdown) {
+        if (!this.editor || typeof markdown !== 'string') return false;
+        const processed = preprocessMarkdown(markdown);
+        const parsed = this.contentLoader.markdownParser?.parse(processed) ?? null;
+        if (!parsed) return false;
+        const { state, view } = this.editor;
+        const transaction = state.tr.replaceWith(0, state.doc.content.size, parsed.content);
+        transaction.setSelection(TextSelection.atStart(transaction.doc));
+        view.dispatch(transaction.scrollIntoView());
+        view.focus();
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
+        return true;
     }
 
     insertAfterSelectionWithAIContent(markdown) {
@@ -808,6 +879,8 @@ export class MarkdownEditor {
         this.aiWritingEntryManager = null;
         this.selectionRewriteManager?.destroy();
         this.selectionRewriteManager = null;
+        this.documentBeautifyManager?.destroy();
+        this.documentBeautifyManager = null;
         this.searchBoxManager?.destroy();
         this.clipboardEnhancer?.destroy();
         this.imageModal?.destroy();

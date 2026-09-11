@@ -13,18 +13,22 @@ export class AiWritingEntryManager {
         editor,
         getMarkdown,
         getSelectedMarkdown,
+        getRangeMarkdown,
         markdownSerializer,
         inlineCompletionManager,
         insertTextAtCursor,
         insertMarkdownAtCursor,
+        insertMarkdownAtPosition,
     }) {
         this.editor = editor;
         this.getMarkdown = getMarkdown;
         this.getSelectedMarkdown = getSelectedMarkdown;
+        this.getRangeMarkdown = getRangeMarkdown;
         this.markdownSerializer = markdownSerializer;
         this.inlineCompletionManager = inlineCompletionManager;
         this.insertTextAtCursor = insertTextAtCursor;
         this.insertMarkdownAtCursor = insertMarkdownAtCursor;
+        this.insertMarkdownAtPosition = insertMarkdownAtPosition;
         this.hintEl = null;
         this.panelEl = null;
         this.hintCleanups = [];
@@ -39,6 +43,9 @@ export class AiWritingEntryManager {
         this.expandedHintOpenedAt = 0;
         this.suppressedUntilSelectionChange = false;
         this.lastSelectionKey = '';
+        this.cursorEntryEnabled = false;
+        this.panelAnchor = null;
+        this.panelInsertPosition = null;
         this.selectionUpdateHandler = () => this.handleEditorActivity();
         this.transactionHandler = ({ transaction }) => this.handleTransaction(transaction);
         this.keydownHandler = () => this.handleTyping();
@@ -55,10 +62,13 @@ export class AiWritingEntryManager {
         };
     }
 
-    setup() {
-        this.editor?.on?.('selectionUpdate', this.selectionUpdateHandler);
+    setup({ cursorEntry = false } = {}) {
+        this.cursorEntryEnabled = Boolean(cursorEntry);
+        if (this.cursorEntryEnabled) {
+            this.editor?.on?.('selectionUpdate', this.selectionUpdateHandler);
+            this.editor?.view?.dom?.addEventListener('keydown', this.keydownHandler, true);
+        }
         this.editor?.on?.('transaction', this.transactionHandler);
-        this.editor?.view?.dom?.addEventListener('keydown', this.keydownHandler, true);
         this.scrollContainer = this.getScrollContainer();
         this.scrollContainer?.addEventListener('scroll', this.viewportChangeHandler, { passive: true });
         if (this.scrollContainer && typeof ResizeObserver === 'function') {
@@ -74,9 +84,11 @@ export class AiWritingEntryManager {
     destroy() {
         this.requestSeq += 1;
         this.clearHintTimer();
-        this.editor?.off?.('selectionUpdate', this.selectionUpdateHandler);
+        if (this.cursorEntryEnabled) {
+            this.editor?.off?.('selectionUpdate', this.selectionUpdateHandler);
+            this.editor?.view?.dom?.removeEventListener('keydown', this.keydownHandler, true);
+        }
         this.editor?.off?.('transaction', this.transactionHandler);
-        this.editor?.view?.dom?.removeEventListener('keydown', this.keydownHandler, true);
         this.scrollContainer?.removeEventListener('scroll', this.viewportChangeHandler);
         this.viewportResizeObserver?.disconnect();
         this.viewportResizeObserver = null;
@@ -105,7 +117,7 @@ export class AiWritingEntryManager {
             this.hidePanel();
             this.suppressedUntilSelectionChange = false;
         }
-        this.scheduleCursorHint();
+        if (this.cursorEntryEnabled) this.scheduleCursorHint();
     }
 
     handleTyping() {
@@ -158,6 +170,7 @@ export class AiWritingEntryManager {
     }
 
     scheduleCursorHint() {
+        if (!this.cursorEntryEnabled) return;
         this.clearHintTimer();
         const view = this.editor?.view;
         const selection = this.editor?.state?.selection;
@@ -324,10 +337,19 @@ export class AiWritingEntryManager {
         });
     }
 
-    positionElementAtCursor(element, { offsetY = 0 } = {}) {
+    positionElementAtCursor(element, { offsetY = 0, position = null, anchor = null } = {}) {
         if (!element || !this.editor?.view) return;
         try {
-            const pos = this.editor.state.selection.from;
+            if (anchor?.isConnected) {
+                const anchorRect = anchor.getBoundingClientRect();
+                const elementRect = element.getBoundingClientRect();
+                const left = Math.max(10, Math.min(anchorRect.right - elementRect.width, window.innerWidth - elementRect.width - 10));
+                const top = Math.max(10, Math.min(anchorRect.bottom + offsetY, window.innerHeight - elementRect.height - 10));
+                element.style.left = `${left}px`;
+                element.style.top = `${top}px`;
+                return;
+            }
+            const pos = Number.isFinite(position) ? position : this.editor.state.selection.from;
             const coords = this.editor.view.coordsAtPos(pos, 1);
             const rect = element.getBoundingClientRect();
             const left = Math.max(10, Math.min(coords.left, window.innerWidth - rect.width - 10));
@@ -547,19 +569,27 @@ export class AiWritingEntryManager {
         }
     }
 
-    async openInspiration() {
+    async openInspiration({ range = null, anchor = null } = {}) {
         const state = this.editor?.state;
         if (!state) return;
+        const normalizedRange = Number.isFinite(range?.from) && Number.isFinite(range?.to)
+            ? { from: range.from, to: range.to }
+            : null;
+        this.panelAnchor = anchor;
+        this.panelInsertPosition = normalizedRange?.to ?? state.selection?.from ?? null;
         const requestId = ++this.requestSeq;
         this.hideHint();
         this.showPanel({ loading: true });
 
-        const selected = state.selection.empty ? '' : this.getSelectedMarkdown?.();
+        const selected = normalizedRange
+            ? this.getRangeMarkdown?.(normalizedRange.from, normalizedRange.to)
+            : (state.selection.empty ? '' : this.getSelectedMarkdown?.());
         const context = buildWritingIdeaContext(
             state,
             selected || '',
             this.getMarkdown?.() || '',
             this.markdownSerializer,
+            normalizedRange,
         );
         try {
             const ideas = await requestWritingIdeas(context);
@@ -611,7 +641,11 @@ export class AiWritingEntryManager {
 
         document.body.appendChild(panel);
         this.panelEl = panel;
-        this.positionElementAtCursor(panel, { offsetY: 10 });
+        this.positionElementAtCursor(panel, {
+            offsetY: 10,
+            position: this.panelInsertPosition,
+            anchor: this.panelAnchor,
+        });
     }
 
     createIdeaItem(idea, context) {
@@ -650,6 +684,10 @@ export class AiWritingEntryManager {
         this.panelCleanups = [];
         this.panelEl?.remove();
         this.panelEl = null;
+        if (cancelRequest) {
+            this.panelAnchor = null;
+            this.panelInsertPosition = null;
+        }
     }
 
     async expandIdea(idea, context) {
@@ -660,7 +698,7 @@ export class AiWritingEntryManager {
             if (requestId !== this.requestSeq) return;
             this.inlineCompletionManager?.showSuggestion(
                 text,
-                this.editor?.state?.selection?.from,
+                this.panelInsertPosition ?? this.editor?.state?.selection?.from,
                 context.currentFormat?.insertionMode || 'inline',
             );
             this.hidePanel(false);
@@ -673,7 +711,9 @@ export class AiWritingEntryManager {
 
     insertIdea(idea) {
         const markdown = `\n\n> ${t('aiWriting.ideaPrefix')}${idea.text}\n\n`;
-        if (typeof this.insertMarkdownAtCursor === 'function') {
+        if (Number.isFinite(this.panelInsertPosition) && typeof this.insertMarkdownAtPosition === 'function') {
+            this.insertMarkdownAtPosition(markdown, this.panelInsertPosition);
+        } else if (typeof this.insertMarkdownAtCursor === 'function') {
             this.insertMarkdownAtCursor(markdown);
         } else {
             this.insertTextAtCursor?.(markdown);

@@ -430,7 +430,7 @@ export function createAppBootstrap({
             normalizeFsPath,
             handleZoomControl,
             updateZoomDisplayForActiveView,
-            onAiDocumentTask: (path) => aiFileTaskSidebar.open({ path }),
+            onAiDocumentTask: (path) => aiFileTaskSidebar.toggle({ path }),
             getCurrentFile: () => getActivePaneContext().documentPath,
         });
 

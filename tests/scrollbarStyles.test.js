@@ -6,8 +6,9 @@ import test from 'node:test';
  * 验证应用内文件视图和 iframe HTML 预览都使用透明滚动轨道。
  */
 test('文件 Viewer 的滚动条统一为无槽样式', async () => {
-    const [layoutCss, mediaStreamSource] = await Promise.all([
+    const [layoutCss, editorCss, mediaStreamSource] = await Promise.all([
         readFile(new URL('../styles/layout.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/editor.css', import.meta.url), 'utf8'),
         readFile(new URL('../src-tauri/src/media_stream.rs', import.meta.url), 'utf8'),
     ]);
 
@@ -17,4 +18,6 @@ test('文件 Viewer 的滚动条统一为无槽样式', async () => {
         mediaStreamSource,
         /scrollbar-color:\s*rgba\(127, 127, 127, 0\.55\)\s+transparent\s*!important/,
     );
+    assert.match(editorCss, /\.ai-writing-inspiration-panel\s*\{[^}]*scrollbar-width:\s*thin;/s);
+    assert.match(editorCss, /\.ai-writing-inspiration-panel::-webkit-scrollbar-track,[^{]*\{\s*background:\s*transparent;/s);
 });

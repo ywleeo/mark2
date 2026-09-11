@@ -156,6 +156,10 @@ export const BUTTON_CONFIG = {
     shareLink: {
         icon: uicon('share'),
         title: t('toolbar.shareLink')
+    },
+    aiWriting: {
+        icon: uicon('sparkles'),
+        title: t('toolbar.aiWriting')
     }
 };
 
@@ -178,7 +182,7 @@ export const TOOLBAR_GROUPS = {
         ['cardExport'],
         ['centerContent', 'copy', 'shareLink'],
     ],
-    right: ['toggleViewMode'],
+    right: ['aiWriting', 'toggleViewMode'],
 };
 
 /**
