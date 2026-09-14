@@ -4,6 +4,7 @@ import { PANE_IDS } from '../core/layout/PaneManager.js';
 
 const SECONDARY_DOCUMENT_OWNER = 'pane:secondary';
 const EDITABLE_VIEW_MODES = new Set(['markdown', 'code']);
+const PASSIVE_VIEW_MODES = ['image', 'media', 'spreadsheet', 'pdf', 'unsupported'];
 const UNTITLED_PROTOCOL = 'untitled://';
 
 /**
@@ -13,7 +14,7 @@ const UNTITLED_PROTOCOL = 'untitled://';
  */
 function setupSecondaryViewPanes(host) {
     host.innerHTML = `
-        <div class="view-pane markdown-pane" data-pane="markdown"></div>
+        <div class="view-pane markdown-pane content-centered" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
         <div class="view-pane image-pane" data-pane="image"></div>
         <div class="view-pane media-pane" data-pane="media"></div>
@@ -29,12 +30,13 @@ function setupSecondaryViewPanes(host) {
 }
 
 /**
- * 创建一个只控制副栏 DOM 的 View 协议。
+ * 创建一个只控制副栏 DOM 和查看器可见性的 View 协议。
  * @param {Map<string, HTMLElement>} paneElements - 副栏视图面板。
+ * @param {EditorRegistry} editorRegistry - 副栏独立的查看器注册表。
  * @param {(mode:string)=>void} onActivate - 激活回调。
  * @returns {Object} renderer 可复用的 View 协议。
  */
-function createSecondaryViewProtocol(paneElements, onActivate) {
+export function createSecondaryViewProtocol(paneElements, editorRegistry, onActivate) {
     return {
         /**
          * 激活一个副栏视图。
@@ -46,6 +48,16 @@ function createSecondaryViewProtocol(paneElements, onActivate) {
             }
             for (const [paneMode, element] of paneElements) {
                 element.classList.toggle('is-active', paneMode === mode);
+            }
+            // 部分查看器通过内联 display/visibility 隐藏；仅切换 is-active 不会覆盖它。
+            // unsupported.show 还需要文件路径，由对应 renderer 在激活后单独调用。
+            for (const viewerMode of PASSIVE_VIEW_MODES) {
+                const viewer = editorRegistry?.get?.(viewerMode);
+                if (viewerMode === mode) {
+                    if (viewerMode !== 'unsupported') viewer?.show?.();
+                } else {
+                    viewer?.hide?.();
+                }
             }
             onActivate(mode);
         },
@@ -125,7 +137,7 @@ export class SecondaryPaneRuntime {
             throw new Error('SecondaryPaneRuntime 缺少 secondaryViewContent');
         }
         this.paneElements = setupSecondaryViewPanes(this.host);
-        this.view = createSecondaryViewProtocol(this.paneElements, mode => {
+        this.view = createSecondaryViewProtocol(this.paneElements, this.editorRegistry, mode => {
             // 加载事务完成前只更新候选视图，避免 PaneManager 提前持久化半成品状态。
             if (this.loadingPath) {
                 this.loadingViewMode = mode;

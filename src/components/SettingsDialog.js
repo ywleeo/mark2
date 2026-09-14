@@ -84,6 +84,30 @@ export class SettingsDialog {
                     <!-- General 设置 -->
                     <section class="settings-body" data-tab-content="general">
                         <div class="settings-rows">
+                            <fieldset class="settings-skin-picker">
+                                <legend>${t('settings.skin')}</legend>
+                                <p class="settings-section-desc">${t('settings.skinDescription')}</p>
+                                <div class="settings-skin-picker__cards">
+                                    <label class="settings-skin-card">
+                                        <input type="radio" name="skin" value="classic" checked>
+                                        <span class="settings-skin-card__preview settings-skin-card__preview--classic" aria-hidden="true">
+                                            <span class="settings-skin-card__rail"></span>
+                                            <span class="settings-skin-card__page"><i></i><i></i><i></i></span>
+                                        </span>
+                                        <span class="settings-skin-card__name">${t('settings.skinClassic')}</span>
+                                        <span class="settings-skin-card__detail">${t('settings.skinClassicDetail')}</span>
+                                    </label>
+                                    <label class="settings-skin-card">
+                                        <input type="radio" name="skin" value="editorial">
+                                        <span class="settings-skin-card__preview settings-skin-card__preview--editorial" aria-hidden="true">
+                                            <span class="settings-skin-card__rail"></span>
+                                            <span class="settings-skin-card__page"><i></i><i></i><i></i></span>
+                                        </span>
+                                        <span class="settings-skin-card__name">${t('settings.skinEditorial')}</span>
+                                        <span class="settings-skin-card__detail">${t('settings.skinEditorialDetail')}</span>
+                                    </label>
+                                </div>
+                            </fieldset>
                             <label class="settings-row">
                                 <span class="settings-row__label">${t('settings.appearance')}</span>
                                 <select name="appearance" class="settings-row__control">
@@ -144,7 +168,7 @@ export class SettingsDialog {
                     <!-- 编辑器设置 -->
                     <section class="settings-body hidden" data-tab-content="editor">
                         <div class="settings-rows">
-                            <label class="settings-row">
+                            <label class="settings-row" data-ref="markdownThemeRow">
                                 <span class="settings-row__label">${t('settings.theme')}</span>
                                 <select name="theme" class="settings-row__control">
                                     <option value="default">GitHub</option>
@@ -251,6 +275,8 @@ export class SettingsDialog {
 
         // 编辑器设置字段
         this.themeSelect = this.form.querySelector('select[name="theme"]');
+        this.skinRadios = this.form.querySelectorAll('input[name="skin"]');
+        this.markdownThemeRow = this.form.querySelector('[data-ref="markdownThemeRow"]');
         this.appearanceSelect = this.form.querySelector('select[name="appearance"]');
         this.fontFamilySelect = this.form.querySelector('select[name="fontFamily"]');
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
@@ -332,6 +358,13 @@ export class SettingsDialog {
 
         this.form.addEventListener('submit', this.handleSubmit);
 
+        // 皮肤自带正文样式；经典皮肤下才显示原有 Markdown 主题选择。
+        this.skinRadios.forEach(radio => {
+            const onChange = () => this._syncMarkdownThemeRow();
+            radio.addEventListener('change', onChange);
+            this.cleanupFunctions.push(() => radio.removeEventListener('change', onChange));
+        });
+
         // Tab 切换事件
         this.tabButtons.forEach(tab => {
             const cleanup = addClickHandler(tab, () => {
@@ -407,6 +440,12 @@ export class SettingsDialog {
         }
     }
 
+    /** 根据整体皮肤显示经典皮肤的独立 Markdown 主题设置。 */
+    _syncMarkdownThemeRow() {
+        const skin = this.form.querySelector('input[name="skin"]:checked')?.value || 'classic';
+        this.markdownThemeRow?.classList.toggle('hidden', skin !== 'classic');
+    }
+
     switchTab(tabName) {
         this.currentTab = tabName;
 
@@ -451,6 +490,10 @@ export class SettingsDialog {
         this.initialSettings = { ...editorPrefs };
 
         // 编辑器设置
+        const skin = editorPrefs.skin === 'editorial' ? 'editorial' : 'classic';
+        const skinRadio = this.form.querySelector(`input[name="skin"][value="${skin}"]`);
+        if (skinRadio) skinRadio.checked = true;
+        this._syncMarkdownThemeRow();
         this._setSelectValue(this.themeSelect, editorPrefs.theme || 'default');
         if (this.appearanceSelect) {
             this._setSelectValue(this.appearanceSelect, editorPrefs.appearance || 'system');
@@ -629,6 +672,7 @@ export class SettingsDialog {
         event.preventDefault();
 
         // 编辑器设置
+        const skin = this.form.querySelector('input[name="skin"]:checked')?.value || 'classic';
         const theme = this.themeSelect.value || 'default';
         const appearance = (this.appearanceSelect?.value || 'system').toLowerCase();
         const fontSize = Number(this.fontSizeInput.value);
@@ -666,6 +710,7 @@ export class SettingsDialog {
         const allowAutoUpdate = this.allowAutoUpdateCheckbox ? Boolean(this.allowAutoUpdateCheckbox.checked) : true;
 
         const sanitized = {
+            skin,
             theme: theme,
             appearance: ['light', 'dark', 'system'].includes(appearance) ? appearance : 'system',
             fontSize: normalizedSize,

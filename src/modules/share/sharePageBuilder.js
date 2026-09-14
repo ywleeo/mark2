@@ -12,6 +12,7 @@ import { createConfiguredMarkdownIt } from '../../utils/markdownPlugins.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { dirname } from '../../utils/pathUtils.js';
 import { loadEditorSettings } from '../../utils/editorSettings.js';
+import { resolveMarkdownTheme } from '../../config/appSkins.js';
 
 const markdownRenderer = createConfiguredMarkdownIt();
 
@@ -68,10 +69,12 @@ export async function buildSharePageHtml({ markdown, currentFile = null, title =
     await renderSharedMermaid(host);
 
     const settings = loadEditorSettings();
-    const themeName = settings.theme || 'default';
+    const themeName = resolveMarkdownTheme(settings.skin, settings.theme);
     const themeCss = getThemeStyles(themeName);
     const appearance = document.documentElement.dataset.themeAppearance === 'dark' ? 'dark' : 'light';
-    const background = appearance === 'dark' ? '#151719' : '#ffffff';
+    const background = themeName === 'editorial'
+        ? (appearance === 'dark' ? '#252a26' : '#f3eee4')
+        : (appearance === 'dark' ? '#151719' : '#ffffff');
     const htmlStyle = buildEditorVariableStyle(settings);
 
     return `<!doctype html>
@@ -209,6 +212,9 @@ function buildEditorVariableStyle(settings) {
     if (settings.fontFamily) {
         const safeFontFamily = settings.fontFamily.replace(/[;<>{}]/g, '').trim();
         if (safeFontFamily) declarations.push(`--editor-font-family: ${safeFontFamily}`);
+    } else if (settings.skin === 'editorial') {
+        // 独立分享页没有应用外壳变量，需显式补上皮肤默认的书卷字体。
+        declarations.push("--editor-font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif");
     }
     return declarations.join('; ');
 }

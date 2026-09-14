@@ -205,6 +205,127 @@
     flex-direction: column;
 }
 
+/* 整体皮肤以小型界面样张呈现，避免用户只凭名称猜测视觉差异。 */
+.settings-skin-picker {
+    min-width: 0;
+    margin: 4px 0 8px;
+    padding: 0 0 14px;
+    border: 0;
+    border-bottom: 1px solid var(--settings-divider);
+}
+
+.settings-skin-picker legend {
+    padding: 0;
+    color: var(--settings-field-text);
+    font-size: 13px;
+}
+
+.settings-skin-picker .settings-section-desc {
+    margin: 7px 0 11px;
+}
+
+.settings-skin-picker__cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.settings-skin-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 7px;
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.settings-skin-card:has(input:checked) {
+    border-color: var(--settings-focus-border, var(--settings-primary));
+    box-shadow: 0 0 0 1px var(--settings-focus-border, var(--settings-primary));
+}
+
+.settings-skin-card:has(input:focus-visible) {
+    outline: 2px solid var(--settings-focus-border, var(--settings-primary));
+    outline-offset: 2px;
+}
+
+.settings-skin-card input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.settings-skin-card__preview {
+    display: flex;
+    height: 70px;
+    overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid rgba(127, 127, 127, 0.12);
+}
+
+.settings-skin-card__rail {
+    width: 29%;
+    flex: none;
+    background: var(--skin-preview-rail);
+    border-right: 1px solid rgba(127, 127, 127, 0.14);
+}
+
+.settings-skin-card__page {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    background: var(--skin-preview-page);
+}
+
+.settings-skin-card__page i {
+    display: block;
+    width: 74%;
+    height: 3px;
+    background: var(--skin-preview-line);
+}
+
+.settings-skin-card__page i:first-child {
+    width: 55%;
+    height: 7px;
+    margin-bottom: 2px;
+    background: var(--skin-preview-heading);
+}
+
+.settings-skin-card__page i:last-child { width: 62%; }
+.settings-skin-card__preview--classic { --skin-preview-rail: #f2f3f5; --skin-preview-page: #fff; --skin-preview-heading: #323a43; --skin-preview-line: #ced3d7; }
+.settings-skin-card__preview--editorial { --skin-preview-rail: #f3eee4; --skin-preview-page: #f3eee4; --skin-preview-heading: #342e27; --skin-preview-line: #b5ab9d; }
+.settings-skin-card__preview--editorial .settings-skin-card__rail { border-right: 0; }
+.settings-skin-card__preview--editorial .settings-skin-card__rail::before {
+    content: 'm2.';
+    display: block;
+    margin: 9px 0 0 8px;
+    color: #9c4b37;
+    font-family: Georgia, serif;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.settings-skin-card__name {
+    margin: 8px 2px 2px;
+    color: var(--settings-field-text);
+    font-size: 12px;
+    font-weight: 650;
+}
+
+.settings-skin-card__detail {
+    min-height: 30px;
+    margin: 0 2px;
+    color: var(--settings-muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
 .settings-row {
     display: flex;
     align-items: center;

@@ -1,0 +1,585 @@
+/*
+ * 编辑部整体皮肤。
+ * 仅在 data-app-skin="editorial" 下生效；应用外壳与文档内容各自有独立
+ * 的变量域，避免皮肤规则污染经典外观或导出的 Markdown HTML。
+ */
+
+:root[data-app-skin='editorial'][data-theme-appearance='light'] {
+    --editorial-ink: #342e27;
+    --editorial-muted: #786f63;
+    --editorial-paper: #f3eee4;
+    --editorial-canvas: #f3eee4;
+    --editorial-rail: #f3eee4;
+    --editorial-rail-text: #342e27;
+    --editorial-rail-muted: #9b9081;
+    --editorial-rule: rgba(52, 46, 39, 0.13);
+    --editorial-seam: rgba(52, 46, 39, 0.2);
+    --editorial-accent: #9c4b37;
+    --sidebar-bg: var(--editorial-rail);
+    --sidebar-border: transparent;
+    --content-bg: var(--editorial-paper);
+    --body-text-color: var(--editorial-ink);
+    --text-color: var(--editorial-ink);
+    --text-secondary: var(--editorial-muted);
+    --tab-text-color: var(--editorial-muted);
+    --tab-hover-bg: transparent;
+    --tab-active-bg: transparent;
+    --tab-active-text-color: var(--editorial-ink);
+    --tab-active-border-color: transparent;
+    --tab-close-color: #a6a99f;
+    --tab-close-hover-color: var(--editorial-accent);
+    --tab-rename-bg: var(--editorial-paper);
+    --tab-rename-text: var(--editorial-ink);
+    --tab-hover-border-color: var(--editorial-accent);
+    --tab-focus-shadow-color: rgba(167, 67, 50, 0.19);
+    --status-bg: var(--editorial-paper);
+    --status-border: transparent;
+    --status-text: #646a63;
+    --status-muted: #858b83;
+    --status-pill-bg: transparent;
+    --status-pill-button-bg: var(--editorial-paper);
+    --status-pill-button-text: var(--editorial-ink);
+    --status-zoom-hover-bg: rgba(43, 45, 39, 0.08);
+    --app-accent: var(--editorial-accent);
+    --app-accent-hover: #862f25;
+    --border-color: var(--editorial-rule);
+    --scrollbar-thumb-color: #b7b4aa;
+    --scrollbar-thumb-hover-color: #96978e;
+    --settings-backdrop: rgba(29, 31, 27, 0.36);
+    --settings-surface: #faf8f2;
+    --settings-surface-contrast: var(--editorial-ink);
+    --settings-divider: rgba(43, 45, 39, 0.08);
+    --settings-muted: #777c74;
+    --settings-field-bg: #f0ede5;
+    --settings-field-text: var(--editorial-ink);
+    --settings-primary: var(--editorial-accent);
+    --settings-primary-hover: #862f25;
+    --settings-primary-text: #fff9f1;
+    --settings-ghost-border: #d5d0c5;
+    --settings-tab-bar-bg: #eeebe3;
+    --settings-tab-active-bg: #faf8f2;
+    --settings-focus-border: var(--editorial-accent);
+    --search-box-bg: var(--editorial-paper);
+    --search-box-border: var(--editorial-rule);
+    --search-box-shadow: 0 18px 48px rgba(35, 42, 37, 0.18);
+}
+
+:root[data-app-skin='editorial'][data-theme-appearance='dark'] {
+    --editorial-ink: #eee9de;
+    --editorial-muted: #afb5ab;
+    --editorial-paper: #252a26;
+    --editorial-canvas: #252a26;
+    --editorial-rail: #252a26;
+    --editorial-rail-text: #eee9de;
+    --editorial-rail-muted: #9ea89d;
+    --editorial-rule: rgba(238, 233, 222, 0.12);
+    --editorial-seam: rgba(238, 233, 222, 0.2);
+    --editorial-accent: #dc866e;
+    --sidebar-bg: var(--editorial-rail);
+    --sidebar-border: transparent;
+    --content-bg: var(--editorial-paper);
+    --body-text-color: var(--editorial-ink);
+    --text-color: var(--editorial-ink);
+    --text-secondary: var(--editorial-muted);
+    --tab-text-color: var(--editorial-muted);
+    --tab-hover-bg: transparent;
+    --tab-active-bg: transparent;
+    --tab-active-text-color: var(--editorial-ink);
+    --tab-active-border-color: transparent;
+    --tab-close-color: #899788;
+    --tab-close-hover-color: var(--editorial-accent);
+    --tab-rename-bg: var(--editorial-paper);
+    --tab-rename-text: var(--editorial-ink);
+    --tab-hover-border-color: var(--editorial-accent);
+    --tab-focus-shadow-color: rgba(220, 134, 110, 0.22);
+    --status-bg: var(--editorial-paper);
+    --status-border: transparent;
+    --status-text: #aeb8ab;
+    --status-muted: #8f9b8f;
+    --status-pill-bg: transparent;
+    --status-pill-button-bg: rgba(238, 233, 222, 0.06);
+    --status-pill-button-text: var(--editorial-ink);
+    --status-zoom-hover-bg: rgba(238, 233, 222, 0.1);
+    --app-accent: var(--editorial-accent);
+    --app-accent-hover: #f0a18a;
+    --border-color: var(--editorial-rule);
+    --scrollbar-thumb-color: #667267;
+    --scrollbar-thumb-hover-color: #879387;
+    --settings-backdrop: rgba(0, 0, 0, 0.55);
+    --settings-surface: #2d332e;
+    --settings-surface-contrast: var(--editorial-ink);
+    --settings-divider: rgba(238, 233, 222, 0.09);
+    --settings-muted: #abb4a9;
+    --settings-field-bg: #373d37;
+    --settings-field-text: var(--editorial-ink);
+    --settings-primary: var(--editorial-accent);
+    --settings-primary-hover: #f0a18a;
+    --settings-primary-text: #1d211c;
+    --settings-ghost-border: #515b50;
+    --settings-tab-bar-bg: #242a26;
+    --settings-tab-active-bg: #3a413a;
+    --settings-focus-border: var(--editorial-accent);
+    --search-box-bg: var(--editorial-paper);
+    --search-box-border: var(--editorial-rule);
+    --search-box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+}
+
+/* 空字体设置时使用书卷字体；用户自定义字体仍由根节点内联设置优先覆盖。 */
+:root[data-app-skin='editorial'] {
+    --editor-font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif;
+    --sidebar-row-height: 31px;
+    --sidebar-row-x: 18px;
+}
+
+/* 整个窗口共用同一纸色，层级主要交给字号、密度与留白。 */
+:root[data-app-skin='editorial'] #titlebar {
+    border-bottom: 0;
+    box-sizing: border-box;
+}
+
+:root[data-app-skin='editorial'] .titlebar-title {
+    color: var(--editorial-rail-text);
+    font-family: 'Iowan Old Style', 'Songti SC', Georgia, serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+}
+
+:root[data-app-skin='editorial'] .titlebar-btn {
+    color: var(--editorial-rail-text);
+}
+
+:root[data-app-skin='editorial'] .sidebar {
+    --text-color: var(--editorial-rail-text);
+    --text-secondary: var(--editorial-rail-muted);
+    --sidebar-section-title: var(--editorial-rail-muted);
+    --sidebar-row-hover-bg: color-mix(in srgb, var(--editorial-ink) 3%, transparent);
+    --sidebar-row-active-bg: transparent;
+    --file-selected-bg: transparent;
+    --file-icon-color: var(--editorial-rail-muted);
+    --folder-color: var(--editorial-rail-muted);
+    --sidebar-icon-muted: var(--editorial-rail-muted);
+    --app-text-regular: var(--editorial-rail-text);
+    --app-sidebar-divider: var(--sidebar-border);
+    --sidebar-row-radius: 0;
+    color: var(--editorial-rail-text);
+    border-right: 1px solid var(--editorial-seam);
+}
+
+/* 滚动区始终保留相同宽度；悬停只显露滑块，不让两行文件名重新折行。 */
+:root[data-app-skin='editorial'] .sidebar .section-content {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    scrollbar-gutter: stable;
+}
+
+:root[data-app-skin='editorial'] .sidebar .section-content:hover {
+    scrollbar-color: var(--editorial-rail-muted) transparent;
+}
+
+:root[data-app-skin='editorial'] .sidebar .section-content::-webkit-scrollbar-thumb {
+    background: transparent;
+}
+
+:root[data-app-skin='editorial'] .sidebar .section-content:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--editorial-rail-muted) 50%, transparent);
+}
+
+/* 小型印刷署名只负责识别；不把低频操作堆在页眉。 */
+.skin-masthead { display: none; }
+
+:root[data-app-skin='editorial'] .skin-masthead {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    margin: 12px 25px 4px;
+    min-height: 32px;
+    user-select: none;
+}
+
+:root[data-app-skin='editorial'] .skin-masthead__name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid var(--editorial-ink);
+    color: var(--editorial-ink);
+    line-height: 1;
+}
+
+:root[data-app-skin='editorial'] .skin-masthead__word {
+    font-family: 'Iowan Old Style', 'Baskerville', Georgia, serif;
+    font-size: 23px;
+    font-style: italic;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+}
+
+:root[data-app-skin='editorial'] .skin-masthead__edition {
+    color: var(--editorial-accent);
+    font-family: 'Iowan Old Style', 'Baskerville', Georgia, serif;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 600;
+    transform: translateY(-7px);
+}
+
+:root[data-app-skin='editorial'] .sidebar .section-header {
+    margin: 18px 25px 9px;
+    padding: 0 2px;
+    border-bottom: 0;
+}
+
+:root[data-app-skin='editorial'] .sidebar .section-title {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+/* 编辑部皮肤只保留折叠箭头；打开操作仍在应用的「文件」菜单中。 */
+:root[data-app-skin='editorial'] .sidebar .section-action-btn { display: none; }
+
+/* 文件名就是目录条目，收起重复的文件类型图标与卡片式底色。 */
+:root[data-app-skin='editorial'] .sidebar .open-file-icon,
+:root[data-app-skin='editorial'] .sidebar .tree-file-icon,
+:root[data-app-skin='editorial'] .sidebar .tree-folder-icon {
+    display: none;
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-item,
+:root[data-app-skin='editorial'] .sidebar .tree-file,
+:root[data-app-skin='editorial'] .sidebar .tree-folder-header {
+    font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif;
+    font-size: max(var(--sidebar-font-size, 12px), 13px);
+    letter-spacing: 0.01em;
+    box-sizing: border-box;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+/* 两行目录让长标题自然结束；真正的完整名称一直保留在 DOM 和悬停提示里。 */
+:root[data-app-skin='editorial'] .sidebar .open-file-name,
+:root[data-app-skin='editorial'] .sidebar .tree-item-name {
+    display: block;
+    white-space: normal;
+    line-height: 1.42;
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-name__prefix,
+:root[data-app-skin='editorial'] .sidebar .open-file-name__ellipsis,
+:root[data-app-skin='editorial'] .sidebar .open-file-name__suffix,
+:root[data-app-skin='editorial'] .sidebar .tree-item-name__prefix,
+:root[data-app-skin='editorial'] .sidebar .tree-item-name__ellipsis,
+:root[data-app-skin='editorial'] .sidebar .tree-item-name__suffix {
+    display: none;
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-name__full,
+:root[data-app-skin='editorial'] .sidebar .tree-item-name__full {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-item { padding-left: 13px; }
+:root[data-app-skin='editorial'] .sidebar .tree-file {
+    position: relative;
+    padding-left: 19px;
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-item.selected::before,
+:root[data-app-skin='editorial'] .sidebar .tree-file.selected::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 1px;
+    width: 3px;
+    height: 11px;
+    background: var(--editorial-accent);
+    transform: translateY(-50%);
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-item.selected,
+:root[data-app-skin='editorial'] .sidebar .tree-file.selected {
+    color: var(--editorial-accent);
+}
+
+:root[data-app-skin='editorial'] .sidebar .open-file-item.selected .open-file-name,
+:root[data-app-skin='editorial'] .sidebar .tree-file.selected .tree-item-name {
+    color: var(--editorial-accent);
+    font-weight: 600;
+}
+
+:root[data-app-skin='editorial'] .sidebar .tree-file,
+:root[data-app-skin='editorial'] .sidebar .tree-folder-header,
+:root[data-app-skin='editorial'] .sidebar .open-file-item {
+    border-radius: 2px;
+}
+
+/* 顶部是连续的操作区，靠近侧栏书脊；只有正文使用可调的居中页宽。 */
+:root[data-app-skin='editorial'] .tab-bar {
+    gap: 0;
+    padding-bottom: 0;
+    padding-inline: clamp(16px, 2vw, 28px);
+    margin-left: 0;
+    box-shadow: none;
+}
+
+:root[data-app-skin='editorial'] .tab-list {
+    gap: 2px;
+}
+
+:root[data-app-skin='editorial'] .tab {
+    min-height: 36px;
+    padding-inline: 4px;
+    margin-right: 22px;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    font-family: 'Iowan Old Style', 'Songti SC', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+:root[data-app-skin='editorial'] .tab.active {
+    border-bottom-color: var(--editorial-accent);
+}
+
+:root[data-app-skin='editorial'] .tab:hover { color: var(--editorial-ink); }
+
+:root[data-app-skin='editorial'] .tab:not(:hover):not(:focus-within) .tab-close {
+    opacity: 0;
+    pointer-events: none;
+}
+
+:root[data-app-skin='editorial'] .tab:hover .tab-close,
+:root[data-app-skin='editorial'] .tab:focus-within .tab-close {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+:root[data-app-skin='editorial'] .tab-new-btn { opacity: 0.45; }
+:root[data-app-skin='editorial'] .tab-new-btn:hover,
+:root[data-app-skin='editorial'] .tab-new-btn:focus-visible { opacity: 1; }
+
+:root[data-app-skin='editorial'] .pane-header--secondary {
+    border-left-color: var(--editorial-seam);
+    box-shadow: none;
+}
+
+/* 工具栏退居文字之后；悬停和键盘聚焦时恢复完整可见度。 */
+:root[data-app-skin='editorial'] .markdown-toolbar--light,
+:root[data-app-skin='editorial'] .markdown-toolbar--dark {
+    --toolbar-bg: var(--editorial-paper);
+    --toolbar-border: transparent;
+    --button-color: var(--editorial-muted);
+    --button-hover-bg: color-mix(in srgb, var(--editorial-accent) 9%, transparent);
+    --button-hover-color: var(--editorial-ink);
+    --button-active-bg: color-mix(in srgb, var(--editorial-accent) 17%, transparent);
+    --separator-color: var(--editorial-rule);
+    height: 37px;
+    padding-inline: clamp(16px, 2vw, 28px);
+    border-bottom: 0;
+}
+
+:root[data-app-skin='editorial'] .markdown-toolbar__right { border-left: 0; }
+
+:root[data-app-skin='editorial'] .markdown-toolbar__fixed,
+:root[data-app-skin='editorial'] .markdown-toolbar__flow,
+:root[data-app-skin='editorial'] .markdown-toolbar__right { gap: 5px; }
+
+:root[data-app-skin='editorial'] .markdown-toolbar .toolbar-separator { display: none; }
+
+:root[data-app-skin='editorial'] .markdown-toolbar .toolbar-button,
+:root[data-app-skin='editorial'] .markdown-toolbar .toolbar-separator {
+    opacity: 0.58;
+    transition: opacity 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+:root[data-app-skin='editorial'] .markdown-toolbar:hover .toolbar-button,
+:root[data-app-skin='editorial'] .markdown-toolbar:focus-within .toolbar-button,
+:root[data-app-skin='editorial'] .markdown-toolbar:hover .toolbar-separator,
+:root[data-app-skin='editorial'] .markdown-toolbar:focus-within .toolbar-separator {
+    opacity: 1;
+}
+
+:root[data-app-skin='editorial'] .toolbar-button,
+:root[data-app-skin='editorial'] .secondary-pane-action {
+    border-radius: 2px;
+}
+
+:root[data-app-skin='editorial'] .toolbar-select-panel,
+:root[data-app-skin='editorial'] .toolbar-overflow-panel,
+:root[data-app-skin='editorial'] .toolbar-ai-panel,
+:root[data-app-skin='editorial'] .search-box,
+:root[data-app-skin='editorial'] .settings-dialog,
+:root[data-app-skin='editorial'] .vault-panel,
+:root[data-app-skin='editorial'] .card-export-flow__panel {
+    border-color: var(--editorial-rule);
+    border-radius: 4px;
+    background: var(--editorial-paper);
+    color: var(--editorial-ink);
+}
+
+:root[data-app-skin='editorial'] .toolbar-ai-panel,
+:root[data-app-skin='editorial'] .toolbar-overflow-panel,
+:root[data-app-skin='editorial'] .toolbar-select-panel {
+    box-shadow: 0 12px 32px rgba(52, 46, 39, 0.13);
+    backdrop-filter: none;
+}
+
+:root[data-app-skin='editorial'] .toolbar-ai-panel__item:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--editorial-accent) 7%, transparent);
+    color: var(--editorial-ink);
+}
+
+:root[data-app-skin='editorial'] .toolbar-ai-panel__icon {
+    background: transparent;
+    color: var(--editorial-muted);
+}
+
+:root[data-app-skin='editorial'] .status-bar {
+    font-size: 10px;
+    font-family: Georgia, 'Songti SC', serif;
+    letter-spacing: 0.06em;
+    backdrop-filter: none;
+    border-top: 0;
+    padding-inline: 24px;
+}
+
+:root[data-app-skin='editorial'] .status-item-zoom { box-shadow: none; }
+:root[data-app-skin='editorial'] .status-zoom-btn {
+    border-radius: 2px;
+    background: transparent;
+    box-shadow: none;
+}
+
+:root[data-app-skin='editorial'] .toc-panel {
+    --toc-panel-bg: var(--editorial-paper);
+    border-left-color: var(--editorial-seam);
+}
+
+:root[data-app-skin='editorial'] .toc-panel[data-position='left'] {
+    border-left: 0;
+    border-right-color: var(--editorial-seam);
+}
+
+:root[data-app-skin='editorial'] .toc-panel__title {
+    color: var(--editorial-muted);
+    letter-spacing: 0.13em;
+}
+
+:root[data-app-skin='editorial'] .toc-panel:has(.toc-panel__empty[style*='display: flex']) .toc-panel__content {
+    flex: 0 0 auto;
+}
+
+:root[data-app-skin='editorial'] .toc-panel__empty {
+    justify-content: flex-start;
+    color: var(--editorial-muted);
+    font-family: 'Iowan Old Style', 'Songti SC', Georgia, serif;
+    text-align: left;
+}
+
+:root[data-app-skin='editorial'] .ai-file-task-sidebar {
+    --accent-color: var(--editorial-accent);
+    --ai-task-bg: var(--editorial-paper);
+    --ai-task-surface: color-mix(in srgb, var(--editorial-ink) 5%, transparent);
+    --ai-task-surface-hover: color-mix(in srgb, var(--editorial-ink) 9%, transparent);
+    --ai-task-border: transparent;
+    --ai-task-border-strong: var(--editorial-rule);
+    --ai-task-text: var(--editorial-ink);
+    --ai-task-muted: var(--editorial-muted);
+    border-left-color: var(--editorial-seam);
+}
+
+:root[data-app-skin='editorial'] .ai-file-task__badge {
+    border-radius: 0;
+    background: transparent;
+    color: var(--editorial-accent);
+    font-family: Georgia, serif;
+    font-style: italic;
+}
+
+:root[data-app-skin='editorial'] .ai-file-task-sidebar__heading strong {
+    font-family: 'Iowan Old Style', 'Songti SC', Georgia, serif;
+    font-weight: 600;
+}
+
+/* 外部文档保留自身页面色，只统一预览器的台面、空白边与加载状态。 */
+:root[data-app-skin='editorial'] .html-embed {
+    --html-preview-background: var(--editorial-paper);
+    box-sizing: border-box;
+    padding: 16px;
+}
+
+:root[data-app-skin='editorial'] .html-embed__frame {
+    box-shadow: 0 0 0 1px var(--editorial-rule);
+}
+
+:root[data-app-skin='editorial'] .pdf-viewer__loading,
+:root[data-app-skin='editorial'] .pdf-viewer__empty {
+    background: var(--editorial-paper);
+    color: var(--editorial-muted);
+}
+
+:root[data-app-skin='editorial'] .pdf-viewer__loading-text { color: var(--editorial-muted); }
+:root[data-app-skin='editorial'] .pdf-viewer__spinner {
+    border-color: var(--editorial-rule);
+    border-top-color: var(--editorial-accent);
+}
+
+:root[data-app-skin='editorial'] .pdf-viewer__page {
+    border-radius: 1px;
+    box-shadow: 0 5px 24px rgba(52, 46, 39, 0.12);
+}
+
+:root[data-app-skin='editorial'] .code-editor-pane {
+    background: var(--editorial-canvas);
+}
+
+:root[data-app-skin='editorial'] .code-editor__instance {
+    margin: 0;
+    border: 0;
+    background: var(--editorial-paper);
+    box-shadow: none;
+}
+
+/* 正文以栏目留白嵌入窗口，而不是再铺一层“卡片纸”。 */
+:root[data-app-skin='editorial'] .view-pane.markdown-pane {
+    background: var(--editorial-canvas);
+}
+
+:root[data-app-skin='editorial'] .view-pane.markdown-pane .markdown-content {
+    width: 100%;
+    max-width: 960px;
+    min-height: 100%;
+    margin: 0 auto;
+    padding: clamp(52px, 7vw, 96px) clamp(36px, 8vw, 120px) 110px;
+    border: 0;
+    background: var(--editorial-paper);
+    box-shadow: none;
+}
+
+:root[data-app-skin='editorial'] .view-pane.markdown-pane .tiptap-editor {
+    padding-top: 0;
+}
+
+/* 居中模式已有页宽手柄，避免与皮肤的栏目宽度限制叠加两次。 */
+:root[data-app-skin='editorial'] .view-pane.markdown-pane.content-centered .markdown-content {
+    max-width: none;
+}
+
+@media (max-width: 720px) {
+    :root[data-app-skin='editorial'] .skin-masthead { margin: 10px 18px 4px; }
+    :root[data-app-skin='editorial'] .tab-bar,
+    :root[data-app-skin='editorial'] .markdown-toolbar--light,
+    :root[data-app-skin='editorial'] .markdown-toolbar--dark {
+        padding-inline: 14px;
+    }
+    :root[data-app-skin='editorial'] .view-pane.markdown-pane .markdown-content {
+        padding: 30px 24px 48px;
+    }
+}

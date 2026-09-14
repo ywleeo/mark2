@@ -1,0 +1,154 @@
+/*
+ * 编辑部皮肤的 Markdown 主题。
+ * 独立于应用外壳 CSS，HTML/图片/PDF 导出可按现有主题管线复用。
+ */
+
+[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance='light'],
+[data-theme-appearance='light'] .markdown-content {
+    --editorial-md-ink: #342e27;
+    --editorial-md-muted: #786f63;
+    --editorial-md-accent: #9c4b37;
+    --editorial-md-rule: rgba(52, 46, 39, 0.16);
+    --editorial-md-surface: #eae3d7;
+    --editorial-md-code: #493e34;
+    color: var(--editorial-md-ink);
+    background-color: #f3eee4;
+}
+
+[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance='dark'],
+[data-theme-appearance='dark'] .markdown-content {
+    --editorial-md-ink: #eee9de;
+    --editorial-md-muted: #b7bdb2;
+    --editorial-md-accent: #dc866e;
+    --editorial-md-rule: rgba(238, 233, 222, 0.17);
+    --editorial-md-surface: #303630;
+    --editorial-md-code: #e1d7c7;
+    color: var(--editorial-md-ink);
+    background-color: #252a26;
+}
+
+/* 字阶只在完整皮肤中调整，保持正文行距与用户字体设置不变。 */
+[data-theme-appearance] .tiptap-editor h1,
+.tiptap-editor[data-theme-appearance] h1 {
+    margin-top: 0.55em;
+    margin-bottom: 0.65em;
+    color: var(--editorial-md-ink);
+    font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif;
+    font-size: 2.5em;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    line-height: 1.25;
+}
+
+[data-theme-appearance] .tiptap-editor h2,
+.tiptap-editor[data-theme-appearance] h2 {
+    margin-top: 1.85em;
+    padding-bottom: 0;
+    border-bottom: 0;
+    color: var(--editorial-md-ink);
+    font-weight: 650;
+    letter-spacing: -0.015em;
+}
+
+[data-theme-appearance] .tiptap-editor h3,
+.tiptap-editor[data-theme-appearance] h3,
+[data-theme-appearance] .tiptap-editor h4,
+.tiptap-editor[data-theme-appearance] h4 {
+    color: var(--editorial-md-ink);
+}
+
+[data-theme-appearance] .tiptap-editor p,
+.tiptap-editor[data-theme-appearance] p {
+    color: var(--editorial-md-ink);
+}
+
+[data-theme-appearance] .tiptap-editor a,
+.tiptap-editor[data-theme-appearance] a {
+    color: var(--editorial-md-accent);
+    text-decoration-color: color-mix(in srgb, var(--editorial-md-accent) 48%, transparent);
+    text-underline-offset: 3px;
+}
+
+[data-theme-appearance] .tiptap-editor blockquote,
+.tiptap-editor[data-theme-appearance] blockquote {
+    margin: 1.4em 0;
+    padding: 0.25em 0 0.25em 1.1em;
+    border-left-width: 2px;
+    border-left-color: var(--editorial-md-accent);
+    background: transparent;
+    color: var(--editorial-md-muted);
+    font-style: normal;
+}
+
+[data-theme-appearance] .tiptap-editor blockquote p,
+.tiptap-editor[data-theme-appearance] blockquote p {
+    color: inherit;
+}
+
+[data-theme-appearance] .tiptap-editor :not(pre) > code,
+.tiptap-editor[data-theme-appearance] :not(pre) > code {
+    color: var(--editorial-md-accent);
+    background: var(--editorial-md-surface);
+    border-radius: 2px;
+}
+
+[data-theme-appearance] .tiptap-editor pre,
+.tiptap-editor[data-theme-appearance] pre {
+    border: 0;
+    border-radius: 2px;
+    background: var(--editorial-md-surface);
+    color: var(--editorial-md-code);
+    box-shadow: none;
+}
+
+[data-theme-appearance] .tiptap-editor pre code,
+.tiptap-editor[data-theme-appearance] pre code,
+[data-theme-appearance] .tiptap-editor pre code span:not([class]),
+.tiptap-editor[data-theme-appearance] pre code span:not([class]) {
+    color: inherit;
+    background: transparent;
+}
+
+[data-theme-appearance] .tiptap-editor hr,
+.tiptap-editor[data-theme-appearance] hr {
+    border-top-color: var(--editorial-md-rule);
+}
+
+[data-theme-appearance] .tiptap-editor table td,
+.tiptap-editor[data-theme-appearance] table td,
+[data-theme-appearance] .tiptap-editor table th,
+.tiptap-editor[data-theme-appearance] table th {
+    border-color: var(--editorial-md-rule);
+}
+
+[data-theme-appearance] .tiptap-editor table th,
+.tiptap-editor[data-theme-appearance] table th {
+    background: var(--editorial-md-surface);
+    color: var(--editorial-md-ink);
+}
+
+[data-theme-appearance] .tiptap-editor input[type='checkbox'],
+.tiptap-editor[data-theme-appearance] input[type='checkbox'] {
+    accent-color: var(--editorial-md-accent);
+}
+
+[data-theme-appearance] .tiptap-editor p.is-editor-empty:first-child::before,
+.tiptap-editor[data-theme-appearance] p.is-editor-empty:first-child::before {
+    color: var(--editorial-md-muted);
+}
+
+/* 代码高亮使用同一克制色系，避免与编辑部皮肤的强调色争夺视线。 */
+[data-theme-appearance] .hljs { color: var(--editorial-md-code); background: transparent; }
+[data-theme-appearance] .hljs-comment,
+[data-theme-appearance] .hljs-quote { color: var(--editorial-md-muted); }
+[data-theme-appearance] .hljs-keyword,
+[data-theme-appearance] .hljs-selector-tag,
+[data-theme-appearance] .hljs-deletion { color: var(--editorial-md-accent); }
+[data-theme-appearance] .hljs-string,
+[data-theme-appearance] .hljs-number,
+[data-theme-appearance] .hljs-literal { color: #60816c; }
+[data-theme-appearance='dark'] .hljs-string,
+[data-theme-appearance='dark'] .hljs-number,
+[data-theme-appearance='dark'] .hljs-literal { color: #a8c7a8; }

@@ -16,6 +16,7 @@ import { resolveLanguageSupport } from './LanguageSupport.js';
 import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
+    DEFAULT_CODE_FONT_FAMILY,
     DEFAULT_LINE_HEIGHT_RATIO,
     MIN_ZOOM_SCALE,
     MAX_ZOOM_SCALE,
@@ -628,7 +629,7 @@ export class CodeEditor {
             Math.ceil(zoomedFontSize)
         );
         const prefs = this.preferences || {};
-        const fontFamily = prefs.fontFamily || "'Menlo', 'Monaco', 'Courier New', monospace";
+        const fontFamily = prefs.fontFamily || DEFAULT_CODE_FONT_FAMILY;
         const fontWeight = (prefs.fontWeight || 400).toString();
 
         return EditorView.theme({

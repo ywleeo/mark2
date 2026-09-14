@@ -1,0 +1,68 @@
+/*
+ * 编辑部皮肤的 Windows 专项适配。
+ * 只协调 Windows 自绘标题栏与应用菜单；经典皮肤、macOS 和正文主题不受影响。
+ */
+
+:root.platform-windows[data-app-skin='editorial'] .titlebar-left {
+    padding-left: 15px;
+}
+
+:root.platform-windows[data-app-skin='editorial'] .titlebar-menu {
+    box-sizing: border-box;
+    width: 36px;
+    padding: 0 11px;
+    color: var(--editorial-muted);
+    opacity: 1;
+}
+
+:root.platform-windows[data-app-skin='editorial'] .titlebar-menu:hover,
+:root.platform-windows[data-app-skin='editorial'] .titlebar-menu:focus-visible {
+    color: var(--editorial-accent);
+    background: color-mix(in srgb, var(--editorial-ink) 5%, transparent);
+}
+
+:root.platform-windows[data-app-skin='editorial'] .titlebar-menu:focus-visible {
+    outline: 1px solid var(--editorial-accent);
+    outline-offset: -2px;
+}
+
+/* 主菜单与子菜单共用纸色、细线和轻阴影；深色模式由皮肤变量统一切换。 */
+:root.platform-windows[data-app-skin='editorial'] .app-menu,
+:root.platform-windows[data-app-skin='editorial'] .app-menu__submenu {
+    background: var(--editorial-paper);
+    border: 1px solid var(--editorial-seam);
+    border-radius: 3px;
+    box-shadow: 0 14px 32px rgba(52, 46, 39, 0.14);
+}
+
+:root.platform-windows[data-app-skin='editorial'][data-theme-appearance='dark'] .app-menu,
+:root.platform-windows[data-app-skin='editorial'][data-theme-appearance='dark'] .app-menu__submenu {
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+}
+
+:root.platform-windows[data-app-skin='editorial'] .app-menu__item:hover,
+:root.platform-windows[data-app-skin='editorial'] .app-menu__submenu .app-menu__item:hover {
+    background: color-mix(in srgb, var(--editorial-accent) 8%, transparent);
+}
+
+:root.platform-windows[data-app-skin='editorial'] .app-menu__label {
+    color: var(--editorial-ink);
+    font-family: Georgia, 'Noto Serif CJK SC', 'SimSun', serif;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+:root.platform-windows[data-app-skin='editorial'] .app-menu__shortcut,
+:root.platform-windows[data-app-skin='editorial'] .app-menu__arrow {
+    color: var(--editorial-muted);
+    opacity: 1;
+}
+
+:root.platform-windows[data-app-skin='editorial'] .app-menu__separator {
+    background: var(--editorial-rule);
+}
+
+/* 危险操作仍保留警示色，不能被统一菜单文字色覆盖。 */
+:root.platform-windows[data-app-skin='editorial'] .app-menu__item.danger .app-menu__label {
+    color: var(--app-danger-text);
+}

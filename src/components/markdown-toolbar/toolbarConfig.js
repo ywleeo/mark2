@@ -125,10 +125,6 @@ export const BUTTON_CONFIG = {
         icon: uicon('document'),
         title: t('toolbar.toc')
     },
-    centerContent: {
-        icon: uicon('align-center'),
-        title: t('toolbar.centerContent')
-    },
     heading: {
         icon: textIcon('T', 'toolbar-icon--heading'),
         title: t('toolbar.heading')
@@ -180,7 +176,7 @@ export const TOOLBAR_GROUPS = {
         ['quote', 'codeBlock'],
         ['clearFormatting'],
         ['cardExport'],
-        ['centerContent', 'copy', 'shareLink'],
+        ['copy', 'shareLink'],
     ],
     right: ['aiWriting', 'toggleViewMode'],
 };

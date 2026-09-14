@@ -380,16 +380,21 @@ async function collectAllStyles(options = {}) {
 
     // 获取当前主题样式（从预加载的主题模块中获取，避免 Vite 开发模式下 fetch 返回 JS 模块）
     const themeLink = document.getElementById('markdown-theme-stylesheet');
-    let themeName = 'default';
-    if (themeLink && themeLink.href) {
-        // 从 href 中提取主题名称，如 "/styles/themes/emerald.css" -> "emerald"
-        const match = themeLink.href.match(/\/([^/]+)\.css(?:\?|$)/);
-        themeName = match?.[1] || 'default';
-    }
+    // 生产构建后的 CSS 文件名带 hash，优先读取加载器写入的稳定主题标识。
+    const themeName = themeLink?.dataset.themeName || 'default';
     const themeStyles = getThemeStyles(themeName);
     if (themeStyles) {
         styles.push(themeStyles);
     }
+    // 经典导出保持原样；纸页皮肤使用与编辑器一致的纸色和默认字体。
+    const isEditorial = themeName === 'editorial';
+    const exportBackground = isEditorial ? '#f3eee4' : '#ffffff';
+    const exportFontOverride = isEditorial
+        ? `:root { --editor-font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif; }`
+        : `:root { --editor-font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }
+.tiptap-editor, .ProseMirror, .tiptap-editor *, .ProseMirror * {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}`;
 
     // Include runtime-injected <style> tags (e.g., editor/theme plugins).
     // 过滤掉包含主题选择器的样式，避免覆盖用户选择的主题
@@ -409,7 +414,7 @@ body {
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     line-height: 1.6;
-    background: #ffffff;
+    background: ${exportBackground};
 }
 .view-pane {
     height: auto !important;
@@ -452,12 +457,7 @@ body {
     display: block !important;
     position: static !important;
 }
-:root {
-    --editor-font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-}
-.tiptap-editor, .ProseMirror, .tiptap-editor *, .ProseMirror * {
-    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-}
+${exportFontOverride}
 .mark2-export-branding {
     text-align: right;
     padding: 15mm 0 0 0;
@@ -499,7 +499,7 @@ body {
         max-width: 210mm;
         margin: 0 auto;
         padding: 20mm 15mm;
-        background: #ffffff;
+        background: ${exportBackground};
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         box-sizing: border-box;
     }
@@ -508,7 +508,7 @@ body {
     body {
         margin: 0;
         padding: 0;
-        background: #ffffff;
+        background: ${exportBackground};
     }
     .mark2-export-wrapper--a4 {
         max-width: 100%;
@@ -569,6 +569,20 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+}
+        `);
+    }
+
+    if (isEditorial) {
+        styles.push(`
+.mark2-export-branding__label,
+.mark2-a4-footer__label {
+    background: transparent !important;
+    color: #9c4b37 !important;
+    font-family: Georgia, serif;
+    font-style: normal;
+    letter-spacing: 0.18em;
+    padding: 0;
 }
         `);
     }

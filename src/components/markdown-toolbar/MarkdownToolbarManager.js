@@ -7,7 +7,6 @@ import { aiService } from '../../modules/ai-assistant/aiService.js';
 const store = createStore('toolbar');
 store.migrateFrom('markdown-toolbar-theme', 'theme', { parse: 'raw' });
 store.migrateFrom('markdown-toolbar-visible', 'visible', { parse: (raw) => raw === 'true' });
-store.migrateFrom('markdown-content-centered', 'contentCentered', { parse: (raw) => raw === 'true' });
 const logger = createLogger('toolbar');
 
 /**
