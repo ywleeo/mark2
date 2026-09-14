@@ -267,6 +267,7 @@ const windowLifecycle = createWindowLifecycle({
     getViewManager: () => viewManager,
     getHandleSettingsSubmit: () => handleSettingsSubmit,
     getPersistWorkspaceState: () => persistWorkspaceState,
+    getOpenPathsFromSelection: () => openPathsFromSelection,
 });
 const {
     updateWindowTitle,
