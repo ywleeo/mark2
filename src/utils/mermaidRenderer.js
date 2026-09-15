@@ -750,6 +750,14 @@ function parseChartValues(mermaidCode, type = 'bar') {
     return match ? match[1].split(',').map(v => v.trim()) : [];
 }
 
+/**
+ * 判断 Mermaid 源码是否包含可用于数值提示的图表数据。
+ * 流程图同样由 rect 组成，必须先用源码类型隔离，避免把节点误判成柱形并画出竖线。
+ */
+export function hasInteractiveChartValues(mermaidCode) {
+    return parseChartValues(mermaidCode, 'bar').length > 0 || parseChartValues(mermaidCode, 'line').length > 0;
+}
+
 function parseXLabels(mermaidCode) {
     if (!mermaidCode) return [];
     const match = mermaidCode.match(/x-axis\s*\[([^\]]+)\]/);
@@ -825,6 +833,9 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
     if (!svgElement) return;
     // xychart 的 tooltip 由 polishXYChart 处理
     if (svgElement.querySelector('[class*="bar-plot"], [class*="line-plot"]')) return;
+
+    // 流程图节点也是 rect；没有 bar/line 数据时不能创建柱形图的 hover 指示线。
+    if (!hasInteractiveChartValues(mermaidCode)) return;
 
     // 解析图表数值
     const values = parseChartValues(mermaidCode);

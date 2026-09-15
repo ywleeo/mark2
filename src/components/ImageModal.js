@@ -132,7 +132,7 @@ export class ImageModal {
     /**
      * @param {string} imgSrc
      * @param {string} imgAlt
-     * @param {{ width?: number, height?: number }} [hints] — fallback dimensions when naturalWidth is 0 (e.g. SVG data URLs)
+     * @param {{ width?: number, height?: number, preserveSvgColors?: boolean }} [hints] — SVG 尺寸与配色提示
      */
     show(imgSrc, imgAlt = '', hints = {}) {
         if (!imgSrc) return;
@@ -157,8 +157,10 @@ export class ImageModal {
             this._updateCursor();
         };
 
-        // SVG diagrams get dark mode filter via CSS class
-        this.img.classList.toggle('is-svg', imgSrc.startsWith('data:image/svg+xml'));
+        // Classic SVG 沿用深色反转；Editorial Mermaid 已带主题色时按提示原样保留。
+        const isSvg = imgSrc.startsWith('data:image/svg+xml');
+        this.img.classList.toggle('is-svg', isSvg);
+        this.img.classList.toggle('preserve-svg-colors', isSvg && hints.preserveSvgColors === true);
 
         // force fresh render — clear src first so browser re-decodes the image
         this.img.removeAttribute('src');

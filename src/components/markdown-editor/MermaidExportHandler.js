@@ -1,5 +1,36 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 
+/** 判断计算后的背景色是否仍为完全透明。 */
+function isTransparentColor(color) {
+    if (!color || color === 'transparent') return true;
+    return /^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/i.test(color.trim());
+}
+
+/**
+ * 从 SVG 向上寻找正文实际使用的不透明背景色，供独立预览的 SVG 画布复用。
+ * @param {Element|null} element - 当前 SVG 元素。
+ * @param {(element: Element) => CSSStyleDeclaration|object} readStyle - 可替换的样式读取函数。
+ * @param {string} fallback - 找不到背景色时使用的颜色。
+ */
+export function resolvePreviewBackgroundColor(
+    element,
+    readStyle = node => window.getComputedStyle(node),
+    fallback = '#fff',
+) {
+    let current = element;
+    while (current) {
+        const color = readStyle(current)?.backgroundColor;
+        if (!isTransparentColor(color)) return color;
+        current = current.parentElement;
+    }
+    return fallback;
+}
+
+/** Editorial Mermaid 自带明暗配色；Classic 仍需沿用全局 SVG 反色滤镜。 */
+export function shouldPreserveMermaidSvgColors(root = document.documentElement) {
+    return root?.dataset?.appSkin === 'editorial';
+}
+
 /**
  * 处理 Mermaid 图表点击：将 SVG 导出为 data URL 并通过 ImageModal 展示
  */
@@ -30,10 +61,10 @@ export class MermaidExportHandler {
                     bottom: parsePadding(svgStyles.paddingBottom),
                     left: parsePadding(svgStyles.paddingLeft),
                 };
-                const backgroundColor =
-                    svgStyles.backgroundColor && svgStyles.backgroundColor !== 'rgba(0, 0, 0, 0)'
-                        ? svgStyles.backgroundColor
-                        : '#fff';
+                const preserveSvgColors = shouldPreserveMermaidSvgColors();
+                const backgroundColor = preserveSvgColors
+                    ? resolvePreviewBackgroundColor(svgElement)
+                    : '#fff';
 
                 const clonedSvg = svgElement.cloneNode(true);
                 const bbox = typeof svgElement.getBBox === 'function' ? svgElement.getBBox() : null;
@@ -89,7 +120,11 @@ export class MermaidExportHandler {
                 const svgData = new XMLSerializer().serializeToString(clonedSvg);
                 const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`;
 
-                this.getImageModal()?.show(dataUrl, 'Mermaid 图表', { width: totalWidth, height: totalHeight });
+                this.getImageModal()?.show(dataUrl, 'Mermaid 图表', {
+                    width: totalWidth,
+                    height: totalHeight,
+                    preserveSvgColors,
+                });
             } catch (error) {
                 console.error('无法显示 Mermaid 图表:', error);
             }

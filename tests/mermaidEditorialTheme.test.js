@@ -4,7 +4,15 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createMermaidConfig, resolveMermaidThemeProfile } from '../src/config/mermaidThemes.js';
-import { allocateMermaidRenderId, rekeyCachedMermaidSvg } from '../src/utils/mermaidRenderer.js';
+import {
+    resolvePreviewBackgroundColor,
+    shouldPreserveMermaidSvgColors,
+} from '../src/components/markdown-editor/MermaidExportHandler.js';
+import {
+    allocateMermaidRenderId,
+    hasInteractiveChartValues,
+    rekeyCachedMermaidSvg,
+} from '../src/utils/mermaidRenderer.js';
 
 /** 创建只包含渲染器所需 dataset 的根节点替身。 */
 function createThemeRoot(appSkin, themeAppearance) {
@@ -50,16 +58,44 @@ test('Editorial Mermaid 配置覆盖主要图表类型', () => {
 
 /** Editorial 深色 SVG 使用原生深色配色，不能再经过 Classic 的反色滤镜。 */
 test('Editorial Mermaid 绕过 Classic 深色反色滤镜并支持分享导出', async () => {
-    const [editorCss, editorialCss, shareBuilder] = await Promise.all([
+    const [editorCss, editorialCss, imageModalCss, shareBuilder] = await Promise.all([
         readFile(new URL('../styles/editor.css', import.meta.url), 'utf8'),
         readFile(new URL('../styles/themes/editorial.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/image-modal.css', import.meta.url), 'utf8'),
         readFile(new URL('../src/modules/share/sharePageBuilder.js', import.meta.url), 'utf8'),
     ]);
 
     assert.match(editorCss, /data-theme-appearance='dark'\]:not\(\[data-app-skin='editorial'\]\).*\.mermaid svg/);
     assert.match(editorialCss, /\.mermaid svg\s*\{\s*filter: none !important;/);
+    assert.match(imageModalCss, /\.image-modal-img\.is-svg:not\(\.preserve-svg-colors\)/);
+    assert.match(imageModalCss, /\.image-modal-img\.is-svg\.preserve-svg-colors\s*\{\s*filter: none;/);
     assert.match(editorialCss, /font-family: var\(--editor-font-family/);
     assert.match(shareBuilder, /data-app-skin="\$\{settings\.skin\}" data-theme-appearance/);
+});
+
+/** Mermaid 预览复用正文画布颜色，透明的 SVG 自身不应回退成白底。 */
+test('Mermaid 预览继承最近的不透明正文背景', () => {
+    const editor = { parentElement: null, color: 'rgb(37, 42, 38)' };
+    const container = { parentElement: editor, color: 'rgba(0, 0, 0, 0)' };
+    const svg = { parentElement: container, color: 'rgba(0, 0, 0, 0)' };
+
+    assert.equal(
+        resolvePreviewBackgroundColor(svg, element => ({ backgroundColor: element.color })),
+        'rgb(37, 42, 38)',
+    );
+});
+
+/** 只有原生生成明暗配色的 Editorial SVG 才跳过弹窗滤镜。 */
+test('Mermaid 预览按皮肤选择原生配色或 Classic 反色滤镜', () => {
+    assert.equal(shouldPreserveMermaidSvgColors(createThemeRoot('editorial', 'dark')), true);
+    assert.equal(shouldPreserveMermaidSvgColors(createThemeRoot('classic', 'dark')), false);
+});
+
+/** 流程图矩形不是柱形数据，hover 时不应创建图表指示竖线。 */
+test('Mermaid 数值提示只识别含 bar 或 line 数据的图表', () => {
+    assert.equal(hasInteractiveChartValues('flowchart LR\nA[开始] --> B[结束]'), false);
+    assert.equal(hasInteractiveChartValues('xychart-beta\nbar [12, 18, 9]'), true);
+    assert.equal(hasInteractiveChartValues('xychart-beta\nline [2, 5, 8]'), true);
 });
 
 /** WebKit 主题重绘必须使用新 id，避免 Mermaid 命中页面里的旧 SVG 后生成空图。 */
