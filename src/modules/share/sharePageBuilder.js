@@ -78,7 +78,7 @@ export async function buildSharePageHtml({ markdown, currentFile = null, title =
     const htmlStyle = buildEditorVariableStyle(settings);
 
     return `<!doctype html>
-<html lang="zh-CN" data-app-skin="${settings.skin}" data-theme-appearance="${appearance}" style="${escapeHtmlAttribute(htmlStyle)}">
+<html lang="zh-CN" data-theme-appearance="${appearance}" style="${escapeHtmlAttribute(htmlStyle)}">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -248,7 +248,7 @@ export function applyEditorSettings(settings) {
     root.style.setProperty('--sidebar-font-size', `${prefs.sidebarFontSize}px`);
     root.style.setProperty('--toc-font-size', `${prefs.tocFontSize}px`);
 
-    notifyAppearanceChange(resolvedAppearance, appearancePreference, prefs.skin);
+    notifyAppearanceChange(resolvedAppearance, appearancePreference);
 }
 
 let prefersDarkMediaQuery = null;
@@ -257,7 +257,6 @@ let lastAppliedSettings = { ...defaultEditorSettings };
 let currentAppearancePreference = defaultEditorSettings.appearance;
 let lastNotifiedAppearance = null;
 let lastNotifiedPreference = null;
-let lastNotifiedSkin = null;
 const appearanceListeners = new Set();
 
 const themeAssets = import.meta.glob('../../styles/themes/*.css', {
@@ -319,22 +318,20 @@ function ensureSystemAppearanceListener() {
     }
 }
 
-function notifyAppearanceChange(resolvedAppearance, preference, skin) {
+function notifyAppearanceChange(resolvedAppearance, preference) {
     if (
         resolvedAppearance === lastNotifiedAppearance &&
-        preference === lastNotifiedPreference &&
-        skin === lastNotifiedSkin
+        preference === lastNotifiedPreference
     ) {
         return;
     }
 
     lastNotifiedAppearance = resolvedAppearance;
     lastNotifiedPreference = preference;
-    lastNotifiedSkin = skin;
 
     appearanceListeners.forEach(listener => {
         try {
-            listener({ appearance: resolvedAppearance, preference, skin });
+            listener({ appearance: resolvedAppearance, preference });
         } catch (error) {
             console.warn('appearance listener error', error);
         }

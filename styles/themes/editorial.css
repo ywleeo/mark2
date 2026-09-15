@@ -152,36 +152,3 @@
 [data-theme-appearance='dark'] .hljs-string,
 [data-theme-appearance='dark'] .hljs-number,
 [data-theme-appearance='dark'] .hljs-literal { color: #a8c7a8; }
-
-/* Mermaid 复用正文的纸墨体系；SVG 内的具体配色由渲染主题写入，导出时也能保留。 */
-[data-theme-appearance] .tiptap-editor .mermaid svg,
-.tiptap-editor[data-theme-appearance] .mermaid svg {
-    filter: none !important;
-}
-
-[data-theme-appearance] .tiptap-editor .mermaid svg text,
-.tiptap-editor[data-theme-appearance] .mermaid svg text,
-[data-theme-appearance] .tiptap-editor .mermaid svg foreignObject *,
-.tiptap-editor[data-theme-appearance] .mermaid svg foreignObject * {
-    font-family: var(--editor-font-family, 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif) !important;
-}
-
-[data-theme-appearance] .tiptap-editor .mermaid svg .node rect,
-.tiptap-editor[data-theme-appearance] .mermaid svg .node rect,
-[data-theme-appearance] .tiptap-editor .mermaid svg .node circle,
-.tiptap-editor[data-theme-appearance] .mermaid svg .node circle,
-[data-theme-appearance] .tiptap-editor .mermaid svg .node polygon,
-.tiptap-editor[data-theme-appearance] .mermaid svg .node polygon {
-    filter: none;
-}
-
-[data-theme-appearance] .tiptap-editor .mermaid svg .edgeLabel,
-.tiptap-editor[data-theme-appearance] .mermaid svg .edgeLabel {
-    background-color: var(--editorial-md-surface);
-    color: var(--editorial-md-ink);
-}
-
-[data-theme-appearance] .tiptap-editor .mermaid svg .labelBkg,
-.tiptap-editor[data-theme-appearance] .mermaid svg .labelBkg {
-    fill: var(--editorial-md-surface);
-}

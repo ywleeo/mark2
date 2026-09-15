@@ -1,8 +1,5 @@
-import { createMermaidConfig, resolveMermaidThemeProfile } from '../config/mermaidThemes.js';
-
 let mermaidPromise = null;
 let mermaidInstance = null;
-let configuredThemeKey = null;
 
 // Mermaid 的 Gantt 等图表会读取渲染宿主宽度计算 viewBox。这里使用稳定宽度，
 // 既避免宿主随窗口变化导致同一份缓存产生不同 SVG，也覆盖编辑器允许的最大页面宽度。
@@ -42,11 +39,6 @@ function hashCode(str) {
     return hash.toString(36);
 }
 
-/** 把皮肤签名并入缓存键，避免跨皮肤复用带有固定颜色的 SVG。 */
-function getMermaidCacheKey(code, profile) {
-    return `${profile.key}:${hashCode(code)}`;
-}
-
 async function loadMermaid() {
     if (mermaidInstance) {
         return mermaidInstance;
@@ -55,6 +47,84 @@ async function loadMermaid() {
         mermaidPromise = import('mermaid')
             .then(module => {
                 const mermaid = module?.default || module;
+                mermaid.initialize({
+                    startOnLoad: false,
+                    securityLevel: 'strict',
+                    theme: 'base',
+                    themeVariables: {
+                        // 基础
+                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                        fontSize: '13px',
+                        background: 'transparent',
+                        // 节点 — 淡蓝系
+                        primaryColor: '#eef4ff',
+                        primaryTextColor: '#2c3e50',
+                        primaryBorderColor: '#b8d4f0',
+                        // 节点 — 淡紫系
+                        secondaryColor: '#f3eeff',
+                        secondaryTextColor: '#2c3e50',
+                        secondaryBorderColor: '#d0c4ef',
+                        // 节点 — 淡绿系
+                        tertiaryColor: '#edf8f0',
+                        tertiaryTextColor: '#2c3e50',
+                        tertiaryBorderColor: '#b8e0c8',
+                        // 线条 — 柔灰
+                        lineColor: '#94a3b8',
+                        textColor: '#475569',
+                        // 特殊
+                        noteBkgColor: '#fffbeb',
+                        noteTextColor: '#64748b',
+                        noteBorderColor: '#e2d5a0',
+                        // subgraph
+                        clusterBkg: '#f8fafc',
+                        clusterBorder: '#cbd5e1',
+                        // 饼图 / 柱状图
+                        pie1: '#5b8ff9', pie2: '#5ad8a6', pie3: '#f6bd16',
+                        pie4: '#e86452', pie5: '#6dc8ec', pie6: '#945fb9',
+                        pie7: '#ff9845', pie8: '#1e9493', pie9: '#ff99c3',
+                        // XY 图表
+                        xyChart: {
+                            titleColor: '#475569',
+                            xAxisLabelColor: '#64748b',
+                            yAxisLabelColor: '#64748b',
+                            xAxisTitleColor: '#475569',
+                            yAxisTitleColor: '#475569',
+                            xAxisLineColor: '#e2e8f0',
+                            yAxisLineColor: '#e2e8f0',
+                        },
+                        // 其他
+                        activationBorderColor: '#5b8ff9',
+                        edgeLabelBackground: '#ffffffee',
+                    },
+                    flowchart: {
+                        curve: 'basis',
+                        padding: 16,
+                        nodeSpacing: 40,
+                        rankSpacing: 50,
+                        htmlLabels: true,
+                    },
+                    sequence: {
+                        // actor 框尺寸：默认 150x65 太大
+                        width: 120,
+                        height: 50,
+                        actorMargin: 60,
+                        boxMargin: 8,
+                        boxTextMargin: 4,
+                        noteMargin: 10,
+                        messageMargin: 32,
+                        actorFontSize: 13,
+                        actorFontWeight: 500,
+                        messageFontSize: 12,
+                        noteFontSize: 11,
+                        noteAlign: 'center',
+                    },
+                    xyChart: {
+                        width: 800,
+                        height: 450,
+                        chartOrientation: 'vertical',
+                        plotReservedSpacePercent: 60,
+                    },
+                });
                 mermaidInstance = mermaid;
                 return mermaidInstance;
             })
@@ -66,27 +136,30 @@ async function loadMermaid() {
     return mermaidPromise;
 }
 
-/** 按皮肤初始化 Mermaid；同一主题批次只初始化一次。 */
-function configureMermaid(mermaid, profile) {
-    if (configuredThemeKey === profile.key) return;
-    mermaid.initialize(createMermaidConfig(profile));
-    configuredThemeKey = profile.key;
-}
+// ── 流程图配色方案（每个 subgraph 一套） ──
+// 配色设计：light mode 下偏淡，经 dark mode invert 后仍清晰
+const FLOWCHART_PALETTES = [
+    { bg: '#e0edff', border: '#6ea8fe', nodeBg: '#c5dbff', nodeBorder: '#4a90f4', text: '#1a3a6b', label: '#2563eb' },
+    { bg: '#ece5ff', border: '#a78bfa', nodeBg: '#ddd3fe', nodeBorder: '#8b6cf6', text: '#3b1d8e', label: '#7c3aed' },
+    { bg: '#fef0c7', border: '#f0b429', nodeBg: '#fde68a', nodeBorder: '#e09d13', text: '#78530a', label: '#c27803' },
+    { bg: '#d0f5e0', border: '#4ade80', nodeBg: '#a7f3d0', nodeBorder: '#22c55e', text: '#064e2b', label: '#16a34a' },
+    { bg: '#ffe0e0', border: '#f87171', nodeBg: '#fecaca', nodeBorder: '#ef4444', text: '#7f1d1d', label: '#dc2626' },
+    { bg: '#d5f5fd', border: '#38bdf8', nodeBg: '#b0e9fc', nodeBorder: '#0ea5e9', text: '#0c4a6e', label: '#0284c7' },
+];
 
 /**
  * 自动美化流程图：给 subgraph 和节点分配不同配色
  */
-function polishFlowchart(svgElement, profile) {
+function polishFlowchart(svgElement) {
     const allNodes = svgElement.querySelectorAll('.node');
     if (allNodes.length === 0) return; // 不是 flowchart
 
     const clusters = svgElement.querySelectorAll('.cluster');
-    const palettes = profile.flowchartPalettes;
 
     // 收集每个 cluster 的范围和配色
     const clusterInfos = [];
     clusters.forEach((cluster, i) => {
-        const palette = palettes[i % palettes.length];
+        const palette = FLOWCHART_PALETTES[i % FLOWCHART_PALETTES.length];
         const rect = cluster.querySelector('rect');
         if (!rect) return;
 
@@ -94,8 +167,8 @@ function polishFlowchart(svgElement, profile) {
         rect.style.fill = 'transparent';
         rect.style.stroke = palette.border;
         rect.style.strokeWidth = '1px';
-        rect.setAttribute('rx', String(profile.clusterRadius));
-        rect.setAttribute('ry', String(profile.clusterRadius));
+        rect.setAttribute('rx', '12');
+        rect.setAttribute('ry', '12');
 
         // cluster label 样式 + 移到左上角
         const labelEl = cluster.querySelector('.cluster-label');
@@ -155,12 +228,12 @@ function polishFlowchart(svgElement, profile) {
             }
         }
 
-        const p = bestCluster ? bestCluster.palette : palettes[0];
+        const p = bestCluster ? bestCluster.palette : FLOWCHART_PALETTES[0];
         shape.style.fill = p.nodeBg;
         shape.style.stroke = p.nodeBorder;
-        shape.style.strokeWidth = profile.nodeStrokeWidth;
-        shape.setAttribute('rx', String(profile.nodeRadius));
-        shape.setAttribute('ry', String(profile.nodeRadius));
+        shape.style.strokeWidth = '1.5px';
+        shape.setAttribute('rx', '8');
+        shape.setAttribute('ry', '8');
 
         // 节点文字
         const nodeLabel = node.querySelector('.nodeLabel');
@@ -172,26 +245,26 @@ function polishFlowchart(svgElement, profile) {
     // ── 连线加粗 ──
     const allPaths = svgElement.querySelectorAll('.edgePath path, .edgePaths path');
     for (const path of allPaths) {
-        path.style.setProperty('stroke-width', profile.edgeStrokeWidth, 'important');
+        path.style.setProperty('stroke-width', '2px', 'important');
     }
 
     // cluster 边框加粗
     for (const cluster of clusters) {
         const rect = cluster.querySelector('rect');
-        if (rect) rect.style.setProperty('stroke-width', profile.nodeStrokeWidth, 'important');
+        if (rect) rect.style.setProperty('stroke-width', '1.5px', 'important');
     }
 }
 
 /**
  * 美化 sequence diagram：复用 flowchart 配色，让 actor/note/labelBox 与 flowchart node 风格一致
  */
-function polishSequence(svgElement, profile) {
+function polishSequence(svgElement) {
     const actorRects = svgElement.querySelectorAll('rect.actor, g.actor rect');
     if (actorRects.length === 0) return;
 
-    const blue   = profile.flowchartPalettes[0]; // actor
-    const purple = profile.flowchartPalettes[1]; // labelBox (par/loop)
-    const yellow = profile.flowchartPalettes[2]; // note
+    const blue   = FLOWCHART_PALETTES[0]; // actor
+    const purple = FLOWCHART_PALETTES[1]; // labelBox (par/loop)
+    const yellow = FLOWCHART_PALETTES[2]; // note
 
     const centerTextInRect = (rect, text) => {
         if (!rect || !text) return;
@@ -213,9 +286,9 @@ function polishSequence(svgElement, profile) {
     actorRects.forEach(rect => {
         rect.style.fill = blue.nodeBg;
         rect.style.stroke = blue.nodeBorder;
-        rect.style.strokeWidth = profile.nodeStrokeWidth;
-        rect.setAttribute('rx', String(profile.sequenceRadius));
-        rect.setAttribute('ry', String(profile.sequenceRadius));
+        rect.style.strokeWidth = '1.5px';
+        rect.setAttribute('rx', '6');
+        rect.setAttribute('ry', '6');
 
         const text = rect.parentNode?.querySelector?.('text.actor');
         centerTextInRect(rect, text);
@@ -227,7 +300,7 @@ function polishSequence(svgElement, profile) {
 
     // actor 之间的虚线竖线
     svgElement.querySelectorAll('line.actor-line').forEach(l => {
-        l.style.stroke = profile.lineColor;
+        l.style.stroke = '#94a3b8';
         l.style.strokeWidth = '1px';
         l.setAttribute('stroke-dasharray', '4 4');
     });
@@ -294,16 +367,16 @@ function polishSequence(svgElement, profile) {
 
     // ── 消息箭头 ──
     svgElement.querySelectorAll('line.messageLine0, path.messageLine0').forEach(p => {
-        p.style.stroke = profile.lineColor;
+        p.style.stroke = '#64748b';
         p.style.strokeWidth = '1.6px';
     });
     svgElement.querySelectorAll('line.messageLine1, path.messageLine1').forEach(p => {
-        p.style.stroke = profile.lineColor;
+        p.style.stroke = '#64748b';
         p.style.strokeWidth = '1.6px';
         p.setAttribute('stroke-dasharray', '5 4');
     });
     svgElement.querySelectorAll('text.messageText').forEach(t => {
-        t.style.fill = profile.textColor;
+        t.style.fill = '#475569';
     });
 
     // ── autonumber 圆圈 ──
@@ -315,7 +388,7 @@ function polishSequence(svgElement, profile) {
         }
     });
     svgElement.querySelectorAll('text.sequenceNumber').forEach(t => {
-        t.style.fill = profile.inverseTextColor;
+        t.style.fill = '#ffffff';
         t.style.fontWeight = '600';
     });
 
@@ -441,7 +514,7 @@ function thinAxisTicksByPosition(svgElement) {
 /**
  * 优化 xychart 的柱子宽度和折线平滑度
  */
-function polishXYChart(svgElement, mermaidCode, profile) {
+function polishXYChart(svgElement, mermaidCode) {
     const hasXY = svgElement.querySelector('[class*="bar-plot"], [class*="line-plot"]');
     if (!hasXY) return svgElement;
 
@@ -505,14 +578,14 @@ function polishXYChart(svgElement, mermaidCode, profile) {
         const smoothed = smoothLinePath(alignedD);
         if (smoothed) path.setAttribute('d', smoothed);
 
-        const stroke = path.getAttribute('stroke') || path.style.stroke || profile.flowchartPalettes[0].nodeBorder;
+        const stroke = path.getAttribute('stroke') || path.style.stroke || '#4a90d9';
         for (let pi = 0; pi < alignedPoints.length; pi++) {
             const [cx, cy] = alignedPoints[pi];
             const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             dot.setAttribute('cx', cx);
             dot.setAttribute('cy', cy);
             dot.setAttribute('r', '4');
-            dot.setAttribute('fill', profile.pointFill);
+            dot.setAttribute('fill', 'white');
             dot.setAttribute('stroke', stroke);
             dot.setAttribute('stroke-width', '2');
             dot.style.transition = 'all 0.15s ease';
@@ -564,8 +637,8 @@ function polishXYChart(svgElement, mermaidCode, profile) {
         hitRect.addEventListener('mouseenter', (e) => {
             for (const { dot } of col.dots) {
                 dot.setAttribute('r', '6.5');
-                dot.setAttribute('fill', profile.hoverColor);
-                dot.setAttribute('stroke', profile.hoverColor);
+                dot.setAttribute('fill', '#f59e0b');
+                dot.setAttribute('stroke', '#f59e0b');
                 dot.setAttribute('stroke-width', '2.5');
             }
             if (tipText) showTooltip(tipText, e);
@@ -576,7 +649,7 @@ function polishXYChart(svgElement, mermaidCode, profile) {
         hitRect.addEventListener('mouseleave', () => {
             for (const { dot, stroke } of col.dots) {
                 dot.setAttribute('r', '4');
-                dot.setAttribute('fill', profile.pointFill);
+                dot.setAttribute('fill', 'white');
                 dot.setAttribute('stroke', stroke);
                 dot.setAttribute('stroke-width', '2');
             }
@@ -925,7 +998,7 @@ function addTooltipsToNodes(svgElement, mermaidCode) {
 }
 
 // 渲染单个 mermaid 元素
-async function renderSingleMermaid(element, mermaid, profile) {
+async function renderSingleMermaid(element) {
     let code = '';
     let uniqueId = '';
     try {
@@ -940,7 +1013,7 @@ async function renderSingleMermaid(element, mermaid, profile) {
         }
 
         element.setAttribute('data-mermaid-code', encodeMermaidCode(code));
-        const cacheKey = getMermaidCacheKey(code, profile);
+        const cacheKey = hashCode(code);
 
         // 检查缓存。缓存 SVG 的二次后处理也可能抛错，需要与首次渲染同等保护。
         const cached = svgCache.get(cacheKey);
@@ -950,10 +1023,10 @@ async function renderSingleMermaid(element, mermaid, profile) {
             if (svgElement) {
                 svgElement.style.maxWidth = '100%';
                 stripSvgBackground(svgElement);
-                polishFlowchart(svgElement, profile);
-                polishSequence(svgElement, profile);
+                polishFlowchart(svgElement);
+                polishSequence(svgElement);
                 thinAxisTicks(svgElement);
-                const polished = polishXYChart(svgElement, code, profile) || svgElement;
+                const polished = polishXYChart(svgElement, code) || svgElement;
                 addTooltipsToNodes(polished, code);
             }
             element.setAttribute('data-processed', 'true');
@@ -967,6 +1040,7 @@ async function renderSingleMermaid(element, mermaid, profile) {
             `mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         element.setAttribute('data-mermaid-id', uniqueId);
 
+        const mermaid = await loadMermaid();
         element.classList.remove('mermaid--failed');
         const { svg } = await mermaid.render(uniqueId, code, getMermaidRenderHost());
         // mermaid 某些图（quadrant/pie/xychart）输出的 SVG 含 width=""/height="" 空属性，
@@ -985,10 +1059,10 @@ async function renderSingleMermaid(element, mermaid, profile) {
 
             // 移除 mermaid 内部的背景矩形
             stripSvgBackground(svgElement);
-            polishFlowchart(svgElement, profile);
-            polishSequence(svgElement, profile);
+            polishFlowchart(svgElement);
+            polishSequence(svgElement);
             thinAxisTicks(svgElement);
-            const polished = polishXYChart(svgElement, code, profile) || svgElement;
+            const polished = polishXYChart(svgElement, code) || svgElement;
 
             // 为节点添加 hover tooltip
             addTooltipsToNodes(polished, code);
@@ -1041,15 +1115,11 @@ export async function renderMermaidIn(rootElement) {
             return;
         }
 
-        const profile = resolveMermaidThemeProfile(document.documentElement);
-        const mermaid = await loadMermaid();
-        configureMermaid(mermaid, profile);
-
         // 先给所有元素设置占位高度（如果有缓存），避免重新渲染时页面高度抖动。
         targets.forEach(element => {
             const code = getMermaidCodeFromElement(element);
             if (code) {
-                const cacheKey = getMermaidCacheKey(code, profile);
+                const cacheKey = hashCode(code);
                 const cached = svgCache.get(cacheKey);
                 if (cached?.height) {
                     element.style.minHeight = cached.height + 'px';
@@ -1057,7 +1127,7 @@ export async function renderMermaidIn(rootElement) {
             }
         });
 
-        const results = await Promise.allSettled(targets.map(element => renderSingleMermaid(element, mermaid, profile)));
+        const results = await Promise.allSettled(targets.map(element => renderSingleMermaid(element)));
         results.forEach((result, index) => {
             if (result.status === 'rejected') {
                 const element = targets[index];
@@ -1075,13 +1145,4 @@ export async function renderMermaidIn(rootElement) {
  */
 export function invalidateMermaidTheme() {
     svgCache.clear();
-    configuredThemeKey = null;
-
-    if (typeof document === 'undefined') return;
-    const rendered = Array.from(document.querySelectorAll('.mermaid'));
-    if (rendered.length === 0) return;
-    rendered.forEach(element => element.setAttribute('data-processed', 'false'));
-    Promise.resolve(renderMermaidIn(document)).catch(error => {
-        console.warn('[MermaidRenderer] 主题切换后重新渲染失败', error);
-    });
 }
