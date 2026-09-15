@@ -4,10 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createMermaidConfig, resolveMermaidThemeProfile } from '../src/config/mermaidThemes.js';
-import {
-    resolvePreviewBackgroundColor,
-    shouldPreserveMermaidSvgColors,
-} from '../src/components/markdown-editor/MermaidExportHandler.js';
+import { shouldPreserveMermaidSvgColors } from '../src/components/markdown-editor/MermaidExportHandler.js';
 import {
     allocateMermaidRenderId,
     hasInteractiveChartValues,
@@ -71,18 +68,6 @@ test('Editorial Mermaid 绕过 Classic 深色反色滤镜并支持分享导出',
     assert.match(imageModalCss, /\.image-modal-img\.is-svg\.preserve-svg-colors\s*\{\s*filter: none;/);
     assert.match(editorialCss, /font-family: var\(--editor-font-family/);
     assert.match(shareBuilder, /data-app-skin="\$\{settings\.skin\}" data-theme-appearance/);
-});
-
-/** Mermaid 预览复用正文画布颜色，透明的 SVG 自身不应回退成白底。 */
-test('Mermaid 预览继承最近的不透明正文背景', () => {
-    const editor = { parentElement: null, color: 'rgb(37, 42, 38)' };
-    const container = { parentElement: editor, color: 'rgba(0, 0, 0, 0)' };
-    const svg = { parentElement: container, color: 'rgba(0, 0, 0, 0)' };
-
-    assert.equal(
-        resolvePreviewBackgroundColor(svg, element => ({ backgroundColor: element.color })),
-        'rgb(37, 42, 38)',
-    );
 });
 
 /** 只有原生生成明暗配色的 Editorial SVG 才跳过弹窗滤镜。 */

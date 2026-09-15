@@ -1,31 +1,5 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 
-/** 判断计算后的背景色是否仍为完全透明。 */
-function isTransparentColor(color) {
-    if (!color || color === 'transparent') return true;
-    return /^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/i.test(color.trim());
-}
-
-/**
- * 从 SVG 向上寻找正文实际使用的不透明背景色，供独立预览的 SVG 画布复用。
- * @param {Element|null} element - 当前 SVG 元素。
- * @param {(element: Element) => CSSStyleDeclaration|object} readStyle - 可替换的样式读取函数。
- * @param {string} fallback - 找不到背景色时使用的颜色。
- */
-export function resolvePreviewBackgroundColor(
-    element,
-    readStyle = node => window.getComputedStyle(node),
-    fallback = '#fff',
-) {
-    let current = element;
-    while (current) {
-        const color = readStyle(current)?.backgroundColor;
-        if (!isTransparentColor(color)) return color;
-        current = current.parentElement;
-    }
-    return fallback;
-}
-
 /** Editorial Mermaid 自带明暗配色；Classic 仍需沿用全局 SVG 反色滤镜。 */
 export function shouldPreserveMermaidSvgColors(root = document.documentElement) {
     return root?.dataset?.appSkin === 'editorial';
@@ -62,9 +36,6 @@ export class MermaidExportHandler {
                     left: parsePadding(svgStyles.paddingLeft),
                 };
                 const preserveSvgColors = shouldPreserveMermaidSvgColors();
-                const backgroundColor = preserveSvgColors
-                    ? resolvePreviewBackgroundColor(svgElement)
-                    : '#fff';
 
                 const clonedSvg = svgElement.cloneNode(true);
                 const bbox = typeof svgElement.getBBox === 'function' ? svgElement.getBBox() : null;
@@ -103,14 +74,7 @@ export class MermaidExportHandler {
                     translateGroup.appendChild(node);
                 });
 
-                const backgroundRect = document.createElementNS(svgNS, 'rect');
-                backgroundRect.setAttribute('x', 0);
-                backgroundRect.setAttribute('y', 0);
-                backgroundRect.setAttribute('width', totalWidth);
-                backgroundRect.setAttribute('height', totalHeight);
-                backgroundRect.setAttribute('fill', backgroundColor);
-                clonedSvg.insertBefore(backgroundRect, translateGroup);
-
+                // 保持画布透明，由弹窗统一提供背景色，避免暗色滤镜产生矩形色块。
                 clonedSvg.setAttribute('overflow', 'visible');
                 clonedSvg.setAttribute('width', totalWidth);
                 clonedSvg.setAttribute('height', totalHeight);

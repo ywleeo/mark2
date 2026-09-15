@@ -43,9 +43,10 @@
 /* image — no CSS transform/transition; JS fully controls transform */
 .image-modal-img {
     border-radius: 6px;
-    /* 透明图片不添加矩形投影，避免把图片画布边界误显示为黑色块。 */
+    /* Mermaid 画布保持透明，让图表自然融入弹窗的统一背景。 */
+    background: transparent;
     box-shadow: none;
-    cursor: zoom-in;
+    cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     pointer-events: auto;

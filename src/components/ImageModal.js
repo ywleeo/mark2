@@ -306,18 +306,14 @@ export class ImageModal {
     }
 
     _updateCursor() {
-        const isDefault = Math.abs(this.scale - 1) < 0.01;
-        this.img.style.cursor = isDefault ? 'zoom-in' : 'grab';
+        // 预览图在任何缩放比例下都支持平移，光标必须与实际交互一致。
+        this.img.style.cursor = 'grab';
     }
 
     // ── Drag / Pan ─────────────────────────────────────
 
     _startDrag(e) {
-        // 100% 默认尺寸下不允许拖拽
-        const isDefault = Math.abs(this.scale - 1) < 0.01 &&
-                          Math.abs(this.offsetX) < 2 && Math.abs(this.offsetY) < 2;
-        if (isDefault) return;
-
+        // 首次打开的 100% 状态也允许拖拽，无需先触发缩放来解锁平移。
         this._dragPending = true;
         this.isDragging = false;
         this.dragStartX = e.clientX;
