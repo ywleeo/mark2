@@ -149,9 +149,37 @@
 [data-theme-appearance] .hljs-string,
 [data-theme-appearance] .hljs-number,
 [data-theme-appearance] .hljs-literal { color: #60816c; }
-[data-theme-appearance='dark'] .hljs-string,
+
+/* 暗色代码块必须完整覆盖 highlight.css 的浅色 token，避免变量等继续使用深蓝色。 */
+[data-theme-appearance='dark'] .hljs-comment,
+[data-theme-appearance='dark'] .hljs-quote { color: #b7bdb2; }
+[data-theme-appearance='dark'] .hljs-keyword,
+[data-theme-appearance='dark'] .hljs-selector-tag,
+[data-theme-appearance='dark'] .hljs-subst { color: #ef9d86; }
+[data-theme-appearance='dark'] .hljs-literal,
 [data-theme-appearance='dark'] .hljs-number,
-[data-theme-appearance='dark'] .hljs-literal { color: #a8c7a8; }
+[data-theme-appearance='dark'] .hljs-addition,
+[data-theme-appearance='dark'] .hljs-attribute,
+[data-theme-appearance='dark'] .hljs-built_in,
+[data-theme-appearance='dark'] .hljs-symbol,
+[data-theme-appearance='dark'] .hljs-meta,
+[data-theme-appearance='dark'] .hljs-meta .hljs-keyword { color: #afc7c1; }
+[data-theme-appearance='dark'] .hljs-string,
+[data-theme-appearance='dark'] .hljs-doctag,
+[data-theme-appearance='dark'] .hljs-regexp,
+[data-theme-appearance='dark'] .hljs-template-variable,
+[data-theme-appearance='dark'] .hljs-variable,
+[data-theme-appearance='dark'] .hljs-attribute .hljs-string,
+[data-theme-appearance='dark'] .hljs-meta .hljs-string,
+[data-theme-appearance='dark'] .hljs-number,
+[data-theme-appearance='dark'] .hljs-literal { color: #b6cda7; }
+[data-theme-appearance='dark'] .hljs-title,
+[data-theme-appearance='dark'] .hljs-name,
+[data-theme-appearance='dark'] .hljs-section,
+[data-theme-appearance='dark'] .hljs-selector-id,
+[data-theme-appearance='dark'] .hljs-selector-class { color: #c7b5d7; }
+[data-theme-appearance='dark'] .hljs-link { color: #afc7c1; }
+[data-theme-appearance='dark'] .hljs-deletion { color: #efa79b; }
 
 /* Mermaid 复用正文的纸墨体系；SVG 内的具体配色由渲染主题写入，导出时也能保留。 */
 [data-theme-appearance] .tiptap-editor .mermaid svg,
