@@ -931,7 +931,7 @@
     font-size: 14px;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor .mermaid svg {
+:root[data-theme-appearance='dark']:not([data-app-skin='editorial']) .tiptap-editor .mermaid svg {
     filter: invert(0.88) hue-rotate(180deg);
 }
 
@@ -940,7 +940,7 @@
  * 外层 SVG filter 反转成深色。这里设置的是“反转前”的中性黑，最终显示为
  * 高对比浅灰；必须覆盖到 foreignObject 内的 p，不能只改 nodeLabel 容器。
  */
-:root[data-theme-appearance='dark'] .tiptap-editor .mermaid svg foreignObject * {
+:root[data-theme-appearance='dark']:not([data-app-skin='editorial']) .tiptap-editor .mermaid svg foreignObject * {
     color: #000000 !important;
 }
 
