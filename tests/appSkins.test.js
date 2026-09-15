@@ -20,6 +20,14 @@ test('编辑部皮肤使用专属 Markdown 主题', () => {
     assert.equal(resolveMarkdownTheme('classic', 'emerald'), 'emerald');
 });
 
+/** 用户选择的编辑器字体必须同时作用于编辑部主题的正文和一级标题。 */
+test('编辑部标题跟随用户选择的正文字体', async () => {
+    const css = await readFile(new URL('../styles/themes/editorial.css', import.meta.url), 'utf8');
+    const headingRule = css.match(/\.tiptap-editor\[data-theme-appearance\] h1\s*\{([^}]*)\}/)?.[1];
+
+    assert.match(headingRule || '', /font-family:\s*var\(--editor-font-family,/);
+});
+
 /** 外壳 CSS 必须通过皮肤标记隔离，防止经典主题被意外覆盖。 */
 test('编辑部外壳样式只在整体皮肤标记下生效', async () => {
     const css = await readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8');

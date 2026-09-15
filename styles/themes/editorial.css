@@ -35,7 +35,7 @@
     margin-top: 0.55em;
     margin-bottom: 0.65em;
     color: var(--editorial-md-ink);
-    font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif;
+    font-family: var(--editor-font-family, 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif);
     font-size: 2.5em;
     font-weight: 600;
     letter-spacing: -0.035em;
