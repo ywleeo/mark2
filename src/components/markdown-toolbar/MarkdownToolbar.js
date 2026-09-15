@@ -14,9 +14,9 @@ import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
 
 const store = createStore('toolbar');
-const CENTERED_WIDTH_MIN = 560;
-const CENTERED_WIDTH_MAX = 1180;
-const CENTERED_WIDTH_GUTTER = 56;
+const CENTERED_WIDTH_MIN = 360;
+const CENTERED_WIDTH_MAX = 1600;
+const CENTERED_WIDTH_GUTTER = 24;
 const CENTERED_WIDTH_EDGE_HIT_RADIUS = 18;
 const CENTERED_WIDTH_HANDLE_HALF_HEIGHT = 36;
 

@@ -924,7 +924,7 @@
 }
 
 .view-pane.markdown-pane.content-centered .markdown-content .tiptap-editor {
-    width: min(var(--markdown-centered-width, clamp(720px, 72%, 980px)), calc(100% - 56px));
+    width: min(var(--markdown-centered-width, clamp(720px, 72%, 980px)), calc(100% - 24px));
     max-width: none;
     margin-left: auto;
     margin-right: auto;

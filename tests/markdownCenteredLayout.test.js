@@ -48,3 +48,19 @@ test('Markdown 页宽恢复靠近边沿显示的短手柄', async () => {
     assert.match(css, /\.markdown-page-width-handle\s*\{[^}]*height:\s*72px/);
     assert.match(css, /\.markdown-page-width-handle\.is-visible/);
 });
+
+/**
+ * 验证页宽拖拽允许窄幅阅读和宽屏编辑，同时仅保留容纳手柄所需的边距。
+ */
+test('Markdown 页宽拖拽支持更大的缩放范围', async () => {
+    const source = await readFile(
+        new URL('../src/components/markdown-toolbar/MarkdownToolbar.js', import.meta.url),
+        'utf8',
+    );
+    const css = await readFile(new URL('../styles/markdown-toolbar.css', import.meta.url), 'utf8');
+
+    assert.match(source, /const CENTERED_WIDTH_MIN = 360/);
+    assert.match(source, /const CENTERED_WIDTH_MAX = 1600/);
+    assert.match(source, /const CENTERED_WIDTH_GUTTER = 24/);
+    assert.match(css, /calc\(100% - 24px\)/);
+});
