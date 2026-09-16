@@ -28,6 +28,7 @@ import { LinkHandler } from './LinkHandler.js';
 import { ImagePasteHandler } from './ImagePasteHandler.js';
 import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
+import { SourcePreservingMarkdownSerializer } from './SourcePreservingMarkdownSerializer.js';
 
 let markdownEditorInstanceSequence = 0;
 
@@ -165,6 +166,7 @@ export class MarkdownEditor {
         const markdownParser = createMarkdownParser(this.editor.schema);
         mdParser = markdownParser;
         const markdownSerializer = createMarkdownSerializer(this.editor.schema);
+        this.sourcePreservingSerializer = new SourcePreservingMarkdownSerializer({ markdownSerializer });
 
         // ── Feature managers ──
         this.codeCopyManager = new CodeCopyManager(this.element);
@@ -221,6 +223,8 @@ export class MarkdownEditor {
             getContentChanged: () => this.contentLoader.contentChanged,
             setOriginalMarkdown: (v) => { this.contentLoader.originalMarkdown = v; },
             setContentChanged: (v) => { this.contentLoader.contentChanged = v; },
+            getSourcePreservationState: () => this.contentLoader?.getSourcePreservationState?.() ?? null,
+            setSourcePreservationState: state => this.contentLoader?.restoreSourcePreservationState?.(state),
         });
 
         this.sourceScrollManager = new SourceScrollManager(
@@ -255,6 +259,7 @@ export class MarkdownEditor {
             getEditor: () => this.editor,
             markdownParser,
             markdownSerializer,
+            sourcePreservingSerializer: this.sourcePreservingSerializer,
             isUpdateSuppressed: () => this.suppressUpdateEvent,
             setUpdateSuppressed: (v) => { this.suppressUpdateEvent = v; },
             getTabStateManager: () => this.tabStateManager,

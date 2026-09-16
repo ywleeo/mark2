@@ -180,6 +180,17 @@ handleFileSelect
 
 编辑器（`MarkdownEditor` / `CodeEditor`）通过 `attachDocument(doc)` 统一接入 DocumentModel，dirty 基线从 doc 读取，不再依赖外部拼装的 `fileData`。同一文档绑定多个编辑器时，每个实例使用独立的 change source：本地编辑先提交模型，其他实例消费 `content` 事件更新视图，且同步事务不进入接收方撤销栈、不重复触发自动保存。
 
+### 1c. Markdown 源码保留序列化
+
+Markdown 所见即所得编辑不再在保存前将整棵 ProseMirror 文档重新生成为 Markdown。`SourcePreservingMarkdownSerializer` 在文件加载时记录顶层块与原始源码区间，保存时按以下优先级输出：
+
+1. 未编辑块直接复用原始字节，保留 Setext 标题、强调符号风格、空行、HTML 注释和引用定义。
+2. 仅文字变化时，在原块源码上替换对应文本，不改写外层 Markdown 标记。
+3. 列表层级、表格结构、mark 等结构变化时，只重新序列化所属顶层块，不扩散到其他块。
+4. 源码模式重新解析、文件重载或标签恢复时，同步重建对应的源码布局快照。
+
+`DocumentModel` 仍然保存完整内容真源，Rust 层仍以原子方式写入完整文件；“局部”指 Markdown 生成范围，不是在磁盘文件中做就地字节覆盖。
+
 ### 2. WorkspaceManager
 
 `WorkspaceManager` 承接工作区级快照的持久化与恢复。

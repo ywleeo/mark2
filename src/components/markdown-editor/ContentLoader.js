@@ -10,7 +10,7 @@ import {
     revokeUrls,
 } from '../../utils/imageResolver.js';
 import { ensureMarkdownTrailingEmptyLine } from '../../utils/markdownFormatting.js';
-import { extractFrontmatter, preprocessMarkdown, serializeMarkdown } from './MarkdownPreprocessor.js';
+import { extractFrontmatter, preprocessMarkdown } from './MarkdownPreprocessor.js';
 
 /**
  * 创建安全的 ProseMirror selection。
@@ -63,6 +63,7 @@ export function normalizeContentLoadArguments(sessionOrPath, maybeFilePath, mayb
  *   getEditor()            — TipTap editor 实例
  *   markdownParser         — Markdown → ProseMirror doc
  *   markdownSerializer     — ProseMirror doc → Markdown
+ *   sourcePreservingSerializer — 原始源码保留与局部序列化器
  *   isUpdateSuppressed()   — 当前是否抑制 update 事件
  *   setUpdateSuppressed(v) — 设置 update 事件抑制状态
  *   getTabStateManager()   — TabStateManager 实例
@@ -81,6 +82,7 @@ export class ContentLoader {
         getEditor,
         markdownParser,
         markdownSerializer,
+        sourcePreservingSerializer = null,
         isUpdateSuppressed,
         setUpdateSuppressed,
         getTabStateManager,
@@ -98,6 +100,7 @@ export class ContentLoader {
         this.getEditor = getEditor;
         this.markdownParser = markdownParser;
         this.markdownSerializer = markdownSerializer;
+        this.sourcePreservingSerializer = sourcePreservingSerializer;
         this.isUpdateSuppressed = isUpdateSuppressed;
         this.setUpdateSuppressed = setUpdateSuppressed;
         this.getTabStateManager = getTabStateManager;
@@ -297,6 +300,7 @@ export class ContentLoader {
             view.dispatch(tr);
 
             this.getTrailingParagraphManager()?.ensure();
+            this.sourcePreservingSerializer?.reset(bodyForParse, editor.state.doc);
         } finally {
             this.setUpdateSuppressed(false);
         }
@@ -322,18 +326,33 @@ export class ContentLoader {
         return true;
     }
 
-    /** 获取当前 Markdown 内容（未变更时直接返回原始缓存） */
+    /** 获取当前 Markdown 内容（未变更时返回原文，变更后仅重建受影响块） */
     getMarkdown() {
-        const body = serializeMarkdown({
-            contentChanged: this.contentChanged,
-            originalMarkdown: this.originalMarkdown,
-            markdownSerializer: this.markdownSerializer,
-            editor: this.getEditor(),
-        });
+        if (!this.contentChanged) return this.originalMarkdown;
+        const editor = this.getEditor();
+        const body = this.sourcePreservingSerializer?.serialize(editor?.state?.doc)
+            ?? this.markdownSerializer?.serialize(editor?.state?.doc)
+            ?? '';
         if (this.contentChanged && this._frontmatterRaw) {
             return this._frontmatterRaw + '\n' + body;
         }
         return body;
+    }
+
+    /**
+     * 返回当前标签页的源码布局快照。
+     * @returns {object|null} 源码保留状态。
+     */
+    getSourcePreservationState() {
+        return this.sourcePreservingSerializer?.snapshot?.() ?? null;
+    }
+
+    /**
+     * 恢复标签页的源码布局快照。
+     * @param {object|null} state - 之前保存的源码保留状态。
+     */
+    restoreSourcePreservationState(state) {
+        this.sourcePreservingSerializer?.restore?.(state);
     }
 
     /** 释放图片资源 */
@@ -350,6 +369,7 @@ export class ContentLoader {
         this.contentChanged = false;
         this.isLoadingFile = false;
         this._frontmatterRaw = '';
+        this.sourcePreservingSerializer?.reset('', null);
         this.applyDocumentMeta?.({});
         this.getSaveManager()?.clearAutoSaveTimer();
     }

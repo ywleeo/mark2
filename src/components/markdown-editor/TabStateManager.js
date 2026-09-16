@@ -11,6 +11,8 @@ export class TabStateManager {
      * @param {() => string} opts.getOriginalMarkdown
      * @param {(v: string) => void} opts.setOriginalMarkdown
      * @param {(v: boolean) => void} opts.setContentChanged
+     * @param {() => object|null} [opts.getSourcePreservationState]
+     * @param {(state:object|null)=>void} [opts.setSourcePreservationState]
      */
     constructor({
         getEditor,
@@ -20,6 +22,8 @@ export class TabStateManager {
         getContentChanged,
         setOriginalMarkdown,
         setContentChanged,
+        getSourcePreservationState = null,
+        setSourcePreservationState = null,
     }) {
         this._getEditor = getEditor;
         this._getScrollContainer = getScrollContainer;
@@ -28,6 +32,8 @@ export class TabStateManager {
         this._getContentChanged = getContentChanged;
         this._setOriginalMarkdown = setOriginalMarkdown;
         this._setContentChanged = setContentChanged;
+        this._getSourcePreservationState = getSourcePreservationState;
+        this._setSourcePreservationState = setSourcePreservationState;
         this._states = new Map();
     }
 
@@ -52,6 +58,7 @@ export class TabStateManager {
             currentMarkdown: this._getCurrentMarkdown(),
             originalMarkdown: this._getOriginalMarkdown(),
             contentChanged,
+            sourcePreservationState: this._getSourcePreservationState?.() ?? null,
             scrollTop: scrollContainer?.scrollTop ?? 0,
             lastActive: Date.now(),
         });
@@ -73,6 +80,7 @@ export class TabStateManager {
             currentMarkdown: savedMarkdown,
             originalMarkdown,
             contentChanged,
+            sourcePreservationState,
             scrollTop,
         } = snapshot;
 
@@ -87,6 +95,7 @@ export class TabStateManager {
             }
             this._setOriginalMarkdown(originalMarkdown);
             this._setContentChanged(Boolean(contentChanged));
+            this._setSourcePreservationState?.(sourcePreservationState ?? null);
             const scrollContainer = this._getScrollContainer();
             if (scrollContainer && typeof scrollTop === 'number') {
                 scrollContainer.scrollTop = scrollTop;

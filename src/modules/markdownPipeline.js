@@ -33,6 +33,17 @@ function getSourcepos(token) {
     return `${start + 1}:${end}`;
 }
 
+/**
+ * 从 markdown-it 表格单元格 token 中读取对齐语义。
+ * @param {object|null} token - th/td token。
+ * @returns {'left'|'center'|'right'|null} Markdown 列对齐方式。
+ */
+function getTableAlignment(token) {
+    const style = token?.attrGet?.('style') || '';
+    const match = style.match(/text-align\s*:\s*(left|center|right)/i);
+    return match ? match[1].toLowerCase() : null;
+}
+
 // 顶层 block 之间额外空行（用户在源码里特意留的视觉间距）按 markdown 语义会
 // 被合并成默认的一个空行。这里靠 markdown-it 给每个 block 留的 map 行号差，把多
 // 出来的空行还原成空的 paragraph token 注入到 token 流里，让 ProseMirror doc
@@ -278,16 +289,40 @@ export function createMarkdownParser(schema) {
         thead: { ignore: true },
         tbody: { ignore: true },
         tr: { block: 'tableRow', getAttrs: tok => ({ sourcepos: getSourcepos(tok) }) },
-        th: { block: 'tableHeader', getAttrs: tok => ({ sourcepos: getSourcepos(tok) }) },
-        td: { block: 'tableCell', getAttrs: tok => ({ sourcepos: getSourcepos(tok) }) },
+        th: {
+            block: 'tableHeader',
+            getAttrs: tok => ({
+                sourcepos: getSourcepos(tok),
+                markdownAlignment: getTableAlignment(tok),
+            }),
+        },
+        td: {
+            block: 'tableCell',
+            getAttrs: tok => ({
+                sourcepos: getSourcepos(tok),
+                markdownAlignment: getTableAlignment(tok),
+            }),
+        },
 
         html_inline: { ignore: true, noCloseToken: true },
         html_block: { ignore: true, noCloseToken: true },
 
         math_inline: { node: 'mathInline', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
-        math_inline_double: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
-        math_block: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
-        math_block_eqno: { node: 'mathBlock', noCloseToken: true, getAttrs: tok => ({ latex: tok.content || '' }) },
+        math_inline_double: {
+            node: 'mathBlock',
+            noCloseToken: true,
+            getAttrs: tok => ({ latex: tok.content || '', sourcepos: getSourcepos(tok) }),
+        },
+        math_block: {
+            node: 'mathBlock',
+            noCloseToken: true,
+            getAttrs: tok => ({ latex: tok.content || '', sourcepos: getSourcepos(tok) }),
+        },
+        math_block_eqno: {
+            node: 'mathBlock',
+            noCloseToken: true,
+            getAttrs: tok => ({ latex: tok.content || '', sourcepos: getSourcepos(tok) }),
+        },
         details: {
             block: 'detailsBlock',
             getAttrs: tok => ({
@@ -328,7 +363,7 @@ export function createMarkdownParser(schema) {
                 return;
             }
             if (info === 'csv' && csvBlockType) {
-                state.addNode(csvBlockType, { csv: content });
+                state.addNode(csvBlockType, { csv: content, sourcepos: getSourcepos(tok) });
                 return;
             }
             if (info === 'video' && videoBlockType) {
@@ -483,6 +518,8 @@ export function createMarkdownParser(schema) {
     if (parser.tokenHandlers.html_block) {
         parser.tokenHandlers.html_block = (state, tok) => {
             const content = tok.content || '';
+            const blockSourcepos = getSourcepos(tok);
+            let sourcePositionAssigned = false;
             let slice = null;
             try {
                 slice = parseHtmlFragment(schema, content, true);
@@ -501,7 +538,10 @@ export function createMarkdownParser(schema) {
                     return;
                 }
                 try {
-                    state.openNode(paragraphType, null);
+                    state.openNode(paragraphType, {
+                        sourcepos: sourcePositionAssigned ? null : blockSourcepos,
+                    });
+                    sourcePositionAssigned = true;
                     inlineBuffer.forEach(n => state.push(n));
                     state.closeNode();
                 } catch (err) {
@@ -516,7 +556,17 @@ export function createMarkdownParser(schema) {
                         inlineBuffer.push(node);
                     } else {
                         flushInline();
-                        try { state.push(node); }
+                        try {
+                            const nextNode = sourcePositionAssigned
+                                ? node
+                                : node.type.create(
+                                    { ...(node.attrs || {}), sourcepos: blockSourcepos },
+                                    node.content,
+                                    node.marks
+                                );
+                            sourcePositionAssigned = true;
+                            state.push(nextNode);
+                        }
                         catch (err) { console.warn('[markdown] push html_block node failed:', err); }
                     }
                 });
@@ -527,7 +577,7 @@ export function createMarkdownParser(schema) {
             // 解析不到任何可用节点，把原文当作纯文本兜底，避免内容丢失
             const fallback = extractInlineText(content).trim();
             if (fallback && paragraphType) {
-                state.openNode(paragraphType, null);
+                state.openNode(paragraphType, { sourcepos: blockSourcepos });
                 state.addText(fallback);
                 state.closeNode();
             }
@@ -826,7 +876,19 @@ export function createMarkdownSerializer(schema) {
 
             const headerLine = renderRow(headerRow);
             const headerCellCount = headerRow.childCount || 1;
-            const separator = `| ${Array.from({ length: headerCellCount }, () => '---').join(' | ')} |`;
+            const alignments = [];
+            headerRow.forEach(cell => alignments.push(cell.attrs?.markdownAlignment || null));
+            /** 根据原表格对齐属性生成 Markdown 分隔单元。 */
+            const separatorCell = alignment => {
+                if (alignment === 'center') return ':---:';
+                if (alignment === 'right') return '---:';
+                if (alignment === 'left') return ':---';
+                return '---';
+            };
+            const separator = `| ${Array.from(
+                { length: headerCellCount },
+                (_, index) => separatorCell(alignments[index])
+            ).join(' | ')} |`;
 
             state.write(headerLine);
             state.write(`\n${separator}`);
