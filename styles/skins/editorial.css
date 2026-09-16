@@ -43,8 +43,8 @@
     --app-accent: var(--editorial-accent);
     --app-accent-hover: #862f25;
     --border-color: var(--editorial-rule);
-    --scrollbar-thumb-color: #b7b4aa;
-    --scrollbar-thumb-hover-color: #96978e;
+    --scrollbar-thumb-color: var(--editorial-scrollbar-thumb);
+    --scrollbar-thumb-hover-color: var(--editorial-scrollbar-thumb-hover);
     --settings-backdrop: rgba(29, 31, 27, 0.36);
     --settings-surface: #faf8f2;
     --settings-surface-contrast: var(--editorial-ink);
@@ -103,8 +103,8 @@
     --app-accent: var(--editorial-accent);
     --app-accent-hover: #f0a18a;
     --border-color: var(--editorial-rule);
-    --scrollbar-thumb-color: #667267;
-    --scrollbar-thumb-hover-color: #879387;
+    --scrollbar-thumb-color: var(--editorial-scrollbar-thumb);
+    --scrollbar-thumb-hover-color: var(--editorial-scrollbar-thumb-hover);
     --settings-backdrop: rgba(0, 0, 0, 0.55);
     --settings-surface: #2d332e;
     --settings-surface-contrast: var(--editorial-ink);
@@ -129,6 +129,16 @@
     --editor-font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif;
     --sidebar-row-height: 31px;
     --sidebar-row-x: 18px;
+    --editorial-scrollbar-thumb: color-mix(
+        in srgb,
+        var(--editorial-rail-muted) 58%,
+        var(--editorial-paper)
+    );
+    --editorial-scrollbar-thumb-hover: color-mix(
+        in srgb,
+        var(--editorial-rail-muted) 82%,
+        var(--editorial-paper)
+    );
 }
 
 /* 整个窗口共用同一纸色，层级主要交给字号、密度与留白。 */
@@ -164,25 +174,6 @@
     --sidebar-row-radius: 0;
     color: var(--editorial-rail-text);
     border-right: 1px solid var(--editorial-seam);
-}
-
-/* 滚动区始终保留相同宽度；悬停只显露滑块，不让两行文件名重新折行。 */
-:root[data-app-skin='editorial'] .sidebar .section-content {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-    scrollbar-gutter: stable;
-}
-
-:root[data-app-skin='editorial'] .sidebar .section-content:hover {
-    scrollbar-color: var(--editorial-rail-muted) transparent;
-}
-
-:root[data-app-skin='editorial'] .sidebar .section-content::-webkit-scrollbar-thumb {
-    background: transparent;
-}
-
-:root[data-app-skin='editorial'] .sidebar .section-content:hover::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--editorial-rail-muted) 50%, transparent);
 }
 
 /* 小型印刷署名只负责识别；不把低频操作堆在页眉。 */

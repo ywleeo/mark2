@@ -140,15 +140,14 @@
     overflow-y: auto;
     overflow-y: overlay;
     overflow-x: hidden;
-    scrollbar-width: none;
+    /* 取消 body 传入的标准滚动条颜色，确保两种皮肤都走 2px WebKit 分支。 */
+    scrollbar-width: auto;
+    scrollbar-color: auto;
 }
 
+/* 侧栏滚动条由 layout.css 统一绘制，皮肤只提供颜色变量。 */
 .sidebar .section-content::-webkit-scrollbar {
     -webkit-appearance: none;
-}
-
-.sidebar .section-content:hover {
-    scrollbar-width: thin;
 }
 
 /* Section 收起时隐藏内容 */
