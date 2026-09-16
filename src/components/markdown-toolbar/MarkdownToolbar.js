@@ -6,14 +6,17 @@ import { ToolbarEmojiPicker } from './ToolbarEmojiPicker.js';
 import { ToolbarPlainMarkdownHandlers } from './ToolbarPlainMarkdownHandlers.js';
 import { ToolbarTipTapHandlers } from './ToolbarTipTapHandlers.js';
 import { ToolbarSelect } from './ToolbarSelect.js';
+import { ToolbarAiMenu } from './ToolbarAiMenu.js';
+import { dismissToolbarNotice, showToolbarNotice } from './ToolbarNotice.js';
 import { ToolbarOverflowMenu } from './ToolbarOverflowMenu.js';
+import { t } from '../../i18n/index.js';
 import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
 
 const store = createStore('toolbar');
-const CENTERED_WIDTH_MIN = 560;
-const CENTERED_WIDTH_MAX = 1180;
-const CENTERED_WIDTH_GUTTER = 56;
+const CENTERED_WIDTH_MIN = 360;
+const CENTERED_WIDTH_MAX = 1600;
+const CENTERED_WIDTH_GUTTER = 24;
 const CENTERED_WIDTH_EDGE_HIT_RADIUS = 18;
 const CENTERED_WIDTH_HANDLE_HALF_HEIGHT = 36;
 
@@ -33,6 +36,7 @@ export class MarkdownToolbar {
         this.emojiPicker = null;
         this.tocPanel = null;
         this.selects = [];
+        this.aiMenu = null;
         this.overflowMenu = null;
         this.resizeObserver = null;
         this._onWindowResize = null;
@@ -79,8 +83,8 @@ export class MarkdownToolbar {
         }
 
         // 工具栏是应用级单例，会在主栏/副栏之间来回切换目标编辑器；
-        // 副栏又是懒创建的，所以每次换栏都要重新投影一次居中排版状态。
-        this.syncCenteredContentState();
+        // 副栏又是懒创建的，所以每次换栏都要重新投影一次页宽偏好。
+        this.syncPageWidthLayout();
     }
 
     /**
@@ -139,7 +143,7 @@ export class MarkdownToolbar {
 
         left.append(fixed, divider, flow, this.overflowMenu.getElement());
 
-        // 右侧视图操作区：切换视图模式 / 复制 / 居中，始终可见
+        // 右侧常驻区：AI 入口与视图模式切换始终可见。
         const right = document.createElement('div');
         right.className = 'markdown-toolbar__right';
         TOOLBAR_GROUPS.right.forEach(type => this._appendItem(right, type));
@@ -162,8 +166,8 @@ export class MarkdownToolbar {
         };
         window.addEventListener('resize', this._onWindowResize);
 
-        // 恢复居中模式状态
-        this.restoreCenterContentState();
+        // Markdown 页宽是固定的全局布局偏好，工具栏只同步当前编辑栏的拖拽线。
+        this.syncPageWidthLayout();
 
         // 导航按钮初始状态 + 订阅历史变化
         this.updateNavButtons();
@@ -193,7 +197,22 @@ export class MarkdownToolbar {
      * 向容器追加一个工具栏项：下拉（SELECT_CONFIGS）或普通按钮
      */
     _appendItem(parent, type) {
-        if (SELECT_CONFIGS[type]) {
+        if (type === 'aiWriting') {
+            this.aiMenu = new ToolbarAiMenu({
+                icon: this.buttonConfig.aiWriting.icon,
+                getState: () => {
+                    dismissToolbarNotice();
+                    return this.options.getAiWritingState?.() || {};
+                },
+                onAction: payload => this.emit('ai-action', payload),
+                onMissingConfig: anchor => showToolbarNotice({
+                    anchor,
+                    title: t('aiWriting.noConfigTitle'),
+                    hint: t('aiWriting.noConfigHint'),
+                }),
+            });
+            parent.appendChild(this.aiMenu.getElement());
+        } else if (SELECT_CONFIGS[type]) {
             const select = new ToolbarSelect({
                 ...SELECT_CONFIGS[type],
                 onSelect: this._getSelectHandler(type),
@@ -239,6 +258,10 @@ export class MarkdownToolbar {
 
         this.selects.forEach(select => select.destroy());
         this.selects = [];
+
+        this.aiMenu?.destroy();
+        this.aiMenu = null;
+        dismissToolbarNotice();
 
         this.overflowMenu?.destroy();
         this.overflowMenu = null;
@@ -321,12 +344,6 @@ export class MarkdownToolbar {
         // 处理 TOC 按钮
         if (action === 'toc') {
             this.handleToc();
-            return;
-        }
-
-        // 处理居中排版按钮
-        if (action === 'centerContent') {
-            this.toggleCenterContent();
             return;
         }
 
@@ -566,43 +583,12 @@ export class MarkdownToolbar {
     }
 
     /**
-     * 切换内容居中模式
+     * 把全局 Markdown 页宽投影到主、副栏，并把原有页宽手柄挂到当前活动栏。
+     * 居中布局由面板创建时固定启用，不再依赖工具栏按钮或历史开关值。
      */
-    toggleCenterContent() {
-        store.set('contentCentered', !store.get('contentCentered'));
-        this.syncCenteredContentState();
-        return true;
-    }
-
-    /**
-     * 恢复居中模式状态
-     */
-    restoreCenterContentState() {
-        this.syncCenteredContentState();
-    }
-
-    /**
-     * 把居中排版偏好投影到全部 Markdown 面板，并把页宽手柄挂到当前活动栏。
-     * 居中是排版偏好而非单栏状态，所以主栏和副栏保持一致；
-     * 手柄只有一个，跟随工具栏当前操作的那一栏。
-     */
-    syncCenteredContentState() {
-        const isCentered = Boolean(store.get('contentCentered'));
-
-        document.querySelectorAll('.view-pane.markdown-pane').forEach((pane) => {
-            pane.classList.toggle('content-centered', isCentered);
-            this.applyCenteredContentWidth(pane);
-        });
-
-        const button = this.container?.querySelector('[data-action="centerContent"]');
-        button?.classList.toggle('toolbar-button--active', isCentered);
-
-        const activePane = isCentered ? this.getActiveMarkdownPane() : null;
-        if (activePane) {
-            this.enablePageWidthHandle(activePane);
-        } else {
-            this.disablePageWidthHandle();
-        }
+    syncPageWidthLayout() {
+        this.applyCenteredContentWidthToPanes();
+        this.enablePageWidthHandle(this.getActiveMarkdownPane());
     }
 
     /**
@@ -626,9 +612,7 @@ export class MarkdownToolbar {
             .forEach((pane) => this.applyCenteredContentWidth(pane));
     }
 
-    /**
-     * 开启居中排版页宽拖拽手柄。
-     */
+    /** 开启原有的短页宽手柄，靠近正文左右边沿时跟随鼠标显示。 */
     enablePageWidthHandle(markdownPane) {
         if (!markdownPane) return;
         if (this.pageWidthHandle?.parentElement === markdownPane) {
@@ -714,7 +698,7 @@ export class MarkdownToolbar {
             );
             const width = this.clampPageWidth(rawWidth, state.maxWidth);
             store.set('contentCenteredWidth', width);
-            // 页宽是全局排版偏好，拖拽时两栏一起变，避免副栏留着旧宽度。
+            // 页宽是正文排版偏好，拖拽时主、副栏一起变。
             this.applyCenteredContentWidthToPanes();
             this.pageWidthHoverState = { edge: state.edge, clientY: event.clientY };
             this.updatePageWidthHandlePosition();
@@ -761,9 +745,7 @@ export class MarkdownToolbar {
         requestAnimationFrame(() => this.updatePageWidthHandlePosition());
     }
 
-    /**
-     * 关闭并清理页宽拖拽手柄。
-     */
+    /** 关闭并清理页宽拖拽手柄。 */
     disablePageWidthHandle() {
         this.pageWidthCleanup?.();
         this.pageWidthCleanup = null;
@@ -776,18 +758,14 @@ export class MarkdownToolbar {
         this.pageWidthHandle = null;
     }
 
-    /**
-     * 隐藏未处于拖拽状态的页宽手柄。
-     */
+    /** 隐藏未处于拖拽状态的页宽手柄。 */
     hidePageWidthHandle() {
         if (this.pageWidthDragState) return;
         this.pageWidthHoverState = null;
         this.pageWidthHandle?.classList.remove('is-visible');
     }
 
-    /**
-     * 根据当前编辑器边界和指针纵坐标摆放页宽手柄。
-     */
+    /** 根据当前编辑器边界和指针纵坐标摆放页宽手柄。 */
     updatePageWidthHandlePosition() {
         const handle = this.pageWidthHandle;
         const hoverState = this.pageWidthHoverState;
@@ -795,7 +773,6 @@ export class MarkdownToolbar {
             handle?.classList.remove('is-visible');
             return;
         }
-        // 手柄就挂在它服务的那一栏里，直接用宿主面板，别再全局查一遍。
         const markdownPane = handle.parentElement;
         const editorEl = this.getCenteredEditorElement(markdownPane);
         if (!markdownPane || !editorEl) return;

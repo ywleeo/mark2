@@ -9,9 +9,9 @@
         if (navigator.userAgent.includes('Windows')) {
             document.documentElement.classList.add('platform-windows');
         }
-        // Restore theme appearance before CSS renders to prevent flash
+        // 在 CSS 渲染前恢复明暗模式和整体皮肤，避免启动时闪烁。
         try {
-            var s = JSON.parse(localStorage.getItem('mark2:editorSettings') || '{}');
+            var s = JSON.parse(localStorage.getItem('mark2:editor:settings') || localStorage.getItem('mark2:editorSettings') || '{}');
             var pref = s.appearance || 'system';
             var resolved = pref;
             if (pref === 'system') {
@@ -19,6 +19,7 @@
             }
             document.documentElement.dataset.themeAppearance = resolved;
             document.documentElement.dataset.themeAppearancePreference = pref;
+            document.documentElement.dataset.appSkin = s.skin === 'editorial' ? 'editorial' : 'classic';
             document.documentElement.style.setProperty('color-scheme', resolved);
         } catch(e) {}
     </script>
@@ -46,8 +47,12 @@
     <link rel="stylesheet" href="/styles/updater-toast.css">
     <link rel="stylesheet" href="/styles/ai-file-task.css">
     <link rel="stylesheet" href="/styles/vault.css">
-    <!-- Windows WebView2 平台性能降级必须最后加载，以覆盖各模块的高成本合成效果。 -->
+    <!-- 整体皮肤覆盖应用组件；Windows 平台性能规则和皮肤适配随后叠加。 -->
+    <link rel="stylesheet" href="/styles/skins/editorial.css">
+    <!-- Windows WebView2 平台性能降级。 -->
     <link rel="stylesheet" href="/styles/platform-windows.css">
+    <!-- 仅在 Windows 的编辑部皮肤下协调标题栏与应用菜单。 -->
+    <link rel="stylesheet" href="/styles/skins/editorial-windows.css">
 </head>
 <body>
     <!-- 自定义标题栏 -->

@@ -78,7 +78,7 @@ export function setupStatusBar({
         });
     }
 
-    // AI 当前文档任务入口：打开单工作稿侧栏，不保留聊天历史。
+    // AI 当前文档任务入口：与目录/翻译一致，重复点击切换侧栏显隐。
     const aiTaskBtn = document.getElementById('statusBarAiTask');
     if (aiTaskBtn) {
         addClickHandler(aiTaskBtn, () => {

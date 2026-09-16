@@ -1,65 +1,6 @@
 /* ====== 卡片字体 ====== */
 /* Google Fonts 在侧边栏打开时异步注入，避免阻塞启动（见 CardSidebar 组件） */
 
-/* ====== 编辑器右键菜单 ====== */
-
-.editor-context-menu {
-    position: fixed;
-    z-index: 9999;
-    display: flex;
-    max-width: calc(100vw - 24px);
-}
-
-.editor-context-menu.hidden { display: none; }
-
-.editor-context-menu--ai {
-    flex-direction: column;
-    align-items: stretch;
-    min-width: 148px;
-    min-height: 34px;
-    padding: 4px;
-    gap: 2px;
-    border: 1px solid rgba(89, 124, 255, 0.20);
-    border-radius: 10px;
-    background:
-        linear-gradient(135deg, rgba(92, 124, 255, 0.12), rgba(74, 202, 190, 0.07) 38%, rgba(255, 255, 255, 0.78) 39%, rgba(255, 255, 255, 0.94) 62%),
-        rgba(255, 255, 255, 0.94);
-    box-shadow: 0 14px 38px rgba(68, 88, 160, 0.14), 0 2px 8px rgba(15, 23, 42, 0.08);
-    color: rgba(31, 36, 44, 0.82);
-    font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
-    user-select: none;
-    backdrop-filter: blur(18px);
-}
-
-.editor-context-menu .ai-writing-menu__title {
-    align-self: flex-start;
-    margin: 0 0 2px;
-    background: linear-gradient(135deg, rgba(92, 124, 255, 0.18), rgba(74, 202, 190, 0.14));
-    color: rgba(48, 72, 150, 0.88);
-}
-
-.editor-context-menu .ai-writing-menu__button {
-    justify-content: flex-start;
-    width: 100%;
-    min-width: 0;
-    padding: 0 10px;
-    text-align: left;
-}
-
-:root[data-theme-appearance='dark'] .editor-context-menu--ai {
-    border-color: rgba(135, 170, 255, 0.22);
-    background:
-        linear-gradient(135deg, rgba(135, 170, 255, 0.12), rgba(94, 234, 212, 0.06) 44%, rgba(27, 29, 31, 0.94) 45%),
-        rgba(27, 29, 31, 0.94);
-    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34), 0 2px 8px rgba(0, 0, 0, 0.24);
-    color: rgba(226, 232, 240, 0.82);
-}
-
-:root[data-theme-appearance='dark'] .editor-context-menu .ai-writing-menu__title {
-    background: linear-gradient(135deg, rgba(135, 170, 255, 0.22), rgba(94, 234, 212, 0.15));
-    color: rgba(202, 215, 255, 0.92);
-}
-
 /* ====== 卡片导出浮层 ====== */
 
 .card-export-flow {

@@ -1,5 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createStore } from '../services/storage.js';
+import { normalizeAppSkin, resolveMarkdownTheme } from '../config/appSkins.js';
 
 const store = createStore('editor');
 store.migrateFrom('mark2:editorSettings', 'settings');
@@ -7,6 +8,7 @@ store.migrateFrom('mark2:editorSettings', 'settings');
 const VALID_APPEARANCES = new Set(['light', 'dark', 'system']);
 
 export const defaultEditorSettings = {
+    skin: 'classic',
     theme: 'default',
     appearance: 'system',
     fontSize: 16,
@@ -51,6 +53,8 @@ export function normalizeEditorSettings(candidate) {
     const prefs = { ...defaultEditorSettings };
 
     if (candidate && typeof candidate === 'object') {
+        prefs.skin = normalizeAppSkin(candidate.skin);
+
         if (typeof candidate.theme === 'string') {
             const theme = candidate.theme.trim() || 'default';
             prefs.theme = theme;
@@ -207,13 +211,14 @@ export function applyEditorSettings(settings) {
 
     root.dataset.themeAppearance = resolvedAppearance;
     root.dataset.themeAppearancePreference = appearancePreference;
+    root.dataset.appSkin = prefs.skin;
     root.style.setProperty('color-scheme', resolvedAppearance);
 
     // 同步原生窗口主题（影响 Windows 原生菜单栏颜色）
     const nativeTheme = appearancePreference === 'system' ? null : resolvedAppearance;
     getCurrentWindow().setTheme(nativeTheme).catch(() => {});
 
-    loadTheme(prefs.theme);
+    loadTheme(resolveMarkdownTheme(prefs.skin, prefs.theme));
 
     root.style.setProperty('--editor-font-size', `${prefs.fontSize}px`);
     root.style.setProperty('--editor-line-height', prefs.lineHeight.toString());
@@ -243,7 +248,7 @@ export function applyEditorSettings(settings) {
     root.style.setProperty('--sidebar-font-size', `${prefs.sidebarFontSize}px`);
     root.style.setProperty('--toc-font-size', `${prefs.tocFontSize}px`);
 
-    notifyAppearanceChange(resolvedAppearance, appearancePreference);
+    notifyAppearanceChange(resolvedAppearance, appearancePreference, prefs.skin);
 }
 
 let prefersDarkMediaQuery = null;
@@ -252,6 +257,7 @@ let lastAppliedSettings = { ...defaultEditorSettings };
 let currentAppearancePreference = defaultEditorSettings.appearance;
 let lastNotifiedAppearance = null;
 let lastNotifiedPreference = null;
+let lastNotifiedSkin = null;
 const appearanceListeners = new Set();
 
 const themeAssets = import.meta.glob('../../styles/themes/*.css', {
@@ -313,20 +319,22 @@ function ensureSystemAppearanceListener() {
     }
 }
 
-function notifyAppearanceChange(resolvedAppearance, preference) {
+function notifyAppearanceChange(resolvedAppearance, preference, skin) {
     if (
         resolvedAppearance === lastNotifiedAppearance &&
-        preference === lastNotifiedPreference
+        preference === lastNotifiedPreference &&
+        skin === lastNotifiedSkin
     ) {
         return;
     }
 
     lastNotifiedAppearance = resolvedAppearance;
     lastNotifiedPreference = preference;
+    lastNotifiedSkin = skin;
 
     appearanceListeners.forEach(listener => {
         try {
-            listener({ appearance: resolvedAppearance, preference });
+            listener({ appearance: resolvedAppearance, preference, skin });
         } catch (error) {
             console.warn('appearance listener error', error);
         }
@@ -356,6 +364,7 @@ function loadTheme(themeName) {
 
     const link = document.createElement('link');
     link.id = themeId;
+    link.dataset.themeName = theme;
     link.rel = 'stylesheet';
     link.href = href;
 

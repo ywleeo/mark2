@@ -15,7 +15,7 @@ export function setupViewPanes(appState) {
 
     // 创建所有视图面板
     viewContainer.innerHTML = `
-        <div class="view-pane markdown-pane is-active" data-pane="markdown"></div>
+        <div class="view-pane markdown-pane content-centered is-active" data-pane="markdown"></div>
         <div class="view-pane code-pane" data-pane="code"></div>
         <div class="view-pane image-pane" data-pane="image"></div>
         <div class="view-pane media-pane" data-pane="media"></div>

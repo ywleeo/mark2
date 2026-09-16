@@ -24,8 +24,11 @@ export const SourcePos = Extension.create({
                     'tableCell',
                     'tableHeader',
                     'mermaidBlock',
+                    'csvBlock',
                     'videoBlock',
+                    'mathBlock',
                     'detailsBlock',
+                    'htmlDiv',
                     'image',
                 ],
                 attributes: {
@@ -33,6 +36,18 @@ export const SourcePos = Extension.create({
                         default: null,
                         parseHTML: element => element.getAttribute('data-sourcepos'),
                         renderHTML: () => ({}),
+                    },
+                },
+            },
+            {
+                types: ['tableCell', 'tableHeader'],
+                attributes: {
+                    markdownAlignment: {
+                        default: null,
+                        parseHTML: element => element.getAttribute('data-markdown-alignment'),
+                        renderHTML: attributes => attributes.markdownAlignment
+                            ? { 'data-markdown-alignment': attributes.markdownAlignment }
+                            : {},
                     },
                 },
             },

@@ -228,7 +228,7 @@ appState.setCleanupFunction('appearanceChange', onEditorAppearanceChange(({ appe
     const markdownToolbarManager = appState.getMarkdownToolbarManager();
     codeEditor?.applyPreferences?.(appState.getEditorSettings());
     markdownToolbarManager?.setTheme?.(appearance);
-    // mermaid 颜色通过 CSS filter 即时适配，仅清缓存让下次编辑/加载用新主题
+    // Mermaid 的 SVG 含皮肤配色，外观或皮肤变化时清缓存并重绘当前文档。
     invalidateMermaidTheme();
 }));
 
@@ -267,6 +267,7 @@ const windowLifecycle = createWindowLifecycle({
     getViewManager: () => viewManager,
     getHandleSettingsSubmit: () => handleSettingsSubmit,
     getPersistWorkspaceState: () => persistWorkspaceState,
+    getOpenPathsFromSelection: () => openPathsFromSelection,
 });
 const {
     updateWindowTitle,

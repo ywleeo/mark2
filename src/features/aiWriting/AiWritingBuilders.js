@@ -60,7 +60,7 @@ function buildSelectionRewriteSystemPrompt(mode) {
  * @param {import('@tiptap/pm/state').EditorState} state - 当前编辑器状态
  * @param {string} selectedMarkdown - 已序列化的选区 Markdown
  * @param {string} markdown - 当前完整 Markdown
- * @param {{from:number,to:number}} [range] - 右键菜单捕获的原始选区范围
+ * @param {{from:number,to:number}} [range] - Toolbar 捕获的原始选区范围
  * @returns {{selectedText: string, beforeSelection: string, afterSelection: string, outline: string}}
  */
 export function buildSelectionRewriteContext(state, selectedMarkdown, markdown, range = state.selection) {
@@ -107,10 +107,11 @@ export function buildSelectionRewriteRequestBody({
  * @param {string} selectedMarkdown - 选区 Markdown，无选区为空
  * @param {string} markdown - 当前完整 Markdown
  * @param {{serialize: Function}|null} serializer - Markdown serializer
+ * @param {{from:number,to:number}|null} range - Toolbar 捕获的原始范围
  * @returns {{selectedText: string, beforeSelection: string, afterSelection: string, outline: string, completionContext: object}}
  */
-export function buildWritingIdeaContext(state, selectedMarkdown, markdown, serializer = null) {
-    const selection = state.selection;
+export function buildWritingIdeaContext(state, selectedMarkdown, markdown, serializer = null, range = null) {
+    const selection = range || state.selection;
     const from = selection?.from ?? 0;
     const to = selection?.to ?? from;
     const beforeText = state.doc.textBetween(0, from, '\n', '\n');

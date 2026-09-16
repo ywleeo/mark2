@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { buildDocumentContext } from '../src/modules/ai-file-task/DocumentContextBuilder.js';
 import {
@@ -159,6 +160,18 @@ test('关闭或重新打开面板后，旧文档任务会话立即失效', () =>
     const second = session.begin('/tmp/second.md');
     assert.equal(session.isCurrent(second), true);
     assert.equal(second.sourcePath, '/tmp/second.md');
+});
+
+test('状态栏 AI 按钮重复点击可切换工作稿侧栏显隐', async () => {
+    const [sidebarSource, bootstrapSource] = await Promise.all([
+        readFile(new URL('../src/modules/ai-file-task/AiFileTaskSidebar.js', import.meta.url), 'utf8'),
+        readFile(new URL('../src/app/appBootstrap.js', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(sidebarSource, /toggle\(\{ path \} = \{\}\)/);
+    assert.match(sidebarSource, /if \(this\.isVisible\)[\s\S]*this\.close\(\)/);
+    assert.match(sidebarSource, /this\.open\(\{ path \}\)/);
+    assert.match(bootstrapSource, /onAiDocumentTask: \(path\) => aiFileTaskSidebar\.toggle\(\{ path \}\)/);
 });
 
 /** 创建可在多个仓库实例间共享的内存存储。 */

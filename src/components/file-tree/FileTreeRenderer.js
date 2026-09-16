@@ -25,6 +25,7 @@ export class FileTreeRenderer {
 
         const header = document.createElement('div');
         header.className = `tree-folder-header ${isRoot ? 'root' : ''}`;
+        header.title = name;
 
         const folderIconClosed = `
             <svg class="tree-folder-icon tree-folder-icon-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -231,6 +232,10 @@ export class FileTreeRenderer {
      */
     initContainer() {
         this.fileTree.container.innerHTML = `
+            <!-- 编辑部皮肤仅保留小型文字署名；文件操作回到各自栏目。 -->
+            <div class="skin-masthead">
+                <span class="skin-masthead__name" role="img" aria-label="Mark2"><span class="skin-masthead__word" aria-hidden="true">Mark</span><span class="skin-masthead__edition" aria-hidden="true">2</span></span>
+            </div>
             <!-- 打开的文件区域 -->
             <div class="sidebar-section open-files-section">
                 <div class="section-header" id="openFilesHeader">

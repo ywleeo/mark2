@@ -27,7 +27,7 @@
 
 .code-editor__instance .cm-scroller {
     overflow: auto;
-    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
+    font-family: var(--code-font-family, Consolas, 'Cascadia Code', 'SFMono-Regular', Menlo, Monaco, monospace);
 }
 
 /* Scrollbar - 使用全局变量，和 markdown 编辑器一致 */
@@ -60,4 +60,3 @@
 .code-editor__instance .cm-content {
     padding: 5px 14px 5px 0;
 }
-

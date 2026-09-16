@@ -217,6 +217,7 @@ export function scheduleCompactFileNameRefresh(root = document) {
     });
 }
 
+/** 创建同时支持经典单行截断与书页皮肤多行排版的文件名节点。 */
 export function createCompactFileNameElement(className, name) {
     const label = document.createElement('span');
     label.className = className;
@@ -235,7 +236,12 @@ export function createCompactFileNameElement(className, name) {
     suffix.className = `${className}__suffix`;
     suffix.dataset.role = 'suffix';
 
-    label.append(prefix, ellipsis, suffix);
+    // 完整名称保留独立节点：书页皮肤可自然换行，经典皮肤仍沿用紧凑的中间截断。
+    const full = document.createElement('span');
+    full.className = `${className}__full`;
+    full.textContent = label.dataset.fullName;
+
+    label.append(prefix, ellipsis, suffix, full);
     // 不再单独调度 rAF：调用方会在容器层面统一触发 scheduleCompactFileNameRefresh，
     // 避免 N 个 label 各自触发 forced reflow，造成 layout thrashing。
     return label;

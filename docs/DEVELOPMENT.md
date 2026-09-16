@@ -442,10 +442,19 @@ element.addEventListener('dblclick', handleDoubleClick);
 至少执行：
 
 ```bash
+npm test
 npm run build
 cargo check
 git diff --check
 ```
+
+Markdown 解析、编辑或保存机制有变更时，还必须执行无损往返专项测试：
+
+```bash
+npm run test:markdown-roundtrip
+```
+
+真实 Markdown 样本位于 `tests/fixtures/markdown-roundtrip/`。遇到新的兼容性问题时，应先将最小可复现原文加入该语法库，再修复并保留为永久回归用例。
 
 如果改到了关键链路，还应补：
 

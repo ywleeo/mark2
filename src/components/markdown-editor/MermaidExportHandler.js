@@ -1,5 +1,10 @@
 import { addClickHandler } from '../../utils/PointerHelper.js';
 
+/** Editorial Mermaid 自带明暗配色；Classic 仍需沿用全局 SVG 反色滤镜。 */
+export function shouldPreserveMermaidSvgColors(root = document.documentElement) {
+    return root?.dataset?.appSkin === 'editorial';
+}
+
 /**
  * 处理 Mermaid 图表点击：将 SVG 导出为 data URL 并通过 ImageModal 展示
  */
@@ -30,10 +35,7 @@ export class MermaidExportHandler {
                     bottom: parsePadding(svgStyles.paddingBottom),
                     left: parsePadding(svgStyles.paddingLeft),
                 };
-                const backgroundColor =
-                    svgStyles.backgroundColor && svgStyles.backgroundColor !== 'rgba(0, 0, 0, 0)'
-                        ? svgStyles.backgroundColor
-                        : '#fff';
+                const preserveSvgColors = shouldPreserveMermaidSvgColors();
 
                 const clonedSvg = svgElement.cloneNode(true);
                 const bbox = typeof svgElement.getBBox === 'function' ? svgElement.getBBox() : null;
@@ -72,14 +74,7 @@ export class MermaidExportHandler {
                     translateGroup.appendChild(node);
                 });
 
-                const backgroundRect = document.createElementNS(svgNS, 'rect');
-                backgroundRect.setAttribute('x', 0);
-                backgroundRect.setAttribute('y', 0);
-                backgroundRect.setAttribute('width', totalWidth);
-                backgroundRect.setAttribute('height', totalHeight);
-                backgroundRect.setAttribute('fill', backgroundColor);
-                clonedSvg.insertBefore(backgroundRect, translateGroup);
-
+                // 保持画布透明，由弹窗统一提供背景色，避免暗色滤镜产生矩形色块。
                 clonedSvg.setAttribute('overflow', 'visible');
                 clonedSvg.setAttribute('width', totalWidth);
                 clonedSvg.setAttribute('height', totalHeight);
@@ -89,7 +84,11 @@ export class MermaidExportHandler {
                 const svgData = new XMLSerializer().serializeToString(clonedSvg);
                 const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgData)}`;
 
-                this.getImageModal()?.show(dataUrl, 'Mermaid 图表', { width: totalWidth, height: totalHeight });
+                this.getImageModal()?.show(dataUrl, 'Mermaid 图表', {
+                    width: totalWidth,
+                    height: totalHeight,
+                    preserveSvgColors,
+                });
             } catch (error) {
                 console.error('无法显示 Mermaid 图表:', error);
             }

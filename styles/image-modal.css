@@ -43,9 +43,10 @@
 /* image — no CSS transform/transition; JS fully controls transform */
 .image-modal-img {
     border-radius: 6px;
-    /* 透明图片不添加矩形投影，避免把图片画布边界误显示为黑色块。 */
+    /* Mermaid 画布保持透明，让图表自然融入弹窗的统一背景。 */
+    background: transparent;
     box-shadow: none;
-    cursor: zoom-in;
+    cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     pointer-events: auto;
@@ -161,10 +162,14 @@
     color: rgba(255, 255, 255, 0.9);
 }
 
-/* dark mode adaptation for SVG/mermaid diagrams */
-:root[data-theme-appearance='dark'] .image-modal-img.is-svg {
+/* 普通 SVG 在暗色模式下反转；自带主题配色的 Mermaid 预览保持原色。 */
+:root[data-theme-appearance='dark'] .image-modal-img.is-svg:not(.preserve-svg-colors) {
     filter: invert(0.88) hue-rotate(180deg);
     box-shadow: none;
+}
+
+.image-modal-img.is-svg.preserve-svg-colors {
+    filter: none;
 }
 
 .image-modal-divider {

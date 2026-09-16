@@ -1,7 +1,7 @@
 {
   "name": "mark2-tauri",
   "productName": "Mark2",
-  "version": "1.7.62",
+  "version": "1.7.64",
   "type": "module",
   "description": "一个基于 Tauri 的 Markdown 阅读器",
   "license": "MIT",
@@ -14,6 +14,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "test": "node --test",
+    "test:markdown-roundtrip": "node --test tests/markdownRoundTripCorpus.test.js tests/sourcePreservingMarkdownSerializer.test.js",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "tauri:build": "tauri build",

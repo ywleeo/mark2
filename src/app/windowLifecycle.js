@@ -20,6 +20,7 @@ export function createWindowLifecycle({
     getViewManager,
     getHandleSettingsSubmit,
     getPersistWorkspaceState,
+    getOpenPathsFromSelection,
 }) {
     let SettingsDialogCtor = null;
 
@@ -179,30 +180,29 @@ export function createWindowLifecycle({
 
     // ========== 文件打开事件 ==========
 
+    /** 让系统传入的文件和文件夹共用应用内的路径打开流程。 */
     async function handleOpenedFiles(paths) {
         if (!Array.isArray(paths) || paths.length === 0) return;
-        const fileTree = appState.getFileTree();
-        if (!fileTree) {
-            console.warn('[windowLifecycle] fileTree 未初始化，无法处理打开的文件');
+        const openPathsFromSelection = getOpenPathsFromSelection?.();
+        if (typeof openPathsFromSelection !== 'function') {
+            console.warn('[windowLifecycle] 路径打开流程未初始化');
             return;
         }
-        const firstPath = paths[0];
-        if (firstPath) {
-            fileTree.addToOpenFiles(firstPath);
-            fileTree.selectFile(firstPath);
-        }
+        await openPathsFromSelection(paths, { source: 'system-open' });
     }
 
     async function setupOpenedFilesListener() {
         await listen('files-opened', (event) => {
             const paths = event?.payload?.paths;
-            void handleOpenedFiles(paths);
+            void handleOpenedFiles(paths).catch((error) => {
+                console.error('[windowLifecycle] 处理系统打开路径失败:', error);
+            });
         });
 
         try {
             const initialPaths = await invoke('get_opened_files');
             if (initialPaths && initialPaths.length > 0) {
-                void handleOpenedFiles(initialPaths);
+                await handleOpenedFiles(initialPaths);
             }
         } catch (error) {
             console.warn('[windowLifecycle] 获取初始打开文件失败:', error);

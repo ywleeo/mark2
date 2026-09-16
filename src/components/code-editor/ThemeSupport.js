@@ -229,13 +229,68 @@ const HIGHLIGHT_COLORS = {
     },
 };
 
+// 浅色代码区在经典白底和编辑部纸底之间切换，以较深的纸底作为对比度下限。
+const LIGHT_CODE_SURFACE = '#F3EEE4';
+
+/** 按 WCAG 的 sRGB 算法计算十六进制颜色的相对亮度。 */
+function relativeLuminance(hex) {
+    const [red, green, blue] = hex.slice(1).match(/../g).map(channel => {
+        const value = parseInt(channel, 16) / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+
+/** 将浅色代码的语法色压暗到 8.5:1，保留色相而提高细字的可辨性。 */
+function ensureLightContrast(hex, minContrast = 8.5) {
+    const surfaceLuminance = relativeLuminance(LIGHT_CODE_SURFACE);
+    const contrast = color => (surfaceLuminance + 0.05) / (relativeLuminance(color) + 0.05);
+    if (contrast(hex) >= minContrast) return hex;
+
+    const channels = hex.slice(1).match(/../g).map(channel => parseInt(channel, 16));
+    let lower = 0;
+    let upper = 1;
+    let readable = '#000000';
+    for (let step = 0; step < 12; step += 1) {
+        const mix = (lower + upper) / 2;
+        const candidate = `#${channels.map(channel => Math.round(channel * (1 - mix)).toString(16).padStart(2, '0')).join('')}`;
+        if (contrast(candidate) >= minContrast) {
+            readable = candidate;
+            upper = mix;
+        } else {
+            lower = mix;
+        }
+    }
+    return readable;
+}
+
+/** 返回当前代码主题的界面色，浅色模式对正文和行号设置不同的清晰度下限。 */
+export function getThemeColors(themeName, isDark) {
+    const variants = THEMES[themeName] ?? THEMES.vs;
+    if (isDark) return variants.dark;
+    return {
+        ...variants.light,
+        foreground: ensureLightContrast(variants.light.foreground),
+        gutterForeground: ensureLightContrast(variants.light.gutterForeground, 5),
+        gutterActiveForeground: ensureLightContrast(variants.light.gutterActiveForeground),
+    };
+}
+
+/** 返回当前代码主题的语法色，浅色模式避免彩色 token 淹没在纸白背景中。 */
+export function getHighlightColors(themeName, isDark) {
+    const variants = HIGHLIGHT_COLORS[themeName] ?? HIGHLIGHT_COLORS.vs;
+    if (isDark) return variants.dark;
+    return Object.fromEntries(Object.entries(variants.light).map(([token, color]) => [
+        token,
+        ensureLightContrast(color),
+    ]));
+}
+
 /**
  * 构建 CodeMirror 编辑器主题
  */
 export function buildTheme(themeName, isDark) {
-    const themeColors = THEMES[themeName]
-        ?? THEMES['vs'];
-    const colors = isDark ? themeColors.dark : themeColors.light;
+    const colors = getThemeColors(themeName, isDark);
 
     // Convert hex to rgba so activeLine doesn't obscure selection layer beneath it
     const hexToRgba = (hex, alpha) => {
@@ -299,9 +354,7 @@ export function buildTheme(themeName, isDark) {
  * 构建语法高亮样式
  */
 export function buildHighlightStyle(themeName, isDark) {
-    const hlColors = HIGHLIGHT_COLORS[themeName]
-        ?? HIGHLIGHT_COLORS['vs'];
-    const colors = isDark ? hlColors.dark : hlColors.light;
+    const colors = getHighlightColors(themeName, isDark);
 
     const style = HighlightStyle.define([
         { tag: tags.keyword, color: colors.keyword },

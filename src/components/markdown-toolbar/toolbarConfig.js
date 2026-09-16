@@ -125,10 +125,6 @@ export const BUTTON_CONFIG = {
         icon: uicon('document'),
         title: t('toolbar.toc')
     },
-    centerContent: {
-        icon: uicon('align-center'),
-        title: t('toolbar.centerContent')
-    },
     heading: {
         icon: textIcon('T', 'toolbar-icon--heading'),
         title: t('toolbar.heading')
@@ -156,6 +152,10 @@ export const BUTTON_CONFIG = {
     shareLink: {
         icon: uicon('share'),
         title: t('toolbar.shareLink')
+    },
+    aiWriting: {
+        icon: uicon('sparkles'),
+        title: t('toolbar.aiWriting')
     }
 };
 
@@ -176,9 +176,9 @@ export const TOOLBAR_GROUPS = {
         ['quote', 'codeBlock'],
         ['clearFormatting'],
         ['cardExport'],
-        ['centerContent', 'copy', 'shareLink'],
+        ['copy', 'shareLink'],
     ],
-    right: ['toggleViewMode'],
+    right: ['aiWriting', 'toggleViewMode'],
 };
 
 /**

@@ -479,6 +479,30 @@
     backdrop-filter: blur(20px);
     color: rgba(31, 36, 44, 0.82);
     font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68)) transparent;
+}
+
+/* Ideas 结果与 Markdown 文件视图使用同一套 thin、无槽滚动条。 */
+.ai-writing-inspiration-panel::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+    -webkit-appearance: none;
+}
+
+.ai-writing-inspiration-panel::-webkit-scrollbar-track,
+.ai-writing-inspiration-panel::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.ai-writing-inspiration-panel::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68));
+    border: 0;
+    border-radius: 3px;
+}
+
+.ai-writing-inspiration-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.64));
 }
 
 .ai-writing-inspiration-panel__header {
@@ -813,7 +837,7 @@
     margin: 0;
     overflow-x: auto;
     position: relative;
-    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
+    font-family: var(--code-font-family, Consolas, 'Cascadia Code', 'SFMono-Regular', Menlo, Monaco, monospace);
     font-size: calc(var(--editor-font-size, 14px) * var(--editor-zoom-scale, 1));
     /* 代码块使用独立排版设置，避免正文行距变化破坏代码的纵向节奏。 */
     line-height: var(--code-line-height, 1.3);
@@ -822,7 +846,7 @@
 .tiptap-editor code {
     padding: 2px 6px;
     border-radius: 3px;
-    font-family: var(--code-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
+    font-family: var(--code-font-family, Consolas, 'Cascadia Code', 'SFMono-Regular', Menlo, Monaco, monospace);
     font-size: calc(var(--editor-font-size, 16px) * 0.88 * var(--editor-zoom-scale, 1));
 }
 
@@ -907,7 +931,7 @@
     font-size: 14px;
 }
 
-:root[data-theme-appearance='dark'] .tiptap-editor .mermaid svg {
+:root[data-theme-appearance='dark']:not([data-app-skin='editorial']) .tiptap-editor .mermaid svg {
     filter: invert(0.88) hue-rotate(180deg);
 }
 
@@ -916,7 +940,7 @@
  * 外层 SVG filter 反转成深色。这里设置的是“反转前”的中性黑，最终显示为
  * 高对比浅灰；必须覆盖到 foreignObject 内的 p，不能只改 nodeLabel 容器。
  */
-:root[data-theme-appearance='dark'] .tiptap-editor .mermaid svg foreignObject * {
+:root[data-theme-appearance='dark']:not([data-app-skin='editorial']) .tiptap-editor .mermaid svg foreignObject * {
     color: #000000 !important;
 }
 

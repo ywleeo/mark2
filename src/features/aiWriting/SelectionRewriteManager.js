@@ -6,23 +6,17 @@ import { createSelectionRewritePlugin, selectionRewritePluginKey } from './Selec
 const logger = createLogger('selection-rewrite');
 const RESULT_STATUS_DURATION_MS = 2200;
 
-export const SELECTION_REWRITE_ACTIONS = [
-    { mode: 'polish', labelKey: 'aiWriting.polish' },
-    { mode: 'expand', labelKey: 'aiWriting.expand' },
-    { mode: 'shorten', labelKey: 'aiWriting.shorten' },
-    { mode: 'inspiration', labelKey: 'aiWriting.inspiration' },
-];
-
 /**
  * 选区 AI 改写执行器。
- * UI 入口由编辑器右键菜单统一承载，这里只负责捕获选区并执行 AI 改写。
+ * UI 入口由 Markdown Toolbar 统一承载，这里只负责捕获选区并执行 AI 改写。
  */
 export class SelectionRewriteManager {
-    constructor({ editor, viewElement, getMarkdown, getSelectedMarkdown, replaceRangeWithMarkdown, onInspiration }) {
+    constructor({ editor, viewElement, getMarkdown, getSelectedMarkdown, getRangeMarkdown, replaceRangeWithMarkdown, onInspiration }) {
         this.editor = editor;
         this.viewElement = viewElement;
         this.getMarkdown = getMarkdown;
         this.getSelectedMarkdown = getSelectedMarkdown;
+        this.getRangeMarkdown = getRangeMarkdown;
         this.replaceRangeWithMarkdown = replaceRangeWithMarkdown;
         this.onInspiration = onInspiration;
         this.selectionRange = null;
@@ -84,7 +78,7 @@ export class SelectionRewriteManager {
     async execute(mode) {
         if (!this.selectionRange || !this.editor?.state) return;
         if (mode === 'inspiration') {
-            this.onInspiration?.();
+            this.onInspiration?.({ ...this.selectionRange });
             this.selectionRange = null;
             return;
         }
@@ -92,9 +86,8 @@ export class SelectionRewriteManager {
         const { from, to } = this.selectionRange;
         const sourceDoc = this.editor.state.doc;
         const sourceText = sourceDoc.textBetween(from, to, '\n', '\n');
-        const currentSelection = this.editor.state.selection;
-        const isCurrentSelection = currentSelection?.from === from && currentSelection?.to === to;
-        const selectedMarkdown = (isCurrentSelection ? this.getSelectedMarkdown?.() : '')
+        const selectedMarkdown = this.getRangeMarkdown?.(from, to)
+            || this.getSelectedMarkdown?.()
             || this.editor.state.doc.textBetween(from, to, '\n', '\n');
         const context = buildSelectionRewriteContext(
             this.editor.state,

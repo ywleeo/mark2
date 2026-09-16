@@ -5,6 +5,7 @@ import { EditorState } from '@tiptap/pm/state';
 import {
     buildSelectionRewriteContext,
     buildSelectionRewriteRequestBody,
+    buildWritingIdeaContext,
 } from '../src/features/aiWriting/AiWritingBuilders.js';
 import {
     createSelectionRewritePlugin,
@@ -32,7 +33,7 @@ function createEditorState() {
     return { schema, state };
 }
 
-test('右键捕获的选区范围用于构造上下文，不依赖随后变化的编辑器 selection', () => {
+test('Toolbar 捕获的选区范围用于构造上下文，不依赖随后变化的编辑器 selection', () => {
     const state = {
         selection: { from: 1, to: 1 },
         doc: {
@@ -60,6 +61,21 @@ test('选区改写请求不再用小 token 上限截断推理模型正文', () =
     assert.equal('max_tokens' in body, false);
     assert.equal('max_completion_tokens' in body, false);
     assert.match(body.messages[0].content, /只输出改写后的选中内容/);
+});
+
+test('Ideas 使用菜单点击前捕获的选区，不依赖随后变化的 selection', () => {
+    const { state } = createEditorState();
+    const context = buildWritingIdeaContext(
+        state,
+        '冻结的选区',
+        '# 标题',
+        null,
+        { from: 2, to: 5 },
+    );
+
+    assert.equal(context.selectedText, '冻结的选区');
+    assert.equal(context.beforeSelection, 'a');
+    assert.equal(context.afterSelection, 'ef');
 });
 
 test('选区状态在请求中保持高亮范围，并随文档 transaction 映射', () => {

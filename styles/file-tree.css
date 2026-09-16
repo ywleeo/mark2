@@ -417,6 +417,12 @@
     flex: 0 0 auto;
 }
 
+/* 完整文件名仅供支持多行目录的皮肤使用，经典布局保持原有截断。 */
+.open-file-name__full,
+.tree-item-name__full {
+    display: none;
+}
+
 /* 文件夹子项容器 - 带竖线 */
 .tree-folder-children {
     display: none;

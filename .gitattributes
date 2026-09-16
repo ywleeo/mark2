@@ -1,0 +1,5 @@
+# Keep Windows command scripts usable while storing normalized line endings in Git.
+*.bat text eol=crlf
+
+# Round-trip fixtures intentionally keep a trailing empty line as Markdown source data.
+tests/fixtures/markdown-roundtrip/*.md whitespace=-blank-at-eof

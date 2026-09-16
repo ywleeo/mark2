@@ -125,6 +125,20 @@ export class AiFileTaskSidebar {
     }
 
     /**
+     * 在当前文档的 AI 工作稿侧栏打开与关闭之间切换。
+     * @param {{path:string}} params - 当前文件。
+     * @returns {boolean} 切换后侧栏是否可见。
+     */
+    toggle({ path } = {}) {
+        if (this.isVisible) {
+            this.close();
+            return false;
+        }
+        this.open({ path });
+        return this.isVisible;
+    }
+
+    /**
      * 已打开侧栏时跟随当前标签页切换工作稿。
      * @param {string|null} path - 当前文件路径
      */
