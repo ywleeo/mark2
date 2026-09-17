@@ -25,6 +25,12 @@ export function createWorkspaceSearchController(dependencies) {
     /** 读取当前工作区根目录。 */
     const getRoots = () => fileTree?.getRootPaths?.() || Array.from(fileTree?.rootPaths || []);
 
+    /** 清除所有文本编辑视图中的工作区搜索导航高亮。 */
+    const clearDocumentHighlight = () => {
+        editorRegistry?.getMarkdownEditor?.()?.clearNavigationHighlight?.();
+        editorRegistry?.getCodeEditor?.()?.clearNavigationHighlight?.();
+    };
+
     /** 把搜索结果打开到主栏，并按源文件行列定位。 */
     const openResult = async (result) => {
         if (!result?.filePath) return;
@@ -126,6 +132,7 @@ export function createWorkspaceSearchController(dependencies) {
         hide() {
             requestSerial += 1;
             clearTimeout(debounceTimer);
+            clearDocumentHighlight();
             panel.hide();
             void cancelWorkspaceSearch().catch(() => {});
         },

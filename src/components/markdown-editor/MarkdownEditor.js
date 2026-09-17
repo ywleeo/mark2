@@ -800,6 +800,7 @@ export class MarkdownEditor {
     setSourcePositionAtRatio(l, c, r)           { return this.sourceScrollManager.setSourcePositionAtRatio(l, c, r); }
     scrollToSourcePosition(l, c)                { return this.sourceScrollManager.scrollToSourcePosition(l, c); }
     highlightSourceMatch(l, c, text)            { return this.sourceScrollManager.highlightSourceMatch(l, c, text); }
+    clearNavigationHighlight()                  { return this.sourceScrollManager.clearNavigationHighlight(); }
     scrollToSourceLineInCenter(n)               { return this.sourceScrollManager.scrollToSourceLineInCenter(n); }
 
     // ─── 渲染调度 ──────────────────────────────────────────────────────────────

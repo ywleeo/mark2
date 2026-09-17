@@ -814,6 +814,14 @@ export class CodeEditor {
         return to > from;
     }
 
+    /** 清除由工作区搜索等外部导航创建的临时高亮。 */
+    clearNavigationHighlight() {
+        if (!this.editor) return;
+        this.editor.dispatch({
+            effects: setNavigationHighlight.of(Decoration.none),
+        });
+    }
+
     setPositionOnly(lineNumber, column = 1) {
         if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return;
         const line = this._safeGetLine(lineNumber);

@@ -416,6 +416,11 @@ export class SourceScrollManager {
         return true;
     }
 
+    /** 清除由工作区搜索等外部导航创建的临时高亮。 */
+    clearNavigationHighlight() {
+        this._editor?.commands.clearNavigationHighlight?.();
+    }
+
     /** 光标在 viewport 内的相对纵坐标（0=顶 1=底）。看不到/未就绪返回 null。 */
     getCursorViewportRatio() {
         if (!this._editor?.view) return null;

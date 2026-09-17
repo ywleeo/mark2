@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
     createSearchSnippet,
     getWorkspaceSearchMatchText,
@@ -39,4 +40,14 @@ test('工作区搜索命中文本按 Unicode 字符区间还原', () => {
         matchStart: 2,
         matchEnd: 8,
     }), 'needle');
+});
+
+test('关闭工作区搜索时同时清除 Markdown 与源码视图高亮', async () => {
+    const controller = await readFile(
+        new URL('../src/modules/workspaceSearchController.js', import.meta.url),
+        'utf8',
+    );
+    assert.match(controller, /getMarkdownEditor\?\.\(\)\?\.clearNavigationHighlight\?\.\(\)/);
+    assert.match(controller, /getCodeEditor\?\.\(\)\?\.clearNavigationHighlight\?\.\(\)/);
+    assert.match(controller, /hide\(\)\s*\{[\s\S]*clearDocumentHighlight\(\);[\s\S]*panel\.hide\(\);/);
 });
