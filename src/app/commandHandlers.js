@@ -33,6 +33,7 @@ export function createCommandHandlers(deps) {
         toggleCsvTableMode,
         toggleMarkdownToolbar,
         toggleAppTheme,
+        showWorkspaceSearch,
         getActivePaneContext,
         openInSecondary,
         closeSecondary,
@@ -172,6 +173,7 @@ export function createCommandHandlers(deps) {
         onToggleHtmlEmbedView: toggleEmbedCodeMode,
         onToggleMarkdownToolbar: toggleMarkdownToolbar,
         onToggleTheme: () => toggleAppTheme(appState),
+        onWorkspaceSearch: showWorkspaceSearch,
         onCopyMarkdown: () => appState.getMarkdownToolbarManager()?.copyMarkdown?.(),
         onCopyPlainText: () => appState.getMarkdownToolbarManager()?.copyPlainText?.(),
         onShareLink: () => {

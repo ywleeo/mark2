@@ -36,6 +36,7 @@ import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../util
 import { EVENT_IDS } from '../core/eventIds.js';
 import { PaneLayout } from '../components/PaneLayout.js';
 import { SecondaryPaneRuntime } from './secondaryPaneRuntime.js';
+import { createWorkspaceSearchController } from '../modules/workspaceSearchController.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -97,6 +98,7 @@ export function createAppBootstrap({
     toggleEmbedCodeMode,
     toggleCsvTableMode,
     // layoutControls 导出
+    setSidebarVisibility,
     toggleSidebarVisibility,
     toggleStatusBarVisibility,
     // navigationController 导出
@@ -557,6 +559,16 @@ export function createAppBootstrap({
             onOpenFolder: openFolderOnly,
         });
 
+        const workspaceSearchController = createWorkspaceSearchController({
+            host: document.getElementById('workspaceSearchHost'),
+            fileTree,
+            appState,
+            editorRegistry,
+            handleFileSelect,
+            setSidebarVisibility,
+        });
+        appState.setCleanupFunction('workspaceSearch', () => workspaceSearchController.destroy());
+
         setupTabManager({
             TabManagerCtor: coreModules.TabManager,
             appState,
@@ -655,6 +667,7 @@ export function createAppBootstrap({
                 toggleCsvTableMode,
                 toggleMarkdownToolbar,
                 toggleAppTheme,
+                showWorkspaceSearch: () => workspaceSearchController.show(),
                 getActivePaneContext,
                 openInSecondary: path => openInSecondary(path),
                 closeSecondary: () => requestCloseSecondary(),

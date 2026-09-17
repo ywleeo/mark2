@@ -43,6 +43,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("vault-open", "保险箱");
         m.insert("undo", "撤销");
         m.insert("redo", "重做");
+        m.insert("workspace-search", "在工作区中查找…");
         m.insert("toggle-sidebar", "切换侧边栏");
         m.insert("toggle-status-bar", "切换状态栏");
         m.insert("markdown-toolbar", "Markdown 工具栏");
@@ -74,6 +75,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("vault-open", "保險箱");
         m.insert("undo", "復原");
         m.insert("redo", "重做");
+        m.insert("workspace-search", "在工作區中尋找…");
         m.insert("toggle-sidebar", "切換側邊欄");
         m.insert("toggle-status-bar", "切換狀態列");
         m.insert("markdown-toolbar", "Markdown 工具列");
@@ -105,6 +107,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("vault-open", "Vault");
         m.insert("undo", "Undo");
         m.insert("redo", "Redo");
+        m.insert("workspace-search", "Find in Workspace…");
         m.insert("toggle-sidebar", "Toggle Sidebar");
         m.insert("toggle-status-bar", "Toggle Status Bar");
         m.insert("markdown-toolbar", "Markdown Toolbar");
@@ -134,6 +137,7 @@ fn command_to_menu_ids() -> HashMap<&'static str, Vec<&'static str>> {
     m.insert("document.versionHistory", vec!["version-history"]);
     m.insert("editor.undo", vec!["undo"]);
     m.insert("editor.redo", vec!["redo"]);
+    m.insert("workspace.search", vec!["workspace-search"]);
     m.insert("view.toggleSourceMode", vec!["toggle-markdown-code-view"]);
     m.insert("app.quit", vec!["app-quit"]);
     m.insert("feature.vault.toggle", vec!["vault-open"]);
@@ -492,6 +496,13 @@ fn build_menu(
     let redo_item = MenuItemBuilder::with_id("redo", l["redo"])
         .accelerator(get_accelerator("redo", "CmdOrCtrl+Shift+Z", custom_accel))
         .build(handle)?;
+    let workspace_search_item = MenuItemBuilder::with_id("workspace-search", l["workspace-search"])
+        .accelerator(get_accelerator(
+            "workspace-search",
+            "CmdOrCtrl+Shift+F",
+            custom_accel,
+        ))
+        .build(handle)?;
     let cut_item = PredefinedMenuItem::cut(handle, None)?;
     let copy_item = PredefinedMenuItem::copy(handle, None)?;
     let paste_item = PredefinedMenuItem::paste(handle, None)?;
@@ -509,6 +520,8 @@ fn build_menu(
         .item(&copy_item)
         .item(&paste_item)
         .item(&select_all_item)
+        .separator()
+        .item(&workspace_search_item)
         .separator()
         .item(&markdown_code_mode_item)
         .build()?;

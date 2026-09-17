@@ -11,6 +11,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Link from '@tiptap/extension-link';
 import { SearchExtension } from '../../extensions/SearchExtension.js';
+import { NavigationHighlightExtension } from '../../extensions/NavigationHighlightExtension.js';
 import { HtmlSpan, HtmlDiv, HtmlInline } from '../../extensions/HtmlSupport.js';
 import { CustomTaskItem } from '../../extensions/CustomTaskItem.js';
 import { MarkdownImage } from '../../utils/markdownPlugins.js';
@@ -142,6 +143,7 @@ export function createEditorExtensions(lowlight) {
         MarkdownImage,
         ImageRowLayout,
         SearchExtension,
+        NavigationHighlightExtension,
         HtmlSpan,
         HtmlDiv,
         HtmlInline,

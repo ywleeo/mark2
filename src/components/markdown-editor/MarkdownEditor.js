@@ -799,6 +799,7 @@ export class MarkdownEditor {
     getCursorViewportRatio()                    { return this.sourceScrollManager.getCursorViewportRatio(); }
     setSourcePositionAtRatio(l, c, r)           { return this.sourceScrollManager.setSourcePositionAtRatio(l, c, r); }
     scrollToSourcePosition(l, c)                { return this.sourceScrollManager.scrollToSourcePosition(l, c); }
+    highlightSourceMatch(l, c, text)            { return this.sourceScrollManager.highlightSourceMatch(l, c, text); }
     scrollToSourceLineInCenter(n)               { return this.sourceScrollManager.scrollToSourceLineInCenter(n); }
 
     // ─── 渲染调度 ──────────────────────────────────────────────────────────────

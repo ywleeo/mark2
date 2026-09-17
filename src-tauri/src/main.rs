@@ -16,6 +16,7 @@ mod security_scope;
 mod spreadsheet;
 mod vault;
 mod window_state;
+mod workspace_search;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -228,6 +229,7 @@ fn main() {
         .manage(ai_proxy::AiProxyState::default())
         .manage(vault::commands::VaultState::default())
         .manage(recovery_store::RecoveryStoreState::default())
+        .manage(workspace_search::WorkspaceSearchState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -280,6 +282,8 @@ fn main() {
             recovery_store::rename_recovery_document,
             default_handler::get_default_app_status,
             default_handler::set_as_default_app,
+            workspace_search::search_workspace,
+            workspace_search::cancel_workspace_search,
             vault::commands::vault_list,
             vault::commands::vault_get_value,
             vault::commands::vault_add,

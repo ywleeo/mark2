@@ -64,6 +64,7 @@ export const COMMAND_IDS = Object.freeze({
     WORKSPACE_DELETE_ENTRY: 'workspace.deleteEntry',
     WORKSPACE_COPY_PATH: 'workspace.copyPath',
     WORKSPACE_REVEAL_IN_FINDER: 'workspace.revealInFinder',
+    WORKSPACE_SEARCH: 'workspace.search',
     VIEW_TOGGLE_SIDEBAR: 'view.toggleSidebar',
     VIEW_TOGGLE_STATUS_BAR: 'view.toggleStatusBar',
     VIEW_TOGGLE_SOURCE_MODE: 'view.toggleSourceMode',

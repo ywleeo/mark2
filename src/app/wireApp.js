@@ -756,6 +756,7 @@ bootstrap = createAppBootstrap({
     toggleSvgCodeMode,
     toggleEmbedCodeMode,
     toggleCsvTableMode,
+    setSidebarVisibility,
     toggleSidebarVisibility,
     toggleStatusBarVisibility,
     handleFileSelect,

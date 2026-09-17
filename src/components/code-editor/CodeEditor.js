@@ -126,6 +126,20 @@ const searchDecorationField = StateField.define({
     provide: f => EditorView.decorations.from(f),
 });
 
+// 跨文档导航高亮与编辑器内搜索分离，避免打开全局结果时破坏 Cmd+F 的匹配状态。
+const setNavigationHighlight = StateEffect.define();
+const navigationHighlightField = StateField.define({
+    create() { return Decoration.none; },
+    update(decorations, transaction) {
+        for (const effect of transaction.effects) {
+            if (effect.is(setNavigationHighlight)) return effect.value;
+        }
+        if (transaction.docChanged) return Decoration.none;
+        return decorations;
+    },
+    provide: field => EditorView.decorations.from(field),
+});
+
 export class CodeEditor {
     constructor(containerElement, callbacks = {}, options = {}) {
         this.container = containerElement;
@@ -285,6 +299,7 @@ export class CodeEditor {
                 this._indentUnitCompartment.of(indentUnit.of(indent)),
                 this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
                 searchDecorationField,
+                navigationHighlightField,
                 this._updateListener,
                 EditorView.lineWrapping,
             ],
@@ -768,6 +783,35 @@ export class CodeEditor {
             selection: { anchor: pos },
             effects: EditorView.scrollIntoView(pos, { y: 'center' }),
         });
+    }
+
+    /**
+     * 定位并高亮一个精确的外部导航命中，不改变编辑器内搜索状态。
+     * @param {number} lineNumber - 一基行号。
+     * @param {number} column - 一基列号。
+     * @param {number} length - 命中的 UTF-16 长度。
+     * @returns {boolean} 是否成功设置了高亮。
+     */
+    highlightPosition(lineNumber, column = 1, length = 0) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return false;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return false;
+        const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
+        const from = Math.min(line.from + safeColumn - 1, line.to);
+        const to = Math.min(from + Math.max(0, Number(length) || 0), line.to);
+        const decorations = to > from
+            ? Decoration.set([
+                Decoration.mark({ class: 'workspace-search-document-match' }).range(from, to),
+            ], true)
+            : Decoration.none;
+        this.editor.dispatch({
+            selection: { anchor: from },
+            effects: [
+                setNavigationHighlight.of(decorations),
+                EditorView.scrollIntoView(from, { y: 'center' }),
+            ],
+        });
+        return to > from;
     }
 
     setPositionOnly(lineNumber, column = 1) {

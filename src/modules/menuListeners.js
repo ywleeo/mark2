@@ -39,6 +39,7 @@ export async function registerMenuListeners(handlers) {
     await register('menu-export-image-mobile', COMMAND_IDS.EXPORT_IMAGE_MOBILE);
     await register('menu-export-pdf', COMMAND_IDS.EXPORT_PDF);
     await register('menu-toggle-sidebar', COMMAND_IDS.VIEW_TOGGLE_SIDEBAR);
+    await register('menu-workspace-search', COMMAND_IDS.WORKSPACE_SEARCH);
     await register('menu-toggle-status-bar', COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR);
     await register('menu-toggle-markdown-code-view', COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE);
     await register('menu-toggle-markdown-toolbar', COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN);

@@ -80,7 +80,7 @@ test('目录文件名保留完整文本并由皮肤决定排版', async () => {
     assert.match(editorialCss, /-webkit-line-clamp: 2/);
 });
 
-/** 编辑部侧栏只留文字署名和折叠箭头，打开动作由文件菜单承载。 */
+/** 编辑部侧栏隐藏文件打开动作，但保留独立的工作区搜索入口。 */
 test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     const renderer = await readFile(new URL('../src/components/file-tree/FileTreeRenderer.js', import.meta.url), 'utf8');
     const events = await readFile(new URL('../src/components/file-tree/FileTreeEvents.js', import.meta.url), 'utf8');
@@ -96,6 +96,7 @@ test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     assert.match(css, /\.skin-masthead \{ display: none; \}/);
     assert.match(css, /\.skin-masthead__word\s*\{[^}]*letter-spacing: 0\.08em;/);
     assert.match(css, /\.sidebar \.section-action-btn \{ display: none; \}/);
+    assert.match(css, /\.sidebar #workspaceSearchAction \{ display: inline-flex; \}/);
     assert.doesNotMatch(css, /\.section-header:is\(:hover, :focus-within\) \.section-action-btn/);
     assert.match(menu, /command: COMMAND_IDS\.APP_OPEN_FILE/);
     assert.match(menu, /command: COMMAND_IDS\.APP_OPEN_FOLDER/);
@@ -128,7 +129,15 @@ test('主题加载与导出共享稳定的主题名称', async () => {
     const shareBuilder = await readFile(new URL('../src/modules/share/sharePageBuilder.js', import.meta.url), 'utf8');
     assert.match(loader, /link\.dataset\.themeName = theme/);
     assert.match(exporter, /themeLink\?\.dataset\.themeName/);
-    assert.match(exporter, /const exportBackground = isEditorial \? '#f3eee4' : '#ffffff'/);
     assert.match(exporter, /const exportFontOverride = isEditorial/);
     assert.match(shareBuilder, /resolveMarkdownTheme\(settings\.skin, settings\.theme\)/);
+});
+
+/** Editorial 的纸色只属于应用皮肤，PDF 页面和正文根节点必须保持白底。 */
+test('编辑部主题导出 PDF 时移除应用背景色', async () => {
+    const exporter = await readFile(new URL('../src/utils/exportUtils.js', import.meta.url), 'utf8');
+    assert.match(exporter, /const exportBackground = '#ffffff'/);
+    assert.match(exporter, /\.mark2-export-wrapper > \.tiptap-editor[\s\S]*background-color: transparent !important/);
+    assert.match(exporter, /@media print \{[\s\S]*background: #ffffff !important/);
+    assert.doesNotMatch(exporter, /exportBackground = isEditorial \? '#f3eee4'/);
 });

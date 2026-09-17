@@ -2,6 +2,7 @@ import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createCompactFileNameElement } from '../../utils/fileNameDisplay.js';
 import { getFileIconSvg } from '../../utils/fileIcons.js';
 import { t } from '../../i18n/index.js';
+import { COMMAND_IDS } from '../../core/commands/commandIds.js';
 
 /**
  * FileTree 的 DOM 渲染模块
@@ -277,6 +278,18 @@ export class FileTreeRenderer {
                         </span>
                         <button
                             class="section-action-btn"
+                            id="workspaceSearchAction"
+                            type="button"
+                            title="${t('workspaceSearch.title')}"
+                            aria-label="${t('workspaceSearch.title')}"
+                        >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="7"/>
+                                <path d="m20 20-4-4"/>
+                            </svg>
+                        </button>
+                        <button
+                            class="section-action-btn"
                             id="foldersAction"
                             type="button"
                             title="${t('sidebar.openFolder')}"
@@ -295,6 +308,17 @@ export class FileTreeRenderer {
 
         this._observeSectionContent('openFilesContent', 'openFilesHeader');
         this._observeSectionContent('foldersContent', 'foldersHeader');
+
+        const workspaceSearchAction = this.fileTree.container.querySelector('#workspaceSearchAction');
+        if (workspaceSearchAction) {
+            const cleanup = addClickHandler(workspaceSearchAction, (event) => {
+                event.stopPropagation();
+                void this.fileTree.executeCommand?.(COMMAND_IDS.WORKSPACE_SEARCH, {}, {
+                    source: 'sidebar',
+                });
+            });
+            this.fileTree.cleanupFunctions.push(cleanup);
+        }
     }
 
     /**

@@ -386,9 +386,9 @@ async function collectAllStyles(options = {}) {
     if (themeStyles) {
         styles.push(themeStyles);
     }
-    // 经典导出保持原样；纸页皮肤使用与编辑器一致的纸色和默认字体。
+    // PDF 始终使用白色纸张；Editorial 只保留字体与内容配色，不导出应用背景。
     const isEditorial = themeName === 'editorial';
-    const exportBackground = isEditorial ? '#f3eee4' : '#ffffff';
+    const exportBackground = '#ffffff';
     const exportFontOverride = isEditorial
         ? `:root { --editor-font-family: 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif; }`
         : `:root { --editor-font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }
@@ -426,6 +426,16 @@ body {
     width: 100%;
     box-sizing: border-box;
     padding: 106px 66px;
+    background: ${exportBackground} !important;
+}
+/* 主题可以给编辑器根节点铺应用背景；PDF 只保留正文内部的语义底色。 */
+.mark2-export-wrapper > .markdown-content,
+.mark2-export-wrapper > .tiptap-editor,
+.mark2-export-wrapper > .ProseMirror,
+.mark2-export-wrapper > .cm-editor,
+.mark2-export-wrapper > .tiptap-editor > .ProseMirror {
+    background-color: transparent !important;
+    background-image: none !important;
 }
 .mark2-export-wrapper .tiptap-editor,
 .mark2-export-wrapper .ProseMirror,
@@ -505,15 +515,17 @@ ${exportFontOverride}
     }
 }
 @media print {
+    html,
     body {
         margin: 0;
         padding: 0;
-        background: ${exportBackground};
+        background: #ffffff !important;
     }
     .mark2-export-wrapper--a4 {
         max-width: 100%;
         margin: 0;
         padding: 0 0.68in;
+        background: #ffffff !important;
         box-shadow: none;
         box-sizing: border-box;
     }

@@ -2,6 +2,93 @@
  * 源码位置与滚动管理器
  * 负责 sourcepos 属性的查询、光标定位以及滚动同步
  */
+
+/**
+ * 找到覆盖目标源码行的最精确节点；跨度相同时优先可直接映射文本的 textblock。
+ * @param {import('@tiptap/pm/model').Node} doc - ProseMirror 文档。
+ * @param {number} lineNumber - 一基源码行号。
+ * @param {string} [matchText] - 可选命中文本，用于区分同一源码行里的表格单元格。
+ * @returns {{start:number,end:number,pos:number,node:import('@tiptap/pm/model').Node}|null}
+ */
+function findSourceNode(doc, lineNumber, matchText = '') {
+    let bestMatch = null;
+    doc.descendants((node, pos) => {
+        const sourcePosition = node.attrs?.sourcepos;
+        if (typeof sourcePosition !== 'string') return true;
+        const [start, end] = sourcePosition.split(':').map(Number);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return true;
+        if (lineNumber < start || lineNumber > end) return true;
+
+        const span = end - start;
+        const bestSpan = bestMatch ? bestMatch.end - bestMatch.start : Number.POSITIVE_INFINITY;
+        const containsMatch = Boolean(matchText && node.textContent.includes(matchText));
+        const bestContainsMatch = Boolean(matchText && bestMatch?.node?.textContent.includes(matchText));
+        const isMoreSpecific = span === bestSpan
+            && containsMatch === bestContainsMatch
+            && node.content.size < (bestMatch?.node?.content.size ?? Number.POSITIVE_INFINITY);
+        if (!bestMatch
+            || span < bestSpan
+            || (span === bestSpan && containsMatch && !bestContainsMatch)
+            || isMoreSpecific) {
+            bestMatch = { start, end, pos, node };
+        }
+        return true;
+    });
+    return bestMatch;
+}
+
+/**
+ * 在一行渲染文本中选择最接近源码列的同名命中，处理同一行重复关键词。
+ * @param {string} lineText - 编辑器里实际显示的行文本。
+ * @param {string} matchText - 后端返回的精确命中文本。
+ * @param {number} sourceColumn - 一基源码列号。
+ * @returns {number} JavaScript 字符串下标，未找到时返回 -1。
+ */
+function findClosestTextMatch(lineText, matchText, sourceColumn) {
+    if (!matchText) return -1;
+    const candidates = [];
+    let offset = lineText.indexOf(matchText);
+    while (offset !== -1) {
+        candidates.push(offset);
+        offset = lineText.indexOf(matchText, offset + Math.max(1, matchText.length));
+    }
+    if (candidates.length === 0) return -1;
+    const target = Math.max(0, (Number(sourceColumn) || 1) - 1);
+    return candidates.reduce((best, current) => (
+        Math.abs(current - target) < Math.abs(best - target) ? current : best
+    ));
+}
+
+/**
+ * 把 textblock 内的可见文本下标转换为 ProseMirror 文档位置。
+ * @param {import('@tiptap/pm/model').Node} node - 文本块节点。
+ * @param {number} nodePosition - 节点在文档中的起始位置。
+ * @param {number} textOffset - textBetween 结果中的 UTF-16 下标。
+ * @returns {number} ProseMirror 文档位置。
+ */
+function resolveTextOffset(node, nodePosition, textOffset) {
+    const target = Math.max(0, textOffset);
+    let resolvedOffset = 0;
+    let characterCount = 0;
+    let found = false;
+
+    node.content.forEach((child, offset) => {
+        if (found) return;
+        const childLength = child.type.name === 'hardBreak'
+            ? 1
+            : (child.isText ? child.text.length : 0);
+        if (target <= characterCount + childLength) {
+            resolvedOffset = offset + Math.min(childLength, target - characterCount);
+            found = true;
+            return;
+        }
+        characterCount += childLength;
+        resolvedOffset = offset + child.nodeSize;
+    });
+
+    return nodePosition + 1 + Math.min(resolvedOffset, node.content.size);
+}
+
 export class SourceScrollManager {
     /**
      * @param {() => import('@tiptap/core').Editor} getEditor
@@ -244,6 +331,89 @@ export class SourceScrollManager {
                 scrollContainer.scrollTop = Math.max(0, targetY);
             }
         });
+    }
+
+    /**
+     * 定位到源码命中，并在 Markdown 渲染层高亮实际可见的命中文本。
+     * Markdown 标记本身不可见时退化为普通行列定位。
+     * @param {number} lineNumber - 一基源码行号。
+     * @param {number} column - 一基源码列号。
+     * @param {string} matchText - 后端返回的精确命中文本。
+     * @returns {boolean} 是否成功创建了可见高亮。
+     */
+    highlightSourceMatch(lineNumber, column = 1, matchText = '') {
+        if (!this._editor || !Number.isFinite(lineNumber)) return false;
+        const { state, view } = this._editor;
+        if (!state || !view) return false;
+
+        const bestMatch = findSourceNode(state.doc, lineNumber, matchText);
+        if (!bestMatch || !matchText) {
+            this._editor.commands.clearNavigationHighlight?.();
+            this.scrollToSourcePosition(lineNumber, column);
+            return false;
+        }
+
+        let { pos, node } = bestMatch;
+        if (!node.isTextblock) {
+            let nestedTextblock = null;
+            node.descendants((child, relativePosition) => {
+                if (!nestedTextblock && child.isTextblock && child.textContent.includes(matchText)) {
+                    nestedTextblock = {
+                        node: child,
+                        pos: pos + 1 + relativePosition,
+                    };
+                    return false;
+                }
+                return !nestedTextblock;
+            });
+            if (!nestedTextblock) {
+                this._editor.commands.clearNavigationHighlight?.();
+                this.scrollToSourcePosition(lineNumber, column);
+                return false;
+            }
+            ({ pos, node } = nestedTextblock);
+        }
+
+        const { start } = bestMatch;
+        const renderedText = node.textBetween(
+            0,
+            node.content.size,
+            '\n',
+            child => (child.type.name === 'hardBreak' ? '\n' : '')
+        );
+        const lines = renderedText.split('\n');
+        const lineOffset = Math.max(0, lineNumber - start);
+        const targetLine = lines[lineOffset] || '';
+        const matchOffset = findClosestTextMatch(targetLine, matchText, column);
+        if (matchOffset < 0) {
+            this._editor.commands.clearNavigationHighlight?.();
+            this.scrollToSourcePosition(lineNumber, column);
+            return false;
+        }
+
+        let lineTextOffset = 0;
+        for (let index = 0; index < lineOffset && index < lines.length; index += 1) {
+            lineTextOffset += lines[index].length + 1;
+        }
+        const from = resolveTextOffset(node, pos, lineTextOffset + matchOffset);
+        const to = resolveTextOffset(node, pos, lineTextOffset + matchOffset + matchText.length);
+        if (from >= to || !this._editor.commands.setNavigationHighlight?.({ from, to })) {
+            this.scrollToSourcePosition(lineNumber, column);
+            return false;
+        }
+
+        const latestState = this._editor.state;
+        const transaction = latestState.tr.setSelection(
+            latestState.selection.constructor.near(latestState.doc.resolve(from))
+        );
+        view.dispatch(transaction);
+        view.focus();
+        requestAnimationFrame(() => {
+            const dom = view.domAtPos(from)?.node;
+            const element = dom?.nodeType === Node.ELEMENT_NODE ? dom : dom?.parentElement;
+            element?.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+        });
+        return true;
     }
 
     /** 光标在 viewport 内的相对纵坐标（0=顶 1=底）。看不到/未就绪返回 null。 */

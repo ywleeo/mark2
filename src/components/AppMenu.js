@@ -17,6 +17,7 @@ const COMMAND_TO_MENU_IDS = {
     'export.currentView.image': 'export-image',
     'export.currentView.pdf': 'export-pdf',
     'view.toggleSidebar': 'toggle-sidebar',
+    'workspace.search': 'workspace-search',
     'toolbar.toggleMarkdown': 'toggle-markdown-toolbar',
     'document.newFile': 'file-new',
     'document.delete': 'file-delete',
@@ -118,6 +119,8 @@ export class AppMenu {
                     { id: 'copy', label: t('menu.copy'), shortcut: 'Ctrl+C', command: COMMAND_IDS.EDITOR_COPY },
                     { id: 'paste', label: t('menu.paste'), shortcut: 'Ctrl+V', command: COMMAND_IDS.EDITOR_PASTE },
                     { id: 'select-all', label: t('menu.selectAll'), shortcut: 'Ctrl+A', command: COMMAND_IDS.EDITOR_SELECT_ALL },
+                    { id: 'sep2', separator: true },
+                    { id: 'workspace-search', label: t('menu.workspaceSearch'), shortcut: 'Ctrl+Shift+F', command: COMMAND_IDS.WORKSPACE_SEARCH, menuId: 'workspace-search' },
                 ]
             },
             {

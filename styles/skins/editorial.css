@@ -240,6 +240,9 @@
 /* 编辑部皮肤只保留折叠箭头；打开操作仍在应用的「文件」菜单中。 */
 :root[data-app-skin='editorial'] .sidebar .section-action-btn { display: none; }
 
+/* 工作区搜索是栏目导航而非文件打开操作，在编辑部皮肤中也必须可见。 */
+:root[data-app-skin='editorial'] .sidebar #workspaceSearchAction { display: inline-flex; }
+
 /* 文件名就是目录条目，收起重复的文件类型图标与卡片式底色。 */
 :root[data-app-skin='editorial'] .sidebar .open-file-icon,
 :root[data-app-skin='editorial'] .sidebar .tree-file-icon,

@@ -79,6 +79,7 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.WORKSPACE_DELETE_ENTRY, (payload) => handlers.onDeleteWorkspaceEntry?.(payload), '删除工作区条目');
     register(COMMAND_IDS.WORKSPACE_COPY_PATH, (payload) => handlers.onCopyWorkspacePath?.(payload), '复制工作区路径');
     register(COMMAND_IDS.WORKSPACE_REVEAL_IN_FINDER, (payload) => handlers.onRevealWorkspaceEntry?.(payload), '在文件管理器中显示');
+    register(COMMAND_IDS.WORKSPACE_SEARCH, () => handlers.onWorkspaceSearch?.(), '在工作区中查找');
     register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, () => handlers.onToggleSidebar?.(), '切换侧边栏');
     register(COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR, () => handlers.onToggleStatusBar?.(), '切换状态栏');
     register(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, async () => {
@@ -154,6 +155,7 @@ export const APP_DEFAULT_KEYBINDINGS = Object.freeze([
     [COMMAND_IDS.DOCUMENT_CLOSE_TAB, 'Mod+W'],
     [COMMAND_IDS.DOCUMENT_REOPEN_TAB, 'Mod+Shift+T'],
     [COMMAND_IDS.EDITOR_FIND, 'Mod+F'],
+    [COMMAND_IDS.WORKSPACE_SEARCH, 'Mod+Shift+F'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],
     [COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, 'Mod+Shift+C'],
