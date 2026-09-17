@@ -35,6 +35,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export-image-mobile", "导出为手机图片...");
         m.insert("export-pdf", "导出为 PDF...");
         m.insert("save-as", "另存为…");
+        m.insert("version-history", "版本历史…");
         m.insert("rename", "重命名...");
         m.insert("move", "移动到...");
         m.insert("delete", "删除");
@@ -65,6 +66,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export-image-mobile", "匯出為手機圖片...");
         m.insert("export-pdf", "匯出為 PDF...");
         m.insert("save-as", "另存新檔...");
+        m.insert("version-history", "版本記錄...");
         m.insert("rename", "重新命名...");
         m.insert("move", "移動到...");
         m.insert("delete", "刪除");
@@ -95,6 +97,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export-image-mobile", "Export for Mobile...");
         m.insert("export-pdf", "Export as PDF...");
         m.insert("save-as", "Save As...");
+        m.insert("version-history", "Version History...");
         m.insert("rename", "Rename...");
         m.insert("move", "Move To...");
         m.insert("delete", "Delete");
@@ -128,6 +131,7 @@ fn command_to_menu_ids() -> HashMap<&'static str, Vec<&'static str>> {
     m.insert("toolbar.toggleMarkdown", vec!["toggle-markdown-toolbar"]);
     m.insert("document.newFile", vec!["file-new"]);
     m.insert("document.delete", vec!["file-delete"]);
+    m.insert("document.versionHistory", vec!["version-history"]);
     m.insert("editor.undo", vec!["undo"]);
     m.insert("editor.redo", vec!["redo"]);
     m.insert("view.toggleSourceMode", vec!["toggle-markdown-code-view"]);
@@ -439,6 +443,8 @@ fn build_menu(
     let save_as_item = MenuItemBuilder::with_id("file-save-as", l["save-as"])
         .accelerator(get_accelerator("file-save-as", "CmdOrCtrl+Shift+S", custom_accel))
         .build(handle)?;
+    let version_history_item =
+        MenuItemBuilder::with_id("version-history", l["version-history"]).build(handle)?;
 
     let rename_file_item = MenuItemBuilder::with_id("file-rename", l["rename"]).build(handle)?;
     let move_file_item = MenuItemBuilder::with_id("file-move", l["move"]).build(handle)?;
@@ -464,6 +470,7 @@ fn build_menu(
     let file_menu = file_menu_builder
         .separator()
         .item(&save_as_item)
+        .item(&version_history_item)
         .separator()
         .item(&export_submenu)
         .separator()

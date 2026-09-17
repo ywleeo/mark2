@@ -61,6 +61,7 @@ export function registerCoreCommands(options = {}) {
     });
     register(COMMAND_IDS.DOCUMENT_SAVE, () => handlers.onSave?.(), '保存当前文档');
     register(COMMAND_IDS.DOCUMENT_SAVE_AS, () => handlers.onSaveAs?.(), '另存为');
+    register(COMMAND_IDS.DOCUMENT_VERSION_HISTORY, () => handlers.onVersionHistory?.(), '查看版本历史');
     register(COMMAND_IDS.DOCUMENT_CLOSE_TAB, () => handlers.onCloseTab?.(), '关闭当前标签');
     register(COMMAND_IDS.DOCUMENT_REOPEN_TAB, () => handlers.onReopenTab?.(), '撤销关闭标签');
     register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, () => handlers.onNewUntitled?.(), '新建临时文档');

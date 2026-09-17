@@ -50,6 +50,7 @@ export function createCommandHandlers(deps) {
         openFolderOnly,
         saveCurrentFile,
         saveCurrentFileAs,
+        showVersionHistory,
         closeActiveTab,
         reopenLastClosedTab,
         handleSettingsSubmit: _unusedHandleSettingsSubmit, // reserved for future
@@ -194,6 +195,7 @@ export function createCommandHandlers(deps) {
         onSelectSearchMatches: () => getActiveEditorRegistry().getMarkdownEditor()?.selectAllSearchMatches?.(),
         onSave: saveFocusedDocument || saveCurrentFile,
         onSaveAs: saveFocusedDocumentAs || saveCurrentFileAs,
+        onVersionHistory: () => showVersionHistory?.(),
         onCloseTab: closeFocusedDocument || closeActiveTab,
         onReopenTab: reopenLastClosedTab,
         onToggleSvgCodeView: toggleSvgCodeMode,

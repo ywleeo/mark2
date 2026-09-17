@@ -254,7 +254,7 @@ pub fn write_file(path: String, content: String) -> Result<(), String> {
  * 将完整内容写入同目录临时文件后原子替换目标文件。
  * 同目录保证 rename 不跨文件系统，sync_all 保证替换前数据已经交给操作系统落盘。
  */
-fn write_file_atomically(path: &Path, content: &[u8]) -> io::Result<()> {
+pub(crate) fn write_file_atomically(path: &Path, content: &[u8]) -> io::Result<()> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     let file_name = path
         .file_name()

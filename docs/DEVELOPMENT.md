@@ -32,6 +32,7 @@
 | 快捷键绑定关系 | `KeybindingManager` |
 | AI / Scratchpad / Card Export | `FeatureManager` |
 | 图片 / PDF 等导出能力 | `ExportManager` |
+| 崩溃恢复、保存版本历史 | `RecoveryService` + `recovery_store` |
 
 如果一个实现需要跨多个 UI 组件同步状态，通常不应该直接写在组件里。
 
@@ -455,6 +456,13 @@ npm run test:markdown-roundtrip
 ```
 
 真实 Markdown 样本位于 `tests/fixtures/markdown-roundtrip/`。遇到新的兼容性问题时，应先将最小可复现原文加入该语法库，再修复并保留为永久回归用例。
+
+崩溃恢复、窗口关闭刷新或版本历史有变更时，还必须执行恢复链专项测试：
+
+```bash
+node --test tests/recoveryService.test.js tests/recoveryController.test.js
+cargo test recovery_store --manifest-path src-tauri/Cargo.toml
+```
 
 如果改到了关键链路，还应补：
 

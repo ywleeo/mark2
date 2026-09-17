@@ -46,6 +46,7 @@ export const COMMAND_IDS = Object.freeze({
     MARKDOWN_CLEAR_FORMATTING: 'markdown.clearFormatting',
     DOCUMENT_SAVE: 'document.save',
     DOCUMENT_SAVE_AS: 'document.saveAs',
+    DOCUMENT_VERSION_HISTORY: 'document.versionHistory',
     DOCUMENT_CLOSE_TAB: 'document.closeTab',
     DOCUMENT_REOPEN_TAB: 'document.reopenTab',
     DOCUMENT_NEW_UNTITLED: 'document.newUntitled',

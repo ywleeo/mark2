@@ -16,6 +16,7 @@ import { registerDocumentIO } from '../api/document.js';
 import { createAppServices } from '../services/appServices.js';
 import { createFileService } from '../services/fileService.js';
 import { createRecentFilesService } from '../services/recentFilesService.js';
+import { createRecoveryService } from '../services/recoveryService.js';
 import { MarkdownToolbarManager } from '../components/markdown-toolbar/MarkdownToolbarManager.js';
 import { createDocumentRegistry } from '../core/documents/DocumentRegistry.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from '../utils/workspaceState.js';
@@ -39,6 +40,7 @@ import { createViewManager } from '../core/views/ViewManager.js';
 import { createPaneManager, PANE_IDS } from '../core/layout/PaneManager.js';
 import { createEmbedCodeMode } from '../modules/embedCodeMode.js';
 import { createDocumentSessionManager } from '../modules/documentSessionManager.js';
+import { createRecoveryController } from '../modules/recoveryController.js';
 import { untitledFileManager } from '../modules/untitledFileManager.js';
 import { createViewController, ZOOM_DEFAULT, ZOOM_STEP } from './viewController.js';
 import { createEditorActions } from './editorActions.js';
@@ -125,6 +127,12 @@ const documentRegistry = createDocumentRegistry({
     getViewModeForPath,
     isCsvFilePath,
 });
+const recoveryService = createRecoveryService({
+    documentRegistry,
+    isUntitledPath: path => untitledFileManager.isUntitledPath(path),
+    logger: ioLogger,
+});
+appState.setCleanupFunction('recoveryService', () => recoveryService.dispose());
 const documentManager = createDocumentManager({
     appState,
     normalizePath: normalizeFsPath,
@@ -268,6 +276,7 @@ const windowLifecycle = createWindowLifecycle({
     getHandleSettingsSubmit: () => handleSettingsSubmit,
     getPersistWorkspaceState: () => persistWorkspaceState,
     getOpenPathsFromSelection: () => openPathsFromSelection,
+    recoveryService,
 });
 const {
     updateWindowTitle,
@@ -583,6 +592,18 @@ const {
     confirm,
 });
 
+// ========== 崩溃恢复与版本历史 ==========
+const recoveryController = createRecoveryController({
+    recoveryService,
+    fileService: appServices.file,
+    documentRegistry,
+    documentSessions,
+    getCurrentFile: () => getActivePaneContext().documentPath,
+    openPathsFromSelection,
+    importAsUntitled: handleImportAsUntitled,
+    getStatusBarController: () => appState.getStatusBarController(),
+});
+
 // ========== 导航控制器 ==========
 const {
     handleFileSelect,
@@ -699,6 +720,7 @@ bootstrap = createAppBootstrap({
     untitledFileManager,
     appServices,
     workspaceController,
+    recoveryController,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
     updateWindowTitle,

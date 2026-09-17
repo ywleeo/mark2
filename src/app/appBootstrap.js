@@ -55,6 +55,7 @@ export function createAppBootstrap({
     untitledFileManager,
     appServices,
     workspaceController,
+    recoveryController,
     // 同步调度器
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
@@ -684,6 +685,7 @@ export function createAppBootstrap({
                 openFolderOnly,
                 saveCurrentFile,
                 saveCurrentFileAs,
+                showVersionHistory: () => recoveryController?.showVersionHistory?.(),
                 closeActiveTab,
                 reopenLastClosedTab,
                 handleCreateNewFile,
@@ -731,7 +733,8 @@ export function createAppBootstrap({
         appState.setCleanupFunction('fileDrop', await fileDropController.setup());
 
         setupCleanupHandlers();
-        showWindow();
+        await showWindow();
+        await recoveryController?.showStartupRecovery?.();
         loadAvailableFonts();
         updateWindowTitle();
 

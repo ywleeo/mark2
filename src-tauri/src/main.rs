@@ -11,6 +11,7 @@ mod gist_share;
 mod image_proxy;
 mod media_stream;
 mod menu;
+mod recovery_store;
 mod security_scope;
 mod spreadsheet;
 mod vault;
@@ -226,6 +227,7 @@ fn main() {
         .manage(DocumentState::default())
         .manage(ai_proxy::AiProxyState::default())
         .manage(vault::commands::VaultState::default())
+        .manage(recovery_store::RecoveryStoreState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -270,6 +272,12 @@ fn main() {
             ai_proxy::ai_proxy_cancel_stream,
             read_clipboard_text,
             relaunch_via_open,
+            recovery_store::upsert_recovery_snapshot,
+            recovery_store::list_recovery_snapshots,
+            recovery_store::read_recovery_snapshot,
+            recovery_store::delete_recovery_snapshot,
+            recovery_store::clear_pending_recovery,
+            recovery_store::rename_recovery_document,
             default_handler::get_default_app_status,
             default_handler::set_as_default_app,
             vault::commands::vault_list,
