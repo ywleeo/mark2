@@ -1,6 +1,8 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 import { createStore } from '../services/storage.js';
 import { normalizeAppSkin, resolveMarkdownTheme } from '../config/appSkins.js';
+import { setWritingModeState } from '../modules/writing-modes/writingModeState.js';
 
 const store = createStore('editor');
 store.migrateFrom('mark2:editorSettings', 'settings');
@@ -27,6 +29,8 @@ export const defaultEditorSettings = {
     tocFontSize: 12,
     autoSave: true,
     allowAutoUpdate: true,
+    focusMode: false,
+    typewriterMode: false,
 };
 
 function clamp(value, min, max) {
@@ -173,6 +177,14 @@ export function normalizeEditorSettings(candidate) {
         if (candidate.allowAutoUpdate !== undefined) {
             prefs.allowAutoUpdate = candidate.allowAutoUpdate !== false;
         }
+
+        if (candidate.focusMode !== undefined) {
+            prefs.focusMode = candidate.focusMode === true;
+        }
+
+        if (candidate.typewriterMode !== undefined) {
+            prefs.typewriterMode = candidate.typewriterMode === true;
+        }
     }
 
     return prefs;
@@ -248,7 +260,27 @@ export function applyEditorSettings(settings) {
     root.style.setProperty('--sidebar-font-size', `${prefs.sidebarFontSize}px`);
     root.style.setProperty('--toc-font-size', `${prefs.tocFontSize}px`);
 
+    setWritingModeState({
+        focusMode: prefs.focusMode,
+        typewriterMode: prefs.typewriterMode,
+    });
+    root.dataset.focusMode = prefs.focusMode ? 'active' : 'inactive';
+    root.dataset.typewriterMode = prefs.typewriterMode ? 'active' : 'inactive';
+    syncNativeWritingModeMenuState(prefs);
+
     notifyAppearanceChange(resolvedAppearance, appearancePreference, prefs.skin);
+}
+
+/**
+ * 同步 Tauri 原生菜单的勾选状态；普通浏览器预览下调用失败会被静默忽略。
+ * @param {object} prefs - 已规范化的编辑器偏好。
+ */
+function syncNativeWritingModeMenuState(prefs) {
+    if (typeof window === 'undefined') return;
+    void invoke('set_writing_mode_menu_state', {
+        focusMode: prefs.focusMode === true,
+        typewriterMode: prefs.typewriterMode === true,
+    }).catch(() => {});
 }
 
 let prefersDarkMediaQuery = null;

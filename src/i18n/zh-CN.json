@@ -27,6 +27,8 @@
     "menu.toggleSidebar": "切换侧边栏",
     "menu.toggleStatusBar": "切换状态栏",
     "menu.toggleToolbar": "切换 Markdown 工具栏",
+    "menu.focusMode": "专注模式",
+    "menu.typewriterMode": "打字机模式",
     "menu.toggleTheme": "切换深色/浅色主题",
     "menu.about": "关于 Mark2",
     "menu.checkUpdate": "检查更新...",

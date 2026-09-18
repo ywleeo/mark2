@@ -27,6 +27,8 @@ export function createCommandHandlers(deps) {
         // view / layout toggles
         toggleSidebarVisibility,
         toggleStatusBarVisibility,
+        toggleFocusMode,
+        toggleTypewriterMode,
         toggleMarkdownCodeMode,
         toggleSvgCodeMode,
         toggleEmbedCodeMode,
@@ -164,6 +166,8 @@ export function createCommandHandlers(deps) {
         onExportPdf: () => exportManager.executeExport(EXPORT_IDS.CURRENT_VIEW_PDF),
         onToggleSidebar: toggleSidebarVisibility,
         onToggleStatusBar: toggleStatusBarVisibility,
+        onToggleFocusMode: toggleFocusMode,
+        onToggleTypewriterMode: toggleTypewriterMode,
         onOpenInSecondary: ({ path } = {}) => openInSecondary?.(path),
         onCloseSecondary: closeSecondary,
         onPromoteSecondary: promoteSecondary,

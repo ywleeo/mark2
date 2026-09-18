@@ -14,6 +14,7 @@ import { createExternalModificationConflict } from '../../core/documents/Documen
 import { reconcileSavedSnapshot } from '../../core/documents/SaveSnapshot.js';
 import { resolveLanguageSupport } from './LanguageSupport.js';
 import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
+import { CodeWritingModeController } from '../../modules/writing-modes/CodeWritingModeController.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
     DEFAULT_CODE_FONT_FAMILY,
@@ -164,6 +165,11 @@ export class CodeEditor {
         this.loadingSessionId = null;
         this.currentTabId = null;
         this.tabViewStates = new Map();
+        this.writingModeController = new CodeWritingModeController({
+            container: this.container,
+            getEditorView: () => this.editor,
+            isApplicable: () => this.currentLanguage === 'markdown',
+        });
 
         // 自动保存相关
         this.autoSaveDelayMs = Number.isFinite(options.autoSaveDelayMs)
@@ -338,6 +344,7 @@ export class CodeEditor {
         if (this.editor) return;
 
         this._updateListener = EditorView.updateListener.of((update) => {
+            this.writingModeController?.handleViewUpdate(update);
             if (update.docChanged && !this.suppressChange) {
                 const currentContent = update.state.doc.toString();
                 this.isDirty = currentContent !== this.baseContent;
@@ -362,6 +369,7 @@ export class CodeEditor {
             this.editorHost.style.webkitUserDrag = 'none';
         }
         this.applyPreferencesToEditor();
+        this.writingModeController?.refreshEditorView();
 
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
@@ -458,6 +466,7 @@ export class CodeEditor {
         this.baseContent = editorContent;
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
+        this.writingModeController?.refreshEditorView();
         this.isDirty = false;
         const restored = this.restoreTabState(this.currentTabId, editorContent, targetLanguage);
         if (!restored) {
@@ -693,6 +702,7 @@ export class CodeEditor {
         this.cancelAutoSave();
         this.currentFile = null;
         this.currentLanguage = null;
+        this.writingModeController?.refreshEditorView();
         this.currentSessionId = null;
         this.loadingSessionId = null;
         this.isDirty = false;
@@ -1038,6 +1048,8 @@ export class CodeEditor {
 
     dispose() {
         this.detachDocument();
+        this.writingModeController?.destroy();
+        this.writingModeController = null;
         this.cancelAutoSave();
         if (this.pendingLayoutFrame !== null) {
             cancelAnimationFrame(this.pendingLayoutFrame);

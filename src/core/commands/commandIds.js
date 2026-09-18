@@ -67,6 +67,8 @@ export const COMMAND_IDS = Object.freeze({
     WORKSPACE_SEARCH: 'workspace.search',
     VIEW_TOGGLE_SIDEBAR: 'view.toggleSidebar',
     VIEW_TOGGLE_STATUS_BAR: 'view.toggleStatusBar',
+    VIEW_TOGGLE_FOCUS_MODE: 'view.toggleFocusMode',
+    VIEW_TOGGLE_TYPEWRITER_MODE: 'view.toggleTypewriterMode',
     VIEW_TOGGLE_SOURCE_MODE: 'view.toggleSourceMode',
     VIEW_OPEN_IN_SECONDARY: 'view.openInSecondary',
     VIEW_CLOSE_SECONDARY: 'view.closeSecondary',

@@ -19,6 +19,7 @@ import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
 import { restoreKeybindingsFromFileIfNeeded } from '../utils/keybindingsStorage.js';
 import { createCommandHandlers } from './commandHandlers.js';
+import { toggleWritingModePreference } from '../modules/writing-modes/writingModePreferences.js';
 import { createBootstrapHelpers } from './bootstrapHelpers.js';
 import { isWindows } from '../utils/platform.js';
 import { registerCoreFeatures } from './featureSetup.js';
@@ -661,6 +662,8 @@ export function createAppBootstrap({
                 openSettingsDialog,
                 toggleSidebarVisibility,
                 toggleStatusBarVisibility,
+                toggleFocusMode: () => toggleWritingModePreference(appState, 'focusMode'),
+                toggleTypewriterMode: () => toggleWritingModePreference(appState, 'typewriterMode'),
                 toggleMarkdownCodeMode,
                 toggleSvgCodeMode,
                 toggleEmbedCodeMode,

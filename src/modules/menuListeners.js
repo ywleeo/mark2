@@ -41,6 +41,8 @@ export async function registerMenuListeners(handlers) {
     await register('menu-toggle-sidebar', COMMAND_IDS.VIEW_TOGGLE_SIDEBAR);
     await register('menu-workspace-search', COMMAND_IDS.WORKSPACE_SEARCH);
     await register('menu-toggle-status-bar', COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR);
+    await register('menu-toggle-focus-mode', COMMAND_IDS.VIEW_TOGGLE_FOCUS_MODE);
+    await register('menu-toggle-typewriter-mode', COMMAND_IDS.VIEW_TOGGLE_TYPEWRITER_MODE);
     await register('menu-toggle-markdown-code-view', COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE);
     await register('menu-toggle-markdown-toolbar', COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN);
     await register('menu-toggle-theme', COMMAND_IDS.THEME_TOGGLE);

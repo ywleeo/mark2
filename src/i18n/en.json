@@ -27,6 +27,8 @@
     "menu.toggleSidebar": "Toggle Sidebar",
     "menu.toggleStatusBar": "Toggle Status Bar",
     "menu.toggleToolbar": "Toggle Markdown Toolbar",
+    "menu.focusMode": "Focus Mode",
+    "menu.typewriterMode": "Typewriter Mode",
     "menu.toggleTheme": "Toggle Dark/Light Theme",
     "menu.about": "About Mark2",
     "menu.checkUpdate": "Check for Updates...",

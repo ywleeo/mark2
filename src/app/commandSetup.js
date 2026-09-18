@@ -82,6 +82,8 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.WORKSPACE_SEARCH, () => handlers.onWorkspaceSearch?.(), '在工作区中查找');
     register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, () => handlers.onToggleSidebar?.(), '切换侧边栏');
     register(COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR, () => handlers.onToggleStatusBar?.(), '切换状态栏');
+    register(COMMAND_IDS.VIEW_TOGGLE_FOCUS_MODE, () => handlers.onToggleFocusMode?.(), '切换专注模式');
+    register(COMMAND_IDS.VIEW_TOGGLE_TYPEWRITER_MODE, () => handlers.onToggleTypewriterMode?.(), '切换打字机模式');
     register(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, async () => {
         const focusedResult = await handlers.onToggleFocusedSourceView?.();
         if (focusedResult !== undefined) {
