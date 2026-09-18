@@ -11,6 +11,63 @@
     outline: none;
 }
 
+/* 侧栏页眉建立高于 Open Files 与 Folders 的应用级操作层。 */
+.skin-masthead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex: 0 0 auto;
+    min-height: 32px;
+    margin: 8px 10px 4px 14px;
+    user-select: none;
+}
+
+.skin-masthead__name {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-secondary, #666);
+    line-height: 1;
+}
+
+.skin-masthead__word,
+.skin-masthead__edition {
+    color: inherit;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transform: none;
+}
+
+.skin-masthead__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.skin-masthead__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+.skin-masthead__action:hover,
+.skin-masthead__action:focus-visible {
+    outline: none;
+    background: var(--sidebar-row-hover-bg, rgba(0, 0, 0, 0.05));
+    color: var(--text-color, #333);
+}
+
 /* 区域容器 */
 .sidebar-section {
     display: flex;

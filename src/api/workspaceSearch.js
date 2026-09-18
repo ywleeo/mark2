@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 
 /**
- * 在后台搜索一个或多个工作区根目录。
- * @param {{roots: string[], query: string, options: Object}} request - 搜索请求。
+ * 在后台搜索一个或多个文件夹或单文件目标。
+ * @param {{roots: string[], query: string, options: Object}} request - 搜索请求，roots 可同时包含目录和文件。
  * @returns {Promise<Object>} 搜索响应。
  */
 export async function searchWorkspace(request) {

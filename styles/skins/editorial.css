@@ -185,16 +185,10 @@
     background: color-mix(in srgb, var(--editorial-rail-muted) 50%, transparent);
 }
 
-/* 小型印刷署名只负责识别；不把低频操作堆在页眉。 */
-.skin-masthead { display: none; }
-
+/* 印刷署名与全局操作共同构成高于文件栏目的侧栏页眉。 */
 :root[data-app-skin='editorial'] .skin-masthead {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
     margin: 12px 25px 4px;
     min-height: 32px;
-    user-select: none;
 }
 
 :root[data-app-skin='editorial'] .skin-masthead__name {
@@ -224,6 +218,16 @@
     transform: translateY(-7px);
 }
 
+:root[data-app-skin='editorial'] .sidebar .skin-masthead__action {
+    border-radius: 0;
+    color: var(--editorial-rail-muted);
+}
+
+:root[data-app-skin='editorial'] .sidebar .skin-masthead__action:is(:hover, :focus-visible) {
+    background: transparent;
+    color: var(--editorial-accent);
+}
+
 :root[data-app-skin='editorial'] .sidebar .section-header {
     margin: 18px 25px 9px;
     padding: 0 2px;
@@ -239,9 +243,6 @@
 
 /* 编辑部皮肤只保留折叠箭头；打开操作仍在应用的「文件」菜单中。 */
 :root[data-app-skin='editorial'] .sidebar .section-action-btn { display: none; }
-
-/* 工作区搜索是栏目导航而非文件打开操作，在编辑部皮肤中也必须可见。 */
-:root[data-app-skin='editorial'] .sidebar #workspaceSearchAction { display: inline-flex; }
 
 /* 文件名就是目录条目，收起重复的文件类型图标与卡片式底色。 */
 :root[data-app-skin='editorial'] .sidebar .open-file-icon,

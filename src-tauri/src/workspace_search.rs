@@ -474,6 +474,19 @@ mod tests {
     }
 
     #[test]
+    fn searches_a_standalone_open_file_target() {
+        let root = temp_root("standalone-file");
+        let file = root.join("outside.md");
+        fs::write(&file, "standalone needle\n").expect("write fixture");
+        let response = run(&file, "needle", WorkspaceSearchOptions::default());
+        assert_eq!(response.matches.len(), 1);
+        let canonical_file = fs::canonicalize(&file).expect("canonicalize fixture");
+        assert_eq!(response.matches[0].file_path, canonical_file.to_string_lossy());
+        assert_eq!(response.matches[0].relative_path, "outside.md");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn truncates_very_long_result_lines_around_the_match() {
         let root = temp_root("long-line");
         let content = format!("{}needle{}", "a".repeat(2_000), "b".repeat(2_000));

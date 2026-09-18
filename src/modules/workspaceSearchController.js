@@ -1,7 +1,10 @@
 import { searchWorkspace, cancelWorkspaceSearch } from '../api/workspaceSearch.js';
 import { WorkspaceSearchPanel } from '../components/WorkspaceSearchPanel.js';
 import { t } from '../i18n/index.js';
-import { getWorkspaceSearchMatchText } from '../utils/workspaceSearchUtils.js';
+import {
+    collectWorkspaceSearchTargets,
+    getWorkspaceSearchMatchText,
+} from '../utils/workspaceSearchUtils.js';
 
 const SEARCH_DEBOUNCE_MS = 180;
 
@@ -22,8 +25,12 @@ export function createWorkspaceSearchController(dependencies) {
     let debounceTimer = null;
     let requestSerial = 0;
 
-    /** 读取当前工作区根目录。 */
-    const getRoots = () => fileTree?.getRootPaths?.() || Array.from(fileTree?.rootPaths || []);
+    /** 合并 Open Folders 与 Open Files，未保存文档不会进入磁盘搜索。 */
+    const getSearchTargets = () => collectWorkspaceSearchTargets(
+        fileTree?.getRootPaths?.() || Array.from(fileTree?.rootPaths || []),
+        fileTree?.getOpenFilePaths?.() || Array.from(fileTree?.openFiles || []),
+        fileTree?.normalizePath?.bind(fileTree) || (path => path),
+    );
 
     /** 清除所有文本编辑视图中的工作区搜索导航高亮。 */
     const clearDocumentHighlight = () => {
@@ -73,7 +80,7 @@ export function createWorkspaceSearchController(dependencies) {
             void cancelWorkspaceSearch().catch(() => {});
             return;
         }
-        const roots = getRoots();
+        const roots = getSearchTargets();
         if (roots.length === 0) {
             panel.setMessage(t('workspaceSearch.noFolder'));
             return;
@@ -122,7 +129,7 @@ export function createWorkspaceSearchController(dependencies) {
             setSidebarVisibility?.(false);
             panel.show();
             if (!panel.getRequest().query) {
-                panel.setMessage(getRoots().length > 0
+                panel.setMessage(getSearchTargets().length > 0
                     ? t('workspaceSearch.startTyping')
                     : t('workspaceSearch.noFolder'));
             }

@@ -1,3 +1,30 @@
+import { getPathIdentityKey } from './pathUtils.js';
+
+/**
+ * 合并已打开文件夹与已打开文件，生成后端统一处理的搜索目标。
+ * @param {string[]} rootPaths - 已打开文件夹。
+ * @param {string[]} openFilePaths - Open Files 中的磁盘文件。
+ * @param {(path:string) => string} normalizePath - 平台路径规范化函数。
+ * @returns {string[]} 去重后的文件或目录路径。
+ */
+export function collectWorkspaceSearchTargets(
+    rootPaths = [],
+    openFilePaths = [],
+    normalizePath = path => path,
+) {
+    const targets = [];
+    const seen = new Set();
+    [...rootPaths, ...openFilePaths].forEach((path) => {
+        if (typeof path !== 'string' || path.startsWith('untitled://')) return;
+        const normalized = normalizePath(path);
+        const identity = getPathIdentityKey(normalized);
+        if (!normalized || !identity || seen.has(identity)) return;
+        seen.add(identity);
+        targets.push(normalized);
+    });
+    return targets;
+}
+
 /**
  * 把一行搜索结果裁成包含命中的短片段。
  * 后端位置按 Unicode 字符计数，因此这里使用 Array.from 而不是 UTF-16 下标。

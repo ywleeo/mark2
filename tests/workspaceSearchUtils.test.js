@@ -3,8 +3,19 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
     createSearchSnippet,
+    collectWorkspaceSearchTargets,
     getWorkspaceSearchMatchText,
 } from '../src/utils/workspaceSearchUtils.js';
+
+test('工作区搜索同时覆盖打开文件夹和独立打开文件', () => {
+    const targets = collectWorkspaceSearchTargets(
+        ['/notes', '/notes'],
+        ['/outside/todo.md', '/notes', 'untitled://draft-1'],
+        path => path.replace('/outside', '/workspace'),
+    );
+
+    assert.deepEqual(targets, ['/notes', '/workspace/todo.md']);
+});
 
 test('工作区搜索片段按 Unicode 字符位置高亮', () => {
     const snippet = createSearchSnippet({

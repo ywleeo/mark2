@@ -80,23 +80,27 @@ test('目录文件名保留完整文本并由皮肤决定排版', async () => {
     assert.match(editorialCss, /-webkit-line-clamp: 2/);
 });
 
-/** 编辑部侧栏隐藏文件打开动作，但保留独立的工作区搜索入口。 */
+/** 编辑部侧栏隐藏文件打开动作，并把全局搜索提升到两个文件栏目之上。 */
 test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     const renderer = await readFile(new URL('../src/components/file-tree/FileTreeRenderer.js', import.meta.url), 'utf8');
     const events = await readFile(new URL('../src/components/file-tree/FileTreeEvents.js', import.meta.url), 'utf8');
+    const fileTreeCss = await readFile(new URL('../styles/file-tree.css', import.meta.url), 'utf8');
     const css = await readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8');
     const menu = await readFile(new URL('../src/components/AppMenu.js', import.meta.url), 'utf8');
 
     assert.match(renderer, /class="skin-masthead__name" role="img" aria-label="Mark2"/);
     assert.match(renderer, /class="skin-masthead__word" aria-hidden="true">Mark<\/span>/);
-    assert.doesNotMatch(renderer, /skin-masthead__action/);
+    assert.match(renderer, /class="skin-masthead__actions"/);
+    assert.match(renderer, /class="skin-masthead__action"[^>]*id="workspaceSearchAction"/);
+    assert.match(fileTreeCss, /\.skin-masthead__word,\s*\.skin-masthead__edition\s*\{[^}]*text-transform: uppercase;/s);
     assert.doesNotMatch(renderer, /section-action-label/);
     assert.match(events, /onOpenFileRequest\?\.\(\)/);
     assert.match(events, /onOpenFolderRequest\?\.\(\)/);
-    assert.match(css, /\.skin-masthead \{ display: none; \}/);
+    assert.doesNotMatch(css, /\.skin-masthead \{ display: none; \}/);
     assert.match(css, /\.skin-masthead__word\s*\{[^}]*letter-spacing: 0\.08em;/);
     assert.match(css, /\.sidebar \.section-action-btn \{ display: none; \}/);
-    assert.match(css, /\.sidebar #workspaceSearchAction \{ display: inline-flex; \}/);
+    assert.ok(renderer.indexOf('id="workspaceSearchAction"') < renderer.indexOf('open-files-section'));
+    assert.match(css, /\.sidebar \.skin-masthead__action\s*\{/);
     assert.doesNotMatch(css, /\.section-header:is\(:hover, :focus-within\) \.section-action-btn/);
     assert.match(menu, /command: COMMAND_IDS\.APP_OPEN_FILE/);
     assert.match(menu, /command: COMMAND_IDS\.APP_OPEN_FOLDER/);

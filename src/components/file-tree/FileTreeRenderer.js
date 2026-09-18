@@ -233,9 +233,23 @@ export class FileTreeRenderer {
      */
     initContainer() {
         this.fileTree.container.innerHTML = `
-            <!-- 编辑部皮肤仅保留小型文字署名；文件操作回到各自栏目。 -->
+            <!-- 侧栏页眉承载应用标识与跨栏目的全局操作。 -->
             <div class="skin-masthead">
                 <span class="skin-masthead__name" role="img" aria-label="Mark2"><span class="skin-masthead__word" aria-hidden="true">Mark</span><span class="skin-masthead__edition" aria-hidden="true">2</span></span>
+                <div class="skin-masthead__actions">
+                    <button
+                        class="skin-masthead__action"
+                        id="workspaceSearchAction"
+                        type="button"
+                        title="${t('workspaceSearch.title')}"
+                        aria-label="${t('workspaceSearch.title')}"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"/>
+                            <path d="m20 20-4-4"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <!-- 打开的文件区域 -->
             <div class="sidebar-section open-files-section">
@@ -276,18 +290,6 @@ export class FileTreeRenderer {
                                 <path d="M2.5 4.5 6 8l3.5-3.5"/>
                             </svg>
                         </span>
-                        <button
-                            class="section-action-btn"
-                            id="workspaceSearchAction"
-                            type="button"
-                            title="${t('workspaceSearch.title')}"
-                            aria-label="${t('workspaceSearch.title')}"
-                        >
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <circle cx="11" cy="11" r="7"/>
-                                <path d="m20 20-4-4"/>
-                            </svg>
-                        </button>
                         <button
                             class="section-action-btn"
                             id="foldersAction"
