@@ -9,11 +9,12 @@ import { subscribeWritingModeState } from './writingModeState.js';
 export class CodeWritingModeController {
     /**
      * 创建控制器并订阅共享模式状态。
-     * @param {{container:HTMLElement,getEditorView:Function,isApplicable?:Function}} options - CodeMirror 访问器。
+     * @param {{container:HTMLElement,getEditorView:Function,centerSelection:Function,isApplicable?:Function}} options - CodeMirror 访问器。
      */
     constructor(options = {}) {
         this.container = options.container;
         this.getEditorView = options.getEditorView;
+        this.centerSelection = options.centerSelection;
         this.isApplicable = options.isApplicable;
         this.state = { focusMode: false, typewriterMode: false };
         this.pendingFrame = null;
@@ -79,17 +80,11 @@ export class CodeWritingModeController {
         });
     }
 
-    /** 将 CodeMirror 主选区光标平移到滚动视口中线。 */
+    /** 请求 CodeMirror 在自己的测量阶段把主选区光标滚到视口中线。 */
     centerCursor() {
         const view = this.getEditorView?.();
-        const scroller = view?.scrollDOM;
-        if (!this.state.typewriterMode || this.isApplicable?.() === false || !view || !scroller) return;
-        const cursor = view.coordsAtPos(view.state.selection.main.head);
-        if (!cursor) return;
-        const viewport = scroller.getBoundingClientRect();
-        const cursorCenter = (cursor.top + cursor.bottom) / 2;
-        const viewportCenter = viewport.top + scroller.clientHeight / 2;
-        scroller.scrollTop += cursorCenter - viewportCenter;
+        if (!this.state.typewriterMode || this.isApplicable?.() === false || !view) return;
+        this.centerSelection?.(view);
     }
 
     /** 解除订阅、观察器与临时样式。 */

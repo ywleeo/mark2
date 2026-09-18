@@ -6,6 +6,7 @@ import {
     setWritingModeState,
     subscribeWritingModeState,
 } from '../src/modules/writing-modes/writingModeState.js';
+import { CodeWritingModeController } from '../src/modules/writing-modes/CodeWritingModeController.js';
 
 const projectRoot = new URL('../', import.meta.url);
 
@@ -77,4 +78,45 @@ test('Markdown 专注模式通过 ProseMirror 节点装饰跟随当前选区', a
     assert.match(plugin, /Decoration\.node/);
     assert.match(plugin, /state\.selection\.\$head/);
     assert.match(plugin, /class: 'writing-focus-block'/);
+});
+
+test('Code 打字机模式把居中交给 CodeMirror，并合并同一帧的高频更新', () => {
+    setWritingModeState({ focusMode: false, typewriterMode: false });
+    const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+    const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+    const scheduledFrames = [];
+    globalThis.requestAnimationFrame = callback => {
+        scheduledFrames.push(callback);
+        return scheduledFrames.length;
+    };
+    globalThis.cancelAnimationFrame = () => {};
+
+    const view = { state: { selection: { main: { head: 42 } } } };
+    const centeredViews = [];
+    const controller = new CodeWritingModeController({
+        container: { classList: { toggle() {}, remove() {} } },
+        getEditorView: () => view,
+        centerSelection: currentView => centeredViews.push(currentView),
+        isApplicable: () => true,
+    });
+
+    try {
+        setWritingModeState({ focusMode: false, typewriterMode: true });
+        controller.handleViewUpdate({ docChanged: true });
+        controller.handleViewUpdate({ selectionSet: true });
+
+        assert.equal(scheduledFrames.length, 1);
+        scheduledFrames.shift()();
+        assert.deepEqual(centeredViews, [view]);
+    } finally {
+        controller.destroy();
+        setWritingModeState({ focusMode: false, typewriterMode: false });
+        globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+        globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
+    }
+});
+
+test('CodeEditor 使用 CodeMirror 原生滚动事务执行光标居中', async () => {
+    const codeEditor = await readProjectFile('src/components/code-editor/CodeEditor.js');
+    assert.match(codeEditor, /EditorView\.scrollIntoView\(cursorPosition, \{ y: 'center' \}\)/);
 });

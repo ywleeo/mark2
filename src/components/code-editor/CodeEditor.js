@@ -168,6 +168,12 @@ export class CodeEditor {
         this.writingModeController = new CodeWritingModeController({
             container: this.container,
             getEditorView: () => this.editor,
+            centerSelection: view => {
+                const cursorPosition = view.state.selection.main.head;
+                view.dispatch({
+                    effects: EditorView.scrollIntoView(cursorPosition, { y: 'center' }),
+                });
+            },
             isApplicable: () => this.currentLanguage === 'markdown',
         });
 
