@@ -107,12 +107,30 @@ test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     assert.doesNotMatch(renderer, /A PLACE FOR WORDS/);
 });
 
-/** 栏目滚动条不应在鼠标进入时占用新宽度，造成文件名换行跳动。 */
-test('编辑部侧栏 hover 只改变滑块颜色，不改变滚动条占位', async () => {
+/** 所有皮肤的侧栏必须共用可见、无槽的 WebKit 滚动条机制。 */
+test('侧栏滚动条机制由公共样式统一', async () => {
+    const [layoutCss, fileTreeCss, editorialCss] = await Promise.all([
+        readFile(new URL('../styles/layout.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/file-tree.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(fileTreeCss, /\.section-content\s*\{[^}]*scrollbar-width:\s*auto;[^}]*scrollbar-color:\s*auto;/);
+    assert.doesNotMatch(fileTreeCss, /\.section-content[^\{]*\{[^}]*scrollbar-width:\s*(?:thin|none);/);
+    assert.doesNotMatch(editorialCss, /\.sidebar \.section-content[^\{]*\{[^}]*scrollbar-(?:width|color|gutter):/);
+    assert.match(layoutCss, /\.section-content::-webkit-scrollbar[^\{]*\{[^}]*width:\s*var\(--scrollbar-size, 2px\);/);
+    assert.match(layoutCss, /\.section-content::-webkit-scrollbar-track[^\{]*\{[^}]*background:\s*transparent;/);
+    assert.match(layoutCss, /\.section-content::-webkit-scrollbar-thumb[^\{]*\{[^}]*background:\s*color-mix\([^}]*var\(--scrollbar-thumb-color,/);
+});
+
+/** 编辑部滚动条应从纸张与栏目暖色语义派生，不回退到经典皮肤的冷灰。 */
+test('编辑部主视图与侧栏共用皮肤滚动条色阶', async () => {
     const css = await readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8');
-    assert.match(css, /\.sidebar \.section-content\s*\{[^}]*scrollbar-width: thin;[^}]*scrollbar-gutter: stable;/);
-    assert.match(css, /\.sidebar \.section-content:hover\s*\{[^}]*scrollbar-color:/);
-    assert.doesNotMatch(css, /\.sidebar \.section-content:hover\s*\{[^}]*scrollbar-width:/);
+    assert.match(css, /--editorial-scrollbar-thumb:\s*color-mix\([\s\S]*?var\(--editorial-rail-muted\)[\s\S]*?var\(--editorial-paper\)/);
+    assert.match(css, /--scrollbar-thumb-color:\s*var\(--editorial-scrollbar-thumb\)/);
+    assert.match(css, /--scrollbar-thumb-hover-color:\s*var\(--editorial-scrollbar-thumb-hover\)/);
+    assert.doesNotMatch(css, /\.sidebar \.section-content::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*transparent;/);
+    assert.doesNotMatch(css, /--scrollbar-thumb-color:\s*#b7b4aa/);
 });
 
 /** 顶部保留连续操作区，不把可变的正文页宽强加给 tab 和 toolbar。 */
