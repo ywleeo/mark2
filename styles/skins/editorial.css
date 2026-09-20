@@ -547,6 +547,12 @@
     background: var(--editorial-canvas);
 }
 
+/* 交还 WebKit 绘制正文滚动条，避免标准属性覆盖透明轨道并露出白槽。 */
+:root[data-app-skin='editorial'] .view-pane.markdown-pane.is-active {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+}
+
 :root[data-app-skin='editorial'] .view-pane.markdown-pane .markdown-content {
     width: 100%;
     max-width: 960px;

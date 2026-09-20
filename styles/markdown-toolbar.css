@@ -933,6 +933,8 @@
 .markdown-page-width-handle {
     position: absolute;
     z-index: 24;
+    /* 透明手柄仍会撑大滚动范围；隐藏时必须移出布局。 */
+    display: none;
     width: 24px;
     height: 72px;
     padding: 0;
@@ -963,6 +965,7 @@
 
 .markdown-page-width-handle.is-visible,
 .markdown-page-width-handle.is-dragging {
+    display: block;
     opacity: 1;
     pointer-events: auto;
 }

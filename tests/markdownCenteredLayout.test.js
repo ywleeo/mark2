@@ -50,6 +50,19 @@ test('Markdown 页宽恢复靠近边沿显示的短手柄', async () => {
 });
 
 /**
+ * 验证隐藏的页宽手柄不会以旧文档的绝对定位坐标撑大新文档滚动范围。
+ */
+test('Markdown 页宽手柄隐藏后不参与滚动高度计算', async () => {
+    const css = await readFile(new URL('../styles/markdown-toolbar.css', import.meta.url), 'utf8');
+
+    assert.match(css, /\.markdown-page-width-handle\s*\{[^}]*display:\s*none;/);
+    assert.match(
+        css,
+        /\.markdown-page-width-handle\.is-visible,\s*\.markdown-page-width-handle\.is-dragging\s*\{[^}]*display:\s*block;/,
+    );
+});
+
+/**
  * 验证页宽拖拽允许窄幅阅读和宽屏编辑，同时仅保留容纳手柄所需的边距。
  */
 test('Markdown 页宽拖拽支持更大的缩放范围', async () => {

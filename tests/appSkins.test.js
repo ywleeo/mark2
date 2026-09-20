@@ -133,6 +133,18 @@ test('编辑部主视图与侧栏共用皮肤滚动条色阶', async () => {
     assert.doesNotMatch(css, /--scrollbar-thumb-color:\s*#b7b4aa/);
 });
 
+/** Markdown 正文也必须交还 WebKit 滚动条绘制，避免标准属性生成白色轨道。 */
+test('编辑部 Markdown 正文滚动条与侧栏一样使用透明轨道', async () => {
+    const [editorialCss, toolbarCss] = await Promise.all([
+        readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/markdown-toolbar.css', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(editorialCss, /:root\[data-app-skin='editorial'\] \.view-pane\.markdown-pane\.is-active\s*\{[^}]*scrollbar-width:\s*auto;[^}]*scrollbar-color:\s*auto;/);
+    assert.match(toolbarCss, /\.view-pane\.markdown-pane\.is-active::-webkit-scrollbar-track\s*\{[^}]*background:\s*transparent;/);
+    assert.match(toolbarCss, /\.view-pane\.markdown-pane\.is-active::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--scrollbar-thumb-color,/);
+});
+
 /** 顶部保留连续操作区，不把可变的正文页宽强加给 tab 和 toolbar。 */
 test('编辑部 tab 与工具栏靠近侧栏边界，正文独立居中', async () => {
     const css = await readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8');
