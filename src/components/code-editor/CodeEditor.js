@@ -14,6 +14,7 @@ import { createExternalModificationConflict } from '../../core/documents/Documen
 import { reconcileSavedSnapshot } from '../../core/documents/SaveSnapshot.js';
 import { resolveLanguageSupport } from './LanguageSupport.js';
 import { buildTheme, buildHighlightStyle } from './ThemeSupport.js';
+import { CodeWritingModeController } from '../../modules/writing-modes/CodeWritingModeController.js';
 import {
     DEFAULT_CODE_FONT_SIZE,
     DEFAULT_CODE_FONT_FAMILY,
@@ -126,6 +127,20 @@ const searchDecorationField = StateField.define({
     provide: f => EditorView.decorations.from(f),
 });
 
+// 跨文档导航高亮与编辑器内搜索分离，避免打开全局结果时破坏 Cmd+F 的匹配状态。
+const setNavigationHighlight = StateEffect.define();
+const navigationHighlightField = StateField.define({
+    create() { return Decoration.none; },
+    update(decorations, transaction) {
+        for (const effect of transaction.effects) {
+            if (effect.is(setNavigationHighlight)) return effect.value;
+        }
+        if (transaction.docChanged) return Decoration.none;
+        return decorations;
+    },
+    provide: field => EditorView.decorations.from(field),
+});
+
 export class CodeEditor {
     constructor(containerElement, callbacks = {}, options = {}) {
         this.container = containerElement;
@@ -150,6 +165,17 @@ export class CodeEditor {
         this.loadingSessionId = null;
         this.currentTabId = null;
         this.tabViewStates = new Map();
+        this.writingModeController = new CodeWritingModeController({
+            container: this.container,
+            getEditorView: () => this.editor,
+            centerSelection: view => {
+                const cursorPosition = view.state.selection.main.head;
+                view.dispatch({
+                    effects: EditorView.scrollIntoView(cursorPosition, { y: 'center' }),
+                });
+            },
+            isApplicable: () => this.currentLanguage === 'markdown',
+        });
 
         // 自动保存相关
         this.autoSaveDelayMs = Number.isFinite(options.autoSaveDelayMs)
@@ -285,6 +311,7 @@ export class CodeEditor {
                 this._indentUnitCompartment.of(indentUnit.of(indent)),
                 this._readOnlyCompartment.of(EditorState.readOnly.of(false)),
                 searchDecorationField,
+                navigationHighlightField,
                 this._updateListener,
                 EditorView.lineWrapping,
             ],
@@ -323,6 +350,7 @@ export class CodeEditor {
         if (this.editor) return;
 
         this._updateListener = EditorView.updateListener.of((update) => {
+            this.writingModeController?.handleViewUpdate(update);
             if (update.docChanged && !this.suppressChange) {
                 const currentContent = update.state.doc.toString();
                 this.isDirty = currentContent !== this.baseContent;
@@ -347,6 +375,7 @@ export class CodeEditor {
             this.editorHost.style.webkitUserDrag = 'none';
         }
         this.applyPreferencesToEditor();
+        this.writingModeController?.refreshEditorView();
 
         window.addEventListener('resize', this.handleResize, { passive: true });
         this.requestLayout();
@@ -443,6 +472,7 @@ export class CodeEditor {
         this.baseContent = editorContent;
         this.currentFile = filePath;
         this.currentLanguage = targetLanguage;
+        this.writingModeController?.refreshEditorView();
         this.isDirty = false;
         const restored = this.restoreTabState(this.currentTabId, editorContent, targetLanguage);
         if (!restored) {
@@ -678,6 +708,7 @@ export class CodeEditor {
         this.cancelAutoSave();
         this.currentFile = null;
         this.currentLanguage = null;
+        this.writingModeController?.refreshEditorView();
         this.currentSessionId = null;
         this.loadingSessionId = null;
         this.isDirty = false;
@@ -767,6 +798,43 @@ export class CodeEditor {
         this.editor.dispatch({
             selection: { anchor: pos },
             effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+        });
+    }
+
+    /**
+     * 定位并高亮一个精确的外部导航命中，不改变编辑器内搜索状态。
+     * @param {number} lineNumber - 一基行号。
+     * @param {number} column - 一基列号。
+     * @param {number} length - 命中的 UTF-16 长度。
+     * @returns {boolean} 是否成功设置了高亮。
+     */
+    highlightPosition(lineNumber, column = 1, length = 0) {
+        if (!this.editor || !Number.isFinite(lineNumber) || lineNumber < 1) return false;
+        const line = this._safeGetLine(lineNumber);
+        if (!line) return false;
+        const safeColumn = Number.isFinite(column) && column >= 1 ? column : 1;
+        const from = Math.min(line.from + safeColumn - 1, line.to);
+        const to = Math.min(from + Math.max(0, Number(length) || 0), line.to);
+        const decorations = to > from
+            ? Decoration.set([
+                Decoration.mark({ class: 'workspace-search-document-match' }).range(from, to),
+            ], true)
+            : Decoration.none;
+        this.editor.dispatch({
+            selection: { anchor: from },
+            effects: [
+                setNavigationHighlight.of(decorations),
+                EditorView.scrollIntoView(from, { y: 'center' }),
+            ],
+        });
+        return to > from;
+    }
+
+    /** 清除由工作区搜索等外部导航创建的临时高亮。 */
+    clearNavigationHighlight() {
+        if (!this.editor) return;
+        this.editor.dispatch({
+            effects: setNavigationHighlight.of(Decoration.none),
         });
     }
 
@@ -986,6 +1054,8 @@ export class CodeEditor {
 
     dispose() {
         this.detachDocument();
+        this.writingModeController?.destroy();
+        this.writingModeController = null;
         this.cancelAutoSave();
         if (this.pendingLayoutFrame !== null) {
             cancelAnimationFrame(this.pendingLayoutFrame);

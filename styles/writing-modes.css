@@ -1,0 +1,24 @@
+/* 写作模式只影响显示和滚动留白，不改变编辑器文档结构。 */
+
+.view-pane.markdown-pane.writing-focus-mode.has-writing-focus-block .tiptap-editor > * {
+    opacity: 0.22;
+    transition: opacity 140ms ease;
+}
+
+.view-pane.markdown-pane.writing-focus-mode.has-writing-focus-block .tiptap-editor > .writing-focus-block {
+    opacity: 1;
+}
+
+.code-editor-pane.writing-focus-mode .cm-line:not(.cm-activeLine),
+.code-editor-pane.writing-focus-mode .cm-gutterElement:not(.cm-activeLineGutter) {
+    opacity: 0.22;
+    transition: opacity 140ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .view-pane.markdown-pane.writing-focus-mode .tiptap-editor > *,
+    .code-editor-pane.writing-focus-mode .cm-line,
+    .code-editor-pane.writing-focus-mode .cm-gutterElement {
+        transition: none;
+    }
+}

@@ -1,0 +1,243 @@
+/* 工作区全文搜索占用侧栏主区域，与文件树共享皮肤变量。 */
+#workspaceSearchHost {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+#workspaceSearchHost[hidden] {
+    display: none;
+}
+
+.sidebar.is-workspace-search-active #fileTree {
+    display: none;
+}
+
+.workspace-search {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    color: var(--text-color, #333);
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.workspace-search__header {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 4px 10px 2px 14px;
+}
+
+.workspace-search__header h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sidebar-section-title, var(--text-secondary, #666));
+}
+
+.workspace-search__close,
+.workspace-search__options button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+}
+
+.workspace-search__close {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+}
+
+.workspace-search__close:hover,
+.workspace-search__options button:hover,
+.workspace-search__options button.is-active {
+    color: var(--text-color, #333);
+    background: var(--sidebar-row-hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.workspace-search__options button.is-active {
+    box-shadow: inset 0 0 0 1px var(--sidebar-row-active-border, rgba(0, 0, 0, 0.12));
+}
+
+.workspace-search__query-row {
+    padding: 5px 10px 7px;
+}
+
+.workspace-search__input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 30px;
+    padding: 0 9px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 6px;
+    outline: none;
+    background: var(--content-bg, #fff);
+    color: var(--text-color, #333);
+    font: inherit;
+    font-size: 12px;
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.workspace-search__input:focus {
+    border-color: var(--tab-focus-shadow-color, rgba(107, 226, 117, 0.55));
+    box-shadow: 0 0 0 2px var(--tab-focus-shadow-color, rgba(107, 226, 117, 0.2));
+}
+
+.workspace-search__input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.workspace-search__options {
+    display: flex;
+    justify-content: flex-end;
+    gap: 3px;
+    margin-top: 6px;
+}
+
+.workspace-search__options button {
+    min-width: 25px;
+    height: 23px;
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.workspace-search__status {
+    min-height: 18px;
+    padding: 0 13px 4px;
+    font-size: 10px;
+    color: var(--text-secondary, #777);
+}
+
+.workspace-search__results {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding-bottom: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-color) transparent;
+}
+
+.workspace-search__results::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+    -webkit-appearance: none;
+}
+
+.workspace-search__results::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.workspace-search__results::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.6)) 50%, transparent);
+}
+
+.workspace-search__results::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--scrollbar-thumb-hover-color, rgba(82, 82, 82, 0.45)) 50%, transparent);
+}
+
+.workspace-search__group {
+    margin-bottom: 8px;
+}
+
+.workspace-search__file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 25px;
+    padding: 0 11px 0 14px;
+    color: var(--text-color, #333);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.workspace-search__file-path {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-search__file-count {
+    min-width: 16px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: var(--sidebar-row-active-bg, rgba(0, 0, 0, 0.07));
+    color: var(--text-secondary, #777);
+    text-align: center;
+    font-size: 9px;
+    font-weight: 500;
+}
+
+.workspace-search__result {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    align-items: baseline;
+    width: calc(100% - 12px);
+    min-height: 27px;
+    margin: 0 6px;
+    padding: 5px 7px 5px 2px;
+    border: 0;
+    border-radius: var(--sidebar-row-radius, 5px);
+    background: transparent;
+    color: var(--text-color, #333);
+    text-align: left;
+    cursor: pointer;
+}
+
+.workspace-search__result:hover,
+.workspace-search__result:focus-visible {
+    background: var(--sidebar-row-hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.workspace-search__line {
+    padding-right: 7px;
+    color: var(--text-secondary, #888);
+    font: 9px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    text-align: right;
+}
+
+.workspace-search__result-text {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-secondary, #555);
+    font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-search__result-text mark {
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--status-success, #6be275) 38%, transparent);
+    color: var(--text-color, #222);
+}
+
+/* 文档内的锚定命中使用独立装饰，不干扰 Cmd+F 的搜索结果。 */
+.workspace-search-document-match {
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--status-success, #6be275) 48%, transparent);
+    box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--status-success, #52bd5b) 78%, transparent);
+}
+
+.workspace-search__empty,
+.workspace-search__error {
+    padding: 24px 18px;
+    color: var(--text-secondary, #777);
+    font-size: 11px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.workspace-search__error {
+    color: var(--status-error, #c44);
+}

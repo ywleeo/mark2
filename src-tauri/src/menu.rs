@@ -35,6 +35,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export-image-mobile", "导出为手机图片...");
         m.insert("export-pdf", "导出为 PDF...");
         m.insert("save-as", "另存为…");
+        m.insert("version-history", "版本历史…");
         m.insert("rename", "重命名...");
         m.insert("move", "移动到...");
         m.insert("delete", "删除");
@@ -42,9 +43,12 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("vault-open", "保险箱");
         m.insert("undo", "撤销");
         m.insert("redo", "重做");
+        m.insert("workspace-search", "在工作区中查找…");
         m.insert("toggle-sidebar", "切换侧边栏");
         m.insert("toggle-status-bar", "切换状态栏");
         m.insert("markdown-toolbar", "Markdown 工具栏");
+        m.insert("focus-mode", "专注模式");
+        m.insert("typewriter-mode", "打字机模式");
         m.insert("toggle-theme", "切换深色/浅色模式");
         m.insert("toggle-code-mode", "切换 Markdown 代码模式");
         m.insert("check-update", "检查更新...");
@@ -65,6 +69,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export-image-mobile", "匯出為手機圖片...");
         m.insert("export-pdf", "匯出為 PDF...");
         m.insert("save-as", "另存新檔...");
+        m.insert("version-history", "版本記錄...");
         m.insert("rename", "重新命名...");
         m.insert("move", "移動到...");
         m.insert("delete", "刪除");
@@ -72,9 +77,12 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("vault-open", "保險箱");
         m.insert("undo", "復原");
         m.insert("redo", "重做");
+        m.insert("workspace-search", "在工作區中尋找…");
         m.insert("toggle-sidebar", "切換側邊欄");
         m.insert("toggle-status-bar", "切換狀態列");
         m.insert("markdown-toolbar", "Markdown 工具列");
+        m.insert("focus-mode", "專注模式");
+        m.insert("typewriter-mode", "打字機模式");
         m.insert("toggle-theme", "切換深色/淺色模式");
         m.insert("toggle-code-mode", "切換 Markdown 程式碼模式");
         m.insert("check-update", "檢查更新...");
@@ -95,6 +103,7 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("export-image-mobile", "Export for Mobile...");
         m.insert("export-pdf", "Export as PDF...");
         m.insert("save-as", "Save As...");
+        m.insert("version-history", "Version History...");
         m.insert("rename", "Rename...");
         m.insert("move", "Move To...");
         m.insert("delete", "Delete");
@@ -102,9 +111,12 @@ fn menu_labels(locale: &str) -> HashMap<&'static str, &'static str> {
         m.insert("vault-open", "Vault");
         m.insert("undo", "Undo");
         m.insert("redo", "Redo");
+        m.insert("workspace-search", "Find in Workspace…");
         m.insert("toggle-sidebar", "Toggle Sidebar");
         m.insert("toggle-status-bar", "Toggle Status Bar");
         m.insert("markdown-toolbar", "Markdown Toolbar");
+        m.insert("focus-mode", "Focus Mode");
+        m.insert("typewriter-mode", "Typewriter Mode");
         m.insert("toggle-theme", "Toggle Dark/Light Mode");
         m.insert("toggle-code-mode", "Toggle Markdown Code Mode");
         m.insert("check-update", "Check for Updates...");
@@ -128,8 +140,10 @@ fn command_to_menu_ids() -> HashMap<&'static str, Vec<&'static str>> {
     m.insert("toolbar.toggleMarkdown", vec!["toggle-markdown-toolbar"]);
     m.insert("document.newFile", vec!["file-new"]);
     m.insert("document.delete", vec!["file-delete"]);
+    m.insert("document.versionHistory", vec!["version-history"]);
     m.insert("editor.undo", vec!["undo"]);
     m.insert("editor.redo", vec!["redo"]);
+    m.insert("workspace.search", vec!["workspace-search"]);
     m.insert("view.toggleSourceMode", vec!["toggle-markdown-code-view"]);
     m.insert("app.quit", vec!["app-quit"]);
     m.insert("feature.vault.toggle", vec!["vault-open"]);
@@ -187,11 +201,7 @@ fn load_custom_accelerators(handle: &AppHandle) -> HashMap<String, String> {
 }
 
 /// 获取某个菜单项的 accelerator：优先用自定义，否则用默认值。
-fn get_accelerator(
-    menu_id: &str,
-    default: &str,
-    custom: &HashMap<String, String>,
-) -> String {
+fn get_accelerator(menu_id: &str, default: &str, custom: &HashMap<String, String>) -> String {
     custom
         .get(menu_id)
         .cloned()
@@ -208,10 +218,54 @@ pub struct ExportMenuState {
     pub handles: Mutex<ExportMenuHandles>,
 }
 
+/// 原生写作模式菜单项引用，用于前端设置变化后同步勾选状态。
+pub struct WritingModeMenuHandles {
+    focus: CheckMenuItem<Wry>,
+    typewriter: CheckMenuItem<Wry>,
+}
+
+/// 跨命令持有当前原生写作模式菜单项。
+pub struct WritingModeMenuState {
+    handles: Mutex<WritingModeMenuHandles>,
+}
+
+impl WritingModeMenuState {
+    /// 创建写作模式菜单状态。
+    pub fn new(focus: CheckMenuItem<Wry>, typewriter: CheckMenuItem<Wry>) -> Self {
+        Self {
+            handles: Mutex::new(WritingModeMenuHandles { focus, typewriter }),
+        }
+    }
+
+    /// 菜单重建后替换底层原生句柄。
+    fn replace_handles(&self, focus: CheckMenuItem<Wry>, typewriter: CheckMenuItem<Wry>) {
+        if let Ok(mut handles) = self.handles.lock() {
+            *handles = WritingModeMenuHandles { focus, typewriter };
+        }
+    }
+
+    /// 读取菜单重建前的勾选状态。
+    fn checked_state(&self) -> (bool, bool) {
+        self.handles
+            .lock()
+            .map(|handles| {
+                (
+                    handles.focus.is_checked().unwrap_or(false),
+                    handles.typewriter.is_checked().unwrap_or(false),
+                )
+            })
+            .unwrap_or((false, false))
+    }
+}
+
 impl ExportMenuState {
     pub fn new(image: MenuItem<Wry>, image_mobile: MenuItem<Wry>, pdf: MenuItem<Wry>) -> Self {
         Self {
-            handles: Mutex::new(ExportMenuHandles { image, image_mobile, pdf }),
+            handles: Mutex::new(ExportMenuHandles {
+                image,
+                image_mobile,
+                pdf,
+            }),
         }
     }
 }
@@ -289,6 +343,28 @@ pub fn set_export_menu_enabled(
     Ok(())
 }
 
+/// 同步原生菜单中专注模式与打字机模式的勾选状态。
+#[tauri::command]
+pub fn set_writing_mode_menu_state(
+    state: tauri::State<WritingModeMenuState>,
+    focus_mode: bool,
+    typewriter_mode: bool,
+) -> Result<(), String> {
+    let handles = state
+        .handles
+        .lock()
+        .map_err(|_| "failed to lock writing mode menu state")?;
+    handles
+        .focus
+        .set_checked(focus_mode)
+        .map_err(|error| error.to_string())?;
+    handles
+        .typewriter
+        .set_checked(typewriter_mode)
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn update_recent_menu(
     state: tauri::State<RecentMenuState>,
@@ -354,12 +430,23 @@ pub fn update_recent_menu(
     Ok(())
 }
 
+/// 菜单构建结果，集中携带需要在运行期更新的原生句柄。
+struct BuiltMenu {
+    menu_bar: Menu<Wry>,
+    export_image: MenuItem<Wry>,
+    export_image_mobile: MenuItem<Wry>,
+    export_pdf: MenuItem<Wry>,
+    recent_submenu: Submenu<Wry>,
+    focus_mode: CheckMenuItem<Wry>,
+    typewriter_mode: CheckMenuItem<Wry>,
+}
+
 /// 构建菜单栏（初始化和重建共用）。
-/// 返回 (menu_bar, export_image, export_image_mobile, export_pdf, recent_submenu)。
 fn build_menu(
     handle: &AppHandle,
     custom_accel: &HashMap<String, String>,
-) -> Result<(Menu<Wry>, MenuItem<Wry>, MenuItem<Wry>, MenuItem<Wry>, Submenu<Wry>), Box<dyn std::error::Error>> {
+    writing_mode_state: (bool, bool),
+) -> Result<BuiltMenu, Box<dyn std::error::Error>> {
     let locale = read_locale_from_handle(handle);
     let l = menu_labels(&locale);
 
@@ -382,21 +469,33 @@ fn build_menu(
         .build(handle)?;
 
     let vault_item = MenuItemBuilder::with_id("vault-open", l["vault-open"])
-        .accelerator(get_accelerator("vault-open", "CmdOrCtrl+Shift+K", custom_accel))
+        .accelerator(get_accelerator(
+            "vault-open",
+            "CmdOrCtrl+Shift+K",
+            custom_accel,
+        ))
         .build(handle)?;
 
-    let export_image_item = MenuItemBuilder::with_id("export-image", l["export-image"])
-        .build(handle)?;
+    let export_image_item =
+        MenuItemBuilder::with_id("export-image", l["export-image"]).build(handle)?;
 
     let export_image_mobile_item =
         MenuItemBuilder::with_id("export-image-mobile", l["export-image-mobile"]).build(handle)?;
 
     let export_pdf_item = MenuItemBuilder::with_id("export-pdf", l["export-pdf"])
-        .accelerator(get_accelerator("export-pdf", "CmdOrCtrl+Shift+P", custom_accel))
+        .accelerator(get_accelerator(
+            "export-pdf",
+            "CmdOrCtrl+Shift+P",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let toggle_sidebar_item = MenuItemBuilder::with_id("toggle-sidebar", l["toggle-sidebar"])
-        .accelerator(get_accelerator("toggle-sidebar", "CmdOrCtrl+\\", custom_accel))
+        .accelerator(get_accelerator(
+            "toggle-sidebar",
+            "CmdOrCtrl+\\",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let toggle_status_bar_item =
@@ -404,13 +503,27 @@ fn build_menu(
 
     let toggle_markdown_toolbar_item =
         MenuItemBuilder::with_id("toggle-markdown-toolbar", l["markdown-toolbar"])
-            .accelerator(get_accelerator("toggle-markdown-toolbar", "CmdOrCtrl+Shift+T", custom_accel))
+            .accelerator(get_accelerator(
+                "toggle-markdown-toolbar",
+                "CmdOrCtrl+Shift+T",
+                custom_accel,
+            ))
             .build(handle)?;
 
-    let toggle_theme_item = MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"])
+    let focus_mode_item = CheckMenuItemBuilder::with_id("toggle-focus-mode", l["focus-mode"])
+        .checked(writing_mode_state.0)
         .build(handle)?;
 
-    let check_update_item = MenuItemBuilder::with_id("check-update", l["check-update"]).build(handle)?;
+    let typewriter_mode_item =
+        CheckMenuItemBuilder::with_id("toggle-typewriter-mode", l["typewriter-mode"])
+            .checked(writing_mode_state.1)
+            .build(handle)?;
+
+    let toggle_theme_item =
+        MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"]).build(handle)?;
+
+    let check_update_item =
+        MenuItemBuilder::with_id("check-update", l["check-update"]).build(handle)?;
     let about_item = MenuItemBuilder::with_id("about", l["about"]).build(handle)?;
     let quit_item = MenuItemBuilder::with_id("app-quit", l["quit"])
         .accelerator(get_accelerator("app-quit", "CmdOrCtrl+Q", custom_accel))
@@ -437,13 +550,23 @@ fn build_menu(
         .build(handle)?;
 
     let save_as_item = MenuItemBuilder::with_id("file-save-as", l["save-as"])
-        .accelerator(get_accelerator("file-save-as", "CmdOrCtrl+Shift+S", custom_accel))
+        .accelerator(get_accelerator(
+            "file-save-as",
+            "CmdOrCtrl+Shift+S",
+            custom_accel,
+        ))
         .build(handle)?;
+    let version_history_item =
+        MenuItemBuilder::with_id("version-history", l["version-history"]).build(handle)?;
 
     let rename_file_item = MenuItemBuilder::with_id("file-rename", l["rename"]).build(handle)?;
     let move_file_item = MenuItemBuilder::with_id("file-move", l["move"]).build(handle)?;
     let delete_file_item = MenuItemBuilder::with_id("file-delete", l["delete"])
-        .accelerator(get_accelerator("file-delete", "CmdOrCtrl+Delete", custom_accel))
+        .accelerator(get_accelerator(
+            "file-delete",
+            "CmdOrCtrl+Delete",
+            custom_accel,
+        ))
         .build(handle)?;
 
     let open_recent_submenu = SubmenuBuilder::new(handle, l["open-recent"]).build()?;
@@ -464,6 +587,7 @@ fn build_menu(
     let file_menu = file_menu_builder
         .separator()
         .item(&save_as_item)
+        .item(&version_history_item)
         .separator()
         .item(&export_submenu)
         .separator()
@@ -476,6 +600,10 @@ fn build_menu(
         .item(&toggle_sidebar_item)
         .item(&toggle_status_bar_item)
         .item(&toggle_markdown_toolbar_item)
+        .separator()
+        .item(&focus_mode_item)
+        .item(&typewriter_mode_item)
+        .separator()
         .item(&toggle_theme_item)
         .build()?;
 
@@ -485,13 +613,24 @@ fn build_menu(
     let redo_item = MenuItemBuilder::with_id("redo", l["redo"])
         .accelerator(get_accelerator("redo", "CmdOrCtrl+Shift+Z", custom_accel))
         .build(handle)?;
+    let workspace_search_item = MenuItemBuilder::with_id("workspace-search", l["workspace-search"])
+        .accelerator(get_accelerator(
+            "workspace-search",
+            "CmdOrCtrl+Shift+F",
+            custom_accel,
+        ))
+        .build(handle)?;
     let cut_item = PredefinedMenuItem::cut(handle, None)?;
     let copy_item = PredefinedMenuItem::copy(handle, None)?;
     let paste_item = PredefinedMenuItem::paste(handle, None)?;
     let select_all_item = PredefinedMenuItem::select_all(handle, None)?;
     let markdown_code_mode_item =
         MenuItemBuilder::with_id("toggle-markdown-code-view", l["toggle-code-mode"])
-            .accelerator(get_accelerator("toggle-markdown-code-view", "CmdOrCtrl+E", custom_accel))
+            .accelerator(get_accelerator(
+                "toggle-markdown-code-view",
+                "CmdOrCtrl+E",
+                custom_accel,
+            ))
             .build(handle)?;
 
     let edit_menu = SubmenuBuilder::new(handle, l["edit"])
@@ -503,6 +642,8 @@ fn build_menu(
         .item(&paste_item)
         .item(&select_all_item)
         .separator()
+        .item(&workspace_search_item)
+        .separator()
         .item(&markdown_code_mode_item)
         .build()?;
 
@@ -513,22 +654,34 @@ fn build_menu(
         .item(&edit_menu)
         .build()?;
 
-    Ok((menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu))
+    Ok(BuiltMenu {
+        menu_bar,
+        export_image: export_image_item,
+        export_image_mobile: export_image_mobile_item,
+        export_pdf: export_pdf_item,
+        recent_submenu: open_recent_submenu,
+        focus_mode: focus_mode_item,
+        typewriter_mode: typewriter_mode_item,
+    })
 }
 
 pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let handle = app.handle().clone();
     let custom_accel = load_custom_accelerators(&handle);
-    let (menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu) =
-        build_menu(&handle, &custom_accel)?;
+    let built = build_menu(&handle, &custom_accel, (false, false))?;
 
     app.manage(ExportMenuState::new(
-        export_image_item,
-        export_image_mobile_item,
-        export_pdf_item,
+        built.export_image,
+        built.export_image_mobile,
+        built.export_pdf,
     ));
 
-    let recent_menu_state = RecentMenuState::new(open_recent_submenu);
+    app.manage(WritingModeMenuState::new(
+        built.focus_mode,
+        built.typewriter_mode,
+    ));
+
+    let recent_menu_state = RecentMenuState::new(built.recent_submenu);
     recent_menu_state.set_app_handle(handle);
     app.manage(recent_menu_state);
 
@@ -538,7 +691,7 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     #[cfg(not(target_os = "windows"))]
-    app.set_menu(menu_bar)?;
+    app.set_menu(built.menu_bar)?;
 
     app.on_menu_event(|app, event| {
         let event_id = event.id().as_ref();
@@ -552,27 +705,35 @@ pub fn build_app_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 #[tauri::command]
 pub fn rebuild_menu(app: AppHandle) -> Result<(), String> {
     let custom_accel = load_custom_accelerators(&app);
-    let (menu_bar, export_image_item, export_image_mobile_item, export_pdf_item, open_recent_submenu) =
-        build_menu(&app, &custom_accel).map_err(|e| e.to_string())?;
+    let writing_mode_state = app
+        .try_state::<WritingModeMenuState>()
+        .map(|state| state.checked_state())
+        .unwrap_or((false, false));
+    let built = build_menu(&app, &custom_accel, writing_mode_state).map_err(|e| e.to_string())?;
 
     // 更新 ExportMenuState 的引用
     if let Some(state) = app.try_state::<ExportMenuState>() {
         if let Ok(mut handles) = state.handles.lock() {
             *handles = ExportMenuHandles {
-                image: export_image_item,
-                image_mobile: export_image_mobile_item,
-                pdf: export_pdf_item,
+                image: built.export_image,
+                image_mobile: built.export_image_mobile,
+                pdf: built.export_pdf,
             };
         }
     }
 
+    // 更新写作模式菜单句柄，同时保留重建前的勾选状态。
+    if let Some(state) = app.try_state::<WritingModeMenuState>() {
+        state.replace_handles(built.focus_mode, built.typewriter_mode);
+    }
+
     // 更新 RecentMenuState 的引用
     if let Some(state) = app.try_state::<RecentMenuState>() {
-        state.replace_submenu(open_recent_submenu);
+        state.replace_submenu(built.recent_submenu);
     }
 
     #[cfg(not(target_os = "windows"))]
-    app.set_menu(menu_bar).map_err(|e| e.to_string())?;
+    app.set_menu(built.menu_bar).map_err(|e| e.to_string())?;
 
     // 通知前端刷新最近文件菜单
     let _ = app.emit("menu-rebuilt", ());

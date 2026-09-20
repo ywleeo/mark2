@@ -27,6 +27,30 @@ function toStreamUrl(filePath) {
         || '';
 }
 
+/**
+ * 将应用皮肤写入 HTML 预览 URL，供隔离 iframe 内的 stream 响应生成匹配的预览台面。
+ * 只传递有限枚举，不向本地 HTML 暴露应用 DOM，也不改变文件本身。
+ */
+function appendPreviewTheme(streamUrl) {
+    if (!streamUrl) return '';
+    const root = document.documentElement;
+    const skin = root.dataset.appSkin === 'editorial' ? 'editorial' : 'classic';
+    const appearance = root.dataset.themeAppearance === 'dark' ? 'dark' : 'light';
+
+    try {
+        const url = new URL(streamUrl);
+        url.searchParams.set('mark2-preview-skin', skin);
+        url.searchParams.set('mark2-preview-appearance', appearance);
+        return url.toString();
+    } catch (_) {
+        const separator = streamUrl.includes('?') ? '&' : '?';
+        return `${streamUrl}${separator}mark2-preview-skin=${skin}&mark2-preview-appearance=${appearance}`;
+    }
+}
+
+/**
+ * 渲染隔离的 HTML 预览，并让预览台面跟随当前应用皮肤。
+ */
 function renderHtmlEmbed(host, filePath) {
     host.innerHTML = `
         <div class="html-embed">
@@ -36,7 +60,7 @@ function renderHtmlEmbed(host, filePath) {
         </div>
     `;
     const iframe = host.querySelector('.html-embed__frame');
-    if (iframe) iframe.src = toStreamUrl(filePath) || 'about:blank';
+    if (iframe) iframe.src = appendPreviewTheme(toStreamUrl(filePath)) || 'about:blank';
 }
 
 export function createHtmlRenderer() {

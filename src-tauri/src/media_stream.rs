@@ -14,6 +14,26 @@ html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb { background: rgba(127, 127, 127, 0.55) !important; border-radius: 3px !important; }
 </style>"#;
 
+/// 从受控的预览参数解析 Editorial 台面色，避免把任意查询内容注入 HTML。
+fn html_preview_background(query: Option<&str>) -> Option<&'static str> {
+    let query = query.unwrap_or_default();
+    let has_editorial_skin = query
+        .split('&')
+        .any(|part| part == "mark2-preview-skin=editorial");
+    if !has_editorial_skin {
+        return None;
+    }
+
+    let uses_dark_appearance = query
+        .split('&')
+        .any(|part| part == "mark2-preview-appearance=dark");
+    Some(if uses_dark_appearance {
+        "#252a26"
+    } else {
+        "#f3eee4"
+    })
+}
+
 /// 根据本地文件扩展名返回 stream 协议的响应类型。
 fn guess_mime(path: &str) -> &'static str {
     let lower = path.to_lowercase();
@@ -86,8 +106,8 @@ fn is_html_path(path: &str) -> bool {
     lower.ends_with(".html") || lower.ends_with(".htm")
 }
 
-/// 向 HTML 预览文档注入应用级细滚动条样式，不修改磁盘上的源文件。
-fn inject_html_preview_style(buffer: Vec<u8>) -> Vec<u8> {
+/// 向 HTML 预览文档注入应用级样式，不修改磁盘上的源文件。
+fn inject_html_preview_style(buffer: Vec<u8>, preview_background: Option<&str>) -> Vec<u8> {
     let html = match String::from_utf8(buffer) {
         Ok(html) => html,
         Err(error) => return error.into_bytes(),
@@ -101,9 +121,19 @@ fn inject_html_preview_style(buffer: Vec<u8>) -> Vec<u8> {
         .rfind("</head>")
         .or_else(|| lower.rfind("</html>"))
         .unwrap_or(html.len());
-    let mut preview_html = String::with_capacity(html.len() + HTML_PREVIEW_SCROLLBAR_STYLE.len());
+    let skin_style = preview_background.map(|background| {
+        format!(
+            r#"<style data-mark2-preview-skin-style>html, body {{ background-color: {background} !important; }}</style>"#
+        )
+    });
+    let extra_capacity = skin_style.as_ref().map_or(0, String::len);
+    let mut preview_html =
+        String::with_capacity(html.len() + HTML_PREVIEW_SCROLLBAR_STYLE.len() + extra_capacity);
     preview_html.push_str(&html[..insert_at]);
     preview_html.push_str(HTML_PREVIEW_SCROLLBAR_STYLE);
+    if let Some(skin_style) = skin_style {
+        preview_html.push_str(&skin_style);
+    }
     preview_html.push_str(&html[insert_at..]);
     preview_html.into_bytes()
 }
@@ -128,7 +158,8 @@ pub fn build_stream_response(
     if is_html_path(&file_path) {
         let mut buffer = Vec::with_capacity(file_size as usize);
         file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
-        let buffer = inject_html_preview_style(buffer);
+        let preview_background = html_preview_background(request.uri().query());
+        let buffer = inject_html_preview_style(buffer, preview_background);
         return Response::builder()
             .status(StatusCode::OK)
             .header(CONTENT_TYPE, guess_mime(&file_path))
@@ -194,13 +225,13 @@ pub fn build_stream_response(
 
 #[cfg(test)]
 mod tests {
-    use super::{inject_html_preview_style, HTML_PREVIEW_SCROLLBAR_STYLE};
+    use super::{html_preview_background, inject_html_preview_style, HTML_PREVIEW_SCROLLBAR_STYLE};
 
     /// 样式应插入 head 末尾，确保作用于 iframe 内部的真实滚动容器。
     #[test]
     fn injects_preview_style_before_head_end() {
         let source = b"<!doctype html><html><head><title>x</title></head><body>x</body></html>";
-        let result = String::from_utf8(inject_html_preview_style(source.to_vec())).unwrap();
+        let result = String::from_utf8(inject_html_preview_style(source.to_vec(), None)).unwrap();
 
         assert!(result.contains(HTML_PREVIEW_SCROLLBAR_STYLE));
         assert!(
@@ -212,7 +243,7 @@ mod tests {
     #[test]
     fn appends_preview_style_to_html_fragment() {
         let source = b"<main>fragment</main>";
-        let result = String::from_utf8(inject_html_preview_style(source.to_vec())).unwrap();
+        let result = String::from_utf8(inject_html_preview_style(source.to_vec(), None)).unwrap();
 
         assert!(result.ends_with(HTML_PREVIEW_SCROLLBAR_STYLE));
     }
@@ -222,8 +253,35 @@ mod tests {
     fn does_not_duplicate_preview_style() {
         let source = format!("<html><head>{HTML_PREVIEW_SCROLLBAR_STYLE}</head></html>");
         let result =
-            String::from_utf8(inject_html_preview_style(source.clone().into_bytes())).unwrap();
+            String::from_utf8(inject_html_preview_style(source.clone().into_bytes(), None))
+                .unwrap();
 
         assert_eq!(result, source);
+    }
+
+    /// Editorial 预览只覆盖 iframe 台面色，Classic 不注入皮肤背景。
+    #[test]
+    fn injects_editorial_preview_background_from_controlled_query() {
+        assert_eq!(
+            html_preview_background(Some(
+                "mark2-preview-skin=editorial&mark2-preview-appearance=light"
+            )),
+            Some("#f3eee4")
+        );
+        assert_eq!(
+            html_preview_background(Some(
+                "mark2-preview-skin=editorial&mark2-preview-appearance=dark"
+            )),
+            Some("#252a26")
+        );
+        assert_eq!(
+            html_preview_background(Some("mark2-preview-skin=classic")),
+            None
+        );
+
+        let source = b"<html><head></head><body style=\"background:#ddd\">x</body></html>";
+        let result =
+            String::from_utf8(inject_html_preview_style(source.to_vec(), Some("#f3eee4"))).unwrap();
+        assert!(result.contains("html, body { background-color: #f3eee4 !important; }"));
     }
 }

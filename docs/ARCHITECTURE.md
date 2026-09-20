@@ -191,6 +191,18 @@ Markdown 所见即所得编辑不再在保存前将整棵 ProseMirror 文档重�
 
 `DocumentModel` 仍然保存完整内容真源，Rust 层仍以原子方式写入完整文件；“局部”指 Markdown 生成范围，不是在磁盘文件中做就地字节覆盖。
 
+### 1d. 崩溃恢复与版本历史
+
+磁盘文档的恢复链建立在共享 `DocumentRegistry` 之上，不直接订阅某个编辑器实例，因此主栏、副栏和源码模式共用同一套可靠性机制：
+
+- `RecoveryService` 监听 `DocumentModel` 事件；文档变 dirty 后防抖写入唯一的 `pending` 恢复点，窗口销毁前强制刷新。
+- 第一次编辑时先保存当前磁盘基线；每次成功保存后追加一个 `history` 版本，并原子清除对应 `pending`。
+- `RecoveryController` 在启动后筛掉已与磁盘一致的过期恢复点，再让用户选择恢复、稍后处理或忽略。
+- 恢复正文只写回 `DocumentModel` 并标记为 dirty，不直接覆盖磁盘；若磁盘修改时间已经变化，同时标记外部冲突。
+- `untitled://` 文档继续由 `WorkspaceManager` 的热退出快照负责，避免同一内容被两套机制重复持久化。
+
+恢复仓库位于 Tauri app data 的 `recovery/` 目录。Rust `recovery_store` 使用独立索引和正文文件、同目录原子替换及每文档 20 份历史上限。索引必须先原子提交，再删除失效正文，保证中途崩溃最多留下无引用文件，不会留下指向已删除正文的索引。
+
 ### 2. WorkspaceManager
 
 `WorkspaceManager` 承接工作区级快照的持久化与恢复。

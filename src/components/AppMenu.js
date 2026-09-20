@@ -7,6 +7,7 @@ import { APP_DEFAULT_KEYBINDINGS } from '../app/commandSetup.js';
 import { loadCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { t } from '../i18n/index.js';
+import { subscribeWritingModeState } from '../modules/writing-modes/writingModeState.js';
 
 // command ID → menu item ID 映射（与 Rust menu.rs 保持一致）
 const COMMAND_TO_MENU_IDS = {
@@ -17,6 +18,9 @@ const COMMAND_TO_MENU_IDS = {
     'export.currentView.image': 'export-image',
     'export.currentView.pdf': 'export-pdf',
     'view.toggleSidebar': 'toggle-sidebar',
+    'view.toggleFocusMode': 'toggle-focus-mode',
+    'view.toggleTypewriterMode': 'toggle-typewriter-mode',
+    'workspace.search': 'workspace-search',
     'toolbar.toggleMarkdown': 'toggle-markdown-toolbar',
     'document.newFile': 'file-new',
     'document.delete': 'file-delete',
@@ -96,6 +100,7 @@ export class AppMenu {
                     { id: 'sep1', separator: true },
                     { id: 'save', label: t('menu.save'), shortcut: 'Ctrl+S', command: COMMAND_IDS.DOCUMENT_SAVE },
                     { id: 'save-as', label: t('menu.saveAs'), shortcut: 'Ctrl+Shift+S', command: COMMAND_IDS.DOCUMENT_SAVE_AS },
+                    { id: 'version-history', label: t('menu.versionHistory'), command: COMMAND_IDS.DOCUMENT_VERSION_HISTORY, menuId: 'version-history' },
                     { id: 'sep2', separator: true },
                     { id: 'export-image', label: t('menu.exportImage'), command: COMMAND_IDS.EXPORT_IMAGE, menuId: 'export-image' },
                     { id: 'export-image-mobile', label: t('menu.exportImageMobile'), command: COMMAND_IDS.EXPORT_IMAGE_MOBILE, menuId: 'export-image-mobile' },
@@ -117,6 +122,8 @@ export class AppMenu {
                     { id: 'copy', label: t('menu.copy'), shortcut: 'Ctrl+C', command: COMMAND_IDS.EDITOR_COPY },
                     { id: 'paste', label: t('menu.paste'), shortcut: 'Ctrl+V', command: COMMAND_IDS.EDITOR_PASTE },
                     { id: 'select-all', label: t('menu.selectAll'), shortcut: 'Ctrl+A', command: COMMAND_IDS.EDITOR_SELECT_ALL },
+                    { id: 'sep2', separator: true },
+                    { id: 'workspace-search', label: t('menu.workspaceSearch'), shortcut: 'Ctrl+Shift+F', command: COMMAND_IDS.WORKSPACE_SEARCH, menuId: 'workspace-search' },
                 ]
             },
             {
@@ -127,6 +134,9 @@ export class AppMenu {
                     { id: 'toggle-status-bar', label: t('menu.toggleStatusBar'), command: COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR },
                     { id: 'toggle-toolbar', label: t('menu.toggleToolbar'), command: COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, menuId: 'toggle-markdown-toolbar' },
                     { id: 'sep1', separator: true },
+                    { id: 'toggle-focus-mode', label: t('menu.focusMode'), command: COMMAND_IDS.VIEW_TOGGLE_FOCUS_MODE, menuId: 'toggle-focus-mode', checkable: true, writingMode: 'focusMode' },
+                    { id: 'toggle-typewriter-mode', label: t('menu.typewriterMode'), command: COMMAND_IDS.VIEW_TOGGLE_TYPEWRITER_MODE, menuId: 'toggle-typewriter-mode', checkable: true, writingMode: 'typewriterMode' },
+                    { id: 'sep2', separator: true },
                     { id: 'toggle-theme', label: t('menu.toggleTheme'), command: COMMAND_IDS.THEME_TOGGLE },
                 ]
             },
@@ -165,6 +175,7 @@ export class AppMenu {
 
         // 初始化完成后立即应用自定义快捷键（首次渲染用的是硬编码默认值）
         this.updateShortcuts();
+        this.cleanupFunctions.push(subscribeWritingModeState(state => this._updateWritingModeChecks(state)));
     }
 
     _renderMenuItem(item) {
@@ -176,6 +187,9 @@ export class AppMenu {
         const dangerClass = item.danger ? 'danger' : '';
         const arrow = hasSubmenu ? '<span class="app-menu__arrow">›</span>' : '';
         const shortcut = item.shortcut ? `<span class="app-menu__shortcut">${item.shortcut}</span>` : '';
+        const check = item.checkable
+            ? '<span class="app-menu__check" aria-hidden="true"></span>'
+            : '';
 
         let submenuHtml = '';
         if (hasSubmenu) {
@@ -187,13 +201,32 @@ export class AppMenu {
         }
 
         return `
-            <div class="app-menu__item ${dangerClass} ${hasSubmenu ? 'has-submenu' : ''}" data-command="${item.command || ''}" data-menu-id="${item.menuId || ''}">
+            <div class="app-menu__item ${dangerClass} ${hasSubmenu ? 'has-submenu' : ''}" data-command="${item.command || ''}" data-menu-id="${item.menuId || ''}" data-writing-mode="${item.writingMode || ''}">
+                ${check}
                 <span class="app-menu__label">${item.label}</span>
                 ${shortcut}
                 ${arrow}
                 ${submenuHtml}
             </div>
         `;
+    }
+
+    /**
+     * 将共享写作模式状态反映到 Windows 自定义菜单的勾选标记。
+     * @param {{focusMode:boolean,typewriterMode:boolean}} state - 写作模式状态。
+     */
+    _updateWritingModeChecks(state) {
+        if (!this.element) return;
+        const modeItems = this.element.querySelectorAll('[data-writing-mode]');
+        modeItems.forEach(item => {
+            const mode = item.dataset.writingMode;
+            if (!mode) return;
+            const checked = state?.[mode] === true;
+            item.classList.toggle('is-checked', checked);
+            item.setAttribute('aria-checked', checked ? 'true' : 'false');
+            const check = item.querySelector('.app-menu__check');
+            if (check) check.textContent = checked ? '✓' : '';
+        });
     }
 
     _render() {

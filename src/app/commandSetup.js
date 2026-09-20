@@ -61,6 +61,7 @@ export function registerCoreCommands(options = {}) {
     });
     register(COMMAND_IDS.DOCUMENT_SAVE, () => handlers.onSave?.(), '保存当前文档');
     register(COMMAND_IDS.DOCUMENT_SAVE_AS, () => handlers.onSaveAs?.(), '另存为');
+    register(COMMAND_IDS.DOCUMENT_VERSION_HISTORY, () => handlers.onVersionHistory?.(), '查看版本历史');
     register(COMMAND_IDS.DOCUMENT_CLOSE_TAB, () => handlers.onCloseTab?.(), '关闭当前标签');
     register(COMMAND_IDS.DOCUMENT_REOPEN_TAB, () => handlers.onReopenTab?.(), '撤销关闭标签');
     register(COMMAND_IDS.DOCUMENT_NEW_UNTITLED, () => handlers.onNewUntitled?.(), '新建临时文档');
@@ -78,8 +79,11 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.WORKSPACE_DELETE_ENTRY, (payload) => handlers.onDeleteWorkspaceEntry?.(payload), '删除工作区条目');
     register(COMMAND_IDS.WORKSPACE_COPY_PATH, (payload) => handlers.onCopyWorkspacePath?.(payload), '复制工作区路径');
     register(COMMAND_IDS.WORKSPACE_REVEAL_IN_FINDER, (payload) => handlers.onRevealWorkspaceEntry?.(payload), '在文件管理器中显示');
+    register(COMMAND_IDS.WORKSPACE_SEARCH, () => handlers.onWorkspaceSearch?.(), '在工作区中查找');
     register(COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, () => handlers.onToggleSidebar?.(), '切换侧边栏');
     register(COMMAND_IDS.VIEW_TOGGLE_STATUS_BAR, () => handlers.onToggleStatusBar?.(), '切换状态栏');
+    register(COMMAND_IDS.VIEW_TOGGLE_FOCUS_MODE, () => handlers.onToggleFocusMode?.(), '切换专注模式');
+    register(COMMAND_IDS.VIEW_TOGGLE_TYPEWRITER_MODE, () => handlers.onToggleTypewriterMode?.(), '切换打字机模式');
     register(COMMAND_IDS.VIEW_TOGGLE_SOURCE_MODE, async () => {
         const focusedResult = await handlers.onToggleFocusedSourceView?.();
         if (focusedResult !== undefined) {
@@ -153,6 +157,7 @@ export const APP_DEFAULT_KEYBINDINGS = Object.freeze([
     [COMMAND_IDS.DOCUMENT_CLOSE_TAB, 'Mod+W'],
     [COMMAND_IDS.DOCUMENT_REOPEN_TAB, 'Mod+Shift+T'],
     [COMMAND_IDS.EDITOR_FIND, 'Mod+F'],
+    [COMMAND_IDS.WORKSPACE_SEARCH, 'Mod+Shift+F'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Delete'],
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],
     [COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, 'Mod+Shift+C'],

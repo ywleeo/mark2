@@ -21,8 +21,10 @@ export function createWindowLifecycle({
     getHandleSettingsSubmit,
     getPersistWorkspaceState,
     getOpenPathsFromSelection,
+    recoveryService,
 }) {
     let SettingsDialogCtor = null;
+    let closeInProgress = false;
 
     function setSettingsDialogCtor(ctor) {
         SettingsDialogCtor = ctor;
@@ -230,13 +232,14 @@ export function createWindowLifecycle({
         try {
             const currentWindow = getCurrentWindow();
             await currentWindow.onCloseRequested(async (event) => {
+                if (closeInProgress) return;
+                // 先阻止系统立即销毁 WebView，确保最后一轮 dirty 快照完成原子写入。
+                event.preventDefault();
                 const tabManager = appState.getTabManager();
                 const allTabs = tabManager?.getAllTabs() || [];
                 const untitledTabs = allTabs.filter(tab =>
                     tab.path && untitledFileManager.isUntitledPath(tab.path)
                 );
-
-                if (untitledTabs.length === 0) return;
 
                 const currentFile = appState.getCurrentFile();
 
@@ -262,9 +265,16 @@ export function createWindowLifecycle({
                     }
                 }
 
-                // Sublime-style：关闭时不强制保存，只持久化 untitled 缓存状态
-                event.preventDefault();
-                getPersistWorkspaceState?.()?.({}, { force: true });
+                // Sublime-style：关闭时不强制保存；untitled 走工作区快照，普通文件走恢复仓库。
+                if (untitledTabs.length > 0) {
+                    getPersistWorkspaceState?.()?.({}, { force: true });
+                }
+                try {
+                    await recoveryService?.flushAll?.();
+                } catch (error) {
+                    console.warn('[Recovery] 关闭前刷新恢复点失败', error);
+                }
+                closeInProgress = true;
                 currentWindow.destroy();
             });
         } catch (error) {

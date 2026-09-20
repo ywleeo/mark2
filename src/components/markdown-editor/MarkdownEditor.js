@@ -29,6 +29,7 @@ import { ImagePasteHandler } from './ImagePasteHandler.js';
 import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
 import { SourcePreservingMarkdownSerializer } from './SourcePreservingMarkdownSerializer.js';
+import { MarkdownWritingModeController } from '../../modules/writing-modes/MarkdownWritingModeController.js';
 
 let markdownEditorInstanceSequence = 0;
 
@@ -88,6 +89,7 @@ export class MarkdownEditor {
         this.linkHandler = null;
         this.imagePasteHandler = null;
         this.mermaidExportHandler = null;
+        this.writingModeController = null;
 
         this._pendingMermaidRender = null;
         this._mermaidRenderFrame = null;
@@ -161,6 +163,12 @@ export class MarkdownEditor {
                 this.saveManager?.scheduleAutoSave();
                 this.trailingParagraphManager?.schedule();
             },
+        });
+
+        this.writingModeController = new MarkdownWritingModeController({
+            getEditor: () => this.editor,
+            getViewElement: () => this.viewElement,
+            getScrollContainer: () => this.getScrollContainer(),
         });
 
         const markdownParser = createMarkdownParser(this.editor.schema);
@@ -799,6 +807,8 @@ export class MarkdownEditor {
     getCursorViewportRatio()                    { return this.sourceScrollManager.getCursorViewportRatio(); }
     setSourcePositionAtRatio(l, c, r)           { return this.sourceScrollManager.setSourcePositionAtRatio(l, c, r); }
     scrollToSourcePosition(l, c)                { return this.sourceScrollManager.scrollToSourcePosition(l, c); }
+    highlightSourceMatch(l, c, text)            { return this.sourceScrollManager.highlightSourceMatch(l, c, text); }
+    clearNavigationHighlight()                  { return this.sourceScrollManager.clearNavigationHighlight(); }
     scrollToSourceLineInCenter(n)               { return this.sourceScrollManager.scrollToSourceLineInCenter(n); }
 
     // ─── 渲染调度 ──────────────────────────────────────────────────────────────
@@ -839,7 +849,7 @@ export class MarkdownEditor {
                 : null;
             const overflowY = style?.overflowY ?? '';
             const canScroll = /(auto|scroll|overlay)/.test(overflowY);
-            if (canScroll && element.scrollHeight > element.clientHeight) {
+            if (canScroll) {
                 return element;
             }
             element = element.parentElement;
@@ -868,6 +878,8 @@ export class MarkdownEditor {
 
     destroy() {
         this.detachDocument();
+        this.writingModeController?.destroy();
+        this.writingModeController = null;
         this.trailingParagraphManager?.destroy();
         this.trailingParagraphManager = null;
 

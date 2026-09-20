@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="/styles/editor.css">
     <link rel="stylesheet" href="/styles/highlight.css">
     <link rel="stylesheet" href="/styles/file-tree.css">
+    <link rel="stylesheet" href="/styles/workspace-search.css">
     <link rel="stylesheet" href="/styles/settings.css">
     <link rel="stylesheet" href="/styles/code-editor.css">
     <link rel="stylesheet" href="/styles/image-viewer.css">
@@ -47,12 +48,15 @@
     <link rel="stylesheet" href="/styles/updater-toast.css">
     <link rel="stylesheet" href="/styles/ai-file-task.css">
     <link rel="stylesheet" href="/styles/vault.css">
+    <link rel="stylesheet" href="/styles/recovery-dialog.css">
     <!-- 整体皮肤覆盖应用组件；Windows 平台性能规则和皮肤适配随后叠加。 -->
     <link rel="stylesheet" href="/styles/skins/editorial.css">
     <!-- Windows WebView2 平台性能降级。 -->
     <link rel="stylesheet" href="/styles/platform-windows.css">
     <!-- 仅在 Windows 的编辑部皮肤下协调标题栏与应用菜单。 -->
     <link rel="stylesheet" href="/styles/skins/editorial-windows.css">
+    <!-- 写作模式最后加载，确保打字机留白不被皮肤排版规则覆盖。 -->
+    <link rel="stylesheet" href="/styles/writing-modes.css">
 </head>
 <body>
     <!-- 自定义标题栏 -->
@@ -114,6 +118,7 @@
 
     <!-- 侧边栏 -->
     <div id="sidebar" class="sidebar">
+        <div id="workspaceSearchHost" hidden></div>
         <div id="fileTree"></div>
     </div>
 

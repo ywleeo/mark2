@@ -11,17 +11,19 @@ mod gist_share;
 mod image_proxy;
 mod media_stream;
 mod menu;
+mod recovery_store;
 mod security_scope;
 mod spreadsheet;
 mod vault;
 mod window_state;
+mod workspace_search;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::async_runtime;
 use tauri::http::{Response, StatusCode};
-use tauri::{AppHandle, Emitter, Listener, Manager};
 use tauri::webview::WebviewWindowBuilder;
+use tauri::{AppHandle, Emitter, Listener, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -193,7 +195,9 @@ fn main() {
             let _ = window.set_focus();
 
             if !file_paths.is_empty() {
-                let payload = OpenedFilesPayload { paths: file_paths.clone() };
+                let payload = OpenedFilesPayload {
+                    paths: file_paths.clone(),
+                };
                 if window.emit("files-opened", payload).is_ok() {
                     return;
                 }
@@ -226,6 +230,8 @@ fn main() {
         .manage(DocumentState::default())
         .manage(ai_proxy::AiProxyState::default())
         .manage(vault::commands::VaultState::default())
+        .manage(recovery_store::RecoveryStoreState::default())
+        .manage(workspace_search::WorkspaceSearchState::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -259,6 +265,7 @@ fn main() {
             security_scope::capture_security_scope,
             security_scope::restore_security_scoped_access,
             menu::set_export_menu_enabled,
+            menu::set_writing_mode_menu_state,
             menu::update_recent_menu,
             menu::rebuild_menu,
             update_workspace_context,
@@ -270,8 +277,16 @@ fn main() {
             ai_proxy::ai_proxy_cancel_stream,
             read_clipboard_text,
             relaunch_via_open,
+            recovery_store::upsert_recovery_snapshot,
+            recovery_store::list_recovery_snapshots,
+            recovery_store::read_recovery_snapshot,
+            recovery_store::delete_recovery_snapshot,
+            recovery_store::clear_pending_recovery,
+            recovery_store::rename_recovery_document,
             default_handler::get_default_app_status,
             default_handler::set_as_default_app,
+            workspace_search::search_workspace,
+            workspace_search::cancel_workspace_search,
             vault::commands::vault_list,
             vault::commands::vault_get_value,
             vault::commands::vault_add,
@@ -289,14 +304,15 @@ fn main() {
 
             // ── 动态创建主窗口（恢复上次尺寸/位置） ──
             let ws = window_state::load(&handle);
-            let mut builder = WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-                .title("")
-                .inner_size(ws.width, ws.height)
-                .min_inner_size(800.0, 600.0)
-                .resizable(true)
-                .fullscreen(ws.fullscreen)
-                .visible(false) // 先隐藏，JS ready 后 show
-                .accept_first_mouse(true);
+            let mut builder =
+                WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                    .title("")
+                    .inner_size(ws.width, ws.height)
+                    .min_inner_size(800.0, 600.0)
+                    .resizable(true)
+                    .fullscreen(ws.fullscreen)
+                    .visible(false) // 先隐藏，JS ready 后 show
+                    .accept_first_mouse(true);
 
             // 只在有保存过位置时恢复（x/y >= 0 表示有效值），否则居中
             if ws.x >= 0.0 && ws.y >= 0.0 {
@@ -314,8 +330,7 @@ fn main() {
 
             #[cfg(target_os = "windows")]
             {
-                builder = builder
-                    .decorations(false);
+                builder = builder.decorations(false);
             }
 
             #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -357,7 +372,9 @@ fn main() {
                                     return;
                                 }
                                 let factor = win.scale_factor().unwrap_or(1.0);
-                                if let (Ok(size), Ok(pos)) = (win.inner_size(), win.outer_position()) {
+                                if let (Ok(size), Ok(pos)) =
+                                    (win.inner_size(), win.outer_position())
+                                {
                                     let state = window_state::WindowState {
                                         width: size.width as f64 / factor,
                                         height: size.height as f64 / factor,
@@ -375,9 +392,13 @@ fn main() {
             };
 
             let on_resize = schedule_save.clone();
-            win.listen("tauri://resize", move |_| { on_resize(); });
+            win.listen("tauri://resize", move |_| {
+                on_resize();
+            });
             let on_move = schedule_save.clone();
-            win.listen("tauri://move", move |_| { on_move(); });
+            win.listen("tauri://move", move |_| {
+                on_move();
+            });
 
             // ── Windows: 读取命令行参数中的文件路径 ──
             #[cfg(target_os = "windows")]

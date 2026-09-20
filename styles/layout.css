@@ -1164,6 +1164,17 @@ body.is-internal-drag .content-wrapper::after {
     color: var(--text-color, #333333);
 }
 
+.app-menu__check {
+    display: inline-flex;
+    width: 14px;
+    margin-right: 6px;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-color, #3478f6);
+    font-size: 12px;
+    font-weight: 600;
+}
+
 /* Classic 浅色菜单用正常字重补足细笔画，保留现有字体与危险操作颜色。 */
 :root[data-app-skin='classic'][data-theme-appearance='light'] .app-menu__item:not(.danger) .app-menu__label {
     color: rgba(31, 36, 44, 0.95);

@@ -1,0 +1,172 @@
+/* 文稿恢复与版本历史共用的模态面板。 */
+.recovery-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10020;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    background: var(--settings-backdrop, rgba(0, 0, 0, 0.42));
+}
+
+.recovery-dialog {
+    width: min(860px, calc(100vw - 56px));
+    max-height: min(720px, calc(100vh - 56px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--text-color, #252525);
+    background: var(--settings-surface, #fff);
+    border: 1px solid var(--border-color, #d8d8d8);
+    border-radius: 12px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
+}
+
+.recovery-dialog__header {
+    padding: 22px 24px 16px;
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+}
+
+.recovery-dialog__header h2 {
+    margin: 0 0 7px;
+    font-size: 18px;
+}
+
+.recovery-dialog__header p {
+    margin: 0;
+    color: var(--secondary-text-color, #6f6f6f);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.recovery-dialog__body {
+    min-height: 0;
+    padding: 16px 20px;
+    overflow: auto;
+}
+
+.recovery-dialog__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.recovery-dialog__entry {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 12px;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.recovery-dialog__entry:hover,
+.recovery-dialog__entry[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--app-accent, #4f78ff) 9%, transparent);
+    border-color: color-mix(in srgb, var(--app-accent, #4f78ff) 30%, transparent);
+}
+
+.recovery-dialog__checkbox {
+    width: 16px;
+    height: 16px;
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    margin-top: 1px;
+    color: #fff;
+    background: var(--app-accent, #4f78ff);
+    border: 1px solid var(--app-accent, #4f78ff);
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.recovery-dialog__checkbox[data-checked='false'] {
+    background: transparent;
+    border-color: var(--border-color, #b8b8b8);
+}
+
+.recovery-dialog__entry-content {
+    min-width: 0;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+    color: var(--secondary-text-color, #6f6f6f);
+}
+
+.recovery-dialog__entry-content strong {
+    color: var(--text-color, #252525);
+    font-size: 13px;
+}
+
+.recovery-dialog__entry-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recovery-dialog__history {
+    min-height: 360px;
+    display: grid;
+    grid-template-columns: minmax(230px, 0.38fr) minmax(0, 0.62fr);
+    gap: 14px;
+}
+
+.recovery-dialog__list--history {
+    min-height: 0;
+    max-height: 480px;
+    overflow: auto;
+}
+
+.recovery-dialog__preview {
+    min-width: 0;
+    margin: 0;
+    padding: 14px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-color, #252525);
+    background: color-mix(in srgb, var(--settings-surface, #fff) 85%, var(--text-color, #222));
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.recovery-dialog__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+    padding: 14px 20px 18px;
+    border-top: 1px solid var(--border-color, #e5e5e5);
+}
+
+.recovery-dialog__button {
+    min-width: 92px;
+    padding: 8px 14px;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--border-color, #d0d0d0);
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.recovery-dialog__button--primary {
+    color: #fff;
+    background: var(--app-accent, #4f78ff);
+    border-color: var(--app-accent, #4f78ff);
+}
+
+.recovery-dialog__button--danger { color: #c33d32; }
+.recovery-dialog__button:disabled { opacity: 0.45; cursor: default; }
+
+@media (max-width: 720px) {
+    .recovery-dialog__history { grid-template-columns: 1fr; }
+    .recovery-dialog__preview { min-height: 240px; }
+}

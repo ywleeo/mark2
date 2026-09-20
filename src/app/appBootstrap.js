@@ -19,6 +19,7 @@ import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
 import { restoreKeybindingsFromFileIfNeeded } from '../utils/keybindingsStorage.js';
 import { createCommandHandlers } from './commandHandlers.js';
+import { toggleWritingModePreference } from '../modules/writing-modes/writingModePreferences.js';
 import { createBootstrapHelpers } from './bootstrapHelpers.js';
 import { isWindows } from '../utils/platform.js';
 import { registerCoreFeatures } from './featureSetup.js';
@@ -36,6 +37,7 @@ import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../util
 import { EVENT_IDS } from '../core/eventIds.js';
 import { PaneLayout } from '../components/PaneLayout.js';
 import { SecondaryPaneRuntime } from './secondaryPaneRuntime.js';
+import { createWorkspaceSearchController } from '../modules/workspaceSearchController.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -55,6 +57,7 @@ export function createAppBootstrap({
     untitledFileManager,
     appServices,
     workspaceController,
+    recoveryController,
     // 同步调度器
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
@@ -96,6 +99,7 @@ export function createAppBootstrap({
     toggleEmbedCodeMode,
     toggleCsvTableMode,
     // layoutControls 导出
+    setSidebarVisibility,
     toggleSidebarVisibility,
     toggleStatusBarVisibility,
     // navigationController 导出
@@ -556,6 +560,16 @@ export function createAppBootstrap({
             onOpenFolder: openFolderOnly,
         });
 
+        const workspaceSearchController = createWorkspaceSearchController({
+            host: document.getElementById('workspaceSearchHost'),
+            fileTree,
+            appState,
+            editorRegistry,
+            handleFileSelect,
+            setSidebarVisibility,
+        });
+        appState.setCleanupFunction('workspaceSearch', () => workspaceSearchController.destroy());
+
         setupTabManager({
             TabManagerCtor: coreModules.TabManager,
             appState,
@@ -648,12 +662,15 @@ export function createAppBootstrap({
                 openSettingsDialog,
                 toggleSidebarVisibility,
                 toggleStatusBarVisibility,
+                toggleFocusMode: () => toggleWritingModePreference(appState, 'focusMode'),
+                toggleTypewriterMode: () => toggleWritingModePreference(appState, 'typewriterMode'),
                 toggleMarkdownCodeMode,
                 toggleSvgCodeMode,
                 toggleEmbedCodeMode,
                 toggleCsvTableMode,
                 toggleMarkdownToolbar,
                 toggleAppTheme,
+                showWorkspaceSearch: () => workspaceSearchController.show(),
                 getActivePaneContext,
                 openInSecondary: path => openInSecondary(path),
                 closeSecondary: () => requestCloseSecondary(),
@@ -684,6 +701,7 @@ export function createAppBootstrap({
                 openFolderOnly,
                 saveCurrentFile,
                 saveCurrentFileAs,
+                showVersionHistory: () => recoveryController?.showVersionHistory?.(),
                 closeActiveTab,
                 reopenLastClosedTab,
                 handleCreateNewFile,
@@ -731,7 +749,8 @@ export function createAppBootstrap({
         appState.setCleanupFunction('fileDrop', await fileDropController.setup());
 
         setupCleanupHandlers();
-        showWindow();
+        await showWindow();
+        await recoveryController?.showStartupRecovery?.();
         loadAvailableFonts();
         updateWindowTitle();
 

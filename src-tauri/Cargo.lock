@@ -2880,7 +2880,7 @@ dependencies = [
 
 [[package]]
 name = "mark2-tauri"
-version = "1.7.64"
+version = "1.7.65"
 dependencies = [
  "aes-gcm",
  "axum",
@@ -2896,6 +2896,7 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "rand 0.8.5",
+ "regex",
  "reqwest 0.11.27",
  "rfd 0.15.4",
  "security-framework 2.11.1",

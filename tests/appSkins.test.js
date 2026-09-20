@@ -80,34 +80,57 @@ test('目录文件名保留完整文本并由皮肤决定排版', async () => {
     assert.match(editorialCss, /-webkit-line-clamp: 2/);
 });
 
-/** 编辑部侧栏只留文字署名和折叠箭头，打开动作由文件菜单承载。 */
+/** 编辑部侧栏隐藏文件打开动作，并把全局搜索提升到两个文件栏目之上。 */
 test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     const renderer = await readFile(new URL('../src/components/file-tree/FileTreeRenderer.js', import.meta.url), 'utf8');
     const events = await readFile(new URL('../src/components/file-tree/FileTreeEvents.js', import.meta.url), 'utf8');
+    const fileTreeCss = await readFile(new URL('../styles/file-tree.css', import.meta.url), 'utf8');
     const css = await readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8');
     const menu = await readFile(new URL('../src/components/AppMenu.js', import.meta.url), 'utf8');
 
     assert.match(renderer, /class="skin-masthead__name" role="img" aria-label="Mark2"/);
     assert.match(renderer, /class="skin-masthead__word" aria-hidden="true">Mark<\/span>/);
-    assert.doesNotMatch(renderer, /skin-masthead__action/);
+    assert.match(renderer, /class="skin-masthead__actions"/);
+    assert.match(renderer, /class="skin-masthead__action"[^>]*id="workspaceSearchAction"/);
+    assert.match(fileTreeCss, /\.skin-masthead__word,\s*\.skin-masthead__edition\s*\{[^}]*text-transform: uppercase;/s);
     assert.doesNotMatch(renderer, /section-action-label/);
     assert.match(events, /onOpenFileRequest\?\.\(\)/);
     assert.match(events, /onOpenFolderRequest\?\.\(\)/);
-    assert.match(css, /\.skin-masthead \{ display: none; \}/);
+    assert.doesNotMatch(css, /\.skin-masthead \{ display: none; \}/);
     assert.match(css, /\.skin-masthead__word\s*\{[^}]*letter-spacing: 0\.08em;/);
     assert.match(css, /\.sidebar \.section-action-btn \{ display: none; \}/);
+    assert.ok(renderer.indexOf('id="workspaceSearchAction"') < renderer.indexOf('open-files-section'));
+    assert.match(css, /\.sidebar \.skin-masthead__action\s*\{/);
     assert.doesNotMatch(css, /\.section-header:is\(:hover, :focus-within\) \.section-action-btn/);
     assert.match(menu, /command: COMMAND_IDS\.APP_OPEN_FILE/);
     assert.match(menu, /command: COMMAND_IDS\.APP_OPEN_FOLDER/);
     assert.doesNotMatch(renderer, /A PLACE FOR WORDS/);
 });
 
-/** 栏目滚动条不应在鼠标进入时占用新宽度，造成文件名换行跳动。 */
-test('编辑部侧栏 hover 只改变滑块颜色，不改变滚动条占位', async () => {
+/** 所有皮肤的侧栏必须共用可见、无槽的 WebKit 滚动条机制。 */
+test('侧栏滚动条机制由公共样式统一', async () => {
+    const [layoutCss, fileTreeCss, editorialCss] = await Promise.all([
+        readFile(new URL('../styles/layout.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/file-tree.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(fileTreeCss, /\.section-content\s*\{[^}]*scrollbar-width:\s*auto;[^}]*scrollbar-color:\s*auto;/);
+    assert.doesNotMatch(fileTreeCss, /\.section-content[^\{]*\{[^}]*scrollbar-width:\s*(?:thin|none);/);
+    assert.doesNotMatch(editorialCss, /\.sidebar \.section-content[^\{]*\{[^}]*scrollbar-(?:width|color|gutter):/);
+    assert.match(layoutCss, /\.section-content::-webkit-scrollbar[^\{]*\{[^}]*width:\s*var\(--scrollbar-size, 2px\);/);
+    assert.match(layoutCss, /\.section-content::-webkit-scrollbar-track[^\{]*\{[^}]*background:\s*transparent;/);
+    assert.match(layoutCss, /\.section-content::-webkit-scrollbar-thumb[^\{]*\{[^}]*background:\s*color-mix\([^}]*var\(--scrollbar-thumb-color,/);
+});
+
+/** 编辑部滚动条应从纸张与栏目暖色语义派生，不回退到经典皮肤的冷灰。 */
+test('编辑部主视图与侧栏共用皮肤滚动条色阶', async () => {
     const css = await readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8');
-    assert.match(css, /\.sidebar \.section-content\s*\{[^}]*scrollbar-width: thin;[^}]*scrollbar-gutter: stable;/);
-    assert.match(css, /\.sidebar \.section-content:hover\s*\{[^}]*scrollbar-color:/);
-    assert.doesNotMatch(css, /\.sidebar \.section-content:hover\s*\{[^}]*scrollbar-width:/);
+    assert.match(css, /--editorial-scrollbar-thumb:\s*color-mix\([\s\S]*?var\(--editorial-rail-muted\)[\s\S]*?var\(--editorial-paper\)/);
+    assert.match(css, /--scrollbar-thumb-color:\s*var\(--editorial-scrollbar-thumb\)/);
+    assert.match(css, /--scrollbar-thumb-hover-color:\s*var\(--editorial-scrollbar-thumb-hover\)/);
+    assert.doesNotMatch(css, /\.sidebar \.section-content::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*transparent;/);
+    assert.doesNotMatch(css, /--scrollbar-thumb-color:\s*#b7b4aa/);
 });
 
 /** 顶部保留连续操作区，不把可变的正文页宽强加给 tab 和 toolbar。 */
@@ -128,7 +151,15 @@ test('主题加载与导出共享稳定的主题名称', async () => {
     const shareBuilder = await readFile(new URL('../src/modules/share/sharePageBuilder.js', import.meta.url), 'utf8');
     assert.match(loader, /link\.dataset\.themeName = theme/);
     assert.match(exporter, /themeLink\?\.dataset\.themeName/);
-    assert.match(exporter, /const exportBackground = isEditorial \? '#f3eee4' : '#ffffff'/);
     assert.match(exporter, /const exportFontOverride = isEditorial/);
     assert.match(shareBuilder, /resolveMarkdownTheme\(settings\.skin, settings\.theme\)/);
+});
+
+/** Editorial 的纸色只属于应用皮肤，PDF 页面和正文根节点必须保持白底。 */
+test('编辑部主题导出 PDF 时移除应用背景色', async () => {
+    const exporter = await readFile(new URL('../src/utils/exportUtils.js', import.meta.url), 'utf8');
+    assert.match(exporter, /const exportBackground = '#ffffff'/);
+    assert.match(exporter, /\.mark2-export-wrapper > \.tiptap-editor[\s\S]*background-color: transparent !important/);
+    assert.match(exporter, /@media print \{[\s\S]*background: #ffffff !important/);
+    assert.doesNotMatch(exporter, /exportBackground = isEditorial \? '#f3eee4'/);
 });

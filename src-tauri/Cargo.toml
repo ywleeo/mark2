@@ -1,6 +1,6 @@
 [package]
 name = "mark2-tauri"
-version = "1.7.64"
+version = "1.7.65"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
@@ -36,6 +36,7 @@ tauri-plugin-process = "2.3"
 aes-gcm = "0.10"
 rand = "0.8"
 uuid = { version = "1", features = ["v4"] }
+regex = "1"
 
 [target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"
