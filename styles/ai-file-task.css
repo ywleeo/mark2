@@ -337,7 +337,19 @@ body.ai-file-task-resizing {
     min-height: 0;
     overflow: auto;
     padding: 14px 16px 24px;
-    scrollbar-width: thin;
+}
+
+.ai-file-task-sidebar__preview::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+}
+
+.ai-file-task-sidebar__preview::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ai-file-task-sidebar__preview::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68));
+    border-radius: 3px;
 }
 
 .ai-file-task-sidebar__draft-editor {

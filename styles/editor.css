@@ -479,11 +479,9 @@
     backdrop-filter: blur(20px);
     color: rgba(31, 36, 44, 0.82);
     font-family: var(--ui-font-family, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif);
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68)) transparent;
 }
 
-/* Ideas 结果与 Markdown 文件视图使用同一套 thin、无槽滚动条。 */
+/* Ideas 结果与 Markdown 文件视图使用同一套无槽滚动条。 */
 .ai-writing-inspiration-panel::-webkit-scrollbar {
     width: var(--scrollbar-size, 6px);
     height: var(--scrollbar-size, 6px);
@@ -1397,7 +1395,6 @@
 .tiptap-editor .tableWrapper--scrollable {
     overflow-x: auto;
     overflow-y: hidden;
-    scrollbar-width: thin;
     contain: paint;
     isolation: isolate;
 }
@@ -1597,8 +1594,6 @@
 
 .csv-table-scroll {
     overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
 }
 
 .csv-table-scroll::-webkit-scrollbar {

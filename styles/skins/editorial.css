@@ -141,6 +141,21 @@
     );
 }
 
+/* 皮肤级兜底：未单独定制的滚动区也不能露出系统白槽；组件规则仍可覆盖。 */
+:where(:root[data-app-skin='editorial'] *)::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+}
+
+:where(:root[data-app-skin='editorial'] *)::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+:where(:root[data-app-skin='editorial'] *)::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color);
+    border-radius: 3px;
+}
+
 /* 整个窗口共用同一纸色，层级主要交给字号、密度与留白。 */
 :root[data-app-skin='editorial'] #titlebar {
     border-bottom: 0;
@@ -545,12 +560,6 @@
 /* 正文以栏目留白嵌入窗口，而不是再铺一层“卡片纸”。 */
 :root[data-app-skin='editorial'] .view-pane.markdown-pane {
     background: var(--editorial-canvas);
-}
-
-/* 交还 WebKit 绘制正文滚动条，避免标准属性覆盖透明轨道并露出白槽。 */
-:root[data-app-skin='editorial'] .view-pane.markdown-pane.is-active {
-    scrollbar-width: auto;
-    scrollbar-color: auto;
 }
 
 :root[data-app-skin='editorial'] .view-pane.markdown-pane .markdown-content {

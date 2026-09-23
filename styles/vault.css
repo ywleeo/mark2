@@ -169,11 +169,6 @@
     gap: 4px;
     min-height: 0;
 
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
-}
-:root[data-theme-appearance='dark'] .vault-list {
-    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 .vault-list::-webkit-scrollbar { width: 4px; }
 .vault-list::-webkit-scrollbar-track { background: transparent; }
@@ -385,11 +380,6 @@
     gap: 12px;
     min-height: 0;
 
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
-}
-:root[data-theme-appearance='dark'] .vault-edit {
-    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 .vault-edit::-webkit-scrollbar { width: 4px; }
 .vault-edit::-webkit-scrollbar-track { background: transparent; }

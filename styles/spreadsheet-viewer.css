@@ -124,8 +124,6 @@
     inset: 0;
     overflow: auto;
     background: linear-gradient(180deg, rgba(148, 163, 184, 0.05), rgba(148, 163, 184, 0.15));
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color, rgba(0, 0, 0, 0.2)) transparent;
 }
 
 .spreadsheet-viewer__table-wrapper::-webkit-scrollbar {

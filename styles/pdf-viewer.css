@@ -15,7 +15,20 @@
     position: relative;
     overflow: auto;
     padding: 24px 16px 80px 16px;
-    scrollbar-width: thin;
+}
+
+.pdf-viewer__body::-webkit-scrollbar {
+    width: var(--scrollbar-size, 6px);
+    height: var(--scrollbar-size, 6px);
+}
+
+.pdf-viewer__body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pdf-viewer__body::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68));
+    border-radius: 3px;
 }
 
 .pdf-viewer__pages {

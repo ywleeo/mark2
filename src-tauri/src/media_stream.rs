@@ -4,8 +4,9 @@ use std::io::{Read, Seek, SeekFrom};
 use tauri::http::header::{ACCEPT_RANGES, CONTENT_LENGTH, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use tauri::http::{Response, StatusCode};
 
+// HTML 预览须将标准属性恢复为 auto，避免覆盖下方的透明 WebKit 滚动轨道。
 const HTML_PREVIEW_SCROLLBAR_STYLE: &str = r#"<style data-mark2-preview-style>
-html { scrollbar-width: thin !important; scrollbar-color: rgba(127, 127, 127, 0.55) transparent !important; }
+html, body { scrollbar-width: auto !important; scrollbar-color: auto !important; }
 html::-webkit-scrollbar,
 body::-webkit-scrollbar { width: 6px !important; height: 6px !important; -webkit-appearance: none; }
 html::-webkit-scrollbar-track,

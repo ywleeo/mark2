@@ -30,12 +30,7 @@
     font-family: var(--code-font-family, Consolas, 'Cascadia Code', 'SFMono-Regular', Menlo, Monaco, monospace);
 }
 
-/* Scrollbar - 使用全局变量，和 markdown 编辑器一致 */
-.code-editor__instance .cm-scroller {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color, #d1d5db) var(--scrollbar-track-color, #f1f3f4);
-}
-
+/* 源码视图与 Markdown 使用相同的透明滚动轨道。 */
 .code-editor__instance .cm-scroller::-webkit-scrollbar {
     width: var(--scrollbar-size, 6px);
     height: var(--scrollbar-size, 6px);

@@ -181,13 +181,6 @@
     max-height: calc(80vh - 170px);
 }
 
-.settings-body {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
-}
-:root[data-theme-appearance='dark'] .settings-body {
-    scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
-}
 .settings-body::-webkit-scrollbar { width: 4px; }
 .settings-body::-webkit-scrollbar-track { background: transparent; }
 .settings-body::-webkit-scrollbar-thumb {
@@ -654,8 +647,6 @@ input[type="number"]::-webkit-inner-spin-button {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     font-size: 13px;
     box-sizing: border-box;
-    scrollbar-width: thin;
-    scrollbar-color: var(--settings-muted) transparent;
 }
 
 .dropdown__panel::-webkit-scrollbar {

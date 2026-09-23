@@ -1,14 +1,29 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 
 /**
- * 验证应用内文件视图和 iframe HTML 预览都使用透明滚动轨道。
+ * 验证应用滚动区不会再次混用相互覆盖的标准属性与 WebKit 样式。
  */
-test('文件 Viewer 的滚动条统一为无槽样式', async () => {
-    const [layoutCss, editorCss, mediaStreamSource] = await Promise.all([
+test('可见滚动区不混用标准属性与 WebKit 样式', async () => {
+    const stylesUrl = new URL('../styles/', import.meta.url);
+    const cssFiles = (await readdir(stylesUrl, { recursive: true }))
+        .filter((path) => path.endsWith('.css'));
+    const cssSources = await Promise.all(cssFiles.map(async (path) => ({
+        path,
+        css: await readFile(new URL(path, stylesUrl), 'utf8'),
+    })));
+    for (const { path, css } of cssSources) {
+        const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+        assert.doesNotMatch(withoutComments, /scrollbar-width:\s*thin\b/, path);
+        for (const [, value] of withoutComments.matchAll(/scrollbar-color:\s*([^;}]*)/g)) {
+            assert.equal(value.trim(), 'auto', path);
+        }
+    }
+
+    const [layoutCss, editorialCss, mediaStreamSource] = await Promise.all([
         readFile(new URL('../styles/layout.css', import.meta.url), 'utf8'),
-        readFile(new URL('../styles/editor.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/skins/editorial.css', import.meta.url), 'utf8'),
         readFile(new URL('../src-tauri/src/media_stream.rs', import.meta.url), 'utf8'),
     ]);
 
@@ -16,8 +31,7 @@ test('文件 Viewer 的滚动条统一为无槽样式', async () => {
     assert.equal(trackVariables.length, 2, '浅色和深色主题都应使用透明滚动轨道');
     assert.match(
         mediaStreamSource,
-        /scrollbar-color:\s*rgba\(127, 127, 127, 0\.55\)\s+transparent\s*!important/,
+        /html, body \{ scrollbar-width: auto !important; scrollbar-color: auto !important; \}/,
     );
-    assert.match(editorCss, /\.ai-writing-inspiration-panel\s*\{[^}]*scrollbar-width:\s*thin;/s);
-    assert.match(editorCss, /\.ai-writing-inspiration-panel::-webkit-scrollbar-track,[^{]*\{\s*background:\s*transparent;/s);
+    assert.match(editorialCss, /:where\(:root\[data-app-skin='editorial'\] \*\)::-webkit-scrollbar-track\s*\{\s*background:\s*transparent;/);
 });

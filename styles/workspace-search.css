@@ -122,8 +122,6 @@
     min-height: 0;
     overflow: auto;
     padding-bottom: 16px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color) transparent;
 }
 
 .workspace-search__results::-webkit-scrollbar {

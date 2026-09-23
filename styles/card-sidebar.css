@@ -133,10 +133,9 @@
     gap: 16px;
     padding: 16px 20px 20px;
     overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
 }
 .card-export-flow__strip::-webkit-scrollbar { height: 4px; }
+.card-export-flow__strip::-webkit-scrollbar-track { background: transparent; }
 .card-export-flow__strip::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 2px; }
 
 .card-export-flow__item {

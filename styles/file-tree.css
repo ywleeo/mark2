@@ -197,9 +197,6 @@
     overflow-y: auto;
     overflow-y: overlay;
     overflow-x: hidden;
-    /* 取消 body 继承的标准滚动条颜色，让侧栏使用公共的细 WebKit 滚动条。 */
-    scrollbar-width: auto;
-    scrollbar-color: auto;
 }
 
 /* 侧栏滚动条由 layout.css 统一绘制，皮肤只提供颜色变量。 */

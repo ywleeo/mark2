@@ -406,11 +406,13 @@
 .view-pane.markdown-pane.is-active {
     overflow-y: auto !important;
     overflow-x: hidden !important;
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68)) transparent;
 }
 
-/* 与 HTML Preview 共用文件视图滚动条规格；伪元素用于旧版 WebKit 回退。 */
+/*
+ * Markdown 正文只使用 WebKit 伪元素绘制滚动条。不要在滚动容器上声明
+ * scrollbar-width / scrollbar-color：新版 WebKit 会让标准属性覆盖下面的
+ * 透明轨道，侧栏挤压正文后就会露出系统白色滚动槽。
+ */
 .view-pane.markdown-pane.is-active::-webkit-scrollbar {
     width: var(--scrollbar-size, 6px);
     height: var(--scrollbar-size, 6px);
@@ -774,7 +776,6 @@
     overflow-y: auto;
     overflow-x: hidden;
     padding: 4px 10px 8px;
-    scrollbar-width: thin;
 }
 
 .emoji-picker-body::-webkit-scrollbar {
