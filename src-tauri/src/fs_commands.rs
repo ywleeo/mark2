@@ -347,7 +347,8 @@ pub fn append_log_entries(
 
     for entry in entries {
         let line = serde_json::to_string(&entry).map_err(|err| err.to_string())?;
-        file.write_all(line.as_bytes()).map_err(|err| err.to_string())?;
+        file.write_all(line.as_bytes())
+            .map_err(|err| err.to_string())?;
         file.write_all(b"\n").map_err(|err| err.to_string())?;
     }
 
@@ -548,7 +549,10 @@ mod tests {
 
         write_file_atomically(&target, b"new complete content").expect("atomic write");
 
-        assert_eq!(fs::read_to_string(&target).expect("read target"), "new complete content");
+        assert_eq!(
+            fs::read_to_string(&target).expect("read target"),
+            "new complete content"
+        );
         let remaining: Vec<_> = fs::read_dir(&test_dir)
             .expect("read test directory")
             .filter_map(Result::ok)
@@ -567,11 +571,14 @@ mod tests {
         let target = test_dir.join("image.png");
         fs::write(&target, b"image-bytes").expect("write image fixture");
 
-        let metadata = get_file_metadata(target.to_string_lossy().into_owned()).expect("read metadata");
+        let metadata =
+            get_file_metadata(target.to_string_lossy().into_owned()).expect("read metadata");
 
         assert_eq!(metadata.file_size, 11);
         assert!(metadata.modified_time > 0);
-        assert!(metadata.created_time.map_or(true, |timestamp| timestamp > 0));
+        assert!(metadata
+            .created_time
+            .map_or(true, |timestamp| timestamp > 0));
 
         fs::remove_dir_all(&test_dir).expect("remove test directory");
     }

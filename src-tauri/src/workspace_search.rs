@@ -481,7 +481,10 @@ mod tests {
         let response = run(&file, "needle", WorkspaceSearchOptions::default());
         assert_eq!(response.matches.len(), 1);
         let canonical_file = fs::canonicalize(&file).expect("canonicalize fixture");
-        assert_eq!(response.matches[0].file_path, canonical_file.to_string_lossy());
+        assert_eq!(
+            response.matches[0].file_path,
+            canonical_file.to_string_lossy()
+        );
         assert_eq!(response.matches[0].relative_path, "outside.md");
         let _ = fs::remove_dir_all(root);
     }

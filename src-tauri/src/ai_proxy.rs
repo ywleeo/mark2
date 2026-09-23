@@ -4,8 +4,8 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 
@@ -125,7 +125,9 @@ fn apply_common_headers(
  * 由前端通过 invoke 调用，绕过 WebView fetch 的 CORS / WAF 限制。
  */
 #[tauri::command]
-pub async fn ai_proxy_json_request(request: AiProxyJsonRequest) -> Result<AiProxyJsonResponse, String> {
+pub async fn ai_proxy_json_request(
+    request: AiProxyJsonRequest,
+) -> Result<AiProxyJsonResponse, String> {
     let client = build_json_http_client(request.timeout_ms)?;
     let method = request
         .method

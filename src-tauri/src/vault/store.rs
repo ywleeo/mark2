@@ -59,18 +59,17 @@ pub fn load(path: &Path, key: &[u8; 32]) -> Result<VaultData, String> {
         return Ok(VaultData::default());
     }
     let plaintext = decrypt(key, &blob)?;
-    let data: VaultData = serde_json::from_slice(&plaintext)
-        .map_err(|err| format!("vault parse failed: {err}"))?;
+    let data: VaultData =
+        serde_json::from_slice(&plaintext).map_err(|err| format!("vault parse failed: {err}"))?;
     Ok(data)
 }
 
 pub fn save(path: &Path, key: &[u8; 32], data: &VaultData) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|err| format!("vault mkdir failed: {err}"))?;
+        fs::create_dir_all(parent).map_err(|err| format!("vault mkdir failed: {err}"))?;
     }
-    let plaintext = serde_json::to_vec(data)
-        .map_err(|err| format!("vault serialize failed: {err}"))?;
+    let plaintext =
+        serde_json::to_vec(data).map_err(|err| format!("vault serialize failed: {err}"))?;
     let blob = encrypt(key, &plaintext)?;
 
     // 原子写：先写 .tmp 再 rename

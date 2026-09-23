@@ -41,10 +41,7 @@ fn vault_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|err| format!("vault path unavailable: {err}"))
 }
 
-fn ensure_loaded(
-    inner: &mut VaultStateInner,
-    app: &AppHandle,
-) -> Result<(), String> {
+fn ensure_loaded(inner: &mut VaultStateInner, app: &AppHandle) -> Result<(), String> {
     if inner.loaded {
         return Ok(());
     }
@@ -99,7 +96,11 @@ fn mask_entry(entry: &VaultEntry) -> VaultEntryView {
             .iter()
             .map(|f| VaultFieldView {
                 label: f.label.clone(),
-                value: if f.secret { String::new() } else { f.value.clone() },
+                value: if f.secret {
+                    String::new()
+                } else {
+                    f.value.clone()
+                },
                 secret: f.secret,
                 has_value: !f.value.is_empty(),
             })
@@ -270,9 +271,7 @@ pub fn vault_mark_used(
 }
 
 #[tauri::command]
-pub fn vault_generate_password(
-    opts: Option<GenerateOptions>,
-) -> Result<String, String> {
+pub fn vault_generate_password(opts: Option<GenerateOptions>) -> Result<String, String> {
     generate(&opts.unwrap_or_default())
 }
 

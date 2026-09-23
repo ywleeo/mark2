@@ -79,7 +79,8 @@ mod imp {
         extensions
             .iter()
             .map(|ext| {
-                let bundle_id = uti_for_extension(ext).and_then(|uti| default_handler_for_uti(&uti));
+                let bundle_id =
+                    uti_for_extension(ext).and_then(|uti| default_handler_for_uti(&uti));
                 let is_self = bundle_id
                     .as_deref()
                     .map(|id| id.to_lowercase() == self_lower)
