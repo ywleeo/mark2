@@ -25,6 +25,7 @@ export function createWindowLifecycle({
 }) {
     let SettingsDialogCtor = null;
     let closeInProgress = false;
+    let openedFilesDrain = Promise.resolve();
 
     function setSettingsDialogCtor(ctor) {
         SettingsDialogCtor = ctor;
@@ -194,21 +195,23 @@ export function createWindowLifecycle({
     }
 
     async function setupOpenedFilesListener() {
-        await listen('files-opened', (event) => {
-            const paths = event?.payload?.paths;
-            void handleOpenedFiles(paths).catch((error) => {
+        /** 顺序领取系统打开队列，避免启动通知与首次读取并发打开同一批文件。 */
+        function drainOpenedFilesQueue() {
+            openedFilesDrain = openedFilesDrain.then(async () => {
+                const paths = await invoke('get_opened_files');
+                await handleOpenedFiles(paths);
+            }).catch((error) => {
                 console.error('[windowLifecycle] 处理系统打开路径失败:', error);
             });
+            return openedFilesDrain;
+        }
+
+        await listen('files-opened', () => {
+            void drainOpenedFilesQueue();
         });
 
-        try {
-            const initialPaths = await invoke('get_opened_files');
-            if (initialPaths && initialPaths.length > 0) {
-                await handleOpenedFiles(initialPaths);
-            }
-        } catch (error) {
-            console.warn('[windowLifecycle] 获取初始打开文件失败:', error);
-        }
+        // 原生层会先将路径放入队列；即使事件早于此监听器，也能在这里领取。
+        await drainOpenedFilesQueue();
     }
 
     // ========== 窗口显示 ==========

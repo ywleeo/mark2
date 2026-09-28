@@ -42,6 +42,33 @@ struct OpenedFilesState {
     paths: Mutex<Vec<String>>,
 }
 
+/// 将系统打开的路径先放入队列，再通知前端领取，避免启动期间事件无人监听而丢失。
+fn queue_opened_files(app: &AppHandle, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+
+    let Some(state) = app.try_state::<OpenedFilesState>() else {
+        eprintln!("无法缓存系统打开的文件：OpenedFilesState 尚未初始化");
+        return;
+    };
+    let queued_paths = paths.clone();
+    match state.paths.lock() {
+        Ok(mut guard) => guard.extend(queued_paths),
+        Err(error) => {
+            eprintln!("无法缓存系统打开的文件：{error}");
+            return;
+        }
+    }
+
+    if let Some(window) = app.get_webview_window("main") {
+        let payload = OpenedFilesPayload { paths };
+        if let Err(error) = window.emit("files-opened", payload) {
+            eprintln!("通知前端领取系统打开的文件失败：{error}");
+        }
+    }
+}
+
 #[derive(Default, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceContextPayload {
@@ -193,23 +220,10 @@ fn main() {
             let _ = window.unminimize();
             let _ = window.show();
             let _ = window.set_focus();
-
-            if !file_paths.is_empty() {
-                let payload = OpenedFilesPayload {
-                    paths: file_paths.clone(),
-                };
-                if window.emit("files-opened", payload).is_ok() {
-                    return;
-                }
-            }
         }
 
         if !file_paths.is_empty() {
-            if let Some(state) = app.try_state::<OpenedFilesState>() {
-                if let Ok(mut guard) = state.paths.lock() {
-                    guard.extend(file_paths);
-                }
-            }
+            queue_opened_files(app, file_paths);
         }
     }));
 
@@ -442,20 +456,7 @@ fn main() {
                     return;
                 }
 
-                if let Some(window) = _app.get_webview_window("main") {
-                    let payload = OpenedFilesPayload {
-                        paths: paths.clone(),
-                    };
-                    if window.emit("files-opened", payload).is_ok() {
-                        return;
-                    }
-                }
-
-                if let Some(state) = _app.try_state::<OpenedFilesState>() {
-                    if let Ok(mut guard) = state.paths.lock() {
-                        guard.extend(paths);
-                    }
-                }
+                queue_opened_files(_app, paths);
             }
         });
 }
