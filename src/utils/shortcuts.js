@@ -12,7 +12,6 @@ export function setupKeyboardShortcuts({
     onToggleMarkdownCodeView,
     onToggleSvgCodeView,
     onToggleCsvTableView,
-    onToggleTranslator,
 }) {
     const handler = async (event) => {
         const isMeta = isMac ? event.metaKey : event.ctrlKey;
@@ -98,14 +97,6 @@ export function setupKeyboardShortcuts({
             return;
         }
 
-        // Cmd+Shift+Space — 唤起/隐藏翻译面板
-        if (isMeta && event.shiftKey && key === ' ') {
-            event.preventDefault();
-            if (onToggleTranslator) {
-                onToggleTranslator();
-            }
-            return;
-        }
     };
 
     document.addEventListener('keydown', handler);

@@ -2,22 +2,33 @@ import { t } from '../../i18n/index.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
 import { buildSelectionRewriteContext, requestSelectionRewrite } from './AiWritingService.js';
 import { createSelectionRewritePlugin, selectionRewritePluginKey } from './SelectionRewritePlugin.js';
+import { translate } from '../../modules/translator/translator.js';
 
 const logger = createLogger('selection-rewrite');
 const RESULT_STATUS_DURATION_MS = 2200;
 
 /**
- * 选区 AI 改写执行器。
- * UI 入口由 Markdown Toolbar 统一承载，这里只负责捕获选区并执行 AI 改写。
+ * 选区 AI 动作执行器。
+ * UI 入口由 Markdown Toolbar 统一承载，这里负责冻结选区并执行改写或翻译。
  */
 export class SelectionRewriteManager {
-    constructor({ editor, viewElement, getMarkdown, getSelectedMarkdown, getRangeMarkdown, replaceRangeWithMarkdown, onInspiration }) {
+    constructor({
+        editor,
+        viewElement,
+        getMarkdown,
+        getSelectedMarkdown,
+        getRangeMarkdown,
+        replaceRangeWithMarkdown,
+        insertTranslationAfterRange,
+        onInspiration,
+    }) {
         this.editor = editor;
         this.viewElement = viewElement;
         this.getMarkdown = getMarkdown;
         this.getSelectedMarkdown = getSelectedMarkdown;
         this.getRangeMarkdown = getRangeMarkdown;
         this.replaceRangeWithMarkdown = replaceRangeWithMarkdown;
+        this.insertTranslationAfterRange = insertTranslationAfterRange;
         this.onInspiration = onInspiration;
         this.selectionRange = null;
         this.requestSeq = 0;
@@ -100,25 +111,32 @@ export class SelectionRewriteManager {
             type: 'loading',
             from,
             to,
-            message: t('aiWriting.working'),
+            message: t(mode === 'translate' ? 'aiWriting.translating' : 'aiWriting.working'),
         });
         logger.info('request:start', { mode, selectionLength: sourceText.length });
 
         try {
-            const result = await requestSelectionRewrite(mode, context);
+            const result = mode === 'translate'
+                ? await translate(context.selectedText)
+                : await requestSelectionRewrite(mode, context);
             if (requestId !== this.requestSeq) return;
             const currentDoc = this.editor?.state?.doc;
             if (!currentDoc?.eq?.(sourceDoc)) {
                 throw new Error(t('aiWriting.error.documentChanged'));
             }
-            const insertedRange = this.replaceRangeWithMarkdown?.(from, to, result);
+            const insertedRange = mode === 'translate'
+                ? this.insertTranslationAfterRange?.(from, to, result)
+                : this.replaceRangeWithMarkdown?.(from, to, result);
+            if (mode === 'translate' && !insertedRange) {
+                throw new Error(t('aiWriting.error.translationInsert'));
+            }
             const resultFrom = insertedRange?.from ?? from;
             const resultTo = insertedRange?.to ?? Math.min(from + result.length, this.editor.state.doc.content.size);
             this.dispatchStatus({
                 type: 'success',
                 from: resultFrom,
                 to: resultTo,
-                message: t('aiWriting.done'),
+                message: t(mode === 'translate' ? 'aiWriting.translationDone' : 'aiWriting.done'),
             });
             this.scheduleStatusClear(requestId);
             logger.info('request:success', { mode, outputLength: result.length });
@@ -130,7 +148,7 @@ export class SelectionRewriteManager {
                 type: 'error',
                 from: pluginState?.from ?? from,
                 to: pluginState?.to ?? to,
-                message: error?.message || t('aiWriting.error'),
+                message: error?.message || t(mode === 'translate' ? 'translator.error.unknown' : 'aiWriting.error'),
             });
             this.scheduleStatusClear(requestId);
             logger.warn('request:failed', { mode, error });

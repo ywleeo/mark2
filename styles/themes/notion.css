@@ -6,7 +6,7 @@
 [data-theme-appearance='light'] .markdown-pane,
 [data-theme-appearance='light'] .markdown-content {
     color: #37352f;
-    background-color: #ffffff;
+    background-color: var(--markdown-view-bg, #ffffff);
 }
 
 [data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]) h1,
@@ -184,7 +184,7 @@
 [data-theme-appearance='dark'] .markdown-pane,
 [data-theme-appearance='dark'] .markdown-content {
     color: #f8f7f1;
-    background-color: #262930;
+    background-color: var(--markdown-view-bg, #262930);
 }
 
 [data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]) h1,

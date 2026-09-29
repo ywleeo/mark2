@@ -32,12 +32,7 @@
     background: var(--editorial-paper);
     border: 1px solid var(--editorial-seam);
     border-radius: 3px;
-    box-shadow: 0 14px 32px rgba(52, 46, 39, 0.14);
-}
-
-:root.platform-windows[data-app-skin='editorial'][data-theme-appearance='dark'] .app-menu,
-:root.platform-windows[data-app-skin='editorial'][data-theme-appearance='dark'] .app-menu__submenu {
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32);
+    box-shadow: 0 14px 32px var(--editorial-palette-shadow, rgba(52, 46, 39, 0.14));
 }
 
 :root.platform-windows[data-app-skin='editorial'] .app-menu__item:hover,

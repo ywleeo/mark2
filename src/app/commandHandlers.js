@@ -20,7 +20,6 @@ export function createCommandHandlers(deps) {
         appState,
         editorRegistry,
         exportManager,
-        featureManager,
         // window / dialog
         showAboutDialog,
         openSettingsDialog,
@@ -206,7 +205,6 @@ export function createCommandHandlers(deps) {
         onReopenTab: reopenLastClosedTab,
         onToggleSvgCodeView: toggleSvgCodeMode,
         onToggleCsvTableView: toggleCsvTableMode,
-        onToggleTranslator: () => featureManager?.getFeatureApi?.('translator')?.toggle?.(),
         onToggleToc: () => appState.getMarkdownToolbarManager()?.toggleToc?.(),
         onCreateWorkspaceFile: ({ path }) => appState.getFileTree()?.createFileInFolder?.(path),
         onCreateWorkspaceFolder: ({ path }) => appState.getFileTree()?.createFolderInFolder?.(path),

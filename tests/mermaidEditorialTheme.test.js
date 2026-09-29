@@ -11,18 +11,45 @@ import {
     rekeyCachedMermaidSvg,
 } from '../src/utils/mermaidRenderer.js';
 
-/** 创建只包含渲染器所需 dataset 的根节点替身。 */
-function createThemeRoot(appSkin, themeAppearance) {
-    return { dataset: { appSkin, themeAppearance } };
+/** 创建包含渲染器所需 dataset 与可选配色变量的根节点替身。 */
+function createThemeRoot(
+    appSkin,
+    themeAppearance,
+    colorScheme = appSkin === 'editorial' ? 'terracotta' : 'default',
+    variables = {},
+) {
+    return {
+        dataset: { appSkin, themeAppearance, colorScheme },
+        style: {
+            getPropertyValue(name) {
+                return variables[name] || '';
+            },
+        },
+    };
 }
 
 /** Classic 皮肤继续使用原配色，避免新皮肤影响默认主题。 */
 test('Classic Mermaid 保留原有蓝色主题', () => {
     const profile = resolveMermaidThemeProfile(createThemeRoot('classic', 'dark'));
-    assert.equal(profile.key, 'classic');
+    assert.equal(profile.key, 'classic-default');
     assert.equal(profile.editorial, false);
     assert.equal(profile.flowchartPalettes[0].nodeBorder, '#4a90f4');
     assert.equal(profile.themeVariables.primaryColor, '#eef4ff');
+});
+
+/** Classic 配色也必须进入缓存键，并从同一组 CSS 语义变量取色。 */
+test('Classic Mermaid 跟随皮肤配色变量', () => {
+    const forest = resolveMermaidThemeProfile(createThemeRoot('classic', 'light', 'forest', {
+        '--classic-palette-accent': '#2f7d5a',
+        '--classic-palette-chart-primary': '#cce9d9',
+        '--classic-palette-chart-primary-border': '#2f7d5a',
+        '--classic-palette-chart-series': '#2f7d5a, #477b96, #94752e, #7b5c88',
+    }));
+
+    assert.equal(forest.key, 'classic-forest');
+    assert.equal(forest.themeVariables.activationBorderColor, '#2f7d5a');
+    assert.equal(forest.flowchartPalettes[0].nodeBg, '#cce9d9');
+    assert.match(forest.themeVariables.xyChart.plotColorPalette, /#2f7d5a/);
 });
 
 /** Editorial 浅色和深色必须分别使用纸墨配色，不能回退到默认蓝色。 */
@@ -30,14 +57,29 @@ test('Editorial Mermaid 根据明暗外观生成纸墨主题', () => {
     const light = resolveMermaidThemeProfile(createThemeRoot('editorial', 'light'));
     const dark = resolveMermaidThemeProfile(createThemeRoot('editorial', 'dark'));
 
-    assert.equal(light.key, 'editorial-light');
-    assert.equal(dark.key, 'editorial-dark');
+    assert.equal(light.key, 'editorial-terracotta-light');
+    assert.equal(dark.key, 'editorial-terracotta-dark');
     assert.equal(light.themeVariables.primaryBorderColor, '#9c4b37');
     assert.equal(dark.themeVariables.primaryBorderColor, '#dc866e');
     assert.equal(light.flowchartPalettes[0].nodeBg, '#eadfd3');
     assert.equal(dark.flowchartPalettes[0].nodeBg, '#3a322d');
     assert.notEqual(light.themeVariables.pie1, '#5b8ff9');
     assert.notEqual(dark.themeVariables.pie1, '#5b8ff9');
+});
+
+/** 配色变化必须进入 Mermaid 缓存键，并由同一组 CSS 语义变量驱动。 */
+test('Editorial Mermaid 跟随皮肤配色变量', () => {
+    const pine = resolveMermaidThemeProfile(createThemeRoot('editorial', 'light', 'pine', {
+        '--editorial-palette-accent': '#47745e',
+        '--editorial-palette-chart-primary': '#dbe8df',
+        '--editorial-palette-chart-primary-border': '#47745e',
+        '--editorial-palette-chart-series': '#47745e, #8b7445, #5e7480, #7d687f',
+    }));
+
+    assert.equal(pine.key, 'editorial-pine-light');
+    assert.equal(pine.themeVariables.primaryBorderColor, '#47745e');
+    assert.equal(pine.flowchartPalettes[0].nodeBg, '#dbe8df');
+    assert.match(pine.themeVariables.xyChart.plotColorPalette, /#47745e/);
 });
 
 /** Mermaid 初始化参数应把同一主题扩展到流程图、时序图和统计图。 */
@@ -67,7 +109,7 @@ test('Editorial Mermaid 绕过 Classic 深色反色滤镜并支持分享导出',
     assert.match(imageModalCss, /\.image-modal-img\.is-svg:not\(\.preserve-svg-colors\)/);
     assert.match(imageModalCss, /\.image-modal-img\.is-svg\.preserve-svg-colors\s*\{\s*filter: none;/);
     assert.match(editorialCss, /font-family: var\(--editor-font-family/);
-    assert.match(shareBuilder, /data-app-skin="\$\{settings\.skin\}" data-theme-appearance/);
+    assert.match(shareBuilder, /data-app-skin="\$\{settings\.skin\}" data-color-scheme="\$\{colorScheme\}" data-theme-appearance/);
 });
 
 /** 只有原生生成明暗配色的 Editorial SVG 才跳过弹窗滤镜。 */

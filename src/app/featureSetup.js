@@ -3,7 +3,6 @@
  * 将现有侧边栏和面板能力按统一协议注册到 FeatureManager。
  */
 
-import { createTranslatorPanel } from '../modules/translator/translatorPanel.js';
 import { initCardExport } from '../modules/card-export/index.js';
 
 /**
@@ -30,17 +29,6 @@ export function registerCoreFeatures(options = {}) {
         },
         unmount(api) {
             api?.destroy?.();
-        },
-    });
-
-    register({
-        id: 'translator',
-        title: '翻译面板',
-        contributes: { panel: true },
-        mount() {
-            const panel = createTranslatorPanel();
-            panel?.initialize?.();
-            return panel;
         },
     });
 

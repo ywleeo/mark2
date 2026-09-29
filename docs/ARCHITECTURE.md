@@ -386,6 +386,25 @@ menu / toolbar
 
 组件层通过协议、Manager API 和 controller 协作。
 
+#### 外观系统分层
+
+应用外观由三个互不替代的维度组成：
+
+- `skin`：负责布局、排版气质、组件形态与交互行为。
+- `colorSchemes`：按 skin 独立保存配色选择，只负责语义颜色。
+- `appearance`：负责 `light`、`dark` 或跟随系统，并选择配色的对应明暗版本。
+
+皮肤与可用配色在 `src/config/appSkins.js` 注册。运行时由
+`src/utils/editorSettings.js` 将结果写入根节点的 `data-app-skin`、
+`data-color-scheme` 与 `data-theme-appearance`。皮肤布局放在
+`styles/skins/`，配色变量放在 `styles/color-schemes/`，Markdown 主题只消费
+语义变量。Mermaid、分享页、导出和 HTML 预览必须沿用同一配色选择，不能再维护
+独立的颜色常量。
+
+当前 Classic 内置黑白、森绿、鸢尾，Editorial 内置红陶、松墨、靛青。Classic
+仍允许用户选择独立的 Markdown 排版主题；选择默认 Markdown 主题时，正文颜色会
+完整跟随 Classic 配色，其他 Markdown 主题则继续使用其自身的文档色彩定义。
+
 ### 11. 状态与实例层
 
 `src/state/` 承接共享状态与实例注册。

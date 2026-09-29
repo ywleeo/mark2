@@ -10,6 +10,11 @@ import { createLogger } from '../core/diagnostics/Logger.js';
 import { renderSettingsAiSection } from './settings/SettingsAiSection.js';
 import { renderSettingsShareSection } from './settings/SettingsShareSection.js';
 import { loadGistShareSettings, saveGistApiKey } from '../modules/share/gistSettings.js';
+import {
+    getAppColorSchemes,
+    normalizeAppColorSchemes,
+    resolveAppColorScheme,
+} from '../config/appSkins.js';
 
 const GIST_TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=Mark2';
 
@@ -107,6 +112,11 @@ export class SettingsDialog {
                                         <span class="settings-skin-card__detail">${t('settings.skinEditorialDetail')}</span>
                                     </label>
                                 </div>
+                            </fieldset>
+                            <fieldset class="settings-color-scheme-picker" data-ref="colorSchemePicker">
+                                <legend>${t('settings.appColorScheme')}</legend>
+                                <p class="settings-section-desc">${t('settings.appColorSchemeDescription')}</p>
+                                <div class="settings-color-scheme-picker__options" data-ref="colorSchemeOptions" role="radiogroup"></div>
                             </fieldset>
                             <label class="settings-row">
                                 <span class="settings-row__label">${t('settings.appearance')}</span>
@@ -277,6 +287,9 @@ export class SettingsDialog {
         this.themeSelect = this.form.querySelector('select[name="theme"]');
         this.skinRadios = this.form.querySelectorAll('input[name="skin"]');
         this.markdownThemeRow = this.form.querySelector('[data-ref="markdownThemeRow"]');
+        this.colorSchemePicker = this.form.querySelector('[data-ref="colorSchemePicker"]');
+        this.colorSchemeOptions = this.form.querySelector('[data-ref="colorSchemeOptions"]');
+        this.colorSchemePreferences = normalizeAppColorSchemes(null);
         this.appearanceSelect = this.form.querySelector('select[name="appearance"]');
         this.fontFamilySelect = this.form.querySelector('select[name="fontFamily"]');
         this.fontSizeInput = this.form.querySelector('input[name="fontSize"]');
@@ -360,10 +373,21 @@ export class SettingsDialog {
 
         // 皮肤自带正文样式；经典皮肤下才显示原有 Markdown 主题选择。
         this.skinRadios.forEach(radio => {
-            const onChange = () => this._syncMarkdownThemeRow();
+            const onChange = () => {
+                this._syncMarkdownThemeRow();
+                this._renderColorSchemePicker();
+            };
             radio.addEventListener('change', onChange);
             this.cleanupFunctions.push(() => radio.removeEventListener('change', onChange));
         });
+
+        if (this.colorSchemeOptions) {
+            const onColorSchemeChange = event => this._handleColorSchemeChange(event);
+            this.colorSchemeOptions.addEventListener('change', onColorSchemeChange);
+            this.cleanupFunctions.push(() => {
+                this.colorSchemeOptions?.removeEventListener('change', onColorSchemeChange);
+            });
+        }
 
         // Tab 切换事件
         this.tabButtons.forEach(tab => {
@@ -446,6 +470,72 @@ export class SettingsDialog {
         this.markdownThemeRow?.classList.toggle('hidden', skin !== 'classic');
     }
 
+    /** 渲染当前皮肤允许使用的配色，并保留其他皮肤已经选择的方案。 */
+    _renderColorSchemePicker() {
+        if (!this.colorSchemeOptions) return;
+        const skin = this.form.querySelector('input[name="skin"]:checked')?.value || 'classic';
+        const selected = resolveAppColorScheme(skin, this.colorSchemePreferences);
+        const schemes = getAppColorSchemes(skin);
+        this.colorSchemeOptions.innerHTML = '';
+        this.colorSchemeOptions.setAttribute('aria-label', t('settings.appColorScheme'));
+
+        for (const scheme of schemes) {
+            const label = document.createElement('label');
+            label.className = 'settings-color-scheme-option';
+
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = 'appColorScheme';
+            input.value = scheme.id;
+            input.checked = scheme.id === selected;
+
+            const swatches = document.createElement('span');
+            swatches.className = 'settings-color-scheme-option__swatches';
+            swatches.setAttribute('aria-hidden', 'true');
+            for (const color of scheme.preview) {
+                const swatch = document.createElement('i');
+                swatch.style.backgroundColor = color;
+                swatches.appendChild(swatch);
+            }
+
+            const name = document.createElement('span');
+            name.className = 'settings-color-scheme-option__name';
+            name.textContent = t(scheme.labelKey);
+            label.append(input, swatches, name);
+            this.colorSchemeOptions.appendChild(label);
+        }
+
+        this.colorSchemePicker?.classList.toggle('hidden', schemes.length < 2);
+        this._syncSkinCardPreview();
+    }
+
+    /** 记录当前皮肤的新配色选择，切换皮肤时不会覆盖其他皮肤的偏好。 */
+    _handleColorSchemeChange(event) {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement) || input.name !== 'appColorScheme') return;
+        const skin = this.form.querySelector('input[name="skin"]:checked')?.value || 'classic';
+        this.colorSchemePreferences = normalizeAppColorSchemes({
+            ...this.colorSchemePreferences,
+            [skin]: input.value,
+        });
+        this._syncSkinCardPreview();
+    }
+
+    /** 让每个皮肤缩略图即时反映其独立保存的配色。 */
+    _syncSkinCardPreview() {
+        for (const skin of ['classic', 'editorial']) {
+            const preview = this.form.querySelector(`.settings-skin-card__preview--${skin}`);
+            const schemeId = resolveAppColorScheme(skin, this.colorSchemePreferences);
+            const scheme = getAppColorSchemes(skin).find(item => item.id === schemeId);
+            if (!preview || !scheme) continue;
+            preview.style.setProperty('--skin-preview-rail', scheme.preview[0]);
+            preview.style.setProperty('--skin-preview-page', scheme.previewPage || scheme.preview[0]);
+            preview.style.setProperty('--skin-preview-heading', scheme.preview[1]);
+            preview.style.setProperty('--skin-preview-line', scheme.preview[2]);
+            preview.style.setProperty('--skin-preview-accent', scheme.preview[2]);
+        }
+    }
+
     switchTab(tabName) {
         this.currentTab = tabName;
 
@@ -488,12 +578,14 @@ export class SettingsDialog {
     async open(settings) {
         const editorPrefs = settings || {};
         this.initialSettings = { ...editorPrefs };
+        this.colorSchemePreferences = normalizeAppColorSchemes(editorPrefs.colorSchemes);
 
         // 编辑器设置
         const skin = editorPrefs.skin === 'editorial' ? 'editorial' : 'classic';
         const skinRadio = this.form.querySelector(`input[name="skin"][value="${skin}"]`);
         if (skinRadio) skinRadio.checked = true;
         this._syncMarkdownThemeRow();
+        this._renderColorSchemePicker();
         this._setSelectValue(this.themeSelect, editorPrefs.theme || 'default');
         if (this.appearanceSelect) {
             this._setSelectValue(this.appearanceSelect, editorPrefs.appearance || 'system');
@@ -711,6 +803,7 @@ export class SettingsDialog {
 
         const sanitized = {
             skin,
+            colorSchemes: normalizeAppColorSchemes(this.colorSchemePreferences),
             theme: theme,
             appearance: ['light', 'dark', 'system'].includes(appearance) ? appearance : 'system',
             fontSize: normalizedSize,

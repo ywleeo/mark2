@@ -35,6 +35,14 @@ export const AI_WRITING_TOOLBAR_ACTIONS = [
         requiresSelection: true,
     },
     {
+        action: 'translate',
+        labelKey: 'aiWriting.translate',
+        descriptionKey: 'aiWriting.translateDescription',
+        icon: 'language',
+        scene: 'translation',
+        requiresSelection: true,
+    },
+    {
         action: 'inspiration',
         labelKey: 'aiWriting.inspiration',
         descriptionKey: 'aiWriting.inspirationDescription',
@@ -53,7 +61,7 @@ export const AI_WRITING_TOOLBAR_ACTIONS = [
 
 /**
  * 根据模型配置与当前选区计算菜单项状态。
- * @param {{editorAvailable?:boolean,completionConfigured?:boolean,beautifyConfigured?:boolean,selectionRange?:object|null}} state - AI 与选区状态。
+ * @param {{editorAvailable?:boolean,completionConfigured?:boolean,beautifyConfigured?:boolean,translationConfigured?:boolean,selectionRange?:object|null}} state - AI 与选区状态。
  * @returns {Array<object>} 带 enabled/reasonKey 的菜单项。
  */
 export function resolveAiWritingToolbarActions(state = {}) {
@@ -62,9 +70,7 @@ export function resolveAiWritingToolbarActions(state = {}) {
         && state.selectionRange.to > state.selectionRange.from;
 
     return AI_WRITING_TOOLBAR_ACTIONS.map((definition) => {
-        const sceneConfigured = definition.scene === 'beautify'
-            ? Boolean(state.beautifyConfigured)
-            : Boolean(state.completionConfigured);
+        const sceneConfigured = Boolean(state[`${definition.scene}Configured`]);
         const selectionReady = !definition.requiresSelection || hasSelection;
         const editorAvailable = state.editorAvailable !== false;
         return {

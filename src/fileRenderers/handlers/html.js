@@ -36,15 +36,22 @@ function appendPreviewTheme(streamUrl) {
     const root = document.documentElement;
     const skin = root.dataset.appSkin === 'editorial' ? 'editorial' : 'classic';
     const appearance = root.dataset.themeAppearance === 'dark' ? 'dark' : 'light';
+    const supportedSchemes = skin === 'editorial'
+        ? ['terracotta', 'pine', 'indigo']
+        : ['default', 'forest', 'violet'];
+    const colorScheme = supportedSchemes.includes(root.dataset.colorScheme)
+        ? root.dataset.colorScheme
+        : supportedSchemes[0];
 
     try {
         const url = new URL(streamUrl);
         url.searchParams.set('mark2-preview-skin', skin);
         url.searchParams.set('mark2-preview-appearance', appearance);
+        url.searchParams.set('mark2-preview-color-scheme', colorScheme);
         return url.toString();
     } catch (_) {
         const separator = streamUrl.includes('?') ? '&' : '?';
-        return `${streamUrl}${separator}mark2-preview-skin=${skin}&mark2-preview-appearance=${appearance}`;
+        return `${streamUrl}${separator}mark2-preview-skin=${skin}&mark2-preview-appearance=${appearance}&mark2-preview-color-scheme=${colorScheme}`;
     }
 }
 

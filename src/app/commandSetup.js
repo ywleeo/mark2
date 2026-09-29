@@ -104,7 +104,6 @@ export function registerCoreCommands(options = {}) {
     register(COMMAND_IDS.VIEW_CLOSE_SECONDARY, () => handlers.onCloseSecondary?.(), '关闭副栏');
     register(COMMAND_IDS.VIEW_PROMOTE_SECONDARY, () => handlers.onPromoteSecondary?.(), '在主栏打开副栏文档');
     register(COMMAND_IDS.TOOLBAR_TOGGLE_MARKDOWN, () => handlers.onToggleMarkdownToolbar?.(), '切换 Markdown 工具栏');
-    register(COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, () => handlers.onToggleTranslator?.(), '切换翻译面板');
     register(COMMAND_IDS.FEATURE_TOC_TOGGLE, () => handlers.onToggleToc?.(), '切换目录面板');
     register(COMMAND_IDS.FEATURE_VAULT_TOGGLE, () => handlers.onToggleVault?.(), '切换保险箱');
     register(COMMAND_IDS.EXPORT_IMAGE, () => handlers.onExportImage?.(), '导出图片');
@@ -162,7 +161,6 @@ export const APP_DEFAULT_KEYBINDINGS = Object.freeze([
     [COMMAND_IDS.DOCUMENT_DELETE, 'Mod+Backspace'],
     [COMMAND_IDS.DOCUMENT_COPY_MARKDOWN, 'Mod+Shift+C'],
     [COMMAND_IDS.DOCUMENT_COPY_PLAIN_TEXT, 'Mod+Shift+X'],
-    [COMMAND_IDS.FEATURE_TRANSLATOR_TOGGLE, 'Mod+Shift+Space'],
     [COMMAND_IDS.DOCUMENT_RENAME, 'F2'],
     [COMMAND_IDS.VIEW_TOGGLE_SIDEBAR, 'Mod+\\'],
     [COMMAND_IDS.FEATURE_TOC_TOGGLE, 'Mod+H'],

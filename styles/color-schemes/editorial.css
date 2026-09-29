@@ -1,0 +1,276 @@
+/*
+ * Editorial 配色语义变量。
+ * 本文件只定义颜色，不包含布局、字号或交互规则；应用外壳、Markdown 与 Mermaid
+ * 通过同一组变量消费配色，避免每个渲染出口各自维护颜色常量。
+ */
+
+/* 红陶：保留 Editorial 上线时的纸张与砖红视觉，作为兼容默认值。 */
+:root[data-app-skin='editorial'][data-theme-appearance='light']:not([data-color-scheme]),
+:root[data-app-skin='editorial'][data-color-scheme='terracotta'][data-theme-appearance='light'] {
+    --editorial-palette-ink: #342e27;
+    --editorial-palette-muted: #786f63;
+    --editorial-palette-paper: #f3eee4;
+    --editorial-palette-rail: #f3eee4;
+    --editorial-palette-rail-muted: #9b9081;
+    --editorial-palette-rule: rgba(52, 46, 39, 0.13);
+    --editorial-palette-seam: rgba(52, 46, 39, 0.2);
+    --editorial-palette-accent: #9c4b37;
+    --editorial-palette-accent-hover: #862f25;
+    --editorial-palette-tab-close: #a6a99f;
+    --editorial-palette-focus-shadow: rgba(167, 67, 50, 0.19);
+    --editorial-palette-status-text: #646a63;
+    --editorial-palette-status-muted: #858b83;
+    --editorial-palette-status-pill: #f3eee4;
+    --editorial-palette-status-hover: rgba(43, 45, 39, 0.08);
+    --editorial-palette-settings-backdrop: rgba(29, 31, 27, 0.36);
+    --editorial-palette-settings-surface: #faf8f2;
+    --editorial-palette-settings-muted: #777c74;
+    --editorial-palette-settings-field: #f0ede5;
+    --editorial-palette-settings-primary-text: #fff9f1;
+    --editorial-palette-settings-ghost: #d5d0c5;
+    --editorial-palette-settings-tabs: #eeebe3;
+    --editorial-palette-settings-tab-active: #faf8f2;
+    --editorial-palette-settings-divider: rgba(43, 45, 39, 0.08);
+    --editorial-palette-md-surface: #eae3d7;
+    --editorial-palette-md-code: #493e34;
+    --editorial-palette-syntax-value: #60816c;
+    --editorial-palette-syntax-keyword: #9c4b37;
+    --editorial-palette-syntax-builtin: #60816c;
+    --editorial-palette-syntax-string: #60816c;
+    --editorial-palette-syntax-title: #6f6079;
+    --editorial-palette-syntax-deletion: #9c4b37;
+    --editorial-palette-shadow: rgba(52, 46, 39, 0.13);
+    --editorial-palette-search-shadow: rgba(35, 42, 37, 0.18);
+    --editorial-palette-chart-primary: #eadfd3;
+    --editorial-palette-chart-primary-border: #9c4b37;
+    --editorial-palette-chart-primary-soft-border: #b78979;
+    --editorial-palette-chart-secondary: #e3e5da;
+    --editorial-palette-chart-secondary-border: #6f7d68;
+    --editorial-palette-chart-secondary-soft-border: #9aa18f;
+    --editorial-palette-chart-tertiary: #eee3cc;
+    --editorial-palette-chart-tertiary-border: #9a7440;
+    --editorial-palette-chart-tertiary-soft-border: #b7a17e;
+    --editorial-palette-chart-neutral: #e7e2dc;
+    --editorial-palette-chart-neutral-border: #716b64;
+    --editorial-palette-chart-neutral-soft-border: #9a9690;
+    --editorial-palette-chart-note: #f0e2c3;
+    --editorial-palette-chart-note-border: #a47b43;
+    --editorial-palette-chart-grid: #cfc5b7;
+    --editorial-palette-chart-alt: #eee8dd;
+    --editorial-palette-chart-section: #e6e0d5;
+    --editorial-palette-chart-series: #9c4b37, #6f7d68, #9a7440, #716b64, #b06b57, #718a80, #b18c55, #8b755c, #c08472;
+}
+
+:root[data-app-skin='editorial'][data-theme-appearance='dark']:not([data-color-scheme]),
+:root[data-app-skin='editorial'][data-color-scheme='terracotta'][data-theme-appearance='dark'] {
+    --editorial-palette-ink: #eee9de;
+    --editorial-palette-muted: #afb5ab;
+    --editorial-palette-paper: #252a26;
+    --editorial-palette-rail: #252a26;
+    --editorial-palette-rail-muted: #9ea89d;
+    --editorial-palette-rule: rgba(238, 233, 222, 0.12);
+    --editorial-palette-seam: rgba(238, 233, 222, 0.2);
+    --editorial-palette-accent: #dc866e;
+    --editorial-palette-accent-hover: #f0a18a;
+    --editorial-palette-tab-close: #899788;
+    --editorial-palette-focus-shadow: rgba(220, 134, 110, 0.22);
+    --editorial-palette-status-text: #aeb8ab;
+    --editorial-palette-status-muted: #8f9b8f;
+    --editorial-palette-status-pill: rgba(238, 233, 222, 0.06);
+    --editorial-palette-status-hover: rgba(238, 233, 222, 0.1);
+    --editorial-palette-settings-backdrop: rgba(0, 0, 0, 0.55);
+    --editorial-palette-settings-surface: #2d332e;
+    --editorial-palette-settings-muted: #abb4a9;
+    --editorial-palette-settings-field: #373d37;
+    --editorial-palette-settings-primary-text: #1d211c;
+    --editorial-palette-settings-ghost: #515b50;
+    --editorial-palette-settings-tabs: #242a26;
+    --editorial-palette-settings-tab-active: #3a413a;
+    --editorial-palette-settings-divider: rgba(238, 233, 222, 0.09);
+    --editorial-palette-md-surface: #303630;
+    --editorial-palette-md-code: #e1d7c7;
+    --editorial-palette-syntax-value: #b6cda7;
+    --editorial-palette-syntax-keyword: #ef9d86;
+    --editorial-palette-syntax-builtin: #afc7c1;
+    --editorial-palette-syntax-string: #b6cda7;
+    --editorial-palette-syntax-title: #c7b5d7;
+    --editorial-palette-syntax-deletion: #efa79b;
+    --editorial-palette-shadow: rgba(0, 0, 0, 0.32);
+    --editorial-palette-search-shadow: rgba(0, 0, 0, 0.38);
+    --editorial-palette-chart-primary: #3a322d;
+    --editorial-palette-chart-primary-border: #dc866e;
+    --editorial-palette-chart-primary-soft-border: #9c6658;
+    --editorial-palette-chart-secondary: #303a32;
+    --editorial-palette-chart-secondary-border: #9cad9a;
+    --editorial-palette-chart-secondary-soft-border: #738174;
+    --editorial-palette-chart-tertiary: #3b362b;
+    --editorial-palette-chart-tertiary-border: #c3a36e;
+    --editorial-palette-chart-tertiary-soft-border: #8c795e;
+    --editorial-palette-chart-neutral: #333733;
+    --editorial-palette-chart-neutral-border: #a9ada5;
+    --editorial-palette-chart-neutral-soft-border: #777b75;
+    --editorial-palette-chart-note: #3d3627;
+    --editorial-palette-chart-note-border: #c3a36e;
+    --editorial-palette-chart-grid: #596158;
+    --editorial-palette-chart-alt: #2c312d;
+    --editorial-palette-chart-section: #343a34;
+    --editorial-palette-chart-series: #dc866e, #9cad9a, #c3a36e, #a9ada5, #b87564, #82998d, #d1b783, #8f8172, #c58f80;
+}
+
+/* 松墨：偏自然的纸绿与松针色，适合长时间写作。 */
+:root[data-app-skin='editorial'][data-color-scheme='pine'][data-theme-appearance='light'] {
+    --editorial-palette-ink: #28342e;
+    --editorial-palette-muted: #637067;
+    --editorial-palette-paper: #eef2eb;
+    --editorial-palette-rail: #e9efe8;
+    --editorial-palette-rail-muted: #87978d;
+    --editorial-palette-rule: rgba(40, 52, 46, 0.13);
+    --editorial-palette-seam: rgba(40, 52, 46, 0.2);
+    --editorial-palette-accent: #47745e;
+    --editorial-palette-accent-hover: #355e49;
+    --editorial-palette-md-surface: #dfe7de;
+    --editorial-palette-md-code: #33453b;
+    --editorial-palette-syntax-value: #806533;
+    --editorial-palette-syntax-keyword: #47745e;
+    --editorial-palette-syntax-builtin: #356c61;
+    --editorial-palette-syntax-string: #6d6e36;
+    --editorial-palette-syntax-title: #5f6288;
+    --editorial-palette-syntax-deletion: #9a554d;
+    --editorial-palette-shadow: rgba(40, 52, 46, 0.14);
+    --editorial-palette-chart-primary: #dbe8df;
+    --editorial-palette-chart-primary-border: #47745e;
+    --editorial-palette-chart-primary-soft-border: #7c9d8c;
+    --editorial-palette-chart-secondary: #e8e1cf;
+    --editorial-palette-chart-secondary-border: #8b7445;
+    --editorial-palette-chart-secondary-soft-border: #ad9b75;
+    --editorial-palette-chart-tertiary: #dde4e8;
+    --editorial-palette-chart-tertiary-border: #5e7480;
+    --editorial-palette-chart-tertiary-soft-border: #8da0aa;
+    --editorial-palette-chart-neutral: #e4e8e2;
+    --editorial-palette-chart-neutral-border: #66736c;
+    --editorial-palette-chart-neutral-soft-border: #919b95;
+    --editorial-palette-chart-note: #ebe3c9;
+    --editorial-palette-chart-note-border: #927943;
+    --editorial-palette-chart-grid: #c4cec5;
+    --editorial-palette-chart-alt: #e8ede6;
+    --editorial-palette-chart-section: #dfe7de;
+    --editorial-palette-chart-series: #47745e, #8b7445, #5e7480, #7d687f, #668b74, #aa824c, #6e8994, #8a7562, #5d7669;
+}
+
+:root[data-app-skin='editorial'][data-color-scheme='pine'][data-theme-appearance='dark'] {
+    --editorial-palette-ink: #e7eee9;
+    --editorial-palette-muted: #acb9b0;
+    --editorial-palette-paper: #202824;
+    --editorial-palette-rail: #1d2521;
+    --editorial-palette-rail-muted: #8c9d92;
+    --editorial-palette-rule: rgba(231, 238, 233, 0.12);
+    --editorial-palette-seam: rgba(231, 238, 233, 0.19);
+    --editorial-palette-accent: #86b89e;
+    --editorial-palette-accent-hover: #a2ceb7;
+    --editorial-palette-md-surface: #2c3831;
+    --editorial-palette-md-code: #d8e3dc;
+    --editorial-palette-syntax-value: #d2bd78;
+    --editorial-palette-syntax-keyword: #a6d1ba;
+    --editorial-palette-syntax-builtin: #91c6ba;
+    --editorial-palette-syntax-string: #b8ca84;
+    --editorial-palette-syntax-title: #b8b9df;
+    --editorial-palette-syntax-deletion: #e6a097;
+    --editorial-palette-shadow: rgba(0, 0, 0, 0.34);
+    --editorial-palette-chart-primary: #2d4036;
+    --editorial-palette-chart-primary-border: #86b89e;
+    --editorial-palette-chart-primary-soft-border: #638b76;
+    --editorial-palette-chart-secondary: #3a3528;
+    --editorial-palette-chart-secondary-border: #c2aa70;
+    --editorial-palette-chart-secondary-soft-border: #8d7c58;
+    --editorial-palette-chart-tertiary: #293840;
+    --editorial-palette-chart-tertiary-border: #91adba;
+    --editorial-palette-chart-tertiary-soft-border: #657f8b;
+    --editorial-palette-chart-neutral: #303833;
+    --editorial-palette-chart-neutral-border: #a6b0a9;
+    --editorial-palette-chart-neutral-soft-border: #727d76;
+    --editorial-palette-chart-note: #3c3728;
+    --editorial-palette-chart-note-border: #c2aa70;
+    --editorial-palette-chart-grid: #526159;
+    --editorial-palette-chart-alt: #27302b;
+    --editorial-palette-chart-section: #2d3832;
+    --editorial-palette-chart-series: #86b89e, #c2aa70, #91adba, #b39bb5, #72a98a, #d0b67d, #81a6b5, #ad957d, #9bc2ad;
+}
+
+/* 靛青：偏冷的纸灰与低饱和蓝紫，适合技术写作与专注阅读。 */
+:root[data-app-skin='editorial'][data-color-scheme='indigo'][data-theme-appearance='light'] {
+    --editorial-palette-ink: #303346;
+    --editorial-palette-muted: #676b7f;
+    --editorial-palette-paper: #f0f1f6;
+    --editorial-palette-rail: #ebedf4;
+    --editorial-palette-rail-muted: #8d92a8;
+    --editorial-palette-rule: rgba(48, 51, 70, 0.13);
+    --editorial-palette-seam: rgba(48, 51, 70, 0.2);
+    --editorial-palette-accent: #5c68a6;
+    --editorial-palette-accent-hover: #47548f;
+    --editorial-palette-md-surface: #e1e4ef;
+    --editorial-palette-md-code: #3d425e;
+    --editorial-palette-syntax-value: #467568;
+    --editorial-palette-syntax-keyword: #5c68a6;
+    --editorial-palette-syntax-builtin: #426f91;
+    --editorial-palette-syntax-string: #6b753c;
+    --editorial-palette-syntax-title: #735f8d;
+    --editorial-palette-syntax-deletion: #a25263;
+    --editorial-palette-shadow: rgba(48, 51, 70, 0.14);
+    --editorial-palette-chart-primary: #dfe3f2;
+    --editorial-palette-chart-primary-border: #5c68a6;
+    --editorial-palette-chart-primary-soft-border: #8992bf;
+    --editorial-palette-chart-secondary: #e5dfed;
+    --editorial-palette-chart-secondary-border: #806693;
+    --editorial-palette-chart-secondary-soft-border: #a38faf;
+    --editorial-palette-chart-tertiary: #dce9e7;
+    --editorial-palette-chart-tertiary-border: #4f7d75;
+    --editorial-palette-chart-tertiary-soft-border: #82a39d;
+    --editorial-palette-chart-neutral: #e5e6eb;
+    --editorial-palette-chart-neutral-border: #686b79;
+    --editorial-palette-chart-neutral-soft-border: #9598a2;
+    --editorial-palette-chart-note: #ece4cf;
+    --editorial-palette-chart-note-border: #957945;
+    --editorial-palette-chart-grid: #c7cad7;
+    --editorial-palette-chart-alt: #e9eaf1;
+    --editorial-palette-chart-section: #e0e2ec;
+    --editorial-palette-chart-series: #5c68a6, #806693, #4f7d75, #8c744d, #727db8, #9678a7, #609087, #a18559, #68708d;
+}
+
+:root[data-app-skin='editorial'][data-color-scheme='indigo'][data-theme-appearance='dark'] {
+    --editorial-palette-ink: #ececf3;
+    --editorial-palette-muted: #b4b6c7;
+    --editorial-palette-paper: #23242d;
+    --editorial-palette-rail: #20212a;
+    --editorial-palette-rail-muted: #9397ac;
+    --editorial-palette-rule: rgba(236, 236, 243, 0.12);
+    --editorial-palette-seam: rgba(236, 236, 243, 0.19);
+    --editorial-palette-accent: #a2abe0;
+    --editorial-palette-accent-hover: #bbc2ee;
+    --editorial-palette-md-surface: #30323e;
+    --editorial-palette-md-code: #dedfeb;
+    --editorial-palette-syntax-value: #91c4b5;
+    --editorial-palette-syntax-keyword: #bbc2ee;
+    --editorial-palette-syntax-builtin: #96bdd7;
+    --editorial-palette-syntax-string: #bdca87;
+    --editorial-palette-syntax-title: #c5b0dc;
+    --editorial-palette-syntax-deletion: #e7a0af;
+    --editorial-palette-shadow: rgba(0, 0, 0, 0.34);
+    --editorial-palette-chart-primary: #34384d;
+    --editorial-palette-chart-primary-border: #a2abe0;
+    --editorial-palette-chart-primary-soft-border: #747da8;
+    --editorial-palette-chart-secondary: #3b3243;
+    --editorial-palette-chart-secondary-border: #bea4cf;
+    --editorial-palette-chart-secondary-soft-border: #8a7595;
+    --editorial-palette-chart-tertiary: #293d3a;
+    --editorial-palette-chart-tertiary-border: #8dbbb3;
+    --editorial-palette-chart-tertiary-soft-border: #668780;
+    --editorial-palette-chart-neutral: #33343d;
+    --editorial-palette-chart-neutral-border: #aaacb8;
+    --editorial-palette-chart-neutral-soft-border: #777985;
+    --editorial-palette-chart-note: #3c372a;
+    --editorial-palette-chart-note-border: #c3aa72;
+    --editorial-palette-chart-grid: #565968;
+    --editorial-palette-chart-alt: #2b2c36;
+    --editorial-palette-chart-section: #323440;
+    --editorial-palette-chart-series: #a2abe0, #bea4cf, #8dbbb3, #c3aa72, #929bd1, #af91c1, #7aa99f, #b99d68, #8e93ae;
+}

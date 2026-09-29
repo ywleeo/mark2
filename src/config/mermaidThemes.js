@@ -66,34 +66,164 @@ const CLASSIC_THEME_VARIABLES = {
     edgeLabelBackground: '#ffffffee',
 };
 
+/** 从根节点读取当前配色的 CSS 语义变量，测试或无 DOM 环境下使用回退值。 */
+function readPaletteVariable(root, name, fallback) {
+    if (!root) return fallback;
+    const inlineValue = root.style?.getPropertyValue?.(name)?.trim();
+    if (inlineValue) return inlineValue;
+
+    try {
+        const view = root.ownerDocument?.defaultView || globalThis.window;
+        const computedValue = view?.getComputedStyle?.(root)?.getPropertyValue(name)?.trim();
+        return computedValue || fallback;
+    } catch (_) {
+        return fallback;
+    }
+}
+
+/** 把 CSS 中的逗号分隔图表色列解析为稳定的颜色数组。 */
+function readChartSeries(root, variableName, fallback) {
+    const value = readPaletteVariable(root, variableName, fallback.join(', '));
+    const series = value.split(',').map(color => color.trim()).filter(Boolean);
+    return series.length >= 4 ? series : fallback;
+}
+
+/** 根据 Classic 配色变量构造流程图分组颜色。 */
+function createClassicFlowchartPalettes(root) {
+    const fallback = CLASSIC_FLOWCHART_PALETTES;
+    const paper = readPaletteVariable(root, '--classic-palette-md-paper', '#ffffff');
+    const ink = readPaletteVariable(root, '--classic-palette-ink', '#2c3e50');
+    const series = readChartSeries(
+        root,
+        '--classic-palette-chart-series',
+        ['#5b8ff9', '#5ad8a6', '#f6bd16', '#e86452'],
+    );
+    const roles = ['primary', 'secondary', 'tertiary', 'neutral'];
+
+    return roles.map((role, index) => ({
+        bg: paper,
+        border: readPaletteVariable(root, `--classic-palette-chart-${role}-soft-border`, fallback[index].border),
+        nodeBg: readPaletteVariable(root, `--classic-palette-chart-${role}`, fallback[index].nodeBg),
+        nodeBorder: readPaletteVariable(root, `--classic-palette-chart-${role}-border`, fallback[index].nodeBorder),
+        text: ink,
+        label: series[index] || fallback[index].label,
+    }));
+}
+
+/** 根据 Classic 配色语义变量生成完整 Mermaid 主题。 */
+function createClassicThemeVariables(root) {
+    const read = (name, fallback) => readPaletteVariable(root, name, fallback);
+    const ink = read('--classic-palette-ink', '#2c3e50');
+    const muted = read('--classic-palette-muted', '#64748b');
+    const paper = read('--classic-palette-md-paper', '#ffffff');
+    const surface = read('--classic-palette-surface', '#f8fafc');
+    const accent = read('--classic-palette-accent', '#5b8ff9');
+    const primary = read('--classic-palette-chart-theme-primary', '#eef4ff');
+    const primaryBorder = read('--classic-palette-chart-primary-border', '#4a90f4');
+    const secondary = read('--classic-palette-chart-theme-secondary', '#f3eeff');
+    const secondaryBorder = read('--classic-palette-chart-secondary-border', '#8b6cf6');
+    const tertiary = read('--classic-palette-chart-theme-tertiary', '#edf8f0');
+    const tertiaryBorder = read('--classic-palette-chart-tertiary-border', '#e09d13');
+    const note = read('--classic-palette-chart-note', '#fffbeb');
+    const noteBorder = read('--classic-palette-chart-note-border', '#e2d5a0');
+    const grid = read('--classic-palette-chart-grid', '#e2e8f0');
+    const series = readChartSeries(
+        root,
+        '--classic-palette-chart-series',
+        ['#5b8ff9', '#5ad8a6', '#f6bd16', '#e86452', '#6dc8ec', '#945fb9', '#ff9845', '#1e9493', '#ff99c3'],
+    );
+
+    return {
+        ...CLASSIC_THEME_VARIABLES,
+        primaryColor: primary,
+        primaryTextColor: ink,
+        primaryBorderColor: primaryBorder,
+        secondaryColor: secondary,
+        secondaryTextColor: ink,
+        secondaryBorderColor: secondaryBorder,
+        tertiaryColor: tertiary,
+        tertiaryTextColor: ink,
+        tertiaryBorderColor: tertiaryBorder,
+        lineColor: muted,
+        textColor: ink,
+        noteBkgColor: note,
+        noteTextColor: ink,
+        noteBorderColor: noteBorder,
+        clusterBkg: surface,
+        clusterBorder: grid,
+        activationBorderColor: accent,
+        edgeLabelBackground: paper,
+        pie1: series[0], pie2: series[1], pie3: series[2],
+        pie4: series[3], pie5: series[4], pie6: series[5],
+        pie7: series[6], pie8: series[7], pie9: series[8],
+        xyChart: {
+            titleColor: ink,
+            xAxisLabelColor: muted,
+            yAxisLabelColor: muted,
+            xAxisTitleColor: ink,
+            yAxisTitleColor: ink,
+            xAxisLineColor: grid,
+            yAxisLineColor: grid,
+            plotColorPalette: series.slice(0, 4).join(', '),
+        },
+    };
+}
+
+/** 根据当前配色语义变量构造流程图分组颜色。 */
+function createEditorialFlowchartPalettes(root, appearance) {
+    const dark = appearance === 'dark';
+    const fallback = dark ? EDITORIAL_DARK_FLOWCHART_PALETTES : EDITORIAL_LIGHT_FLOWCHART_PALETTES;
+    const paper = readPaletteVariable(root, '--editorial-palette-paper', dark ? '#252a26' : '#f3eee4');
+    const ink = readPaletteVariable(root, '--editorial-palette-ink', dark ? '#eee9de' : '#342e27');
+    const series = readChartSeries(root, '--editorial-palette-chart-series', dark
+        ? ['#dc866e', '#9cad9a', '#c3a36e', '#a9ada5']
+        : ['#9c4b37', '#6f7d68', '#9a7440', '#716b64']);
+    const roles = ['primary', 'secondary', 'tertiary', 'neutral'];
+
+    return roles.map((role, index) => ({
+        bg: paper,
+        border: readPaletteVariable(root, `--editorial-palette-chart-${role}-soft-border`, fallback[index].border),
+        nodeBg: readPaletteVariable(root, `--editorial-palette-chart-${role}`, fallback[index].nodeBg),
+        nodeBorder: readPaletteVariable(root, `--editorial-palette-chart-${role}-border`, fallback[index].nodeBorder),
+        text: ink,
+        label: series[index] || fallback[index].label,
+    }));
+}
+
 /**
  * 生成覆盖常见 Mermaid 图表类型的 Editorial 主题变量。
  * @param {'light'|'dark'} appearance - 当前明暗外观。
  * @returns {object} Mermaid base theme 变量。
  */
-function createEditorialThemeVariables(appearance) {
+function createEditorialThemeVariables(appearance, root = null) {
     const dark = appearance === 'dark';
-    const ink = dark ? '#eee9de' : '#342e27';
-    const muted = dark ? '#b7bdb2' : '#786f63';
-    const paper = dark ? '#252a26' : '#f3eee4';
-    const surface = dark ? '#303630' : '#eae3d7';
-    const accent = dark ? '#dc866e' : '#9c4b37';
-    const secondary = dark ? '#303a32' : '#e3e5da';
-    const secondaryBorder = dark ? '#9cad9a' : '#6f7d68';
-    const tertiary = dark ? '#3b362b' : '#eee3cc';
-    const tertiaryBorder = dark ? '#c3a36e' : '#9a7440';
-    const note = dark ? '#3d3627' : '#f0e2c3';
-    const noteBorder = dark ? '#c3a36e' : '#a47b43';
-    const series = dark
+    const read = (name, fallback) => readPaletteVariable(root, name, fallback);
+    const ink = read('--editorial-palette-ink', dark ? '#eee9de' : '#342e27');
+    const muted = read('--editorial-palette-muted', dark ? '#b7bdb2' : '#786f63');
+    const paper = read('--editorial-palette-paper', dark ? '#252a26' : '#f3eee4');
+    const surface = read('--editorial-palette-md-surface', dark ? '#303630' : '#eae3d7');
+    const accent = read('--editorial-palette-accent', dark ? '#dc866e' : '#9c4b37');
+    const primary = read('--editorial-palette-chart-primary', dark ? '#3a322d' : '#eadfd3');
+    const secondary = read('--editorial-palette-chart-secondary', dark ? '#303a32' : '#e3e5da');
+    const secondaryBorder = read('--editorial-palette-chart-secondary-border', dark ? '#9cad9a' : '#6f7d68');
+    const tertiary = read('--editorial-palette-chart-tertiary', dark ? '#3b362b' : '#eee3cc');
+    const tertiaryBorder = read('--editorial-palette-chart-tertiary-border', dark ? '#c3a36e' : '#9a7440');
+    const neutralBorder = read('--editorial-palette-chart-neutral-soft-border', dark ? '#777b75' : '#9a9690');
+    const note = read('--editorial-palette-chart-note', dark ? '#3d3627' : '#f0e2c3');
+    const noteBorder = read('--editorial-palette-chart-note-border', dark ? '#c3a36e' : '#a47b43');
+    const grid = read('--editorial-palette-chart-grid', dark ? '#596158' : '#cfc5b7');
+    const alt = read('--editorial-palette-chart-alt', dark ? '#2c312d' : '#eee8dd');
+    const section = read('--editorial-palette-chart-section', dark ? '#343a34' : '#e6e0d5');
+    const series = readChartSeries(root, '--editorial-palette-chart-series', dark
         ? ['#dc866e', '#9cad9a', '#c3a36e', '#a9ada5', '#b87564', '#82998d', '#d1b783', '#8f8172', '#c58f80']
-        : ['#9c4b37', '#6f7d68', '#9a7440', '#716b64', '#b06b57', '#718a80', '#b18c55', '#8b755c', '#c08472'];
+        : ['#9c4b37', '#6f7d68', '#9a7440', '#716b64', '#b06b57', '#718a80', '#b18c55', '#8b755c', '#c08472']);
 
     return {
         fontFamily: 'var(--editor-font-family, "Iowan Old Style", "Songti SC", Georgia, serif)',
         fontSize: '13px',
         background: 'transparent',
         mainBkg: surface,
-        primaryColor: dark ? '#3a322d' : '#eadfd3',
+        primaryColor: primary,
         primaryTextColor: ink,
         primaryBorderColor: accent,
         secondaryColor: secondary,
@@ -108,9 +238,9 @@ function createEditorialThemeVariables(appearance) {
         labelTextColor: ink,
         edgeLabelBackground: paper,
         clusterBkg: paper,
-        clusterBorder: dark ? '#777b75' : '#9a9690',
+        clusterBorder: neutralBorder,
         titleColor: ink,
-        actorBkg: dark ? '#3a322d' : '#eadfd3',
+        actorBkg: primary,
         actorBorder: accent,
         actorTextColor: ink,
         actorLineColor: muted,
@@ -128,15 +258,15 @@ function createEditorialThemeVariables(appearance) {
         stateBkg: surface,
         stateBorder: accent,
         classText: ink,
-        altBackground: dark ? '#2c312d' : '#eee8dd',
-        sectionBkgColor: dark ? '#343a34' : '#e6e0d5',
+        altBackground: alt,
+        sectionBkgColor: section,
         sectionBkgColor2: paper,
-        taskBkgColor: dark ? '#3a322d' : '#eadfd3',
+        taskBkgColor: primary,
         taskBorderColor: accent,
         taskTextColor: ink,
         activeTaskBkgColor: secondary,
         activeTaskBorderColor: secondaryBorder,
-        gridColor: dark ? '#596158' : '#cfc5b7',
+        gridColor: grid,
         todayLineColor: accent,
         git0: series[0], git1: series[1], git2: series[2], git3: series[3],
         git4: series[4], git5: series[5], git6: series[6], git7: series[7],
@@ -152,8 +282,8 @@ function createEditorialThemeVariables(appearance) {
             yAxisLabelColor: muted,
             xAxisTitleColor: ink,
             yAxisTitleColor: ink,
-            xAxisLineColor: dark ? '#596158' : '#cfc5b7',
-            yAxisLineColor: dark ? '#596158' : '#cfc5b7',
+            xAxisLineColor: grid,
+            yAxisLineColor: grid,
             plotColorPalette: series.slice(0, 4).join(', '),
         },
     };
@@ -168,15 +298,17 @@ export function resolveMermaidThemeProfile(root = null) {
     const appSkin = root?.dataset?.appSkin === 'editorial' ? 'editorial' : 'classic';
     const appearance = root?.dataset?.themeAppearance === 'dark' ? 'dark' : 'light';
     if (appSkin !== 'editorial') {
+        const colorScheme = root?.dataset?.colorScheme || 'default';
+        const themeVariables = createClassicThemeVariables(root);
         return {
-            key: 'classic',
+            key: `classic-${colorScheme}`,
             editorial: false,
-            themeVariables: CLASSIC_THEME_VARIABLES,
-            flowchartPalettes: CLASSIC_FLOWCHART_PALETTES,
-            lineColor: '#94a3b8',
-            textColor: '#475569',
-            pointFill: '#ffffff',
-            hoverColor: '#f59e0b',
+            themeVariables,
+            flowchartPalettes: createClassicFlowchartPalettes(root),
+            lineColor: themeVariables.lineColor,
+            textColor: themeVariables.textColor,
+            pointFill: themeVariables.edgeLabelBackground,
+            hoverColor: themeVariables.primaryBorderColor,
             inverseTextColor: '#ffffff',
             nodeRadius: 8,
             sequenceRadius: 6,
@@ -187,16 +319,18 @@ export function resolveMermaidThemeProfile(root = null) {
     }
 
     const dark = appearance === 'dark';
+    const colorScheme = root?.dataset?.colorScheme || 'terracotta';
+    const themeVariables = createEditorialThemeVariables(appearance, root);
     return {
-        key: `editorial-${appearance}`,
+        key: `editorial-${colorScheme}-${appearance}`,
         editorial: true,
-        themeVariables: createEditorialThemeVariables(appearance),
-        flowchartPalettes: dark ? EDITORIAL_DARK_FLOWCHART_PALETTES : EDITORIAL_LIGHT_FLOWCHART_PALETTES,
-        lineColor: dark ? '#b7bdb2' : '#786f63',
-        textColor: dark ? '#eee9de' : '#342e27',
-        pointFill: dark ? '#252a26' : '#f3eee4',
-        hoverColor: dark ? '#dc866e' : '#9c4b37',
-        inverseTextColor: dark ? '#252a26' : '#fff9f1',
+        themeVariables,
+        flowchartPalettes: createEditorialFlowchartPalettes(root, appearance),
+        lineColor: themeVariables.lineColor,
+        textColor: themeVariables.textColor,
+        pointFill: themeVariables.edgeLabelBackground,
+        hoverColor: themeVariables.primaryBorderColor,
+        inverseTextColor: dark ? themeVariables.edgeLabelBackground : '#fff9f1',
         nodeRadius: 3,
         sequenceRadius: 3,
         clusterRadius: 4,

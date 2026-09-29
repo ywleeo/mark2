@@ -3,7 +3,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { normalizeAppSkin, resolveMarkdownTheme } from '../src/config/appSkins.js';
+import {
+    getAppColorSchemes,
+    normalizeAppColorSchemes,
+    normalizeAppSkin,
+    resolveAppColorScheme,
+    resolveMarkdownTheme,
+} from '../src/config/appSkins.js';
 
 /** 未知或旧版设置必须稳定回退到经典皮肤。 */
 test('未知皮肤回退经典，旧 Markdown 主题保持不变', () => {
@@ -18,6 +24,95 @@ test('编辑部皮肤使用专属 Markdown 主题', () => {
     assert.equal(normalizeAppSkin('editorial'), 'editorial');
     assert.equal(resolveMarkdownTheme('editorial', 'emerald'), 'editorial');
     assert.equal(resolveMarkdownTheme('classic', 'emerald'), 'emerald');
+});
+
+/** 配色按皮肤独立记忆，旧设置与未知值都必须安全回退。 */
+test('应用配色按皮肤规范化并保留独立选择', () => {
+    assert.deepEqual(normalizeAppColorSchemes(undefined), {
+        classic: 'default',
+        editorial: 'terracotta',
+    });
+    assert.deepEqual(normalizeAppColorSchemes({ classic: 'bad', editorial: 'pine' }), {
+        classic: 'default',
+        editorial: 'pine',
+    });
+    assert.equal(resolveAppColorScheme('editorial', { editorial: 'indigo' }), 'indigo');
+    assert.equal(resolveAppColorScheme('classic', { classic: 'forest' }), 'forest');
+    assert.deepEqual(getAppColorSchemes('classic').map(scheme => scheme.id), [
+        'default',
+        'forest',
+        'violet',
+    ]);
+    assert.deepEqual(getAppColorSchemes('editorial').map(scheme => scheme.id), [
+        'terracotta',
+        'pine',
+        'indigo',
+    ]);
+});
+
+/** Classic 配色同样只提供颜色语义，不得夹带布局选择器。 */
+test('Classic 配色完整覆盖黑白、森绿与鸢尾的明暗变量', async () => {
+    const css = await readFile(new URL('../styles/color-schemes/classic.css', import.meta.url), 'utf8');
+    for (const scheme of ['default', 'forest', 'violet']) {
+        assert.match(css, new RegExp(`data-color-scheme='${scheme}'\\]\\[data-theme-appearance='light'\\]`));
+        assert.match(css, new RegExp(`data-color-scheme='${scheme}'\\]\\[data-theme-appearance='dark'\\]`));
+    }
+    assert.match(css, /--classic-palette-accent:/);
+    assert.match(css, /--classic-palette-chart-series:/);
+    assert.doesNotMatch(css, /\.(?:sidebar|tab-bar|markdown-toolbar)\s*\{/);
+    assert.doesNotMatch(css, /:root\[data-app-skin='classic'\]\s*\{/);
+});
+
+/** 有色 Classic 方案的 Sidebar、Toolbar 与 View 必须属于同一低色差底色体系。 */
+test('Classic 有色方案协调 Sidebar 与 View 背景', async () => {
+    const css = await readFile(new URL('../styles/color-schemes/classic.css', import.meta.url), 'utf8');
+
+    for (const scheme of ['forest', 'violet']) {
+        const selector = `[data-color-scheme='${scheme}'][data-theme-appearance='light']`;
+        const start = css.indexOf(selector);
+        const block = css.slice(css.indexOf('{', start), css.indexOf('}', css.indexOf('{', start)));
+        const readHex = variable => block.match(new RegExp(`${variable}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
+        const sidebar = readHex('--classic-palette-sidebar');
+        const content = readHex('--classic-palette-content');
+        const paper = readHex('--classic-palette-md-paper');
+        const channelDistance = (left, right) => left.slice(1).match(/../g)
+            .reduce((sum, channel, index) => {
+                const other = right.slice(1).match(/../g)[index];
+                return sum + Math.abs(Number.parseInt(channel, 16) - Number.parseInt(other, 16));
+            }, 0);
+
+        assert.equal(content, paper, `${scheme} 的 View 与 Markdown 纸面应该连续`);
+        assert.ok(channelDistance(sidebar, content) <= 18, `${scheme} 的 Sidebar 与 View 色差过大`);
+    }
+    assert.match(css, /--classic-toolbar-bg:/);
+    assert.match(css, /--markdown-view-bg:\s*var\(--classic-palette-md-paper\)/);
+});
+
+/** Classic 的所有 Markdown 主题都必须允许配色接管最终 View 纸面。 */
+test('Classic Markdown 主题统一消费 View 底色语义', async () => {
+    const themes = await Promise.all(['default', 'notion', 'emerald'].map(async name => ({
+        name,
+        css: await readFile(new URL(`../styles/themes/${name}.css`, import.meta.url), 'utf8'),
+    })));
+
+    for (const { name, css } of themes) {
+        const lightSurface = css.match(/\[data-theme-appearance='light'\] \.tiptap-editor:not\(\[data-theme-appearance\]\),[\s\S]*?\{([\s\S]*?)\}/)?.[1];
+        const darkSurface = css.match(/\[data-theme-appearance='dark'\] \.tiptap-editor:not\(\[data-theme-appearance\]\),[\s\S]*?\{([\s\S]*?)\}/)?.[1];
+        assert.match(lightSurface || '', /background-color:\s*var\(--markdown-view-bg,/, `${name} 浅色 View 未接入配色`);
+        assert.match(darkSurface || '', /background-color:\s*var\(--markdown-view-bg,/, `${name} 深色 View 未接入配色`);
+    }
+});
+
+/** 配色 CSS 只提供颜色变量，皮肤文件继续独立负责布局。 */
+test('Editorial 配色完整覆盖红陶、松墨与靛青的明暗变量', async () => {
+    const css = await readFile(new URL('../styles/color-schemes/editorial.css', import.meta.url), 'utf8');
+    for (const scheme of ['terracotta', 'pine', 'indigo']) {
+        assert.match(css, new RegExp(`data-color-scheme='${scheme}'\\]\\[data-theme-appearance='light'\\]`));
+        assert.match(css, new RegExp(`data-color-scheme='${scheme}'\\]\\[data-theme-appearance='dark'\\]`));
+    }
+    assert.match(css, /--editorial-palette-accent:/);
+    assert.match(css, /--editorial-palette-chart-series:/);
+    assert.doesNotMatch(css, /\.(?:sidebar|tab-bar|markdown-toolbar)\s*\{/);
 });
 
 /** 用户选择的编辑器字体必须同时作用于编辑部主题的正文和一级标题。 */
@@ -80,7 +175,7 @@ test('目录文件名保留完整文本并由皮肤决定排版', async () => {
     assert.match(editorialCss, /-webkit-line-clamp: 2/);
 });
 
-/** 编辑部侧栏隐藏文件打开动作，并把全局搜索提升到两个文件栏目之上。 */
+/** 编辑部侧栏隐藏文件打开动作，并在 Logo 旁保留全局搜索入口。 */
 test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     const renderer = await readFile(new URL('../src/components/file-tree/FileTreeRenderer.js', import.meta.url), 'utf8');
     const events = await readFile(new URL('../src/components/file-tree/FileTreeEvents.js', import.meta.url), 'utf8');
@@ -97,6 +192,7 @@ test('编辑部侧栏不在箭头上覆盖打开链接', async () => {
     assert.match(events, /onOpenFileRequest\?\.\(\)/);
     assert.match(events, /onOpenFolderRequest\?\.\(\)/);
     assert.doesNotMatch(css, /\.skin-masthead \{ display: none; \}/);
+    assert.doesNotMatch(css, /\.skin-masthead__actions\s*\{[^}]*display:\s*none/);
     assert.match(css, /\.skin-masthead__word\s*\{[^}]*letter-spacing: 0\.08em;/);
     assert.match(css, /\.sidebar \.section-action-btn \{ display: none; \}/);
     assert.ok(renderer.indexOf('id="workspaceSearchAction"') < renderer.indexOf('open-files-section'));

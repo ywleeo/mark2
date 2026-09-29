@@ -46,6 +46,14 @@
     gap: 4px;
 }
 
+.editorial-article-title {
+    display: none;
+}
+
+.editorial-entry-kind {
+    display: none;
+}
+
 .skin-masthead__action {
     display: inline-flex;
     align-items: center;

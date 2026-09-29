@@ -1,4 +1,4 @@
-/** Editorial 暗色 Markdown 代码块的语法色可读性回归测试。 */
+/** Classic 暗色 Markdown 代码块的语法色可读性回归测试。 */
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -19,7 +19,7 @@ function contrast(foreground, background) {
     return (values[0] + 0.05) / (values[1] + 0.05);
 }
 
-/** 读取指定配色暗色规则中的十六进制语义变量。 */
+/** 读取指定 Classic 配色暗色规则中的十六进制语义变量。 */
 function readPaletteColor(css, scheme, variable) {
     const selector = `[data-color-scheme='${scheme}'][data-theme-appearance='dark']`;
     const selectorIndex = css.indexOf(selector);
@@ -30,27 +30,27 @@ function readPaletteColor(css, scheme, variable) {
     return block.match(new RegExp(`${variable}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
 }
 
-/** 所有 Editorial 暗色配色的主要 token 都应达到比 AA 更清晰的 5.5:1 对比度。 */
-test('Editorial 暗色配色完整覆盖主要语法色并保持清晰', async () => {
+/** 所有 Classic 暗色配色的主要语法色应达到清晰高于 AA 的 5.5:1 对比度。 */
+test('Classic 暗色配色完整覆盖主要语法色并保持清晰', async () => {
     const [themeCss, paletteCss] = await Promise.all([
-        readFile(new URL('../styles/themes/editorial.css', import.meta.url), 'utf8'),
-        readFile(new URL('../styles/color-schemes/editorial.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/themes/default.css', import.meta.url), 'utf8'),
+        readFile(new URL('../styles/color-schemes/classic.css', import.meta.url), 'utf8'),
     ]);
     const variables = [
-        '--editorial-palette-ink',
-        '--editorial-palette-muted',
-        '--editorial-palette-syntax-keyword',
-        '--editorial-palette-syntax-builtin',
-        '--editorial-palette-syntax-string',
-        '--editorial-palette-syntax-title',
-        '--editorial-palette-syntax-deletion',
+        '--classic-palette-syntax-ink',
+        '--classic-palette-syntax-comment',
+        '--classic-palette-syntax-keyword',
+        '--classic-palette-syntax-value',
+        '--classic-palette-syntax-string',
+        '--classic-palette-syntax-title',
+        '--classic-palette-syntax-deletion',
     ];
 
-    assert.match(themeCss, /color:\s*var\(--editorial-palette-syntax-builtin\)/);
-    assert.match(themeCss, /color:\s*var\(--editorial-palette-syntax-title\)/);
+    assert.match(themeCss, /color:\s*var\(--classic-palette-syntax-keyword/);
+    assert.match(themeCss, /color:\s*var\(--classic-palette-syntax-title/);
 
-    for (const scheme of ['terracotta', 'pine', 'indigo']) {
-        const background = readPaletteColor(paletteCss, scheme, '--editorial-palette-md-surface');
+    for (const scheme of ['default', 'forest', 'violet']) {
+        const background = readPaletteColor(paletteCss, scheme, '--classic-palette-syntax-bg');
         assert.ok(background, `${scheme} 缺少代码块背景色`);
         for (const variable of variables) {
             const color = readPaletteColor(paletteCss, scheme, variable);

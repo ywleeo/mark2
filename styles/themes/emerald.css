@@ -6,7 +6,7 @@
 [data-theme-appearance='light'] .markdown-pane,
 [data-theme-appearance='light'] .markdown-content {
     color: #34403c;
-    background-color: #ffffff;
+    background-color: var(--markdown-view-bg, #ffffff);
     --em-accent: #3f8f82;
     --em-accent-soft: rgba(63, 143, 130, 0.12);
     --em-muted: #6d7874;
@@ -165,7 +165,7 @@
 [data-theme-appearance='dark'] .markdown-pane,
 [data-theme-appearance='dark'] .markdown-content {
     color: #ced2cd;
-    background-color: #151716;
+    background-color: var(--markdown-view-bg, #151716);
     --em-accent: #a4c9c1;
     --em-accent-soft: rgba(164, 201, 193, 0.09);
     --em-muted: #969d99;

@@ -315,7 +315,7 @@ export class MarkdownToolbarManager {
     /**
      * 汇总 AI 菜单所需的配置与选区状态。
      * API Key 和场景模型分开判断，使部分配置完成时仍可看到可用能力与缺项提示。
-     * @returns {{hasApiKey:boolean,editorAvailable:boolean,completionConfigured:boolean,beautifyConfigured:boolean,selectionRange:object|null}}
+     * @returns {{hasApiKey:boolean,editorAvailable:boolean,completionConfigured:boolean,beautifyConfigured:boolean,translationConfigured:boolean,selectionRange:object|null}}
      */
     getAiWritingState() {
         const config = aiService.getConfig?.() || {};
@@ -323,6 +323,7 @@ export class MarkdownToolbarManager {
             && config.providers.some(provider => Boolean(String(provider?.apiKey || '').trim()));
         const completionProvider = aiService.getProviderForScene('completion');
         const beautifyProvider = aiService.getProviderForScene('beautify');
+        const translationProvider = aiService.getProviderForScene('translation');
         const editorAvailable = this.editorType === 'tiptap';
         const selection = editorAvailable ? this.editorInstance?.state?.selection : null;
         const selectionRange = selection && !selection.empty
@@ -334,6 +335,7 @@ export class MarkdownToolbarManager {
             editorAvailable,
             completionConfigured: Boolean(completionProvider?.apiKey && aiService.getModelForScene('completion')),
             beautifyConfigured: Boolean(beautifyProvider?.apiKey && aiService.getModelForScene('beautify')),
+            translationConfigured: Boolean(translationProvider?.apiKey && aiService.getModelForScene('translation')),
             selectionRange,
         };
     }

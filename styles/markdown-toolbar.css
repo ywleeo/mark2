@@ -437,23 +437,23 @@
 }
 
 .markdown-toolbar--light {
-    --toolbar-bg: rgba(247, 247, 248, 0.82);
-    --toolbar-border: rgba(15, 23, 42, 0.07);
-    --button-color: rgba(31, 36, 44, 0.62);
-    --button-hover-bg: rgba(15, 23, 42, 0.045);
-    --button-hover-color: rgba(31, 36, 44, 0.88);
-    --button-active-bg: rgba(15, 23, 42, 0.08);
-    --separator-color: rgba(15, 23, 42, 0.06);
+    --toolbar-bg: var(--classic-toolbar-bg, rgba(247, 247, 248, 0.82));
+    --toolbar-border: var(--classic-toolbar-border, rgba(15, 23, 42, 0.07));
+    --button-color: var(--classic-toolbar-button, rgba(31, 36, 44, 0.62));
+    --button-hover-bg: var(--classic-toolbar-button-hover-bg, rgba(15, 23, 42, 0.045));
+    --button-hover-color: var(--classic-toolbar-button-hover, rgba(31, 36, 44, 0.88));
+    --button-active-bg: var(--classic-toolbar-button-active-bg, rgba(15, 23, 42, 0.08));
+    --separator-color: var(--classic-toolbar-separator, rgba(15, 23, 42, 0.06));
 }
 
 .markdown-toolbar--dark {
-    --toolbar-bg: rgba(32, 33, 35, 0.82);
-    --toolbar-border: rgba(255, 255, 255, 0.085);
-    --button-color: rgba(217, 225, 244, 0.68);
-    --button-hover-bg: rgba(255, 255, 255, 0.055);
-    --button-hover-color: rgba(255, 255, 255, 0.92);
-    --button-active-bg: rgba(255, 255, 255, 0.105);
-    --separator-color: rgba(255, 255, 255, 0.075);
+    --toolbar-bg: var(--classic-toolbar-bg, rgba(32, 33, 35, 0.82));
+    --toolbar-border: var(--classic-toolbar-border, rgba(255, 255, 255, 0.085));
+    --button-color: var(--classic-toolbar-button, rgba(217, 225, 244, 0.68));
+    --button-hover-bg: var(--classic-toolbar-button-hover-bg, rgba(255, 255, 255, 0.055));
+    --button-hover-color: var(--classic-toolbar-button-hover, rgba(255, 255, 255, 0.92));
+    --button-active-bg: var(--classic-toolbar-button-active-bg, rgba(255, 255, 255, 0.105));
+    --separator-color: var(--classic-toolbar-separator, rgba(255, 255, 255, 0.075));
 }
 
 .toolbar-button {
@@ -582,6 +582,7 @@
 .fi-rr-hr::before { content: "\f7ed"; }
 .fi-rr-id-card-clip-alt::before { content: "\f7f8"; }
 .fi-rr-italic::before { content: "\f830"; }
+.fi-rr-language::before { content: "\f868"; }
 .fi-rr-link::before { content: "\f8ba"; }
 .fi-rr-lightbulb-on::before { content: "\f8ac"; }
 .fi-rr-magic-wand::before { content: "\f8e1"; }

@@ -3,30 +3,17 @@
  * 独立于应用外壳 CSS，HTML/图片/PDF 导出可按现有主题管线复用。
  */
 
-[data-theme-appearance='light'] .tiptap-editor:not([data-theme-appearance]),
-.tiptap-editor[data-theme-appearance='light'],
-[data-theme-appearance='light'] .markdown-content {
-    --editorial-md-ink: #342e27;
-    --editorial-md-muted: #786f63;
-    --editorial-md-accent: #9c4b37;
-    --editorial-md-rule: rgba(52, 46, 39, 0.16);
-    --editorial-md-surface: #eae3d7;
-    --editorial-md-code: #493e34;
+[data-theme-appearance] .tiptap-editor:not([data-theme-appearance]),
+.tiptap-editor[data-theme-appearance],
+[data-theme-appearance] .markdown-content {
+    --editorial-md-ink: var(--editorial-palette-ink);
+    --editorial-md-muted: var(--editorial-palette-muted);
+    --editorial-md-accent: var(--editorial-palette-accent);
+    --editorial-md-rule: var(--editorial-palette-seam, var(--editorial-palette-rule));
+    --editorial-md-surface: var(--editorial-palette-md-surface);
+    --editorial-md-code: var(--editorial-palette-md-code);
     color: var(--editorial-md-ink);
-    background-color: #f3eee4;
-}
-
-[data-theme-appearance='dark'] .tiptap-editor:not([data-theme-appearance]),
-.tiptap-editor[data-theme-appearance='dark'],
-[data-theme-appearance='dark'] .markdown-content {
-    --editorial-md-ink: #eee9de;
-    --editorial-md-muted: #b7bdb2;
-    --editorial-md-accent: #dc866e;
-    --editorial-md-rule: rgba(238, 233, 222, 0.17);
-    --editorial-md-surface: #303630;
-    --editorial-md-code: #e1d7c7;
-    color: var(--editorial-md-ink);
-    background-color: #252a26;
+    background-color: var(--editorial-palette-paper);
 }
 
 /* 字阶只在完整皮肤中调整，保持正文行距与用户字体设置不变。 */
@@ -148,14 +135,14 @@
 [data-theme-appearance] .hljs-deletion { color: var(--editorial-md-accent); }
 [data-theme-appearance] .hljs-string,
 [data-theme-appearance] .hljs-number,
-[data-theme-appearance] .hljs-literal { color: #60816c; }
+[data-theme-appearance] .hljs-literal { color: var(--editorial-palette-syntax-value); }
 
 /* 暗色代码块必须完整覆盖 highlight.css 的浅色 token，避免变量等继续使用深蓝色。 */
 [data-theme-appearance='dark'] .hljs-comment,
-[data-theme-appearance='dark'] .hljs-quote { color: #b7bdb2; }
+[data-theme-appearance='dark'] .hljs-quote { color: var(--editorial-md-muted); }
 [data-theme-appearance='dark'] .hljs-keyword,
 [data-theme-appearance='dark'] .hljs-selector-tag,
-[data-theme-appearance='dark'] .hljs-subst { color: #ef9d86; }
+[data-theme-appearance='dark'] .hljs-subst { color: var(--editorial-palette-syntax-keyword, var(--editorial-md-accent)); }
 [data-theme-appearance='dark'] .hljs-literal,
 [data-theme-appearance='dark'] .hljs-number,
 [data-theme-appearance='dark'] .hljs-addition,
@@ -163,7 +150,7 @@
 [data-theme-appearance='dark'] .hljs-built_in,
 [data-theme-appearance='dark'] .hljs-symbol,
 [data-theme-appearance='dark'] .hljs-meta,
-[data-theme-appearance='dark'] .hljs-meta .hljs-keyword { color: #afc7c1; }
+[data-theme-appearance='dark'] .hljs-meta .hljs-keyword { color: var(--editorial-palette-syntax-builtin); }
 [data-theme-appearance='dark'] .hljs-string,
 [data-theme-appearance='dark'] .hljs-doctag,
 [data-theme-appearance='dark'] .hljs-regexp,
@@ -172,14 +159,14 @@
 [data-theme-appearance='dark'] .hljs-attribute .hljs-string,
 [data-theme-appearance='dark'] .hljs-meta .hljs-string,
 [data-theme-appearance='dark'] .hljs-number,
-[data-theme-appearance='dark'] .hljs-literal { color: #b6cda7; }
+[data-theme-appearance='dark'] .hljs-literal { color: var(--editorial-palette-syntax-string); }
 [data-theme-appearance='dark'] .hljs-title,
 [data-theme-appearance='dark'] .hljs-name,
 [data-theme-appearance='dark'] .hljs-section,
 [data-theme-appearance='dark'] .hljs-selector-id,
-[data-theme-appearance='dark'] .hljs-selector-class { color: #c7b5d7; }
-[data-theme-appearance='dark'] .hljs-link { color: #afc7c1; }
-[data-theme-appearance='dark'] .hljs-deletion { color: #efa79b; }
+[data-theme-appearance='dark'] .hljs-selector-class { color: var(--editorial-palette-syntax-title); }
+[data-theme-appearance='dark'] .hljs-link { color: var(--editorial-palette-syntax-builtin); }
+[data-theme-appearance='dark'] .hljs-deletion { color: var(--editorial-palette-syntax-deletion); }
 
 /* Mermaid 复用正文的纸墨体系；SVG 内的具体配色由渲染主题写入，导出时也能保留。 */
 [data-theme-appearance] .tiptap-editor .mermaid svg,

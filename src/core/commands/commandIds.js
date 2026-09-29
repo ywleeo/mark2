@@ -74,7 +74,6 @@ export const COMMAND_IDS = Object.freeze({
     VIEW_CLOSE_SECONDARY: 'view.closeSecondary',
     VIEW_PROMOTE_SECONDARY: 'view.promoteSecondary',
     TOOLBAR_TOGGLE_MARKDOWN: 'toolbar.toggleMarkdown',
-    FEATURE_TRANSLATOR_TOGGLE: 'feature.translator.toggle',
     FEATURE_TOC_TOGGLE: 'feature.toc.toggle',
     FEATURE_VAULT_TOGGLE: 'feature.vault.toggle',
     EXPORT_IMAGE: 'export.currentView.image',

@@ -12,6 +12,7 @@ test('AI toolbar 在没有选区时保持续写、灵感和全篇美化可用', 
     const actions = byAction({
         completionConfigured: true,
         beautifyConfigured: true,
+        translationConfigured: true,
         selectionRange: null,
     });
 
@@ -20,20 +21,36 @@ test('AI toolbar 在没有选区时保持续写、灵感和全篇美化可用', 
     assert.equal(actions.get('beautifyDocument').enabled, true);
     assert.equal(actions.get('polish').enabled, false);
     assert.equal(actions.get('polish').reasonKey, 'aiWriting.selectTextHint');
+    assert.equal(actions.get('translate').enabled, false);
+    assert.equal(actions.get('translate').reasonKey, 'aiWriting.selectTextHint');
 });
 
 test('AI toolbar 有选区时开放全部改写能力，并按场景模型单独禁用', () => {
     const actions = byAction({
         completionConfigured: true,
         beautifyConfigured: false,
+        translationConfigured: true,
         selectionRange: { from: 4, to: 10 },
     });
 
-    for (const action of ['continue', 'polish', 'shorten', 'expand', 'inspiration']) {
+    for (const action of ['continue', 'polish', 'shorten', 'expand', 'translate', 'inspiration']) {
         assert.equal(actions.get(action).enabled, true);
     }
     assert.equal(actions.get('beautifyDocument').enabled, false);
     assert.equal(actions.get('beautifyDocument').reasonKey, 'aiWriting.modelNotConfigured');
+});
+
+test('AI toolbar 翻译只依赖翻译场景模型', () => {
+    const actions = byAction({
+        completionConfigured: true,
+        beautifyConfigured: true,
+        translationConfigured: false,
+        selectionRange: { from: 4, to: 10 },
+    });
+
+    assert.equal(actions.get('polish').enabled, true);
+    assert.equal(actions.get('translate').enabled, false);
+    assert.equal(actions.get('translate').reasonKey, 'aiWriting.modelNotConfigured');
 });
 
 test('AI toolbar 在 Markdown 源码视图中不执行位置不兼容的动作', () => {
@@ -41,6 +58,7 @@ test('AI toolbar 在 Markdown 源码视图中不执行位置不兼容的动作',
         editorAvailable: false,
         completionConfigured: true,
         beautifyConfigured: true,
+        translationConfigured: true,
         selectionRange: { from: 4, to: 10 },
     });
 
@@ -72,7 +90,7 @@ test('AI toolbar 图标与菜单动作图标均声明了实际字形映射', asy
         'utf8',
     );
 
-    for (const icon of ['sparkles', 'pen-nib', 'magic-wand', 'compress-alt', 'expand-arrows', 'lightbulb-on', 'align-justify']) {
+    for (const icon of ['sparkles', 'pen-nib', 'magic-wand', 'compress-alt', 'expand-arrows', 'language', 'lightbulb-on', 'align-justify']) {
         assert.match(css, new RegExp(`\\.fi-rr-${icon}::before\\s*\\{\\s*content:`));
     }
 });

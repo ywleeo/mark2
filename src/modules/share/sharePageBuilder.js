@@ -7,12 +7,12 @@ import editorCss from '../../../styles/editor.css?raw';
 import highlightCss from '../../../styles/highlight.css?raw';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import { invoke } from '@tauri-apps/api/core';
-import { getThemeStyles } from '../../config/bundled-styles.js';
+import { getColorSchemeStyles, getThemeStyles } from '../../config/bundled-styles.js';
 import { createConfiguredMarkdownIt } from '../../utils/markdownPlugins.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
 import { dirname } from '../../utils/pathUtils.js';
 import { loadEditorSettings } from '../../utils/editorSettings.js';
-import { resolveMarkdownTheme } from '../../config/appSkins.js';
+import { resolveAppColorScheme, resolveMarkdownTheme } from '../../config/appSkins.js';
 
 const markdownRenderer = createConfiguredMarkdownIt();
 
@@ -70,20 +70,22 @@ export async function buildSharePageHtml({ markdown, currentFile = null, title =
 
     const settings = loadEditorSettings();
     const themeName = resolveMarkdownTheme(settings.skin, settings.theme);
+    const colorScheme = resolveAppColorScheme(settings.skin, settings.colorSchemes);
+    const colorSchemeCss = getColorSchemeStyles();
     const themeCss = getThemeStyles(themeName);
     const appearance = document.documentElement.dataset.themeAppearance === 'dark' ? 'dark' : 'light';
-    const background = themeName === 'editorial'
-        ? (appearance === 'dark' ? '#252a26' : '#f3eee4')
-        : (appearance === 'dark' ? '#151719' : '#ffffff');
+    const background = settings.skin === 'editorial'
+        ? 'var(--editorial-palette-paper)'
+        : 'var(--classic-palette-content)';
     const htmlStyle = buildEditorVariableStyle(settings);
 
     return `<!doctype html>
-<html lang="zh-CN" data-app-skin="${settings.skin}" data-theme-appearance="${appearance}" style="${escapeHtmlAttribute(htmlStyle)}">
+<html lang="zh-CN" data-app-skin="${settings.skin}" data-color-scheme="${colorScheme}" data-theme-appearance="${appearance}" style="${escapeHtmlAttribute(htmlStyle)}">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    <style>${editorCss}\n${highlightCss}\n${katexCss}\n${themeCss}\n${SHARE_PAGE_CSS}\nbody { background: ${background}; }</style>
+    <style>${editorCss}\n${highlightCss}\n${katexCss}\n${colorSchemeCss}\n${themeCss}\n${SHARE_PAGE_CSS}\nbody { background: ${background}; }</style>
 </head>
 <body>
     <main class="markdown-content">${host.outerHTML}</main>

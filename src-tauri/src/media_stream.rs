@@ -15,23 +15,65 @@ html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb { background: rgba(127, 127, 127, 0.55) !important; border-radius: 3px !important; }
 </style>"#;
 
-/// 从受控的预览参数解析 Editorial 台面色，避免把任意查询内容注入 HTML。
+/// 从受控的预览参数解析皮肤台面色，避免把任意查询内容注入 HTML。
 fn html_preview_background(query: Option<&str>) -> Option<&'static str> {
     let query = query.unwrap_or_default();
-    let has_editorial_skin = query
+    let skin = if query
         .split('&')
-        .any(|part| part == "mark2-preview-skin=editorial");
-    if !has_editorial_skin {
+        .any(|part| part == "mark2-preview-skin=editorial")
+    {
+        "editorial"
+    } else if query
+        .split('&')
+        .any(|part| part == "mark2-preview-skin=classic")
+    {
+        "classic"
+    } else {
         return None;
-    }
+    };
 
     let uses_dark_appearance = query
         .split('&')
         .any(|part| part == "mark2-preview-appearance=dark");
-    Some(if uses_dark_appearance {
-        "#252a26"
+    let color_scheme = if query
+        .split('&')
+        .any(|part| part == "mark2-preview-color-scheme=pine")
+    {
+        "pine"
+    } else if query
+        .split('&')
+        .any(|part| part == "mark2-preview-color-scheme=indigo")
+    {
+        "indigo"
+    } else if query
+        .split('&')
+        .any(|part| part == "mark2-preview-color-scheme=forest")
+    {
+        "forest"
+    } else if query
+        .split('&')
+        .any(|part| part == "mark2-preview-color-scheme=violet")
+    {
+        "violet"
+    } else if skin == "editorial" {
+        "terracotta"
     } else {
-        "#f3eee4"
+        "default"
+    };
+
+    Some(match (skin, color_scheme, uses_dark_appearance) {
+        ("editorial", "pine", false) => "#eef2eb",
+        ("editorial", "pine", true) => "#202824",
+        ("editorial", "indigo", false) => "#f0f1f6",
+        ("editorial", "indigo", true) => "#23242d",
+        ("editorial", "terracotta", true) => "#252a26",
+        ("editorial", _, _) => "#f3eee4",
+        ("classic", "forest", false) => "#f3f7f4",
+        ("classic", "forest", true) => "#141a16",
+        ("classic", "violet", false) => "#f7f4fa",
+        ("classic", "violet", true) => "#18151c",
+        ("classic", "default", true) => "#151515",
+        _ => "#fdfdfd",
     })
 }
 
@@ -260,9 +302,9 @@ mod tests {
         assert_eq!(result, source);
     }
 
-    /// Editorial 预览只覆盖 iframe 台面色，Classic 不注入皮肤背景。
+    /// 两种皮肤都只能从白名单方案解析 iframe 台面色。
     #[test]
-    fn injects_editorial_preview_background_from_controlled_query() {
+    fn injects_preview_background_from_controlled_query() {
         assert_eq!(
             html_preview_background(Some(
                 "mark2-preview-skin=editorial&mark2-preview-appearance=light"
@@ -276,7 +318,35 @@ mod tests {
             Some("#252a26")
         );
         assert_eq!(
+            html_preview_background(Some(
+                "mark2-preview-skin=editorial&mark2-preview-appearance=light&mark2-preview-color-scheme=pine"
+            )),
+            Some("#eef2eb")
+        );
+        assert_eq!(
+            html_preview_background(Some(
+                "mark2-preview-skin=editorial&mark2-preview-appearance=dark&mark2-preview-color-scheme=indigo"
+            )),
+            Some("#23242d")
+        );
+        assert_eq!(
             html_preview_background(Some("mark2-preview-skin=classic")),
+            Some("#fdfdfd")
+        );
+        assert_eq!(
+            html_preview_background(Some(
+                "mark2-preview-skin=classic&mark2-preview-appearance=dark&mark2-preview-color-scheme=forest"
+            )),
+            Some("#141a16")
+        );
+        assert_eq!(
+            html_preview_background(Some(
+                "mark2-preview-skin=classic&mark2-preview-appearance=light&mark2-preview-color-scheme=violet"
+            )),
+            Some("#f7f4fa")
+        );
+        assert_eq!(
+            html_preview_background(Some("mark2-preview-skin=unknown")),
             None
         );
 

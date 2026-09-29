@@ -5,6 +5,8 @@ import imageViewerCss from '../../styles/image-viewer.css?raw';
 import mediaViewerCss from '../../styles/media-viewer.css?raw';
 import codeEditorCss from '../../styles/code-editor.css?raw';
 import markdownToolbarCss from '../../styles/markdown-toolbar.css?raw';
+import classicColorSchemesCss from '../../styles/color-schemes/classic.css?raw';
+import editorialColorSchemesCss from '../../styles/color-schemes/editorial.css?raw';
 import katexCss from 'katex/dist/katex.min.css?raw';
 
 // 预加载所有主题，用于导出时按需获取
@@ -31,6 +33,8 @@ const bundledCssText = [
     mediaViewerCss,
     codeEditorCss,
     markdownToolbarCss,
+    classicColorSchemesCss,
+    editorialColorSchemesCss,
     katexCss,
     // 不再合并所有主题，主题通过 getThemeStyles 按需获取
 ]
@@ -43,4 +47,9 @@ export function getBundledStyles() {
 
 export function getThemeStyles(themeName) {
     return themeStylesByName[themeName] || themeStylesByName['default'] || '';
+}
+
+/** 返回独立分享页所需的配色变量样式。 */
+export function getColorSchemeStyles() {
+    return `${classicColorSchemesCss}\n${editorialColorSchemesCss}`;
 }

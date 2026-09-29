@@ -624,6 +624,8 @@ function collectHtmlAttributes() {
     const htmlElement = document.documentElement;
     const appearance = htmlElement.getAttribute('data-theme-appearance');
     const appearancePreference = htmlElement.getAttribute('data-theme-appearance-preference');
+    const appSkin = htmlElement.getAttribute('data-app-skin');
+    const colorScheme = htmlElement.getAttribute('data-color-scheme');
     const inlineStyle = htmlElement.style?.cssText;
     const attributes = {};
 
@@ -632,6 +634,12 @@ function collectHtmlAttributes() {
     }
     if (appearancePreference) {
         attributes['data-theme-appearance-preference'] = 'light';
+    }
+    if (appSkin) {
+        attributes['data-app-skin'] = appSkin;
+    }
+    if (colorScheme) {
+        attributes['data-color-scheme'] = colorScheme;
     }
     if (inlineStyle) {
         attributes.style = normalizeHtmlStyleForExport(inlineStyle);

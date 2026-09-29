@@ -298,7 +298,7 @@
     content: 'm2.';
     display: block;
     margin: 9px 0 0 8px;
-    color: #9c4b37;
+    color: var(--skin-preview-accent, #9c4b37);
     font-family: Georgia, serif;
     font-size: 17px;
     font-weight: 700;
@@ -317,6 +317,85 @@
     color: var(--settings-muted);
     font-size: 10px;
     line-height: 1.5;
+}
+
+/* 配色选择只展示颜色气质，不重复皮肤卡片中的布局信息。 */
+.settings-color-scheme-picker {
+    min-width: 0;
+    margin: 0;
+    padding: 10px 0 14px;
+    border: 0;
+    border-bottom: 1px solid var(--settings-divider);
+}
+
+.settings-color-scheme-picker legend {
+    padding: 0;
+    color: var(--settings-field-text);
+    font-size: 13px;
+}
+
+.settings-color-scheme-picker .settings-section-desc {
+    margin: 7px 0 11px;
+}
+
+.settings-color-scheme-picker__options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.settings-color-scheme-option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 8px;
+    color: var(--settings-field-text);
+    cursor: pointer;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.settings-color-scheme-option:has(input:checked) {
+    border-color: var(--settings-focus-border, var(--settings-primary));
+    box-shadow: 0 0 0 1px var(--settings-focus-border, var(--settings-primary));
+}
+
+.settings-color-scheme-option:has(input:focus-visible) {
+    outline: 2px solid var(--settings-focus-border, var(--settings-primary));
+    outline-offset: 2px;
+}
+
+.settings-color-scheme-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.settings-color-scheme-option__swatches {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 22px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--settings-field-text) 12%, transparent);
+    border-radius: 5px;
+}
+
+.settings-color-scheme-option__swatches i {
+    flex: 1 1 0;
+}
+
+.settings-color-scheme-option__name {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .settings-row {
@@ -1557,6 +1636,7 @@ input[type="number"]::-webkit-inner-spin-button {
 @media (max-width: 580px) {
     .settings-dialog { width: 100%; }
     .settings-grid { grid-template-columns: 1fr; }
+    .settings-color-scheme-picker__options { grid-template-columns: 1fr; }
     .settings-row { flex-direction: column; align-items: flex-start; gap: 4px; }
     .settings-row__control { flex: 1 1 auto; width: auto; }
     .ai-providers-layout { flex-direction: column; }

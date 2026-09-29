@@ -11,6 +11,9 @@ import { COMMAND_IDS } from '../../core/commands/commandIds.js';
 export class FileTreeRenderer {
     constructor(fileTree) {
         this.fileTree = fileTree;
+        this.articleTitleQueue = [];
+        this.activeArticleTitleReads = 0;
+        this.maxArticleTitleReads = 3;
     }
 
     /**
@@ -163,6 +166,8 @@ export class FileTreeRenderer {
         item.dataset.path = path;
         item.tabIndex = '0';
         item.title = name;
+        const isMarkdownArticle = /\.(md|markdown)$/i.test(path);
+        if (isMarkdownArticle) item.classList.add('editorial-article');
 
         // 启用原生 dragstart
         item.draggable = true;
@@ -177,6 +182,29 @@ export class FileTreeRenderer {
 
         item.innerHTML = getFileIconSvg(path, { className: 'tree-file-icon', size: 18 });
         item.appendChild(createCompactFileNameElement('tree-item-name', name));
+        if (isMarkdownArticle) {
+            const articleTitle = document.createElement('span');
+            articleTitle.className = 'editorial-article-title';
+            articleTitle.textContent = name;
+            item.appendChild(articleTitle);
+            const documentKind = document.createElement('span');
+            documentKind.className = 'editorial-entry-kind';
+            documentKind.textContent = t('sidebar.editorialDocumentKind');
+            item.appendChild(documentKind);
+        } else {
+            const fileKind = document.createElement('span');
+            fileKind.className = 'editorial-entry-kind';
+            const extension = name.lastIndexOf('.') > 0 ? name.slice(name.lastIndexOf('.') + 1) : '';
+            fileKind.textContent = extension ? extension.slice(0, 5).toUpperCase() : t('sidebar.editorialFileKind');
+            item.appendChild(fileKind);
+        }
+        if (isMarkdownArticle && document.documentElement.dataset.workspaceProfile === 'writing') {
+            queueMicrotask(() => {
+                if (item.isConnected && !item.dataset.articleTitleState) {
+                    this._enqueueArticleTitle(item, path, name);
+                }
+            });
+        }
 
         // 键盘：回车和 F2 触发重命名
         const onKeyDown = (e) => {
@@ -228,6 +256,158 @@ export class FileTreeRenderer {
         return item;
     }
 
+    /** 为 Editorial 目录惰性提取 Markdown 一级标题，使用有界并发避免展开大目录时集中读盘。 */
+    _enqueueArticleTitle(item, path, fallbackName) {
+        if (!/\.(md|markdown)$/i.test(path)) return;
+        item.dataset.articleTitleState = 'pending';
+        this.articleTitleQueue.push({ item, path, fallbackName });
+        this._drainArticleTitleQueue();
+    }
+
+    /** 以固定并发读取 Markdown 文稿标题；节点离开目录时跳过过期任务。 */
+    _drainArticleTitleQueue() {
+        while (this.activeArticleTitleReads < this.maxArticleTitleReads && this.articleTitleQueue.length > 0) {
+            const job = this.articleTitleQueue.shift();
+            if (!job.item.isConnected) continue;
+
+            this.activeArticleTitleReads += 1;
+            void this._loadArticleTitle(job)
+                .catch((error) => {
+                    job.item.dataset.articleTitleState = 'error';
+                    console.warn('[EditorialDirectory] 读取文章标题失败', { path: job.path, error });
+                })
+                .finally(() => {
+                    this.activeArticleTitleReads -= 1;
+                    this._drainArticleTitleQueue();
+                });
+        }
+    }
+
+    /** 从 Markdown 正文提取文章开头句；没有可读正文或读取失败时保留文件名。 */
+    async _loadArticleTitle({ item, path, fallbackName }) {
+        const content = await this.fileTree.ensureFileService().readText(path);
+        const title = this._extractArticleLead(content) || fallbackName;
+        if (!item.isConnected || item.dataset.path !== path) return;
+
+        const label = item.querySelector('.editorial-article-title');
+        if (!label) return;
+        label.textContent = title;
+        label.title = title;
+        item.dataset.articleTitle = title;
+        item.dataset.articleTitleState = 'loaded';
+        item.title = title;
+    }
+
+    /** 跳过元数据、注释和代码块，提取第一段中的第一句话，不依赖特定标题语法。 */
+    _extractArticleLead(markdown) {
+        if (typeof markdown !== 'string') return '';
+        const lines = markdown.replace(/^\uFEFF/, '').split(/\r?\n/);
+        let start = 0;
+        if (lines[0]?.trim() === '---') {
+            const frontMatterEnd = lines.findIndex((line, index) => index > 0 && /^(---|\.\.\.)\s*$/.test(line.trim()));
+            if (frontMatterEnd > 0) start = frontMatterEnd + 1;
+        }
+
+        let fence = null;
+        let insideComment = false;
+        const paragraph = [];
+        for (let index = start; index < lines.length; index += 1) {
+            let line = lines[index];
+
+            if (insideComment) {
+                const commentEnd = line.indexOf('-->');
+                if (commentEnd < 0) continue;
+                line = line.slice(commentEnd + 3);
+                insideComment = false;
+            }
+
+            const commentStart = line.indexOf('<!--');
+            if (commentStart >= 0) {
+                const commentEnd = line.indexOf('-->', commentStart + 4);
+                if (commentEnd >= 0) {
+                    line = `${line.slice(0, commentStart)} ${line.slice(commentEnd + 3)}`;
+                } else {
+                    line = line.slice(0, commentStart);
+                    insideComment = true;
+                }
+            }
+
+            const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+            if (fenceMatch) {
+                if (!fence) fence = fenceMatch[1][0];
+                else if (fenceMatch[1][0] === fence) fence = null;
+                continue;
+            }
+            if (fence) continue;
+
+            if (!line.trim()) {
+                if (paragraph.length > 0) break;
+                continue;
+            }
+
+            if (/^\s{0,3}={3,}\s*$/.test(line)) {
+                if (paragraph.length > 0) break;
+                continue;
+            }
+
+            if (/^(?: {4}|\t)/.test(line)) {
+                if (paragraph.length > 0) break;
+                continue;
+            }
+
+            if (/^\s{0,3}(?:[-*_]\s*){3,}$/.test(line)) {
+                if (paragraph.length > 0) break;
+                continue;
+            }
+
+            const heading = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/);
+            if (heading) {
+                if (paragraph.length > 0) break;
+                return this._firstSentence(this._stripMarkdownLeadMarkup(heading[1]));
+            }
+
+            if (paragraph.length > 0 && /^\s{0,3}(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s)/.test(line)) break;
+            const text = this._stripMarkdownLeadMarkup(line);
+            if (text) paragraph.push(text);
+        }
+
+        return this._firstSentence(paragraph.join(' '));
+    }
+
+    /** 移除首段中的常见 Markdown 行内标记，仅保留适合目录展示的可读文本。 */
+    _stripMarkdownLeadMarkup(value) {
+        return String(value || '')
+            .replace(/^\s{0,3}>\s?/, '')
+            .replace(/^\s{0,3}(?:[-*+]\s+|\d+[.)]\s+)/, '')
+            .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+            .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/<[^>]*>/g, '')
+            .replace(/[*_~]{1,3}/g, '')
+            .replace(/\\([\\`*_{}\[\]()#+.!|>-])/g, '$1')
+            .trim();
+    }
+
+    /** 截取首个句末标点，处理小数点并保留结尾引号。 */
+    _firstSentence(value) {
+        const text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!text) return '';
+
+        for (let index = 0; index < text.length; index += 1) {
+            const character = text[index];
+            const isSentenceEnd = '。！？!?'.includes(character)
+                || (character === '.'
+                    && (index === text.length - 1 || /\s|[”’"'」』】）》）\]]/.test(text[index + 1] || ''))
+                    && !(/\d/.test(text[index - 1] || '') && /\d/.test(text[index + 1] || '')));
+            if (!isSentenceEnd) continue;
+
+            let end = index + 1;
+            while (end < text.length && /[”’"'」』】）》）\]]/.test(text[end])) end += 1;
+            return text.slice(0, end).trim();
+        }
+        return text;
+    }
+
     /**
      * 初始化容器 HTML
      */
@@ -254,7 +434,8 @@ export class FileTreeRenderer {
             <!-- 打开的文件区域 -->
             <div class="sidebar-section open-files-section">
                 <div class="section-header" id="openFilesHeader">
-                    <span class="section-title">${t('sidebar.openFiles')}</span>
+                    <span class="section-title section-title__default">${t('sidebar.openFiles')}</span>
+                    <span class="section-title section-title__writing">${t('sidebar.editorialOpenFiles')}</span>
                     <span class="section-has-items-hint" aria-hidden="true"></span>
                     <div class="section-header-actions">
                         <span class="section-collapse-indicator" aria-hidden="true">
@@ -282,7 +463,8 @@ export class FileTreeRenderer {
             <!-- 文件夹区域 -->
             <div class="sidebar-section folders-section">
                 <div class="section-header" id="foldersHeader">
-                    <span class="section-title">${t('sidebar.folders')}</span>
+                    <span class="section-title section-title__default">${t('sidebar.folders')}</span>
+                    <span class="section-title section-title__writing">${t('sidebar.editorialFolders')}</span>
                     <span class="section-has-items-hint" aria-hidden="true"></span>
                     <div class="section-header-actions">
                         <span class="section-collapse-indicator" aria-hidden="true">
@@ -311,6 +493,17 @@ export class FileTreeRenderer {
         this._observeSectionContent('openFilesContent', 'openFilesHeader');
         this._observeSectionContent('foldersContent', 'foldersHeader');
 
+        const syncArticleTitles = () => {
+            if (document.documentElement.dataset.workspaceProfile !== 'writing') return;
+            this.fileTree.container.querySelectorAll('.tree-file.editorial-article').forEach((item) => {
+                if (!['pending', 'loaded'].includes(item.dataset.articleTitleState)) {
+                    this._enqueueArticleTitle(item, item.dataset.path, item.querySelector('.tree-item-name')?.dataset.fullName || '');
+                }
+            });
+        };
+        document.addEventListener('workspace-profile-changed', syncArticleTitles);
+        this.fileTree.cleanupFunctions.push(() => document.removeEventListener('workspace-profile-changed', syncArticleTitles));
+
         const workspaceSearchAction = this.fileTree.container.querySelector('#workspaceSearchAction');
         if (workspaceSearchAction) {
             const cleanup = addClickHandler(workspaceSearchAction, (event) => {
@@ -321,6 +514,7 @@ export class FileTreeRenderer {
             });
             this.fileTree.cleanupFunctions.push(cleanup);
         }
+
     }
 
     /**

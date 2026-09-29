@@ -17,9 +17,21 @@
             if (pref === 'system') {
                 resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
+            var skin = s.skin === 'editorial' ? 'editorial' : 'classic';
+            var savedSchemes = s.colorSchemes && typeof s.colorSchemes === 'object' ? s.colorSchemes : {};
+            var schemesBySkin = {
+                classic: ['default', 'forest', 'violet'],
+                editorial: ['terracotta', 'pine', 'indigo']
+            };
+            var savedScheme = savedSchemes[skin];
+            var scheme = schemesBySkin[skin].includes(savedScheme)
+                ? savedScheme
+                : schemesBySkin[skin][0];
             document.documentElement.dataset.themeAppearance = resolved;
             document.documentElement.dataset.themeAppearancePreference = pref;
-            document.documentElement.dataset.appSkin = s.skin === 'editorial' ? 'editorial' : 'classic';
+            document.documentElement.dataset.appSkin = skin;
+            document.documentElement.dataset.colorScheme = scheme;
+            document.documentElement.dataset.workspaceProfile = skin === 'editorial' ? 'writing' : 'general';
             document.documentElement.style.setProperty('color-scheme', resolved);
         } catch(e) {}
     </script>
@@ -44,11 +56,13 @@
     <link rel="stylesheet" href="/styles/markdown-toolbar.css">
     <link rel="stylesheet" href="/styles/toc-panel.css">
     <link rel="stylesheet" href="/styles/about.css">
-    <link rel="stylesheet" href="/styles/translator.css">
     <link rel="stylesheet" href="/styles/updater-toast.css">
     <link rel="stylesheet" href="/styles/ai-file-task.css">
     <link rel="stylesheet" href="/styles/vault.css">
     <link rel="stylesheet" href="/styles/recovery-dialog.css">
+    <!-- 配色仅提供语义颜色变量，不包含皮肤布局与交互规则。 -->
+    <link rel="stylesheet" href="/styles/color-schemes/classic.css">
+    <link rel="stylesheet" href="/styles/color-schemes/editorial.css">
     <!-- 整体皮肤覆盖应用组件；Windows 平台性能规则和皮肤适配随后叠加。 -->
     <link rel="stylesheet" href="/styles/skins/editorial.css">
     <!-- Windows WebView2 平台性能降级。 -->
@@ -192,33 +206,8 @@
             <button type="button" id="statusBarAiTask" class="status-item status-ai-task-btn" title="AI 处理当前文档">
                 <span class="status-ai-task-btn__label">AI</span>
             </button>
-            <button type="button" id="statusBarTranslator" class="status-item status-translator-btn" title="翻译 (⌘⇧Space)">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.87,15.07L10.33,12.56L10.36,12.53C12.1,10.59 13.34,8.36 14.07,6H17V4H10V2H8V4H1V6H12.17C11.5,7.92 10.44,9.75 9,11.35C8.07,10.32 7.3,9.19 6.69,8H4.69C5.42,9.63 6.42,11.17 7.67,12.56L2.58,17.58L4,19L9,14L12.11,17.11L12.87,15.07M18.5,10H16.5L12,22H14L15.12,19H19.87L21,22H23L18.5,10M15.88,17L17.5,12.67L19.12,17H15.88Z"/>
-                </svg>
-            </button>
         </div>
 
-    </div>
-
-    <!-- 翻译浮动面板 -->
-    <div id="translatorPanel" class="translator-panel">
-        <div class="translator-resize-handle"></div>
-        <div class="translator-header">
-            <span class="translator-title">翻译</span>
-            <div class="translator-header-actions">
-                <button type="button" class="translator-close-btn" title="关闭">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div class="translator-body">
-            <textarea class="translator-input" placeholder="输入要翻译的词或句子，回车翻译"></textarea>
-            <button type="button" class="translator-submit">翻译</button>
-            <div class="translator-result"></div>
-        </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

@@ -1,7 +1,13 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { createStore } from '../services/storage.js';
-import { normalizeAppSkin, resolveMarkdownTheme } from '../config/appSkins.js';
+import {
+    normalizeAppColorSchemes,
+    normalizeAppSkin,
+    resolveAppColorScheme,
+    resolveMarkdownTheme,
+    resolveWorkspaceProfile,
+} from '../config/appSkins.js';
 import { setWritingModeState } from '../modules/writing-modes/writingModeState.js';
 
 const store = createStore('editor');
@@ -11,6 +17,7 @@ const VALID_APPEARANCES = new Set(['light', 'dark', 'system']);
 
 export const defaultEditorSettings = {
     skin: 'classic',
+    colorSchemes: Object.freeze({ classic: 'default', editorial: 'terracotta' }),
     theme: 'default',
     appearance: 'system',
     fontSize: 16,
@@ -54,10 +61,14 @@ function normalizeFontWeight(weight) {
 }
 
 export function normalizeEditorSettings(candidate) {
-    const prefs = { ...defaultEditorSettings };
+    const prefs = {
+        ...defaultEditorSettings,
+        colorSchemes: normalizeAppColorSchemes(defaultEditorSettings.colorSchemes),
+    };
 
     if (candidate && typeof candidate === 'object') {
         prefs.skin = normalizeAppSkin(candidate.skin);
+        prefs.colorSchemes = normalizeAppColorSchemes(candidate.colorSchemes);
 
         if (typeof candidate.theme === 'string') {
             const theme = candidate.theme.trim() || 'default';
@@ -224,6 +235,11 @@ export function applyEditorSettings(settings) {
     root.dataset.themeAppearance = resolvedAppearance;
     root.dataset.themeAppearancePreference = appearancePreference;
     root.dataset.appSkin = prefs.skin;
+    root.dataset.colorScheme = resolveAppColorScheme(prefs.skin, prefs.colorSchemes);
+    root.dataset.workspaceProfile = resolveWorkspaceProfile(prefs.skin);
+    document.dispatchEvent(new CustomEvent('workspace-profile-changed', {
+        detail: { profile: root.dataset.workspaceProfile },
+    }));
     root.style.setProperty('color-scheme', resolvedAppearance);
 
     // 同步原生窗口主题（影响 Windows 原生菜单栏颜色）
@@ -268,7 +284,12 @@ export function applyEditorSettings(settings) {
     root.dataset.typewriterMode = prefs.typewriterMode ? 'active' : 'inactive';
     syncNativeWritingModeMenuState(prefs);
 
-    notifyAppearanceChange(resolvedAppearance, appearancePreference, prefs.skin);
+    notifyAppearanceChange(
+        resolvedAppearance,
+        appearancePreference,
+        prefs.skin,
+        root.dataset.colorScheme,
+    );
 }
 
 /**
@@ -290,6 +311,7 @@ let currentAppearancePreference = defaultEditorSettings.appearance;
 let lastNotifiedAppearance = null;
 let lastNotifiedPreference = null;
 let lastNotifiedSkin = null;
+let lastNotifiedColorScheme = null;
 const appearanceListeners = new Set();
 
 const themeAssets = import.meta.glob('../../styles/themes/*.css', {
@@ -351,11 +373,12 @@ function ensureSystemAppearanceListener() {
     }
 }
 
-function notifyAppearanceChange(resolvedAppearance, preference, skin) {
+function notifyAppearanceChange(resolvedAppearance, preference, skin, colorScheme) {
     if (
         resolvedAppearance === lastNotifiedAppearance &&
         preference === lastNotifiedPreference &&
-        skin === lastNotifiedSkin
+        skin === lastNotifiedSkin &&
+        colorScheme === lastNotifiedColorScheme
     ) {
         return;
     }
@@ -363,10 +386,11 @@ function notifyAppearanceChange(resolvedAppearance, preference, skin) {
     lastNotifiedAppearance = resolvedAppearance;
     lastNotifiedPreference = preference;
     lastNotifiedSkin = skin;
+    lastNotifiedColorScheme = colorScheme;
 
     appearanceListeners.forEach(listener => {
         try {
-            listener({ appearance: resolvedAppearance, preference, skin });
+            listener({ appearance: resolvedAppearance, preference, skin, colorScheme });
         } catch (error) {
             console.warn('appearance listener error', error);
         }

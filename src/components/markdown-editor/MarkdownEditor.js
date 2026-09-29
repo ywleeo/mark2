@@ -30,6 +30,10 @@ import { MermaidExportHandler } from './MermaidExportHandler.js';
 import { SaveManager } from './SaveManager.js';
 import { SourcePreservingMarkdownSerializer } from './SourcePreservingMarkdownSerializer.js';
 import { MarkdownWritingModeController } from '../../modules/writing-modes/MarkdownWritingModeController.js';
+import {
+    buildTranslationQuoteMarkdown,
+    resolveTranslationInsertionPosition,
+} from '../../features/aiWriting/TranslationInsertion.js';
 
 let markdownEditorInstanceSequence = 0;
 
@@ -192,6 +196,9 @@ export class MarkdownEditor {
             getSelectedMarkdown: () => this.getSelectedMarkdown(),
             getRangeMarkdown: (from, to) => this.getRangeMarkdown(from, to),
             replaceRangeWithMarkdown: (from, to, markdown) => this.replaceRangeWithMarkdown(from, to, markdown),
+            insertTranslationAfterRange: (from, to, translation) => (
+                this.insertTranslationAfterRange(from, to, translation)
+            ),
             onInspiration: range => this.aiWritingEntryManager?.openInspiration({ range }),
         });
         this.selectionRewriteManager.setup();
@@ -714,10 +721,34 @@ export class MarkdownEditor {
             void this.documentBeautifyManager?.execute();
             return true;
         }
-        if (['polish', 'shorten', 'expand'].includes(action)) {
+        if (['polish', 'shorten', 'expand', 'translate'].includes(action)) {
             return this.runSelectionAiAction(action, range);
         }
         return false;
+    }
+
+    /**
+     * 把译文作为引用块插到选区所属顶层块之后，保留原文和原始选区。
+     * @param {number} from - 冻结选区起点。
+     * @param {number} to - 冻结选区终点。
+     * @param {string} translation - AI 返回的译文。
+     * @returns {{from:number,to:number}|null} 新引用块范围。
+     */
+    insertTranslationAfterRange(from, to, translation) {
+        if (!this.editor?.state || typeof translation !== 'string') return null;
+        const quotedMarkdown = buildTranslationQuoteMarkdown(translation);
+        if (!quotedMarkdown) return null;
+        const parsed = this.contentLoader.markdownParser?.parse(quotedMarkdown) ?? null;
+        if (!parsed?.content?.size) return null;
+
+        const { state, view } = this.editor;
+        const insertAt = resolveTranslationInsertionPosition(state.doc, to);
+        const transaction = state.tr.insert(insertAt, parsed.content).scrollIntoView();
+        view.dispatch(transaction);
+        view.focus();
+        this.codeCopyManager?.scheduleCodeBlockCopyUpdate();
+        this.scheduleMermaidRender();
+        return { from: insertAt, to: insertAt + parsed.content.size };
     }
 
     replaceRangeWithMarkdown(from, to, markdown) {
