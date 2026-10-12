@@ -1,7 +1,9 @@
 /* 布局基础样式 */
 
 :root {
-    --titlebar-height: 30px;
+    /* 紧凑标题栏为 macOS 原生窗口按钮保留 24px，标签行高度独立计算。 */
+    --titlebar-height: 24px;
+    --tabbar-min-height: 30px;
     --status-bar-height: 28px;
     --scrollbar-size: 6px;
     --scrollbar-thumb-color: rgba(92, 92, 92, 0.679);
@@ -366,7 +368,7 @@ body.sidebar-resizing .sidebar-resizer::before {
     display: flex;
     align-items: center;
     margin-left: 2px;
-    min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
+    min-height: calc(var(--tabbar-min-height) + env(safe-area-inset-top, 0px));
     gap: 3px;
     overflow: hidden;
     position: relative;
@@ -406,7 +408,7 @@ body.sidebar-resizing .sidebar-resizer::before {
     display: none;
     align-items: center;
     justify-content: space-between;
-    min-height: calc(var(--titlebar-height) + env(safe-area-inset-top, 0px));
+    min-height: calc(var(--tabbar-min-height) + env(safe-area-inset-top, 0px));
     padding: 4px 8px 5px 10px;
     color: var(--tab-text-color, rgba(21, 23, 26, 0.8));
     border-left: 1px solid var(--sidebar-border, var(--border-color, #ddd));
@@ -1144,7 +1146,7 @@ body.is-internal-drag .content-wrapper::after {
     padding-bottom: 20px;
 }
 
-/* ========== Windows 平台：自定义标题栏（decorations: false） ========== */
+/* Windows 无原生窗口按钮，保留 30px 供自定义菜单与窗口控制点击。 */
 :root.platform-windows {
     --titlebar-height: 30px;
 }
