@@ -537,6 +537,46 @@ body.is-dual-pane .pane-header--secondary {
     white-space: nowrap;
 }
 
+.tab-ai-indicator {
+    width: 12px;
+    height: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 12px;
+    color: var(--tab-ai-done-color, #39946a);
+    font-size: 11px;
+    line-height: 1;
+}
+
+.tab-ai-indicator::before {
+    content: '✓';
+    font-weight: 700;
+}
+
+.tab.is-ai-working .tab-ai-indicator {
+    color: var(--tab-ai-working-color, #c98632);
+}
+
+.tab.is-ai-working .tab-ai-indicator::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: tab-ai-spin 0.7s linear infinite;
+}
+
+.tab.is-ai-error .tab-ai-indicator {
+    color: var(--tab-ai-error-color, #c94f47);
+}
+
+.tab.is-ai-error .tab-ai-indicator::before {
+    content: '!';
+    font-weight: 800;
+}
+
 .tab.is-renaming {
     cursor: default;
 }
@@ -678,6 +718,10 @@ body.is-dual-pane .pane-header--secondary {
 }
 
 @keyframes tab-sync-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes tab-ai-spin {
     to { transform: rotate(360deg); }
 }
 

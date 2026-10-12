@@ -111,88 +111,92 @@
     --classic-palette-chart-series: #5b8ff9, #5ad8a6, #f6bd16, #e86452, #6dc8ec, #945fb9, #ff9845, #1e9493, #ff99c3;
 }
 
-/* 森绿为长时间阅读提供低饱和、偏自然的界面色阶。 */
+/*
+ * 森绿浅色采用纸白松针：中性纸面、浅灰侧栏与松针绿强调。
+ * 配色只调整语义颜色，保持 Classic 的布局和暗色方案独立。
+ */
 :root[data-app-skin='classic'][data-color-scheme='forest'][data-theme-appearance='light'] {
-    --classic-palette-sidebar: #f2f6f3;
-    --classic-palette-content: #f3f7f4;
-    --classic-palette-md-paper: #f3f7f4;
-    --classic-palette-ink: #233129;
-    --classic-palette-muted: #5e6d64;
-    --classic-palette-rule: #cbd9d0;
-    --classic-palette-surface: #edf5f0;
-    --classic-palette-inline-code: #e7f1eb;
-    --classic-palette-accent: #2f7d5a;
-    --classic-palette-accent-hover: #236646;
-    --classic-palette-link: #257052;
-    --classic-palette-accent-soft: rgba(47, 125, 90, 0.13);
-    --classic-palette-accent-faint: rgba(47, 125, 90, 0.065);
-    --classic-palette-blockquote-border: #aac7b5;
-    --classic-palette-hr: #d8e3dc;
-    --classic-palette-checkbox-checked: rgba(47, 125, 90, 0.55);
-    --classic-palette-checkmark: #233129;
-    --classic-palette-syntax-bg: #edf5f0;
-    --classic-palette-syntax-ink: #233129;
-    --classic-palette-syntax-comment: #68776e;
+    --classic-palette-sidebar: #f1f0ec;
+    --classic-palette-content: #faf9f6;
+    --classic-palette-md-paper: #faf9f6;
+    --classic-palette-ink: #1d201d;
+    --classic-palette-muted: #7b7e79;
+    --classic-palette-rule: #e2e0da;
+    --classic-palette-surface: #f1f0ec;
+    --classic-palette-inline-code: #f1f0ec;
+    --classic-palette-accent: #3b5c48;
+    --classic-palette-accent-hover: #2e4939;
+    --classic-palette-link: #3b5c48;
+    --classic-palette-accent-soft: #e6ebe6;
+    --classic-palette-accent-faint: color-mix(in srgb, #3b5c48 5%, transparent);
+    --classic-palette-blockquote-border: #3b5c48;
+    --classic-palette-hr: #e2e0da;
+    --classic-palette-checkbox-checked: #3b5c48;
+    --classic-palette-checkmark: #faf9f6;
+    --classic-palette-syntax-bg: #f1f0ec;
+    --classic-palette-syntax-ink: #1d201d;
+    --classic-palette-syntax-comment: #7b7e79;
     --classic-palette-syntax-keyword: #a33a52;
     --classic-palette-syntax-value: #1f6f78;
-    --classic-palette-syntax-string: #356f45;
+    --classic-palette-syntax-string: #3b5c48;
     --classic-palette-syntax-title: #6a4f9a;
     --classic-palette-syntax-deletion: #a33a52;
-    --classic-palette-settings-surface: #f9fbf9;
-    --classic-palette-settings-primary: #2f7d5a;
-    --classic-palette-settings-primary-hover: #236646;
+    --classic-palette-settings-surface: #faf9f6;
+    --classic-palette-settings-primary: #3b5c48;
+    --classic-palette-settings-primary-hover: #2e4939;
     --classic-palette-settings-primary-text: #ffffff;
-    --classic-palette-chart-theme-primary: #e8f5ed;
+    --classic-palette-chart-theme-primary: #f1f0ec;
     --classic-palette-chart-theme-secondary: #eaf2f6;
     --classic-palette-chart-theme-tertiary: #f5f0df;
-    --classic-palette-chart-primary: #cce9d9;
-    --classic-palette-chart-primary-border: #2f7d5a;
-    --classic-palette-chart-primary-soft-border: #65a184;
+    --classic-palette-chart-primary: #f1f0ec;
+    --classic-palette-chart-primary-border: #3b5c48;
+    --classic-palette-chart-primary-soft-border: #7c9b89;
     --classic-palette-chart-secondary: #d9e8f0;
     --classic-palette-chart-secondary-border: #477b96;
     --classic-palette-chart-secondary-soft-border: #7aa0b3;
     --classic-palette-chart-tertiary: #efe4bd;
     --classic-palette-chart-tertiary-border: #94752e;
     --classic-palette-chart-tertiary-soft-border: #b49a5e;
-    --classic-palette-chart-neutral: #e3e8e5;
-    --classic-palette-chart-neutral-border: #65736b;
+    --classic-palette-chart-neutral: #f1f0ec;
+    --classic-palette-chart-neutral-border: #7b7e79;
     --classic-palette-chart-neutral-soft-border: #929d97;
     --classic-palette-chart-note: #f7edc9;
     --classic-palette-chart-note-border: #a5873c;
-    --classic-palette-chart-grid: #ccd9d1;
+    --classic-palette-chart-grid: #e2e0da;
     --classic-palette-chart-series: #2f7d5a, #477b96, #94752e, #7b5c88, #4b966f, #5e91a8, #aa8b42, #91729a, #6f8a7a;
 }
 
+/* 炭灰松针：近中性炭灰表面，绿色仅用于强调。 */
 :root[data-app-skin='classic'][data-color-scheme='forest'][data-theme-appearance='dark'] {
-    --classic-palette-sidebar: #18201b;
-    --classic-palette-content: #141a16;
-    --classic-palette-md-paper: #141a16;
-    --classic-palette-ink: #eef6f1;
-    --classic-palette-muted: #aec0b5;
-    --classic-palette-rule: #32463a;
-    --classic-palette-surface: #1e2b23;
-    --classic-palette-inline-code: #1b2820;
-    --classic-palette-accent: #62c28f;
-    --classic-palette-accent-hover: #7ed8a7;
-    --classic-palette-link: #78d7a5;
-    --classic-palette-accent-soft: rgba(98, 194, 143, 0.17);
-    --classic-palette-accent-faint: rgba(98, 194, 143, 0.08);
-    --classic-palette-blockquote-border: #42614e;
-    --classic-palette-hr: #2b3b31;
-    --classic-palette-checkbox-checked: rgba(98, 194, 143, 0.62);
-    --classic-palette-checkmark: #eef6f1;
-    --classic-palette-syntax-bg: #19251e;
-    --classic-palette-syntax-ink: #edf5f0;
-    --classic-palette-syntax-comment: #a8b8ae;
+    --classic-palette-sidebar: #161817;
+    --classic-palette-content: #1c1e1d;
+    --classic-palette-md-paper: #1c1e1d;
+    --classic-palette-ink: #edeeea;
+    --classic-palette-muted: #b5b9b5;
+    --classic-palette-rule: #343733;
+    --classic-palette-surface: #262826;
+    --classic-palette-inline-code: #262826;
+    --classic-palette-accent: #a5c6ac;
+    --classic-palette-accent-hover: #bfd7c4;
+    --classic-palette-link: #a5c6ac;
+    --classic-palette-accent-soft: rgba(165, 198, 172, 0.17);
+    --classic-palette-accent-faint: rgba(165, 198, 172, 0.08);
+    --classic-palette-blockquote-border: #a5c6ac;
+    --classic-palette-hr: #343733;
+    --classic-palette-checkbox-checked: #a5c6ac;
+    --classic-palette-checkmark: #161817;
+    --classic-palette-syntax-bg: #262826;
+    --classic-palette-syntax-ink: #edeeea;
+    --classic-palette-syntax-comment: #b5b9b5;
     --classic-palette-syntax-keyword: #ff9aa8;
     --classic-palette-syntax-value: #83d4d8;
     --classic-palette-syntax-string: #a8d794;
     --classic-palette-syntax-title: #d3b4f0;
     --classic-palette-syntax-deletion: #ffb0b6;
-    --classic-palette-settings-surface: #19211c;
-    --classic-palette-settings-primary: #62c28f;
-    --classic-palette-settings-primary-hover: #7ed8a7;
-    --classic-palette-settings-primary-text: #102018;
+    --classic-palette-settings-surface: #1c1e1d;
+    --classic-palette-settings-primary: #a5c6ac;
+    --classic-palette-settings-primary-hover: #bfd7c4;
+    --classic-palette-settings-primary-text: #161817;
     --classic-palette-chart-theme-primary: #e8f5ed;
     --classic-palette-chart-theme-secondary: #eaf2f6;
     --classic-palette-chart-theme-tertiary: #f5f0df;
@@ -214,55 +218,58 @@
     --classic-palette-chart-series: #2f7d5a, #477b96, #94752e, #7b5c88, #4b966f, #5e91a8, #aa8b42, #91729a, #6f8a7a;
 }
 
-/* 鸢尾使用冷紫强调色，保持 Classic 清晰、轻量的产品界面气质。 */
+/*
+ * 鸢尾浅色采用纸白绛紫：中性纸面、浅灰侧栏与深梅紫强调。
+ * 表面以中性灰分层，紫色只用于交互与文档强调。
+ */
 :root[data-app-skin='classic'][data-color-scheme='violet'][data-theme-appearance='light'] {
-    --classic-palette-sidebar: #f5f2f8;
-    --classic-palette-content: #f7f4fa;
-    --classic-palette-md-paper: #f7f4fa;
-    --classic-palette-ink: #2d2938;
-    --classic-palette-muted: #696276;
-    --classic-palette-rule: #d9d0e4;
-    --classic-palette-surface: #f3eff8;
-    --classic-palette-inline-code: #eee8f5;
-    --classic-palette-accent: #7656a8;
-    --classic-palette-accent-hover: #624291;
-    --classic-palette-link: #6b4ca1;
-    --classic-palette-accent-soft: rgba(118, 86, 168, 0.13);
-    --classic-palette-accent-faint: rgba(118, 86, 168, 0.06);
-    --classic-palette-blockquote-border: #c4b3d8;
-    --classic-palette-hr: #e3ddea;
-    --classic-palette-checkbox-checked: rgba(118, 86, 168, 0.56);
-    --classic-palette-checkmark: #2d2938;
-    --classic-palette-syntax-bg: #f3eff8;
-    --classic-palette-syntax-ink: #2d2938;
-    --classic-palette-syntax-comment: #746d80;
+    --classic-palette-sidebar: #f2f1ee;
+    --classic-palette-content: #faf9f7;
+    --classic-palette-md-paper: #faf9f7;
+    --classic-palette-ink: #211e24;
+    --classic-palette-muted: #7d7a80;
+    --classic-palette-rule: #e3e1dd;
+    --classic-palette-surface: #f2f1ee;
+    --classic-palette-inline-code: #f2f1ee;
+    --classic-palette-accent: #5a416f;
+    --classic-palette-accent-hover: #483458;
+    --classic-palette-link: #5a416f;
+    --classic-palette-accent-soft: #eae5ee;
+    --classic-palette-accent-faint: color-mix(in srgb, #5a416f 5%, transparent);
+    --classic-palette-blockquote-border: #5a416f;
+    --classic-palette-hr: #e3e1dd;
+    --classic-palette-checkbox-checked: #5a416f;
+    --classic-palette-checkmark: #faf9f7;
+    --classic-palette-syntax-bg: #f2f1ee;
+    --classic-palette-syntax-ink: #211e24;
+    --classic-palette-syntax-comment: #7d7a80;
     --classic-palette-syntax-keyword: #a13e6d;
     --classic-palette-syntax-value: #416d9a;
     --classic-palette-syntax-string: #51713c;
-    --classic-palette-syntax-title: #7656a8;
+    --classic-palette-syntax-title: #5a416f;
     --classic-palette-syntax-deletion: #a84257;
-    --classic-palette-settings-surface: #fcfafd;
-    --classic-palette-settings-primary: #7656a8;
-    --classic-palette-settings-primary-hover: #624291;
+    --classic-palette-settings-surface: #faf9f7;
+    --classic-palette-settings-primary: #5a416f;
+    --classic-palette-settings-primary-hover: #483458;
     --classic-palette-settings-primary-text: #ffffff;
-    --classic-palette-chart-theme-primary: #f1ebf8;
+    --classic-palette-chart-theme-primary: #f2f1ee;
     --classic-palette-chart-theme-secondary: #edf3f8;
     --classic-palette-chart-theme-tertiary: #edf6ed;
-    --classic-palette-chart-primary: #e2d7f2;
-    --classic-palette-chart-primary-border: #7656a8;
-    --classic-palette-chart-primary-soft-border: #9b83bc;
+    --classic-palette-chart-primary: #f2f1ee;
+    --classic-palette-chart-primary-border: #5a416f;
+    --classic-palette-chart-primary-soft-border: #9b84b4;
     --classic-palette-chart-secondary: #d8e4f2;
     --classic-palette-chart-secondary-border: #4d7399;
     --classic-palette-chart-secondary-soft-border: #829fba;
     --classic-palette-chart-tertiary: #dcebdc;
     --classic-palette-chart-tertiary-border: #4f7f5d;
     --classic-palette-chart-tertiary-soft-border: #82a88c;
-    --classic-palette-chart-neutral: #e8e4ec;
-    --classic-palette-chart-neutral-border: #716a79;
+    --classic-palette-chart-neutral: #f2f1ee;
+    --classic-palette-chart-neutral-border: #7d7a80;
     --classic-palette-chart-neutral-soft-border: #9c96a2;
     --classic-palette-chart-note: #f2e7c9;
     --classic-palette-chart-note-border: #9a7a35;
-    --classic-palette-chart-grid: #d8d0e1;
+    --classic-palette-chart-grid: #e3e1dd;
     --classic-palette-chart-series: #7656a8, #4d7399, #4f7f5d, #9a7a35, #9270bd, #6388ad, #6c946f, #ad8c4b, #80748d;
 }
 

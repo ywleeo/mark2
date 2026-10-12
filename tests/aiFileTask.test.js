@@ -174,6 +174,20 @@ test('状态栏 AI 按钮重复点击可切换工作稿侧栏显隐', async () =
     assert.match(bootstrapSource, /onAiDocumentTask: \(path\) => aiFileTaskSidebar\.toggle\(\{ path \}\)/);
 });
 
+test('AI 文档任务开始时将源文档固定为独立 file tab', async () => {
+    const [sidebarSource, bootstrapSource] = await Promise.all([
+        readFile(new URL('../src/modules/ai-file-task/AiFileTaskSidebar.js', import.meta.url), 'utf8'),
+        readFile(new URL('../src/app/appBootstrap.js', import.meta.url), 'utf8'),
+    ]);
+
+    assert.match(sidebarSource, /this\.pinDocument\?\.\(task\.sourcePath\)/);
+    assert.match(sidebarSource, /this\.onTaskStateChange\?\.\(task\.sourcePath, 'working'\)/);
+    assert.match(sidebarSource, /this\.onTaskStateChange\?\.\(task\.sourcePath, 'done'\)/);
+    assert.match(bootstrapSource, /pinDocument: \(path\) => documentManager\?\.pinDocument\?\.\(path, \{ activate: false \}\)/);
+    assert.match(bootstrapSource, /onTaskStateChange: \(path, state\) => appState\.getTabManager\(\)\?\.setAiTaskState\?\.\(path, state\)/);
+    assert.match(bootstrapSource, /createTabSidebarStateController\([\s\S]*getAiSidebarOpen: \(path\) => aiFileTaskSidebar\.isOpenForTab\(path\)/);
+});
+
 /** 创建可在多个仓库实例间共享的内存存储。 */
 function createMemoryStore() {
     const values = new Map();

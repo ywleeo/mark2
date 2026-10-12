@@ -62,15 +62,15 @@ fn html_preview_background(query: Option<&str>) -> Option<&'static str> {
     };
 
     Some(match (skin, color_scheme, uses_dark_appearance) {
-        ("editorial", "pine", false) => "#eef2eb",
-        ("editorial", "pine", true) => "#202824",
-        ("editorial", "indigo", false) => "#f0f1f6",
-        ("editorial", "indigo", true) => "#23242d",
+        ("editorial", "pine", false) => "#faf9f6",
+        ("editorial", "pine", true) => "#1c1e1d",
+        ("editorial", "indigo", false) => "#faf9f7",
+        ("editorial", "indigo", true) => "#191b28",
         ("editorial", "terracotta", true) => "#252a26",
         ("editorial", _, _) => "#f3eee4",
-        ("classic", "forest", false) => "#f3f7f4",
-        ("classic", "forest", true) => "#141a16",
-        ("classic", "violet", false) => "#f7f4fa",
+        ("classic", "forest", false) => "#faf9f6",
+        ("classic", "forest", true) => "#1c1e1d",
+        ("classic", "violet", false) => "#faf9f7",
         ("classic", "violet", true) => "#18151c",
         ("classic", "default", true) => "#151515",
         _ => "#fdfdfd",
@@ -321,13 +321,13 @@ mod tests {
             html_preview_background(Some(
                 "mark2-preview-skin=editorial&mark2-preview-appearance=light&mark2-preview-color-scheme=pine"
             )),
-            Some("#eef2eb")
+            Some("#faf9f6")
         );
         assert_eq!(
             html_preview_background(Some(
                 "mark2-preview-skin=editorial&mark2-preview-appearance=dark&mark2-preview-color-scheme=indigo"
             )),
-            Some("#23242d")
+            Some("#191b28")
         );
         assert_eq!(
             html_preview_background(Some("mark2-preview-skin=classic")),
@@ -337,13 +337,13 @@ mod tests {
             html_preview_background(Some(
                 "mark2-preview-skin=classic&mark2-preview-appearance=dark&mark2-preview-color-scheme=forest"
             )),
-            Some("#141a16")
+            Some("#1c1e1d")
         );
         assert_eq!(
             html_preview_background(Some(
                 "mark2-preview-skin=classic&mark2-preview-appearance=light&mark2-preview-color-scheme=violet"
             )),
-            Some("#f7f4fa")
+            Some("#faf9f7")
         );
         assert_eq!(
             html_preview_background(Some("mark2-preview-skin=unknown")),

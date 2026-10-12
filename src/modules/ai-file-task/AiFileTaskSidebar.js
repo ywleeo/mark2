@@ -1,3 +1,4 @@
+/** 按文档隔离的 AI 对话侧栏，消息操作绑定各自回复，输入区固定在底部。 */
 import { basename } from '../../utils/pathUtils.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createStore } from '../../services/storage.js';
@@ -6,6 +7,7 @@ import { copyButtonIcon } from '../../icons/uiIcons.js';
 import { AiFileTaskService } from './AiFileTaskService.js';
 import { DocumentTaskResultStore } from './DocumentTaskResultStore.js';
 import { DocumentTaskSession } from './DocumentTaskSession.js';
+import { normalizeConversation, restoreConversation } from './DocumentTaskConversation.js';
 import MarkdownIt from 'markdown-it';
 
 const layoutStore = createStore('ai-file-task-sidebar');
@@ -39,6 +41,39 @@ function renderBasicMarkdown(value) {
 }
 
 /**
+ * 统一渲染消息气泡，每条 AI 回复附带独立操作，最新回复支持编辑与撤销。
+ * @param {'user'|'assistant'} role - 消息角色
+ * @param {string} content - 消息正文
+ * @param {{editable?:boolean,isEditing?:boolean,previousContent?:string}} [options] - 最新回复的编辑状态
+ * @returns {string} 消息内部 HTML
+ */
+function renderMessageContents(role, content, { editable = false, isEditing = false, previousContent = '' } = {}) {
+    const isUser = role === 'user';
+    const author = isUser ? escapeHtml(t('aiFileTask.you')) : 'AI';
+    const avatar = isUser ? '' : `<span class="ai-file-task-sidebar__message-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7Z"/></svg>
+    </span>`;
+    const actions = editable ? `<div class="ai-file-task-sidebar__message-actions">
+        <button type="button" data-action="undo-result" ${previousContent ? '' : 'disabled'}>${escapeHtml(t('common.undo'))}</button>
+        <button type="button" data-action="toggle-edit">${escapeHtml(t(isEditing ? 'aiFileTask.previewResult' : 'aiFileTask.editResult'))}</button>
+    </div>` : '';
+    const body = isUser
+        ? `<div class="ai-file-task-sidebar__user-text">${escapeHtml(content)}</div>`
+        : (isEditing
+            ? `<textarea class="ai-file-task-sidebar__draft-editor" data-ref="draft-editor" spellcheck="true">${escapeHtml(content)}</textarea>`
+            : `<div class="ai-file-task__answer ai-file-task-sidebar__preview">${renderBasicMarkdown(content)}</div>`);
+    const replyActions = isUser ? '' : `<div class="ai-file-task-sidebar__reply-actions">
+        <button type="button" class="ai-file-task-sidebar__text-button" data-action="insert-result">${escapeHtml(t('aiFileTask.insertResult'))}</button>
+        <button type="button" class="ai-file-task-sidebar__text-button" data-action="open-result">${escapeHtml(t('aiFileTask.openResult'))}</button>
+        <button type="button" class="code-copy-button is-visible ai-file-task-sidebar__copy" data-action="copy-result" title="${escapeHtml(t('aiFileTask.copyResult'))}" aria-label="${escapeHtml(t('aiFileTask.copyResult'))}">${copyButtonIcon()}</button>
+    </div>`;
+    return `<div class="ai-file-task-sidebar__message-header">
+        <span class="ai-file-task-sidebar__message-author">${avatar}<span>${author}</span></span>
+        ${actions}
+    </div><div class="ai-file-task-sidebar__message-bubble">${body}</div>${replyActions}`;
+}
+
+/**
  * 基于源文档名生成不带意图猜测的工作稿文件名。
  * @param {string} sourcePath - 源文档路径
  * @returns {string} 建议文件名
@@ -67,7 +102,7 @@ function normalizeAgentFilename(value, sourcePath) {
 
 /**
  * 当前文档的 AI 工作稿侧栏。
- * 每次提示词都作为新的当前任务交给自主执行器，不保存聊天历史。
+ * 问答历史按文档隔离，输入区固定在底部，每条回答保留独立的内容操作。
  */
 export class AiFileTaskSidebar {
     /**
@@ -78,6 +113,8 @@ export class AiFileTaskSidebar {
      * @param {()=>void} [options.saveCurrentEditorContentToCache] - 同步当前编辑器快照
      * @param {(args:{content:string,filename:string})=>Promise<string>} [options.openResultAsUntitled] - 打开工作稿文档
      * @param {(content:string)=>boolean|void} [options.insertResult] - 把工作稿插入当前编辑器
+     * @param {(path:string)=>void} [options.pinDocument] - 将 AI 任务源文档固定为独立 file tab
+     * @param {(path:string,state:'working'|'done'|'error'|'idle')=>void} [options.onTaskStateChange] - 通知源文档 tab 的 AI 工作状态
      * @param {()=>object|null} [options.getStatusBarController] - 状态栏访问器
      */
     constructor(options = {}) {
@@ -87,6 +124,8 @@ export class AiFileTaskSidebar {
         this.saveCurrentEditorContentToCache = options.saveCurrentEditorContentToCache || null;
         this.openResultAsUntitled = options.openResultAsUntitled || null;
         this.insertResult = options.insertResult || null;
+        this.pinDocument = options.pinDocument || null;
+        this.onTaskStateChange = options.onTaskStateChange || null;
         this.getStatusBarController = options.getStatusBarController || (() => null);
         this.service = options.service || new AiFileTaskService();
         this.resultStore = options.resultStore || new DocumentTaskResultStore();
@@ -94,16 +133,22 @@ export class AiFileTaskSidebar {
         this.root = null;
         this.currentPath = '';
         this.result = null;
+        this.messages = [];
+        this.inputInstruction = '';
+        this.pendingInstruction = '';
+        this.inputDrafts = new Map();
         this.initialInstruction = '';
         this.lastInstruction = '';
         this.previousContent = '';
         this.filename = '';
         this.pendingPath = '';
+        this.pendingVisibility = false;
         this.cleanups = [];
         this.isVisible = false;
         this.isRunning = false;
         this.isEditing = false;
         this.copyFeedbackTimer = null;
+        this.copyFeedbackButton = null;
         this.persistTimer = null;
         this.resizeCleanup = null;
     }
@@ -115,13 +160,14 @@ export class AiFileTaskSidebar {
     open({ path }) {
         if (!path) return;
         this.ensureElement();
+        if (this.isRunning && path !== this.currentPath) {
+            this.pendingPath = path;
+            this.pendingVisibility = true;
+            this.hideForTabSwitch();
+            return;
+        }
         if (path !== this.currentPath) this.loadDocument(path);
-        this.root.style.display = 'flex';
-        this.root.classList.add('is-visible');
-        this.isVisible = true;
-        document.getElementById('statusBarAiTask')?.classList.add('is-active');
-        this.syncView();
-        this.root.querySelector('[name="instruction"]')?.focus();
+        this.showForTab(true);
     }
 
     /**
@@ -139,29 +185,80 @@ export class AiFileTaskSidebar {
     }
 
     /**
-     * 已打开侧栏时跟随当前标签页切换工作稿。
-     * @param {string|null} path - 当前文件路径
+     * 跟随活动文档 tab 切换侧栏上下文；运行中的任务继续绑定原文档并在后台完成。
+     * @param {string|null} path - 活动文档路径
+     * @param {boolean} visible - 目标文档的 AI 侧栏是否打开
      */
-    updateCurrentFile(path) {
-        if (!this.isVisible) return;
+    setTabContext(path, visible) {
         if (!path) {
-            this.close();
+            this.pendingPath = '';
+            this.pendingVisibility = false;
+            this.hideForTabSwitch();
             return;
         }
-        if (path === this.currentPath) return;
-        if (this.isRunning) {
+
+        if (this.isRunning && path !== this.currentPath) {
             this.pendingPath = path;
+            this.pendingVisibility = Boolean(visible);
+            this.hideForTabSwitch();
             return;
         }
-        this.loadDocument(path);
+
+        if (path === this.currentPath) {
+            this.pendingPath = '';
+            this.pendingVisibility = false;
+        } else {
+            this.loadDocument(path);
+        }
+
+        if (visible) {
+            this.showForTab(false);
+        } else {
+            this.hideForTabSwitch();
+        }
+    }
+
+    /**
+     * 查询指定 tab 的 AI 侧栏逻辑状态，也覆盖运行中尚待恢复的 tab。
+     * @param {string} path - 文档路径
+     * @returns {boolean} 对应 tab 的 AI 侧栏是否打开
+     */
+    isOpenForTab(path) {
+        if (!path) return false;
+        if (this.isRunning && this.pendingPath === path) {
+            return this.pendingVisibility;
+        }
+        return this.currentPath === path && this.isVisible;
+    }
+
+    /** 显示当前 tab 的 AI 侧栏，不改变文档任务会话。 */
+    showForTab(focusInput = false) {
+        if (!this.root) return;
+        this.root.style.display = 'flex';
+        this.root.classList.add('is-visible');
+        this.isVisible = true;
+        document.getElementById('statusBarAiTask')?.classList.add('is-active');
         this.syncView();
+        if (focusInput) this.root.querySelector('[name="instruction"]')?.focus();
+    }
+
+    /** 隐藏侧栏但不取消 AI 请求，用于切换到其他文档 tab。 */
+    hideForTabSwitch() {
+        if (!this.root) {
+            this.isVisible = false;
+            return;
+        }
+        this.root.classList.remove('is-visible');
+        this.root.style.display = 'none';
+        this.isVisible = false;
+        document.getElementById('statusBarAiTask')?.classList.remove('is-active');
     }
 
     /** 创建并挂载侧栏 DOM。 */
     ensureElement() {
         if (this.root) return;
-        const contentArea = document.getElementById('contentArea');
-        if (!contentArea) throw new Error('AiFileTaskSidebar requires #contentArea');
+        const workspace = document.querySelector('.content-wrapper');
+        if (!workspace) throw new Error('AiFileTaskSidebar requires .content-wrapper');
 
         const root = document.createElement('aside');
         root.className = 'ai-file-task-sidebar';
@@ -176,42 +273,39 @@ export class AiFileTaskSidebar {
                         <span data-ref="path"></span>
                     </div>
                 </div>
-                <button type="button" class="ai-file-task-sidebar__icon-button" data-action="close" aria-label="${escapeHtml(t('common.cancel'))}">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
-                </button>
+                <div class="ai-file-task-sidebar__header-actions">
+                    <button type="button" class="ai-file-task-sidebar__text-button" data-action="new-task" hidden>${escapeHtml(t('aiFileTask.newTask'))}</button>
+                    <button type="button" class="ai-file-task-sidebar__icon-button" data-action="close" aria-label="${escapeHtml(t('common.cancel'))}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+                    </button>
+                </div>
             </header>
             <div class="ai-file-task-sidebar__body">
-                <section class="ai-file-task-sidebar__request">
-                    <label for="aiFileTaskInstruction" data-ref="instruction-label">${escapeHtml(t('aiFileTask.instruction'))}</label>
-                    <textarea id="aiFileTaskInstruction" name="instruction" rows="4"></textarea>
-                    <div class="ai-file-task-sidebar__request-footer">
-                        <span data-ref="request-hint"></span>
-                        <button type="button" class="ai-file-task-sidebar__run" data-action="run">${escapeHtml(t('aiFileTask.run'))}</button>
-                    </div>
-                </section>
-                <section class="ai-file-task-sidebar__processing" data-ref="processing" hidden role="status" aria-live="polite">
-                    <div><strong>AI</strong><span>${escapeHtml(t('aiFileTask.running'))}</span><i></i><i></i><i></i></div>
-                    <span>${escapeHtml(t('aiFileTask.processingDetail'))}</span>
-                </section>
-                <section class="ai-file-task-sidebar__draft" data-ref="draft">
-                    <div class="ai-file-task-sidebar__empty">${escapeHtml(t('aiFileTask.workspacePlaceholder'))}</div>
+                <section class="ai-file-task-sidebar__conversation" data-ref="conversation" role="log" aria-label="${escapeHtml(t('aiFileTask.workspaceTitle'))}">
+                    <div class="ai-file-task-sidebar__messages" data-ref="messages"></div>
+                    <section class="ai-file-task-sidebar__draft" data-ref="draft">
+                        <div class="ai-file-task-sidebar__empty">${escapeHtml(t('aiFileTask.workspacePlaceholder'))}</div>
+                    </section>
+                    <div class="ai-file-task-sidebar__status" data-ref="status" role="status" aria-live="polite" hidden></div>
                 </section>
             </div>
-            <footer class="ai-file-task-sidebar__footer" data-ref="footer">
-                <span class="ai-file-task-sidebar__status" data-ref="status"></span>
-                <div class="ai-file-task-sidebar__footer-actions">
-                    <button type="button" class="ai-file-task-sidebar__text-button" data-action="new-task" hidden>${escapeHtml(t('aiFileTask.newTask'))}</button>
-                    <button type="button" class="ai-file-task-sidebar__text-button" data-action="insert-result" hidden>${escapeHtml(t('aiFileTask.insertResult'))}</button>
-                    <button type="button" class="ai-file-task-sidebar__text-button" data-action="open-result" hidden>${escapeHtml(t('aiFileTask.openResult'))}</button>
-                    <button type="button" class="code-copy-button is-visible ai-file-task-sidebar__copy" data-action="copy-result" title="${escapeHtml(t('aiFileTask.copyResult'))}" aria-label="${escapeHtml(t('aiFileTask.copyResult'))}" hidden>${copyButtonIcon()}</button>
+            <section class="ai-file-task-sidebar__request">
+                <div class="ai-file-task-sidebar__processing" data-ref="processing" hidden role="status" aria-live="polite">
+                    <div><span>${escapeHtml(t('aiFileTask.processingLabel'))}</span><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>
                 </div>
-            </footer>
+                <textarea id="aiFileTaskInstruction" name="instruction" rows="3" placeholder="${escapeHtml(t('aiFileTask.instruction'))}" aria-label="${escapeHtml(t('aiFileTask.instruction'))}" aria-describedby="aiFileTaskRequestHint"></textarea>
+                <div class="ai-file-task-sidebar__request-footer">
+                    <span id="aiFileTaskRequestHint" data-ref="request-hint"></span>
+                    <button type="button" class="ai-file-task-sidebar__run" data-action="run">${escapeHtml(t('aiFileTask.run'))}</button>
+                </div>
+            </section>
         `;
-        contentArea.appendChild(root);
+        // 侧栏与文档区域同级，从工具栏顶部开始；不占用文档内容区内部的高度。
+        workspace.appendChild(root);
         this.root = root;
 
         const savedWidth = Number(layoutStore.get('width', DEFAULT_WIDTH));
-        root.style.flexBasis = `${Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, savedWidth))}px`;
+        root.style.width = `${Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, savedWidth))}px`;
         this.bindEvents();
         this.resizeCleanup = this.setupResize();
     }
@@ -219,13 +313,15 @@ export class AiFileTaskSidebar {
     /** 绑定组件级交互。 */
     bindEvents() {
         this.cleanups.push(addClickHandler(this.root, (event) => {
-            const action = event.target?.closest?.('[data-action]')?.dataset?.action;
-            if (!action) return;
+            const button = event.target?.closest?.('[data-action]');
+            const action = button?.dataset?.action;
+            if (!action || button.disabled) return;
+            const message = button.closest('.ai-file-task-sidebar__message');
             if (action === 'close') this.close();
             if (action === 'run') void this.run();
-            if (action === 'copy-result') void this.copyResult();
-            if (action === 'open-result') void this.openResult();
-            if (action === 'insert-result') this.insertCurrentResult();
+            if (action === 'copy-result') void this.copyResult(message, button);
+            if (action === 'open-result') void this.openResult(message);
+            if (action === 'insert-result') this.insertCurrentResult(message);
             if (action === 'toggle-edit') this.toggleEdit();
             if (action === 'undo-result') this.undoResult();
             if (action === 'new-task') this.startNewTask();
@@ -235,6 +331,11 @@ export class AiFileTaskSidebar {
         }));
 
         const onInput = (event) => {
+            if (event.target?.matches?.('[name="instruction"]')) {
+                this.inputInstruction = event.target.value;
+                this.inputDrafts.set(this.currentPath, this.inputInstruction);
+                return;
+            }
             if (!event.target?.matches?.('[data-ref="draft-editor"]')) return;
             this.result = { ...(this.result || {}), content: event.target.value };
             this.schedulePersist();
@@ -245,9 +346,13 @@ export class AiFileTaskSidebar {
         const onKeydown = (event) => {
             if (!this.isVisible || !this.root?.contains(event.target)) return;
             if (event.key === 'Escape' && !this.isRunning) this.close();
-            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+            // Enter 发送，Shift+Enter 换行；WebKit 的输入法确认可能只通过 keyCode 229 标记。
+            if (event.key === 'Enter' && !event.shiftKey && !event.altKey
+                && !event.isComposing && event.keyCode !== 229
+                && event.target?.matches?.('[name="instruction"]')) {
                 event.preventDefault();
-                void this.run();
+                event.stopPropagation();
+                if (!event.repeat) void this.run();
             }
         };
         document.addEventListener('keydown', onKeydown, true);
@@ -283,7 +388,7 @@ export class AiFileTaskSidebar {
         const onMove = event => {
             if (pointerId === null || event.pointerId !== pointerId) return;
             const width = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth - (event.clientX - startX)));
-            this.root.style.flexBasis = `${width}px`;
+            this.root.style.width = `${width}px`;
         };
         resizer.addEventListener('pointerdown', onDown);
         resizer.addEventListener('pointermove', onMove);
@@ -304,6 +409,9 @@ export class AiFileTaskSidebar {
         this.currentPath = path;
         this.pendingPath = '';
         this.result = saved?.content ? { content: saved.content } : null;
+        this.messages = restoreConversation(saved);
+        this.inputInstruction = this.inputDrafts.get(path) || '';
+        this.pendingInstruction = '';
         this.initialInstruction = saved?.initialInstruction || '';
         this.lastInstruction = saved?.lastInstruction || '';
         this.previousContent = saved?.previousContent || '';
@@ -320,50 +428,76 @@ export class AiFileTaskSidebar {
             path.title = this.currentPath;
         }
         const instruction = this.root.querySelector('[name="instruction"]');
-        // 保留最近一次提示词，方便用户核对、微调后继续提交。
-        if (instruction) instruction.value = this.lastInstruction || '';
-        const label = this.root.querySelector('[data-ref="instruction-label"]');
-        if (label) label.textContent = this.result ? t('aiFileTask.refineInstruction') : t('aiFileTask.instruction');
-        const hint = this.root.querySelector('[data-ref="request-hint"]');
-        if (hint) hint.textContent = this.result ? t('aiFileTask.refineHint') : t('aiFileTask.firstRunHint');
-        this.renderDraft();
+        if (instruction) instruction.value = this.inputInstruction;
+        this.syncComposer();
+        this.renderConversation();
         this.syncActions();
-        this.setStatus(this.result ? t('aiFileTask.draftReady') : '');
+        this.setStatus(this.isRunning ? t('aiFileTask.running') : (this.result ? t('aiFileTask.draftReady') : ''));
+    }
+
+    /** 渲染完整问答；最新回答由工作稿区域承接，先前消息保持只读。 */
+    renderConversation() {
+        const container = this.root?.querySelector('[data-ref="messages"]');
+        if (!container) return;
+        this.root.querySelector('[data-ref="pending-message"]')?.remove();
+        // 最后一条助手回复显示为可编辑工作稿，避免在时间线中重复展示。
+        const visibleMessages = this.result && this.messages.at(-1)?.role === 'assistant'
+            ? this.messages.slice(0, -1) : this.messages;
+        container.innerHTML = visibleMessages.map((message, index) => `
+            <article class="ai-file-task-sidebar__message" data-role="${message.role}" data-message-index="${index}">
+                ${renderMessageContents(message.role, message.content)}
+            </article>
+        `).join('');
+        this.renderDraft();
+        if (this.pendingInstruction) {
+            const pending = document.createElement('article');
+            pending.className = 'ai-file-task-sidebar__message';
+            pending.dataset.role = 'user';
+            pending.dataset.ref = 'pending-message';
+            pending.innerHTML = renderMessageContents('user', this.pendingInstruction);
+            container.parentElement.insertBefore(pending, this.root.querySelector('[data-ref="status"]'));
+        }
+        this.scrollConversationToBottom();
+    }
+
+    /** 将新问答滚入可见区域，不影响底部输入框的位置。 */
+    scrollConversationToBottom() {
+        const conversation = this.root?.querySelector('[data-ref="conversation"]');
+        if (conversation) conversation.scrollTop = conversation.scrollHeight;
     }
 
     /** 渲染工作稿预览或 Markdown 编辑器。 */
     renderDraft() {
         const draft = this.root?.querySelector('[data-ref="draft"]');
         if (!draft) return;
-        if (!this.result?.content) {
-            draft.innerHTML = `<div class="ai-file-task-sidebar__empty">${escapeHtml(t('aiFileTask.workspacePlaceholder'))}</div>`;
+        const hasResult = Boolean(this.result?.content);
+        draft.classList.toggle('ai-file-task-sidebar__message', hasResult);
+        if (hasResult) draft.dataset.role = 'assistant';
+        else delete draft.dataset.role;
+        if (!hasResult) {
+            draft.innerHTML = this.pendingInstruction ? '' : `<div class="ai-file-task-sidebar__empty">${escapeHtml(t('aiFileTask.workspacePlaceholder'))}</div>`;
             return;
         }
-        const editLabel = this.isEditing ? t('aiFileTask.previewResult') : t('aiFileTask.editResult');
-        draft.innerHTML = `
-            <div class="ai-file-task-sidebar__draft-header">
-                <strong>${escapeHtml(t('aiFileTask.draftTitle'))}</strong>
-                <div>
-                    <button type="button" data-action="undo-result" ${this.previousContent ? '' : 'disabled'}>${escapeHtml(t('common.undo'))}</button>
-                    <button type="button" data-action="toggle-edit">${escapeHtml(editLabel)}</button>
-                </div>
-            </div>
-            ${this.isEditing
-                ? `<textarea class="ai-file-task-sidebar__draft-editor" data-ref="draft-editor" spellcheck="true">${escapeHtml(this.result.content)}</textarea>`
-                : `<article class="ai-file-task__answer ai-file-task-sidebar__preview">${renderBasicMarkdown(this.result.content)}</article>`}
-        `;
-    }
-
-    /** 根据是否存在工作稿启用底部操作。 */
-    syncActions() {
-        const hasResult = Boolean(this.result?.content?.trim());
-        ['new-task', 'insert-result', 'open-result', 'copy-result'].forEach(action => {
-            const button = this.root?.querySelector(`[data-action="${action}"]`);
-            if (button) button.hidden = !hasResult;
+        draft.innerHTML = renderMessageContents('assistant', this.result.content, {
+            editable: true,
+            isEditing: this.isEditing,
+            previousContent: this.previousContent,
         });
     }
 
-    /** 把最新提示词和可用资料交给同一个自主任务执行器。 */
+    /** 新对话属于对话头部；各条回复的操作随生成状态统一启用或禁用。 */
+    syncActions() {
+        const hasResult = Boolean(this.result?.content?.trim());
+        const newChat = this.root?.querySelector('[data-action="new-task"]');
+        if (newChat) newChat.hidden = !hasResult && this.messages.length === 0;
+        this.root?.querySelectorAll('button, textarea').forEach(element => {
+            if (element.dataset.action === 'close') return;
+            element.disabled = this.isRunning
+                || (element.dataset.action === 'undo-result' && !this.previousContent);
+        });
+    }
+
+    /** 提交当前提问与已完成的问答，失败或取消时保留此前工作稿和历史。 */
     async run() {
         if (!this.root || !this.currentPath || this.isRunning) return;
         this.captureDraftEditor();
@@ -375,26 +509,33 @@ export class AiFileTaskSidebar {
         }
 
         const task = this.session.begin(this.currentPath);
+        // shared 预览槽会在用户打开其他文件时被复用；固定源文档后，AI 任务期间仍可从独立 tab 返回。
+        this.pinDocument?.(task.sourcePath);
+        this.onTaskStateChange?.(task.sourcePath, 'working');
         const oldContent = this.result?.content || '';
-        // 新提示词代表一轮新的输出。上一版仅保留在本次请求的内存上下文中，
-        // 不再继续显示或作为“当前结果”持久化，避免用户误认为旧稿是本轮产物。
-        this.result = null;
+        this.flushPersist();
+        const history = normalizeConversation(this.messages);
+        this.pendingInstruction = instruction;
+        // 点击发送即提交输入；处理中仅在时间线保留本轮提问，不在输入框重复显示。
+        this.inputInstruction = '';
+        this.inputDrafts.delete(this.currentPath);
+        if (input) input.value = '';
         this.isEditing = false;
-        this.resultStore.remove(this.currentPath);
-        this.renderDraft();
+        this.renderConversation();
         this.syncActions();
         this.setBusy(true);
         try {
             const fileContent = await this.readCurrentFileContent(task.sourcePath);
-            if (!this.session.isCurrent(task) || !this.isVisible) return;
+            if (!this.session.isCurrent(task)) return;
             const result = await this.service.runTask({
                 filePath: task.sourcePath,
                 fileContent,
                 currentResult: oldContent,
                 initialInstruction: this.initialInstruction,
+                messages: history,
                 instruction,
                 createDocument: async ({ filename, content }) => {
-                    if (!this.session.isCurrent(task) || !this.isVisible) {
+                    if (!this.session.isCurrent(task)) {
                         throw new Error('当前文档任务已经失效');
                     }
                     if (typeof this.openResultAsUntitled !== 'function') {
@@ -408,30 +549,71 @@ export class AiFileTaskSidebar {
                     return { path, filename: safeFilename };
                 },
             });
+            if (!this.session.isCurrent(task)) return;
             if (!this.initialInstruction) this.initialInstruction = instruction;
             if (!this.filename) this.filename = createFallbackFilename(task.sourcePath);
-            if (!this.session.isCurrent(task) || !this.isVisible) return;
             this.previousContent = oldContent;
             this.lastInstruction = instruction;
             this.result = { content: result.content };
+            this.messages = normalizeConversation([
+                ...history,
+                { role: 'user', content: instruction },
+                { role: 'assistant', content: result.content },
+            ]);
+            this.pendingInstruction = '';
+            this.inputInstruction = '';
+            this.inputDrafts.delete(task.sourcePath);
+            if (input) input.value = '';
             this.isEditing = false;
             this.persistCurrentResult();
-            this.renderDraft();
+            this.onTaskStateChange?.(task.sourcePath, 'done');
+            this.renderConversation();
             this.syncActions();
             this.setStatus(t('aiFileTask.done'), 'success');
         } catch (error) {
-            if (!this.session.isCurrent(task) || !this.isVisible) return;
+            if (!this.session.isCurrent(task)) return;
+            this.restorePendingInstruction();
+            this.pendingInstruction = '';
+            this.renderConversation();
+            this.onTaskStateChange?.(task.sourcePath, 'error');
             this.setStatus(error?.message || String(error), 'error');
         } finally {
             if (!this.session.isCurrent(task)) return;
             this.setBusy(false);
-            if (this.pendingPath && this.isVisible) {
+            this.syncActions();
+            this.syncComposer(true);
+            if (this.pendingPath) {
                 const nextPath = this.pendingPath;
+                const shouldShow = this.pendingVisibility;
                 this.pendingPath = '';
+                this.pendingVisibility = false;
                 this.loadDocument(nextPath);
-                this.syncView();
+                if (shouldShow) this.showForTab(false);
+                else this.hideForTabSwitch();
             }
         }
+    }
+
+    /** 失败或取消时恢复尚未完成的提问，确保用户可以直接重试。 */
+    restorePendingInstruction() {
+        if (!this.pendingInstruction) return;
+        this.inputInstruction = this.pendingInstruction;
+        this.inputDrafts.set(this.currentPath, this.inputInstruction);
+        const input = this.root?.querySelector('[name="instruction"]');
+        if (input) input.value = this.inputInstruction;
+    }
+
+    /** 用输入框占位文字与无障碍名称提示续聊，不额外占用一行标题。 */
+    syncComposer(focusInput = false) {
+        const input = this.root?.querySelector('[name="instruction"]');
+        if (input) {
+            const label = this.result ? t('aiFileTask.refineInstruction') : t('aiFileTask.instruction');
+            input.placeholder = label;
+            input.setAttribute('aria-label', label);
+        }
+        const hint = this.root?.querySelector('[data-ref="request-hint"]');
+        if (hint) hint.textContent = this.result ? t('aiFileTask.refineHint') : t('aiFileTask.firstRunHint');
+        if (focusInput && this.isVisible && !this.pendingPath) input?.focus();
     }
 
     /** 读取当前文档内容，优先取编辑器内存快照。 */
@@ -474,11 +656,17 @@ export class AiFileTaskSidebar {
         this.setStatus(t('aiFileTask.undoDone'), 'success');
     }
 
-    /** 清空当前文档的工作稿，开始一次独立任务。 */
+    /** 清空当前文档的工作稿与问答历史，开始一次新对话。 */
     startNewTask() {
         if (this.isRunning) return;
+        if (this.persistTimer !== null) window.clearTimeout(this.persistTimer);
+        this.persistTimer = null;
         this.resultStore.remove(this.currentPath);
         this.result = null;
+        this.messages = [];
+        this.inputInstruction = '';
+        this.pendingInstruction = '';
+        this.inputDrafts.delete(this.currentPath);
         this.initialInstruction = '';
         this.lastInstruction = '';
         this.previousContent = '';
@@ -488,10 +676,20 @@ export class AiFileTaskSidebar {
         this.root?.querySelector('[name="instruction"]')?.focus();
     }
 
-    /** 把当前工作稿插入当前活动编辑器。 */
-    insertCurrentResult() {
-        this.captureDraftEditor();
-        const content = this.result?.content?.trim();
+    /** 读取指定回复正文；最新回复优先同步编辑器，历史回复按消息索引读取。 */
+    getReplyContent(message) {
+        if (!message || message.dataset.ref === 'draft') {
+            this.captureDraftEditor();
+            return this.result?.content?.trim() || '';
+        }
+        const index = Number(message.dataset.messageIndex);
+        const reply = Number.isInteger(index) ? this.messages[index] : null;
+        return reply?.role === 'assistant' ? reply.content.trim() : '';
+    }
+
+    /** 将选中的回复插入当前活动编辑器。 */
+    insertCurrentResult(message) {
+        const content = this.getReplyContent(message);
         if (!content || typeof this.insertResult !== 'function') return;
         const inserted = this.insertResult(content);
         this.setStatus(
@@ -500,10 +698,9 @@ export class AiFileTaskSidebar {
         );
     }
 
-    /** 将当前工作稿打开为临时 Markdown 文档。 */
-    async openResult() {
-        this.captureDraftEditor();
-        const content = this.result?.content?.trim();
+    /** 将选中的回复打开为临时 Markdown 文档。 */
+    async openResult(message) {
+        const content = this.getReplyContent(message);
         if (!content || typeof this.openResultAsUntitled !== 'function') return;
         try {
             await this.openResultAsUntitled({
@@ -515,23 +712,24 @@ export class AiFileTaskSidebar {
         }
     }
 
-    /** 复制当前工作稿，并复用全局复制按钮反馈。 */
-    async copyResult() {
-        this.captureDraftEditor();
-        const content = this.result?.content?.trim();
+    /** 复制选中的回复，反馈只显示在本条回复的复制按钮上。 */
+    async copyResult(message, button = message?.querySelector('[data-action="copy-result"]')) {
+        const content = this.getReplyContent(message);
         if (!content) return;
+        const sourcePath = this.currentPath;
         try {
             await navigator.clipboard.writeText(content);
-            const button = this.root?.querySelector('[data-action="copy-result"]');
-            if (button) {
+            if (this.currentPath !== sourcePath) return;
+            this.restoreCopyButton();
+            if (button && this.root?.contains(button)) {
+                this.copyFeedbackButton = button;
                 button.classList.add('copy-success');
                 button.innerHTML = copyButtonIcon({ success: true });
+                this.copyFeedbackTimer = window.setTimeout(() => this.restoreCopyButton(), 1600);
             }
             this.setStatus(t('aiFileTask.copied'), 'success');
-            this.clearCopyFeedback();
-            this.copyFeedbackTimer = window.setTimeout(() => this.restoreCopyButton(), 1600);
         } catch (error) {
-            this.setStatus(error?.message || String(error), 'error');
+            if (this.currentPath === sourcePath) this.setStatus(error?.message || String(error), 'error');
         }
     }
 
@@ -543,8 +741,9 @@ export class AiFileTaskSidebar {
 
     /** 恢复复制按钮默认图标。 */
     restoreCopyButton() {
-        this.copyFeedbackTimer = null;
-        const button = this.root?.querySelector('[data-action="copy-result"]');
+        this.clearCopyFeedback();
+        const button = this.copyFeedbackButton;
+        this.copyFeedbackButton = null;
         if (!button) return;
         button.classList.remove('copy-success');
         button.innerHTML = copyButtonIcon();
@@ -567,16 +766,20 @@ export class AiFileTaskSidebar {
         this.persistCurrentResult();
     }
 
-    /** 持久化当前文档的单一工作稿状态。 */
+    /** 持久化当前文档的工作稿与完整问答历史。 */
     persistCurrentResult() {
         const content = this.result?.content?.trim();
         if (!this.currentPath || !content) return;
+        // 工作稿允许用户编辑或撤销，下一轮历史与界面上的最新回答保持一致。
+        const latest = this.messages.at(-1);
+        if (latest?.role === 'assistant') latest.content = content;
         this.resultStore.set(this.currentPath, {
             content,
             initialInstruction: this.initialInstruction,
             lastInstruction: this.lastInstruction,
             previousContent: this.previousContent,
             filename: this.filename,
+            messages: this.messages,
         });
     }
 
@@ -598,19 +801,32 @@ export class AiFileTaskSidebar {
         }
     }
 
-    /** 更新底部状态。 */
+    /** 将操作状态显示在对话末尾，随消息滚动，不占用固定输入区域。 */
     setStatus(message, state = 'info') {
         const status = this.root?.querySelector('[data-ref="status"]');
         if (!status) return;
+        const conversation = this.root.querySelector('[data-ref="conversation"]');
+        const isAtBottom = conversation
+            && conversation.scrollHeight - conversation.scrollTop - conversation.clientHeight <= 2;
         status.textContent = message || '';
         status.dataset.state = state;
+        status.hidden = !message;
+        // 状态出现会增加时间线高度；只在用户已位于底部时继续跟随，保留历史阅读位置。
+        if (isAtBottom) this.scrollConversationToBottom();
     }
 
     /** 关闭侧栏并停止接收当前请求结果。 */
     close() {
         this.flushPersist();
+        if (this.isRunning && this.currentPath) {
+            this.onTaskStateChange?.(this.currentPath, 'idle');
+        }
         this.session.cancel();
+        this.restorePendingInstruction();
+        this.pendingInstruction = '';
+        this.renderConversation();
         this.pendingPath = '';
+        this.pendingVisibility = false;
         this.setBusy(false);
         this.root?.classList.remove('is-visible');
         if (this.root) this.root.style.display = 'none';

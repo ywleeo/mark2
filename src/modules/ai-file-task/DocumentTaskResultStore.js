@@ -1,11 +1,19 @@
 import { createStore } from '../../services/storage.js';
+import { restoreConversation } from './DocumentTaskConversation.js';
 
 const RECORDS_KEY = 'documents';
 const DEFAULT_MAX_ENTRIES = 30;
 const DEFAULT_MAX_CHARS = 750_000;
 
+/** 统计完整记录字符数，历史问答与编辑草稿都计入存储预算。 */
+function countRecordChars(record) {
+    return ['content', 'initialInstruction', 'instruction', 'lastInstruction', 'previousContent', 'filename']
+        .reduce((sum, key) => sum + String(record[key] || '').length, 0)
+        + restoreConversation(record).reduce((sum, message) => sum + message.content.length, 0);
+}
+
 /**
- * 按文档持久化 AI 文档任务的最后一次面板回答。
+ * 按文档持久化 AI 对话历史与当前可编辑工作稿，兼容旧版单次回答。
  * 采用有界 LRU 列表，避免模型长回答持续占用 localStorage。
  */
 export class DocumentTaskResultStore {
@@ -32,6 +40,7 @@ export class DocumentTaskResultStore {
             lastInstruction: record.lastInstruction || '',
             previousContent: record.previousContent || '',
             filename: record.filename || '',
+            messages: restoreConversation(record),
             updatedAt: record.updatedAt,
         };
     }
@@ -47,23 +56,13 @@ export class DocumentTaskResultStore {
         previousContent = '',
         filename = '',
         instruction = '',
+        messages,
     }) {
         const normalizedContent = String(content || '').trim();
         const normalizedInitialInstruction = String(initialInstruction || instruction || '');
         const normalizedLastInstruction = String(lastInstruction || '');
         const normalizedPreviousContent = String(previousContent || '');
         const normalizedFilename = String(filename || '');
-        const recordChars = normalizedContent.length
-            + normalizedInitialInstruction.length
-            + normalizedLastInstruction.length
-            + normalizedPreviousContent.length
-            + normalizedFilename.length;
-        if (
-            !path
-            || !normalizedContent
-            || recordChars > this.maxChars
-        ) return false;
-
         const nextRecord = {
             path,
             content: normalizedContent,
@@ -73,6 +72,12 @@ export class DocumentTaskResultStore {
             filename: normalizedFilename,
             updatedAt: Date.now(),
         };
+        nextRecord.messages = restoreConversation({ ...nextRecord, messages });
+        // 存储预算不足时先逐轮淘汰旧历史，最新完整回答与工作稿不截断。
+        while (nextRecord.messages.length > 2 && countRecordChars(nextRecord) > this.maxChars) {
+            nextRecord.messages.splice(0, 2);
+        }
+        if (!path || !normalizedContent || countRecordChars(nextRecord) > this.maxChars) return false;
         const records = [
             nextRecord,
             ...this.readRecords().filter(item => item.path !== path),
@@ -80,11 +85,7 @@ export class DocumentTaskResultStore {
         const bounded = [];
         let totalChars = 0;
         for (const record of records) {
-            const currentRecordChars = record.content.length
-                + String(record.initialInstruction || record.instruction || '').length
-                + String(record.lastInstruction || '').length
-                + String(record.previousContent || '').length
-                + String(record.filename || '').length;
+            const currentRecordChars = countRecordChars(record);
             if (bounded.length >= this.maxEntries || totalChars + currentRecordChars > this.maxChars) continue;
             bounded.push(record);
             totalChars += currentRecordChars;

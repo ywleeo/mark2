@@ -38,6 +38,7 @@ import { EVENT_IDS } from '../core/eventIds.js';
 import { PaneLayout } from '../components/PaneLayout.js';
 import { SecondaryPaneRuntime } from './secondaryPaneRuntime.js';
 import { createWorkspaceSearchController } from '../modules/workspaceSearchController.js';
+import { createTabSidebarStateController } from './tabSidebarStateController.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -399,6 +400,8 @@ export function createAppBootstrap({
 
         const aiFileTaskSidebar = new AiFileTaskSidebar({
             fileService: appServices.file,
+            pinDocument: (path) => documentManager?.pinDocument?.(path, { activate: false }),
+            onTaskStateChange: (path, state) => appState.getTabManager()?.setAiTaskState?.(path, state),
             getFileContent: (filePath, options) => documentRegistry.getFileContent(filePath, options),
             untitledFileManager,
             saveCurrentEditorContentToCache,
@@ -419,11 +422,28 @@ export function createAppBootstrap({
             },
             getStatusBarController: () => appState.getStatusBarController(),
         });
-        const unsubscribeAiFileTaskCurrentFile = appState.onCurrentFileChange((path) => {
-            aiFileTaskSidebar.updateCurrentFile(path);
+        const tabSidebarStateController = createTabSidebarStateController({
+            initialPath: appState.getCurrentFile(),
+            getTocSidebarOpen: () => Boolean(appState.getMarkdownToolbarManager()?.toolbar?.tocPanel?.isVisible),
+            setTocSidebarOpen: (_path, isOpen) => appState.getMarkdownToolbarManager()?.setTocVisibility?.(isOpen),
+            getAiSidebarOpen: (path) => aiFileTaskSidebar.isOpenForTab(path),
+            setAiSidebarOpen: (path, isOpen) => aiFileTaskSidebar.setTabContext(path, isOpen),
+        });
+        const unsubscribeTabSidebarState = appState.onCurrentFileChange((path) => {
+            tabSidebarStateController.activate(path);
+        });
+        const unsubscribeClosedDocumentState = documentManager?.subscribe?.((event) => {
+            if (event?.type === 'close' && event.path) {
+                tabSidebarStateController.forget(event.path);
+            } else if (event?.type === 'rename' && event.oldPath && event.newPath) {
+                tabSidebarStateController.rename(event.oldPath, event.newPath);
+            }
+        });
+        appState.setCleanupFunction('tabSidebarStateController', () => {
+            unsubscribeTabSidebarState?.();
+            unsubscribeClosedDocumentState?.();
         });
         appState.setCleanupFunction('aiFileTaskSidebar', () => {
-            unsubscribeAiFileTaskCurrentFile();
             aiFileTaskSidebar.destroy();
         });
 

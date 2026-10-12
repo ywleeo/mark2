@@ -11,6 +11,14 @@ import {
     resolveMarkdownTheme,
 } from '../src/config/appSkins.js';
 
+/** 从单个配色选择器块中读取十六进制颜色变量。 */
+function readPaletteHex(css, selector, variable) {
+    const start = css.indexOf(selector);
+    const blockStart = css.indexOf('{', start);
+    const block = css.slice(blockStart, css.indexOf('}', blockStart));
+    return block.match(new RegExp(`${variable}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
+}
+
 /** 未知或旧版设置必须稳定回退到经典皮肤。 */
 test('未知皮肤回退经典，旧 Markdown 主题保持不变', () => {
     assert.equal(normalizeAppSkin(undefined), 'classic');
@@ -63,26 +71,24 @@ test('Classic 配色完整覆盖黑白、森绿与鸢尾的明暗变量', async 
     assert.doesNotMatch(css, /:root\[data-app-skin='classic'\]\s*\{/);
 });
 
-/** 有色 Classic 方案的 Sidebar、Toolbar 与 View 必须属于同一低色差底色体系。 */
-test('Classic 有色方案协调 Sidebar 与 View 背景', async () => {
+/** 设置预览必须反映实际配色，Classic 的 View 与正文保持连续。 */
+test('Classic 有色方案的设置预览与 View 使用相同颜色', async () => {
     const css = await readFile(new URL('../styles/color-schemes/classic.css', import.meta.url), 'utf8');
 
     for (const scheme of ['forest', 'violet']) {
         const selector = `[data-color-scheme='${scheme}'][data-theme-appearance='light']`;
-        const start = css.indexOf(selector);
-        const block = css.slice(css.indexOf('{', start), css.indexOf('}', css.indexOf('{', start)));
-        const readHex = variable => block.match(new RegExp(`${variable}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
-        const sidebar = readHex('--classic-palette-sidebar');
-        const content = readHex('--classic-palette-content');
-        const paper = readHex('--classic-palette-md-paper');
-        const channelDistance = (left, right) => left.slice(1).match(/../g)
-            .reduce((sum, channel, index) => {
-                const other = right.slice(1).match(/../g)[index];
-                return sum + Math.abs(Number.parseInt(channel, 16) - Number.parseInt(other, 16));
-            }, 0);
+        const sidebar = readPaletteHex(css, selector, '--classic-palette-sidebar');
+        const content = readPaletteHex(css, selector, '--classic-palette-content');
+        const paper = readPaletteHex(css, selector, '--classic-palette-md-paper');
 
         assert.equal(content, paper, `${scheme} 的 View 与 Markdown 纸面应该连续`);
-        assert.ok(channelDistance(sidebar, content) <= 18, `${scheme} 的 Sidebar 与 View 色差过大`);
+        const metadata = getAppColorSchemes('classic').find(entry => entry.id === scheme);
+        assert.equal(metadata.previewPage, paper, `${scheme} 的设置预览纸面与 View 不一致`);
+        assert.deepEqual(metadata.preview, [
+            sidebar,
+            readPaletteHex(css, selector, '--classic-palette-ink'),
+            readPaletteHex(css, selector, '--classic-palette-accent'),
+        ], `${scheme} 的设置预览与实际配色不一致`);
     }
     assert.match(css, /--classic-toolbar-bg:/);
     assert.match(css, /--markdown-view-bg:\s*var\(--classic-palette-md-paper\)/);
@@ -113,6 +119,47 @@ test('Editorial 配色完整覆盖红陶、松墨与靛青的明暗变量', asyn
     assert.match(css, /--editorial-palette-accent:/);
     assert.match(css, /--editorial-palette-chart-series:/);
     assert.doesNotMatch(css, /\.(?:sidebar|tab-bar|markdown-toolbar)\s*\{/);
+});
+
+/** Editorial 设置预览、正文和嵌入 HTML 必须消费同一纸面，暗色方案保持独立。 */
+test('Editorial 松墨与靛青的预览和嵌入 HTML 颜色保持一致', async () => {
+    const css = await readFile(new URL('../styles/color-schemes/editorial.css', import.meta.url), 'utf8');
+    const mediaStream = await readFile(new URL('../src-tauri/src/media_stream.rs', import.meta.url), 'utf8');
+    const terracottaDark = readPaletteHex(
+        css,
+        `[data-color-scheme='terracotta'][data-theme-appearance='dark']`,
+        '--editorial-palette-paper',
+    );
+
+    for (const scheme of ['pine', 'indigo']) {
+        const lightSelector = `[data-color-scheme='${scheme}'][data-theme-appearance='light']`;
+        const darkSelector = `[data-color-scheme='${scheme}'][data-theme-appearance='dark']`;
+        const paper = readPaletteHex(css, lightSelector, '--editorial-palette-paper');
+        const rail = readPaletteHex(css, lightSelector, '--editorial-palette-rail');
+        const darkPaper = readPaletteHex(css, darkSelector, '--editorial-palette-paper');
+
+        const metadata = getAppColorSchemes('editorial').find(entry => entry.id === scheme);
+        assert.equal(metadata.previewPage, paper, `${scheme} 的设置预览纸面与 View 不一致`);
+        assert.deepEqual(metadata.preview, [
+            rail,
+            readPaletteHex(css, lightSelector, '--editorial-palette-ink'),
+            readPaletteHex(css, lightSelector, '--editorial-palette-accent'),
+        ], `${scheme} 的设置预览与实际配色不一致`);
+        assert.ok(mediaStream.includes(`("editorial", "${scheme}", false) => "${paper}"`), `${scheme} 的嵌入 HTML 台面与 View 不一致`);
+        assert.notEqual(darkPaper, terracottaDark, `${scheme} 暗色与红陶应保持独立`);
+    }
+
+    const pineDark = readPaletteHex(
+        css,
+        `[data-color-scheme='pine'][data-theme-appearance='dark']`,
+        '--editorial-palette-paper',
+    );
+    const indigoDark = readPaletteHex(
+        css,
+        `[data-color-scheme='indigo'][data-theme-appearance='dark']`,
+        '--editorial-palette-paper',
+    );
+    assert.notEqual(pineDark, indigoDark, '松墨与靛青暗色方案应保持独立');
 });
 
 /** 用户选择的编辑器字体必须同时作用于编辑部主题的正文和一级标题。 */

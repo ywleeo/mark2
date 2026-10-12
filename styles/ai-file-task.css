@@ -1,17 +1,55 @@
-/* AI 工作稿侧栏：内嵌于 content-area，始终挤压而不遮挡文档。 */
+/* AI 对话侧栏：与工具栏顶部对齐，始终挤压而不遮挡文档。 */
+
+/* 只在 AI 侧栏可见时启用两列布局；侧栏跨越工具栏和正文两行。 */
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
+/* 补齐右侧标签栏底色，避免空白格与侧栏连成一块，造成顶部越界的观感。 */
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible)::before {
+    content: '';
+    grid-area: 1 / 2 / 2 / 3;
+    background: var(--sidebar-bg);
+    pointer-events: none;
+}
+
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .pane-header-row {
+    grid-area: 1 / 1 / 2 / 2;
+}
+
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .md-toolbar {
+    grid-area: 2 / 1 / 3 / 2;
+    min-width: 0;
+}
+
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .content-area {
+    grid-area: 3 / 1 / 4 / 2;
+    min-width: 0;
+}
+
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .status-bar {
+    grid-area: 4 / 1 / 5 / 3;
+}
+
 .ai-file-task-sidebar {
-    --ai-task-bg: rgba(249, 249, 250, 0.96);
-    --ai-task-surface: rgba(0, 0, 0, 0.035);
-    --ai-task-surface-hover: rgba(0, 0, 0, 0.06);
-    --ai-task-border: rgba(15, 23, 42, 0.08);
-    --ai-task-border-strong: rgba(15, 23, 42, 0.14);
-    --ai-task-text: rgba(24, 28, 34, 0.9);
-    --ai-task-muted: rgba(24, 28, 34, 0.5);
+    /* 所有颜色消费当前皮肤的语义变量，切换配色和明暗时同步更新。 */
+    --accent-color: var(--app-accent, #4775d1);
+    --ai-task-bg: var(--content-bg);
+    --ai-task-surface: color-mix(in srgb, var(--ai-task-text) 5%, var(--ai-task-bg));
+    --ai-task-surface-hover: color-mix(in srgb, var(--ai-task-text) 9%, var(--ai-task-bg));
+    --ai-task-border: color-mix(in srgb, var(--border-color) 60%, transparent);
+    --ai-task-border-strong: var(--border-color);
+    --ai-task-text: var(--body-text-color);
+    --ai-task-muted: var(--text-secondary);
+    --ai-task-answer-bg: var(--ai-task-surface);
+    --ai-task-user-bg: color-mix(in srgb, var(--accent-color, #4775d1) 11%, var(--ai-task-bg));
     position: relative;
-    flex: 0 0 340px;
+    grid-area: 2 / 2 / 4 / 3;
+    width: 340px;
     min-width: 280px;
     max-width: min(560px, 52vw);
-    height: 100%;
     min-height: 0;
     overflow: hidden;
     flex-direction: column;
@@ -22,17 +60,7 @@
 }
 
 :root[data-theme-appearance='dark'] .ai-file-task-sidebar {
-    --ai-task-bg: rgba(20, 21, 23, 0.97);
-    --ai-task-surface: rgba(255, 255, 255, 0.045);
-    --ai-task-surface-hover: rgba(255, 255, 255, 0.075);
-    --ai-task-border: rgba(255, 255, 255, 0.075);
-    --ai-task-border-strong: rgba(255, 255, 255, 0.14);
-    --ai-task-text: rgba(244, 245, 247, 0.9);
-    --ai-task-muted: rgba(244, 245, 247, 0.48);
-}
-
-.ai-file-task-sidebar[style*='display: none'] {
-    flex-basis: 0 !important;
+    --ai-task-user-bg: color-mix(in srgb, var(--accent-color, #4775d1) 18%, var(--ai-task-bg));
 }
 
 .ai-file-task-sidebar__resizer {
@@ -63,12 +91,13 @@ body.ai-file-task-resizing {
 }
 
 .ai-file-task-sidebar__header {
+    box-sizing: border-box;
     flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 54px;
-    padding: 9px 11px 9px 14px;
+    min-height: 48px;
+    padding: 6px 11px 6px 14px;
     border-bottom: 1px solid var(--ai-task-border);
 }
 
@@ -154,16 +183,7 @@ body.ai-file-task-resizing {
 
 .ai-file-task-sidebar__request {
     flex: 0 0 auto;
-    padding: 14px 14px 12px;
-    border-bottom: 1px solid var(--ai-task-border);
-}
-
-.ai-file-task-sidebar__request label {
-    display: block;
-    margin-bottom: 7px;
-    color: var(--ai-task-muted);
-    font-size: 10.5px;
-    font-weight: 650;
+    padding: 10px 14px 12px;
 }
 
 .ai-file-task-sidebar__request textarea,
@@ -184,6 +204,11 @@ body.ai-file-task-resizing {
     border-radius: 7px;
     font-size: 12px;
     line-height: 1.55;
+}
+
+.ai-file-task-sidebar__request textarea::placeholder {
+    color: var(--ai-task-muted);
+    opacity: 1;
 }
 
 .ai-file-task-sidebar__request textarea:focus,
@@ -224,11 +249,10 @@ body.ai-file-task-resizing {
     background: var(--ai-task-surface-hover);
 }
 
+/* 运行提示属于输入区，与输入框左边缘对齐，只留 6px 间距。 */
 .ai-file-task-sidebar__processing {
-    flex: 0 0 auto;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--ai-task-border);
-    background: color-mix(in srgb, var(--accent-color, #4775d1) 4%, transparent);
+    margin-bottom: 6px;
+    color: var(--ai-task-muted);
 }
 
 .ai-file-task-sidebar__processing[hidden] {
@@ -240,15 +264,19 @@ body.ai-file-task-resizing {
     align-items: center;
     gap: 5px;
     font-size: 11.5px;
+    line-height: 18px;
+    white-space: nowrap;
 }
 
-.ai-file-task-sidebar__processing strong {
-    margin-right: 2px;
-    color: var(--accent-color, #4775d1);
-    font-size: 10.5px;
+/* 状态只占一行，窄窗口省略文字，保留动态点。 */
+.ai-file-task-sidebar__processing > div > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ai-file-task-sidebar__processing i {
+    flex-shrink: 0;
     width: 3px;
     height: 3px;
     border-radius: 50%;
@@ -264,52 +292,124 @@ body.ai-file-task-resizing {
     animation-delay: 0.28s;
 }
 
-.ai-file-task-sidebar__processing > span {
-    display: block;
-    margin-top: 4px;
+.ai-file-task-sidebar__conversation {
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    overscroll-behavior: contain;
+    padding: 18px 14px;
+}
+
+/* 问答共用一条滚动时间线，用户气泡靠右，AI 回复靠左。 */
+.ai-file-task-sidebar__messages {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.ai-file-task-sidebar__message {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.ai-file-task-sidebar__message-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 22px;
+    margin-bottom: 6px;
     color: var(--ai-task-muted);
-    font-size: 10px;
+    font-size: 10.5px;
+}
+
+.ai-file-task-sidebar__message-author {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 650;
+}
+
+.ai-file-task-sidebar__message-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent-color, #4775d1) 12%, transparent);
+    color: var(--accent-color, #4775d1);
+}
+
+.ai-file-task-sidebar__message-avatar svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+}
+
+.ai-file-task-sidebar__message-bubble {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--ai-task-border);
+    border-radius: 4px 12px 12px 12px;
+    background: var(--ai-task-answer-bg);
+}
+
+.ai-file-task-sidebar__message[data-role='user'] {
+    align-self: flex-end;
+    width: fit-content;
+    max-width: 88%;
+    margin-left: auto;
+}
+
+.ai-file-task-sidebar__message[data-role='user'] .ai-file-task-sidebar__message-header {
+    justify-content: flex-end;
+    min-height: 16px;
+}
+
+.ai-file-task-sidebar__message[data-role='user'] .ai-file-task-sidebar__message-bubble {
+    border-color: color-mix(in srgb, var(--accent-color, #4775d1) 15%, transparent);
+    border-radius: 12px 4px 12px 12px;
+    background: var(--ai-task-user-bg);
+}
+
+.ai-file-task-sidebar__user-text {
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.55;
 }
 
 .ai-file-task-sidebar__draft {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    margin-top: 18px;
+}
+
+.ai-file-task-sidebar__messages:empty + .ai-file-task-sidebar__draft {
+    margin-top: 0;
+}
+
+.ai-file-task-sidebar__conversation > [data-ref='pending-message'] {
+    margin-top: 18px;
 }
 
 .ai-file-task-sidebar__empty {
-    margin: auto 18px;
+    margin: 32px 18px;
     color: var(--ai-task-muted);
     font-size: 11.5px;
     line-height: 1.55;
     text-align: center;
 }
 
-.ai-file-task-sidebar__draft-header {
-    flex: 0 0 auto;
+.ai-file-task-sidebar__message-actions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    min-height: 38px;
-    padding: 0 12px 0 14px;
-    border-bottom: 1px solid var(--ai-task-border);
-}
-
-.ai-file-task-sidebar__draft-header > strong {
-    color: var(--ai-task-muted);
-    font-size: 10.5px;
-    font-weight: 680;
-    text-transform: uppercase;
-}
-
-.ai-file-task-sidebar__draft-header > div {
-    display: flex;
     gap: 3px;
 }
 
-.ai-file-task-sidebar__draft-header button,
+.ai-file-task-sidebar__message-actions button,
 .ai-file-task-sidebar__text-button {
     appearance: none;
     padding: 4px 6px;
@@ -321,41 +421,38 @@ body.ai-file-task-resizing {
     cursor: pointer;
 }
 
-.ai-file-task-sidebar__draft-header button:hover:not(:disabled),
+.ai-file-task-sidebar__message-actions button:hover:not(:disabled),
 .ai-file-task-sidebar__text-button:hover {
     background: var(--ai-task-surface-hover);
     color: var(--ai-task-text);
 }
 
-.ai-file-task-sidebar__draft-header button:disabled {
+.ai-file-task-sidebar__message-actions button:disabled {
     cursor: default;
     opacity: 0.35;
 }
 
 .ai-file-task-sidebar__preview {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    padding: 14px 16px 24px;
+    padding: 0;
 }
 
-.ai-file-task-sidebar__preview::-webkit-scrollbar {
+.ai-file-task-sidebar__conversation::-webkit-scrollbar {
     width: var(--scrollbar-size, 6px);
 }
 
-.ai-file-task-sidebar__preview::-webkit-scrollbar-track {
+.ai-file-task-sidebar__conversation::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.ai-file-task-sidebar__preview::-webkit-scrollbar-thumb {
+.ai-file-task-sidebar__conversation::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb-color, rgba(92, 92, 92, 0.68));
     border-radius: 3px;
 }
 
 .ai-file-task-sidebar__draft-editor {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 14px 15px 24px;
+    min-height: 240px;
+    height: 40vh;
+    padding: 8px;
     border: 0;
     border-radius: 0;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -368,24 +465,18 @@ body.ai-file-task-resizing {
     box-shadow: inset 2px 0 var(--accent-color, #4775d1);
 }
 
-.ai-file-task-sidebar__footer {
-    flex: 0 0 auto;
+.ai-file-task-sidebar__header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-height: 36px;
-    padding: 4px 9px 4px 13px;
-    border-top: 1px solid var(--ai-task-border);
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .ai-file-task-sidebar__status {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
+    margin-top: 8px;
     color: var(--ai-task-muted);
     font-size: 10px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.5;
 }
 
 .ai-file-task-sidebar__status[data-state='success'] {
@@ -404,19 +495,32 @@ body.ai-file-task-resizing {
     color: #ff7b72;
 }
 
-.ai-file-task-sidebar__footer-actions {
+/* 回复操作位于各自气泡下方，与内容一同滚动，窄侧栏允许自然换行。 */
+.ai-file-task-sidebar__reply-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 2px;
+    margin-top: 6px;
 }
 
-.ai-file-task-sidebar__footer-actions > [hidden] {
+.ai-file-task-sidebar__header-actions > [hidden] {
     display: none;
 }
 
-.ai-file-task-sidebar__copy {
+/* 覆盖公共代码复制按钮的固定颜色，使回复操作跟随侧栏配色。 */
+.ai-file-task-sidebar .ai-file-task-sidebar__copy {
     position: static;
     flex: 0 0 auto;
+    background: transparent;
+    color: var(--ai-task-muted);
+}
+
+.ai-file-task-sidebar .ai-file-task-sidebar__copy:is(:hover, :focus-visible) {
+    background: var(--ai-task-surface-hover);
+    color: var(--ai-task-text);
+    outline-color: var(--accent-color);
 }
 
 .ai-file-task-sidebar.is-busy .ai-file-task-sidebar__preview,
@@ -490,6 +594,29 @@ body.ai-file-task-resizing {
     white-space: pre;
 }
 
+/* 表格在消息气泡内横向滚动，避免宽表挤出侧栏。 */
+.ai-file-task__answer table {
+    display: block;
+    max-width: 100%;
+    margin: 0.7em 0;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.ai-file-task__answer :is(th, td) {
+    min-width: 5em;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--ai-task-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.ai-file-task__answer th {
+    background: var(--ai-task-surface);
+    font-weight: 650;
+}
+
 .ai-file-task__answer a {
     color: var(--accent-color, #4775d1);
     text-decoration: none;
@@ -507,10 +634,6 @@ body.ai-file-task-resizing {
 @media (max-width: 760px) {
     .ai-file-task-sidebar {
         max-width: 58vw;
-    }
-
-    .ai-file-task-sidebar__text-button[data-action='insert-result'] {
-        display: none;
     }
 }
 

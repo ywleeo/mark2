@@ -558,14 +558,9 @@
 }
 
 :root[data-app-skin='editorial'] .ai-file-task-sidebar {
-    --accent-color: var(--editorial-accent);
-    --ai-task-bg: var(--editorial-paper);
-    --ai-task-surface: color-mix(in srgb, var(--editorial-ink) 5%, transparent);
-    --ai-task-surface-hover: color-mix(in srgb, var(--editorial-ink) 9%, transparent);
+    /* 消息表面沿用正文表面色，避免半透明白色覆盖造成色板偏差。 */
+    --ai-task-surface: var(--editorial-palette-md-surface);
     --ai-task-border: transparent;
-    --ai-task-border-strong: var(--editorial-rule);
-    --ai-task-text: var(--editorial-ink);
-    --ai-task-muted: var(--editorial-muted);
     border-left-color: var(--editorial-seam);
 }
 

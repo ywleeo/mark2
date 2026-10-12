@@ -354,6 +354,7 @@ menu / toolbar
 - `markdownCodeMode` / `svgCodeMode` / `csvTableMode` — 视图模式切换
 - `scratchpadPanel` — 面板模块
 - `ai-assistant/` — AI 助手
+- `ai-file-task/` — 按文档隔离的 AI 多轮对话与工作稿。`DocumentTaskConversation` 统一清理、迁移与限制完整问答历史；`DocumentTaskResultStore` 持久化历史和当前可编辑工作稿；`DocumentTaskEngine` 将历史问答放入模型消息序列，并按需读取当前文档或工作稿。侧栏挂载于 `content-wrapper`，与工具栏顶部对齐并跨越工具栏和正文，顶部空白格延续标签栏底色；每条 AI 回复下方的插入、创建文档和复制操作绑定该条回复并随内容滚动，“新对话”位于侧栏头部；输入区固定在底部，输入提示使用占位文字，生成状态与输入框对齐并仅留 6px 间距；Enter 发送、Shift+Enter 换行，输入法确认不发送；发送立即清空输入，失败或取消恢复未完成的提问且不清除已完成问答，切换 tab 后后台结果仍绑定源文档。“新对话”清空该文档历史；历史最多保留最近 20 轮，并按 120,000 字符预算淘汰旧轮次，最新一轮不截断。
 - `card-export/` — 卡片导出
 
 这一层负责把用户动作、文档状态、视图状态和工作区状态串起来。

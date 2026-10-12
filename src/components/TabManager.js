@@ -16,6 +16,8 @@ export class TabManager {
         this.sharedTabId = 'shared-preview';
         this.sharedTab = null;
         this.fileTabs = [];
+        this.aiTaskStates = new Map();
+        this.aiTaskTimers = new Map();
         this.visibleTabOrder = [];
         this.activeTabId = null;
         this.documentManager = null;
@@ -202,10 +204,18 @@ export class TabManager {
         if (!event || !event.type) return;
         const relevant = ['open', 'close', 'activate', 'rename', 'reorder', 'update', 'dirty'];
         if (!relevant.includes(event.type)) return;
+        if (event.type === 'close' && event.path) {
+            this.aiTaskStates.delete(event.path);
+            this.clearAiTaskTimer(event.path);
+        }
         if (event.type === 'rename' && event.oldPath && event.newPath) {
             this.visibleTabOrder = this.visibleTabOrder.map((tabId) => (
                 tabId === event.oldPath ? event.newPath : tabId
             ));
+            if (this.aiTaskStates.has(event.oldPath)) {
+                this.aiTaskStates.set(event.newPath, this.aiTaskStates.get(event.oldPath));
+                this.aiTaskStates.delete(event.oldPath);
+            }
         }
         // 同步重建，避免调用方读 fileTabs 时看到过期状态（microtask 延迟会出问题）
         this._rebuildFromDocumentManager();
@@ -214,6 +224,7 @@ export class TabManager {
     _rebuildFromDocumentManager() {
         const dm = this.documentManager;
         if (!dm) return;
+        const previousActiveTabId = this.activeTabId;
         const openDocs = typeof dm.getOpenDocuments === 'function' ? dm.getOpenDocuments() : [];
         const activePath = typeof dm.getActivePath === 'function' ? dm.getActivePath() : null;
 
@@ -228,6 +239,7 @@ export class TabManager {
                 label: doc.label || existing?.label || fallbackLabel,
                 dirty: Boolean(doc.dirty),
                 syncing: Boolean(doc.syncing),
+                aiTaskState: this.aiTaskStates.get(doc.path) || null,
             };
         });
 
@@ -263,7 +275,61 @@ export class TabManager {
             }
         }
 
+        if (previousActiveTabId !== this.activeTabId) {
+            this.clearAiTaskTimer(previousActiveTabId);
+            if (this.aiTaskStates.get(this.activeTabId) === 'done') {
+                this.aiTaskStates.delete(this.activeTabId);
+                const activeDocumentTab = this.fileTabs.find(tab => tab.path === this.activeTabId);
+                if (activeDocumentTab) activeDocumentTab.aiTaskState = null;
+                this.clearAiTaskTimer(this.activeTabId);
+            }
+        }
+
         this.render();
+    }
+
+    /** 清除单个文档状态的自动消失定时器。 */
+    clearAiTaskTimer(path) {
+        if (!path || !this.aiTaskTimers.has(path)) return;
+        clearTimeout(this.aiTaskTimers.get(path));
+        this.aiTaskTimers.delete(path);
+    }
+
+    /** 删除完成状态，并同步清理当前 tab DOM，避免为单个指示器重建整条标签栏。 */
+    clearAiTaskState(path) {
+        if (!path) return;
+        this.aiTaskStates.delete(path);
+        this.clearAiTaskTimer(path);
+        const tab = this.fileTabs.find(item => item.path === path);
+        if (tab) tab.aiTaskState = null;
+        const tabElement = Array.from(this.container?.querySelectorAll?.('.tab') || [])
+            .find(element => element.dataset.tabId === path);
+        tabElement?.classList.remove('is-ai-done');
+        tabElement?.querySelector?.('.tab-ai-indicator')?.remove();
+    }
+
+    /**
+     * 更新指定文档 tab 上的 AI 工作状态，并立即刷新标签提示。
+     * @param {string} path - AI 任务源文档路径
+     * @param {'working'|'done'|'error'|'idle'} state - AI 任务状态
+     */
+    setAiTaskState(path, state) {
+        if (!path) return;
+        this.clearAiTaskTimer(path);
+        if (state === 'idle') this.aiTaskStates.delete(path);
+        else if (['working', 'done', 'error'].includes(state)) this.aiTaskStates.set(path, state);
+        else return;
+        this._rebuildFromDocumentManager();
+        if (!this.documentManager) this.render();
+        if (state === 'done' && this.activeTabId === path) {
+            const timer = setTimeout(() => {
+                this.aiTaskTimers.delete(path);
+                if (this.activeTabId === path && this.aiTaskStates.get(path) === 'done') {
+                    this.clearAiTaskState(path);
+                }
+            }, 3500);
+            this.aiTaskTimers.set(path, timer);
+        }
     }
 
     /**
@@ -333,7 +399,9 @@ export class TabManager {
     setActiveTab(tabId, options = {}) {
         const { force = false } = options;
         if (!tabId) {
+            const previousActiveTabId = this.activeTabId;
             this.activeTabId = null;
+            this.clearAiTaskTimer(previousActiveTabId);
             this.updateActiveState();
             if (!options.silent) {
                 this.callbacks.onTabSelect?.(null);
@@ -350,7 +418,12 @@ export class TabManager {
             return;
         }
 
+        const previousActiveTabId = this.activeTabId;
         this.activeTabId = tabId;
+        if (previousActiveTabId !== tabId) this.clearAiTaskTimer(previousActiveTabId);
+        if (this.aiTaskStates.get(tabId) === 'done') {
+            this.clearAiTaskState(tabId);
+        }
         this.updateActiveState();
 
         // 说明：不再在此处同步 dm.activateDocument / clearActiveDocument。
@@ -440,6 +513,7 @@ export class TabManager {
             tabElement.className = 'tab';
             if (tab.dirty) tabElement.classList.add('is-dirty');
             if (tab.syncing) tabElement.classList.add('is-syncing');
+            if (tab.aiTaskState) tabElement.classList.add(`is-ai-${tab.aiTaskState}`);
             tabElement.dataset.tabId = tab.id;
             tabElement.dataset.tabType = tab.type;
 
@@ -524,6 +598,19 @@ export class TabManager {
                 labelElement.className = 'tab-label';
                 labelElement.textContent = tab.label;
                 tabElement.appendChild(labelElement);
+
+                if (tab.aiTaskState) {
+                    const aiIndicator = document.createElement('span');
+                    aiIndicator.className = 'tab-ai-indicator';
+                    aiIndicator.dataset.state = tab.aiTaskState;
+                    aiIndicator.setAttribute('role', 'img');
+                    const labelKey = tab.aiTaskState === 'working'
+                        ? 'tab.aiWorking'
+                        : (tab.aiTaskState === 'done' ? 'tab.aiDone' : 'tab.aiError');
+                    aiIndicator.setAttribute('aria-label', t(labelKey));
+                    aiIndicator.title = t(labelKey);
+                    tabElement.appendChild(aiIndicator);
+                }
 
                 const closeButton = document.createElement('button');
                 closeButton.className = 'tab-close';
@@ -1173,5 +1260,7 @@ export class TabManager {
             }
         });
         this.persistentCleanups = [];
+        this.aiTaskTimers.forEach(timer => clearTimeout(timer));
+        this.aiTaskTimers.clear();
     }
 }

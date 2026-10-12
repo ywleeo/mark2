@@ -522,6 +522,23 @@ export class MarkdownToolbarManager {
     }
 
     /**
+     * 将目录面板显隐设置为目标值，供文档 tab 切换时恢复各自状态。
+     * @param {boolean} visible - 是否显示文档目录
+     * @returns {boolean} 是否成功应用状态
+     */
+    setTocVisibility(visible) {
+        if (!this.toolbar) return false;
+        if (!this.toolbar.tocPanel && visible) {
+            this.toolbar.initTocPanel();
+        }
+        const tocPanel = this.toolbar.tocPanel;
+        if (!tocPanel) return false;
+        if (visible) tocPanel.show();
+        else tocPanel.hide();
+        return true;
+    }
+
+    /**
      * 执行统一命令层派发的 Markdown 编辑动作。
      * @param {string} action - 工具栏动作名
      * @param {object} payload - 动作参数
