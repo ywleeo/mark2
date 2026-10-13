@@ -10,6 +10,7 @@ import { DocumentLibraryContextMenu } from './DocumentLibraryContextMenu.js';
 import { createDocumentContextActions } from './documentLibraryActions.js';
 import { getPathIdentityKey } from '../../utils/pathUtils.js';
 import { getDocumentCloseTarget, isDocumentWorkspace } from './documentNavigation.js';
+import { isMissingDocumentError, pruneMissingDocuments } from './documentAvailability.js';
 
 /** 创建 Editorial 文档导航，皮肤切换时保留历史和搜索输入。 */
 export function createDocumentLibraryController({ host, documentManager, fileService, recentFilesService, fileTree,
@@ -19,6 +20,7 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     let disposed = false;
     let frame = null;
     let titleTimer = null;
+    let availabilityCheck = null;
     const pendingEdits = new Set();
     const isWriting = isDocumentWorkspace;
 
@@ -67,18 +69,34 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
         });
     };
 
-    /** 点击直接替换主栏内容，不新增固定 tab；缺失文件给出反馈，不移除记录。 */
+    /** 尚未保存的内存内容必须保留入口，即使文件已在外部被删除。 */
+    const hasUnsavedContent = path => Boolean(documentRegistry?.getDocument?.(path)?.dirty
+        || documentManager.getDocumentByPath(path)?.dirty);
+
+    /** 恢复、返回窗口及切换模式时清理失效历史，重复触发共享同一次校验。 */
+    const checkAvailability = () => {
+        if (disposed || !isWriting() || availabilityCheck) return availabilityCheck;
+        availabilityCheck = pruneMissingDocuments({ history,
+            readMetadata: path => fileService.metadata(path), shouldKeep: hasUnsavedContent,
+            isCurrent: () => !disposed,
+        }).finally(() => { availabilityCheck = null; });
+        return availabilityCheck;
+    };
+
+    /** 点击直接替换主栏内容；点击期间确认文件缺失时立即清理其历史入口。 */
     const select = async path => {
         view.setStatus();
         try {
-            if (!path.startsWith('untitled://') && !await fileService.exists(path)) {
-                view.setStatus(t('documentLibrary.missing'));
-                return false;
-            }
+            if (!path.startsWith('untitled://')) await fileService.metadata(path);
             await handleFileSelect(path);
             // 导航可能被旧文档保存失败阻止；检查最终路径，不能误保存当前另一篇文档。
             return getPathIdentityKey(getCurrentPath()) === getPathIdentityKey(path);
         } catch (error) {
+            if (isMissingDocumentError(error)) {
+                if (!hasUnsavedContent(path)) history.remove(path);
+                view.setStatus(t('documentLibrary.missing'));
+                return false;
+            }
             view.setStatus(error?.message || t('documentLibrary.openFailed'));
             return false;
         }
@@ -147,8 +165,10 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
         if (!isWriting()) view.cancelRename?.();
         host.hidden = !isWriting();
         refresh();
+        void checkAvailability();
     };
     document.addEventListener('workspace-profile-changed', syncProfile);
+    window.addEventListener('focus', checkAvailability);
     syncProfile();
     return {
         /** 提供文档模式全文搜索范围，不再遍历旧工作区目录。 */
@@ -163,6 +183,7 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
             unsubscribeHistory();
             unsubscribeContent?.();
             document.removeEventListener('workspace-profile-changed', syncProfile);
+            window.removeEventListener('focus', checkAvailability);
             contextMenu.dispose();
             view.destroy();
         },

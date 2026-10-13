@@ -186,7 +186,7 @@
   "documentLibrary.remove": "從清單移除",
   "documentLibrary.empty": "開啟文件或新增一篇文件。",
   "documentLibrary.noResults": "沒有符合的文件。",
-  "documentLibrary.missing": "找不到這個文件，可以從清單移除其記錄。",
+  "documentLibrary.missing": "找不到這個文件。",
   "documentLibrary.openFailed": "無法開啟這個文件。",
   "documentLibrary.storageFailed": "無法儲存文件歷史。",
     "documentLibrary.renameFile": "重新命名檔案",

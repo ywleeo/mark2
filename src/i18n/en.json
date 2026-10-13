@@ -187,7 +187,7 @@
     "documentLibrary.remove": "Remove from list",
     "documentLibrary.empty": "Open a document or start a new one.",
     "documentLibrary.noResults": "No matching documents.",
-    "documentLibrary.missing": "This document cannot be found. You can remove its record from the list.",
+    "documentLibrary.missing": "This document cannot be found.",
     "documentLibrary.openFailed": "Could not open this document.",
     "documentLibrary.storageFailed": "Could not save document history.",
     "documentLibrary.renameFile": "Rename file",

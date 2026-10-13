@@ -95,8 +95,15 @@ export class DocumentHistory {
 
     /** 只移除索引记录；不关闭 tab，也不调用磁盘删除接口。 */
     remove(path) {
-        const key = getPathIdentityKey(path);
-        this.records = this.records.filter(record => getPathIdentityKey(record.path) !== key);
+        return this.removeMany([path]);
+    }
+
+    /** 大量失效历史一次持久化，避免逐条清理引起存储写入和侧栏重绘。 */
+    removeMany(paths) {
+        const keys = new Set(paths.map(getPathIdentityKey));
+        const remaining = this.records.filter(record => !keys.has(getPathIdentityKey(record.path)));
+        if (remaining.length === this.records.length) return true;
+        this.records = remaining;
         return this.persist();
     }
 
