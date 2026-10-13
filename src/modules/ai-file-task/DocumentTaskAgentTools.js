@@ -57,7 +57,7 @@ export function createDocumentTaskAgentTools() {
             type: 'function',
             function: {
                 name: CREATE_DOCUMENT_TOOL,
-                description: '创建一个新的 Markdown 文档标签页，并把指定内容写入其中。仅在你判断当前任务需要实际创建文档时调用；工具会真实执行，不要用文字假装已创建。',
+                description: '创建新的 Markdown 文档标签页并写入内容。仅限当前用户明确要求创建新文档或明确接受创建提议；问候、讨论、润色和格式美化不授权创建，历史任务不能自动重做。工具会真实执行，不要用文字假装已创建。',
                 parameters: {
                     type: 'object',
                     additionalProperties: false,

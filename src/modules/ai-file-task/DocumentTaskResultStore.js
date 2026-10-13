@@ -13,7 +13,7 @@ function countRecordChars(record) {
 }
 
 /**
- * 按文档持久化 AI 对话历史与当前可编辑工作稿，兼容旧版单次回答。
+ * 磁盘文档持久化 AI 对话；临时文档只在本实例内保留当前生命周期的多轮问答。
  * 采用有界 LRU 列表，避免模型长回答持续占用 localStorage。
  */
 export class DocumentTaskResultStore {
@@ -27,13 +27,16 @@ export class DocumentTaskResultStore {
         this.store = options.store || createStore('ai-file-task-results', { version: 1 });
         this.maxEntries = options.maxEntries || DEFAULT_MAX_ENTRIES;
         this.maxChars = options.maxChars || DEFAULT_MAX_CHARS;
+        this.temporaryRecords = [];
     }
 
-    /** 读取指定文档最后一次有效回答。 */
-    get(path) {
+    /** 临时文档只读取本次使用中的问答，绝不读取持久层的旧聊天。 */
+    get(path, documentId = '') {
         if (!path) return null;
-        const record = this.readRecords().find(item => item.path === path);
+        const records = path.startsWith('untitled://') ? this.temporaryRecords : this.readRecords();
+        const record = records.find(item => item.path === path);
         if (!record) return null;
+        if (path.startsWith('untitled://') && (!documentId || record.documentId !== documentId)) return null;
         return {
             content: record.content,
             initialInstruction: record.initialInstruction || record.instruction || '',
@@ -57,6 +60,7 @@ export class DocumentTaskResultStore {
         filename = '',
         instruction = '',
         messages,
+        documentId = '',
     }) {
         const normalizedContent = String(content || '').trim();
         const normalizedInitialInstruction = String(initialInstruction || instruction || '');
@@ -65,6 +69,7 @@ export class DocumentTaskResultStore {
         const normalizedFilename = String(filename || '');
         const nextRecord = {
             path,
+            documentId,
             content: normalizedContent,
             initialInstruction: normalizedInitialInstruction,
             lastInstruction: normalizedLastInstruction,
@@ -78,9 +83,11 @@ export class DocumentTaskResultStore {
             nextRecord.messages.splice(0, 2);
         }
         if (!path || !normalizedContent || countRecordChars(nextRecord) > this.maxChars) return false;
+        if (path.startsWith('untitled://') && !documentId) return false;
+        const temporary = path.startsWith('untitled://');
         const records = [
             nextRecord,
-            ...this.readRecords().filter(item => item.path !== path),
+            ...(temporary ? this.temporaryRecords : this.readRecords()).filter(item => item.path !== path),
         ];
         const bounded = [];
         let totalChars = 0;
@@ -90,12 +97,20 @@ export class DocumentTaskResultStore {
             bounded.push(record);
             totalChars += currentRecordChars;
         }
+        if (temporary) {
+            this.temporaryRecords = bounded;
+            return true;
+        }
         return this.store.set(RECORDS_KEY, bounded);
     }
 
     /** 删除指定文档的旧回答，用于新任务开始时清理过期结果。 */
     remove(path) {
         if (!path) return false;
+        if (path.startsWith('untitled://')) {
+            this.temporaryRecords = this.temporaryRecords.filter(item => item.path !== path);
+            return true;
+        }
         const records = this.readRecords();
         const nextRecords = records.filter(item => item.path !== path);
         if (nextRecords.length === records.length) return true;
@@ -109,6 +124,7 @@ export class DocumentTaskResultStore {
         return records.filter(record => (
             record
             && typeof record.path === 'string'
+            && !record.path.startsWith('untitled://')
             && typeof record.content === 'string'
             && record.content.trim()
         ));

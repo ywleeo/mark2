@@ -132,6 +132,7 @@ export class AiFileTaskSidebar {
         this.session = new DocumentTaskSession();
         this.root = null;
         this.currentPath = '';
+        this.currentDocumentId = '';
         this.result = null;
         this.messages = [];
         this.inputInstruction = '';
@@ -166,7 +167,7 @@ export class AiFileTaskSidebar {
             this.hideForTabSwitch();
             return;
         }
-        if (path !== this.currentPath) this.loadDocument(path);
+        if (path !== this.currentPath || this.getDocumentId(path) !== this.currentDocumentId) this.loadDocument(path);
         this.showForTab(true);
     }
 
@@ -204,7 +205,7 @@ export class AiFileTaskSidebar {
             return;
         }
 
-        if (path === this.currentPath) {
+        if (path === this.currentPath && this.getDocumentId(path) === this.currentDocumentId) {
             this.pendingPath = '';
             this.pendingVisibility = false;
         } else {
@@ -333,7 +334,7 @@ export class AiFileTaskSidebar {
         const onInput = (event) => {
             if (event.target?.matches?.('[name="instruction"]')) {
                 this.inputInstruction = event.target.value;
-                this.inputDrafts.set(this.currentPath, this.inputInstruction);
+                this.inputDrafts.set(this.currentDocumentId || this.currentPath, this.inputInstruction);
                 return;
             }
             if (!event.target?.matches?.('[data-ref="draft-editor"]')) return;
@@ -402,15 +403,22 @@ export class AiFileTaskSidebar {
         };
     }
 
+    /** 获取临时文档生命周期身份；磁盘文档继续按完整路径隔离。 */
+    getDocumentId(path) {
+        return this.untitledFileManager?.getDocumentId?.(path) || '';
+    }
+
     /** 从持久层载入指定文档的 AI 工作稿。 */
     loadDocument(path) {
         this.flushPersist();
-        const saved = this.resultStore.get(path);
+        const documentId = this.getDocumentId(path);
+        const saved = this.resultStore.get(path, documentId);
         this.currentPath = path;
+        this.currentDocumentId = documentId;
         this.pendingPath = '';
         this.result = saved?.content ? { content: saved.content } : null;
         this.messages = restoreConversation(saved);
-        this.inputInstruction = this.inputDrafts.get(path) || '';
+        this.inputInstruction = this.inputDrafts.get(documentId || path) || '';
         this.pendingInstruction = '';
         this.initialInstruction = saved?.initialInstruction || '';
         this.lastInstruction = saved?.lastInstruction || '';
@@ -509,6 +517,7 @@ export class AiFileTaskSidebar {
         }
 
         const task = this.session.begin(this.currentPath);
+        task.documentId = this.currentDocumentId;
         // shared 预览槽会在用户打开其他文件时被复用；固定源文档后，AI 任务期间仍可从独立 tab 返回。
         this.pinDocument?.(task.sourcePath);
         this.onTaskStateChange?.(task.sourcePath, 'working');
@@ -518,7 +527,7 @@ export class AiFileTaskSidebar {
         this.pendingInstruction = instruction;
         // 点击发送即提交输入；处理中仅在时间线保留本轮提问，不在输入框重复显示。
         this.inputInstruction = '';
-        this.inputDrafts.delete(this.currentPath);
+        this.inputDrafts.delete(this.currentDocumentId || this.currentPath);
         if (input) input.value = '';
         this.isEditing = false;
         this.renderConversation();
@@ -526,7 +535,7 @@ export class AiFileTaskSidebar {
         this.setBusy(true);
         try {
             const fileContent = await this.readCurrentFileContent(task.sourcePath);
-            if (!this.session.isCurrent(task)) return;
+            if (!this.session.isCurrent(task) || this.getDocumentId(task.sourcePath) !== task.documentId) return;
             const result = await this.service.runTask({
                 filePath: task.sourcePath,
                 fileContent,
@@ -535,7 +544,7 @@ export class AiFileTaskSidebar {
                 messages: history,
                 instruction,
                 createDocument: async ({ filename, content }) => {
-                    if (!this.session.isCurrent(task)) {
+                    if (!this.session.isCurrent(task) || this.getDocumentId(task.sourcePath) !== task.documentId) {
                         throw new Error('当前文档任务已经失效');
                     }
                     if (typeof this.openResultAsUntitled !== 'function') {
@@ -549,7 +558,7 @@ export class AiFileTaskSidebar {
                     return { path, filename: safeFilename };
                 },
             });
-            if (!this.session.isCurrent(task)) return;
+            if (!this.session.isCurrent(task) || this.getDocumentId(task.sourcePath) !== task.documentId) return;
             if (!this.initialInstruction) this.initialInstruction = instruction;
             if (!this.filename) this.filename = createFallbackFilename(task.sourcePath);
             this.previousContent = oldContent;
@@ -562,7 +571,7 @@ export class AiFileTaskSidebar {
             ]);
             this.pendingInstruction = '';
             this.inputInstruction = '';
-            this.inputDrafts.delete(task.sourcePath);
+            this.inputDrafts.delete(task.documentId || task.sourcePath);
             if (input) input.value = '';
             this.isEditing = false;
             this.persistCurrentResult();
@@ -598,7 +607,7 @@ export class AiFileTaskSidebar {
     restorePendingInstruction() {
         if (!this.pendingInstruction) return;
         this.inputInstruction = this.pendingInstruction;
-        this.inputDrafts.set(this.currentPath, this.inputInstruction);
+        this.inputDrafts.set(this.currentDocumentId || this.currentPath, this.inputInstruction);
         const input = this.root?.querySelector('[name="instruction"]');
         if (input) input.value = this.inputInstruction;
     }
@@ -666,7 +675,7 @@ export class AiFileTaskSidebar {
         this.messages = [];
         this.inputInstruction = '';
         this.pendingInstruction = '';
-        this.inputDrafts.delete(this.currentPath);
+        this.inputDrafts.delete(this.currentDocumentId || this.currentPath);
         this.initialInstruction = '';
         this.lastInstruction = '';
         this.previousContent = '';
@@ -770,10 +779,13 @@ export class AiFileTaskSidebar {
     persistCurrentResult() {
         const content = this.result?.content?.trim();
         if (!this.currentPath || !content) return;
+        // 已关闭文档的延迟持久化不得覆盖复用同一路径的新文档。
+        if (this.getDocumentId(this.currentPath) !== this.currentDocumentId) return;
         // 工作稿允许用户编辑或撤销，下一轮历史与界面上的最新回答保持一致。
         const latest = this.messages.at(-1);
         if (latest?.role === 'assistant') latest.content = content;
         this.resultStore.set(this.currentPath, {
+            documentId: this.currentDocumentId,
             content,
             initialInstruction: this.initialInstruction,
             lastInstruction: this.lastInstruction,

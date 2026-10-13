@@ -1,9 +1,15 @@
 /**
  * 管理 untitled 虚拟文件
- * 使用 untitled://untitled-{n}.md 格式的路径标识
+ * 路径用于显示与保存，documentId 标识文档生命周期，避免复用文件名时串用持久化数据。
  */
 
 const UNTITLED_PROTOCOL = 'untitled://';
+
+/** 为临时文档生成唯一身份，兼容未开放 randomUUID 的 WebView 协议。 */
+function createDocumentId() {
+    return crypto.randomUUID?.()
+        || Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+}
 
 /**
  * 创建 untitled 文件管理器
@@ -52,6 +58,7 @@ export function createUntitledFileManager() {
     function createUntitledFile(ext = 'md') {
         const path = generateUntitledPath(ext);
         untitledFiles.set(path, {
+            documentId: createDocumentId(),
             content: '',
             hasChanges: false,
         });
@@ -69,6 +76,11 @@ export function createUntitledFileManager() {
         return file ? file.content : '';
     }
 
+    /** 返回临时文档的稳定身份；关闭后重新创建同名文档会获得不同 ID。 */
+    function getDocumentId(path) {
+        return untitledFiles.get(path)?.documentId || '';
+    }
+
     /**
      * 设置 untitled 文件的内容
      */
@@ -84,6 +96,7 @@ export function createUntitledFileManager() {
         }
         // 如果文件不存在，创建它
         untitledFiles.set(path, {
+            documentId: createDocumentId(),
             content,
             hasChanges: true,
         });
@@ -151,6 +164,7 @@ export function createUntitledFileManager() {
             path = `${UNTITLED_PROTOCOL}${base}-${i}${ext}`;
         }
         untitledFiles.set(path, {
+            documentId: createDocumentId(),
             content: '',
             hasChanges: false,
         });
@@ -198,6 +212,8 @@ export function createUntitledFileManager() {
                 ? entry.hasChanges
                 : content.trim().length > 0;
             untitledFiles.set(path, {
+                // 恢复正文属于新一轮使用，临时文档的聊天身份不跨应用重启。
+                documentId: createDocumentId(),
                 content,
                 hasChanges,
             });
@@ -216,6 +232,7 @@ export function createUntitledFileManager() {
         createUntitledFile,
         createImportFile,
         getContent,
+        getDocumentId,
         setContent,
         hasUnsavedChanges,
         markAsSaved,

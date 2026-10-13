@@ -113,6 +113,7 @@ test('模型可以自主创建新文档并获得真实执行结果', async () =>
     const created = [];
     const client = {
         async complete(options) {
+            if (options.phase === 'create-authorization') return { content: '{"allow":true}' };
             calls.push(structuredClone(options));
             if (calls.length === 1) {
                 return {
@@ -140,6 +141,32 @@ test('模型可以自主创建新文档并获得真实执行结果', async () =>
     assert.equal(result, '已创建新文档。');
     assert.deepEqual(created, [{ filename: '修改意见.md', content: '# 修改意见\n\n- 调整结尾' }]);
     assert.match(calls[1].messages.at(-1).content, /untitled:\/\/修改意见\.md/);
+});
+
+test('旧创建任务和助手建议不能让 hi 自动创建新文档，拒绝后只回复当前消息', async () => {
+    const created = [];
+    const requests = [];
+    let agentCalls = 0;
+    const engine = new DocumentTaskEngine({ client: {
+        async complete(options) {
+            requests.push(structuredClone(options));
+            if (options.phase === 'create-authorization') return { content: '{"allow":false}' };
+            agentCalls += 1;
+            if (agentCalls <= 2) return {
+                content: '', rawBody: createToolResponse('create_document', { filename: '旧任务.md', content: '当前文档' }),
+            };
+            return { content: '你好！', rawBody: '{}' };
+        },
+    } });
+    const result = await engine.execute({
+        filePath: '/docs/card.md', fileContent: '当前文档', instruction: 'hi',
+        messages: [{ role: 'user', content: '创建卡片文档' }, { role: 'assistant', content: '已创建。要不要再生成另一个版本？' }],
+        createDocument: async document => { created.push(document); },
+    });
+    assert.equal(result, '你好！');
+    assert.deepEqual(created, []);
+    assert.equal(requests.filter(request => request.phase === 'create-authorization').length, 1);
+    assert.equal(JSON.parse(requests.at(-1).messages.at(-1).content).ok, false);
 });
 
 test('工具调用解析不从正文猜测模型决策', () => {
