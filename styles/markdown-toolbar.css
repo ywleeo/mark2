@@ -946,6 +946,9 @@
     color: rgba(31, 41, 55, 0.28);
     cursor: ew-resize;
     touch-action: none;
+    /* 页宽手柄只接受拖动，双击不能建立文本选区。 */
+    user-select: none;
+    -webkit-user-select: none;
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, -50%);

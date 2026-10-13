@@ -9,6 +9,7 @@ import { ToolbarSelect } from './ToolbarSelect.js';
 import { ToolbarAiMenu } from './ToolbarAiMenu.js';
 import { dismissToolbarNotice, showToolbarNotice } from './ToolbarNotice.js';
 import { ToolbarOverflowMenu } from './ToolbarOverflowMenu.js';
+import { setupPageWidthDrag } from './PageWidthDrag.js';
 import { t } from '../../i18n/index.js';
 import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
@@ -666,13 +667,10 @@ export class MarkdownToolbar {
         };
 
         const onPointerDown = (event) => {
-            if (event.button !== 0) return;
             const editorEl = this.getCenteredEditorElement(markdownPane);
             const contentEl = markdownPane.querySelector('.markdown-content');
             const edge = this.pageWidthHoverState?.edge;
-            if (!editorEl || !contentEl || !edge) return;
-            event.preventDefault();
-            event.stopPropagation();
+            if (!editorEl || !contentEl || !edge) return false;
 
             const contentRect = contentEl.getBoundingClientRect();
             const editorRect = editorEl.getBoundingClientRect();
@@ -683,7 +681,9 @@ export class MarkdownToolbar {
                 startWidth: editorRect.width,
                 maxWidth: this.getCenteredWidthMax(contentRect.width),
             };
-            handle.setPointerCapture?.(event.pointerId);
+        };
+
+        const activateDrag = () => {
             document.body.classList.add('is-resizing-markdown-page');
             handle.classList.add('is-dragging');
         };
@@ -704,12 +704,7 @@ export class MarkdownToolbar {
             this.updatePageWidthHandlePosition();
         };
 
-        const finishDrag = (event) => {
-            const state = this.pageWidthDragState;
-            if (!state || event.pointerId !== state.pointerId) return;
-            if (handle.hasPointerCapture?.(state.pointerId)) {
-                handle.releasePointerCapture(state.pointerId);
-            }
+        const finishDrag = () => {
             handle.classList.remove('is-dragging');
             document.body.classList.remove('is-resizing-markdown-page');
             this.pageWidthDragState = null;
@@ -719,18 +714,17 @@ export class MarkdownToolbar {
         markdownPane.addEventListener('pointermove', onPanePointerMove);
         markdownPane.addEventListener('pointerleave', onPanePointerLeave);
         markdownPane.addEventListener('scroll', onPaneScroll);
-        handle.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', finishDrag);
-        window.addEventListener('pointercancel', finishDrag);
+        const dragCleanup = setupPageWidthDrag(handle, {
+            onStart: onPointerDown,
+            onActivate: activateDrag,
+            onMove: onPointerMove,
+            onEnd: finishDrag,
+        });
         this.pageWidthCleanup = () => {
             markdownPane.removeEventListener('pointermove', onPanePointerMove);
             markdownPane.removeEventListener('pointerleave', onPanePointerLeave);
             markdownPane.removeEventListener('scroll', onPaneScroll);
-            handle.removeEventListener('pointerdown', onPointerDown);
-            window.removeEventListener('pointermove', onPointerMove);
-            window.removeEventListener('pointerup', finishDrag);
-            window.removeEventListener('pointercancel', finishDrag);
+            dragCleanup();
         };
 
         const contentEl = markdownPane.querySelector('.markdown-content');
