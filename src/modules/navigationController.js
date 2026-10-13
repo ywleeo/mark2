@@ -4,6 +4,8 @@ import { PANE_IDS } from '../core/layout/PaneManager.js';
 import { t } from '../i18n/index.js';
 import { navigationHistory } from './navigationHistory.js';
 import { isActiveContentTab } from './navigation/tabActivity.js';
+import { isDocumentWorkspace } from './document-library/documentNavigation.js';
+import { getUntitledCloseContent } from './navigation/untitledClose.js';
 
 function normalizeComparablePath(fileTree, value) {
     if (!value) {
@@ -600,20 +602,18 @@ export function createNavigationController({
     async function handleUntitledTabClose(tab) {
         const tabManager = getTabManager();
         const targetPath = tab.path;
+        const wasActive = isCurrentContentTab(tab);
 
         // 清除自动保存定时器
         const editor = getEditor();
-        editor?.clearAutoSaveTimer?.();
+        if (wasActive) editor?.clearAutoSaveTimer?.();
 
-        // 获取当前编辑器内容
+        // 获取目标草稿快照；后台条目只读取自己的模型或缓存。
         const activeViewMode = getActiveViewMode();
-        let content = '';
-        if (activeViewMode === 'markdown' && editor) {
-            content = editor.getMarkdown?.() || '';
-        } else if (activeViewMode === 'code') {
-            const codeEditor = getCodeEditor();
-            content = codeEditor?.getValue?.() || '';
-        }
+        const content = getUntitledCloseContent({ path: targetPath, isActive: wasActive,
+            documentRegistry, untitledFileManager,
+            getActiveContent: () => activeViewMode === 'markdown'
+                ? editor?.getMarkdown?.() || '' : getCodeEditor()?.getValue?.() || '' });
 
         // 更新 untitledFileManager 中的内容
         untitledFileManager?.setContent?.(targetPath, content);
@@ -660,7 +660,6 @@ export function createNavigationController({
         untitledFileManager?.removeUntitledFile?.(targetPath);
 
         // 清理视图状态
-        const wasActive = isCurrentContentTab(tab);
         const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
         tabManager?.removeFileTab?.(targetPath);
         if (wasActive) {
@@ -708,6 +707,11 @@ export function createNavigationController({
         if (!targetPath) {
             return;
         }
+        // Editorial 的后退/前进复用当前文档位置，不把预览转成固定 tab。
+        if (isDocumentWorkspace()) {
+            await handleFileSelect(targetPath);
+            return;
+        }
         const tabManager = getTabManager();
         const fileTree = getFileTree();
         if (!tabManager || !fileTree) {
@@ -747,6 +751,11 @@ export function createNavigationController({
             // 副栏文档里的链接在副栏内跳转：主栏的标签和当前文档不受影响。
             if (paneId === PANE_IDS.SECONDARY) {
                 await openInSecondary?.(path);
+                return;
+            }
+            // 文档模式中的链接同样替换主栏内容，保留原有保存失败时阻止切换的行为。
+            if (isDocumentWorkspace()) {
+                await handleFileSelect(path);
                 return;
             }
 

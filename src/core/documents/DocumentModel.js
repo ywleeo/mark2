@@ -196,6 +196,8 @@ export class DocumentModel {
             return this.dirty;
         }
         const previousDirty = this.dirty;
+        // 比较实际写盘快照，区分内容保存与无修改的重复保存；保存中继续输入不影响此次判断。
+        const contentChanged = token.content !== this._originalContent;
         this._originalContent = token.content;
         this._persistedRevision = token.revision;
         this._activeSave = null;
@@ -206,6 +208,7 @@ export class DocumentModel {
         this._setSaveState(this.dirty ? DOCUMENT_SAVE_STATE.DIRTY : DOCUMENT_SAVE_STATE.CLEAN, { token });
         this._emit({
             type: 'saved',
+            contentChanged,
             modifiedTime: this._modifiedTime,
             revision: token.revision,
             pendingChanges: this.dirty,

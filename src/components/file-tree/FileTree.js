@@ -594,6 +594,11 @@ export class FileTree {
 
     // ========== 重命名 ==========
 
+    /** 按路径执行文件重命名，供独立文档视图复用生命周期，不依赖树节点或内联输入框。 */
+    async renameFile(path, filename) {
+        return this.renamer.performRename(path, filename);
+    }
+
     startRenaming(path, meta = {}) {
         if (this.mover?.shouldBlockInteraction?.()) return;
         const targetType = meta?.targetType || 'file';

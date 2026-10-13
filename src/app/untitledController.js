@@ -2,6 +2,7 @@
  * Untitled 文件控制器
  * 管理 untitled 文件的创建、保存和转换为真实文件
  */
+import { prepareDocumentOpen } from '../modules/document-library/documentNavigation.js';
 
 export function createUntitledController({
     getTabManager,
@@ -177,7 +178,7 @@ export function createUntitledController({
         documentRegistry.clearEntry(untitledPath);
 
         if (currentFile === untitledPath) {
-            fileTree?.addToOpenFiles?.(realPath);
+            prepareDocumentOpen(fileTree, realPath);
             fileTree?.selectFile?.(realPath);
         }
     }

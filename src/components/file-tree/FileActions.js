@@ -76,6 +76,8 @@ export class FileActions {
             }
             await Promise.all(refreshTasks);
             await this.handleMoveSuccess(normalizedSource, normalizedDestination, { isDirectory });
+            // 独立文档列表也需要同步已关闭文档的历史路径。
+            return normalizedDestination;
         } catch (error) {
             console.error('移动文件失败:', error);
             try {
@@ -196,6 +198,8 @@ export class FileActions {
                 await fileService.removePermanent(normalized);
                 await postDeleteCleanup();
             }
+            // 调用方仅在实际删除成功后移除文档记录，取消与失败均不返回成功。
+            return true;
         } catch (error) {
             console.error('删除文件失败:', error);
             try {

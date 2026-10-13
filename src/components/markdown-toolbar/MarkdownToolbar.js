@@ -32,6 +32,7 @@ export class MarkdownToolbar {
         this.clickCleanups = [];
         this.editor = null;
         this.container = null;
+        this.paneContextLabel = null;
         this.isVisible = true;
         this.tooltip = null;
         this.emojiPicker = null;
@@ -77,6 +78,7 @@ export class MarkdownToolbar {
      */
     setEditor(editor) {
         this.editor = editor;
+        this.updatePaneContext();
 
         // 同时设置 TocPanel 的编辑器
         if (this.tocPanel) {
@@ -86,6 +88,14 @@ export class MarkdownToolbar {
         // 工具栏是应用级单例，会在主栏/副栏之间来回切换目标编辑器；
         // 副栏又是懒创建的，所以每次换栏都要重新投影一次页宽偏好。
         this.syncPageWidthLayout();
+    }
+
+    /** 共享工具栏明确提示当前命令作用的栏，提示来源与实际编辑器焦点一致。 */
+    updatePaneContext() {
+        if (!this.paneContextLabel) return;
+        const paneId = this.options.getFocusedPaneId?.() || 'primary';
+        this.paneContextLabel.textContent = t(paneId === 'secondary' ? 'toolbar.editingRightPane' : 'toolbar.editingLeftPane');
+        this.paneContextLabel.dataset.paneId = paneId;
     }
 
     /**
@@ -149,7 +159,13 @@ export class MarkdownToolbar {
         right.className = 'markdown-toolbar__right';
         TOOLBAR_GROUPS.right.forEach(type => this._appendItem(right, type));
 
-        toolbar.append(left, right);
+        const context = document.createElement('span');
+        context.className = 'markdown-toolbar__context';
+        context.setAttribute('role', 'status');
+        context.setAttribute('aria-live', 'polite');
+        this.paneContextLabel = context;
+        this.updatePaneContext();
+        toolbar.append(left, right, context);
         this.container.appendChild(toolbar);
         this.container.classList.toggle('is-visible', this.isVisible);
 

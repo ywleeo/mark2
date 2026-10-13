@@ -13,7 +13,7 @@ import { setupAutoUpdater } from '../modules/autoUpdater.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
-import { normalizeFsPath, dirname, getPathIdentityKey } from '../utils/pathUtils.js';
+import { normalizeFsPath, dirname, basename, getPathIdentityKey } from '../utils/pathUtils.js';
 import { setupSidebarResizer } from '../utils/sidebarResizer.js';
 import { registerMenuListeners } from '../modules/menuListeners.js';
 import { registerCoreCommands, registerDefaultKeybindings, registerWindowsKeybindings } from './commandSetup.js';
@@ -39,6 +39,9 @@ import { PaneLayout } from '../components/PaneLayout.js';
 import { SecondaryPaneRuntime } from './secondaryPaneRuntime.js';
 import { createWorkspaceSearchController } from '../modules/workspaceSearchController.js';
 import { createTabSidebarStateController } from './tabSidebarStateController.js';
+import { createDocumentLibraryController } from '../modules/document-library/documentLibraryController.js';
+import { extractDocumentTitle } from '../modules/document-library/documentTitle.js';
+import { isDocumentWorkspace } from '../modules/document-library/documentNavigation.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -59,6 +62,7 @@ export function createAppBootstrap({
     appServices,
     workspaceController,
     recoveryController,
+    recentFilesService,
     // 同步调度器
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
@@ -186,6 +190,9 @@ export function createAppBootstrap({
 
         const paneLayout = new PaneLayout({
             paneManager,
+            getDocumentTitle: path => isDocumentWorkspace()
+                ? extractDocumentTitle(documentRegistry.getDocument(path)?.getContent?.() || '') || basename(path)
+                : basename(path),
             onCloseSecondary: () => { void requestCloseSecondary(); },
             onPromoteSecondary: () => { void promoteSecondaryToPrimary(); },
             onSplitRatioCommit: () => persistWorkspaceState(),
@@ -242,6 +249,9 @@ export function createAppBootstrap({
          */
         async function syncFocusedPaneUi() {
             const context = getActivePaneContext();
+            // 焦点切换时先同步命令目标与视觉提示，不等待异步的文件修改时间查询。
+            syncToolbarWithCurrentContext();
+            paneLayout.refreshTitles();
             const activeRegistry = context.editorRegistry;
             const statusBar = appState.getStatusBarController();
             const editor = activeRegistry?.getMarkdownEditor?.();
@@ -261,7 +271,6 @@ export function createAppBootstrap({
                 lastModified,
                 isDirty: Boolean(context.documentPath && documentRegistry.isDirty(context.documentPath)),
             });
-            syncToolbarWithCurrentContext();
         }
         const unsubscribeFocusedPaneUi = paneManager.subscribe(() => {
             if (!paneManager.getSecondaryPane().documentPath && secondaryRuntime.getDocumentPath()) {
@@ -580,6 +589,22 @@ export function createAppBootstrap({
             onOpenFolder: openFolderOnly,
         });
 
+        const documentLibraryController = createDocumentLibraryController({
+            host: document.getElementById('documentLibraryHost'),
+            documentManager,
+            fileService: appServices.file,
+            recentFilesService,
+            fileTree,
+            documentRegistry,
+            untitledFileManager,
+            handleFileSelect,
+            handleTabClose,
+            getCurrentPath: () => appState.getCurrentFile(),
+            saveDocument: () => saveCurrentFile(),
+            executeCommand: (commandId, payload = {}) => commandManager.executeCommand(commandId, payload, { source: 'document-library' }),
+        });
+        appState.setCleanupFunction('documentLibrary', () => documentLibraryController.destroy());
+
         const workspaceSearchController = createWorkspaceSearchController({
             host: document.getElementById('workspaceSearchHost'),
             fileTree,
@@ -587,6 +612,7 @@ export function createAppBootstrap({
             editorRegistry,
             handleFileSelect,
             setSidebarVisibility,
+            getDocumentPaths: () => documentLibraryController.getSavedPaths(),
         });
         appState.setCleanupFunction('workspaceSearch', () => workspaceSearchController.destroy());
 
@@ -783,6 +809,7 @@ export function createAppBootstrap({
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
             getEditorRegistry: () => getActivePaneContext().editorRegistry,
             getCurrentFilePath: () => getActivePaneContext().documentPath,
+            getFocusedPaneId: () => paneManager.getFocusedPane().id,
         });
         appState.setMarkdownToolbarManager(markdownToolbarManager);
         markdownToolbarManager.setToggleViewModeCallback(toggleMarkdownCodeMode);

@@ -9,6 +9,7 @@ export function createToolbarController({
     getCodeEditor,
     getCurrentFile,
     getNavLaneId,
+    getFocusedPaneId,
     getActiveViewMode,
     executeCommand,
     getMarkdownToolbarManager,
@@ -177,6 +178,7 @@ export function createToolbarController({
             if (services) {
                 const toggleMarkdownCodeMode = getToggleMarkdownCodeMode();
                 const newManager = new MarkdownToolbarManager(services, {
+                    getFocusedPaneId,
                     executeCommand,
                     onToggleViewMode: toggleMarkdownCodeMode,
                     onCardExport: showCardExportSidebar,

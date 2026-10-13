@@ -96,8 +96,14 @@
     border-radius: 3px;
 }
 
-/* 整个窗口共用同一纸色，层级主要交给字号、密度与留白。 */
+/* 顶栏与操作带连成完整纸面，侧栏顶部再柔和地过渡到导航底色。 */
+:root[data-app-skin='editorial'],
+:root[data-app-skin='editorial'] body {
+    background: var(--editorial-paper);
+}
+
 :root[data-app-skin='editorial'] #titlebar {
+    background: var(--editorial-paper);
     border-bottom: 0;
     box-sizing: border-box;
 }
@@ -128,7 +134,19 @@
     --app-sidebar-divider: var(--sidebar-border);
     --sidebar-row-radius: 0;
     color: var(--editorial-rail-text);
-    border-right: 1px solid var(--editorial-seam);
+    position: relative;
+    background: linear-gradient(to bottom, var(--editorial-paper), var(--editorial-rail) 96px);
+    border-right: 0;
+}
+
+/* 书脊分隔线在页眉下逐渐出现，避免窗口顶端留下突兀的直角缺口。 */
+:root[data-app-skin='editorial'] .sidebar::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--editorial-seam) 96px);
+    pointer-events: none;
 }
 
 /* 印刷署名与全局操作共同构成高于文件栏目的侧栏页眉。 */
@@ -442,6 +460,60 @@
 :root[data-app-skin='editorial'] .pane-header--secondary {
     border-left-color: var(--editorial-seam);
     box-shadow: none;
+}
+
+/* 共享工具栏横跨编辑区，紧凑文档头放在它下方，明确各栏身份与焦点。 */
+.editorial-pane-title { display: none; }
+
+:root[data-workspace-profile='writing'] body.is-dual-pane .md-toolbar { order: 1; }
+:root[data-workspace-profile='writing'] body.is-dual-pane .pane-header-row {
+    order: 2;
+    height: 28px;
+    background: var(--content-bg);
+}
+:root[data-workspace-profile='writing'] body.is-dual-pane .content-area { order: 3; }
+:root[data-workspace-profile='writing'] body.is-dual-pane .status-bar { order: 4; }
+
+:root[data-workspace-profile='writing'] body.is-dual-pane .pane-header {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 28px;
+    min-height: 0;
+    padding: 0 14px;
+    border: 0;
+    color: var(--text-secondary);
+    background: var(--content-bg);
+    box-shadow: none;
+    font-size: 11px;
+}
+:root[data-workspace-profile='writing'] body.is-dual-pane .editorial-pane-title {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+:root[data-workspace-profile='writing'] body.is-dual-pane .pane-header.is-focused {
+    color: var(--app-accent);
+    font-weight: 600;
+    box-shadow: inset 0 -1px var(--app-accent);
+}
+:root[data-workspace-profile='writing'] body.is-dual-pane .document-pane.is-focused::after {
+    border-color: color-mix(in srgb, var(--app-accent) 20%, transparent);
+}
+
+/* AI 网格中同样使用共享工具栏、文档头、正文三层，侧栏从工具栏顶部开始。 */
+:root[data-workspace-profile='writing'] body.is-dual-pane
+    .content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .md-toolbar { grid-area: 1 / 1 / 2 / 2; }
+:root[data-workspace-profile='writing'] body.is-dual-pane
+    .content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .pane-header-row { grid-area: 2 / 1 / 3 / 2; }
+:root[data-workspace-profile='writing'] body.is-dual-pane
+    .content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .ai-file-task-sidebar { grid-area: 1 / 2 / 4 / 3; }
+:root[data-workspace-profile='writing'] body.is-dual-pane
+    .content-wrapper:has(> .ai-file-task-sidebar.is-visible)::before { content: none; }
+:root[data-app-skin='editorial'] .content-wrapper:has(> .ai-file-task-sidebar.is-visible)::before {
+    background: var(--editorial-paper);
 }
 
 /* 工具栏退居文字之后；悬停和键盘聚焦时恢复完整可见度。 */

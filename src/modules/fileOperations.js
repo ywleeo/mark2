@@ -2,6 +2,7 @@ import { rememberSecurityScopes } from '../services/securityScopeService.js';
 import { getPathIdentityKey, basename } from '../utils/pathUtils.js';
 import { isSpreadsheetFilePath, isCsvFilePath } from '../utils/fileTypeUtils.js';
 import { t } from '../i18n/index.js';
+import { prepareDocumentOpen } from './document-library/documentNavigation.js';
 
 let sharedExternalDropOpener = null;
 let lastExternalDropKey = null;
@@ -257,7 +258,7 @@ export function createFileOperations({
                     const viewMode = viewManager.resolveViewMode(resolvedPath);
                     const isImportType = viewMode === 'pptx';
                     if (!isImportType) {
-                        fileTree.addToOpenFiles(resolvedPath);
+                        prepareDocumentOpen(fileTree, resolvedPath);
                     }
                     fileTree.selectFile(resolvedPath);
                 }

@@ -178,7 +178,8 @@ test('编辑部外壳样式只在整体皮肤标记下生效', async () => {
     assert.match(css, /\.markdown-toolbar/);
     assert.match(css, /\.settings-dialog/);
     assert.match(css, /\.view-pane\.markdown-pane/);
-    assert.match(css, /border-right: 1px solid var\(--editorial-seam\)/);
+    // 书脊仍消费配色的语义分隔色，顶部过渡不限定为贯穿整栏的实体边框。
+    assert.match(css, /var\(--editorial-seam\)/);
     assert.match(css, /\.toc-panel\[data-position='left'\]/);
     assert.match(css, /\.ai-file-task-sidebar/);
     assert.match(css, /\.html-embed__frame/);

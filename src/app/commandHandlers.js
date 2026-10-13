@@ -156,7 +156,9 @@ export function createCommandHandlers(deps) {
             document.execCommand('paste');
         },
         onMarkdownAction: executeMarkdownAction,
-        onOpen: openFileOrFolder,
+        // 文档工作区的打开入口只选择文件；保存位置仍由原有保存流程负责。
+        onOpen: () => document.documentElement.dataset.workspaceProfile === 'writing'
+            ? openFileOnly() : openFileOrFolder(),
         onOpenFile: openFileOnly,
         onOpenFolder: openFolderOnly,
         onSettings: openSettingsDialog,
@@ -192,7 +194,8 @@ export function createCommandHandlers(deps) {
             });
         },
         onNewUntitled: handleCreateUntitled,
-        onNewFile: handleCreateNewFile,
+        onNewFile: () => document.documentElement.dataset.workspaceProfile === 'writing'
+            ? handleCreateUntitled() : handleCreateNewFile(),
         onDeleteActiveFile: deleteFocusedDocument || handleDeleteActiveFile,
         onMoveActiveFile: moveFocusedDocument || handleMoveActiveFile,
         onRenameActiveFile: renameFocusedDocument || handleRenameActiveFile,

@@ -21,14 +21,17 @@ export function createWorkspaceSearchController(dependencies) {
         editorRegistry,
         handleFileSelect,
         setSidebarVisibility,
+        getDocumentPaths,
     } = dependencies;
     let debounceTimer = null;
     let requestSerial = 0;
 
-    /** 合并 Open Folders 与 Open Files，未保存文档不会进入磁盘搜索。 */
+    /** 文档模式搜索文档历史，普通模式合并目录与打开文件；临时文档不进入磁盘搜索。 */
     const getSearchTargets = () => collectWorkspaceSearchTargets(
-        fileTree?.getRootPaths?.() || Array.from(fileTree?.rootPaths || []),
-        fileTree?.getOpenFilePaths?.() || Array.from(fileTree?.openFiles || []),
+        document.documentElement.dataset.workspaceProfile === 'writing' ? []
+            : fileTree?.getRootPaths?.() || Array.from(fileTree?.rootPaths || []),
+        document.documentElement.dataset.workspaceProfile === 'writing' ? getDocumentPaths?.() || []
+            : fileTree?.getOpenFilePaths?.() || Array.from(fileTree?.openFiles || []),
         fileTree?.normalizePath?.bind(fileTree) || (path => path),
     );
 

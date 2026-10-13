@@ -53,6 +53,7 @@
     <link rel="stylesheet" href="/styles/docx-viewer.css">
     <link rel="stylesheet" href="/styles/search.css">
     <link rel="stylesheet" href="/styles/card-sidebar.css">
+    <link rel="stylesheet" href="/styles/document-library.css">
     <link rel="stylesheet" href="/styles/markdown-toolbar.css">
     <link rel="stylesheet" href="/styles/toc-panel.css">
     <link rel="stylesheet" href="/styles/about.css">
@@ -133,6 +134,7 @@
     <!-- 侧边栏 -->
     <div id="sidebar" class="sidebar">
         <div id="workspaceSearchHost" hidden></div>
+        <div id="documentLibraryHost" hidden></div>
         <div id="fileTree"></div>
     </div>
 
@@ -144,6 +146,7 @@
         <div id="paneHeaderRow" class="pane-header-row">
             <div id="primaryPaneHeader" class="pane-header pane-header--primary" data-pane-id="primary">
                 <div id="tabBar" class="tab-bar"></div>
+                <div class="editorial-pane-title"><span class="editorial-pane-title__name"></span></div>
             </div>
             <div id="secondaryPaneHeader" class="pane-header pane-header--secondary" data-pane-id="secondary" aria-hidden="true">
                 <div class="secondary-pane-title" title="">

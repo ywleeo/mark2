@@ -1,0 +1,207 @@
+/* Editorial 文档工作区；文档列表与经典文件树是独立视图。 */
+:root[data-workspace-profile="writing"] #fileTree,
+.sidebar.is-workspace-search-active #documentLibraryHost,
+#documentLibraryHost[hidden] {
+    display: none;
+}
+:root[data-workspace-profile="writing"]
+    .app-menu__item[data-command="app.openFolder"] {
+    display: none;
+}
+
+/* 文档列表承担主栏导航；单栏移除整行，双栏保留副栏标题和关闭按钮。 */
+:root[data-workspace-profile="writing"] #tabBar,
+:root[data-workspace-profile="writing"] body:not(.is-dual-pane) #paneHeaderRow {
+    display: none;
+}
+
+#documentLibraryHost {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.document-library {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    color: var(--text-color);
+}
+.document-library__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 14px 24px 10px;
+}
+.document-library__header h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+.document-library__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.document-library button {
+    font: inherit;
+    color: inherit;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+.document-library__actions button {
+    padding: 5px 6px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+.document-library__actions button[data-action="new"] {
+    font-size: 18px;
+    line-height: 1;
+}
+.document-library button:hover {
+    background: var(--sidebar-row-hover-bg);
+}
+.document-library button:focus-visible {
+    outline: 1px solid var(--app-accent);
+    outline-offset: -2px;
+}
+.document-library__search {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: calc(100% - 48px);
+    margin: 0 24px 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--content-bg);
+    color: var(--text-color);
+    font: inherit;
+    font-size: 12px;
+}
+.document-library__search::placeholder {
+    color: var(--text-secondary);
+}
+.document-library__search:focus {
+    outline: 1px solid var(--app-accent);
+    outline-offset: -1px;
+}
+.document-library__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 10px 20px;
+}
+.document-library__row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin: 1px 0;
+    border-radius: 4px;
+}
+.document-library__row.context-menu-target {
+    background: var(--sidebar-row-hover-bg);
+}
+.document-library__row.is-active::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: var(--app-accent);
+}
+.document-library__entry {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    padding: 10px 22px 10px 18px;
+    border-radius: 4px;
+}
+.document-library__name {
+    /* 文档条目只显示一行正文标题或首句。 */
+    display: block;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    line-height: 1.45;
+}
+.document-library__row.is-active .document-library__name {
+    color: var(--app-accent);
+    font-weight: 650;
+}
+.document-library__dirty {
+    position: absolute;
+    right: 8px;
+    top: 14px;
+    font-size: 8px;
+    color: var(--app-accent);
+}
+.document-library__remove {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 28px;
+    padding: 0;
+    border-radius: 4px;
+    opacity: 0;
+    font-size: 15px !important;
+    color: var(--text-secondary) !important;
+}
+.document-library__row:hover .document-library__remove,
+.document-library__row:focus-within .document-library__remove {
+    opacity: 1;
+}
+.document-library__empty,
+.document-library__status {
+    margin: 12px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+.document-library__status {
+    margin: 0 24px 10px;
+}
+
+/* 文件名对话框沿用当前皮肤，不把路径或文件名加入常驻文档列表。 */
+.document-library__rename-dialog {
+    width: min(360px, calc(100vw - 48px));
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--content-bg);
+    color: var(--text-color);
+    font: inherit;
+    box-shadow: 0 12px 40px #0004;
+}
+.document-library__rename-dialog::backdrop { background: #0005; }
+.document-library__rename-dialog label { display: block; font-size: 14px; }
+.document-library__rename-dialog input {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 12px 0 20px;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--bg-color);
+    color: inherit;
+    font: inherit;
+}
+.document-library__rename-dialog input:focus { outline: 1px solid var(--app-accent); }
+.document-library__rename-dialog form > div { display: flex; justify-content: flex-end; gap: 8px; }
+.document-library__rename-dialog button {
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--bg-color);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.document-library__rename-dialog button[type="submit"] { color: var(--app-accent); }

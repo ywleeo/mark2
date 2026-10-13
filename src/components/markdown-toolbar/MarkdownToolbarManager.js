@@ -29,6 +29,7 @@ export class MarkdownToolbarManager {
         this.onCardExport = options.onCardExport || null;
         this._getEditorRegistry = options.getEditorRegistry || null;
         this._getCurrentFilePath = options.getCurrentFilePath || null;
+        this._getFocusedPaneId = options.getFocusedPaneId || null;
 
         // 从设置中加载工具栏可见性
         this.loadVisibility();
@@ -62,6 +63,7 @@ export class MarkdownToolbarManager {
             position: 'top',
             theme: this.getTheme(),
             getCurrentFilePath: this._getCurrentFilePath,
+            getFocusedPaneId: this._getFocusedPaneId,
             getAiWritingState: () => this.getAiWritingState(),
         });
 

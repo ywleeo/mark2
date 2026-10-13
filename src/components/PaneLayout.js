@@ -19,6 +19,7 @@ export class PaneLayout {
         onCloseSecondary,
         onPromoteSecondary,
         onSplitRatioCommit,
+        getDocumentTitle = basename,
     }) {
         if (!paneManager) {
             throw new Error('PaneLayout 需要 paneManager');
@@ -27,6 +28,7 @@ export class PaneLayout {
         this.onCloseSecondary = onCloseSecondary;
         this.onPromoteSecondary = onPromoteSecondary;
         this.onSplitRatioCommit = onSplitRatioCommit;
+        this.getDocumentTitle = getDocumentTitle;
         this.cleanups = [];
         this.elements = null;
         this.resizeState = null;
@@ -41,6 +43,8 @@ export class PaneLayout {
             contentArea: document.getElementById('contentArea'),
             headerRow: document.getElementById('paneHeaderRow'),
             primaryPane: document.getElementById('primaryPane'),
+            primaryHeader: document.getElementById('primaryPaneHeader'),
+            primaryTitleName: document.querySelector('.editorial-pane-title__name'),
             secondaryPane: document.getElementById('secondaryPane'),
             secondaryHeader: document.getElementById('secondaryPaneHeader'),
             secondaryTitle: document.querySelector('.secondary-pane-title'),
@@ -179,11 +183,21 @@ export class PaneLayout {
             'is-focused',
             isDual && snapshot.focusedPaneId === PANE_IDS.SECONDARY,
         );
+        this.elements.primaryHeader?.classList.toggle('is-focused', snapshot.focusedPaneId === PANE_IDS.PRIMARY);
+        this.elements.secondaryHeader.classList.toggle('is-focused', snapshot.focusedPaneId === PANE_IDS.SECONDARY);
+        this.refreshTitles(snapshot);
+    }
 
+    /** 投影当前文档标题；编辑器加载完成后也可刷新，避免只看到加载前的文件名。 */
+    refreshTitles(snapshot = this.paneManager.getSnapshot()) {
+        if (!this.elements) return;
+        if (this.elements.primaryTitleName) {
+            this.elements.primaryTitleName.textContent = this.getDocumentTitle(snapshot.panes.primary.documentPath) || '';
+        }
         const secondaryPath = snapshot.panes.secondary.documentPath;
-        const secondaryName = basename(secondaryPath) || '副栏';
+        const secondaryName = this.getDocumentTitle(secondaryPath) || '副栏';
         this.elements.secondaryTitleName.textContent = secondaryName;
-        this.elements.secondaryTitle?.setAttribute('title', secondaryPath || '');
+        this.elements.secondaryTitle?.setAttribute('title', secondaryName);
     }
 
     /**

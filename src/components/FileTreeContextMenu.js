@@ -43,10 +43,20 @@ export class FileTreeContextMenu {
     }
 
     init() {
-        const revealLabel = this.getRevealMenuLabel();
         const menu = document.createElement('div');
         menu.className = 'file-tree-context-menu hidden';
-        menu.innerHTML = `
+        menu.innerHTML = this.renderMenuContent();
+
+        this.element = menu;
+        document.body.appendChild(menu);
+
+        this.bindEvents(menu);
+    }
+
+    /** 菜单结构可由文档导航等专用视图覆盖，统一复用定位、图标和事件生命周期。 */
+    renderMenuContent() {
+        const revealLabel = this.getRevealMenuLabel();
+        return `
             <div class="file-tree-context-menu__group">
                 ${this.renderMenuItem('open-secondary', t('contextMenu.openInSecondary'), this.getMenuIcon('open-secondary'), 'file-only')}
             </div>
@@ -67,10 +77,10 @@ export class FileTreeContextMenu {
                 ${this.renderMenuItem('delete', t('contextMenu.delete'), this.getMenuIcon('delete'), 'danger')}
             </div>
         `;
+    }
 
-        this.element = menu;
-        document.body.appendChild(menu);
-
+    /** 绑定菜单与宿主事件；dispose 对称释放所有监听。 */
+    bindEvents(menu) {
         this._onContextMenu = (event) => this.handleContextMenu(event);
         this._onGlobalClose = (event) => {
             if (this.element && event?.target instanceof Node && this.element.contains(event.target)) {

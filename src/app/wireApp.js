@@ -441,6 +441,7 @@ const {
 
 // ========== 工具栏控制器 ==========
 const toolbarController = createToolbarController({
+    getFocusedPaneId: () => paneManager.getFocusedPane().id,
     getMarkdownEditor: () => getActivePaneContext().editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => getActivePaneContext().editorRegistry.getCodeEditor(),
     getCurrentFile: () => getActivePaneContext().documentPath,
@@ -721,6 +722,7 @@ bootstrap = createAppBootstrap({
     appServices,
     workspaceController,
     recoveryController,
+    recentFilesService,
     scheduleWorkspaceContextSync,
     scheduleDocumentSnapshotSync,
     updateWindowTitle,

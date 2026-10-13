@@ -76,6 +76,25 @@
     opacity: 0.94;
 }
 
+/* 当前作用目标是状态提示，不能获得焦点或改变工具栏命令目标。 */
+.markdown-toolbar__context { display: none; }
+:root[data-workspace-profile='writing'] body.is-dual-pane .markdown-toolbar__context {
+    display: block;
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 4px 6px;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--app-accent) 8%, transparent);
+    color: var(--app-accent);
+    font-size: 11px;
+    line-height: 1.2;
+    user-select: none;
+}
+
 /* 工具栏内的按钮/分隔符不参与挤压 */
 .markdown-toolbar .toolbar-button,
 .markdown-toolbar .toolbar-separator {
