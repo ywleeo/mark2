@@ -1,4 +1,8 @@
 import { withAiMarkdownOutputRules } from '../../utils/aiMarkdownOutputRules.js';
+import { mergeDocumentEdits } from './DocumentEdits.js';
+import { DocumentSourceReferences } from './DocumentSourceReferences.js';
+import { createDocumentTaskInterruption, continueAfterEmptyResponse } from './DocumentTaskRecovery.js';
+import { createLogger } from '../../core/diagnostics/Logger.js';
 import { normalizeConversation } from './DocumentTaskConversation.js';
 import { authorizeDocumentCreation } from './DocumentTaskCreationGuard.js';
 import {
@@ -6,14 +10,12 @@ import {
     getDocumentTaskResourceKey,
     isDocumentTaskCreateDocumentTool,
     isDocumentTaskReadTool,
+    isDocumentTaskProposeEditsTool,
     isDocumentTaskSubtaskTool,
     parseDocumentTaskAgentTurn,
 } from './DocumentTaskAgentTools.js';
 
-const GENERATION_TIMEOUT_MS = 90000;
-const MAX_AGENT_ROUNDS = 8;
-const MAX_SUBTASKS = 6;
-const MAX_DOCUMENT_CREATIONS = 4;
+const logger = createLogger('ai-file-task');
 const MAX_RESOURCE_CHARS_PER_CALL = 24000;
 
 /**
@@ -49,22 +51,20 @@ function normalizeReadRange(args, totalLength) {
  */
 export class DocumentTaskEngine {
     /**
-     * @param {{client?:DocumentTaskClient,getTemperature?:()=>number,createNoContentError?:()=>Error}} [options] - 依赖注入
+     * @param {{client?:DocumentTaskClient,getTemperature?:()=>number}} [options] - 依赖注入
      */
     constructor({
         client,
         getTemperature = () => 0.7,
-        createNoContentError = () => new Error('AI did not return usable content'),
     } = {}) {
         if (!client?.complete) throw new Error('DocumentTaskEngine requires a model client');
         this.client = client;
         this.getTemperature = getTemperature;
-        this.createNoContentError = createNoContentError;
     }
 
     /**
      * 基于历史问答执行当前任务，文档读取与工具规划仍由模型决定。
-     * @param {{filePath:string,fileContent:string,currentResult:string,initialInstruction:string,messages?:Array,instruction:string,createDocument?:(args:{filename:string,content:string})=>Promise<object|string>}} options - 历史、本轮资源与可执行能力
+     * @param {{filePath:string,fileContent:string,currentResult:string,initialInstruction:string,messages?:Array,instruction:string,createDocument?:(args:{filename:string,content:string})=>Promise<object|string>,onDocumentEdits?:(edits:Array)=>void,isActive?:()=>boolean,onProgress?:(state:string)=>void}} options - 历史、本轮资源与待用户应用的修改提案
      * @returns {Promise<string>} 本轮完整 Markdown 结果
      */
     async execute({
@@ -75,12 +75,17 @@ export class DocumentTaskEngine {
         messages: conversation = [],
         instruction,
         createDocument = null,
+        onDocumentEdits = null,
+        isActive = () => true,
+        signal,
+        onProgress = null,
     }) {
         const resources = {
             document: String(fileContent || ''),
             draft: String(currentResult || ''),
             initialTask: String(initialInstruction || ''),
         };
+        const sourceReferences = new DocumentSourceReferences(resources.document);
         const messages = [
             {
                 role: 'system',
@@ -92,74 +97,110 @@ export class DocumentTaskEngine {
 你可以调用 run_subtask 把自己规划出的工作交给独立模型，并在拿到结果后继续调用工具、追加子任务或完成综合。
 当当前任务要求改变应用状态时，应调用相应工具真实执行，不要只在最终正文中声称已经执行。
 只有当前用户明确要求创建新文档，或明确接受创建提议时才调用 create_document。润色、美化、分析和生成正文默认只在聊天中展示，用户可通过回复下的“创建文档”按钮打开。
+当前用户要求修改、替换或润色文档时，先读取文档，引用返回的 source_id 并提供 new_text 来提交修改稿，不需要复述原文、计算字符位置或使用已改写的文字定位。局部修改用对应原文块，整篇排版可以直接用已完整读取的整段引用，保留原意和未要求修改的内容。块内少量文字修改也可以使用唯一、逐字匹配的 old_text。
+propose_document_edits 只保存待用户应用的预览，成功并不改变当前文档。所有引用一直指向本轮原文；不能在已改写文字中继续定位。尽量将确定的修改合并提交；简单排版、润色不需要拆子任务或逐段反复规划。提案成功且已经满足要求时，直接简述修改并提示预览和应用，由你判断是否需要继续，不要重复核对或重复提交已经完成的工作，不得声称已经修改或保存。讨论、问候和分析不必生成修改提案。
 只有在已经获得完成当前任务所需的信息后才输出最终结果。最终直接输出本轮应展示的回复或完整 Markdown，不要输出计划、工具调用说明、JSON或外层代码围栏。`),
             },
             {
                 role: 'user',
                 content: `可用资料元数据：\n- 当前文件：${JSON.stringify(String(filePath || ''))}\n- 当前文档字符数：${resources.document.length}\n- 上一次工作稿字符数：${resources.draft.length}\n- 初始任务字符数：${resources.initialTask.length}`,
             },
-            ...normalizeConversation(conversation),
+            ...normalizeConversation(conversation).map(({ role, content }) => ({ role, content })),
             {
                 role: 'user',
                 content: `当前用户任务：\n${String(instruction || '').trim()}`,
             },
         ];
         const tools = createDocumentTaskAgentTools();
-        let subtaskCount = 0;
-        let documentCreationCount = 0;
         let creationAuthorized;
+        let proposedEdits = [];
 
-        for (let round = 1; round <= MAX_AGENT_ROUNDS; round += 1) {
-            const response = await this.client.complete({
-                messages,
-                temperature: this.getTemperature(),
-                timeoutMs: GENERATION_TIMEOUT_MS,
-                phase: 'agent',
-                attempt: round,
-                tools,
-            });
+        let round = 0;
+        let emptyResponses = 0;
+        // 不限制工作轮次；模型返回最终回复时结束，用户取消或源文档失效时中断。
+        while (true) {
+            if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
+            round += 1;
+            let response;
+            try {
+                response = await this.client.complete({
+                    messages,
+                    temperature: this.getTemperature(),
+                    isActive,
+                    signal,
+                    phase: 'agent',
+                    attempt: round,
+                    tools,
+                });
+            } catch (error) {
+                if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
+                if (error?.code !== 'AI_RESPONSE_INCOMPLETE') throw error;
+                // 网关的响应截断或空载荷也沿用原会话恢复，不从头执行工具。
+                response = { content: '', rawBody: '{}' };
+            }
+            if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
+            if (response.refusal || response.finishReason === 'content_filter') {
+                const explanation = stripOuterMarkdownFence(response.content);
+                if (explanation) return explanation;
+                throw createDocumentTaskInterruption('AI_RESPONSE_REFUSED');
+            }
             const turn = parseDocumentTaskAgentTurn(response.rawBody);
             if (!turn) {
                 const content = stripOuterMarkdownFence(response.content);
                 if (content) return content;
+                emptyResponses += 1;
+                continueAfterEmptyResponse(messages, emptyResponses);
+                onProgress?.('recovering');
+                logger.warn('agent:recover-empty', { round, emptyResponses, validatedEdits: proposedEdits.length });
                 continue;
             }
 
+            emptyResponses = 0;
+            onProgress?.('working');
             messages.push(turn.assistantMessage);
             const toolMessages = [];
             // 操作型工具必须按模型给出的顺序执行，保证后续工具能获得前一步的真实结果。
             for (const call of turn.toolCalls) {
+                if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
                 let content;
+                let rejectionCode = null;
                 if (isDocumentTaskReadTool(call.name)) {
-                    content = this.readResource(call.name, call.args, resources);
-                } else if (isDocumentTaskSubtaskTool(call.name)) {
-                    if (subtaskCount >= MAX_SUBTASKS) {
-                        content = '子任务调用次数已达到上限，请使用已有信息完成当前任务。';
-                    } else {
-                        subtaskCount += 1;
-                        content = await this.runSubtask(call.args);
+                    content = this.readResource(call.name, call.args, resources, sourceReferences);
+                } else if (isDocumentTaskProposeEditsTool(call.name)) {
+                    try {
+                        const nextEdits = mergeDocumentEdits(resources.document, proposedEdits, sourceReferences.resolve(call.args?.edits));
+                        proposedEdits = nextEdits;
+                        onDocumentEdits?.(proposedEdits);
+                        content = JSON.stringify({ ok: true, status: 'awaiting_user_apply', count: proposedEdits.length,
+                            hint: '修改稿已通过校验，原文尚未改变，所有 source_id 仍指向本轮原文。若已满足任务，请给出简短最终回复，用户可预览和应用；无需为了保存而再调用工具。' });
+                    } catch (error) {
+                        rejectionCode = ['invalid', 'missing', 'ambiguous', 'overlap', 'unknown_source'].includes(error.message) ? error.message : 'invalid';
+                        content = JSON.stringify({ ok: false, error: rejectionCode,
+                            hint: '已通过校验的提案仍保留，原文未改变。请用 read_current_document 已返回的 source_id 和 new_text 重提交失败范围，避免再次抄写 old_text；未知引用需重新读取。同批引用不要重叠。' });
                     }
+                } else if (isDocumentTaskSubtaskTool(call.name)) {
+                    content = await this.runSubtask(call.args, isActive, signal);
                 } else if (isDocumentTaskCreateDocumentTool(call.name)) {
                     // 独立核对只做一次；不向核对模型提供执行计划或文档中的指令。
                     creationAuthorized ??= await authorizeDocumentCreation({
-                        client: this.client, instruction, messages: conversation,
+                        client: this.client, instruction, messages: conversation, isActive, signal,
                     });
+                    if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
                     if (!creationAuthorized) {
                         content = JSON.stringify({ ok: false, error: '当前用户没有明确要求创建新文档。请仅回答当前消息，不继续旧任务，也不要再次请求创建。' });
-                    } else if (documentCreationCount >= MAX_DOCUMENT_CREATIONS) {
-                        content = JSON.stringify({ ok: false, error: '新文档创建次数已达到上限' });
                     } else {
-                        documentCreationCount += 1;
                         content = await this.createDocument(call.args, createDocument);
                     }
                 } else {
                     content = `未知工具：${call.name}`;
                 }
+                const knownTool = isDocumentTaskReadTool(call.name) || isDocumentTaskProposeEditsTool(call.name)
+                    || isDocumentTaskSubtaskTool(call.name) || isDocumentTaskCreateDocumentTool(call.name);
+                logger.info('agent:tool-completed', { round, tool: knownTool ? call.name : '(unsupported)', rejectionCode, validatedEdits: proposedEdits.length });
                 toolMessages.push({ role: 'tool', tool_call_id: call.id, content });
             }
             messages.push(...toolMessages);
         }
-        throw this.createNoContentError();
     }
 
     /**
@@ -169,7 +210,7 @@ export class DocumentTaskEngine {
      * @param {{document:string,draft:string,initialTask:string}} resources - 本轮资源
      * @returns {string} 带范围元数据的原始资料
      */
-    readResource(toolName, args, resources) {
+    readResource(toolName, args, resources, sourceReferences) {
         const key = getDocumentTaskResourceKey(toolName);
         if (!key) return `未知资源工具：${toolName}`;
         const source = resources[key];
@@ -181,7 +222,8 @@ export class DocumentTaskEngine {
             end,
             total_chars: source.length,
             has_more: end < source.length,
-            content: source.slice(offset, end),
+            ...(key === 'document' && sourceReferences
+                ? sourceReferences.read(offset, end) : { content: source.slice(offset, end) }),
         });
     }
 
@@ -190,7 +232,7 @@ export class DocumentTaskEngine {
      * @param {object|null} args - 子任务目标与模型选择的上下文
      * @returns {Promise<string>} 子任务结果
      */
-    async runSubtask(args) {
+    async runSubtask(args, isActive = () => true, signal) {
         const objective = String(args?.objective || '').trim();
         if (!objective) return '子任务目标为空，请重新规划。';
         const context = String(args?.context || '').slice(0, 48000);
@@ -206,7 +248,8 @@ export class DocumentTaskEngine {
                 },
             ],
             temperature: this.getTemperature(),
-            timeoutMs: GENERATION_TIMEOUT_MS,
+            isActive,
+            signal,
             phase: 'subtask',
         });
         return stripOuterMarkdownFence(response.content) || '子任务未返回可用内容。';

@@ -31,7 +31,7 @@
 :root.platform-windows[data-app-skin='editorial'] .app-menu__submenu {
     background: var(--editorial-paper);
     border: 1px solid var(--editorial-seam);
-    border-radius: 3px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 14px 32px var(--editorial-palette-shadow, rgba(52, 46, 39, 0.14));
 }
 

@@ -3,6 +3,7 @@ const READ_DRAFT_TOOL = 'read_current_draft';
 const READ_INITIAL_TASK_TOOL = 'read_initial_task';
 const RUN_SUBTASK_TOOL = 'run_subtask';
 const CREATE_DOCUMENT_TOOL = 'create_document';
+const PROPOSE_EDITS_TOOL = 'propose_document_edits';
 
 /**
  * 创建 AI 文档任务可自主调用的资源与子任务工具。
@@ -28,13 +29,13 @@ export function createDocumentTaskAgentTools() {
                     offset: { type: 'integer', minimum: 0, description: '从第几个字符开始读取。' },
                     max_chars: { type: 'integer', minimum: 1, maximum: 24000, description: '本次最多读取的字符数。' },
                 },
-                required: ['offset', 'max_chars'],
+                required: [],
             },
         },
     });
 
     return [
-        createReadTool(READ_DOCUMENT_TOOL, '读取当前打开文档的一段原始内容。是否读取、读取多少以及读取哪些位置由你决定。'),
+        createReadTool(READ_DOCUMENT_TOOL, '读取当前文档原文，默认从开头读取。返回整段 source_id 和各原文块 blocks（含 source_id/content）。修改时引用对应标识即可，无需复述原文或计算位置。has_more=true 时按返回的 end 继续读取。'),
         createReadTool(READ_DRAFT_TOOL, '读取上一次 AI 工作稿的一段内容。是否把它作为本轮上下文由你决定。'),
         createReadTool(READ_INITIAL_TASK_TOOL, '读取本工作稿最初的用户任务。它仅是可选背景，最新用户任务始终优先。'),
         {
@@ -50,6 +51,32 @@ export function createDocumentTaskAgentTools() {
                         context: { type: 'string', maxLength: 48000, description: '你选择提供给子任务的必要上下文；不需要时传空字符串。' },
                     },
                     required: ['objective', 'context'],
+                },
+            },
+        },
+        {
+            type: 'function',
+            function: {
+                name: PROPOSE_EDITS_TOOL,
+                description: '提出待用户应用的修改稿，不会修改原文。优先提交已读取的 source_id + new_text，不需要再抄原文；整篇排版可用整段引用，局部修改用对应块引用。也可用唯一且逐字匹配的 old_text + new_text 定位块内文字。只改要求的范围，同批不能重叠，成功后若任务已满足即可最终回复，不需要逐段反复提交。',
+                parameters: {
+                    type: 'object', additionalProperties: false,
+                    properties: {
+                        edits: {
+                            type: 'array', minItems: 1, maxItems: 32,
+                            items: {
+                                type: 'object', additionalProperties: false,
+                                properties: {
+                                    old_text: { type: 'string', minLength: 1, description: '要替换的原文，包含必要上下文。' },
+                                    source_id: { type: 'string', description: 'read_current_document 返回的原文引用。提供此字段时无需 old_text。' },
+                                    new_text: { type: 'string', description: '替换后的 Markdown，空字符串表示删除该段。' },
+                                },
+                                required: ['new_text'],
+                                anyOf: [{ required: ['source_id'] }, { required: ['old_text'] }],
+                            },
+                        },
+                    },
+                    required: ['edits'],
                 },
             },
         },
@@ -175,4 +202,9 @@ export function isDocumentTaskSubtaskTool(name) {
  */
 export function isDocumentTaskCreateDocumentTool(name) {
     return name === CREATE_DOCUMENT_TOOL;
+}
+
+/** 判断工具是否为等待用户应用的文档修改提案。 */
+export function isDocumentTaskProposeEditsTool(name) {
+    return name === PROPOSE_EDITS_TOOL;
 }

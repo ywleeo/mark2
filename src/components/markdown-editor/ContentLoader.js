@@ -1,3 +1,5 @@
+import { closeHistory } from '@tiptap/pm/history';
+import { MarkdownSourceStep, markdownSourceHistoryKey, createMarkdownSourceReplacement } from './MarkdownSourceHistory.js';
 import { EditorState, Selection, TextSelection } from '@tiptap/pm/state';
 import {
     createImageObjectUrl,
@@ -124,6 +126,7 @@ export class ContentLoader {
         this.isLoadingFile = false;
         this.currentTabId = null;
         this._frontmatterRaw = '';
+        this.sourceHistorySnapshot = null;
     }
 
     // ─── 公开 API ──────────────────────────────────────────────────────────────
@@ -296,11 +299,14 @@ export class ContentLoader {
                 const clamp = (v) => Math.max(0, Math.min(Number.isFinite(v) ? v : 0, nextDocSize));
                 tr.setSelection(createSafeTextSelection(tr.doc, clamp(previousSelection.from), clamp(previousSelection.to)));
             }
+            tr.step(new MarkdownSourceStep('', normalizedMarkdown));
             tr.setMeta('addToHistory', false);
             view.dispatch(tr);
 
             this.getTrailingParagraphManager()?.ensure();
             this.sourcePreservingSerializer?.reset(bodyForParse, editor.state.doc);
+            // 加载已建立源码基线，首次普通输入无需再次读取历史快照重置它。
+            this.sourceHistorySnapshot = markdownSourceHistoryKey.getState(editor.state);
         } finally {
             this.setUpdateSuppressed(false);
         }
@@ -326,9 +332,47 @@ export class ContentLoader {
         return true;
     }
 
+    /** 以用户编辑语义应用新源码，不修改 originalMarkdown 或重置撤销历史。 */
+    applyMarkdownChange(markdown) {
+        const editor = this.getEditor();
+        if (!editor || this.isLoadingFile || typeof markdown !== 'string') return false;
+        const before = this.getMarkdown();
+        const after = ensureMarkdownTrailingEmptyLine(markdown);
+        const { body } = extractFrontmatter(after);
+        const parsed = this.markdownParser.parse(preprocessMarkdown(body));
+        const transaction = createMarkdownSourceReplacement(editor.state, parsed, before, after);
+        this.setUpdateSuppressed(true);
+        try {
+            editor.view.dispatch(transaction);
+            // 独立的历史边界不进入 undo；后一轮手动输入不会与本次修改合并。
+            editor.view.dispatch(closeHistory(editor.state.tr).setMeta('addToHistory', false));
+        } finally {
+            this.setUpdateSuppressed(false);
+        }
+        this.contentChanged = true;
+        this.syncSourceHistory();
+        this.onAfterLoad();
+        editor.view.focus();
+        return true;
+    }
+
+    /** 显式应用及其 undo/redo 恢复对应源码布局，普通输入不会重置布局。 */
+    syncSourceHistory() {
+        const state = this.getEditor()?.state;
+        if (!state) return;
+        const snapshot = markdownSourceHistoryKey.getState(state);
+        if (!snapshot || snapshot === this.sourceHistorySnapshot) return;
+        this.sourceHistorySnapshot = snapshot;
+        const { body, raw, meta } = extractFrontmatter(snapshot.source);
+        this._frontmatterRaw = raw;
+        this.applyDocumentMeta?.(meta);
+        this.sourcePreservingSerializer?.reset(body, snapshot.documentNode);
+    }
+
     /** 获取当前 Markdown 内容（未变更时返回原文，变更后仅重建受影响块） */
     getMarkdown() {
         if (!this.contentChanged) return this.originalMarkdown;
+        this.syncSourceHistory();
         const editor = this.getEditor();
         const body = this.sourcePreservingSerializer?.serialize(editor?.state?.doc)
             ?? this.markdownSerializer?.serialize(editor?.state?.doc)
@@ -449,6 +493,7 @@ export class ContentLoader {
             }
 
             const tr = editor.state.tr.setNodeMarkup(pos, null, nextAttrs);
+            tr.step(new MarkdownSourceStep('', normalizedMarkdown));
             tr.setMeta('addToHistory', false);
             editor.view.dispatch(tr);
         }));

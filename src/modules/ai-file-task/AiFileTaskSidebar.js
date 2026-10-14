@@ -7,6 +7,9 @@ import { copyButtonIcon } from '../../icons/uiIcons.js';
 import { AiFileTaskService } from './AiFileTaskService.js';
 import { DocumentTaskResultStore } from './DocumentTaskResultStore.js';
 import { DocumentTaskSession } from './DocumentTaskSession.js';
+import { DocumentTaskTimer, formatTaskDuration } from './DocumentTaskTimer.js';
+import { restoreDocumentEdits } from './DocumentEdits.js';
+import { isRecoverableDocumentTaskError } from './DocumentTaskRecovery.js';
 import { normalizeConversation, restoreConversation } from './DocumentTaskConversation.js';
 import MarkdownIt from 'markdown-it';
 
@@ -41,13 +44,13 @@ function renderBasicMarkdown(value) {
 }
 
 /**
- * 统一渲染消息气泡，每条 AI 回复附带独立操作，最新回复支持编辑与撤销。
+ * 统一渲染消息气泡，每条消息可复制，AI 回复附带独立操作，最新回复支持编辑与撤销。
  * @param {'user'|'assistant'} role - 消息角色
  * @param {string} content - 消息正文
  * @param {{editable?:boolean,isEditing?:boolean,previousContent?:string}} [options] - 最新回复的编辑状态
  * @returns {string} 消息内部 HTML
  */
-function renderMessageContents(role, content, { editable = false, isEditing = false, previousContent = '' } = {}) {
+function renderMessageContents(role, content, { editable = false, isEditing = false, previousContent = '', edits = [], durationMs } = {}) {
     const isUser = role === 'user';
     const author = isUser ? escapeHtml(t('aiFileTask.you')) : 'AI';
     const avatar = isUser ? '' : `<span class="ai-file-task-sidebar__message-avatar" aria-hidden="true">
@@ -57,20 +60,28 @@ function renderMessageContents(role, content, { editable = false, isEditing = fa
         <button type="button" data-action="undo-result" ${previousContent ? '' : 'disabled'}>${escapeHtml(t('common.undo'))}</button>
         <button type="button" data-action="toggle-edit">${escapeHtml(t(isEditing ? 'aiFileTask.previewResult' : 'aiFileTask.editResult'))}</button>
     </div>` : '';
+    const duration = !isUser && Number.isFinite(durationMs) ? `<span class="ai-file-task-sidebar__duration">${escapeHtml(t('aiFileTask.elapsed', { duration: formatTaskDuration(durationMs) }))}</span>` : '';
     const body = isUser
         ? `<div class="ai-file-task-sidebar__user-text">${escapeHtml(content)}</div>`
         : (isEditing
             ? `<textarea class="ai-file-task-sidebar__draft-editor" data-ref="draft-editor" spellcheck="true">${escapeHtml(content)}</textarea>`
             : `<div class="ai-file-task__answer ai-file-task-sidebar__preview">${renderBasicMarkdown(content)}</div>`);
-    const replyActions = isUser ? '' : `<div class="ai-file-task-sidebar__reply-actions">
+    const replyActions = isUser ? `<div class="ai-file-task-sidebar__reply-actions">
+        <button type="button" class="code-copy-button is-visible ai-file-task-sidebar__copy" data-action="copy-message" title="${escapeHtml(t('aiFileTask.copyMessage'))}" aria-label="${escapeHtml(t('aiFileTask.copyMessage'))}">${copyButtonIcon()}</button>
+    </div>` : `<div class="ai-file-task-sidebar__reply-actions">
+        <button type="button" class="ai-file-task-sidebar__text-button" data-action="${edits.length ? 'apply-edits' : 'replace-result'}">${escapeHtml(t(edits.length ? 'aiFileTask.applyEdits' : 'aiFileTask.replaceDocument'))}</button>
         <button type="button" class="ai-file-task-sidebar__text-button" data-action="insert-result">${escapeHtml(t('aiFileTask.insertResult'))}</button>
         <button type="button" class="ai-file-task-sidebar__text-button" data-action="open-result">${escapeHtml(t('aiFileTask.openResult'))}</button>
         <button type="button" class="code-copy-button is-visible ai-file-task-sidebar__copy" data-action="copy-result" title="${escapeHtml(t('aiFileTask.copyResult'))}" aria-label="${escapeHtml(t('aiFileTask.copyResult'))}">${copyButtonIcon()}</button>
     </div>`;
+    const editPreview = !isUser && edits.length ? `<details class="ai-file-task-sidebar__edits">
+        <summary>${escapeHtml(t('aiFileTask.previewEdits').replace('{count}', edits.length))}</summary>
+        ${edits.map(edit => `<section><div>${escapeHtml(t('aiFileTask.originalText'))}</div><pre class="is-original">${escapeHtml(edit.old_text)}</pre><div>${escapeHtml(t('aiFileTask.replacementText'))}</div><pre>${escapeHtml(edit.new_text || t('aiFileTask.deletedText'))}</pre></section>`).join('')}
+    </details>` : '';
     return `<div class="ai-file-task-sidebar__message-header">
-        <span class="ai-file-task-sidebar__message-author">${avatar}<span>${author}</span></span>
+        <span class="ai-file-task-sidebar__message-author">${avatar}<span>${author}</span>${duration}</span>
         ${actions}
-    </div><div class="ai-file-task-sidebar__message-bubble">${body}</div>${replyActions}`;
+    </div><div class="ai-file-task-sidebar__message-bubble">${body}${editPreview}</div>${replyActions}`;
 }
 
 /**
@@ -113,6 +124,7 @@ export class AiFileTaskSidebar {
      * @param {()=>void} [options.saveCurrentEditorContentToCache] - 同步当前编辑器快照
      * @param {(args:{content:string,filename:string})=>Promise<string>} [options.openResultAsUntitled] - 打开工作稿文档
      * @param {(content:string)=>boolean|void} [options.insertResult] - 把工作稿插入当前编辑器
+     * @param {(args:object)=>boolean} [options.applyDocumentEdits] - 校验源文档后应用修改
      * @param {(path:string)=>void} [options.pinDocument] - 将 AI 任务源文档固定为独立 file tab
      * @param {(path:string,state:'working'|'done'|'error'|'idle')=>void} [options.onTaskStateChange] - 通知源文档 tab 的 AI 工作状态
      * @param {()=>object|null} [options.getStatusBarController] - 状态栏访问器
@@ -124,12 +136,17 @@ export class AiFileTaskSidebar {
         this.saveCurrentEditorContentToCache = options.saveCurrentEditorContentToCache || null;
         this.openResultAsUntitled = options.openResultAsUntitled || null;
         this.insertResult = options.insertResult || null;
+        this.applyDocumentEdits = options.applyDocumentEdits || null;
         this.pinDocument = options.pinDocument || null;
         this.onTaskStateChange = options.onTaskStateChange || null;
         this.getStatusBarController = options.getStatusBarController || (() => null);
         this.service = options.service || new AiFileTaskService();
         this.resultStore = options.resultStore || new DocumentTaskResultStore();
         this.session = new DocumentTaskSession();
+        this.taskTimer = new DocumentTaskTimer({ onTick: durationMs => {
+            const label = this.root?.querySelector('[data-ref="elapsed"]');
+            if (label) label.textContent = formatTaskDuration(durationMs);
+        } });
         this.root = null;
         this.currentPath = '';
         this.currentDocumentId = '';
@@ -292,7 +309,7 @@ export class AiFileTaskSidebar {
             </div>
             <section class="ai-file-task-sidebar__request">
                 <div class="ai-file-task-sidebar__processing" data-ref="processing" hidden role="status" aria-live="polite">
-                    <div><span>${escapeHtml(t('aiFileTask.processingLabel'))}</span><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>
+                    <div><span class="ai-file-task-sidebar__elapsed" data-ref="elapsed" aria-live="off">00:00</span><span data-ref="processing-label">${escapeHtml(t('aiFileTask.processingLabel'))}</span><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>
                 </div>
                 <textarea id="aiFileTaskInstruction" name="instruction" rows="3" placeholder="${escapeHtml(t('aiFileTask.instruction'))}" aria-label="${escapeHtml(t('aiFileTask.instruction'))}" aria-describedby="aiFileTaskRequestHint"></textarea>
                 <div class="ai-file-task-sidebar__request-footer">
@@ -320,9 +337,12 @@ export class AiFileTaskSidebar {
             const message = button.closest('.ai-file-task-sidebar__message');
             if (action === 'close') this.close();
             if (action === 'run') void this.run();
-            if (action === 'copy-result') void this.copyResult(message, button);
+            if (action === 'stop') this.stopTask();
+            if (action === 'retry') void this.run();
+            if (action === 'copy-result' || action === 'copy-message') void this.copyResult(message, button);
             if (action === 'open-result') void this.openResult(message);
             if (action === 'insert-result') this.insertCurrentResult(message);
+            if (action === 'apply-edits' || action === 'replace-result') this.applyReplyToDocument(message, action === 'replace-result');
             if (action === 'toggle-edit') this.toggleEdit();
             if (action === 'undo-result') this.undoResult();
             if (action === 'new-task') this.startNewTask();
@@ -453,7 +473,7 @@ export class AiFileTaskSidebar {
             ? this.messages.slice(0, -1) : this.messages;
         container.innerHTML = visibleMessages.map((message, index) => `
             <article class="ai-file-task-sidebar__message" data-role="${message.role}" data-message-index="${index}">
-                ${renderMessageContents(message.role, message.content)}
+                ${renderMessageContents(message.role, message.content, { edits: restoreDocumentEdits(message.edits), durationMs: message.durationMs })}
             </article>
         `).join('');
         this.renderDraft();
@@ -490,6 +510,8 @@ export class AiFileTaskSidebar {
             editable: true,
             isEditing: this.isEditing,
             previousContent: this.previousContent,
+            edits: restoreDocumentEdits(this.messages.at(-1)?.edits),
+            durationMs: this.messages.at(-1)?.durationMs,
         });
     }
 
@@ -499,7 +521,7 @@ export class AiFileTaskSidebar {
         const newChat = this.root?.querySelector('[data-action="new-task"]');
         if (newChat) newChat.hidden = !hasResult && this.messages.length === 0;
         this.root?.querySelectorAll('button, textarea').forEach(element => {
-            if (element.dataset.action === 'close') return;
+            if (['close', 'stop', 'copy-result', 'copy-message'].includes(element.dataset.action)) return;
             element.disabled = this.isRunning
                 || (element.dataset.action === 'undo-result' && !this.previousContent);
         });
@@ -543,6 +565,13 @@ export class AiFileTaskSidebar {
                 initialInstruction: this.initialInstruction,
                 messages: history,
                 instruction,
+                isActive: () => this.session.isCurrent(task) && this.getDocumentId(task.sourcePath) === task.documentId,
+                signal: task.signal,
+                onProgress: state => {
+                    if (!this.session.isCurrent(task)) return;
+                    const label = this.root?.querySelector('[data-ref="processing-label"]');
+                    if (label) label.textContent = t(state === 'recovering' ? 'aiFileTask.recovering' : 'aiFileTask.processingLabel');
+                },
                 createDocument: async ({ filename, content }) => {
                     if (!this.session.isCurrent(task) || this.getDocumentId(task.sourcePath) !== task.documentId) {
                         throw new Error('当前文档任务已经失效');
@@ -567,7 +596,7 @@ export class AiFileTaskSidebar {
             this.messages = normalizeConversation([
                 ...history,
                 { role: 'user', content: instruction },
-                { role: 'assistant', content: result.content },
+                { role: 'assistant', content: result.content, edits: result.edits, durationMs: this.taskTimer.elapsed() },
             ]);
             this.pendingInstruction = '';
             this.inputInstruction = '';
@@ -584,6 +613,12 @@ export class AiFileTaskSidebar {
             this.restorePendingInstruction();
             this.pendingInstruction = '';
             this.renderConversation();
+            if (error?.code === 'AI_TASK_CANCELLED') return;
+            if (isRecoverableDocumentTaskError(error)) {
+                this.onTaskStateChange?.(task.sourcePath, 'idle');
+                this.showRecoverableFailure(error);
+                return;
+            }
             this.onTaskStateChange?.(task.sourcePath, 'error');
             this.setStatus(error?.message || String(error), 'error');
         } finally {
@@ -610,6 +645,22 @@ export class AiFileTaskSidebar {
         this.inputDrafts.set(this.currentDocumentId || this.currentPath, this.inputInstruction);
         const input = this.root?.querySelector('[name="instruction"]');
         if (input) input.value = this.inputInstruction;
+    }
+
+    /** 模型没有完成时保留正文和提问，提供轻提示及可操作的重试入口。 */
+    showRecoverableFailure(error) {
+        const refused = error?.code === 'AI_RESPONSE_REFUSED';
+        const messageKey = refused ? 'aiFileTask.modelStopped' : error?.code === 'AI_IDLE_TIMEOUT' ? 'aiFileTask.idleTimeout' : 'aiFileTask.retryHint';
+        this.setStatus(t(messageKey), 'info');
+        if (refused) return;
+        const status = this.root?.querySelector('[data-ref="status"]');
+        if (!status) return;
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'ai-file-task-sidebar__text-button';
+        retry.dataset.action = 'retry';
+        retry.textContent = t('aiFileTask.retry');
+        status.appendChild(retry);
     }
 
     /** 用输入框占位文字与无障碍名称提示续聊，不额外占用一行标题。 */
@@ -659,6 +710,8 @@ export class AiFileTaskSidebar {
         if (!this.previousContent || !this.result || this.isRunning) return;
         const currentContent = this.result.content;
         this.result.content = this.previousContent;
+        // 撤销的是聊天工作稿，不把另一稿的修改清单套到恢复后的正文上。
+        if (this.messages.at(-1)) delete this.messages.at(-1).edits;
         this.previousContent = currentContent;
         this.persistCurrentResult();
         this.renderDraft();
@@ -696,6 +749,15 @@ export class AiFileTaskSidebar {
         return reply?.role === 'assistant' ? reply.content.trim() : '';
     }
 
+    /** 复制消息原文；已提交但仍等待回答的提问也可复制，不读取气泡标签或按钮文字。 */
+    getChatContent(message) {
+        if (message?.dataset.role !== 'user') return this.getReplyContent(message);
+        if (message.dataset.ref === 'pending-message') return this.pendingInstruction;
+        const index = Number(message.dataset.messageIndex);
+        const chat = Number.isInteger(index) ? this.messages[index] : null;
+        return chat?.role === 'user' ? chat.content : '';
+    }
+
     /** 将选中的回复插入当前活动编辑器。 */
     insertCurrentResult(message) {
         const content = this.getReplyContent(message);
@@ -705,6 +767,25 @@ export class AiFileTaskSidebar {
             inserted === false ? t('aiFileTask.error.insertUnavailable') : t('aiFileTask.inserted'),
             inserted === false ? 'error' : 'success',
         );
+    }
+
+    /** 将当前回复的局部提案或完整稿应用到源文档，任何匹配失败都不修改正文。 */
+    applyReplyToDocument(message, replaceAll = false) {
+        if (this.isRunning || typeof this.applyDocumentEdits !== 'function') return;
+        const reply = (!message || message.dataset.ref === 'draft')
+            ? this.messages.at(-1) : this.messages[Number(message.dataset.messageIndex)];
+        try {
+            const applied = this.applyDocumentEdits({
+                path: this.currentPath,
+                documentId: this.currentDocumentId,
+                ...(replaceAll ? { replacement: this.getReplyContent(message) } : { edits: restoreDocumentEdits(reply?.edits) }),
+            });
+            this.setStatus(t(applied ? 'aiFileTask.editsApplied' : 'aiFileTask.editsUnchanged'), 'success');
+        } catch (error) {
+            const key = ['missing', 'ambiguous', 'overlap', 'differentDocument', 'unavailable', 'invalid'].includes(error.message)
+                ? error.message : 'unavailable';
+            this.setStatus(t('aiFileTask.editError.' + key), 'error');
+        }
     }
 
     /** 将选中的回复打开为临时 Markdown 文档。 */
@@ -721,9 +802,9 @@ export class AiFileTaskSidebar {
         }
     }
 
-    /** 复制选中的回复，反馈只显示在本条回复的复制按钮上。 */
+    /** 复制选中的消息，反馈只显示在本条消息的复制按钮上。 */
     async copyResult(message, button = message?.querySelector('[data-action="copy-result"]')) {
-        const content = this.getReplyContent(message);
+        const content = this.getChatContent(message);
         if (!content) return;
         const sourcePath = this.currentPath;
         try {
@@ -801,8 +882,19 @@ export class AiFileTaskSidebar {
         this.root?.classList.toggle('is-busy', busy);
         const processing = this.root?.querySelector('[data-ref="processing"]');
         if (processing) processing.hidden = !busy;
+        if (busy) this.taskTimer.start();
+        else this.taskTimer.stop();
+        const runButton = this.root?.querySelector('[data-action="run"], [data-action="stop"]');
+        if (runButton) {
+            runButton.dataset.action = busy ? 'stop' : 'run';
+            runButton.textContent = t(busy ? 'aiFileTask.stop' : 'aiFileTask.run');
+        }
+        if (busy) {
+            const label = processing?.querySelector('[data-ref="processing-label"]');
+            if (label) label.textContent = t('aiFileTask.processingLabel');
+        }
         this.root?.querySelectorAll('button, textarea').forEach(element => {
-            if (element.dataset.action === 'close') return;
+            if (['close', 'stop', 'copy-result', 'copy-message'].includes(element.dataset.action)) return;
             element.disabled = busy;
         });
         if (busy) {
@@ -811,6 +903,22 @@ export class AiFileTaskSidebar {
         } else {
             this.getStatusBarController()?.hideProgress?.({ delay: 300 });
         }
+    }
+
+    /** 立即停止本轮生成，恢复提问和已有对话，保留侧栏以便继续发送。 */
+    stopTask() {
+        if (!this.isRunning) return;
+        this.session.cancel();
+        this.restorePendingInstruction();
+        this.pendingInstruction = '';
+        this.pendingPath = '';
+        this.pendingVisibility = false;
+        this.setBusy(false);
+        this.onTaskStateChange?.(this.currentPath, 'idle');
+        this.renderConversation();
+        this.syncActions();
+        this.syncComposer(true);
+        this.setStatus(t('aiFileTask.stopped', { duration: formatTaskDuration(this.taskTimer.elapsed()) }));
     }
 
     /** 将操作状态显示在对话末尾，随消息滚动，不占用固定输入区域。 */
@@ -850,6 +958,7 @@ export class AiFileTaskSidebar {
     destroy() {
         this.flushPersist();
         this.session.cancel();
+        this.taskTimer.stop();
         this.clearCopyFeedback();
         this.resizeCleanup?.();
         this.resizeCleanup = null;

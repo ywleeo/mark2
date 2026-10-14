@@ -1137,6 +1137,17 @@ export class CodeEditor {
         });
     }
 
+    /** 替换当前源码为一次原生可撤销编辑；旧快照不匹配时拒绝应用。 */
+    applyMarkdownChange(content, expectedContent) {
+        if (!this.editor || this.isLoading() || this.getValue() !== expectedContent) return false;
+        this.editor.dispatch({
+            changes: { from: 0, to: this.editor.state.doc.length, insert: content },
+            annotations: isolateHistory.of('full'),
+        });
+        this.editor.focus();
+        return true;
+    }
+
     insertTextAtCursor(text) {
         if (!this.editor) return;
         const pos = this.editor.state.selection.main.head;

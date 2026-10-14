@@ -1158,7 +1158,7 @@ body.is-internal-drag .content-wrapper::after {
     min-width: 180px;
     background: var(--sidebar-bg, #ffffff);
     border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 6px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     padding: 4px 0;
     opacity: 0;
@@ -1267,7 +1267,7 @@ body.is-internal-drag .content-wrapper::after {
     min-width: 200px;
     background: var(--sidebar-bg, #f8f8f8);
     border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 6px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     padding: 4px 0;
     z-index: 10001;

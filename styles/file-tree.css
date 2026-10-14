@@ -647,7 +647,7 @@
     background: var(--bg-color, #ffffff);
     border: 1px solid var(--border-color, #d8d8d8);
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     z-index: 9999;
     color: var(--text-color, #222222);
 }

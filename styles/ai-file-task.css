@@ -275,6 +275,23 @@ body.ai-file-task-resizing {
     text-overflow: ellipsis;
 }
 
+/* 耗时保持固定数字宽度，与状态同行，不挤占新的纵向空间。 */
+.ai-file-task-sidebar__elapsed {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.ai-file-task-sidebar__duration {
+    color: var(--ai-task-muted);
+    font-size: 10px;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+}
+
+.ai-file-task-sidebar__run[data-action='stop'] {
+    border-color: var(--accent-color);
+}
+
 .ai-file-task-sidebar__processing i {
     flex-shrink: 0;
     width: 3px;
@@ -641,4 +658,36 @@ body.ai-file-task-resizing {
     .ai-file-task-sidebar__processing i {
         animation-duration: 2.5s;
     }
+}
+/* 修改预览与所属回复一起滚动，原文和新文均显示真实 Markdown 文本。 */
+.ai-file-task-sidebar__edits {
+    margin-top: 12px;
+    font-size: 12px;
+}
+
+.ai-file-task-sidebar__edits summary {
+    cursor: pointer;
+    color: var(--accent-color);
+}
+
+.ai-file-task-sidebar__edits section {
+    margin-top: 12px;
+}
+
+.ai-file-task-sidebar__edits pre {
+    margin: 4px 0 10px;
+    padding: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font: inherit;
+    border-left: 2px solid var(--accent-color);
+    background: var(--ai-task-user-bg);
+}
+
+.ai-file-task-sidebar__edits pre.is-original {
+    border-color: var(--border-color);
+    opacity: 0.7;
+}
+.ai-file-task-sidebar__status [data-action='retry'] {
+    margin-left: 8px;
 }

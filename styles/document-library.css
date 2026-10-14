@@ -174,7 +174,7 @@
     width: min(360px, calc(100vw - 48px));
     padding: 20px;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     background: var(--content-bg);
     color: var(--text-color);
     font: inherit;

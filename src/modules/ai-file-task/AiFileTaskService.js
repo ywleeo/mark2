@@ -1,5 +1,6 @@
 import { t } from '../../i18n/index.js';
 import { aiService } from '../ai-assistant/aiService.js';
+import { createDocumentTaskInterruption } from './DocumentTaskRecovery.js';
 import { DocumentTaskClient } from './DocumentTaskClient.js';
 import { DocumentTaskEngine } from './DocumentTaskEngine.js';
 
@@ -15,14 +16,13 @@ export class AiFileTaskService {
         this.engine = options.engine || new DocumentTaskEngine({
             client,
             getTemperature: () => aiService.getTemperature(),
-            createNoContentError: () => new Error(t('aiFileTask.error.noContent')),
         });
     }
 
     /**
      * 执行当前用户任务；资料选择、规划和子任务拆分均由 LLM 完成。
-     * @param {{filePath:string,fileContent:string,currentResult?:string,initialInstruction?:string,messages?:Array,instruction:string,createDocument?:(args:{filename:string,content:string})=>Promise<object|string>}} options - 本轮任务、历史问答与界面能力
-     * @returns {Promise<{action:'show_answer',filename:null,content:string}>} 本轮完整结果
+     * @param {{filePath:string,fileContent:string,currentResult?:string,initialInstruction?:string,messages?:Array,instruction:string,createDocument?:(args:{filename:string,content:string})=>Promise<object|string>,isActive?:()=>boolean,onProgress?:(state:string)=>void}} options - 本轮任务、历史问答与界面能力
+     * @returns {Promise<{action:'show_answer',filename:null,content:string,edits:Array}>} 本轮回复与等待用户应用的修改清单
      */
     async runTask({
         filePath,
@@ -32,9 +32,13 @@ export class AiFileTaskService {
         messages = [],
         instruction,
         createDocument = null,
+        isActive = () => true,
+        signal,
+        onProgress = null,
     }) {
         const trimmedInstruction = String(instruction || '').trim();
         if (!trimmedInstruction) throw new Error(t('aiFileTask.error.emptyInstruction'));
+        let edits = [];
         const content = await this.engine.execute({
             filePath,
             fileContent: String(fileContent || ''),
@@ -43,8 +47,12 @@ export class AiFileTaskService {
             messages,
             instruction: trimmedInstruction,
             createDocument,
+            isActive,
+            signal,
+            onProgress,
+            onDocumentEdits: proposal => { edits = proposal; },
         });
-        if (!content.trim()) throw new Error(t('aiFileTask.error.noContent'));
-        return { action: 'show_answer', filename: null, content: content.trim() };
+        if (!content.trim()) throw createDocumentTaskInterruption('AI_TASK_INCOMPLETE');
+        return { action: 'show_answer', filename: null, content: content.trim(), edits };
     }
 }

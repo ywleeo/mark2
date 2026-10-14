@@ -565,7 +565,7 @@
 :root[data-app-skin='editorial'] .vault-panel,
 :root[data-app-skin='editorial'] .card-export-flow__panel {
     border-color: var(--editorial-rule);
-    border-radius: 4px;
+    border-radius: var(--floating-panel-radius, 14px);
     background: var(--editorial-paper);
     color: var(--editorial-ink);
 }

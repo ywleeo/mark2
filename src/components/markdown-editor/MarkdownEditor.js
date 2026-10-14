@@ -1,3 +1,4 @@
+import { MarkdownSourceStep, createMarkdownSourceHistoryPlugin } from './MarkdownSourceHistory.js';
 import { Editor } from '@tiptap/core';
 import { Fragment } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
@@ -153,6 +154,15 @@ export class MarkdownEditor {
                 },
             },
             onCreate: () => this.codeCopyManager?.scheduleCodeBlockCopyUpdate(),
+            // 只修改不可见源码（如 frontmatter）时，TipTap 不派发 onUpdate；undo/redo 仍须同步模型。
+            onTransaction: ({ transaction }) => {
+                if (this.suppressUpdateEvent || !transaction.before.eq(transaction.doc)
+                    || !transaction.steps.some(step => step instanceof MarkdownSourceStep)) return;
+                this.contentLoader.contentChanged = true;
+                this._currentDocument?.applyEditorChange?.(this.getMarkdown(), { source: this._documentChangeSource });
+                this.callbacks.onContentChange?.();
+                this.saveManager?.scheduleAutoSave();
+            },
             onUpdate: ({ transaction }) => {
                 if (this.suppressUpdateEvent) return;
                 // 明确声明不进历史的 transaction（TrailingParagraph / IME \u200B / 图片异步解析等内部变更）
@@ -175,6 +185,7 @@ export class MarkdownEditor {
             getScrollContainer: () => this.getScrollContainer(),
         });
 
+        this.editor.registerPlugin(createMarkdownSourceHistoryPlugin());
         const markdownParser = createMarkdownParser(this.editor.schema);
         mdParser = markdownParser;
         const markdownSerializer = createMarkdownSerializer(this.editor.schema);
@@ -511,6 +522,16 @@ export class MarkdownEditor {
     }
     setContent(markdown, focus, opts)           {
         return this.contentLoader.setContent(markdown, focus, opts);
+    }
+    /** 把 AI 提案作为单次正文编辑应用，保留保存基线和原生撤销历史。 */
+    applyMarkdownChange(content, expectedContent) {
+        if (this.isLoading() || this.getMarkdown() !== expectedContent) return false;
+        if (!this.contentLoader.applyMarkdownChange(content)) return false;
+        this._currentDocument?.applyEditorChange?.(this.getMarkdown(), { source: this._documentChangeSource });
+        this.callbacks.onContentChange?.();
+        this.searchBoxManager?.handleContentMutated('markdown');
+        this.saveManager?.scheduleAutoSave();
+        return true;
     }
     getMarkdown()                               { return this.contentLoader.getMarkdown(); }
     /** 是否正在加载中（任何阶段没收尾），saveCache 等读取路径用它过滤 in-flight 状态 */

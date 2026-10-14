@@ -32,7 +32,7 @@ export async function aiProxyJsonRequest({ method, url, apiKey, body, timeoutMs 
 /**
  * 通过 Tauri 后端发起流式 AI 请求。
  * 返回取消监听函数，避免事件监听器泄漏。
- * timeoutMs 只控制连接阶段超时，不限制整个流式响应时长。
+ * timeoutMs 只限制连接阶段；idleTimeoutMs 限制连续无数据时间，均不限制生成总时长。
  */
 export async function startAiProxyStream({
     requestId,
@@ -40,6 +40,7 @@ export async function startAiProxyStream({
     apiKey,
     body,
     timeoutMs = 180000,
+    idleTimeoutMs = timeoutMs,
     onChunk,
     onError,
     onEnd,
@@ -70,6 +71,7 @@ export async function startAiProxyStream({
                 apiKey,
                 body,
                 timeoutMs,
+                idleTimeoutMs,
             },
         });
     } catch (error) {

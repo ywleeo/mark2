@@ -41,7 +41,7 @@
     max-height: 80vh;
     background: var(--settings-surface);
     color: var(--settings-field-text);
-    border-radius: 14px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow:
         0 0 0 0.5px var(--settings-divider),
         0 20px 60px rgba(0, 0, 0, 0.07),
@@ -475,7 +475,7 @@ select.vault-input {
     background: var(--settings-surface-contrast);
     color: var(--settings-surface);
     font-size: 12px;
-    border-radius: 7px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     pointer-events: none;
     animation: vault-toast-in 0.18s ease;

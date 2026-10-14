@@ -21,7 +21,7 @@
     width: 300px;
     backdrop-filter: blur(12px);
     background: var(--settings-surface, #ffffffad);
-    border-radius: 14px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 20px 60px rgba(14, 18, 27, 0.25);
     text-align: center;
     padding: 32px 28px 24px;

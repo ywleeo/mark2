@@ -18,7 +18,7 @@
     color: var(--text-color, #252525);
     background: var(--settings-surface, #fff);
     border: 1px solid var(--border-color, #d8d8d8);
-    border-radius: 12px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.24);
 }
 

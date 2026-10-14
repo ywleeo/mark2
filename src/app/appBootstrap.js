@@ -32,6 +32,7 @@ import { setupToolbarEvents } from './eventSetup.js';
 import { setupTitlebarControls, setupThemeToggle, toggleAppTheme } from './windowControls.js';
 import { AppMenu } from '../components/AppMenu.js';
 import { VaultPanel } from '../components/VaultPanel.js';
+import { createDocumentEditApplier } from '../modules/ai-file-task/DocumentEdits.js';
 import { AiFileTaskSidebar } from '../modules/ai-file-task/AiFileTaskSidebar.js';
 import { createTabStateTrimmer, registerIdleCleanup, startIdleGC } from '../utils/idleGC.js';
 import { EVENT_IDS } from '../core/eventIds.js';
@@ -429,6 +430,20 @@ export function createAppBootstrap({
                 editor.insertAIContent(content);
                 return true;
             },
+            applyDocumentEdits: createDocumentEditApplier({
+                getTarget: () => {
+                    const context = getActivePaneContext();
+                    const editor = context.viewMode === 'code' ? context.editorRegistry.getCodeEditor()
+                        : context.viewMode === 'markdown' ? context.editorRegistry.getMarkdownEditor() : null;
+                    if (!editor?.applyMarkdownChange || editor.isLoading?.()) return null;
+                    return {
+                        path: context.documentPath,
+                        documentId: untitledFileManager.getDocumentId?.(context.documentPath) || '',
+                        getContent: () => context.viewMode === 'code' ? editor.getValue() : editor.getMarkdown(),
+                        replace: (content, expected) => editor.applyMarkdownChange(content, expected),
+                    };
+                },
+            }),
             getStatusBarController: () => appState.getStatusBarController(),
         });
         const tabSidebarStateController = createTabSidebarStateController({

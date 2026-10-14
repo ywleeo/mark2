@@ -128,7 +128,7 @@
     padding: 4px;
     background: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.12);
-    border-radius: 8px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 6px 20px rgba(15, 23, 42, 0.16);
     color: #1f2937;
 }
@@ -153,7 +153,7 @@
 .toolbar-ai-panel {
     width: 284px;
     padding: 7px;
-    border-radius: 12px;
+    border-radius: var(--floating-panel-radius, 14px);
     border-color: rgba(70, 91, 150, 0.16);
     background: rgba(255, 255, 255, 0.98);
     box-shadow: 0 18px 48px rgba(30, 46, 92, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
@@ -698,7 +698,7 @@
 .markdown-toolbar-tooltip {
     position: fixed;
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: var(--floating-panel-radius, 14px);
     background: rgba(30, 30, 30, 0.92);
     color: #fff;
     font-size: 12px;
@@ -753,7 +753,7 @@
     backdrop-filter: blur(8px);
     background: rgba(248, 249, 252, 0.92);
     border: 1px solid var(--toolbar-border, rgba(15, 23, 42, 0.1));
-    border-radius: 8px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     opacity: 0;
@@ -1042,7 +1042,7 @@ body.is-resizing-markdown-page * {
     box-sizing: border-box;
     padding: 18px;
     background: #ffffff;
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
     color: #1f2937;
 }

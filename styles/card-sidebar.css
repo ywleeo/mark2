@@ -27,7 +27,7 @@
     background: #ffffff;
     border-top: 1px solid rgba(15, 23, 42, 0.08);
     box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.12);
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--floating-panel-radius, 14px);
     animation: card-flow-slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 

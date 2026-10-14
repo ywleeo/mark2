@@ -9,6 +9,9 @@ description = "一个基于 Tauri 的 Markdown 阅读器"
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
 
+[dev-dependencies]
+tokio = { version = "1.37", features = ["test-util"] }
+
 [dependencies]
 tauri = { version = "2.3", features = ["devtools"] }
 tauri-plugin-dialog = "2.3"

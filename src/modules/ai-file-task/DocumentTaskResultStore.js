@@ -9,7 +9,7 @@ const DEFAULT_MAX_CHARS = 750_000;
 function countRecordChars(record) {
     return ['content', 'initialInstruction', 'instruction', 'lastInstruction', 'previousContent', 'filename']
         .reduce((sum, key) => sum + String(record[key] || '').length, 0)
-        + restoreConversation(record).reduce((sum, message) => sum + message.content.length, 0);
+        + restoreConversation(record).reduce((sum, message) => sum + message.content.length + (message.edits ? JSON.stringify(message.edits).length : 0), 0);
 }
 
 /**

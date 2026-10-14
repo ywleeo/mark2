@@ -39,6 +39,13 @@ function createToolResponse(name, args, id = 'call-1') {
     });
 }
 
+/** 记录可序列化的请求参数，并验证取消状态回调随请求传递。 */
+function snapshotRequest({ isActive, ...options }) {
+    assert.equal(typeof isActive, 'function');
+    assert.equal(isActive(), true);
+    return structuredClone(options);
+}
+
 test('文档任务只向模型暴露能力，不提供任务类型枚举', () => {
     const tools = createDocumentTaskAgentTools();
     assert.deepEqual(tools.map(tool => tool.function.name), [
@@ -46,6 +53,7 @@ test('文档任务只向模型暴露能力，不提供任务类型枚举', () =>
         'read_current_draft',
         'read_initial_task',
         'run_subtask',
+        'propose_document_edits',
         'create_document',
     ]);
     assert.equal(JSON.stringify(tools).includes('context_scope'), false);
@@ -57,7 +65,7 @@ test('文档任务由模型主动读取资料，当前用户任务始终位于�
     const calls = [];
     const client = {
         async complete(options) {
-            calls.push(structuredClone(options));
+            calls.push(snapshotRequest(options));
             if (calls.length === 1) {
                 const body = createToolResponse('read_current_document', { offset: 0, max_chars: 24000 });
                 return { content: '', rawBody: body };
@@ -84,7 +92,7 @@ test('模型可以自行规划子任务并在后续调用中综合结果', async
     const calls = [];
     const client = {
         async complete(options) {
-            calls.push(structuredClone(options));
+            calls.push(snapshotRequest(options));
             if (options.phase === 'subtask') {
                 return { content: '子任务发现', rawBody: '{"choices":[{"message":{"content":"子任务发现"}}]}' };
             }
@@ -114,7 +122,7 @@ test('模型可以自主创建新文档并获得真实执行结果', async () =>
     const client = {
         async complete(options) {
             if (options.phase === 'create-authorization') return { content: '{"allow":true}' };
-            calls.push(structuredClone(options));
+            calls.push(snapshotRequest(options));
             if (calls.length === 1) {
                 return {
                     content: '',
@@ -149,7 +157,7 @@ test('旧创建任务和助手建议不能让 hi 自动创建新文档，拒绝�
     let agentCalls = 0;
     const engine = new DocumentTaskEngine({ client: {
         async complete(options) {
-            requests.push(structuredClone(options));
+            requests.push(snapshotRequest(options));
             if (options.phase === 'create-authorization') return { content: '{"allow":false}' };
             agentCalls += 1;
             if (agentCalls <= 2) return {

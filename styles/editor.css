@@ -193,7 +193,7 @@
     min-width: 178px;
     padding: 8px;
     border: 1px solid rgba(31, 36, 44, 0.12);
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
     backdrop-filter: blur(18px);
@@ -297,7 +297,7 @@
     min-height: 34px;
     padding: 4px;
     border: 1px solid rgba(89, 124, 255, 0.20);
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     background:
         linear-gradient(135deg, rgba(92, 124, 255, 0.12), rgba(74, 202, 190, 0.07) 38%, rgba(255, 255, 255, 0.78) 39%, rgba(255, 255, 255, 0.94) 62%),
         rgba(255, 255, 255, 0.94);
@@ -473,7 +473,7 @@
     overflow: auto;
     padding: 10px;
     border: 1px solid rgba(31, 36, 44, 0.12);
-    border-radius: 12px;
+    border-radius: var(--floating-panel-radius, 14px);
     background: rgba(255, 255, 255, 0.97);
     box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
     backdrop-filter: blur(20px);
@@ -1495,7 +1495,7 @@
     min-width: 140px;
     background: var(--bg-secondary, #fff);
     border: 1px solid rgba(15, 23, 42, 0.12);
-    border-radius: 6px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.08);
     padding: 4px 0;
     user-select: none;
@@ -1540,7 +1540,7 @@
     padding: 7px;
     background: var(--bg-color, #ffffff);
     border: 1px solid rgba(15, 23, 42, 0.12);
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
     color: var(--text-color, #1f2937);
     user-select: none;

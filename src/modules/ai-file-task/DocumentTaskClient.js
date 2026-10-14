@@ -1,28 +1,30 @@
-import { aiProxyJsonRequest } from '../../api/aiProxy.js';
+import { requestDocumentTaskStream } from './DocumentTaskStreamTransport.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
 import { t } from '../../i18n/index.js';
 import { aiService } from '../ai-assistant/aiService.js';
 import { parseNonStreamingResponse } from '../ai-assistant/services/nonStreamingResponseParser.js';
+import { parseDocumentTaskAgentTurn } from './DocumentTaskAgentTools.js';
+import { createDocumentTaskInterruption } from './DocumentTaskRecovery.js';
 
 const logger = createLogger('ai-file-task');
 
 /**
- * 文档任务的非流式模型客户端，统一配置解析、错误处理和诊断日志。
+ * 文档任务的流式模型客户端，统一配置解析、错误处理和诊断日志。
  */
 export class DocumentTaskClient {
     /**
-     * @param {{request?:typeof aiProxyJsonRequest}} [options] - 可替换请求实现
+     * @param {{request?:typeof requestDocumentTaskStream}} [options] - 可替换请求实现
      */
-    constructor({ request = aiProxyJsonRequest } = {}) {
+    constructor({ request = requestDocumentTaskStream } = {}) {
         this.request = request;
     }
 
     /**
      * 执行一次文档任务模型请求。
-     * @param {{messages:Array,temperature:number,timeoutMs:number,phase:string,attempt?:number,tools?:Array}} options - 请求参数
+     * @param {{messages:Array,temperature:number,idleTimeoutMs?:number,isActive?:()=>boolean,phase:string,attempt?:number,tools?:Array}} options - 请求参数
      * @returns {Promise<ReturnType<typeof parseNonStreamingResponse> & {rawBody:string}>}
      */
-    async complete({ messages, temperature, timeoutMs, phase, attempt = 1, tools = [] }) {
+    async complete({ messages, temperature, idleTimeoutMs = 90000, isActive = () => true, signal, phase, attempt = 1, tools = [] }) {
         const provider = aiService.getProviderForScene('documentTask');
         const model = aiService.getModelForScene('documentTask');
         if (!provider?.apiKey || !model) {
@@ -30,12 +32,14 @@ export class DocumentTaskClient {
         }
 
         let response;
+        const startedAt = performance.now();
         try {
             response = await this.request({
-                method: 'POST',
                 url: `${aiService.getBaseUrlForScene('documentTask')}/chat/completions`,
                 apiKey: provider.apiKey,
-                timeoutMs,
+                idleTimeoutMs,
+                isActive,
+                signal,
                 body: {
                     model,
                     temperature,
@@ -45,7 +49,9 @@ export class DocumentTaskClient {
             });
         } catch (error) {
             if (/timeout|timed out|超时/i.test(String(error?.message || error))) {
-                throw new Error(t('aiFileTask.error.timeout'));
+                const idleError = createDocumentTaskInterruption('AI_IDLE_TIMEOUT');
+                idleError.message = t('aiFileTask.idleTimeout');
+                throw idleError;
             }
             throw error;
         }
@@ -56,19 +62,29 @@ export class DocumentTaskClient {
             throw new Error(errorData.error?.message || t('aiFileTask.error.apiFailed', { status: response.status }));
         }
 
-        const parsed = parseNonStreamingResponse(response.body);
+        let parsed;
+        try {
+            parsed = parseNonStreamingResponse(response.body);
+        } catch {
+            logger.warn('response:incomplete', { phase, attempt, model });
+            throw createDocumentTaskInterruption('AI_RESPONSE_INCOMPLETE');
+        }
+        if (Number.isFinite(response.reasoningLength)) parsed.reasoningLength = response.reasoningLength;
+        const toolCount = parseDocumentTaskAgentTurn(response.body)?.toolCalls.length || 0;
         const summary = {
             phase,
             attempt,
             model,
-            timeoutMs,
+            idleTimeoutMs,
+            elapsedMs: Math.round(performance.now() - startedAt),
             finishReason: parsed.finishReason || '(none)',
             contentLength: parsed.content.length,
             reasoningLength: parsed.reasoningLength,
             completionTokens: parsed.completionTokens,
             refusal: parsed.refusal,
+            toolCount,
         };
-        if (parsed.content.trim() || tools.length) logger.info('response:received', summary);
+        if (parsed.content.trim() || toolCount) logger.info('response:received', summary);
         else logger.warn('response:empty', summary);
         return { ...parsed, rawBody: response.body };
     }

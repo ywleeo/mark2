@@ -8,6 +8,7 @@ import {
 import { t } from '../../i18n/index.js';
 import { createStore } from '../../services/storage.js';
 import { PROVIDER_PRESETS } from './providerPresets.js';
+import { parseProviderModels } from './providerModels.js';
 
 const store = createStore('ai');
 store.migrateFrom('ai-config', 'config');
@@ -328,6 +329,7 @@ class AiService {
 
     // ── 获取模型列表 ─────────────────────────────────────
 
+    /** 使用后台代理读取预设服务商或自定义网关的标准 GET /models 列表。 */
     async fetchModels(provider) {
         if (!provider?.apiKey) {
             throw new Error(t('ai.error.apiKeyMissing'));
@@ -346,12 +348,7 @@ class AiService {
                 throw new Error(formatAiHttpError(response.status, response.body));
             }
 
-            const result = JSON.parse(response.body || '{}');
-            const models = (result.data || [])
-                .map(m => m.id)
-                .filter(Boolean)
-                .sort();
-            return models;
+            return parseProviderModels(response.body);
         } catch (error) {
             throw error;
         }

@@ -1,6 +1,12 @@
+import { restoreDocumentEdits } from './DocumentEdits.js';
 /** 文档 AI 对话协议：只保留完整问答，并限制历史上下文的大小。 */
 const MAX_TURNS = 20;
 const MAX_HISTORY_CHARS = 120_000;
+
+/** 修改提案与消息正文一起计入历史预算，不增加无提案消息的开销。 */
+function countMessageChars(message) {
+    return message.content.length + (message.edits ? JSON.stringify(message.edits).length : 0);
+}
 
 /**
  * 清理历史消息并按完整问答淘汰最旧内容，禁止持久层注入 system/tool 消息。
@@ -16,14 +22,18 @@ export function normalizeConversation(messages, { maxTurns = MAX_TURNS, maxChars
         if (typeof message?.content !== 'string' || !message.content.trim()) continue;
         if (message.role === 'user') pendingUser = { role: 'user', content: message.content };
         if (message.role === 'assistant' && pendingUser) {
-            turns.push([pendingUser, { role: 'assistant', content: message.content }]);
+            const reply = { role: 'assistant', content: message.content };
+            if (Number.isFinite(message.durationMs) && message.durationMs >= 0) reply.durationMs = message.durationMs;
+            const edits = restoreDocumentEdits(message.edits);
+            if (edits.length) reply.edits = edits;
+            turns.push([pendingUser, reply]);
             pendingUser = null;
         }
     }
-    let totalChars = turns.reduce((sum, turn) => sum + turn[0].content.length + turn[1].content.length, 0);
+    let totalChars = turns.flat().reduce((sum, message) => sum + countMessageChars(message), 0);
     while (turns.length > 1 && (turns.length > maxTurns || totalChars > maxChars)) {
         const removed = turns.shift();
-        totalChars -= removed[0].content.length + removed[1].content.length;
+        totalChars -= removed.reduce((sum, message) => sum + countMessageChars(message), 0);
     }
     return turns.flat();
 }

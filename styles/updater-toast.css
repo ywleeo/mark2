@@ -13,7 +13,7 @@
     min-width: 300px;
     max-width: 400px;
     padding: 12px 14px;
-    border-radius: 10px;
+    border-radius: var(--floating-panel-radius, 14px);
     background: var(--settings-surface, rgba(250, 250, 252, 0.98));
     color: var(--text-color, #222);
     border: 1px solid var(--settings-divider, rgba(0, 0, 0, 0.08));

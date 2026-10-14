@@ -47,7 +47,7 @@ export function showShareToast({ title, hint, linkUrl, variant = 'info' } = {}) 
         background: variant === 'error' ? '#5c1f1f' : '#1f2937',
         color: '#fff',
         padding: '10px 12px 10px 14px',
-        borderRadius: '8px',
+        borderRadius: 'var(--floating-panel-radius, 14px)',
         maxWidth: '360px',
         minWidth: '200px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.35)',

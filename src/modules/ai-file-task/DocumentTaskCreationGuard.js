@@ -12,7 +12,7 @@ const logger = createLogger('ai-file-task');
  * @param {{client:object,instruction:string,messages?:Array}} options - 本轮用户消息与历史
  * @returns {Promise<boolean>} 本轮是否明确要求创建新文档
  */
-export async function authorizeDocumentCreation({ client, instruction, messages = [] }) {
+export async function authorizeDocumentCreation({ client, instruction, messages = [], isActive = () => true, signal }) {
     try {
         const response = await client.complete({
             messages: [
@@ -29,13 +29,15 @@ export async function authorizeDocumentCreation({ client, instruction, messages 
                 {
                     role: 'user',
                     content: JSON.stringify({
-                        recentConversation: normalizeConversation(messages).slice(-4),
+                        recentConversation: normalizeConversation(messages).slice(-4)
+                            .map(({ role, content }) => ({ role, content })),
                         currentUserMessage: String(instruction || '').trim(),
                     }),
                 },
             ],
             temperature: 0,
-            timeoutMs: 30000,
+            isActive,
+            signal,
             phase: 'create-authorization',
         });
         const allowed = JSON.parse(response.content).allow === true;

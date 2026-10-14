@@ -1,6 +1,8 @@
 /* 应用基础样式 */
 
 :root {
+    /* 所有浮框沿用 About 的圆角，皮肤只改变颜色与字体。 */
+    --floating-panel-radius: 14px;
     --app-accent: #007aff;
     --app-accent-hover: #0051d5;
     --app-sidebar-divider: #ddd;

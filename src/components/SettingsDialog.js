@@ -8,6 +8,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { isMac } from '../utils/platform.js';
 import { createLogger } from '../core/diagnostics/Logger.js';
 import { renderSettingsAiSection } from './settings/SettingsAiSection.js';
+import { buildAiProviderCard } from './settings/AiProviderCard.js';
+import { discoverProviderModels } from '../modules/ai-assistant/providerModels.js';
 import { renderSettingsShareSection } from './settings/SettingsShareSection.js';
 import { loadGistShareSettings, saveGistApiKey } from '../modules/share/gistSettings.js';
 import {
@@ -1035,71 +1037,17 @@ export class SettingsDialog {
         const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
 
         if (provider.isCustom) {
-            const card = document.createElement('div');
-            card.className = 'ai-provider-card ai-provider-card--custom';
-
-            const header = document.createElement('div');
-            header.className = 'ai-provider-card__header';
-
-            const nameInput = document.createElement('input');
-            nameInput.type = 'text';
-            nameInput.className = 'ai-provider-card__name-input';
-            nameInput.value = provider.name || '';
-            nameInput.placeholder = t('settings.providerNamePlaceholder');
-            nameInput.addEventListener('input', () => { this.aiConfiguredProviders[index].name = nameInput.value; });
-
-            const badge = document.createElement('span');
-            badge.className = 'ai-provider-card__badge';
-            badge.textContent = t('settings.customProvider');
-
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'ai-provider-card__remove';
-            removeBtn.textContent = '✕';
-            const c = addClickHandler(removeBtn, () => {
-                this.aiConfiguredProviders.splice(index, 1);
-                this._renderAiKeysList();
-                this._refreshModelSelects();
+            return buildAiProviderCard({
+                provider, index, translate: t,
+                onChange: () => this._refreshModelSelects(),
+                onRemove: () => {
+                    this.aiConfiguredProviders = this.aiConfiguredProviders.filter(item => item !== provider);
+                    this._renderAiKeysList();
+                    this._refreshModelSelects();
+                },
+                onFetch: () => this._fetchProviderModels(index),
+                addCleanup: cleanup => this.cleanupFunctions.push(cleanup),
             });
-            this.cleanupFunctions.push(c);
-
-            header.appendChild(nameInput);
-            header.appendChild(badge);
-            header.appendChild(removeBtn);
-            card.appendChild(header);
-
-            const urlInput = document.createElement('input');
-            urlInput.type = 'text';
-            urlInput.className = 'ai-provider-card__input';
-            urlInput.value = provider.baseUrl || '';
-            urlInput.placeholder = t('settings.baseUrlPlaceholder');
-            urlInput.addEventListener('input', () => { this.aiConfiguredProviders[index].baseUrl = urlInput.value.trim(); });
-            card.appendChild(urlInput);
-
-            const keyInput = document.createElement('input');
-            keyInput.type = 'password';
-            keyInput.className = 'ai-provider-card__input';
-            keyInput.value = provider.apiKey || '';
-            keyInput.placeholder = t('settings.apiKey');
-            keyInput.autocomplete = 'off';
-            keyInput.addEventListener('input', () => {
-                this.aiConfiguredProviders[index].apiKey = keyInput.value.trim();
-                this._refreshModelSelects();
-            });
-            card.appendChild(keyInput);
-
-            const modelsInput = document.createElement('input');
-            modelsInput.type = 'text';
-            modelsInput.className = 'ai-provider-card__input';
-            modelsInput.value = (provider.models || []).join(', ');
-            modelsInput.placeholder = t('settings.modelsPlaceholder');
-            modelsInput.addEventListener('input', () => {
-                this.aiConfiguredProviders[index].models = modelsInput.value.split(',').map(m => m.trim()).filter(Boolean);
-                this._refreshModelSelects();
-            });
-            card.appendChild(modelsInput);
-
-            return card;
         }
 
         // Preset provider row
@@ -1222,7 +1170,12 @@ export class SettingsDialog {
                 urlInput.className = 'ai-add-form__input';
                 urlInput.placeholder = t('settings.baseUrlPlaceholder');
                 urlInput.dataset.field = 'baseUrl';
-                fieldsEl.appendChild(urlInput);
+                const urlLabel = document.createElement('label');
+                urlLabel.className = 'ai-provider-card__field';
+                const urlCaption = document.createElement('span');
+                urlCaption.textContent = t('settings.baseUrl');
+                urlLabel.append(urlCaption, urlInput);
+                fieldsEl.appendChild(urlLabel);
             }
 
             const keyInput = document.createElement('input');
@@ -1231,7 +1184,12 @@ export class SettingsDialog {
             keyInput.placeholder = t('settings.apiKey');
             keyInput.autocomplete = 'off';
             keyInput.dataset.field = 'apiKey';
-            fieldsEl.appendChild(keyInput);
+            const keyLabel = document.createElement('label');
+            keyLabel.className = 'ai-provider-card__field';
+            const keyCaption = document.createElement('span');
+            keyCaption.textContent = t('settings.apiKey');
+            keyLabel.append(keyCaption, keyInput);
+            fieldsEl.appendChild(keyLabel);
 
             if (selectedId === '__custom__') {
                 const modelsInput = document.createElement('input');
@@ -1239,7 +1197,12 @@ export class SettingsDialog {
                 modelsInput.className = 'ai-add-form__input';
                 modelsInput.placeholder = t('settings.modelsPlaceholder');
                 modelsInput.dataset.field = 'models';
-                fieldsEl.appendChild(modelsInput);
+                const modelsLabel = document.createElement('label');
+                modelsLabel.className = 'ai-provider-card__field';
+                const modelsCaption = document.createElement('span');
+                modelsCaption.textContent = t('settings.models');
+                modelsLabel.append(modelsCaption, modelsInput);
+                fieldsEl.appendChild(modelsLabel);
             }
         };
 
@@ -1363,27 +1326,35 @@ export class SettingsDialog {
         );
     }
 
+    /** 获取当前服务商的模型，并在输入或配置变化时丢弃旧请求结果。 */
     async _fetchProviderModels(index) {
         const provider = this.aiConfiguredProviders[index];
-        if (!provider || provider.isCustom || !provider.apiKey) return;
-
-        const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
-        if (!preset) return;
-
+        if (!provider) return;
         const btn = this.aiKeysListEl?.querySelector(`[data-fetch-index="${index}"]`);
-        if (btn) { btn.textContent = '…'; btn.disabled = true; }
-
-        try {
-            const service = await getAiService();
-            const models = await service.fetchModels({ ...preset, apiKey: provider.apiKey });
-            if (models.length > 0) {
-                this.aiConfiguredProviders[index].fetchedModels = models;
-                this._refreshModelSelects();
-            }
-        } catch (e) {
-            console.warn('[Settings] 获取模型列表失败:', e.message);
-        } finally {
-            if (btn) { btn.textContent = '↻'; btn.disabled = false; }
+        if (btn?.disabled) return;
+        const status = this.aiKeysListEl?.querySelector(`[data-fetch-status="${index}"]`);
+        const originalLabel = btn?.textContent;
+        if (btn) { btn.textContent = t('settings.fetching'); btn.disabled = true; }
+        if (status) status.textContent = '';
+        const result = await discoverProviderModels(provider, {
+            fetchModels: async request => (await getAiService()).fetchModels(request),
+            isCurrent: candidate => this.isOpen && this.aiConfiguredProviders.includes(candidate),
+        });
+        if (btn) { btn.textContent = originalLabel; btn.disabled = false; }
+        if (result.status === 'stale') return;
+        if (result.status === 'success') {
+            const input = btn?.closest('.ai-provider-card')?.querySelector('[data-field="models"]');
+            if (input) input.value = result.models.join(', ');
+            this._refreshModelSelects();
+        }
+        const message = result.status === 'success'
+            ? t('settings.modelsFetched').replace('{count}', result.models.length)
+            : result.status === 'empty' ? t('settings.noModelsReturned') : t(result.errorKey);
+        if (status) {
+            status.textContent = message;
+            status.dataset.state = result.status;
+        } else if (btn) {
+            btn.title = message;
         }
     }
 

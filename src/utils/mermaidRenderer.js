@@ -785,7 +785,7 @@ function createTooltipElement() {
             background: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 8px 12px;
-            border-radius: 4px;
+            border-radius: var(--floating-panel-radius, 14px);
             font-size: 14px;
             pointer-events: none;
             z-index: 10000;

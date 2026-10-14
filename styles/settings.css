@@ -97,7 +97,7 @@
     display: flex;
     flex-direction: column;
     background: var(--settings-surface);
-    border-radius: 14px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow:
         0 0 0 0.5px var(--settings-divider),
         0 20px 60px rgba(0, 0, 0, 0.07),
@@ -722,7 +722,7 @@ input[type="number"]::-webkit-inner-spin-button {
     background: var(--settings-surface);
     color: var(--settings-field-text);
     border: 1px solid var(--settings-divider);
-    border-radius: 6px;
+    border-radius: var(--floating-panel-radius, 14px);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     font-size: 13px;
     box-sizing: border-box;
@@ -1387,6 +1387,49 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .ai-provider-card__input:focus {
     border-color: var(--settings-focus-border, #2563eb);
+}
+
+/* 字段名始终可见，防止把密钥误填到明文模型列表。 */
+.ai-provider-card__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    font-size: 11px;
+    color: var(--settings-muted);
+}
+
+.ai-provider-card__footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.ai-provider-card__fetch {
+    padding: 4px 8px;
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 5px;
+    background: var(--settings-field-bg);
+    color: var(--settings-secondary-text);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.ai-provider-card__fetch:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.ai-provider-card__status {
+    font-size: 11px;
+    color: var(--settings-muted);
+}
+
+.ai-provider-card__status[data-state='error'] {
+    color: var(--settings-danger);
 }
 
 /* ── Add Provider 按钮 ─────────────────────────────── */
