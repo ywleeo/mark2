@@ -154,7 +154,8 @@ main() {
     log "Building signed Tauri app and DMG for target ${target}"
     export APPLE_SIGNING_IDENTITY
     export TAURI_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY}"
-    npm run tauri:build -- --target "${target}" --bundles app,dmg
+    # 保留 bundler 子进程输出，避免 DMG 失败时只看到 bundle_dmg.sh 的汇总错误。
+    npm run tauri:build -- --target "${target}" --bundles app,dmg --verbose
 
     app_build_dir="${repo_root}/src-tauri/target/${target}/release/bundle/macos"
     app_path="${app_build_dir}/${app_name}.app"
