@@ -309,6 +309,7 @@ export function resolveMermaidThemeProfile(root = null) {
             textColor: themeVariables.textColor,
             pointFill: themeVariables.edgeLabelBackground,
             hoverColor: themeVariables.primaryBorderColor,
+            barOpacity: 0.85,
             inverseTextColor: '#ffffff',
             nodeRadius: 8,
             sequenceRadius: 6,
@@ -330,6 +331,8 @@ export function resolveMermaidThemeProfile(root = null) {
         textColor: themeVariables.textColor,
         pointFill: themeVariables.edgeLabelBackground,
         hoverColor: themeVariables.primaryBorderColor,
+        // 浅色柱形使用轻填充，让同图中的深色折线和圆点保持清晰。
+        barOpacity: dark ? 0.85 : 0.35,
         inverseTextColor: dark ? themeVariables.edgeLabelBackground : '#fff9f1',
         nodeRadius: 3,
         sequenceRadius: 3,

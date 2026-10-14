@@ -11,6 +11,7 @@ import { createDocumentContextActions } from './documentLibraryActions.js';
 import { getPathIdentityKey } from '../../utils/pathUtils.js';
 import { getDocumentCloseTarget, isDocumentWorkspace } from './documentNavigation.js';
 import { isMissingDocumentError, pruneMissingDocuments } from './documentAvailability.js';
+import { createDocumentRemovalAction } from './documentRemoval.js';
 
 /** 创建 Editorial 文档导航，皮肤切换时保留历史和搜索输入。 */
 export function createDocumentLibraryController({ host, documentManager, fileService, recentFilesService, fileTree,
@@ -102,22 +103,26 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
         }
     };
     /** 预览与固定草稿分别走原有关闭流程，沿用保存确认和文档资源释放。 */
-    const close = path => handleTabClose(getDocumentCloseTarget(path, documentManager.getDocumentByPath(path)));
+    const close = (path, options) => handleTabClose(getDocumentCloseTarget(path, documentManager.getDocumentByPath(path)), options);
+    /** 打开的文档沿用生命周期真源，不能把后台正文缓存误当作打开状态。 */
+    const isOpen = path => Boolean(documentManager.getDocumentByPath(path))
+        || getPathIdentityKey(getCurrentPath()) === getPathIdentityKey(path);
+    const remove = createDocumentRemovalAction({ getEntries: entries, getCurrentPath, isOpen, close, select,
+        removeRecord: path => history.remove(path) });
     const view = new DocumentLibraryView(host, {
         new: () => executeCommand(COMMAND_IDS.DOCUMENT_NEW_UNTITLED),
         open: () => executeCommand(COMMAND_IDS.APP_OPEN_FILE),
         fullSearch: () => executeCommand(COMMAND_IDS.WORKSPACE_SEARCH),
         filter: value => { query = value; refresh(); },
         select,
-        remove: path => history.remove(path),
+        remove: path => remove(path).catch(error => { view.setStatus(error?.message || t('documentLibrary.openFailed')); }),
         close,
     });
     const contextMenu = new DocumentLibraryContextMenu({
         container: host,
-        isOpen: path => documentManager.getOpenDocuments().some(doc => doc.path === path)
-            || documentManager.getActiveDocument()?.path === path,
+        isOpen,
         onAction: createDocumentContextActions({ select, saveDocument, history, fileTree, fileService, executeCommand,
-            close,
+            close, remove,
             requestName: filename => view.requestName(filename) }),
         onError: error => view.setStatus(error?.code === 'document-name-exists'
             ? t('documentLibrary.duplicateFilename') : error?.message || t('documentLibrary.openFailed')),
@@ -134,7 +139,7 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     /** 文档打开、编辑、重命名与关闭都由既有管理器提供，临时路径不会持久化。 */
     const unsubscribeDocuments = documentManager.subscribe(event => {
         if (event.type === 'rename') history.rename(event.oldPath, event.newPath);
-        if (['open', 'activate'].includes(event.type) || (event.type === 'dirty' && event.dirty)) {
+        if (event.path && (['open', 'activate'].includes(event.type) || (event.type === 'dirty' && event.dirty))) {
             history.touch(event.path, { preserveExisting: event.type === 'open' && !event.document?.active });
             const content = memoryContent(event.path);
             if (content !== null) titleReader.update(event.path, content);

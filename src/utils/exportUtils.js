@@ -2,6 +2,7 @@ import { desktopDir, join } from '@tauri-apps/api/path';
 import { getBundledStyles, getThemeStyles } from '../config/bundled-styles.js';
 import { detectMimeType, resolveImagePath } from './imageResolver.js';
 import { getAppServices } from '../services/appServices.js';
+import { renderMermaidIn } from './mermaidRenderer.js';
 
 // 截图四周留白 —— 避免内容贴边
 const PNG_PAD_X = 48;
@@ -220,6 +221,8 @@ export async function captureViewContent(options = {}) {
     }
 
     const captureElement = resolveCaptureElement(viewElement);
+    // 阅读时离屏图可能尚未绘制，截图整篇文档前先补齐。
+    await renderMermaidIn(captureElement, { eager: true });
 
     const transparentValues = new Set(['rgba(0, 0, 0, 0)', 'transparent']);
     const getBackground = (element) => {
@@ -348,6 +351,8 @@ export async function collectContentForPdf(activeViewMode, options = {}) {
     }
 
     const contentElement = resolveExportContentRoot(viewElement, activeViewMode);
+    // PDF 不能依赖用户是否滚动浏览过每一张图。
+    await renderMermaidIn(contentElement, { eager: true });
     const cssContent = await collectAllStyles(options);
 
     const clone = sanitizeExportNode(contentElement.cloneNode(true));

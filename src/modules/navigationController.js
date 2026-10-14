@@ -409,14 +409,15 @@ export function createNavigationController({
         }
     }
 
-    async function handleTabClose(tab) {
+    /** 统一保存和关闭；文档列表可自行选择邻居，避免先加载一个无关的备选 tab。 */
+    async function handleTabClose(tab, { suppressFallback = false } = {}) {
         const fileTree = getFileTree();
         const tabManager = getTabManager();
         if (!tab) return;
 
         // 处理 untitled 文件的关闭
         if (tab.path && untitledFileManager?.isUntitledPath?.(tab.path)) {
-            return handleUntitledTabClose(tab);
+            return handleUntitledTabClose(tab, { suppressFallback });
         }
 
         if (tab.type === 'file' && tab.path) {
@@ -424,7 +425,7 @@ export function createNavigationController({
 
             // 清除自动保存定时器
             const editor = getEditor();
-            editor?.clearAutoSaveTimer?.();
+            if (isCurrentContentTab(tab)) editor?.clearAutoSaveTimer?.();
 
             const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
@@ -442,7 +443,7 @@ export function createNavigationController({
             const normalizedTarget = normalizeComparablePath(fileTree, tab.path);
             const wasActive = isCurrentContentTab(tab);
 
-            const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
+            const fallbackTab = wasActive && !suppressFallback ? resolveFallbackTab(tab) : null;
 
             closedTabsStack.push({ path: targetPath, type: 'file' });
             if (closedTabsStack.length > 20) closedTabsStack.shift();
@@ -465,15 +466,15 @@ export function createNavigationController({
         }
 
         if (tab.type === 'shared') {
-            const wasActive = isCurrentContentTab(tab);
-            const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
+            let wasActive = isCurrentContentTab(tab);
+            let fallbackTab = wasActive && !suppressFallback ? resolveFallbackTab(tab) : null;
 
             if (tab.path) {
                 const targetPath = tab.path;
 
                 // 清除自动保存定时器
                 const editor = getEditor();
-                editor?.clearAutoSaveTimer?.();
+                if (isCurrentContentTab(tab)) editor?.clearAutoSaveTimer?.();
 
                 const hasChanges = await checkFileHasUnsavedChanges(targetPath);
 
@@ -484,6 +485,12 @@ export function createNavigationController({
                         return;
                     }
                 }
+
+                // 保存期间预览位可能已经被另一篇文档复用，不能移除新预览或清空其视图。
+                const currentPreview = (tabManager?.getAllTabs?.() || []).find(candidate => candidate?.type === 'shared');
+                if (currentPreview && getPathIdentityKey(currentPreview.path) !== getPathIdentityKey(targetPath)) return;
+                wasActive = isCurrentContentTab(tab);
+                fallbackTab = wasActive && !suppressFallback ? resolveFallbackTab(tab) : null;
 
                 closedTabsStack.push({ path: targetPath, type: 'shared' });
                 if (closedTabsStack.length > 20) closedTabsStack.shift();
@@ -506,7 +513,7 @@ export function createNavigationController({
 
             if (wasActive) {
                 await activateTabTransition(fallbackTab, { autoFocus: true });
-            } else if (!fallbackTab) {
+            } else if (!fallbackTab && !getCurrentFile()) {
                 fileTree?.selectFile(null, { silent: true });
             }
             return;
@@ -599,7 +606,8 @@ export function createNavigationController({
      * 处理 untitled 文件的关闭
      * untitled 文件不自动保存，关闭时询问用户是否保存
      */
-    async function handleUntitledTabClose(tab) {
+    /** 草稿关闭复用保存确认，允许文档列表自行选择相邻文档。 */
+    async function handleUntitledTabClose(tab, { suppressFallback = false } = {}) {
         const tabManager = getTabManager();
         const targetPath = tab.path;
         const wasActive = isCurrentContentTab(tab);
@@ -660,7 +668,7 @@ export function createNavigationController({
         untitledFileManager?.removeUntitledFile?.(targetPath);
 
         // 清理视图状态
-        const fallbackTab = wasActive ? resolveFallbackTab(tab) : null;
+        const fallbackTab = wasActive && !suppressFallback ? resolveFallbackTab(tab) : null;
         tabManager?.removeFileTab?.(targetPath);
         if (wasActive) {
             tabManager?.setActiveTab?.(fallbackTab?.id || null, { silent: true, force: true });

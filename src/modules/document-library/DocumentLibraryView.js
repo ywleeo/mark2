@@ -40,7 +40,7 @@ export class DocumentLibraryView {
             if (action === 'open') void actions.open();
             if (action === 'full-search') void actions.fullSearch();
             if (action === 'select') void actions.select(entry.dataset.path);
-            if (action === 'remove') actions.remove(entry.dataset.path);
+            if (action === 'remove') void actions.remove(entry.dataset.path);
             if (action === 'close') void actions.close(entry.dataset.path);
         }, { shouldHandle: event => Boolean(event.target.closest('button[data-action]')), preventDefault: true });
     }

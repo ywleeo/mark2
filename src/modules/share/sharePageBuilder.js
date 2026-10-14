@@ -197,7 +197,7 @@ async function renderSharedMermaid(root) {
     renderHost.appendChild(root);
     document.body.appendChild(renderHost);
     try {
-        await renderMermaidIn(root);
+        await renderMermaidIn(root, { eager: true });
     } finally {
         renderHost.remove();
     }

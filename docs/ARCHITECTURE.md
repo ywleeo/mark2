@@ -390,6 +390,17 @@ menu / toolbar
 
 组件层通过协议、Manager API 和 controller 协作。
 
+#### Mermaid 图表绘制
+
+`src/utils/mermaidRenderer.js` 负责 SVG 挂载和交互，`MermaidRenderScheduler`
+负责串行调度、取消旧任务、视口观察和有界 LRU 缓存。阅读时优先绘制视口及其
+邻近区域，远处的图接近屏幕后再绘制；缓存按源码和皮肤配色/明暗签名区分，
+切换主题保留其他主题的缓存。任务返回后必须复查节点、源码和主题是否仍有效。
+
+全文导出必须在克隆正文前调用 `await renderMermaidIn(root, { eager: true })`，
+确保 PDF、图片和分享页不依赖用户是否已滚动浏览所有图表。导出期间外观发生
+变化时，渲染器会补齐最新主题后再返回。
+
 #### 外观系统分层
 
 应用外观由三个互不替代的维度组成：

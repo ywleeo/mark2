@@ -844,13 +844,20 @@ export class MarkdownEditor {
 
     // ─── 渲染调度 ──────────────────────────────────────────────────────────────
 
+    /** 合并图表渲染请求，旧批次完成后继续处理切换进来的新文档。 */
     scheduleMermaidRender() {
         if (!this.element || this._pendingMermaidRender || this._mermaidRenderFrame !== null) return;
         const run = () => {
             this._mermaidRenderFrame = null;
             this._pendingMermaidRender = renderMermaidIn(this.element)
                 .catch(e => console.warn('[MarkdownEditor] Mermaid 渲染失败', e))
-                .finally(() => { this._pendingMermaidRender = null; });
+                .finally(() => {
+                    this._pendingMermaidRender = null;
+                    // 切换文件时旧批次可能仍在收尾，不能丢掉新文档的图表请求。
+                    if (this.element?.isConnected && this.element.querySelector('.mermaid:not([data-processed="true"]):not([data-mermaid-deferred])')) {
+                        this.scheduleMermaidRender();
+                    }
+                });
         };
         if (typeof requestAnimationFrame === 'function') {
             this._mermaidRenderFrame = requestAnimationFrame(run);

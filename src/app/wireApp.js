@@ -236,7 +236,7 @@ appState.setCleanupFunction('appearanceChange', onEditorAppearanceChange(({ appe
     const markdownToolbarManager = appState.getMarkdownToolbarManager();
     codeEditor?.applyPreferences?.(appState.getEditorSettings());
     markdownToolbarManager?.setTheme?.(appearance);
-    // Mermaid 的 SVG 含皮肤配色，外观或皮肤变化时清缓存并重绘当前文档。
+    // Mermaid 按主题复用有界缓存，优先更新可见图表并取消旧外观的绘制任务。
     invalidateMermaidTheme();
 }));
 

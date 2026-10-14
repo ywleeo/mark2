@@ -18,7 +18,7 @@ export function documentRenameDestination(path, name) {
 }
 
 /** 注入现有文件服务和生命周期；历史删除与物理删除有明确的不同入口。 */
-export function createDocumentContextActions({ select, close, saveDocument, history, fileTree, fileService, executeCommand, requestName }) {
+export function createDocumentContextActions({ select, close, remove, saveDocument, history, fileTree, fileService, executeCommand, requestName }) {
     return async (action, path) => {
         // 再次校验动作，防止菜单打开后路径变更或非法动作触发磁盘操作。
         if (!getDocumentContextActions(path, true).includes(action)) return;
@@ -29,7 +29,7 @@ export function createDocumentContextActions({ select, close, saveDocument, hist
                 if (await select(path)) return saveDocument(path);
                 return;
             case 'close': return close(path);
-            case 'remove': return history.remove(path);
+            case 'remove': return remove ? remove(path) : history.remove(path);
             case 'rename': {
                 const name = await requestName(basename(path));
                 if (name === null) return;
