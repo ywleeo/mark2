@@ -493,7 +493,7 @@ export class ContentLoader {
             }
 
             const tr = editor.state.tr.setNodeMarkup(pos, null, nextAttrs);
-            tr.step(new MarkdownSourceStep('', normalizedMarkdown));
+            // 图片 blob 地址仅用于显示，不替换源码快照，也不进入用户撤销历史。
             tr.setMeta('addToHistory', false);
             editor.view.dispatch(tr);
         }));
