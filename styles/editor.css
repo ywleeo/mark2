@@ -1322,11 +1322,43 @@
     transition: transform 0.45s ease;
 }
 
+/* 图片可能与文字共处一段，留白由图片自身提供，不依赖粘贴时是否另起段落。 */
+.tiptap-editor img:not(.ProseMirror-separator) {
+    margin-block: 1em;
+}
+
+/* 纯图片段落统一由段落提供间距，图片内部不叠加 margin。 */
+.tiptap-editor p.image-paragraph {
+    /* flex 避免光标分隔图生成文字行盒，保留编辑器需要的占位节点。 */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-block: 1em;
+}
+
+.tiptap-editor p.image-paragraph img:not(.ProseMirror-separator) {
+    margin-block: 0;
+}
+
+/* 带链接的大图也受段落宽度约束，避免成为 flex 子项后按固有宽度溢出。 */
+.tiptap-editor p.image-paragraph > a {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+}
+
+/* 块状图片已断行，紧随的软换行和光标占位不再额外撑出一行高度。 */
+.tiptap-editor img:not(.ProseMirror-separator) + br,
+.tiptap-editor p.image-paragraph > br {
+    display: none;
+}
+
 /* 同一段落含 ≥2 张图 → 左右横排,放不下自动换行(class 由 ImageRowLayout 扩展加,
    不用 :has,因为嵌套 :has 在部分 WebView 不生效)。
    图片保持各自原始尺寸,徽章/小图不会被撑大变形;单图/普通段落不受影响。 */
 .tiptap-editor p.image-row {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     align-items: flex-start;   /* 顶部对齐:徽章都在各自 <a> 顶部,即使 a 里有占位图撑高也不会错位 */
     gap: 8px;
