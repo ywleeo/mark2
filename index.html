@@ -52,12 +52,12 @@
   :root {
     --bg: #fdfdfb;          /* 米白底，文纸感 */
     --paper: #ffffff;
+    --warm: #f6f2e9;        /* 编辑部区域的暖纸色，贴近截图里 #f3eee4 的纸面 */
     --ink: #1a1a1a;         /* 墨黑 */
     --ink-soft: #3a3a3a;
     --ink-muted: #6f6f6f;   /* 淡墨 */
     --ink-faint: #9b9b9b;
-    --hairline: #e6e3dc;    /* 浅宣纸色细线 */
-    --radius: 6px;          /* 克制的圆角 */
+    --radius: 6px;
     --serif: "Songti SC", "Noto Serif SC", "STSong", "SimSun", "Source Han Serif SC", "Hiragino Mincho ProN", Georgia, "Times New Roman", serif;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
   }
@@ -67,101 +67,101 @@
     font-family: var(--sans);
     background: var(--bg);
     color: var(--ink);
-    line-height: 1.75;
+    line-height: 1.8;
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     letter-spacing: .01em;
   }
   a { color: var(--ink); text-decoration: none; transition: opacity .15s ease; }
-  a:hover { opacity: .72; text-decoration: none; }
+  a:hover { opacity: .72; }
+  img { max-width: 100%; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
 
-  header { background: rgba(253,253,251,.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--hairline); position: sticky; top: 0; z-index: 10; }
+  header { background: rgba(253,253,251,.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
   .nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
   .brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 600; font-size: 20px; color: var(--ink); letter-spacing: .06em; }
   .brand .logo { width: 34px; height: 34px; display: block; border-radius: 6px; }
-  .nav-links { display: flex; gap: 26px; font-size: 15px; }
+  .nav-links { display: flex; gap: 28px; font-size: 15px; }
   .nav-links a { color: var(--ink-muted); }
-  .nav-links a:hover { color: var(--ink); }
+  .nav-links a:hover { color: var(--ink); opacity: 1; }
 
-  .hero { padding: 72px 0 40px; text-align: center; }
+  .hero { padding: 88px 0 24px; text-align: center; }
   .hero-logo { width: 72px; height: 72px; display: inline-block; margin-bottom: 6px; border-radius: 12px; }
   .hero h1 { font-family: var(--serif); font-weight: 600; font-size: 56px; letter-spacing: .12em; line-height: 1.2; color: var(--ink); }
-  .hero .sub { margin: 24px auto 0; font-size: 18px; color: var(--ink-muted); max-width: 640px; }
-  .badges { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .hero .sub { margin: 28px auto 0; font-size: 18px; color: var(--ink-muted); max-width: 640px; }
+  .badges { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; opacity: .85; }
   .badges img { height: 20px; }
 
-  .cta { margin-top: 36px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: center; }
-  .btn { padding: 13px 30px; border-radius: var(--radius); font-size: 16px; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink); font-family: var(--serif); }
+  /* 按钮：主按钮实心，其余只是文字，不再画框 */
+  .cta { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: center; align-items: center; }
+  .btn { padding: 13px 30px; border-radius: var(--radius); font-size: 16px; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 8px; font-family: var(--serif); }
   .btn-primary { background: var(--ink); color: var(--paper); }
   .btn-primary:hover { background: #000; opacity: 1; }
-  .btn-ghost { background: transparent; color: var(--ink); }
-  .btn-ghost:hover { background: rgba(26,26,26,.05); opacity: 1; }
-  .os-note { flex-basis: 100%; text-align: center; color: var(--ink-faint); font-size: 13px; letter-spacing: .06em; margin-top: 2px; }
+  .btn-ghost { padding-left: 0; padding-right: 0; background: transparent; color: var(--ink-muted); }
+  .btn-ghost:hover { color: var(--ink); opacity: 1; }
+  .os-note { flex-basis: 100%; text-align: center; color: var(--ink-faint); font-size: 13px; letter-spacing: .06em; margin-top: 4px; }
 
-  section { padding: 56px 0; }
-  .section-head { text-align: center; margin-bottom: 44px; }
-  .section-title { font-family: var(--serif); font-weight: 600; font-size: 30px; letter-spacing: .1em; color: var(--ink); }
-  .section-sub { color: var(--ink-muted); margin-top: 12px; font-size: 15px; max-width: 680px; margin-left: auto; margin-right: auto; }
+  /* 章节只靠留白分隔 */
+  section { padding: 96px 0; }
+  .section-head { text-align: center; margin-bottom: 64px; }
+  .section-title { font-family: var(--serif); font-weight: 600; font-size: 32px; letter-spacing: .1em; color: var(--ink); }
+  .section-sub { color: var(--ink-muted); margin-top: 16px; font-size: 15.5px; max-width: 640px; margin-left: auto; margin-right: auto; }
 
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; }
-  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-  .card { background: var(--paper); border: 1px solid var(--hairline); padding: 30px 26px; text-align: center; }
-  .card.left { text-align: left; padding: 26px 24px; }
-  .card .ico { color: var(--ink-soft); }
-  .card .ico svg { width: 26px; height: 26px; display: inline-block; vertical-align: middle; }
-  .card h3 { font-family: var(--serif); font-size: 18px; margin: 14px 0 8px; font-weight: 600; letter-spacing: .05em; }
-  .card.left h3 { margin-top: 10px; }
-  .card p { color: var(--ink-muted); font-size: 14.5px; }
+  /* 图自带半透明边距和窗口阴影，直接放在页面上，不再套容器 */
+  figure img { width: 100%; display: block; }
 
-  /* 两种界面模式 */
-  .modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-  .mode { background: var(--paper); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
-  .mode img { width: 100%; display: block; border-bottom: 1px solid var(--hairline); }
-  .mode .body { padding: 20px 22px 24px; }
-  .mode h3 { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: .08em; }
-  .mode .lead { color: var(--ink-soft); font-size: 14.5px; margin-top: 6px; }
-  .mode p { color: var(--ink-muted); font-size: 14.5px; margin-top: 10px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-  .chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-muted); border: 1px solid var(--hairline); border-radius: 999px; padding: 3px 11px 3px 8px; letter-spacing: .04em; }
-  .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,.08); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 56px 48px; }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); gap: 48px 72px; }
+  .item h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 8px; font-weight: 600; letter-spacing: .05em; }
+  .item p { color: var(--ink-muted); font-size: 14.5px; }
+  .item .ico { color: var(--ink-soft); margin-bottom: 14px; }
+  .item .ico svg { width: 26px; height: 26px; display: block; }
 
-  /* 两种写作模式 */
-  .writing-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; margin-top: 22px; }
+  /* 两种界面模式：图文交替，大图为主 */
+  .mode-row { padding: 56px 0; }
+  .mode-row .wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px 48px; align-items: center; }
+  .mode-row.flip .wrap { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .mode-row.flip .mode-text { order: 2; }
+  .mode-text h3 { font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: .1em; }
+  .mode-text .lead { color: var(--ink-soft); font-size: 16px; margin-top: 8px; }
+  .mode-text p { color: var(--ink-muted); font-size: 15px; margin-top: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 24px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); letter-spacing: .04em; }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  /* 编辑部整段换成暖纸色，让截图自己的纸面融进页面，不再显得突兀地黄 */
+  .mode-row.warm { background: var(--warm); margin-top: 40px; padding: 72px 0; }
+  .note { margin-top: 40px; text-align: center; color: var(--ink-faint); font-size: 13.5px; letter-spacing: .04em; }
+  .note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--ink-muted); }
 
-  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-  .shot { background: var(--paper); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(26,26,26,.04); transition: transform .18s ease, box-shadow .18s ease; }
-  .shot:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(26,26,26,.09); }
-  .shot img { width: 100%; display: block; }
-  .shot .cap { padding: 14px 18px 16px; color: var(--ink-muted); font-size: 13.5px; border-top: 1px solid var(--hairline); line-height: 1.6; }
-  .shot .cap .tag { display: inline-block; font-size: 11px; letter-spacing: .12em; color: var(--ink); background: var(--bg); border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 10px; margin-right: 8px; vertical-align: middle; }
+  .writing-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 72px; max-width: 760px; margin: 24px auto 0; }
+  .featured-cap { text-align: center; color: var(--ink-muted); font-size: 14px; letter-spacing: .04em; margin-top: 4px; }
 
-  .shot-featured { background: var(--paper); border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(26,26,26,.05); margin-bottom: 6px; }
-  .shot-featured img { width: 100%; display: block; }
-  .shot-featured .cap { padding: 16px 22px; color: var(--ink-muted); font-size: 14px; border-top: 1px solid var(--hairline); text-align: center; letter-spacing: .04em; }
+  .shot-group { margin-top: 72px; }
+  .shot-group:first-of-type { margin-top: 0; }
+  .shot-group-title { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: .08em; color: var(--ink); margin-bottom: 20px; text-align: center; }
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 24px; }
+  .shot .cap { padding: 0 8px; color: var(--ink-muted); font-size: 14px; line-height: 1.7; text-align: center; }
+  .shot .cap .tag { color: var(--ink); font-weight: 600; margin-right: 8px; letter-spacing: .06em; }
 
-  .shot-group { margin-top: 34px; }
-  .shot-group-title { font-family: var(--serif); font-size: 19px; font-weight: 600; letter-spacing: .08em; color: var(--ink); margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
-  .shot-group-title::before { content: ""; width: 20px; height: 1.5px; background: var(--ink); display: inline-block; margin-top: 1px; }
+  #download { padding-bottom: 120px; }
+  #download .cta { margin-top: 0; }
 
-  .note { margin-top: 26px; text-align: center; color: var(--ink-faint); font-size: 13.5px; letter-spacing: .04em; }
-  .note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--ink-muted); background: var(--paper); border: 1px solid var(--hairline); border-radius: 4px; padding: 1px 6px; }
-
-  #download { padding-bottom: 96px; }
-  #download .cta { margin-top: 28px; }
-
-  footer { border-top: 1px solid var(--hairline); padding: 34px 0 46px; }
+  footer { padding: 24px 0 56px; }
   .foot { text-align: center; color: var(--ink-faint); font-size: 14px; letter-spacing: .05em; }
   .foot strong { color: var(--ink-soft); font-family: var(--serif); font-weight: 600; letter-spacing: .1em; }
   .foot a { color: var(--ink-muted); }
   .foot .line { margin: 6px 0; }
 
   @media (max-width: 760px) {
+    section { padding: 64px 0; }
+    .section-head { margin-bottom: 40px; }
+    .hero { padding-top: 56px; }
     .hero h1 { font-size: 40px; }
-    .grid, .grid.cols-2 { grid-template-columns: 1fr; }
-    .shots { grid-template-columns: 1fr; }
-    .modes { grid-template-columns: 1fr; }
-    .writing-modes { grid-template-columns: 1fr; }
+    .grid, .grid.cols-2, .writing-modes, .shots { grid-template-columns: 1fr; }
+    .mode-row { padding: 32px 0; }
+    .mode-row .wrap, .mode-row.flip .wrap { grid-template-columns: 1fr; }
+    .mode-row.flip .mode-text { order: 0; }
+    .mode-row.warm { padding: 48px 0; }
     .nav-links { gap: 16px; }
     .cta { flex-direction: column; width: 100%; }
     .btn { width: 100%; justify-content: center; }
@@ -203,16 +203,17 @@
   </div>
 </section>
 
-<section id="modes" class="wrap">
-  <div class="section-head">
-    <h2 class="section-title">两种界面模式</h2>
-    <p class="section-sub">同一套文档，两种工作方式。在「设置 → 通用 → 整体皮肤」里切换，皮肤只改变布局、排版气质和配色，不动你的文件。</p>
+<section id="modes">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 class="section-title">两种界面模式</h2>
+      <p class="section-sub">同一套文档，两种工作方式。在「设置 → 通用 → 整体皮肤」里切换，皮肤只改变布局、排版气质和配色，不动你的文件。</p>
+    </div>
   </div>
 
-  <div class="modes">
-    <figure class="mode">
-      <img src="assets/classic.png?v=3" alt="Mark2 经典模式：文件树工作区" loading="eager">
-      <figcaption class="body">
+  <div class="mode-row">
+    <div class="wrap">
+      <div class="mode-text">
         <h3>经典</h3>
         <p class="lead">像管项目一样管文件。</p>
         <p>左侧是打开的文件和文件夹树，顶部是标签页，适合在一个目录里来回穿梭：写技术文档、整理资料库、边看代码边记笔记。</p>
@@ -221,12 +222,14 @@
           <span class="chip"><i style="background:#3b5c48"></i>森绿</span>
           <span class="chip"><i style="background:#5a416f"></i>鸢尾</span>
         </div>
-      </figcaption>
-    </figure>
+      </div>
+      <figure><img src="assets/classic.png?v=3" alt="Mark2 经典模式：文件树工作区" loading="eager"></figure>
+    </div>
+  </div>
 
-    <figure class="mode">
-      <img src="assets/editorial.png?v=3" alt="Mark2 编辑部模式：文稿库工作台" loading="eager">
-      <figcaption class="body">
+  <div class="mode-row flip warm">
+    <div class="wrap">
+      <div class="mode-text">
         <h3>编辑部</h3>
         <p class="lead">像管稿子一样管文稿。</p>
         <p>侧边栏变成一个「我的文档」文稿库，主栏隐藏标签页，一次只对着一篇稿子。文稿按最近写作排序，显示的是正文标题而不是文件名——找稿子靠的是你写了什么。</p>
@@ -235,11 +238,12 @@
           <span class="chip"><i style="background:#3b5c48"></i>松墨</span>
           <span class="chip"><i style="background:#5a416f"></i>靛青</span>
         </div>
-      </figcaption>
-    </figure>
+      </div>
+      <figure><img src="assets/editorial.png?v=3" alt="Mark2 编辑部模式：文稿库工作台" loading="lazy"></figure>
+    </div>
   </div>
 
-  <p class="note">两套皮肤各自记住自己的配色选择，切回去还是你熟悉的样子。</p>
+  <div class="wrap"><p class="note">两套皮肤各自记住自己的配色选择，切回去还是你熟悉的样子。</p></div>
 </section>
 
 <section id="writing" class="wrap">
@@ -248,17 +252,17 @@
     <p class="section-sub">界面模式决定「怎么管」，写作模式决定「怎么写」。两者都在「视图」菜单里，可以单独开，也可以叠加。</p>
   </div>
 
-  <figure class="shot-featured">
+  <figure>
     <img src="assets/focus.png?v=3" alt="Mark2 专注模式与打字机模式" loading="lazy">
-    <figcaption class="cap">专注模式 + 打字机模式同时开启 · 当前段落清晰，其余内容淡出，正在写的那行停在屏幕中央</figcaption>
+    <figcaption class="featured-cap">专注模式 + 打字机模式同时开启 · 当前段落清晰，其余内容淡出，正在写的那行停在屏幕中央</figcaption>
   </figure>
 
   <div class="writing-modes">
-    <div class="card left">
+    <div class="item">
       <h3>专注模式</h3>
       <p>当前段落保持正常显示，其余内容淡出，视线不会被上下文拽走。Markdown 和代码视图都支持。</p>
     </div>
-    <div class="card left">
+    <div class="item">
       <h3>打字机模式</h3>
       <p>正在写的那一行始终停在屏幕中央，长文写下去时不用一直低头看屏幕底部。</p>
     </div>
@@ -271,12 +275,12 @@
     <p class="section-sub">Mark2 的目标不是做一套庞大的知识系统，而是做一个小、快、简单、真正适合写作的 Markdown 工具。</p>
   </div>
   <div class="grid">
-    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div><h3>AI 融入写作过程</h3><p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简、翻译，也能对着当前文档展开一轮对话。</p></div>
-    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div><h3>界面跟着状态变</h3><p>经典模式管文件，编辑部模式管文稿；专注与打字机模式让长文写作更稳，每套皮肤独立记住配色。</p></div>
-    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><h3>文档能力完整</h3><p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p></div>
-    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5H6l7 7-7 7h12"/></svg></div><h3>公式与图表</h3><p>内嵌 KaTeX 公式与 Mermaid 流程图、时序图、状态图、甘特图，写技术内容、论文、笔记都顺手。</p></div>
-    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><h3>很小，也很快</h3><p>基于 Tauri，底层是 Rust，安装包不到 30 MB。无需为写一篇文章打开沉重的工作台。</p></div>
-    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><h3>输出链路短</h3><p>把笔记、观点、摘录或文章片段一键导出成卡片图，也可以生成 Gist 分享链接发给别人看。</p></div>
+    <div class="item"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div><h3>AI 融入写作过程</h3><p>在光标处续写、卡住时给灵感，对选中内容润色、扩写、精简、翻译，也能对着当前文档展开一轮对话。</p></div>
+    <div class="item"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div><h3>界面跟着状态变</h3><p>经典模式管文件，编辑部模式管文稿；专注与打字机模式让长文写作更稳，每套皮肤独立记住配色。</p></div>
+    <div class="item"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div><h3>文档能力完整</h3><p>除了 Markdown，还支持 PDF、代码、图片、音视频、表格和 Word 导入，围绕真实文档场景。</p></div>
+    <div class="item"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 5H6l7 7-7 7h12"/></svg></div><h3>公式与图表</h3><p>内嵌 KaTeX 公式与 Mermaid 流程图、时序图、状态图、甘特图，写技术内容、论文、笔记都顺手。</p></div>
+    <div class="item"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div><h3>很小，也很快</h3><p>基于 Tauri，底层是 Rust，安装包不到 30 MB。无需为写一篇文章打开沉重的工作台。</p></div>
+    <div class="item"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><h3>输出链路短</h3><p>把笔记、观点、摘录或文章片段一键导出成卡片图，也可以生成 Gist 分享链接发给别人看。</p></div>
   </div>
 </section>
 
@@ -312,9 +316,9 @@
 
   <div class="shot-group">
     <h3 class="shot-group-title">卡片导出</h3>
-    <figure class="shot-featured">
+    <figure>
       <img src="assets/card-export.png?v=3" alt="内容生成卡片" loading="lazy">
-      <figcaption class="cap">选中文档内容即可导出成图片卡片 · 多种排版风格，适合分享</figcaption>
+      <figcaption class="featured-cap">选中文档内容即可导出成图片卡片 · 多种排版风格，适合分享</figcaption>
     </figure>
   </div>
 </section>
@@ -325,10 +329,10 @@
     <p class="section-sub">写作工具最该做好的事，是让你敢放心地写下去。</p>
   </div>
   <div class="grid cols-2">
-    <div class="card left"><h3>崩溃恢复</h3><p>后台保存恢复副本，异常退出后重启会提示找回未保存的文稿；恢复只放回编辑器，不会直接覆盖磁盘文件。</p></div>
-    <div class="card left"><h3>版本历史</h3><p>「文件 → 版本历史」可以预览这篇文档的历史版本，恢复后先成为未保存修改，确认内容再保存。</p></div>
-    <div class="card left"><h3>工作区搜索</h3><p>在已打开的文件和文件夹里全文搜索，支持区分大小写、全字匹配和正则，结果直接高亮跳转。</p></div>
-    <div class="card left"><h3>保险箱</h3><p>API Key 和账号密码用 AES-256-GCM 加密存在本地，主密钥交给系统钥匙串保管，复制后 30 秒自动清空剪贴板。</p></div>
+    <div class="item"><h3>崩溃恢复</h3><p>后台保存恢复副本，异常退出后重启会提示找回未保存的文稿；恢复只放回编辑器，不会直接覆盖磁盘文件。</p></div>
+    <div class="item"><h3>版本历史</h3><p>「文件 → 版本历史」可以预览这篇文档的历史版本，恢复后先成为未保存修改，确认内容再保存。</p></div>
+    <div class="item"><h3>工作区搜索</h3><p>在已打开的文件和文件夹里全文搜索，支持区分大小写、全字匹配和正则，结果直接高亮跳转。</p></div>
+    <div class="item"><h3>保险箱</h3><p>API Key 和账号密码用 AES-256-GCM 加密存在本地，主密钥交给系统钥匙串保管，复制后 30 秒自动清空剪贴板。</p></div>
   </div>
   <p class="note">想先试试？仓库里的 <code>demo/samples/</code> 放了几篇样稿：文章、技术方案、课程笔记和一个代码文件，直接用 Mark2 打开这个文件夹即可。</p>
 </section>
