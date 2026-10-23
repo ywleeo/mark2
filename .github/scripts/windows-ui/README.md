@@ -11,6 +11,8 @@
 
 仅修改这套脚本、workflow 或配套文稿的 PR 会自动跑一次，普通产品改动由开发者手动触发。截图产物保存 14 天。
 
+`Windows regression tests` 和 `Capture Windows desktop UI` 是两个独立任务：回归测试失败不会阻止截图。检出代码时禁用 Git 的自动换行转换，保留仓库中的原始文稿字节，避免 Windows 的 CRLF 转换干扰逐字往返测试。
+
 ## 参数
 
 | 参数 | 默认值 | 用途 |

@@ -33,6 +33,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  regression:
+    name: Windows regression tests
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        # Preserve fixture bytes: Windows Git must not rewrite tracked LF into CRLF.
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: npm test
+
   screenshots:
     name: Capture Windows desktop UI
     runs-on: windows-2022
@@ -44,6 +68,10 @@ jobs:
       MARK2_UI_OUTPUT: output/playwright/windows-ui
     steps:
       - uses: actions/checkout@v4
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -77,9 +105,6 @@ jobs:
       - name: Capture Classic and Editorial interfaces
         timeout-minutes: 8
         run: node .github/scripts/windows-ui/capture.mjs
-
-      - name: Run regression tests
-        run: npm test
 
       - name: Upload screenshots and diagnostics
         if: always()
