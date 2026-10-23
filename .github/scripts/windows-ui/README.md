@@ -29,6 +29,31 @@ gh workflow run windows-ui-screenshots.yml --ref your-branch \
   -f fixture_path=tests/fixtures/windows-ui/showcase.md
 ```
 
+## Agent 操作流程
+
+用户要求 Windows 截图验收、远程查 bug 或验证修复时，先确认本工具是否覆盖所需环境与操作；纯业务逻辑问题可先运行对应的本地测试，不必每次都启动云端构建。
+
+1. 检查 `git status`、当前分支和目标提交。云端只使用已推送的提交，不能测试本机未提交的修改；workflow 需要先合入默认分支，待测分支也需要包含本工具的文件。
+2. 界面验收可直接使用默认场景。特定 bug 先整理最小复现文件、真实 UI 操作、等待条件和断言，按下节说明补充到脚本；先复现、定位，再修改产品代码。
+3. 将下面的 `<目标分支>`、`<run-id>` 替换为实际值后运行。按需增加 `skin`、`appearance` 和 `fixture_path` 参数，触发后核对运行的分支、事件与 `headSha`，选取本次运行的 ID，避免误读旧结果。
+
+   ```bash
+   git branch --show-current
+   git rev-parse HEAD
+   gh workflow run windows-ui-screenshots.yml --ref <目标分支>
+   gh run list --workflow windows-ui-screenshots.yml --branch <目标分支> \
+     --event workflow_dispatch --limit 5 \
+     --json databaseId,headSha,status,conclusion,url
+   gh run watch <run-id> --interval 30 --exit-status
+   gh run view <run-id> --json headSha,conclusion,jobs,url
+   gh run download <run-id> --pattern 'windows-ui-*' \
+     --dir output/playwright/windows-ui/<run-id>
+   ```
+
+4. 分别检查 **Windows regression tests** 与 **Capture Windows desktop UI**。即使回归测试失败，也应检查是否已上传可用于定位问题的截图；截图脚本失败时会尽可能保留 `failure.png`、`failure.html` 和诊断信息。
+5. 查看图片本身、`report.json`、`mark2-debug.log` 和任务日志，给用户提供运行链接、目标提交、复现结论及关键截图。区分「已复现」「本次未复现」「尚未覆盖该步骤」，不要把构建通过或有截图等同于 bug 修复。
+6. 修改后使用相同复现场景验证；下载的截图保存在 `output/playwright/`，此目录已被 Git 忽略，不将运行产物提交到源码仓库。
+
 ## 为用户反馈的 bug 添加复现
 
 - 文稿相关问题：将去掉隐私信息的最小复现 Markdown 放入仓库，运行时选择对应 `fixture_path`。脚本会复制单个文件到临时目录再打开；图片等相对路径依赖需要额外准备，当前默认样张不依赖外部资源。
