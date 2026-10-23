@@ -1,0 +1,116 @@
+# Build and inspect the real desktop app without publishing a release or using signing secrets.
+name: Windows UI Screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      skin:
+        description: 'Skin to capture'
+        type: choice
+        options: [both, classic, editorial]
+        default: both
+      appearance:
+        description: 'Appearance to capture'
+        type: choice
+        options: [both, light, dark]
+        default: both
+      fixture_path:
+        description: 'Repository-relative Markdown file to open (can be a bug reproduction fixture)'
+        type: string
+        default: tests/fixtures/windows-ui/showcase.md
+  # Validate changes to this harness in its own PR; ordinary product PRs stay manual.
+  pull_request:
+    paths:
+      - .github/workflows/windows-ui-screenshots.yml
+      - .github/scripts/windows-ui/**
+      - tests/fixtures/windows-ui/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-ui-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Windows regression tests
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        # Preserve fixture bytes: Windows Git must not rewrite tracked LF into CRLF.
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run regression tests
+        run: npm test
+
+  screenshots:
+    name: Capture Windows desktop UI
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      MARK2_UI_SKIN: ${{ inputs.skin || 'both' }}
+      MARK2_UI_APPEARANCE: ${{ inputs.appearance || 'both' }}
+      MARK2_UI_FIXTURE: ${{ inputs.fixture_path || 'tests/fixtures/windows-ui/showcase.md' }}
+      MARK2_UI_OUTPUT: output/playwright/windows-ui
+    steps:
+      - uses: actions/checkout@v4
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            .github/scripts/windows-ui/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install screenshot tools (no extra browser download)
+        run: npm ci --prefix .github/scripts/windows-ui
+
+      - name: Build Windows application (no installer or signing)
+        run: >-
+          npm run tauri -- build --no-bundle
+          --config src-tauri/tauri.windows.conf.json
+          --config .github/scripts/windows-ui/tauri.conf.json
+
+      - name: Capture Classic and Editorial interfaces
+        timeout-minutes: 8
+        run: node .github/scripts/windows-ui/capture.mjs
+
+      - name: Upload screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: output/playwright/windows-ui/
+          if-no-files-found: warn
+          retention-days: 14

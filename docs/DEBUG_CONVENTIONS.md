@@ -46,6 +46,12 @@
 - 如需临时关闭文件落盘：
   - `localStorage.mark2_debug_file_logging = '0'`
 
+## Windows 云端复现证据
+
+处理 Windows 界面或交互问题时，可使用 **Windows UI Screenshots** Action 获取真实 Tauri / WebView2 的截图和日志，详细步骤见 [Windows 界面截图与复现](../.github/scripts/windows-ui/README.md)。先补充复现文稿、操作和断言，获取证据后再定位与修改；修复后重跑相同场景。
+
+记录问题时应带上运行链接、目标提交 SHA、复现步骤、预期与实际结果，以及对应截图或日志片段。artifact 中的 `report.json` 包含系统、WebView2、窗口尺寸、DPI、截图清单和未捕获的前端异常；`mark2-debug.log` 是应用结构化日志。分别报告回归测试和截图任务的结果，不以截图完成替代功能断言。
+
 ## 当前阶段重点
 
 - `documents`

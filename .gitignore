@@ -6,10 +6,13 @@ node_modules
 /dist
 /test-workspace
 AGENTS.md
+# Share root project guidance with agents in new clones and worktrees.
+!/AGENTS.md
 .claude
 /apple_developer
 /scripts
 /artifacts
+/output/playwright/
 /cardstyles
 /fastlane
 .sisyphus

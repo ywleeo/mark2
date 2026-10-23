@@ -504,6 +504,18 @@ cargo test recovery_store --manifest-path src-tauri/Cargo.toml
 
 ## 九、GitHub Release / Windows 发布
 
+### Windows 界面测试与截图
+
+发布 workflow `build-windows.yml` 负责构建与发布；界面验收使用独立的 **Windows UI Screenshots** workflow，不需要发布版本。
+
+在 Actions 中手动运行后，下载 `windows-ui-*` artifact 并打开 `index.html`。默认提供 Classic / Editorial 的明暗主界面、Windows 菜单和设置，共 12 张截图，也可传入仓库内的 Markdown 复现文件。详细参数、日志与验收边界见 [Windows 界面截图说明](../.github/scripts/windows-ui/README.md)。
+
+开发者或 agent 遇到以下需求时，应考虑使用此流程：验收 Windows 版界面、对比 Classic / Editorial、复现 Windows 用户反馈的可重复 bug，以及验证修复后的行为。默认场景仅覆盖应用启动、打开样张、皮肤切换、菜单与设置；特定 bug 仍需加入对应的复现操作及断言，不能仅凭默认截图判断已经修复。
+
+云端使用目标分支上已推送的提交。触发前先确认目标提交，运行后核对 `headSha`，分别检查 **Windows regression tests** 与 **Capture Windows desktop UI** 两个任务，再结合截图和日志给出结论。完整的 agent 命令流程见上述说明中的「Agent 操作流程」。截图产物保留 14 天，需长期保留的复现证据应及时下载。
+
+### 发布与版本校验
+
 - Windows GitHub Action 现在会在构建前校验 release tag 与以下三处版本号完全一致：
   - [package.json](../package.json)
   - [tauri.conf.json](../src-tauri/tauri.conf.json)
