@@ -161,6 +161,11 @@
     "toolbar.mathBlockDialogTitle": "Insert Math Block",
     "toolbar.mathBlockDialogLatex": "LaTeX Formula",
 
+    "tab.context.close": "Close",
+    "tab.context.closeOthers": "Close Other Tabs",
+    "tab.context.closeSaved": "Close Saved Tabs",
+    "tab.context.closeAll": "Close All Tabs",
+    "tab.context.actionFailed": "Tab action failed. Please try again.",
     "contextMenu.openInSecondary": "Open in Side Pane",
     "contextMenu.newFile": "New File",
     "contextMenu.newFolder": "New Folder",

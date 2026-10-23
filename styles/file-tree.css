@@ -738,6 +738,13 @@
     min-width: 0;
 }
 
+/* 标签菜单沿用文件菜单外观；禁用项保留位置且不响应悬停高亮。 */
+.tab-context-menu .file-tree-context-menu__item:disabled {
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+}
+
 .file-tree-context-menu__item:hover {
     background: var(--hover-bg-color, #f3f4f6);
 }

@@ -161,6 +161,11 @@
     "toolbar.mathBlockDialogTitle": "插入数学公式块",
     "toolbar.mathBlockDialogLatex": "LaTeX 公式",
 
+    "tab.context.close": "关闭",
+    "tab.context.closeOthers": "关闭其他标签页",
+    "tab.context.closeSaved": "关闭已保存的标签页",
+    "tab.context.closeAll": "关闭全部标签页",
+    "tab.context.actionFailed": "标签页操作失败，请重试",
     "contextMenu.openInSecondary": "在副栏打开",
     "contextMenu.newFile": "新建文件",
     "contextMenu.newFolder": "新建文件夹",
