@@ -1,0 +1,12 @@
+{
+  "identifier": "cc.altron.mark2.uitest",
+  "bundle": {
+    "active": false,
+    "createUpdaterArtifacts": false
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": []
+    }
+  }
+}

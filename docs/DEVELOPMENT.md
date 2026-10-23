@@ -504,6 +504,14 @@ cargo test recovery_store --manifest-path src-tauri/Cargo.toml
 
 ## 九、GitHub Release / Windows 发布
 
+### Windows 界面测试与截图
+
+发布 workflow `build-windows.yml` 负责构建与发布；界面验收使用独立的 **Windows UI Screenshots** workflow，不需要发布版本。
+
+在 Actions 中手动运行后，下载 `windows-ui-*` artifact 并打开 `index.html`。默认提供 Classic / Editorial 的明暗主界面、Windows 菜单和设置，共 12 张截图，也可传入仓库内的 Markdown 复现文件。详细参数、日志与验收边界见 [Windows 界面截图说明](../.github/scripts/windows-ui/README.md)。
+
+### 发布与版本校验
+
 - Windows GitHub Action 现在会在构建前校验 release tag 与以下三处版本号完全一致：
   - [package.json](../package.json)
   - [tauri.conf.json](../src-tauri/tauri.conf.json)
