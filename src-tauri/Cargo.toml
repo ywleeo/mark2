@@ -1,6 +1,6 @@
 [package]
 name = "mark2-tauri"
-version = "1.7.71"
+version = "1.7.72"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
