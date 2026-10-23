@@ -43,6 +43,8 @@ import { createTabSidebarStateController } from './tabSidebarStateController.js'
 import { createDocumentLibraryController } from '../modules/document-library/documentLibraryController.js';
 import { extractDocumentTitle } from '../modules/document-library/documentTitle.js';
 import { isDocumentWorkspace } from '../modules/document-library/documentNavigation.js';
+import { createTabContextController } from '../modules/tab-context-menu/tabContextController.js';
+import { t } from '../i18n/index.js';
 
 export function createAppBootstrap({
     // 核心状态/服务
@@ -631,7 +633,7 @@ export function createAppBootstrap({
         });
         appState.setCleanupFunction('workspaceSearch', () => workspaceSearchController.destroy());
 
-        setupTabManager({
+        const tabManager = setupTabManager({
             TabManagerCtor: coreModules.TabManager,
             appState,
             documentManager,
@@ -641,6 +643,19 @@ export function createAppBootstrap({
             handleTabRenameCancel,
             handleCreateUntitled,
         });
+
+        const tabContextController = createTabContextController({
+            tabManager,
+            documentManager,
+            commandManager,
+            hasUnsavedChanges: checkFileHasUnsavedChanges,
+            onError: error => {
+                appState.getStatusBarController()?.showProgress(
+                    t('tab.context.actionFailed'), { state: 'error' });
+                console.error('[TabContextMenu] 操作失败', error);
+            },
+        });
+        appState.setCleanupFunction('tabContextMenu', () => tabContextController.dispose());
 
         const fileWatcherController = createFileWatcherController({
             fileTree,

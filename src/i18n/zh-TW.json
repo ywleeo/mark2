@@ -160,6 +160,11 @@
   "toolbar.mathBlockDialogTitle": "插入數學公式區塊",
   "toolbar.mathBlockDialogLatex": "LaTeX 公式",
 
+  "tab.context.close": "關閉",
+  "tab.context.closeOthers": "關閉其他分頁",
+  "tab.context.closeSaved": "關閉已儲存的分頁",
+  "tab.context.closeAll": "關閉全部分頁",
+  "tab.context.actionFailed": "分頁操作失敗，請重試",
   "contextMenu.openInSecondary": "在副欄開啟",
   "contextMenu.newFile": "新增檔案",
   "contextMenu.newFolder": "新增資料夾",

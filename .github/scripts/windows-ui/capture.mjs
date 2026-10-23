@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { access, copyFile, mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,6 +20,8 @@ let app;
 let temp;
 let appLogPath;
 let launchError;
+let fixtureCopy;
+let referenceCopy;
 
 /** Validate choice inputs before interpolating them into selectors or filenames. */
 function choices(value, supported) {
@@ -113,6 +115,148 @@ async function capture(name, scenario) {
     console.log(`[windows-ui] Captured ${name}.png`);
 }
 
+/** Locate an actual tab by its displayed filename, without accessing application internals. */
+function tabByName(name) {
+    return page.locator('#tabBar .tab').filter({ hasText: name });
+}
+
+/** Pin a fixture using the same file-tree double-click a desktop user performs. */
+async function openFixture(filePath) {
+    const name = path.basename(filePath);
+    await page.locator('#fileTree .tree-file').filter({ hasText: name }).dblclick();
+    const tab = tabByName(name);
+    await tab.waitFor();
+    await page.waitForFunction(name => {
+        const active = document.querySelector('#tabBar .tab.active');
+        return active?.textContent.includes(name) && active.dataset.tabType === 'file';
+    }, name);
+    return tab;
+}
+
+/** Wait for a real tab's activation after a click or a close fallback. */
+async function waitForActiveTab(id) {
+    await page.waitForFunction(id => document.querySelector('#tabBar .tab.active')?.dataset.tabId === id, id);
+}
+
+/** Open a context menu with a real right-click and verify it does not activate its target. */
+async function openTabMenu(tab) {
+    const activeId = await page.locator('#tabBar .tab.active').getAttribute('data-tab-id');
+    await tab.click({ button: 'right' });
+    const menu = page.locator('.tab-context-menu:not(.hidden)');
+    await menu.waitFor();
+    assert.equal(await page.locator('#tabBar .tab.active').getAttribute('data-tab-id'), activeId,
+        'Right-click must not change the active document.');
+    return menu;
+}
+
+/** Exercise the shipped tab menu, close transactions, clipboard and split pane on WebView2. */
+async function captureTabContextScenario(prefix, scenario) {
+    const checks = [];
+    const primaryName = path.basename(fixtureCopy);
+    const referenceName = path.basename(referenceCopy);
+    const reference = await openFixture(referenceCopy);
+    const primary = tabByName(primaryName);
+    await primary.click();
+    await waitForActiveTab(await primary.getAttribute('data-tab-id'));
+
+    let menu = await openTabMenu(reference);
+    assert.equal(await menu.locator('[data-action]').count(), 7);
+    for (const action of ['current', 'others', 'saved', 'all']) {
+        assert.equal(await menu.locator(`[data-action="${action}"] svg`).count(), 0,
+            'Close items must not contain cross icons.');
+    }
+    assert.equal(await menu.locator('[data-action="reveal"]').innerText(), '在资源管理器中显示');
+    const bounds = await menu.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+            width: innerWidth, height: innerHeight };
+    });
+    assert(bounds.left >= 0 && bounds.top >= 0 && bounds.right <= bounds.width && bounds.bottom <= bounds.height,
+        'The menu must stay inside the WebView viewport.');
+    await capture(`${prefix}-tab-context-menu`, scenario);
+    checks.push('background-target', 'seven-actions', 'no-close-icons', 'windows-reveal-label', 'menu-in-viewport');
+
+    await menu.locator('[data-action="copy-path"]').click();
+    const copied = await page.evaluate(() => window.__TAURI__.core.invoke('read_clipboard_text'));
+    assert.equal(copied, referenceCopy, 'Copy Path must copy the right-click target, not the active document.');
+    checks.push('copy-target-path');
+
+    const primaryContent = await page.locator('#primaryPane .ProseMirror:visible').innerText();
+    menu = await openTabMenu(reference);
+    await menu.locator('[data-action="split"]').click();
+    await page.locator('#secondaryPane .ProseMirror:visible').waitFor();
+    await page.waitForFunction(() => document.querySelector('#secondaryPane .ProseMirror')?.textContent.includes('Windows tab reference'));
+    assert.equal(await page.locator('#primaryPane .ProseMirror:visible').innerText(), primaryContent);
+    await capture(`${prefix}-tab-split`, scenario);
+    await page.locator('#secondaryPaneClose').click();
+    await page.locator('#secondaryPane').waitFor({ state: 'hidden' });
+    checks.push('split-target-document', 'keep-primary-document');
+
+    await page.locator('#tabBar .tab-new-btn').click();
+    const draft = page.locator('#tabBar .tab[data-tab-id^="untitled://"]');
+    await draft.waitFor();
+    const draftId = await draft.getAttribute('data-tab-id');
+    await waitForActiveTab(draftId);
+    menu = await openTabMenu(draft);
+    for (const action of ['split', 'copy-path', 'reveal']) {
+        assert.equal(await menu.locator(`[data-action="${action}"]`).isDisabled(), true);
+    }
+    await capture(`${prefix}-tab-context-untitled`, scenario);
+    await page.keyboard.press('Escape');
+    await menu.waitFor({ state: 'hidden' });
+    checks.push('untitled-disabled-actions', 'escape-dismisses-menu');
+
+    await reference.click();
+    await waitForActiveTab(await reference.getAttribute('data-tab-id'));
+    const editor = page.locator('#primaryPane .ProseMirror:visible');
+    await editor.click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.insertText(' Windows unsaved marker');
+    await page.waitForFunction(name => Array.from(document.querySelectorAll('#tabBar .tab'))
+        .some(tab => tab.textContent.includes(name) && tab.classList.contains('is-dirty')), referenceName);
+    menu = await openTabMenu(reference);
+    await capture(`${prefix}-tab-context-dirty`, scenario);
+    await menu.locator('[data-action="saved"]').click();
+    await primary.waitFor({ state: 'detached' });
+    assert.equal(await page.locator('#tabBar .tab').count(), 2);
+    assert.equal(await reference.count(), 1);
+    assert.equal(await draft.count(), 1);
+    assert((await editor.innerText()).includes('Windows unsaved marker'));
+    await capture(`${prefix}-tab-close-saved`, scenario);
+    checks.push('close-saved-keeps-dirty-and-untitled');
+
+    menu = await openTabMenu(reference);
+    await menu.locator('[data-action="current"]').click();
+    await reference.waitFor({ state: 'detached' });
+    assert((await readFile(referenceCopy, 'utf8')).includes('Windows unsaved marker'));
+    await waitForActiveTab(draftId);
+    menu = await openTabMenu(draft);
+    assert.equal(await menu.locator('[data-action="others"]').isDisabled(), true);
+    assert.equal(await menu.locator('[data-action="saved"]').isDisabled(), true);
+    await page.keyboard.press('Escape');
+    checks.push('close-current-saves-disk-document', 'single-draft-disabled-bulk-actions');
+
+    await openFixture(fixtureCopy);
+    await openFixture(referenceCopy);
+    menu = await openTabMenu(primary);
+    await menu.locator('[data-action="others"]').click();
+    await page.waitForFunction(name => {
+        const tabs = document.querySelectorAll('#tabBar .tab');
+        return tabs.length === 1 && tabs[0].textContent.includes(name);
+    }, primaryName);
+    await waitForActiveTab(await primary.getAttribute('data-tab-id'));
+    checks.push('close-others-keeps-right-click-target');
+
+    menu = await openTabMenu(primary);
+    await menu.locator('[data-action="all"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#tabBar .tab').length === 0);
+    await capture(`${prefix}-tab-close-all`, scenario);
+    checks.push('close-all-clears-tabs');
+    await openFixture(fixtureCopy);
+    report.scenarios.push({ ...scenario, feature: 'tab-context-menu', status: 'passed', checks,
+        notCovered: ['native Explorer window', 'native save/cancel dialogs'] });
+}
+
 /** Capture a workspace, Windows menu, and settings dialog for one combination. */
 async function captureScenario(skin, appearance) {
     const scenario = { skin, appearance };
@@ -130,6 +274,9 @@ async function captureScenario(skin, appearance) {
     await capture(`${prefix}-settings`, scenario);
     await page.locator('.settings-form [data-action="cancel"]').click();
     await page.locator('.settings-modal').waitFor({ state: 'hidden' });
+    if (skin === 'classic') await captureTabContextScenario(prefix, scenario);
+    else report.scenarios.push({ ...scenario, feature: 'tab-context-menu', status: 'not-applicable',
+        reason: 'Editorial uses the document library and intentionally hides the tab bar.' });
     report.scenarios.push({ ...scenario, status: 'passed' });
     delete report.currentScenario;
 }
@@ -184,8 +331,10 @@ async function main() {
         temp = await mkdtemp(path.join(os.tmpdir(), 'mark2-windows-ui-'));
         const fixtureDirectory = path.join(temp, 'documents');
         await mkdir(fixtureDirectory);
-        const fixtureCopy = path.join(fixtureDirectory, path.basename(fixture));
+        fixtureCopy = path.join(fixtureDirectory, path.basename(fixture));
         await copyFile(fixture, fixtureCopy);
+        referenceCopy = path.join(fixtureDirectory, 'tab-context-reference.md');
+        await writeFile(referenceCopy, '# Windows tab reference\n\nCompare this document in the side pane.\n');
         const port = await unusedPort();
         report.environment = {
             os: os.release(), runner: process.env.ImageOS, runnerVersion: process.env.ImageVersion,

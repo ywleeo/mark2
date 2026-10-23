@@ -48,6 +48,7 @@ export const COMMAND_IDS = Object.freeze({
     DOCUMENT_SAVE_AS: 'document.saveAs',
     DOCUMENT_VERSION_HISTORY: 'document.versionHistory',
     DOCUMENT_CLOSE_TAB: 'document.closeTab',
+    DOCUMENT_CLOSE_TABS: 'document.closeTabs',
     DOCUMENT_REOPEN_TAB: 'document.reopenTab',
     DOCUMENT_NEW_UNTITLED: 'document.newUntitled',
     DOCUMENT_NEW_FILE: 'document.newFile',

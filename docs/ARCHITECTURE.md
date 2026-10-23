@@ -152,6 +152,11 @@ src-tauri/
 
 `TabManager` 和 `OpenFileManager` 都订阅 DocumentManager 事件，作为纯派生渲染层。
 
+标签页右键菜单由 `modules/tab-context-menu/` 独立承接，复用文件树菜单的呈现与清理协议，
+通过 `document.closeTabs` 命令调用既有关闭事务。批量关闭使用操作开始时的标签身份快照，
+后台标签先关闭、当前标签最后关闭；取消或未能关闭时中止后续操作。关闭已保存仅处理磁盘文稿，
+并在逐项关闭前复核 dirty 与保存中状态。路径定位和副栏打开继续复用现有命令。
+
 典型主链：
 
 ```text
