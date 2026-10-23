@@ -33,7 +33,6 @@ MAS 发布参见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 的「MAS 发布自�
 - 详细架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 开发规范：[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)（点击事件处理用 `addClickHandler`、MAS 发布）
 - 调试规范：[docs/DEBUG_CONVENTIONS.md](docs/DEBUG_CONVENTIONS.md)
-- 重构验收：[docs/REFACTOR_CHECKLIST.md](docs/REFACTOR_CHECKLIST.md)
 - Windows 界面截图与 bug 复现：[.github/scripts/windows-ui/README.md](.github/scripts/windows-ui/README.md)
 
 ## Windows 云端测试与截图
