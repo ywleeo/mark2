@@ -22,7 +22,7 @@ imports.deregister();
 
 /** 将真实 DocumentManager 和关闭控制器连接到列表动作，文件读写、对话框由替身提供。 */
 function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned = false, dirty = false,
-    saveSucceeds = true, missing = [], onSave = () => {} } = {}) {
+    saveSucceeds = true, missing = [], visiblePaths = null, onSave = () => {} } = {}) {
     let current = null;
     let clock = 100;
     const calls = [];
@@ -52,7 +52,9 @@ function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned
         getActiveViewMode: () => 'markdown', getEditor: () => ({ hasUnsavedChanges: () => dirty,
             clearAutoSaveTimer: () => calls.push(['stop-auto-save']) }),
         getCodeEditor: () => null, confirm: async () => false });
-    const remove = createDocumentRemovalAction({ getEntries: () => history.list(), getCurrentPath: () => current,
+    const remove = createDocumentRemovalAction({
+        getEntries: () => history.list().filter(entry => !visiblePaths || visiblePaths.includes(entry.path)),
+        getAllEntries: () => history.list(), getCurrentPath: () => current,
         isOpen: path => Boolean(manager.getDocumentByPath(path)),
         close: (path, options) => navigation.handleTabClose(getDocumentCloseTarget(path, manager.getDocumentByPath(path)), options),
         select: async path => {
@@ -84,6 +86,43 @@ test('最后一篇打开上一篇，移除唯一文档后保持空视图', async
     await only.remove('/a.md');
     assert.equal(only.current(), null);
     assert.deepEqual(only.history.list(), []);
+});
+
+test('关闭当前文档复用减号事务，移除预览和固定文档后激活列表下一篇', async () => {
+    for (const pinned of [false, true]) {
+        const setup = fixture({ pinned });
+        assert.equal(await setup.remove(), true);
+        assert.equal(setup.manager.getDocumentByPath('/a.md'), null);
+        assert.equal(setup.current(), '/b.md');
+        assert.deepEqual(setup.history.list().map(entry => entry.path), ['/b.md', '/c.md']);
+        assert.deepEqual(setup.calls.filter(call => call[0] === 'unexpected-fallback-load'), []);
+    }
+});
+
+test('连续关闭快捷键在各自事务开始时读取当前文档，依次移除并激活下一篇', async () => {
+    const setup = fixture();
+    assert.deepEqual(await Promise.all([setup.remove(), setup.remove()]), [true, true]);
+    assert.equal(setup.current(), '/c.md');
+    assert.deepEqual(setup.history.list().map(entry => entry.path), ['/c.md']);
+    assert.equal(await setup.remove(), true);
+    assert.equal(setup.current(), null);
+    assert.equal(await setup.remove(), false);
+});
+
+test('搜索隐藏当前文档时仍能关闭，当前文档可见时按搜索结果选择下一篇', async () => {
+    const hidden = fixture({ visiblePaths: ['/c.md'] });
+    assert.equal(await hidden.remove(), true);
+    assert.equal(hidden.current(), '/b.md');
+    const visible = fixture({ visiblePaths: ['/a.md', '/c.md'] });
+    assert.equal(await visible.remove(), true);
+    assert.equal(visible.current(), '/c.md');
+});
+
+test('关闭当前文档保存失败时保留列表和选择，后续快捷键不会移除下一篇', async () => {
+    const setup = fixture({ pinned: true, dirty: true, saveSucceeds: false });
+    assert.deepEqual(await Promise.all([setup.remove(), setup.remove()]), [false, false]);
+    assert.equal(setup.current(), '/a.md');
+    assert.deepEqual(setup.history.list().map(entry => entry.path), ['/a.md', '/b.md', '/c.md']);
 });
 
 test('保存失败并取消关闭时保留打开文档和列表，不跳到下一篇', async () => {

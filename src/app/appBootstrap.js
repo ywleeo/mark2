@@ -762,7 +762,9 @@ export function createAppBootstrap({
                     : saveCurrentFileAs(),
                 closeFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
                     ? requestCloseSecondary()
-                    : closeActiveTab(),
+                    : isDocumentWorkspace()
+                        ? documentLibraryController.closeActiveDocument()
+                        : closeActiveTab(),
                 deleteFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
                     ? rejectSecondaryPrimaryOnlyCommand('删除')
                     : handleDeleteActiveFile(),

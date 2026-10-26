@@ -45,12 +45,12 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     });
 
     /** 磁盘记录与当前临时文档的联合视图。 */
-    const entries = () => {
+    const entries = (searchQuery = query) => {
         const documents = documentManager.getOpenDocuments();
         const active = documentManager.getActiveDocument();
         if (active && !documents.some(doc => doc.path === active.path)) documents.push(active);
         return buildDocumentLibraryEntries({ records: history.list(),
-            openDocuments: documents, activePath: active?.path, titles: titleReader.titles, query });
+            openDocuments: documents, activePath: active?.path, titles: titleReader.titles, query: searchQuery });
     };
 
     /** 合并生命周期事件导致的重复重绘，避免重建搜索框。 */
@@ -107,7 +107,8 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     /** 打开的文档沿用生命周期真源，不能把后台正文缓存误当作打开状态。 */
     const isOpen = path => Boolean(documentManager.getDocumentByPath(path))
         || getPathIdentityKey(getCurrentPath()) === getPathIdentityKey(path);
-    const remove = createDocumentRemovalAction({ getEntries: entries, getCurrentPath, isOpen, close, select,
+    const remove = createDocumentRemovalAction({ getEntries: entries, getAllEntries: () => entries(''),
+        getCurrentPath, isOpen, close, select,
         removeRecord: path => history.remove(path) });
     const view = new DocumentLibraryView(host, {
         new: () => executeCommand(COMMAND_IDS.DOCUMENT_NEW_UNTITLED),
@@ -176,6 +177,8 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     window.addEventListener('focus', checkAvailability);
     syncProfile();
     return {
+        /** 关闭命令与列表减号共享移除事务，完成后按列表顺序激活相邻文档。 */
+        closeActiveDocument: () => remove(),
         /** 提供文档模式全文搜索范围，不再遍历旧工作区目录。 */
         getSavedPaths: () => history.list().map(record => record.path),
         /** 释放生命周期订阅和延迟刷新。 */
