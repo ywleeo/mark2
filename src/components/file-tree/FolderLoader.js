@@ -1,4 +1,6 @@
+/** 文件树目录加载与增量刷新；目录发现统一应用全局排除规则。 */
 import { basename } from '../../utils/pathUtils.js';
+import { fileExclusionService } from '../../modules/file-exclusions/fileExclusionService.js';
 import { rememberSecurityScopes } from '../../services/securityScopeService.js';
 import { isUnsupportedFilePath } from '../../utils/fileTypeUtils.js';
 import { createCompactFileNameElement, scheduleCompactFileNameRefresh } from '../../utils/fileNameDisplay.js';
@@ -18,6 +20,7 @@ export class FolderLoader {
             shouldDefer,
             onRefreshDeferred,
             onBeforeRefresh,
+            exclusionService = fileExclusionService,
         } = options;
 
         this.container = container;
@@ -32,6 +35,8 @@ export class FolderLoader {
         this.shouldDefer = shouldDefer;
         this.onRefreshDeferred = onRefreshDeferred;
         this.onBeforeRefresh = onBeforeRefresh;
+        this.exclusionService = exclusionService;
+        this._entryRevisions = new WeakMap();
 
         // 记录每个 children 容器上次填充的内容签名，签名未变就跳过 DOM 重建，
         // 避免窗口聚焦/watcher 等无差别 refresh 触发整棵树闪一下。
@@ -68,27 +73,40 @@ export class FolderLoader {
         });
     }
 
-    shouldIgnoreFile(name) {
-        const ignoredFiles = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini', '.localized']);
-        return ignoredFiles.has(name);
-    }
-
-    async readDirectory(path) {
-        const fileService = this.getFileService();
-        const { directories = [], files = [] } = await fileService.list(path);
-
-        const folders = directories
-            .filter(entry => !this.shouldIgnoreFile(entry.name))
+    /** 在指定根目录上下文中读取可见条目，并记录查询使用的规则版本。 */
+    async readDirectory(path, rootPath = path) {
+        const { entries, revision } = await this.exclusionService.listDirectory(path, rootPath);
+        const folders = entries.filter(entry => entry.isDir)
             .map(entry => ({ path: entry.path, isDir: true }));
-        const regularFiles = files
-            .filter(entry => !this.shouldIgnoreFile(entry.name))
+        const regularFiles = entries.filter(entry => !entry.isDir)
             .filter(entry => !isUnsupportedFilePath(entry.path))
             .map(entry => ({ path: entry.path, isDir: false }));
 
         folders.sort((a, b) => a.path.localeCompare(b.path));
         regularFiles.sort((a, b) => a.path.localeCompare(b.path));
 
-        return [...folders, ...regularFiles];
+        const result = [...folders, ...regularFiles];
+        this._entryRevisions.set(result, revision);
+        return result;
+    }
+
+    /** 从实际 DOM 所属根目录取上下文，重叠根目录不能只按路径前缀推断。 */
+    getContainerRoot(container, fallback) {
+        return container?.closest?.('.tree-folder[data-is-root="true"]')?.dataset.path || fallback;
+    }
+
+    /** 更新所有已加载目录；复用增量渲染以保留展开、选中及滚动状态。 */
+    async refreshExclusions() {
+        const snapshot = this._captureScrollPositions();
+        await this.refreshCurrentFolder();
+        const folders = Array.from(this.container.querySelectorAll('.tree-folder'))
+            .filter(folder => folder.dataset.isRoot !== 'true');
+        for (const folder of folders) {
+            if (!this.container.contains(folder)) continue;
+            await this.refreshFolder(folder.dataset.path, folder);
+        }
+        this.renderer.reapplyCurrentFileSelection();
+        this._restoreScrollPositions(snapshot);
     }
 
     findRootFolderElement(path) {
@@ -208,10 +226,13 @@ export class FolderLoader {
         }
     }
 
+    /** 填充所属根目录的子项；旧规则预取结果必须重新读取后才能进入 DOM。 */
     async loadFolderChildren(path, childrenContainer, prefetchedEntries = null) {
+        const rootPath = this.getContainerRoot(childrenContainer, path);
         const entries = Array.isArray(prefetchedEntries)
+            && this._entryRevisions.get(prefetchedEntries) === this.exclusionService.getRevision()
             ? prefetchedEntries
-            : await this.readDirectory(path);
+            : await this.readDirectory(path, rootPath);
 
         // ─── 快速路径：内容签名未变 + 容器已有内容 → 完全不动 DOM ───
         const newSignature = this._computeEntriesSignature(entries);
@@ -403,7 +424,8 @@ export class FolderLoader {
         await Promise.allSettled(rootPaths.map((p) => this.refreshFolder(p)));
     }
 
-    async refreshFolder(path) {
+    /** 刷新路径的实际树节点，重叠根目录中的多个节点分别处理。 */
+    async refreshFolder(path, targetElement = null) {
         const normalizedPath = this.normalizePath(path);
         if (!normalizedPath) return;
 
@@ -413,20 +435,31 @@ export class FolderLoader {
             return;
         }
 
-        if (this.state.isRootPath(normalizedPath)) {
+        // 同一路径可能同时出现在根目录和另一棵树内，分别按各自上下文刷新。
+        if (!targetElement) {
+            const matches = Array.from(this.container.querySelectorAll('.tree-folder'))
+                .filter(folder => this.normalizePath(folder.dataset.path) === normalizedPath);
+            if (matches.length > 1) {
+                await Promise.all(matches.map(folder => folder.dataset.isRoot === 'true'
+                    ? this.loadFolder(normalizedPath) : this.refreshFolder(normalizedPath, folder)));
+                return;
+            }
+        }
+
+        if (!targetElement && this.state.isRootPath(normalizedPath)) {
             await this.loadFolder(normalizedPath);
             return;
         }
 
         // 用遍历 + 严格相等替代 CSS 属性选择器，避免 Windows 反斜杠/中文路径被 CSS 当作转义
-        const folderElement = Array.from(this.container.querySelectorAll('.tree-folder'))
+        const folderElement = targetElement || Array.from(this.container.querySelectorAll('.tree-folder'))
             .find(el => el.dataset.path === normalizedPath) || null;
         if (!folderElement) return;
         const children = folderElement.querySelector('.tree-folder-children');
         if (!children) return;
 
         try {
-            const entries = await this.readDirectory(normalizedPath);
+            const entries = await this.readDirectory(normalizedPath, this.getContainerRoot(children, normalizedPath));
             await this.loadFolderChildren(normalizedPath, children, entries);
         } catch (error) {
             console.error('刷新文件夹失败:', { path: normalizedPath, error });

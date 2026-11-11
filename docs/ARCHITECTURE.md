@@ -353,6 +353,7 @@ menu / toolbar
 - `statusBarController` — 状态栏控制
 - `untitledFileManager` — untitled 文件管理
 - `fileWatchers` / `fileDropController` — 文件监听与拖拽
+- `file-exclusions/` — 应用级目录发现规则的独立配置、持久化和跨窗口订阅。`SettingsFileExclusionsSection` 管理草稿，Rust `file_exclusions` 使用同一匹配器服务工作区目录查询和全文搜索；规则变更后刷新文件树并使旧查询失效，通用文件服务和已打开文稿不应用显示排除。详见 [全局文件排除规则](FILE_EXCLUSIONS_DESIGN.md)。
 - `documentSessionManager` — 文档会话管理（本地写入抑制、watcher 事件过滤）
 - `menuExports` / `menuListeners` — 菜单导出与监听
 - `windowFocusHandler` — 窗口焦点处理

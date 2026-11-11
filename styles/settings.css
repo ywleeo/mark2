@@ -91,7 +91,7 @@
 /* ── 对话框 ─────────────────────────────── */
 
 .settings-dialog {
-    width: 480px;
+    width: 576px;
     max-width: 96vw;
     max-height: 80vh;
     display: flex;
@@ -131,9 +131,11 @@
 
 .settings-tabs {
     display: flex;
+    gap: 4px;
     padding: 2.5px;
     background: var(--settings-tab-bar-bg);
     border-radius: 9px;
+    overflow-x: auto;
 }
 
 .settings-tab,
@@ -150,6 +152,12 @@
     transition: all 0.15s ease;
     outline: none;
     text-align: center;
+}
+
+/* 窄窗口允许滚动标签栏，保留每个标签的文字和点击空间。 */
+.settings-tab {
+    padding-inline: 8px;
+    white-space: nowrap;
 }
 
 .settings-tab:hover,

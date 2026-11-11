@@ -1,0 +1,200 @@
+[
+  {
+    "patterns": [
+      ".git"
+    ],
+    "path": ".git",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      ".git"
+    ],
+    "path": ".git",
+    "isDir": true,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      ".git"
+    ],
+    "path": "a/.git/config",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      ".git"
+    ],
+    "path": ".github/readme.md",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      ".gitignore"
+    ],
+    "path": "a/.gitignore",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "*.log"
+    ],
+    "path": "a/error.log",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "*.log"
+    ],
+    "path": "a/error.LOG",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "node_modules/"
+    ],
+    "path": "node_modules",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "node_modules/"
+    ],
+    "path": "a/node_modules",
+    "isDir": true,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "node_modules/"
+    ],
+    "path": "a/node_modules/pkg/index.js",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "/drafts/"
+    ],
+    "path": "drafts/note.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "/drafts/"
+    ],
+    "path": "a/drafts/note.md",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "notes/private/"
+    ],
+    "path": "notes/private/secret.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "notes/private/"
+    ],
+    "path": "other/notes/private/secret.md",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "**/cache/"
+    ],
+    "path": "cache/a.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "**/cache/"
+    ],
+    "path": "a/b/cache/a.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "notes/?.md"
+    ],
+    "path": "notes/中.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "notes/?.md"
+    ],
+    "path": "notes/中文.md",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "私密 笔记/"
+    ],
+    "path": "a/私密 笔记/note.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "notes\\private\\"
+    ],
+    "path": "notes\\private\\note.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "*"
+    ],
+    "path": "",
+    "isDir": true,
+    "excluded": false
+  },
+  {
+    "patterns": [],
+    "path": ".git",
+    "isDir": true,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "/README.md"
+    ],
+    "path": "README.md",
+    "isDir": false,
+    "excluded": true
+  },
+  {
+    "patterns": [
+      "/README.md"
+    ],
+    "path": "notes/README.md",
+    "isDir": false,
+    "excluded": false
+  },
+  {
+    "patterns": [
+      "*.log"
+    ],
+    "path": "error.log/readme.md",
+    "isDir": false,
+    "excluded": true
+  }
+]

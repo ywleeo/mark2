@@ -2890,6 +2890,7 @@ dependencies = [
  "core-foundation 0.9.4",
  "font-kit",
  "futures-util",
+ "glob",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",

@@ -1,0 +1,65 @@
+/* 文件排除设置独立样式，使用设置主题变量以适配两套皮肤及明暗外观。 */
+.file-exclusions { padding-top: 12px; }
+.file-exclusions__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 18px 0 10px;
+}
+.file-exclusions__heading h3 {
+    margin: 0;
+    font-size: 13px;
+    color: var(--settings-surface-contrast);
+}
+.file-exclusions__rules { display: grid; gap: 8px; }
+.file-exclusions__add {
+    padding: 6px 10px;
+    border: 1px solid var(--settings-ghost-border);
+    border-radius: 6px;
+    background: var(--settings-ghost-bg);
+    color: var(--settings-field-text);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.file-exclusions__add:hover { background: var(--settings-ghost-hover-bg); }
+.file-exclusions__controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.file-exclusions__controls input[type='checkbox'] { accent-color: var(--settings-primary); }
+.file-exclusions__pattern {
+    flex: 1;
+    width: 0;
+    min-width: 0;
+    padding: 8px 10px;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+    color: var(--settings-field-text);
+    background: var(--settings-field-bg);
+    border: 1px solid var(--settings-divider);
+    border-radius: 6px;
+}
+.file-exclusions__pattern:focus {
+    outline: 2px solid var(--settings-primary);
+    outline-offset: 1px;
+}
+.file-exclusions__remove {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 5px;
+    color: var(--settings-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.file-exclusions__remove:hover { background: var(--settings-tab-bar-bg); }
+.file-exclusions__error {
+    margin: 6px 0 2px;
+    color: var(--settings-danger, #c43d3d);
+    font-size: 12px;
+    line-height: 1.5;
+}
+.file-exclusions__pattern[aria-invalid='true'] { border-color: var(--settings-danger, #c43d3d); }

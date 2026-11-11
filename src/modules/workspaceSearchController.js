@@ -1,6 +1,7 @@
 import { searchWorkspace, cancelWorkspaceSearch } from '../api/workspaceSearch.js';
 import { WorkspaceSearchPanel } from '../components/WorkspaceSearchPanel.js';
 import { t } from '../i18n/index.js';
+import { fileExclusionService } from './file-exclusions/fileExclusionService.js';
 import {
     collectWorkspaceSearchTargets,
     getWorkspaceSearchMatchText,
@@ -98,6 +99,7 @@ export function createWorkspaceSearchController(dependencies) {
                     ...options,
                     maxResults: 500,
                     maxFileSize: 2 * 1024 * 1024,
+                    exclusions: fileExclusionService.getSettings(),
                 },
             });
             if (serial !== requestSerial || !panel.isVisible() || response?.cancelled) return;
@@ -149,10 +151,21 @@ export function createWorkspaceSearchController(dependencies) {
 
         /** 释放控制器和面板资源。 */
         destroy() {
+            unsubscribeExclusions();
             controller.hide();
             panel.destroy();
         },
     };
+
+    // 使旧请求立即失效，防止新规则提交后仍显示旧结果；可见面板重新查询。
+    const unsubscribeExclusions = fileExclusionService.subscribe(() => {
+        const serial = ++requestSerial;
+        clearTimeout(debounceTimer);
+        if (panel.isVisible()) panel.setLoading();
+        void cancelWorkspaceSearch().catch(() => {}).then(() => {
+            if (serial === requestSerial && panel.isVisible()) void executeSearch(panel.getRequest());
+        });
+    });
 
     panel.hide();
     return controller;

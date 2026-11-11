@@ -1,3 +1,4 @@
+/** Markdown 与 ProseMirror 之间的解析及序列化管线。 */
 import MarkdownIt from 'markdown-it';
 import markdownItTaskLists from 'markdown-it-task-lists';
 import markdownItMultimdTable from 'markdown-it-multimd-table';
@@ -732,33 +733,15 @@ export function createMarkdownSerializer(schema) {
             node.attrs = { ...node.attrs, tight: true };
             state.renderList(node, '  ', () => '- ');
         },
+        /** 首段沿用任务文字归一化；后续节点按块渲染，保留子列表标记和缩进。 */
         taskItem(state, node) {
             const checked = node.attrs?.checked ? 'x' : ' ';
-            const content = [];
-            node.forEach(child => content.push(child));
-
-            const main = content.shift() || null;
-            const hasMain = Boolean(main);
-            const nested = content.filter(Boolean);
-
-            if (hasMain) {
-                const mainText = renderInlineContent(state, main);
-                if (mainText) {
-                    state.write(`[${checked}] ${mainText}`);
-                } else {
-                    state.write(`[${checked}]`);
-                }
-            } else {
-                state.write(`[${checked}]`);
-            }
-
-            if (nested.length > 0) {
-                nested.forEach(child => {
-                    const childMarkdown = renderInlineToString(state, child);
-                    if (childMarkdown) {
-                        state.write(`\n  ${childMarkdown.replace(/\n/g, '\n  ')}`);
-                    }
-                });
+            const main = node.firstChild;
+            const mainText = main ? renderInlineContent(state, main) : '';
+            state.write(mainText ? `[${checked}] ${mainText}` : `[${checked}]`);
+            if (main) state.closeBlock(main);
+            for (let index = 1; index < node.childCount; index += 1) {
+                state.render(node.child(index), node, index);
             }
         },
         codeBlock(state, node) {

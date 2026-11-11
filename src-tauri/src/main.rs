@@ -7,6 +7,7 @@ mod macos_security;
 mod ai_proxy;
 mod default_handler;
 mod fs_commands;
+mod file_exclusions;
 mod gist_share;
 mod image_proxy;
 mod media_stream;
@@ -17,6 +18,7 @@ mod spreadsheet;
 mod vault;
 mod window_state;
 mod workspace_search;
+mod workspace_files;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -301,6 +303,8 @@ fn main() {
             default_handler::set_as_default_app,
             workspace_search::search_workspace,
             workspace_search::cancel_workspace_search,
+            file_exclusions::validate_file_exclusions,
+            workspace_files::list_workspace_directory,
             vault::commands::vault_list,
             vault::commands::vault_get_value,
             vault::commands::vault_add,

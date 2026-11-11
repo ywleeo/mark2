@@ -1,3 +1,4 @@
+/** Markdown 加载前的兼容处理；列表缩进交由解析器按原文识别。 */
 import { ensureMarkdownTrailingEmptyLine } from '../../utils/markdownFormatting.js';
 
 /**
@@ -57,7 +58,7 @@ export function preprocessBold(markdown) {
  * 处理步骤：
  *   1. 修复表格行内 <br> 断裂（按行扫描）
  *   2. 包含空格的链接/图片地址自动包裹尖括号
- *   3. 2 空格列表缩进修正为 4 空格
+ * 列表缩进必须保留原文：只扩大某一级缩进会破坏子级关系，也会误改代码块。
  */
 export function preprocessMarkdown(markdown) {
     if (!markdown) return '';
@@ -100,14 +101,6 @@ export function preprocessMarkdown(markdown) {
         const leading = target.match(/^\s*/)?.[0] ?? '';
         const trailing = target.match(/\s*$/)?.[0] ?? '';
         return `${prefix}${leading}<${trimmed.replace(/>/g, '\\>')}>${trailing}${suffix}`;
-    });
-
-    // 3. 2 空格列表缩进修正为 4 空格
-    text = text.replace(/\n  ([-*+]) /g, (match, marker, offset, string) => {
-        const lastNewLine = string.lastIndexOf('\n', offset - 1);
-        const previousLine = string.slice(lastNewLine === -1 ? 0 : lastNewLine + 1, offset);
-        if (/^\s*(?:[*+-]|\d+\.)\s+/.test(previousLine)) return `\n    ${marker} `;
-        return match;
     });
 
     return text;

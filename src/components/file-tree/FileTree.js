@@ -1,6 +1,9 @@
+/** 工作区文件树装配：目录展示、文稿操作及全局排除规则的生命周期连接。 */
 import { normalizeFsPath, getPathIdentityKey } from '../../utils/pathUtils.js';
 import { getExternalDropOpener } from '../../modules/fileOperations.js';
 import { getAppServices } from '../../services/appServices.js';
+import { fileExclusionService } from '../../modules/file-exclusions/fileExclusionService.js';
+import { createLogger } from '../../core/diagnostics/Logger.js';
 import { FileRenamer } from '../FileRenamer.js';
 import { FileMover } from '../FileMover.js';
 import { FileWatcher } from '../FileWatcher.js';
@@ -17,6 +20,8 @@ import { FolderLoader } from './FolderLoader.js';
 import { OpenFileManager } from './OpenFileManager.js';
 import { FileActions } from './FileActions.js';
 import { scheduleCompactFileNameRefresh } from '../../utils/fileNameDisplay.js';
+
+const logger = createLogger('workspace');
 
 function extractPathFromFolderKey(folderKey) {
     if (!folderKey) return '';
@@ -165,6 +170,13 @@ export class FileTree {
             onRefreshDeferred: (path) => this.pendingRefreshPaths.add(path),
             onBeforeRefresh: () => this.ensureRenamingState(),
         });
+
+        // 只刷新目录发现视图，已有文稿、标签和文件 watcher 保持原有生命周期。
+        this.cleanupFunctions.push(fileExclusionService.subscribe(() => {
+            void this.loader.refreshExclusions().catch(error => {
+                logger.warn('file-exclusions:refresh-failed', { error });
+            });
+        }));
 
         this.openFileManager = new OpenFileManager({
             normalizePath: this.normalizePath.bind(this),

@@ -1,3 +1,5 @@
+//! 可取消的工作区全文搜索，发现文件时复用全局排除规则。
+use crate::file_exclusions::{FileExclusionSettings, FileExclusions};
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -42,6 +44,8 @@ pub struct WorkspaceSearchOptions {
     pub max_results: usize,
     #[serde(default = "default_max_file_size")]
     pub max_file_size: u64,
+    #[serde(default)]
+    pub exclusions: Option<FileExclusionSettings>,
 }
 
 impl Default for WorkspaceSearchOptions {
@@ -52,6 +56,7 @@ impl Default for WorkspaceSearchOptions {
             use_regex: false,
             max_results: DEFAULT_MAX_RESULTS,
             max_file_size: DEFAULT_MAX_FILE_SIZE,
+            exclusions: None,
         }
     }
 }
@@ -256,6 +261,8 @@ fn search_root(
     response: &mut WorkspaceSearchResponse,
     generation: &AtomicU64,
     token: u64,
+    exclusions: Option<&FileExclusions>,
+    seen_files: &mut HashSet<PathBuf>,
 ) {
     let mut pending = vec![root.to_path_buf()];
     while let Some(path) = pending.pop() {
@@ -274,8 +281,16 @@ fn search_root(
         if metadata.file_type().is_symlink() {
             continue;
         }
+        // 显式打开的根文件不应用发现规则；目录内的文件在读取前过滤。
+        if path != root
+            && exclusions.is_some_and(|rules| rules.excludes_path(&path, root, metadata.is_dir()))
+        {
+            continue;
+        }
         if metadata.is_file() {
-            search_file(&path, root, pattern, options, response);
+            if seen_files.insert(path.clone()) {
+                search_file(&path, root, pattern, options, response);
+            }
             continue;
         }
         if !metadata.is_dir() || (path != root && should_skip_directory(&path)) {
@@ -316,6 +331,13 @@ fn search_workspace_sync(
         .max_file_size
         .clamp(64 * 1024, MAX_ALLOWED_FILE_SIZE);
     let pattern = build_pattern(query, &options)?;
+    let exclusions = options
+        .exclusions
+        .as_ref()
+        .filter(|settings| settings.enabled && settings.apply_to_search)
+        .map(FileExclusions::compile)
+        .transpose()
+        .map_err(|errors| format!("Invalid exclusion rules: {errors:?}"))?;
     let mut response = WorkspaceSearchResponse::empty();
     let mut seen_roots = HashSet::new();
     let mut roots: Vec<PathBuf> = request
@@ -326,18 +348,10 @@ fn search_workspace_sync(
         .filter(|root| seen_roots.insert(root.clone()))
         .collect();
     roots.sort_by_key(|root| root.components().count());
-    let mut independent_roots: Vec<PathBuf> = Vec::new();
+    // 重叠目录分别求值：一个根目录下被排除的路径，在另一根目录中可能可见。
+    // 仅对实际读取的文件去重，因此显式打开的隐藏文件仍可作为独立目标搜索。
+    let mut seen_files = HashSet::new();
     for root in roots {
-        if independent_roots
-            .iter()
-            .any(|parent| root.starts_with(parent))
-        {
-            continue;
-        }
-        independent_roots.push(root);
-    }
-
-    for root in independent_roots {
         search_root(
             &root,
             &pattern,
@@ -345,6 +359,8 @@ fn search_workspace_sync(
             &mut response,
             generation.as_ref(),
             token,
+            exclusions.as_ref(),
+            &mut seen_files,
         );
         if response.cancelled || response.truncated {
             break;
@@ -532,5 +548,82 @@ mod tests {
         .expect("search succeeds");
         assert_eq!(response.matches.len(), 1);
         let _ = fs::remove_dir_all(root);
+    }
+
+    /// 目录发现应用用户规则，显式打开的同一文件仍可作为独立搜索目标。
+    #[test]
+    fn exclusions_preserve_explicit_open_files_and_search_toggle() {
+        let root = temp_root("exclusions");
+        fs::create_dir_all(root.join("drafts/deep")).unwrap();
+        let hidden = root.join("drafts/deep/note.md");
+        fs::write(&hidden, "needle").unwrap();
+        fs::write(root.join("error.log"), "needle").unwrap();
+        fs::write(root.join("visible.md"), "needle").unwrap();
+        let config = crate::file_exclusions::tests::settings(&["drafts/", "*.log"]);
+        let options = WorkspaceSearchOptions {
+            exclusions: Some(config.clone()),
+            ..WorkspaceSearchOptions::default()
+        };
+        let response = run(&root, "needle", options.clone());
+        assert_eq!(response.matches.len(), 1);
+        assert_eq!(response.matches[0].relative_path, "visible.md");
+        let response = search_workspace_sync(
+            WorkspaceSearchRequest {
+                roots: vec![
+                    root.to_string_lossy().into_owned(),
+                    hidden.to_string_lossy().into_owned(),
+                ],
+                query: "needle".into(),
+                options,
+            },
+            Arc::new(AtomicU64::new(1)),
+            1,
+        )
+        .unwrap();
+        assert_eq!(response.matches.len(), 2);
+        let mut config = config;
+        config.apply_to_search = false;
+        let response = run(
+            &root,
+            "needle",
+            WorkspaceSearchOptions {
+                exclusions: Some(config),
+                ..WorkspaceSearchOptions::default()
+            },
+        );
+        assert_eq!(response.matches.len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// 被父根规则隐藏的目录在独立根目录中重新求值，并对可见文件去重。
+    #[test]
+    fn exclusions_evaluate_overlapping_roots_independently() {
+        let root = temp_root("exclusion-roots");
+        let nested = root.join("drafts");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(nested.join("note.md"), "needle").unwrap();
+        let options = WorkspaceSearchOptions {
+            exclusions: Some(crate::file_exclusions::tests::settings(&["/drafts/"])),
+            ..WorkspaceSearchOptions::default()
+        };
+        let response = search_workspace_sync(
+            WorkspaceSearchRequest {
+                roots: vec![
+                    root.to_string_lossy().into_owned(),
+                    nested.to_string_lossy().into_owned(),
+                ],
+                query: "needle".into(),
+                options,
+            },
+            Arc::new(AtomicU64::new(1)),
+            1,
+        )
+        .unwrap();
+        assert_eq!(response.matches.len(), 1);
+        assert_eq!(
+            response.matches[0].root_path,
+            fs::canonicalize(&nested).unwrap().to_string_lossy()
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }

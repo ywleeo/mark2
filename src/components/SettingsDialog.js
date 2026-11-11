@@ -11,6 +11,7 @@ import { renderSettingsAiSection } from './settings/SettingsAiSection.js';
 import { buildAiProviderCard } from './settings/AiProviderCard.js';
 import { discoverProviderModels } from '../modules/ai-assistant/providerModels.js';
 import { renderSettingsShareSection } from './settings/SettingsShareSection.js';
+import { SettingsFileExclusionsSection, renderSettingsFileExclusionsSection } from './settings/SettingsFileExclusionsSection.js';
 import { loadGistShareSettings, saveGistApiKey } from '../modules/share/gistSettings.js';
 import {
     getAppColorSchemes,
@@ -82,6 +83,7 @@ export class SettingsDialog {
                             <button type="button" class="settings-tab active" data-tab="general">${t('settings.tabGeneral')}</button>
                             <button type="button" class="settings-tab" data-tab="editor">${t('settings.tabMarkdown')}</button>
                             <button type="button" class="settings-tab" data-tab="code">${t('settings.tabCode')}</button>
+                            <button type="button" class="settings-tab" data-tab="files">${t('fileExclusions.tab')}</button>
                             <button type="button" class="settings-tab" data-tab="ai">${t('settings.tabAi')}</button>
                             <button type="button" class="settings-tab" data-tab="share">${t('settings.tabShare')}</button>
                             <button type="button" class="settings-tab" data-tab="keybindings">${t('settings.tabKeybindings')}</button>
@@ -268,6 +270,7 @@ export class SettingsDialog {
 
                     ${renderSettingsAiSection(t)}
                     ${renderSettingsShareSection(t)}
+                    ${renderSettingsFileExclusionsSection()}
 
                     <footer class="settings-footer">
                         <button type="button" class="btn secondary" data-action="cancel">${t('settings.cancel')}</button>
@@ -280,6 +283,7 @@ export class SettingsDialog {
         document.body.appendChild(this.root);
 
         this.form = this.root.querySelector('.settings-form');
+        this.fileExclusionsSection = new SettingsFileExclusionsSection(this.root.querySelector('[data-ref="fileExclusions"]'));
 
         // Tab 元素
         this.tabButtons = this.root.querySelectorAll('.settings-tab');
@@ -578,6 +582,7 @@ export class SettingsDialog {
     }
 
     async open(settings) {
+        this.fileExclusionsSection.setSettings();
         const editorPrefs = settings || {};
         this.initialSettings = { ...editorPrefs };
         this.colorSchemePreferences = normalizeAppColorSchemes(editorPrefs.colorSchemes);
@@ -744,6 +749,7 @@ export class SettingsDialog {
     }
 
     close(triggerCancel = false) {
+        this.fileExclusionsSection.cancel();
         if (!this.isOpen) {
             return;
         }
@@ -762,9 +768,29 @@ export class SettingsDialog {
         }
     }
 
+    /** 先校验全局文件规则；取消或校验失败时不提交任何设置。 */
     async handleSubmit(event) {
         event.preventDefault();
+        if (this.isSubmitting) return;
+        this.isSubmitting = true;
+        this.saveButton.disabled = true;
+        try {
+            if (!await this.fileExclusionsSection.save()) {
+                if (this.isOpen) {
+                    this.switchTab('files');
+                    this.fileExclusionsSection.focusFirstError();
+                }
+                return;
+            }
+            if (this.isOpen) await this.submitSettings();
+        } finally {
+            this.isSubmitting = false;
+            this.saveButton.disabled = false;
+        }
+    }
 
+    /** 提交编辑器、AI、分享及快捷键设置，保持各模块独立存储。 */
+    async submitSettings() {
         // 编辑器设置
         const skin = this.form.querySelector('input[name="skin"]:checked')?.value || 'classic';
         const theme = this.themeSelect.value || 'default';
@@ -1363,6 +1389,7 @@ export class SettingsDialog {
     }
 
     dispose() {
+        this.fileExclusionsSection.dispose();
         this._destroySettingsSelects();
 
         // 清理所有事件监听器
