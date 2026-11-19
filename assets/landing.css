@@ -1,0 +1,118 @@
+/* Shared layout for the English and Chinese homepages. */
+  :root {
+    --bg: #fdfdfb;          /* 米白底，文纸感 */
+    --paper: #ffffff;
+    --warm: #f6f2e9;        /* 编辑部区域的暖纸色，贴近截图里 #f3eee4 的纸面 */
+    --ink: #1a1a1a;         /* 墨黑 */
+    --ink-soft: #3a3a3a;
+    --ink-muted: #6f6f6f;   /* 淡墨 */
+    --ink-faint: #9b9b9b;
+    --radius: 6px;
+    --serif: "Songti SC", "Noto Serif SC", "STSong", "SimSun", "Source Han Serif SC", "Hiragino Mincho ProN", Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.8;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: .01em;
+  }
+  a { color: var(--ink); text-decoration: none; transition: opacity .15s ease; }
+  a:hover { opacity: .72; }
+  img { max-width: 100%; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+  header { background: rgba(253,253,251,.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 10; }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 600; font-size: 20px; color: var(--ink); letter-spacing: .06em; }
+  .brand .logo { width: 34px; height: 34px; display: block; border-radius: 6px; }
+  .nav-links { display: flex; gap: 28px; font-size: 15px; }
+  .nav-links a { color: var(--ink-muted); }
+  .nav-links a:hover { color: var(--ink); opacity: 1; }
+
+  .hero { padding: 88px 0 24px; text-align: center; }
+  .hero-logo { width: 72px; height: 72px; display: inline-block; margin-bottom: 6px; border-radius: 12px; }
+  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: 56px; letter-spacing: .12em; line-height: 1.2; color: var(--ink); }
+  .hero .sub { margin: 28px auto 0; font-size: 18px; color: var(--ink-muted); max-width: 640px; }
+  .badges { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; opacity: .85; }
+  .badges img { height: 20px; }
+
+  /* 按钮：主按钮实心，其余只是文字，不再画框 */
+  .cta { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: center; align-items: center; }
+  .btn { padding: 13px 30px; border-radius: var(--radius); font-size: 16px; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 8px; font-family: var(--serif); }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { background: #000; opacity: 1; }
+  .btn-ghost { padding-left: 0; padding-right: 0; background: transparent; color: var(--ink-muted); }
+  .btn-ghost:hover { color: var(--ink); opacity: 1; }
+  .os-note { flex-basis: 100%; text-align: center; color: var(--ink-faint); font-size: 13px; letter-spacing: .06em; margin-top: 4px; }
+
+  /* 章节只靠留白分隔 */
+  section { padding: 96px 0; }
+  .section-head { text-align: center; margin-bottom: 64px; }
+  .section-title { font-family: var(--serif); font-weight: 600; font-size: 32px; letter-spacing: .1em; color: var(--ink); }
+  .section-sub { color: var(--ink-muted); margin-top: 16px; font-size: 15.5px; max-width: 640px; margin-left: auto; margin-right: auto; }
+
+  /* 图自带半透明边距和窗口阴影，直接放在页面上，不再套容器 */
+  figure img { width: 100%; display: block; }
+
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 56px 48px; }
+  .grid.cols-2 { grid-template-columns: repeat(2, 1fr); gap: 48px 72px; }
+  .item h3 { font-family: var(--serif); font-size: 18px; margin: 0 0 8px; font-weight: 600; letter-spacing: .05em; }
+  .item p { color: var(--ink-muted); font-size: 14.5px; }
+  .item .ico { color: var(--ink-soft); margin-bottom: 14px; }
+  .item .ico svg { width: 26px; height: 26px; display: block; }
+
+  /* 两种界面模式：图文交替，大图为主 */
+  .mode-row { padding: 56px 0; }
+  .mode-row .wrap { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px 48px; align-items: center; }
+  .mode-row.flip .wrap { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .mode-row.flip .mode-text { order: 2; }
+  .mode-text h3 { font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: .1em; }
+  .mode-text .lead { color: var(--ink-soft); font-size: 16px; margin-top: 8px; }
+  .mode-text p { color: var(--ink-muted); font-size: 15px; margin-top: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 24px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); letter-spacing: .04em; }
+  .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  /* 编辑部整段换成暖纸色，让截图自己的纸面融进页面，不再显得突兀地黄 */
+  .mode-row.warm { background: var(--warm); margin-top: 40px; padding: 72px 0; }
+  .note { margin-top: 40px; text-align: center; color: var(--ink-faint); font-size: 13.5px; letter-spacing: .04em; }
+  .note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--ink-muted); }
+
+  .writing-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 72px; max-width: 760px; margin: 24px auto 0; }
+  .featured-cap { text-align: center; color: var(--ink-muted); font-size: 14px; letter-spacing: .04em; margin-top: 4px; }
+
+  .shot-group { margin-top: 72px; }
+  .shot-group:first-of-type { margin-top: 0; }
+  .shot-group-title { font-family: var(--serif); font-size: 20px; font-weight: 600; letter-spacing: .08em; color: var(--ink); margin-bottom: 20px; text-align: center; }
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px 24px; }
+  .shot .cap { padding: 0 8px; color: var(--ink-muted); font-size: 14px; line-height: 1.7; text-align: center; }
+  .shot .cap .tag { color: var(--ink); font-weight: 600; margin-right: 8px; letter-spacing: .06em; }
+
+  #download { padding-bottom: 120px; }
+  #download .cta { margin-top: 0; }
+
+  footer { padding: 24px 0 56px; }
+  .foot { text-align: center; color: var(--ink-faint); font-size: 14px; letter-spacing: .05em; }
+  .foot strong { color: var(--ink-soft); font-family: var(--serif); font-weight: 600; letter-spacing: .1em; }
+  .foot a { color: var(--ink-muted); }
+  .foot .line { margin: 6px 0; }
+
+  @media (max-width: 760px) {
+    section { padding: 64px 0; }
+    .section-head { margin-bottom: 40px; }
+    .hero { padding-top: 56px; }
+    .hero h1 { font-size: 40px; }
+    .grid, .grid.cols-2, .writing-modes, .shots { grid-template-columns: 1fr; }
+    .mode-row { padding: 32px 0; }
+    .mode-row .wrap, .mode-row.flip .wrap { grid-template-columns: 1fr; }
+    .mode-row.flip .mode-text { order: 0; }
+    .mode-row.warm { padding: 48px 0; }
+    .nav-links { gap: 16px; }
+    .cta { flex-direction: column; width: 100%; }
+    .btn { width: 100%; justify-content: center; }
+  }
