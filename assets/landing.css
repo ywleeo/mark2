@@ -57,13 +57,13 @@
   .section-title { font-family: var(--serif); font-weight: 600; font-size: 32px; letter-spacing: .1em; color: var(--ink); }
   .section-sub { color: var(--ink-muted); margin-top: 16px; font-size: 15.5px; max-width: 640px; margin-left: auto; margin-right: auto; }
 
-  /* Keep screenshot proportions as the layout columns resize. */
-  figure img { width: 100%; height: auto; display: block; }
-  /* English WebP captures are cropped flush with the window; the Chinese PNGs include their own shadows. */
-  html:lang(en) figure img {
+  /* Both languages use window crops and a single shadow. */
+  figure img {
+    width: 100%;
+    height: auto;
+    display: block;
     border-radius: 7px;
-    box-shadow: 0 0 0 1px rgba(47, 39, 28, .24),
-      0 2px 6px rgba(47, 39, 28, .08), 0 10px 24px rgba(47, 39, 28, .14);
+    box-shadow: 0 5px 18px rgba(43, 34, 24, .15);
   }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 56px 48px; }
