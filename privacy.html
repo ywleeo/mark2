@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Public privacy policy for Mark2's local-first desktop distributions. -->
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy · Mark2</title>
+<meta name="description" content="How Mark2 handles local documents, optional AI requests, credentials and sharing.">
+<style>
+/* A readable policy page that follows the website's warm paper palette. */
+:root{color-scheme:light dark;font-family:system-ui,-apple-system,sans-serif;line-height:1.75;color:#292722;background:#faf8f3}body{max-width:800px;margin:0 auto;padding:40px 24px 80px}a{color:#924b35;text-underline-offset:3px}nav{display:flex;gap:24px}h1{font-size:clamp(32px,6vw,48px);line-height:1.15;margin:40px 0 18px}h2{margin-top:38px;font-size:22px}h3{font-size:17px}p,li{overflow-wrap:anywhere}.meta{color:#666}.summary{padding:18px 22px;background:#eee9df;border-radius:12px}footer{margin-top:48px;border-top:1px solid #ccc;padding-top:20px}@media(prefers-color-scheme:dark){:root{color:#e8e3da;background:#22211e}a{color:#e7aa8e}.meta{color:#bcb5a9}.summary{background:#33312b}}
+</style></head>
+<body>
+<nav aria-label="Navigation"><a href="./">Mark2 home</a><a href="#zh" lang="zh-CN">中文摘要</a></nav>
+<main>
+<h1>Privacy Policy</h1>
+<p class="meta">Effective November 19, 2026 · Developer: Yuwei Li (ywleeo)<br>Applies to Mark2 desktop applications and this website.</p>
+<div class="summary"><strong>Your documents stay on your device unless you choose a feature that shares them.</strong> Mark2 does not require a developer account. AI and GitHub sharing are optional. The Mac App Store edition is a one-time purchase with no subscription; AI provider usage is billed separately by your chosen provider.</div>
+<h2>1. Local documents and application data</h2>
+<p>Mark2 reads and edits files you open and saves documents and exports to locations you select. Settings, workspace and recent-document records, document-linked AI conversations, recovery copies, version history, and vault data are stored locally. Local data may remain between sessions; closing a document or uninstalling the app does not necessarily erase its settings, recovery data, or exported files.</p>
+<p>Recovery and version history may contain earlier document contents. The current implementation limits version history to 20 entries per document. Removing a document from the library removes its record, not the source file. Delete files and exports using your operating system; remove saved credentials in Settings and vault items in the vault. To remove remaining application data, quit Mark2 and remove its local application data and WebView website data, including its sandbox container for the App Store edition. Back up documents first. Contact us for help locating the data for your edition.</p>
+<p>The App Store edition uses the macOS App Sandbox. File and folder access outside the container requires operating-system authorization. Saved file-access bookmarks may let the app reopen files you previously authorized.</p>
+<h2>2. Optional AI services</h2>
+<p>You choose an AI provider or an OpenAI-compatible gateway and supply your own API key. Before a request is sent, Mark2 asks permission to share data with that service origin. Requests can include prompts, selected text, relevant document content, conversation history, and context needed for the requested task. Continuation suggestions also send relevant context when used. API keys authenticate requests to the configured service.</p>
+<p>Preset services include OpenAI, DeepSeek, Alibaba Cloud Model Studio (Qwen), MiniMax, Zhipu AI (GLM), Google Gemini, and Volcano Engine (Doubao). A custom gateway may forward requests to other providers. These services apply their own retention, model-training, security, international-transfer, and deletion practices; Mark2 does not control them. Review the policy of your configured recipient before sending sensitive content:</p>
+<ul>
+<li><a href="https://openai.com/policies/privacy-policy/">OpenAI</a> · <a href="https://cdn.deepseek.com/policies/en-US/deepseek-privacy-policy.html">DeepSeek</a></li>
+<li><a href="https://www.alibabacloud.com/help/en/legal/latest/alibaba-cloud-international-website-privacy-policy">Alibaba Cloud</a> · <a href="https://www.minimax.io/privacy-policy">MiniMax</a></li>
+<li><a href="https://open.bigmodel.cn/privacy">Zhipu AI</a> · <a href="https://policies.google.com/privacy">Google</a> · <a href="https://www.volcengine.com/docs/6256/64902">Volcano Engine</a></li>
+</ul>
+<p>You can decline optional sharing or withdraw permission for future requests in Settings. Local editing remains available. Withdrawal cannot recall requests already sent or in progress. Use your provider's controls to request deletion of data it holds. Buying Mark2 does not include AI credits.</p>
+<h2>3. Optional GitHub Gist sharing</h2>
+<p>If you initiate and authorize sharing, Mark2 uses your GitHub token to upload the generated HTML document and embedded images to GitHub as a Secret Gist. A Secret Gist is not encrypted private storage: anyone with its link may access or copy it. Delete the Gist through GitHub to remove the hosted copy; deletion cannot recall copies made by others. See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
+<h2>4. Credentials and vault</h2>
+<p>AI provider keys and GitHub tokens are saved in local application settings, including WebView local storage. They are not automatically encrypted by the vault. You can clear or replace them in Settings and revoke them with their issuer. Treat access to your device and its backups as access to these settings.</p>
+<p>The separate vault encrypts its items locally using AES-256-GCM and stores its master key in the system credential store. This protection applies to vault items, not to every setting or document. No storage method can guarantee protection on a compromised device.</p>
+<h2>5. App Store purchases</h2>
+<p>Apple handles the Mac App Store purchase through your Apple Account, including payment and applicable refunds. Mark2 does not receive your payment-card information and has no developer-operated subscription or receipt-validation server. This edition has no recurring subscription or in-app feature tiers. See <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>. Existing users who acquired the app while it was free retain access through Apple's distribution system.</p>
+<h2>6. Network requests and website hosting</h2>
+<p>The GitHub edition can contact the Mark2 update endpoint to check for versions and download releases. The App Store edition receives updates through Apple and does not use the desktop updater. Network and hosting providers receive technical request data, such as IP addresses, request times and user-agent information, when their services are contacted. This website is hosted on GitHub Pages under GitHub's policies.</p>
+<p>The current desktop app does not include a third-party advertising or behavioral-analytics SDK. It does not automatically upload your documents or vault to a developer-operated cloud service. Documents can reference remote images or links; loading them or opening links contacts those destinations, which can receive connection information. Optional AI requests and Gist sharing follow the sections above.</p>
+<h2>7. Support, choices and privacy requests</h2>
+<p>If you contact the developer, information you choose to include is used to respond and troubleshoot. Public GitHub issues are visible to others: do not post documents, credentials, personal information, or private logs there. For privacy requests, contact the developer through the <a href="https://github.com/ywleeo">ywleeo GitHub profile</a> or open a minimal <a href="https://github.com/ywleeo/mark2/issues/new">support request</a> asking for a private contact channel, without including sensitive details.</p>
+<p>Depending on your location and applicable law, you may have rights to access, correct, erase, restrict or object to processing of personal information, request portability, withdraw consent, or complain to a data-protection authority. We can address information held by the developer; data stored only on your device must be managed there, and data held by Apple, GitHub or an AI provider may require contacting that service. Third-party services may process data outside your country. Mark2 is not directed to children under 13.</p>
+<h2>8. Changes</h2>
+<p>Updated policies will be published at this address with a revised effective date. Material changes to application data handling will also be described in the relevant release notes.</p>
+<section id="zh" lang="zh-CN"><h2>中文摘要</h2>
+<p>Mark2 由 Yuwei Li（ywleeo）维护，文稿、设置、对话、恢复记录和保险箱默认保存在本机。可选 AI 功能会在取得共享授权后，把请求所需的内容发送给你配置的服务商；可在设置中撤回后续授权。AI API Key 和 GitHub Token 保存在本地应用设置，并不自动使用保险箱加密。</p>
+<p>Gist 分享需主动发起并授权；Secret Gist 不是加密私密存储，持有链接的人可以访问。Mac App Store 版为一次购买、全功能开放，无订阅，AI 额度另由所选服务商收费。删除文稿库记录不会删除源文件，卸载也不保证清除全部本地数据。隐私问题请通过上方开发者或支持入口联系，勿在公开 issue 中发送敏感信息。详细数据处理说明见本页英文正文。</p></section>
+</main><footer><a href="./">Mark2</a> · <a href="https://github.com/ywleeo/mark2">Source &amp; support</a></footer>
+</body></html>
