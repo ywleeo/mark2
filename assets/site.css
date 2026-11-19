@@ -1,0 +1,577 @@
+/* Shared editorial layout for both language routes; product content lives in site/build.mjs. */
+:root {
+  --paper: #faf8f3;
+  --white: #fffefa;
+  --ink: #282923;
+  --muted: #6d7064;
+  --line: #dddcd3;
+  --accent: #96533e;
+  --sage: #e8ece3;
+  --warm: #f0e7dc;
+  --serif: Georgia, "Iowan Old Style", "Songti SC", "Noto Serif SC", serif;
+  --sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  font: 16px/1.75 var(--sans);
+  font-synthesis: none;
+  scroll-behavior: smooth;
+  scroll-padding-top: 100px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent);
+}
+button,
+input {
+  font: inherit;
+}
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+figure,
+p,
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+section {
+  padding: 100px 0;
+}
+.wrap {
+  width: min(1160px, calc(100% - 64px));
+  margin: 0 auto;
+}
+.skip {
+  position: absolute;
+  left: 24px;
+  top: -80px;
+  padding: 10px;
+  background: var(--ink);
+  color: white;
+  z-index: 5;
+}
+.skip:focus {
+  top: 10px;
+}
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 88px;
+  gap: 24px;
+}
+.brand {
+  font: 600 27px/1.2 var(--serif);
+  letter-spacing: -1px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.header-inner nav {
+  display: flex;
+  align-items: center;
+  gap: 27px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.language {
+  color: var(--ink);
+  border-left: 1px solid var(--line);
+  padding-left: 26px;
+}
+.hero {
+  padding-top: 85px;
+  padding-bottom: 50px;
+  text-align: center;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+h1 {
+  font: 400 clamp(60px, 7.7vw, 104px)/1.03 var(--serif);
+  letter-spacing: -4px;
+  margin-top: 28px;
+}
+h2 {
+  font: 400 clamp(35px, 4vw, 51px)/1.13 var(--serif);
+  letter-spacing: -1.6px;
+}
+h3 {
+  font: 400 25px/1.3 var(--serif);
+  letter-spacing: -0.5px;
+}
+.hero-intro {
+  font-size: 17px;
+  line-height: 1.8;
+  max-width: 620px;
+  margin: 27px auto 0;
+  color: var(--muted);
+}
+.hero-actions {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.button {
+  padding: 13px 22px;
+  background: var(--ink);
+  color: var(--white);
+  border-radius: 4px;
+  font-size: 13px;
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}
+.button:hover {
+  background: var(--accent);
+  color: white;
+}
+.release-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+.availability {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 13px;
+}
+.facts {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.facts li:before {
+  content: "✓";
+  margin-right: 6px;
+  color: var(--accent);
+}
+.hero-shot {
+  margin-top: 45px;
+}
+.hero-shot img,
+.wide-shot img,
+.image-link img,
+.feature-shot figure img {
+  width: 100%;
+  border-radius: 7px;
+}
+.hero-shot figcaption {
+  font: italic 14px var(--serif);
+  color: var(--muted);
+  margin-top: 14px;
+}
+.section-heading {
+  text-align: center;
+  max-width: 740px;
+  margin: 0 auto 55px;
+}
+.section-heading .eyebrow {
+  margin-bottom: 22px;
+}
+.section-heading > p:last-child {
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.three-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 50px;
+}
+.three-columns article > p:not(.overline) {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 14px;
+}
+.overline {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+.workflow {
+  background: var(--sage);
+}
+.workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 30px;
+}
+.step-number {
+  font: italic 27px var(--serif);
+  color: var(--accent);
+  display: block;
+  margin-bottom: 17px;
+}
+.workflow-grid h3 {
+  font-size: 23px;
+}
+.workflow-grid article > p {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 14px;
+}
+.workflow-grid p.detail {
+  padding-top: 15px;
+  border-top: 1px solid #cdd3c7;
+  font-size: 11px;
+  margin-top: 20px;
+  color: #505849;
+}
+.wide-shot {
+  margin-top: 45px;
+}
+.two-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 45px 35px;
+}
+.feature-shot h3 {
+  font-size: 23px;
+  margin-top: 23px;
+}
+.feature-shot p {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 10px;
+  max-width: 490px;
+}
+.gallery {
+  background: var(--warm);
+}
+.image-link {
+  display: block;
+}
+.image-link:hover {
+  outline: 1px solid var(--accent);
+  outline-offset: 5px;
+  border-radius: 7px;
+}
+.trust .three-columns {
+  border-top: 1px solid var(--line);
+  padding-top: 38px;
+}
+.pricing {
+  background: #303b31;
+  color: #f3f0e7;
+}
+.pricing-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 90px;
+}
+.pricing .eyebrow {
+  color: #d7b69c;
+  margin-bottom: 25px;
+}
+.pricing h2 {
+  font-size: 57px;
+}
+.price-lead {
+  font-size: 15px;
+  margin-top: 25px;
+  color: #d6dacd;
+}
+.platform {
+  font-size: 11px;
+  color: #c0c8b9;
+  margin-top: 20px;
+}
+.price-box {
+  border-left: 1px solid #62705d;
+  padding-left: 70px;
+}
+.price {
+  font: 400 58px/1.2 var(--serif);
+  letter-spacing: -2px;
+}
+.price-label {
+  font-size: 11px;
+  color: #c0c8b9;
+  margin-top: 6px;
+}
+.store-pending {
+  display: inline-block;
+  margin-top: 25px;
+  padding: 10px 16px;
+  border: 1px solid #86917d;
+  border-radius: 4px;
+  font-size: 13px;
+}
+.price-box > p:not(.price, .price-label, .store-pending) {
+  font-size: 12px;
+  color: #cbd2c1;
+  margin-top: 20px;
+}
+.price-box .existing {
+  font-style: italic;
+}
+.faq-list {
+  max-width: 800px;
+  margin: 0 auto;
+}
+details {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+}
+details:last-child {
+  border-bottom: 1px solid var(--line);
+}
+summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 25px;
+  font-size: 15px;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary span {
+  color: var(--accent);
+}
+details[open] summary span {
+  transform: rotate(45deg);
+}
+details p {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 710px;
+}
+footer {
+  padding: 45px 0 55px;
+  text-align: center;
+  border-top: 1px solid var(--line);
+}
+footer .brand {
+  justify-content: center;
+}
+footer p {
+  font: italic 17px var(--serif);
+  color: var(--muted);
+  margin-top: 15px;
+}
+footer nav {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  margin: 24px 0 18px;
+  font-size: 12px;
+}
+footer small {
+  font-size: 10px;
+  color: var(--muted);
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+}
+html[lang="zh-CN"] h1 {
+  font-size: clamp(53px, 7vw, 88px);
+  line-height: 1.2;
+  letter-spacing: 1px;
+}
+html[lang="zh-CN"] h2 {
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+html[lang="zh-CN"] h3 {
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+html[lang="zh-CN"] .hero-intro {
+  max-width: 610px;
+}
+html[lang="zh-CN"] .pricing h2 {
+  font-size: 48px;
+}
+@media (max-width: 900px) {
+  .header-inner nav {
+    gap: 18px;
+  }
+  .workflow-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 35px;
+  }
+  .three-columns {
+    gap: 25px;
+  }
+  .pricing-inner {
+    gap: 40px;
+  }
+  .price-box {
+    padding-left: 35px;
+  }
+  .header-inner nav > a:nth-child(3) {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .wrap {
+    width: calc(100% - 36px);
+  }
+  section {
+    padding: 65px 0;
+  }
+  .header-inner {
+    min-height: 72px;
+    gap: 12px;
+  }
+  .brand {
+    font-size: 24px;
+  }
+  .brand img {
+    width: 29px;
+    height: 29px;
+  }
+  .header-inner nav {
+    gap: 16px;
+    font-size: 12px;
+  }
+  .header-inner nav > a:nth-child(1),
+  .header-inner nav > a:nth-child(2) {
+    display: none;
+  }
+  .language {
+    padding-left: 15px;
+  }
+  .hero {
+    padding-top: 60px;
+  }
+  h1 {
+    letter-spacing: -2.5px;
+    font-size: 64px;
+  }
+  .hero-intro {
+    font-size: 15px;
+    max-width: 390px;
+  }
+  .hero-actions {
+    gap: 17px;
+    margin-top: 25px;
+  }
+  .hero-actions .release-status {
+    width: 100%;
+  }
+  .facts {
+    gap: 15px;
+    font-size: 10px;
+  }
+  .hero-shot {
+    margin-top: 32px;
+  }
+  .hero-shot figcaption {
+    font-size: 12px;
+  }
+  .section-heading {
+    margin-bottom: 38px;
+  }
+  h2 {
+    font-size: 36px;
+    letter-spacing: -1px;
+  }
+  .three-columns,
+  .two-columns,
+  .pricing-inner {
+    grid-template-columns: 1fr;
+  }
+  .three-columns {
+    gap: 33px;
+  }
+  .three-columns article > p:not(.overline) {
+    margin-top: 9px;
+  }
+  .two-columns {
+    gap: 35px;
+  }
+  .workflow-grid {
+    gap: 28px 23px;
+  }
+  .workflow-grid h3 {
+    font-size: 21px;
+  }
+  .workflow-grid article > p {
+    font-size: 12px;
+  }
+  .workflow-grid p.detail {
+    font-size: 10px;
+  }
+  .wide-shot {
+    margin-top: 32px;
+  }
+  .feature-shot h3 {
+    margin-top: 17px;
+    font-size: 22px;
+  }
+  .feature-shot p {
+    font-size: 13px;
+  }
+  .pricing h2 {
+    font-size: 45px;
+  }
+  .price-box {
+    border-left: 0;
+    border-top: 1px solid #62705d;
+    padding: 30px 0 0;
+  }
+  .pricing-inner {
+    gap: 30px;
+  }
+  .price {
+    font-size: 50px;
+  }
+  html[lang="zh-CN"] h1 {
+    font-size: 58px;
+  }
+  html[lang="zh-CN"] .pricing h2 {
+    font-size: 40px;
+  }
+  footer nav {
+    gap: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+  * {
+    transition: none !important;
+  }
+}
