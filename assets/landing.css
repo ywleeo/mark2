@@ -57,9 +57,14 @@
   .section-title { font-family: var(--serif); font-weight: 600; font-size: 32px; letter-spacing: .1em; color: var(--ink); }
   .section-sub { color: var(--ink-muted); margin-top: 16px; font-size: 15.5px; max-width: 640px; margin-left: auto; margin-right: auto; }
 
-  /* 图自带半透明边距和窗口阴影，直接放在页面上，不再套容器 */
   /* Keep screenshot proportions as the layout columns resize. */
   figure img { width: 100%; height: auto; display: block; }
+  /* English WebP captures are cropped flush with the window; the Chinese PNGs include their own shadows. */
+  html:lang(en) figure img {
+    border-radius: 7px;
+    box-shadow: 0 0 0 1px rgba(47, 39, 28, .24),
+      0 2px 6px rgba(47, 39, 28, .08), 0 10px 24px rgba(47, 39, 28, .14);
+  }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 56px 48px; }
   .grid.cols-2 { grid-template-columns: repeat(2, 1fr); gap: 48px 72px; }
@@ -79,7 +84,7 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 24px; }
   .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-muted); letter-spacing: .04em; }
   .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-  /* 编辑部整段换成暖纸色，让截图自己的纸面融进页面，不再显得突兀地黄 */
+  /* The warm background distinguishes the Editorial section. */
   .mode-row.warm { background: var(--warm); margin-top: 40px; padding: 72px 0; }
   .note { margin-top: 40px; text-align: center; color: var(--ink-faint); font-size: 13.5px; letter-spacing: .04em; }
   .note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; color: var(--ink-muted); }
