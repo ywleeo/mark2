@@ -58,7 +58,8 @@
   .section-sub { color: var(--ink-muted); margin-top: 16px; font-size: 15.5px; max-width: 640px; margin-left: auto; margin-right: auto; }
 
   /* 图自带半透明边距和窗口阴影，直接放在页面上，不再套容器 */
-  figure img { width: 100%; display: block; }
+  /* Keep screenshot proportions as the layout columns resize. */
+  figure img { width: 100%; height: auto; display: block; }
 
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 56px 48px; }
   .grid.cols-2 { grid-template-columns: repeat(2, 1fr); gap: 48px 72px; }
