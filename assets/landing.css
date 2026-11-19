@@ -111,7 +111,7 @@
   @media (max-width: 760px) {
     section { padding: 64px 0; }
     .section-head { margin-bottom: 40px; }
-    .hero { padding-top: 56px; }
+    .hero { padding: 56px 24px 24px; }
     .hero h1 { font-size: 40px; }
     .grid, .grid.cols-2, .writing-modes, .shots { grid-template-columns: 1fr; }
     .mode-row { padding: 32px 0; }
@@ -119,6 +119,15 @@
     .mode-row.flip .mode-text { order: 0; }
     .mode-row.warm { padding: 48px 0; }
     .nav-links { gap: 16px; }
-    .cta { flex-direction: column; width: 100%; }
-    .btn { width: 100%; justify-content: center; }
+    /* Stack the actions while keeping their width tied to the label. */
+    .cta { flex-direction: column; }
+    .btn { max-width: 100%; padding-inline: 16px; justify-content: center; text-align: center; }
+  }
+
+  /* Fit both sets of navigation labels on the smallest phone screens. */
+  @media (max-width: 380px) {
+    .nav { padding-inline: 12px; }
+    .brand { flex-shrink: 0; }
+    .brand .logo { width: 28px; height: 28px; }
+    .nav-links { gap: 7px; font-size: 12px; white-space: nowrap; }
   }
