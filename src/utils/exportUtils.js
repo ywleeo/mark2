@@ -534,6 +534,10 @@ ${exportFontOverride}
         box-shadow: none;
         box-sizing: border-box;
     }
+    /* TipTap 把表头渲染在 tbody 中，避免分页时只把表头留在页底。 */
+    .mark2-export-wrapper--a4 .tiptap-editor table tr:has(> th):not(:has(> td)) {
+        break-after: avoid;
+    }
 }
 .mark2-export-wrapper--a4 .tiptap-editor,
 .mark2-export-wrapper--a4 .ProseMirror {
@@ -562,6 +566,36 @@ ${exportFontOverride}
 .mark2-export-wrapper--a4 li {
     orphans: 2;
     widows: 2;
+}
+/* PDF 没有横向滚动，表格列宽须按纸面正文重新计算。 */
+.mark2-export-wrapper--a4 .tiptap-editor .tableWrapper {
+    overflow: visible;
+    contain: none;
+}
+.mark2-export-wrapper--a4 .tiptap-editor table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto;
+}
+.mark2-export-wrapper--a4 .tiptap-editor table col {
+    width: auto !important;
+    min-width: 0 !important;
+}
+.mark2-export-wrapper--a4 .tiptap-editor table :is(th, td) {
+    min-width: 0 !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.mark2-export-wrapper--a4 .tiptap-editor table :is(th, td) code {
+    overflow-wrap: anywhere;
+}
+/* 多列表格缩小单元格留白，给数字和短表头留出更多空间。 */
+.mark2-export-wrapper--a4 .tiptap-editor .tableWrapper--scrollable {
+    font-size: calc(var(--editor-font-size, 16px) * 0.78);
+    line-height: 1.4;
+}
+.mark2-export-wrapper--a4 .tiptap-editor .tableWrapper--scrollable :is(th, td) {
+    padding: 4px 3px;
 }
 .mark2-a4-footer {
     text-align: right;
@@ -604,7 +638,8 @@ ${exportFontOverride}
         `);
     }
 
-    return styles.join('\\n');
+    // 样式段之间需要真实换行，否则紧随其后的 @page 规则会被浏览器忽略。
+    return styles.join('\n');
 }
 
 function collectRuntimeStyles() {
