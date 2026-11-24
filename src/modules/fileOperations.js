@@ -3,6 +3,7 @@ import { getPathIdentityKey, basename } from '../utils/pathUtils.js';
 import { isSpreadsheetFilePath, isCsvFilePath } from '../utils/fileTypeUtils.js';
 import { t } from '../i18n/index.js';
 import { prepareDocumentOpen } from './document-library/documentNavigation.js';
+import { isFileAccessPermissionError } from '../utils/fileAccessErrors.js';
 
 let sharedExternalDropOpener = null;
 let lastExternalDropKey = null;
@@ -374,6 +375,7 @@ export function createFileOperations({
         }
     }
 
+    /** 保存活动文档，Markdown 保存失败时在状态栏呈现文件系统返回的原因。 */
     async function saveCurrentFile() {
         const currentFile = getCurrentFile();
         if (!currentFile) {
@@ -431,6 +433,13 @@ export function createFileOperations({
                     writer: 'markdown-editor',
                     pendingChanges: stillDirty,
                 });
+            } else {
+                const error = editor.getLastSaveError?.();
+                if (error) {
+                    const message = getReadableErrorMessage(error);
+                    logger?.error?.('saveCurrentFile:failed', { path: currentFile, activeViewMode, error: message });
+                    getStatusBarController?.()?.showProgress?.(`${t('tabClose.saveFailed.title')}: ${message}`, { state: 'error' });
+                }
             }
             conflictResolution.complete(Boolean(result));
             return result;
@@ -1158,7 +1167,11 @@ export function createFileOperations({
                 sessionId,
                 error: readableMessage,
             });
-            alert('读取文件失败: ' + readableMessage);
+            if (isFileAccessPermissionError(error)) {
+                getStatusBarController?.()?.showProgress?.(t('fileAccess.openDenied'), { state: 'error' });
+            } else {
+                alert('读取文件失败: ' + readableMessage);
+            }
             throw error;
         }
     }

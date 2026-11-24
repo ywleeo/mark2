@@ -789,8 +789,7 @@ async function embedImagesAsBase64(element) {
             }
 
             if (localPath) {
-                const { invoke } = window.__TAURI__.core;
-                const base64 = await invoke('read_image_base64', { path: localPath });
+                const base64 = await getAppServices().file.readImageBase64(localPath);
                 const mime = detectMimeType(localPath);
                 const dataUri = `data:${mime};base64,${base64}`;
                 await setImageSrcAndWaitLoad(img, dataUri);

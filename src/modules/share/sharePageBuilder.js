@@ -6,7 +6,7 @@
 import editorCss from '../../../styles/editor.css?raw';
 import highlightCss from '../../../styles/highlight.css?raw';
 import katexCss from 'katex/dist/katex.min.css?raw';
-import { invoke } from '@tauri-apps/api/core';
+import { getAppServices } from '../../services/appServices.js';
 import { getColorSchemeStyles, getThemeStyles } from '../../config/bundled-styles.js';
 import { createConfiguredMarkdownIt } from '../../utils/markdownPlugins.js';
 import { renderMermaidIn } from '../../utils/mermaidRenderer.js';
@@ -144,7 +144,7 @@ async function normalizeSharedImages(root, currentFile) {
         const localPath = resolveRelativePath(dirname(currentFile), originalSource);
         if (!localPath) return;
         try {
-            const base64 = await invoke('read_image_base64', { path: localPath });
+            const base64 = await getAppServices().file.readImageBase64(localPath);
             image.setAttribute('src', `data:${inferImageMime(localPath)};base64,${base64}`);
         } catch (error) {
             console.warn('[gist-share] 无法内嵌本地图片', { path: localPath, error });

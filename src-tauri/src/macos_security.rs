@@ -31,9 +31,16 @@ pub(crate) fn nsstring_to_string(value: &NSString) -> String {
 }
 
 #[cfg(target_os = "macos")]
+/// 保留 Cocoa/POSIX 的权限错误标识，让前端不依赖系统语言识别权限问题。
 pub(crate) fn error_to_string(error: Retained<NSError>) -> String {
-    let description = error.localizedDescription();
-    nsstring_to_string(&description)
+    let description = nsstring_to_string(&error.localizedDescription());
+    let domain = nsstring_to_string(&error.domain());
+    match (domain.as_str(), error.code()) {
+        ("NSCocoaErrorDomain", 257 | 513) | ("NSPOSIXErrorDomain", 1 | 13) => {
+            format!("EACCES: {description}")
+        }
+        _ => description,
+    }
 }
 
 #[cfg(target_os = "macos")]

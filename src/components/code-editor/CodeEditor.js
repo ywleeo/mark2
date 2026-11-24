@@ -3,6 +3,7 @@ import { EditorState, EditorSelection, Compartment, StateField, StateEffect, Tra
 import { defaultKeymap, indentWithTab, history, undo, redo, isolateHistory } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, indentUnit, foldGutter, foldKeymap, HighlightStyle, ensureSyntaxTree } from '@codemirror/language';
 import { getAppServices } from '../../services/appServices.js';
+import { isFileAccessPermissionError } from '../../utils/fileAccessErrors.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import {
     ensureMarkdownTrailingEmptyLine,
@@ -948,6 +949,7 @@ export class CodeEditor {
         this.autoSavePlannedSessionId = null;
     }
 
+    /** 取消授权后暂停当前文稿的自动重试，显式保存仍可再次申请权限。 */
     async performAutoSave(sessionId = null) {
         if (!this.isDirty || !this.currentFile) return;
         // 自动保存被关掉就直接返回（防御性兜底，正常情况 scheduleAutoSave 已拦截）
@@ -955,6 +957,7 @@ export class CodeEditor {
         // untitled 文件无磁盘路径，跳过且不重新调度（防御性兜底，正常情况 scheduleAutoSave 已拦截）
         if (this.currentFile.startsWith('untitled://')) return;
         if (sessionId && !this.isSessionActive(sessionId)) return;
+        if (isFileAccessPermissionError(this.getLastSaveError())) return;
         if (this.documentSessions?.hasExternalConflict?.(this.currentFile)) {
             const error = createExternalModificationConflict(this.currentFile);
             Promise.resolve(this.callbacks.onAutoSaveError?.(error)).catch(callbackError => {
@@ -987,6 +990,7 @@ export class CodeEditor {
             ? this._currentDocument
             : null;
         const saveToken = this.beginSave(content, targetDocument);
+        let saveError = null;
 
         const savePromise = (async () => {
             try {
@@ -1010,6 +1014,7 @@ export class CodeEditor {
                 logger.debug('自动保存成功', { filePath });
                 return true;
             } catch (error) {
+                saveError = error;
                 this.failSave(saveToken, error, targetDocument);
                 if (localWriteKey && this.documentSessions?.clearLocalWriteSuppression) {
                     this.documentSessions.clearLocalWriteSuppression(localWriteKey);
@@ -1036,10 +1041,15 @@ export class CodeEditor {
                 console.warn('[CodeEditor] 自动保存回调失败', error);
             });
         } else {
-            Promise.resolve(this.callbacks.onAutoSaveError?.(new Error('保存失败'))).catch(error => {
+            Promise.resolve(this.callbacks.onAutoSaveError?.(saveError)).catch(error => {
                 console.warn('[CodeEditor] 自动保存错误回调失败', error);
             });
         }
+    }
+
+    /** 返回当前文稿自己的保存错误。 */
+    getLastSaveError() {
+        return this._currentDocument?.getLastError?.() ?? null;
     }
 
     focus() {

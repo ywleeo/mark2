@@ -3,6 +3,7 @@
  * 管理 untitled 文件的创建、保存和转换为真实文件
  */
 import { prepareDocumentOpen } from '../modules/document-library/documentNavigation.js';
+import { captureSecurityScopeForPath } from '../services/securityScopeService.js';
 
 export function createUntitledController({
     getTabManager,
@@ -129,6 +130,7 @@ export function createUntitledController({
         return untitledPath;
     }
 
+    /** 首次保存成功后记录目标的访问权限，供工作区下次启动时恢复。 */
     async function saveUntitledFile(untitledPath, content) {
         try {
             const { save } = await import('@tauri-apps/plugin-dialog');
@@ -151,6 +153,7 @@ export function createUntitledController({
             if (!normalizedPath) return false;
 
             await getFileService().writeText(normalizedPath, content);
+            await captureSecurityScopeForPath(normalizedPath);
             await convertUntitledToRealFile(untitledPath, normalizedPath);
 
             return true;

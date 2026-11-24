@@ -55,15 +55,14 @@ pub struct SecurityScopeResult {
     pub error: Option<String>,
 }
 
+/// 将原生面板派发到 AppKit 主线程，并异步等待用户选择。
 #[tauri::command]
-pub fn pick_path(
+pub async fn pick_path(
     _app: tauri::AppHandle,
     options: Option<FileDialogOptions>,
 ) -> Result<Vec<PickedPathEntry>, String> {
     #[cfg(target_os = "macos")]
     {
-        use std::sync::mpsc;
-
         let opts = options.unwrap_or_default();
         let wants_directories = opts.directory.unwrap_or(false);
         let allow_directories = opts.allow_directories.unwrap_or(true);
@@ -83,7 +82,7 @@ pub fn pick_path(
         let title = opts.title.clone();
         let message = opts.message.clone();
         let prompt = opts.prompt.clone();
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = tokio::sync::oneshot::channel();
         _app.run_on_main_thread(move || {
             let picker_result = autoreleasepool(|_| {
                 let mtm = MainThreadMarker::new().expect("pick_path must run on main thread");
@@ -162,7 +161,7 @@ pub fn pick_path(
         })
         .map_err(|e| e.to_string())?;
 
-        rx.recv().map_err(|e| e.to_string())?
+        rx.await.map_err(|e| e.to_string())?
     }
 
     #[cfg(not(target_os = "macos"))]

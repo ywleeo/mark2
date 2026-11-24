@@ -6,6 +6,7 @@
  * - 其他文件路径 → [filename](path) 链接语法
  */
 import { basename } from '../../utils/pathUtils.js';
+import { getAppServices } from '../../services/appServices.js';
 
 const MIME_TO_EXT = {
     'image/png': 'png',
@@ -99,7 +100,7 @@ export class ImagePasteHandler {
             const bytes = new Uint8Array(arrayBuffer);
             const data = Array.from(bytes);
 
-            await invoke('write_binary_file', { path: savePath, data });
+            await getAppServices().file.writeBinary(savePath, data, { directory: dir });
 
             // 用内存中的 bytes 生成 blob URL，避免重新读盘
             const blob = new Blob([bytes], { type: mime });

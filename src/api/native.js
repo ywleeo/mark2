@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { withFileAccess } from '../services/securityScopeService.js';
 
 function ensureString(value, name) {
     if (typeof value !== 'string' || !value.trim()) {
@@ -11,9 +12,10 @@ export async function setExportMenuEnabled(enabled) {
 }
 
 
+/** 向用户选择的目标导出图片，必要时提示重新授权。 */
 export async function captureScreenshot(destination, imageData) {
     ensureString(destination, 'captureScreenshot.destination');
     ensureString(imageData, 'captureScreenshot.imageData');
-    return await invoke('capture_screenshot', { destination, imageData });
+    return withFileAccess([{ path: destination }], () => invoke('capture_screenshot', { destination, imageData }));
 }
 

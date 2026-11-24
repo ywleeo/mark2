@@ -68,6 +68,12 @@ export async function writeFile(path, content) {
     return await invoke('write_file', { path, content });
 }
 
+/** 写入图片等文稿附件，保留原生二进制接口。 */
+export async function writeBinaryFile(path, data) {
+    ensurePath(path, 'writeBinaryFile');
+    return await invoke('write_binary_file', { path, data });
+}
+
 /**
  * 追加结构化日志到应用日志文件。
  * @param {Array<Object>} entries - 日志条目数组

@@ -245,9 +245,48 @@ pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
     Ok(Vec::new())
 }
 
+/// 写入用户文稿。文件同步和原子替换在后台线程执行，避免等待磁盘时阻塞窗口。
 #[tauri::command]
-pub fn write_file(path: String, content: String) -> Result<(), String> {
-    write_file_atomically(Path::new(&path), content.as_bytes()).map_err(|error| error.to_string())
+pub async fn write_file(path: String, content: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let write = || write_document(Path::new(&path), content.as_bytes());
+        #[cfg(target_os = "macos")]
+        let result = objc2::rc::autoreleasepool(|_| write());
+        #[cfg(not(target_os = "macos"))]
+        let result = write();
+        result.map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// 在 macOS 使用 Foundation 原子保存，它能在只授权目标文件时准备写入用的临时文件。
+#[cfg(target_os = "macos")]
+fn write_document(path: &Path, content: &[u8]) -> io::Result<()> {
+    use std::os::unix::ffi::OsStrExt;
+
+    use objc2_foundation::{NSData, NSDataWritingOptions};
+
+    let path = std::ffi::CString::new(path.as_os_str().as_bytes())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    // 文件系统路径按原始字节传入，避免转换路径时改变文件名。
+    let url = unsafe {
+        NSURL::fileURLWithFileSystemRepresentation_isDirectory_relativeToURL(
+            std::ptr::NonNull::new(path.as_ptr().cast_mut())
+                .expect("CString never has a null pointer"),
+            false,
+            None,
+        )
+    };
+    NSData::with_bytes(content)
+        .writeToURL_options_error(&url, NSDataWritingOptions::Atomic)
+        .map_err(|error| io::Error::other(crate::macos_security::error_to_string(error)))
+}
+
+/// 其他系统继续使用通用的原子写入实现。
+#[cfg(not(target_os = "macos"))]
+fn write_document(path: &Path, content: &[u8]) -> io::Result<()> {
+    write_file_atomically(path, content)
 }
 
 /**
@@ -561,6 +600,27 @@ mod tests {
         assert_eq!(remaining.len(), 1);
 
         fs::remove_dir_all(&test_dir).expect("remove test directory");
+    }
+
+    /// 在 macOS 覆盖首次保存和再次保存，并验证不会在目标目录留下其他文件。
+    #[cfg(target_os = "macos")]
+    #[tokio::test]
+    async fn macos_document_write_creates_and_replaces_selected_file() {
+        let directory = std::env::temp_dir().join(format!("mark2-store-write-{}", Uuid::new_v4()));
+        fs::create_dir(&directory).expect("create test directory");
+        let path = directory.join("所选文稿.md");
+        let target = path.to_str().expect("UTF-8 fixture path").to_owned();
+
+        write_file(target.clone(), String::new())
+            .await
+            .expect("create file");
+        write_file(target, "# 草稿".into())
+            .await
+            .expect("save file");
+
+        assert_eq!(fs::read_to_string(&path).expect("read file"), "# 草稿");
+        assert_eq!(fs::read_dir(&directory).expect("list directory").count(), 1);
+        fs::remove_dir_all(directory).expect("remove test directory");
     }
 
     /** 验证文件元数据包含准确体积，并提供可用的文件系统时间。 */

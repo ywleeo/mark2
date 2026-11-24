@@ -539,6 +539,10 @@ export class MarkdownEditor {
 
     // 保存
     save(options)                               { return this.saveManager?.save(options) ?? Promise.resolve(false); }
+    /** 返回保存模块捕获的错误，供命令层显示失败原因。 */
+    getLastSaveError()                          { return this.saveManager?.lastSaveError ?? null; }
+    /** 按文件判断，避免上一份文稿的权限错误阻止当前文稿自动保存。 */
+    hasPermissionSaveFailure(path)              { return this.saveManager?.lastPermissionFailurePath === path; }
     hasUnsavedChanges()                         {
         return this._currentDocument?.dirty ?? Boolean(this.contentLoader.contentChanged);
     }

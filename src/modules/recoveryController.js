@@ -44,7 +44,7 @@ export function createRecoveryController({
     /** 判断恢复点是否仍与磁盘内容不同。 */
     async function isActionable(snapshot) {
         try {
-            const diskContent = await fileService.readText(snapshot.filePath);
+            const diskContent = await fileService.readText(snapshot.filePath, { requestAuthorization: false });
             if (diskContent === snapshot.content) {
                 await recoveryService.deleteSnapshot(snapshot.id);
                 return false;
@@ -61,7 +61,7 @@ export function createRecoveryController({
         const path = snapshot.filePath;
         let exists = false;
         try {
-            exists = await fileService.exists(path);
+            exists = await fileService.exists(path, { requestAuthorization: true });
         } catch {
             exists = false;
         }

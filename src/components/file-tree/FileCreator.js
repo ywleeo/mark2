@@ -44,7 +44,7 @@ export class FileCreator {
             const candidatePath = await this._findAvailableName(normalized, 'untitled', '.md');
             this.markLocalWrite?.(candidatePath);
             this.markLocalWrite?.(normalized);
-            await fileService.writeText(candidatePath, '');
+            await fileService.createFile(candidatePath);
             await this.refreshFolder?.(normalized);
             await this.ensureFolderExpanded?.(normalized);
             setTimeout(() => {

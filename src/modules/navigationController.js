@@ -6,6 +6,7 @@ import { navigationHistory } from './navigationHistory.js';
 import { isActiveContentTab } from './navigation/tabActivity.js';
 import { isDocumentWorkspace } from './document-library/documentNavigation.js';
 import { getUntitledCloseContent } from './navigation/untitledClose.js';
+import { isFileAccessPermissionError } from '../utils/fileAccessErrors.js';
 
 function normalizeComparablePath(fileTree, value) {
     if (!value) {
@@ -204,6 +205,7 @@ export function createNavigationController({
         });
     }
 
+    /** 切换文件前尝试保存；写入失败时，可将有修改的文稿保留在原标签中。 */
     async function handleFileSelect(filePath, options = {}) {
         const { autoFocus = true } = options;
         const fileTree = getFileTree();
@@ -243,12 +245,15 @@ export function createNavigationController({
                 rememberScrollPosition?.(previousFile, getActiveViewMode?.());
                 const saved = await autoSaveActiveFileIfNeeded(previousFile);
                 if (!saved) {
-                    logger?.warn?.('handleFileSelect:blocked', {
+                    saveCurrentEditorContentToCache();
+                    const preserved = filePath && documentRegistry.getCachedEntry?.(previousFile)?.hasChanges
+                        && documentManager?.pinDocument?.(previousFile, { activate: false });
+                    logger?.warn?.('handleFileSelect:saveFailed', {
                         filePath,
                         previousFile,
-                        reason: 'auto-save-failed',
+                        preserved: Boolean(preserved),
                     });
-                    if (normalizedPrevious) {
+                    if (!preserved && normalizedPrevious) {
                         tabManager?.setActiveFileTab(previousFile, { silent: true });
                         const restoreSelection = () => {
                             const nextTree = getFileTree();
@@ -260,7 +265,7 @@ export function createNavigationController({
                             restoreSelection();
                         }
                     }
-                    return;
+                    if (!preserved) return;
                 }
             }
         }
@@ -566,6 +571,10 @@ export function createNavigationController({
             });
             return true;
         }
+        // 若用户已经取消过授权，允许切换文件，并保留原文稿，不用导航再次触发授权。
+        const mode = getActiveViewMode();
+        if (mode === 'markdown' && getEditor()?.hasPermissionSaveFailure?.(currentPath)) return false;
+        if (mode === 'code' && isFileAccessPermissionError(getCodeEditor()?.getLastSaveError?.())) return false;
         try {
             const saved = await saveFile(currentPath);
             logger?.info?.('autoSaveActiveFileIfNeeded:done', {

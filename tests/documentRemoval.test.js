@@ -28,7 +28,11 @@ function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned
     const calls = [];
     const history = new DocumentHistory({ store: { get: () => ({}), set: () => true }, now: () => ++clock });
     for (const path of [...paths].reverse()) history.touch(path);
-    const registry = { isDirty: () => dirty, clearEntry: path => calls.push(['clear', path]) };
+    const registry = {
+        isDirty: () => dirty,
+        getCachedEntry: path => path === active && dirty ? { hasChanges: true } : null,
+        clearEntry: path => calls.push(['clear', path]),
+    };
     const manager = createDocumentManager({ appState: { setCurrentFile: path => { current = path; } }, documentRegistry: registry });
     manager.openDocument(active, { pinned });
     const tabs = { activeTabId: pinned ? active : 'shared-preview',
@@ -38,6 +42,7 @@ function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned
             ...manager.getOpenDocuments().map(doc => getDocumentCloseTarget(doc.path, doc)),
             { path: '/unrelated.md', id: '/unrelated.md', type: 'file' }],
         setActiveTab: id => { tabs.activeTabId = id; },
+        showSharedTab: path => { tabs.sharedTab = getDocumentCloseTarget(path, { pinned: false }); },
         removeFileTab: path => manager.closeDocument(path),
         removeSharedTab: () => { tabs.sharedTab = null; } };
     const fileTree = { stopWatchingFile: () => {}, selectFile: path => { current = path; } };
@@ -63,8 +68,16 @@ function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned
             manager.openDocument(path, { pinned: false });
             return true;
         }, removeRecord: path => { calls.push(['remove', path]); history.remove(path); } });
-    return { remove, calls, history, manager, current: () => current };
+    return { remove, navigation, calls, history, manager, current: () => current };
 }
+
+test('切换文件时保存失败，保留原预览的修改并继续加载目标', async () => {
+    const setup = fixture({ dirty: true, saveSucceeds: false });
+    await setup.navigation.handleFileSelect('/b.md');
+    assert.equal(setup.manager.getDocumentByPath('/a.md')?.pinned, true);
+    assert.ok(setup.calls.some(([action, path]) => action === 'unexpected-fallback-load' && path === '/b.md'));
+    assert.ok(!setup.calls.some(([action]) => action === 'clear'));
+});
 
 test('减号关闭真实预览和固定文档，再打开列表下一篇，不先加载无关 tab', async () => {
     for (const pinned of [false, true]) {

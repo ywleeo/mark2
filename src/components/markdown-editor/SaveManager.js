@@ -1,6 +1,7 @@
 import { getAppServices } from '../../services/appServices.js';
 import { normalizeFsPath } from '../../utils/pathUtils.js';
 import { isAutoSaveEnabled } from '../../utils/editorSettings.js';
+import { isFileAccessPermissionError } from '../../utils/fileAccessErrors.js';
 import {
     createExternalModificationConflict,
     isExternalModificationConflict,
@@ -62,6 +63,7 @@ export class SaveManager {
         this.isSaving = false;
         this.activeSavePromise = null;
         this.lastSaveError = null;
+        this.lastPermissionFailurePath = null;
     }
 
     clearAutoSaveTimer() {
@@ -90,6 +92,7 @@ export class SaveManager {
         }, this.autoSaveDelayMs);
     }
 
+    /** 授权被取消后等待用户主动保存，避免定时器重复弹出权限面板。 */
     async handleAutoSaveTrigger(targetSessionId = null) {
         // 计时器到点才进来，再确认一次开关状态（用户可能在等待期内关掉了自动保存）
         if (!isAutoSaveEnabled()) return;
@@ -103,6 +106,7 @@ export class SaveManager {
             return;
         }
         if (!this.isContentChanged() || !this.getCurrentFile()) return;
+        if (this.lastPermissionFailurePath === this.getCurrentFile()) return;
         if (this.isSaving) {
             this.scheduleAutoSave();
             return;
@@ -110,6 +114,7 @@ export class SaveManager {
         const result = await this.save({ reason: 'auto', sessionId });
         if (!result
             && this.isContentChanged()
+            && !isFileAccessPermissionError(this.lastSaveError)
             && !isExternalModificationConflict(this.lastSaveError)) {
             this.scheduleAutoSave();
         }
@@ -173,6 +178,7 @@ export class SaveManager {
         this.clearAutoSaveTimer();
         this.isSaving = true;
         this.lastSaveError = null;
+        if (this.lastPermissionFailurePath === targetFile) this.lastPermissionFailurePath = null;
 
         const localWriteKey = normalizeFsPath(targetFile) || targetFile;
         let saveToken = null;
@@ -206,6 +212,7 @@ export class SaveManager {
                     this.documentSessions.clearLocalWriteSuppression(localWriteKey);
                 }
                 this.lastSaveError = error;
+                if (isFileAccessPermissionError(error)) this.lastPermissionFailurePath = targetFile;
                 console.error('保存失败:', error);
                 return false;
             } finally {

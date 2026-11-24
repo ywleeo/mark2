@@ -391,8 +391,8 @@ export class ImageModal {
                 if (!payload.startsWith('<?xml')) {
                     payload = `<?xml version="1.0" encoding="UTF-8"?>\n${payload}`;
                 }
-                const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-                await writeTextFile(targetPath, payload);
+                const { getAppServices } = await import('../services/appServices.js');
+                await getAppServices().file.writeText(targetPath, payload);
                 return;
             }
 
@@ -408,8 +408,8 @@ export class ImageModal {
             ctx.drawImage(this.img, 0, 0, baseW, baseH);
             const dataUrl = canvas.toDataURL('image/png');
 
-            const { invoke } = await import('@tauri-apps/api/core');
-            await invoke('capture_screenshot', { destination: targetPath, imageData: dataUrl });
+            const { captureScreenshot } = await import('../api/native.js');
+            await captureScreenshot(targetPath, dataUrl);
         } catch (err) {
             console.error('[ImageModal] download failed:', err);
         }

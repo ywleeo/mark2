@@ -1,9 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
-import { normalizeFsPath } from '../utils/pathUtils.js';
+import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
+import { pickPaths } from '../api/filesystem.js';
+import { isMac } from '../utils/platform.js';
+import { isFileAccessPermissionError } from '../utils/fileAccessErrors.js';
 import { createStore } from './storage.js';
 
 const scopeStore = createStore('securityScopes');
 scopeStore.migrateFrom('mark2:securityScopes', 'bookmarks');
+const pendingAccessRequests = new Map();
+let accessDialogQueue = Promise.resolve();
 
 function readStore() {
     const parsed = scopeStore.get('bookmarks', {});
@@ -141,5 +146,62 @@ export async function captureSecurityScopeForPath(path, options = {}) {
     } catch (error) {
         console.warn('[securityScopeService] 捕获安全权限失败', error);
         return null;
+    }
+}
+
+/** 由 macOS 打开授权面板，验证选中的目标后再保存书签。并发请求共用或排队等待面板。 */
+export function requestDocumentAccess(path, { scope = 'file' } = {}) {
+    const normalized = normalizeFsPath(path);
+    if (typeof normalized !== 'string' || !normalized.startsWith('/')) return Promise.resolve(false);
+    const target = normalized.replace(/\/+$/, '') || '/';
+    const parent = target.slice(0, target.lastIndexOf('/')) || '/';
+    const key = JSON.stringify([scope, target]);
+    const existing = pendingAccessRequests.get(key);
+    if (existing) return existing;
+
+    const request = accessDialogQueue.then(async () => {
+        const { t } = await import('../i18n/index.js');
+        const folderOnly = scope === 'directory';
+        const [entry] = await pickPaths({
+            directory: folderOnly,
+            allowFiles: !folderOnly,
+            allowDirectories: true,
+            multiple: false,
+            defaultPath: target,
+            title: t('fileAccess.title'),
+            message: t(folderOnly ? 'fileAccess.folder' : 'fileAccess.file', {
+                name: basename(target) || target,
+                folder: basename(parent) || parent,
+            }),
+            prompt: t('fileAccess.allow'),
+        });
+        if (!entry?.path) return false;
+        const selected = getPathIdentityKey(entry.path.replace(/\/+$/, '') || '/');
+        const expected = getPathIdentityKey(target);
+        const selectedParent = !folderOnly && entry.isDirectory === true
+            && selected === getPathIdentityKey(parent);
+        if (selected !== expected && !selectedParent) return false;
+        if (folderOnly && entry.isDirectory !== true) return false;
+        await rememberSecurityScopes([entry]);
+        return true;
+    }).catch(error => {
+        console.warn('[securityScopeService] 文稿授权失败', error);
+        return false;
+    }).finally(() => pendingAccessRequests.delete(key));
+    pendingAccessRequests.set(key, request);
+    accessDialogQueue = request;
+    return request;
+}
+
+/** 遇到权限错误时统一授权；操作只在用户确认后重试一次。 */
+export async function withFileAccess(targets, operation, { requestAccess = requestDocumentAccess, canRequestAccess = isMac } = {}) {
+    try {
+        return await operation();
+    } catch (error) {
+        if (!canRequestAccess || !isFileAccessPermissionError(error)) throw error;
+        for (const target of targets) {
+            if (!await requestAccess(target.path, target)) throw error;
+        }
+        return await operation();
     }
 }
