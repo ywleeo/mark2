@@ -7,11 +7,18 @@
  */
 import { addClickHandler } from '../utils/PointerHelper.js';
 
+let nextDropdownId = 0;
+
+/** 保留原生 select 的值，按需为候选项启用搜索。 */
 export class Dropdown {
-    constructor(selectEl) {
+    /** 初始化视图和输入事件，search 仅用于提供本地化搜索提示。 */
+    constructor(selectEl, { search = null } = {}) {
         this.select = selectEl;
+        this.search = search;
+        this._listId = `dropdown-list-${++nextDropdownId}`;
         this.isOpen = false;
         this._cleanups = [];
+        this._optionCleanups = [];
 
         this._buildUI();
         this._rebuildPanel();
@@ -38,18 +45,54 @@ export class Dropdown {
 
         this.panel = document.createElement('div');
         this.panel.className = 'dropdown__panel';
-        this.panel.setAttribute('role', 'listbox');
+        this.optionsList = document.createElement('div');
+        this.optionsList.id = this._listId;
+        this.optionsList.setAttribute('role', 'listbox');
+        this.trigger.setAttribute('aria-controls', this._listId);
+        this.trigger.setAttribute('aria-expanded', 'false');
+        this.trigger.setAttribute('aria-haspopup', 'listbox');
+        if (this.search) this._buildSearch();
+        this.panel.appendChild(this.optionsList);
+        if (this.emptyResult) this.panel.appendChild(this.emptyResult);
         document.body.appendChild(this.panel);
     }
 
+    /** 搜索框持有焦点，通过 aria-activedescendant 指向高亮候选。 */
+    _buildSearch() {
+        this.panel.classList.add('dropdown__panel--searchable');
+        this.searchInput = document.createElement('input');
+        this.searchInput.type = 'text';
+        this.searchInput.className = 'dropdown__search';
+        this.searchInput.placeholder = this.search.placeholder;
+        this.searchInput.autocomplete = 'off';
+        this.searchInput.spellcheck = false;
+        this.searchInput.setAttribute('aria-label', this.search.placeholder);
+        this.searchInput.setAttribute('role', 'combobox');
+        this.searchInput.setAttribute('aria-autocomplete', 'list');
+        this.searchInput.setAttribute('aria-controls', this._listId);
+        this.searchInput.setAttribute('aria-expanded', 'false');
+        this.panel.appendChild(this.searchInput);
+
+        this.emptyResult = document.createElement('div');
+        this.emptyResult.className = 'dropdown__empty';
+        this.emptyResult.setAttribute('role', 'status');
+        this.emptyResult.textContent = this.search.empty;
+        this.emptyResult.hidden = true;
+    }
+
     _rebuildPanel() {
-        this.panel.innerHTML = '';
+        for (const cleanup of this._optionCleanups) cleanup();
+        this._optionCleanups = [];
+        this._setHighlight(null);
+        this.optionsList.replaceChildren();
         this._optionEls = [];
 
         for (const child of Array.from(this.select.children)) {
             if (child.tagName === 'OPTGROUP') {
                 const group = document.createElement('div');
                 group.className = 'dropdown__group';
+                group.setAttribute('role', 'group');
+                group.setAttribute('aria-label', child.label);
                 const label = document.createElement('div');
                 label.className = 'dropdown__group-label';
                 label.textContent = child.label || '';
@@ -57,30 +100,31 @@ export class Dropdown {
                 for (const opt of Array.from(child.children)) {
                     group.appendChild(this._makeOption(opt));
                 }
-                this.panel.appendChild(group);
+                this.optionsList.appendChild(group);
             } else if (child.tagName === 'OPTION') {
-                this.panel.appendChild(this._makeOption(child));
+                this.optionsList.appendChild(this._makeOption(child));
             }
         }
         this._syncTriggerLabel();
+        if (this.searchInput && this.isOpen) this._filterOptions();
     }
 
     _makeOption(optionEl) {
         const el = document.createElement('div');
         el.className = 'dropdown__option';
+        el.id = `${this._listId}-option-${this._optionEls.length}`;
         el.setAttribute('role', 'option');
         el.textContent = optionEl.textContent;
         el.dataset.value = optionEl.value;
-        if (optionEl.value === this.select.value) {
-            el.classList.add('is-selected');
-        }
+        el.dataset.searchText = `${optionEl.textContent} ${optionEl.parentElement?.label || ''}`.toLowerCase();
         const cleanup = addClickHandler(el, (e) => {
             e.preventDefault();
             e.stopPropagation();
             this._selectValue(optionEl.value);
             this.close();
+            if (this.searchInput) this.trigger.focus();
         });
-        this._cleanups.push(cleanup);
+        this._optionCleanups.push(cleanup);
         this._optionEls.push(el);
         return el;
     }
@@ -90,7 +134,9 @@ export class Dropdown {
         const labelEl = this.trigger.querySelector('.dropdown__trigger-label');
         labelEl.textContent = selected ? selected.textContent : '';
         for (const el of this._optionEls) {
-            el.classList.toggle('is-selected', el.dataset.value === this.select.value);
+            const selected = el.dataset.value === this.select.value;
+            el.classList.toggle('is-selected', selected);
+            el.setAttribute('aria-selected', String(selected));
         }
     }
 
@@ -136,7 +182,16 @@ export class Dropdown {
             this.close();
         };
         this._onKey = (e) => {
-            if (!this.isOpen) return;
+            if (e.isComposing || e.keyCode === 229) return;
+            const isArrow = e.key === 'ArrowDown' || e.key === 'ArrowUp';
+            if (!this.isOpen) {
+                if (this.searchInput && e.target === this.trigger && isArrow) {
+                    e.preventDefault();
+                    this.open(e.key === 'ArrowDown' ? 1 : -1);
+                }
+                return;
+            }
+            if (this.searchInput && e.target !== this.searchInput && e.target !== this.trigger) return;
             if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
@@ -144,7 +199,12 @@ export class Dropdown {
                 this.trigger.focus();
                 return;
             }
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            if (e.key === 'Tab' && this.searchInput) {
+                this.close();
+                this.trigger.focus();
+                return;
+            }
+            if (isArrow) {
                 e.preventDefault();
                 this._moveHighlight(e.key === 'ArrowDown' ? 1 : -1);
                 return;
@@ -169,28 +229,54 @@ export class Dropdown {
         };
 
         document.addEventListener('mousedown', this._onDocClick, true);
-        document.addEventListener('keydown', this._onKey);
+        this._keyTargets = this.searchInput ? [this.trigger, this.searchInput] : [document];
+        for (const target of this._keyTargets) target.addEventListener('keydown', this._onKey);
+        if (this.searchInput) {
+            this._onSearchInput = (event) => {
+                if (!event.isComposing) this._filterOptions();
+            };
+            this.searchInput.addEventListener('input', this._onSearchInput);
+            this.searchInput.addEventListener('compositionend', this._onSearchInput);
+        }
         window.addEventListener('resize', this._onResize);
         window.addEventListener('scroll', this._onScroll, true);
     }
 
-    _moveHighlight(dir) {
-        if (this._optionEls.length === 0) return;
-        let idx = this._optionEls.findIndex(el => el === this._highlightedEl);
-        if (idx === -1) {
-            idx = this._optionEls.findIndex(el => el.classList.contains('is-selected'));
+    /** 按模型名和供应商逐词匹配，隐藏空分组和不再匹配的候选。 */
+    _filterOptions() {
+        const terms = this.searchInput.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        for (const option of this._optionEls) {
+            option.hidden = terms.length > 0 && (!option.dataset.value
+                || !terms.every(term => option.dataset.searchText.includes(term)));
         }
-        idx = (idx + dir + this._optionEls.length) % this._optionEls.length;
-        this._setHighlight(this._optionEls[idx]);
+        for (const group of this.optionsList.querySelectorAll('.dropdown__group')) {
+            group.hidden = !group.querySelector('.dropdown__option:not([hidden])');
+        }
+        const first = this._optionEls.find(option => !option.hidden);
+        this.emptyResult.hidden = Boolean(first);
+        this._setHighlight(terms.length ? first : this._optionEls.find(option => option.classList.contains('is-selected')));
+        this._positionPanel();
+    }
+
+    _moveHighlight(dir) {
+        const options = this._optionEls.filter(option => !option.hidden);
+        if (!options.length) return;
+        const currentIndex = options.indexOf(this._highlightedEl);
+        const nextIndex = currentIndex === -1
+            ? (dir > 0 ? 0 : options.length - 1)
+            : (currentIndex + dir + options.length) % options.length;
+        this._setHighlight(options[nextIndex]);
     }
 
     _setHighlight(el) {
         if (this._highlightedEl) {
             this._highlightedEl.classList.remove('is-highlighted');
         }
-        this._highlightedEl = el;
+        this._highlightedEl = el || null;
+        this.searchInput?.removeAttribute('aria-activedescendant');
         if (el) {
             el.classList.add('is-highlighted');
+            this.searchInput?.setAttribute('aria-activedescendant', el.id);
             el.scrollIntoView({ block: 'nearest' });
         }
     }
@@ -200,7 +286,10 @@ export class Dropdown {
         const panelHeight = this.panel.offsetHeight;
         const spaceBelow = window.innerHeight - rect.bottom;
         const openUp = spaceBelow < panelHeight + 8 && rect.top > panelHeight + 8;
-        this.panel.style.left = `${rect.left}px`;
+        const left = this.searchInput
+            ? Math.max(8, Math.min(rect.left, window.innerWidth - this.panel.offsetWidth - 8))
+            : rect.left;
+        this.panel.style.left = `${left}px`;
         this.panel.style.minWidth = `${rect.width}px`;
         if (openUp) {
             this.panel.style.top = `${rect.top - panelHeight - 4}px`;
@@ -209,11 +298,20 @@ export class Dropdown {
         }
     }
 
-    open() {
+    open(direction = null) {
         if (this.isOpen) return;
         this.isOpen = true;
         this.panel.classList.add('is-open');
         this.trigger.classList.add('is-open');
+        this.trigger.setAttribute('aria-expanded', 'true');
+        if (this.searchInput) {
+            this.searchInput.value = '';
+            this.searchInput.setAttribute('aria-expanded', 'true');
+            this._filterOptions();
+            this.searchInput.focus({ preventScroll: true });
+            if (direction !== null) this._moveHighlight(direction);
+            return;
+        }
         this._positionPanel();
         const selectedEl = this._optionEls.find(el => el.classList.contains('is-selected'));
         if (selectedEl) this._setHighlight(selectedEl);
@@ -224,10 +322,9 @@ export class Dropdown {
         this.isOpen = false;
         this.panel.classList.remove('is-open');
         this.trigger.classList.remove('is-open');
-        if (this._highlightedEl) {
-            this._highlightedEl.classList.remove('is-highlighted');
-            this._highlightedEl = null;
-        }
+        this.trigger.setAttribute('aria-expanded', 'false');
+        this.searchInput?.setAttribute('aria-expanded', 'false');
+        this._setHighlight(null);
     }
 
     destroy() {
@@ -236,8 +333,12 @@ export class Dropdown {
             if (typeof cleanup === 'function') cleanup();
         }
         this._cleanups = [];
+        for (const cleanup of this._optionCleanups) cleanup();
+        this._optionCleanups = [];
         document.removeEventListener('mousedown', this._onDocClick, true);
-        document.removeEventListener('keydown', this._onKey);
+        for (const target of this._keyTargets) target.removeEventListener('keydown', this._onKey);
+        this.searchInput?.removeEventListener('input', this._onSearchInput);
+        this.searchInput?.removeEventListener('compositionend', this._onSearchInput);
         window.removeEventListener('resize', this._onResize);
         window.removeEventListener('scroll', this._onScroll, true);
         if (this.trigger && this.trigger.parentElement) {

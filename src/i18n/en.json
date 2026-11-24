@@ -319,6 +319,8 @@
     "settings.completionModel": "Completion Model",
     "settings.documentTaskModel": "Document Task Model",
     "settings.selectModel": "Select model",
+    "settings.searchModels": "Search models or providers",
+    "settings.noMatchingModels": "No matching models",
 
     "settings.kb.title": "Keyboard Shortcuts",
     "settings.kb.resetAll": "Reset All",

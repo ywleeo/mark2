@@ -760,6 +760,35 @@ input[type="number"]::-webkit-inner-spin-button {
     display: block;
 }
 
+/* 可搜索的模型列表滚动时保留输入框。 */
+.dropdown__panel--searchable {
+    width: min(320px, calc(100vw - 16px));
+    scroll-padding-top: 38px;
+}
+
+.dropdown__search {
+    position: sticky;
+    top: -4px;
+    width: 100%;
+    margin-bottom: 4px;
+    padding: 7px 9px;
+    box-sizing: border-box;
+    color: var(--settings-field-text);
+    background: var(--settings-field-bg);
+    border: 1px solid var(--settings-divider);
+    border-radius: 6px;
+    font: inherit;
+}
+
+.dropdown__search::placeholder,
+.dropdown__empty {
+    color: var(--settings-muted);
+}
+
+.dropdown__empty {
+    padding: 8px 10px;
+}
+
 .dropdown__option {
     padding: 6px 10px;
     border-radius: 4px;

@@ -319,6 +319,8 @@
     "settings.completionModel": "补齐模型",
     "settings.documentTaskModel": "文档处理模型",
     "settings.selectModel": "选择模型",
+    "settings.searchModels": "搜索模型或服务商",
+    "settings.noMatchingModels": "没有匹配的模型",
 
     "settings.kb.title": "快捷键",
     "settings.kb.resetAll": "全部重置",

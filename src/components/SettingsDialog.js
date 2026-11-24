@@ -760,6 +760,7 @@ export class SettingsDialog {
         }
 
         this.root.classList.add('hidden');
+        for (const dropdown of this._dropdownMap.values()) dropdown.close();
         document.removeEventListener('keydown', this.handleKeydown);
         this.isOpen = false;
 
@@ -1271,6 +1272,7 @@ export class SettingsDialog {
         addBtn.parentNode.insertBefore(form, addBtn);
     }
 
+    /** 为四种 AI 用途构建可按模型名或供应商筛选的候选列表。 */
     _renderModelSelects(translationModel, beautifyModel, completionModel, documentTaskModel) {
         if (!this.translationModelSelectEl
             || !this.beautifyModelSelectEl
@@ -1330,11 +1332,14 @@ export class SettingsDialog {
             this.completionModelSelectEl,
             this.documentTaskModelSelectEl,
         ]) {
-            if (this._dropdownMap.has(el)) {
-                try { this._dropdownMap.get(el).destroy(); } catch (_) {}
-                this._dropdownMap.delete(el);
+            const dropdown = this._dropdownMap.get(el);
+            if (dropdown) {
+                dropdown.refresh();
+            } else {
+                this._dropdownMap.set(el, new Dropdown(el, {
+                    search: { placeholder: t('settings.searchModels'), empty: t('settings.noMatchingModels') },
+                }));
             }
-            this._dropdownMap.set(el, new Dropdown(el));
         }
     }
 

@@ -318,6 +318,8 @@
   "settings.completionModel": "補齊模型",
   "settings.documentTaskModel": "文件處理模型",
   "settings.selectModel": "選擇模型",
+  "settings.searchModels": "搜尋模型或服務商",
+  "settings.noMatchingModels": "沒有符合的模型",
 
   "settings.kb.title": "快速鍵",
   "settings.kb.resetAll": "全部重置",
