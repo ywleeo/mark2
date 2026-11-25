@@ -6,7 +6,7 @@
  * 占了 appBootstrap 近 130 行,把初始化流程的主脉络淹没了。
  */
 
-import { manualCheckUpdate } from '../modules/autoUpdater.js';
+import { checkDistributionUpdate } from '../modules/distributionUpdates.js';
 import { shareCurrentDocument } from '../modules/share/shareDocument.js';
 import { isMarkdownFilePath } from '../utils/fileTypeUtils.js';
 import { EXPORT_IDS } from './exportSetup.js';
@@ -47,6 +47,7 @@ export function createCommandHandlers(deps) {
         moveFocusedDocument,
         renameFocusedDocument,
         // file operations
+        tryOpenClipboardFiles,
         openFileOrFolder,
         openFileOnly,
         openFolderOnly,
@@ -142,6 +143,7 @@ export function createCommandHandlers(deps) {
             document.execCommand('copy');
         },
         onPaste: async () => {
+            if (await tryOpenClipboardFiles?.(document.activeElement)) return;
             const editor = getActiveEditor();
             if (editor && typeof editor.insertTextAtCursor === 'function') {
                 try {
@@ -221,7 +223,7 @@ export function createCommandHandlers(deps) {
         },
         onRecentItemClick: handleRecentItemClick,
         onClearRecent: clearRecent,
-        onCheckUpdate: manualCheckUpdate,
+        onCheckUpdate: checkDistributionUpdate,
         onToggleVault: toggleVault,
     };
 }

@@ -117,9 +117,11 @@ export class Dropdown {
         el.textContent = optionEl.textContent;
         el.dataset.value = optionEl.value;
         el.dataset.searchText = `${optionEl.textContent} ${optionEl.parentElement?.label || ''}`.toLowerCase();
+        if (optionEl.disabled) el.setAttribute('aria-disabled', 'true');
         const cleanup = addClickHandler(el, (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (optionEl.disabled) return;
             this._selectValue(optionEl.value);
             this.close();
             if (this.searchInput) this.trigger.focus();
@@ -252,14 +254,15 @@ export class Dropdown {
         for (const group of this.optionsList.querySelectorAll('.dropdown__group')) {
             group.hidden = !group.querySelector('.dropdown__option:not([hidden])');
         }
-        const first = this._optionEls.find(option => !option.hidden);
+        const first = this._optionEls.find(option => !option.hidden && !option.hasAttribute('aria-disabled'));
         this.emptyResult.hidden = Boolean(first);
-        this._setHighlight(terms.length ? first : this._optionEls.find(option => option.classList.contains('is-selected')));
         this._positionPanel();
+        this.optionsList.scrollTop = 0;
+        this._setHighlight(terms.length ? first : this._optionEls.find(option => option.classList.contains('is-selected')));
     }
 
     _moveHighlight(dir) {
-        const options = this._optionEls.filter(option => !option.hidden);
+        const options = this._optionEls.filter(option => !option.hidden && !option.hasAttribute('aria-disabled'));
         if (!options.length) return;
         const currentIndex = options.indexOf(this._highlightedEl);
         const nextIndex = currentIndex === -1
@@ -272,24 +275,57 @@ export class Dropdown {
         if (this._highlightedEl) {
             this._highlightedEl.classList.remove('is-highlighted');
         }
-        this._highlightedEl = el || null;
+        this._highlightedEl = el && !el.hasAttribute('aria-disabled') ? el : null;
         this.searchInput?.removeAttribute('aria-activedescendant');
-        if (el) {
+        if (this._highlightedEl) {
             el.classList.add('is-highlighted');
             this.searchInput?.setAttribute('aria-activedescendant', el.id);
-            el.scrollIntoView({ block: 'nearest' });
+            if (this.searchInput) {
+                this._revealSearchOption(el);
+            } else {
+                el.scrollIntoView({ block: 'nearest' });
+            }
         }
+    }
+
+    /** 只滚动候选列表，保持搜索栏及下拉框锚点不动。 */
+    _revealSearchOption(option) {
+        const list = this.optionsList;
+        const viewport = list.getBoundingClientRect();
+        const row = option.getBoundingClientRect();
+        if (row.top < viewport.top) {
+            list.scrollTop += row.top - viewport.top;
+        } else if (row.bottom > viewport.bottom) {
+            list.scrollTop += row.bottom - viewport.bottom;
+        }
+    }
+
+    /** 在触发按钮两侧取可用空间，把搜索框和列表都限制在窗口内。 */
+    _positionSearchPanel(rect) {
+        const margin = 8;
+        const gap = 4;
+        const above = rect.top - gap - margin;
+        const below = window.innerHeight - rect.bottom - gap - margin;
+        this.panel.style.minWidth = `${Math.max(0, Math.min(rect.width, window.innerWidth - 2 * margin))}px`;
+        this.panel.style.maxHeight = '';
+        const preferredHeight = this.panel.offsetHeight;
+        const openUp = below < preferredHeight && above > below;
+        this.panel.style.maxHeight = `${Math.max(0, Math.min(preferredHeight, openUp ? above : below))}px`;
+        const left = Math.max(margin, Math.min(rect.left, window.innerWidth - this.panel.offsetWidth - margin));
+        this.panel.style.left = `${left}px`;
+        this.panel.style.top = `${openUp ? rect.top - this.panel.offsetHeight - gap : rect.bottom + gap}px`;
     }
 
     _positionPanel() {
         const rect = this.trigger.getBoundingClientRect();
+        if (this.searchInput) {
+            this._positionSearchPanel(rect);
+            return;
+        }
         const panelHeight = this.panel.offsetHeight;
         const spaceBelow = window.innerHeight - rect.bottom;
         const openUp = spaceBelow < panelHeight + 8 && rect.top > panelHeight + 8;
-        const left = this.searchInput
-            ? Math.max(8, Math.min(rect.left, window.innerWidth - this.panel.offsetWidth - 8))
-            : rect.left;
-        this.panel.style.left = `${left}px`;
+        this.panel.style.left = `${rect.left}px`;
         this.panel.style.minWidth = `${rect.width}px`;
         if (openUp) {
             this.panel.style.top = `${rect.top - panelHeight - 4}px`;

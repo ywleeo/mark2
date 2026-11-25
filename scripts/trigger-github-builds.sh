@@ -97,14 +97,6 @@ update_cargo_version() {
     log "Updated Cargo.lock"
 }
 
-# 更新 macOS Info.plist 版本，保持仓库版本源一致。
-update_info_plist_version() {
-    local version="$1"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${version}" "${REPO_ROOT}/src-tauri/macos/Info.plist"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${version}" "${REPO_ROOT}/src-tauri/macos/Info.plist"
-    log "Updated ${REPO_ROOT}/src-tauri/macos/Info.plist version to ${version}"
-}
-
 # 校验三个核心版本文件和目标版本一致。
 validate_version_files() {
     local expected_version="$1"
@@ -369,7 +361,6 @@ if [[ "${EXPLICIT_TAG}" -eq 0 ]]; then
     update_package_version "${VERSION}"
     update_tauri_version "${VERSION}"
     update_cargo_version "${VERSION}"
-    update_info_plist_version "${VERSION}"
     sync_github_release_ref "${VERSION}"
     ensure_release_exists "${TAG_NAME}"
     log "Created/updated GitHub release ${TAG_NAME}; release workflows will start automatically"

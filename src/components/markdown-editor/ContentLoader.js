@@ -1,4 +1,5 @@
 import { closeHistory } from '@tiptap/pm/history';
+import { createImageDisplayTransaction } from '../../modules/markdownImageDisplay.js';
 import { MarkdownSourceStep, markdownSourceHistoryKey, createMarkdownSourceReplacement } from './MarkdownSourceHistory.js';
 import { EditorState, Selection, TextSelection } from '@tiptap/pm/state';
 import {
@@ -492,9 +493,8 @@ export class ContentLoader {
                 return;
             }
 
-            const tr = editor.state.tr.setNodeMarkup(pos, null, nextAttrs);
-            // 图片 blob 地址仅用于显示，不替换源码快照，也不进入用户撤销历史。
-            tr.setMeta('addToHistory', false);
+            // 图片显示事务保留 Markdown 原始路径，不进入用户撤销历史。
+            const tr = createImageDisplayTransaction(editor.state, pos, objectUrl);
             editor.view.dispatch(tr);
         }));
     }

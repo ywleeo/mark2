@@ -1,6 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
+/** 仅在真实请求前加载授权界面，传输协议的导入不初始化本机 UI 和翻译存储。 */
+async function authorizeRecipient(url, body) {
+    const { ensureAiSharingConsent } = await import('../modules/privacy/dataSharingConsent.js');
+    const containsImage = Array.isArray(body?.messages) && body.messages.some(message =>
+        Array.isArray(message?.content) && message.content.some(part => part?.type === 'image_url'));
+    await ensureAiSharingConsent(url, { containsImage });
+}
+
 /**
  * 规范化 OpenAI-compatible 的 baseUrl。
  * 用户即使误填到 /chat 或 /chat/completions，也会被收敛到 API 根路径。
@@ -18,6 +26,7 @@ export function normalizeAiBaseUrl(baseUrl) {
  * 默认总超时 3 分钟，兼容较慢的模型响应。
  */
 export async function aiProxyJsonRequest({ method, url, apiKey, body, timeoutMs = 180000 }) {
+    await authorizeRecipient(url, body);
     return await invoke('ai_proxy_json_request', {
         request: {
             method,
@@ -41,10 +50,14 @@ export async function startAiProxyStream({
     body,
     timeoutMs = 180000,
     idleTimeoutMs = timeoutMs,
+    signal,
     onChunk,
     onError,
     onEnd,
 }) {
+    signal?.throwIfAborted();
+    await authorizeRecipient(url, body);
+    signal?.throwIfAborted();
     const unlistenChunk = await listen('ai-proxy-stream-chunk', (event) => {
         if (event.payload?.requestId === requestId) {
             onChunk?.(event.payload.chunk || '');
@@ -64,6 +77,7 @@ export async function startAiProxyStream({
     });
 
     try {
+        signal?.throwIfAborted();
         await invoke('ai_proxy_start_stream', {
             request: {
                 requestId,

@@ -1,0 +1,23 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build:mas",
+    "frontendDist": "../dist-mas",
+    "features": ["mas"]
+  },
+  "app": {
+    "security": {
+      "capabilities": ["default"]
+    }
+  },
+  "plugins": {
+    "updater": null
+  },
+  "bundle": {
+    "targets": ["app"],
+    "createUpdaterArtifacts": false,
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "entitlements": "macos/Mark2.entitlements"
+    }
+  }
+}

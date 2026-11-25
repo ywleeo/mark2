@@ -147,9 +147,3 @@
     margin-bottom: 12px;
     color: var(--app-text-muted, rgba(21, 23, 26, 0.65));
 }
-
-.unsupported-viewer-error {
-    font-size: 12px;
-    color: var(--app-danger-text, rgba(180, 35, 24, 0.85));
-    word-break: break-all;
-}

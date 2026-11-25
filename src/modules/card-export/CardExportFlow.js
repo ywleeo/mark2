@@ -1,3 +1,4 @@
+/** 将选中文字通过真实模板渲染为可导出的卡片。 */
 import { save, message } from '@tauri-apps/plugin-dialog';
 import { join } from '@tauri-apps/api/path';
 import { captureScreenshot } from '../../api/native.js';
@@ -42,34 +43,34 @@ export class CardExportFlow {
             <div class="card-export-flow__panel">
                 <div class="card-export-flow__header">
                     <div class="card-export-flow__header-left">
-                        <button type="button" class="card-export-flow__back-btn" aria-label="返回" style="display:none">
+                        <button type="button" class="card-export-flow__back-btn" aria-label="${t('cardExport.back')}" style="display:none">
                             ${cardExportIcons.back()}
                         </button>
                         <span class="card-export-flow__title">${t('cardExport.title')}</span>
                     </div>
                     <div class="card-export-flow__header-actions">
                         <div class="cef-normal-actions">
-                            <button type="button" class="card-export-flow__expand-btn" aria-label="展开多卡" disabled>
+                            <button type="button" class="card-export-flow__expand-btn" aria-label="${t('cardExport.expand')}" disabled>
                                 ${cardExportIcons.multiCard()}
                             </button>
-                            <button type="button" class="card-export-flow__export-btn" aria-label="导出 PNG" disabled>
+                            <button type="button" class="card-export-flow__export-btn" aria-label="${t('cardExport.exportPng')}" disabled>
                                 ${cardExportIcons.download()}
                             </button>
-                            <button type="button" class="card-export-flow__close" aria-label="关闭">
+                            <button type="button" class="card-export-flow__close" aria-label="${t('common.close')}">
                                 ${cardExportIcons.close()}
                             </button>
                         </div>
                         <div class="cef-expand-actions" style="display:none">
-                            <button type="button" class="card-export-flow__font-down-btn" aria-label="减小字号">
+                            <button type="button" class="card-export-flow__font-down-btn" aria-label="${t('cardExport.fontDown')}">
                                 ${cardExportIcons.fontDecrease()}
                             </button>
-                            <button type="button" class="card-export-flow__font-up-btn" aria-label="放大字号">
+                            <button type="button" class="card-export-flow__font-up-btn" aria-label="${t('cardExport.fontUp')}">
                                 ${cardExportIcons.fontIncrease()}
                             </button>
-                            <button type="button" class="card-export-flow__download-all-btn" aria-label="下载全部">
+                            <button type="button" class="card-export-flow__download-all-btn" aria-label="${t('cardExport.downloadAll')}">
                                 ${cardExportIcons.downloadAll()}
                             </button>
-                            <button type="button" class="card-export-flow__close" aria-label="关闭">
+                            <button type="button" class="card-export-flow__close" aria-label="${t('common.close')}">
                                 ${cardExportIcons.close()}
                             </button>
                         </div>
@@ -590,10 +591,10 @@ export class CardExportFlow {
 
     async _handleExport(item) {
         try {
-            const defaultPath = await buildDefaultCardImagePath('卡片');
+            const defaultPath = await buildDefaultCardImagePath(t('cardExport.defaultName'));
             const targetPath = await save({
-                title: '导出卡片 PNG',
-                filters: [{ name: 'PNG 图片', extensions: ['png'] }],
+                title: t('cardExport.exportTitle'),
+                filters: [{ name: t('cardExport.pngImage'), extensions: ['png'] }],
                 defaultPath,
             });
             if (!targetPath) return;
@@ -607,7 +608,7 @@ export class CardExportFlow {
             await captureScreenshot(targetPath, dataUrl);
         } catch (err) {
             console.error('[CardExportFlow] 导出失败', err);
-            await message(`导出失败：${err?.message || err}`, { title: '导出失败', kind: 'error' });
+            await message(t('cardExport.failed', { reason: err?.message || err }), { title: t('cardExport.failedTitle'), kind: 'error' });
         }
     }
 

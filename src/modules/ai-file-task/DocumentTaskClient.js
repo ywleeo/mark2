@@ -1,10 +1,11 @@
 import { requestDocumentTaskStream } from './DocumentTaskStreamTransport.js';
 import { createLogger } from '../../core/diagnostics/Logger.js';
-import { t } from '../../i18n/index.js';
 import { aiService } from '../ai-assistant/aiService.js';
+import { normalizeAiBaseUrl } from '../../api/aiProxy.js';
 import { parseNonStreamingResponse } from '../ai-assistant/services/nonStreamingResponseParser.js';
 import { parseDocumentTaskAgentTurn } from './DocumentTaskAgentTools.js';
 import { createDocumentTaskInterruption } from './DocumentTaskRecovery.js';
+import { classifyDocumentTaskRequestError } from './DocumentTaskErrors.js';
 
 const logger = createLogger('ai-file-task');
 
@@ -19,24 +20,40 @@ export class DocumentTaskClient {
         this.request = request;
     }
 
+    /** 固定本轮使用的模型和服务商连接，后续设置变更只影响下一轮。 */
+    forTask(modelSlot = aiService.getModelSlot('documentTask')) {
+        const connection = this.resolveConnection(modelSlot);
+        return { complete: options => this.complete(options, connection) };
+    }
+
+    /** 根据模型所属服务商解析模型 ID、密钥与请求地址。 */
+    resolveConnection(modelSlot) {
+        const provider = modelSlot && aiService.getProviderConfig(modelSlot.providerId);
+        return {
+            model: modelSlot?.model,
+            apiKey: provider?.apiKey,
+            baseUrl: normalizeAiBaseUrl(provider?.baseUrl || 'https://api.openai.com/v1'),
+        };
+    }
+
     /**
      * 执行一次文档任务模型请求。
      * @param {{messages:Array,temperature:number,idleTimeoutMs?:number,isActive?:()=>boolean,phase:string,attempt?:number,tools?:Array}} options - 请求参数
      * @returns {Promise<ReturnType<typeof parseNonStreamingResponse> & {rawBody:string}>}
      */
-    async complete({ messages, temperature, idleTimeoutMs = 90000, isActive = () => true, signal, phase, attempt = 1, tools = [] }) {
-        const provider = aiService.getProviderForScene('documentTask');
-        const model = aiService.getModelForScene('documentTask');
-        if (!provider?.apiKey || !model) {
-            throw new Error(t('inlineCompletion.error.noConfig'));
+    async complete({ messages, temperature, idleTimeoutMs = 90000, isActive = () => true, signal, phase, attempt = 1, tools = [] },
+        { model, apiKey, baseUrl } = this.resolveConnection(aiService.getModelSlot('documentTask'))) {
+        if (!apiKey || !model) {
+            throw createDocumentTaskInterruption('AI_MODEL_NOT_CONFIGURED');
         }
 
         let response;
+        const hasImage = phase === 'image';
         const startedAt = performance.now();
         try {
             response = await this.request({
-                url: `${aiService.getBaseUrlForScene('documentTask')}/chat/completions`,
-                apiKey: provider.apiKey,
+                url: `${baseUrl}/chat/completions`,
+                apiKey,
                 idleTimeoutMs,
                 isActive,
                 signal,
@@ -48,18 +65,15 @@ export class DocumentTaskClient {
                 },
             });
         } catch (error) {
-            if (/timeout|timed out|超时/i.test(String(error?.message || error))) {
-                const idleError = createDocumentTaskInterruption('AI_IDLE_TIMEOUT');
-                idleError.message = t('aiFileTask.idleTimeout');
-                throw idleError;
-            }
-            throw error;
+            const failure = classifyDocumentTaskRequestError(error, { hasImage });
+            logger.warn('request:failed', { phase, attempt, model, code: failure.code });
+            throw failure;
         }
 
         if (response.status < 200 || response.status >= 300) {
-            let errorData = {};
-            try { errorData = JSON.parse(response.body || '{}'); } catch { /* 使用统一状态错误 */ }
-            throw new Error(errorData.error?.message || t('aiFileTask.error.apiFailed', { status: response.status }));
+            const failure = classifyDocumentTaskRequestError(response.body, { hasImage, status: response.status });
+            logger.warn('request:rejected', { phase, attempt, model, code: failure.code, status: response.status });
+            throw failure;
         }
 
         let parsed;

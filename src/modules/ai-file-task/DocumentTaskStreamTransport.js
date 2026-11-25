@@ -44,7 +44,7 @@ export function requestDocumentTaskStream({ url, apiKey, body, idleTimeoutMs, is
         if (signal?.aborted || !isActive()) { onAbort(); return; }
         Promise.resolve().then(() => settled ? null : startStream({
             requestId, url, apiKey, body: { ...body, stream: true },
-            timeoutMs: idleTimeoutMs, idleTimeoutMs,
+            timeoutMs: idleTimeoutMs, idleTimeoutMs, signal,
             onChunk: chunk => {
                 if (settled) return;
                 if (!isActive()) return finish(createDocumentTaskInterruption('AI_TASK_CANCELLED'));

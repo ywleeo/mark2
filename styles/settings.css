@@ -760,15 +760,25 @@ input[type="number"]::-webkit-inner-spin-button {
     display: block;
 }
 
-/* 可搜索的模型列表滚动时保留输入框。 */
+/* 搜索区和空状态固定，只有候选列表滚动。 */
 .dropdown__panel--searchable {
     width: min(320px, calc(100vw - 16px));
-    scroll-padding-top: 38px;
+    overflow: hidden;
+}
+
+.dropdown__panel--searchable.is-open {
+    display: flex;
+    flex-direction: column;
+}
+
+.dropdown__panel--searchable > [role='listbox'] {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .dropdown__search {
-    position: sticky;
-    top: -4px;
+    flex: 0 0 auto;
     width: 100%;
     margin-bottom: 4px;
     padding: 7px 9px;
@@ -786,6 +796,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .dropdown__empty {
+    flex: 0 0 auto;
     padding: 8px 10px;
 }
 
@@ -799,8 +810,13 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .dropdown__option.is-highlighted,
-.dropdown__option:hover {
+.dropdown__option:not([aria-disabled="true"]):hover {
     background: var(--settings-secondary-hover);
+}
+
+.dropdown__option[aria-disabled="true"] {
+    cursor: default;
+    color: var(--settings-muted);
 }
 
 .dropdown__option.is-selected {

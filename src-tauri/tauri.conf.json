@@ -11,6 +11,7 @@
   "app": {
     "windows": [],
     "security": {
+      "capabilities": ["default", "desktop-updater"],
       "csp": null,
       "assetProtocol": {
         "scope": [
@@ -38,10 +39,8 @@
       "icons/icon.png"
     ],
     "macOS": {
-      "files": {
-        "Info.plist": "macos/Info.plist"
-      },
-      "entitlements": "macos/Mark2.entitlements"
+      "infoPlist": "macos/Info.plist",
+      "entitlements": "macos/Mark2-dmg.entitlements"
     },
     "category": "Productivity",
     "fileAssociations": [

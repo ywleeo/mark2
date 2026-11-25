@@ -1,4 +1,5 @@
 // 代码块复制功能模块
+import { t } from '../i18n/index.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 import { copyButtonIcon } from '../icons/uiIcons.js';
 
@@ -207,8 +208,8 @@ export class CodeCopyManager {
         button.type = 'button';
         button.className = 'code-copy-button';
         button.innerHTML = COPY_BUTTON_ICON;
-        button.setAttribute('aria-label', '复制代码');
-        button.setAttribute('title', '复制代码');
+        button.setAttribute('aria-label', t('code.copy'));
+        button.setAttribute('title', t('code.copy'));
 
         button.addEventListener('mouseenter', this.handleCopyButtonMouseEnter);
         button.addEventListener('mouseleave', this.handleCopyButtonMouseLeave);

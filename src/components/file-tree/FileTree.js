@@ -233,7 +233,7 @@ export class FileTree {
 
     /**
      * 通过应用级路径入口打开外部文件或文件夹。
-     * 拖放和文件树空白区粘贴共用此通道，避免各自复制工作区加载逻辑。
+     * 文件树拖放复用应用级工作区加载逻辑。
      * @param {Array<string|Object>} paths - 外部选择项。
      * @param {Object} options - 打开来源等附加信息。
      * @returns {Promise<unknown>|undefined} 打开操作结果。

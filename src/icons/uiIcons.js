@@ -38,6 +38,16 @@ export function checkIcon(options = {}) {
     });
 }
 
+/** 渲染用于提交消息的上箭头。 */
+export function sendIcon() {
+    return lineIcon('<path d="M12 19V5m-6 6 6-6 6 6"/>', { strokeWidth: 2 });
+}
+
+/** 渲染用于停止当前任务的方形图标。 */
+export function stopIcon() {
+    return lineIcon('<rect x="7" y="7" width="10" height="10" rx="1.4" fill="currentColor" stroke="none"/>');
+}
+
 export const fileMenuIcons = {
     createFile: (options = {}) => uicon('add-document', options),
     createFolder: (options = {}) => uicon('add-folder', options),

@@ -7,9 +7,10 @@ import { MarkdownToolbarManager } from '../components/markdown-toolbar/MarkdownT
 import { createMarkdownCodeMode } from '../modules/markdownCodeMode.js';
 import { createSvgCodeMode } from '../modules/svgCodeMode.js';
 import { createCsvTableMode } from '../modules/csvTableMode.js';
+import { createFileClipboardController } from '../modules/fileClipboardController.js';
 import { createFileDropController } from '../modules/fileDropController.js';
 import { createWindowFocusHandler } from '../modules/windowFocusHandler.js';
-import { setupAutoUpdater } from '../modules/autoUpdater.js';
+import { setupDistributionUpdates } from '../modules/distributionUpdates.js';
 import { createFileWatcherController } from '../modules/fileWatchers.js';
 import { loadEditorSettings, applyEditorSettings, saveEditorSettings } from '../utils/editorSettings.js';
 import { isMarkdownFilePath, detectLanguageForPath, isCsvFilePath } from '../utils/fileTypeUtils.js';
@@ -182,7 +183,6 @@ export function createAppBootstrap({
         const loadedSettings = loadEditorSettings();
         appState.setEditorSettings(loadedSettings);
         applyEditorSettings(loadedSettings);
-
         // windowFocusHandler 先声明，让 editorCallbacks 闭包可以捕获到该绑定
         let windowFocusHandler = null;
 
@@ -727,6 +727,12 @@ export function createAppBootstrap({
             vaultPanel = null;
         });
 
+        const fileClipboard = createFileClipboardController({
+            treeHost: fileTree?.container,
+            confirm,
+            openPathsFromSelection,
+        });
+
         appState.setCleanupFunction('commandContributions', registerCoreCommands({
             commandManager,
             handlers: createCommandHandlers({
@@ -774,6 +780,7 @@ export function createAppBootstrap({
                 renameFocusedDocument: () => paneManager.getFocusedPane().id === 'secondary'
                     ? rejectSecondaryPrimaryOnlyCommand('重命名')
                     : handleRenameActiveFile(),
+                tryOpenClipboardFiles: fileClipboard.tryOpen,
                 openFileOrFolder,
                 openFileOnly,
                 openFolderOnly,
@@ -807,6 +814,8 @@ export function createAppBootstrap({
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
         }));
 
+        appState.setCleanupFunction('fileClipboard', fileClipboard.setup());
+
         appState.setCleanupFunction('menuListeners', await registerMenuListeners({
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),
         }));
@@ -835,7 +844,7 @@ export function createAppBootstrap({
         eventBus.emit(EVENT_IDS.APP_INITIALIZED);
         void updateExportMenuState();
         void updateRecentMenu();
-        setupAutoUpdater();
+        await setupDistributionUpdates();
 
         const markdownToolbarManager = new MarkdownToolbarManager(appServices, {
             executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),

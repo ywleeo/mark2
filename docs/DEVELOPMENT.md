@@ -474,33 +474,28 @@ cargo test recovery_store --manifest-path src-tauri/Cargo.toml
 
 ## 八、MAS 发布自动化
 
-- 正式使用的本地 MAS 入口是 `scripts/release-mas.sh`。
-- 这个入口只负责：
-  - 本地 MAS 打包
-  - 上传 App Store Connect
-  - 自动提交审核
-- 运行前请确认钥匙串已导入 `Mac App Distribution` 与 `Mac Installer Distribution` 证书，并准备好 MAS 描述文件。
-- 必填环境变量：`APPLE_SIGNING_IDENTITY`、`APPLE_INSTALLER_IDENTITY`、`APPLE_PROVISIONING_PROFILE`。上传至 App Store Connect 时任选其一：`APP_STORE_CONNECT_API_KEY` + `APP_STORE_CONNECT_API_ISSUER`，或 `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD`。
-- 示例命令：
+- 正式入口为 `npm run release:mas`，打开中文交互式工具。
+- 商店版构建目标为 Apple Silicon（`aarch64-apple-darwin`），最低支持 macOS 13.0。
+- 实现与操作说明：[tools/release/README.md](../tools/release/README.md)。
+- 前端、Rust features、IPC 权限、签名配置和产物按 `github` / `mas` 渠道隔离；构建不再临时改写源码或 entitlements。
+- 常用步骤：
 
   ```bash
-  APPLE_SIGNING_IDENTITY="Mac App Distribution: Example Corp (ABC12345XY)" \
-  APPLE_INSTALLER_IDENTITY="Mac Installer Distribution: Example Corp (ABC12345XY)" \
-  APPLE_PROVISIONING_PROFILE="$HOME/Library/MobileDevice/Provisioning Profiles/Mark2.mas.provisionprofile" \
-  APP_STORE_CONNECT_API_KEY="ABC123DEFG" \
-  APP_STORE_CONNECT_API_ISSUER="11223344-5566-7788-99aa-bbccddeeff00" \
-  ./scripts/release-mas.sh --ver 1.6.16
+  npm run release:mas -- --action init
+  npm run release:mas -- --action preflight
+  npm run release:mas -- --action package --build-number 100
+  npm run release:mas -- --action upload --build-number 100
+  npm run release:mas -- --action status --build-number 100
+  npm run release:mas -- --action submit --build-number 100
   ```
-- 常用变体：
 
-  ```bash
-  ./scripts/release-mas.sh --ver X.Y.Z --auto-release
-  ./scripts/release-mas.sh --ver X.Y.Z --skip-review
-  ./scripts/release-mas.sh --check-only
-  npm run release:mas -- --ver X.Y.Z
-  ```
-- 脚本会自动读取钥匙串中的 `Mac App Distribution`、`Mac Installer Distribution` 证书，并尝试在 `~/Library/MobileDevice/Provisioning Profiles/` 匹配应用的描述文件；若自动匹配失败，再通过参数或环境变量覆盖。
-- 底层实现仍由 `scripts/mas-release.sh` 与 `scripts/submit-review.sh` 承担；优先从 `release-mas.sh` 进入，不要在日常发布时直接混用底层脚本。
+- `package` 只在本机签名打包；上传和提审为独立动作。`--action release` 才连续执行打包、上传、等待指定构建并提审。
+- 本机凭据保存于被忽略的 `apple_developer/mas-release.json`，兼容旧 `notary.env` 的普通变量声明，但不执行 shell 内容。
+- 不再使用未受版本控制的旧 `release-mas.sh` / `mas-release.sh` / `submit-review.sh` 作为正式入口；旧文件不会在新流程中被调用。
+- 新工具不修改源码版本、不自动 commit、打 tag 或 push。三个版本源需保持一致，重传同一商店版本时递增 `--build-number`。
+- MAS 需要正式的 App Sandbox 签名和 TestFlight 运行验收；签名检查通过不能替代审核或沙盒功能测试。
+- MAS 保留 app-scoped bookmark 权限，用于重启后恢复用户已授权的文件访问；GitHub 使用独立 entitlements。
+- 商店版采用一次付费下载，全功能开放，无订阅或 Pro 门禁；既有免费用户继续使用。AI 需自带 API Key，费用由所选服务商收取。价格由 App Store Connect 管理，首发美国区 $14.99，其他地区由 Apple 换算，不预设调价日期。
 
 ## 九、GitHub Release / Windows 发布
 
@@ -522,7 +517,7 @@ cargo test recovery_store --manifest-path src-tauri/Cargo.toml
   - [Cargo.toml](../src-tauri/Cargo.toml)
 - 版本不一致时，workflow 会直接失败，不再继续打包错误版本的 Windows 安装包。
 - 推荐发版顺序：
-  1. 如果要发本地 MAS 版本，运行 `./scripts/release-mas.sh --ver X.Y.Z`
+  1. 如果要发本地 MAS 版本，先同步版本源，再运行 `npm run release:mas` 选择发布步骤
   2. 如果只想发 GitHub 版本，运行 `npm run release:github -- --ver X.Y.Z`
   3. 等脚本完成版本提交、打 tag、push、创建 GitHub Release，并触发 GitHub Actions
 - `release:github` / `release-github.sh` 现在是 GitHub-only 发版命令：
@@ -552,11 +547,10 @@ cargo test recovery_store --manifest-path src-tauri/Cargo.toml
 ## 十、GitHub Actions 构建 macOS DMG
 
 - macOS DMG 的 CI workflow 是 [build-macos-dmg.yml](../.github/workflows/build-macos-dmg.yml)。
-- 这个 workflow 会在 release 发布后自动构建两份已签名并已公证的 DMG：
-  - `x86_64`
-  - `arm64`
-- 这两个 DMG 会上传到当前 GitHub Release。
-- Apple Connect 上传不走这个 workflow，仍然由本地 `scripts/release-mas.sh` 负责，且上传的是 `universal` 包。
+- Release 发布后，workflow 构建并上传 Apple Silicon 的签名、公证 DMG 和更新文件。
+- Intel Mac 的旧版安装包可从 [v1.7.73 发布页](https://github.com/ywleeo/mark2/releases/tag/v1.7.73) 下载。
+- 发布首个 Apple Silicon 专用版本时，核对官网更新接口对 Intel 的返回。该接口共用一个版本号，Intel 条目若仍随新版返回，旧客户端会把旧安装包当成新版。官网需为 Intel 返回最后兼容版本，或从新版响应中移除 `darwin-x86_64` 条目。
+- Mac App Store 安装包由 `npm run release:mas` 构建和上传。
 
 ### 1. 需要配置的 GitHub Secrets
 
@@ -586,8 +580,6 @@ cargo test recovery_store --manifest-path src-tauri/Cargo.toml
 
 ### 3. workflow 行为
 
-- `macos-14` runner 分别构建：
-  - `x86_64-apple-darwin`
-  - `aarch64-apple-darwin`
+- `macos-15` runner 构建 `aarch64-apple-darwin`，并发布该架构的自动更新文件。
 - workflow 会导入 Developer ID 证书、写入临时 `.p8` 文件，然后调用 `.github/scripts/build-macos-dmg-ci.sh` 做签名、公证、staple。
 - release tag 已经存在时，CI 只负责基于该 tag 构建并把 DMG 作为 release asset 上传。

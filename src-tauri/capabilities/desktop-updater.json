@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop-updater",
+  "description": "GitHub 发行版专用的站外更新与重启权限",
+  "windows": ["main"],
+  "permissions": ["updater:default", "process:allow-restart"]
+}

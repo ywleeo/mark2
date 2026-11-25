@@ -522,6 +522,7 @@ fn build_menu(
     let toggle_theme_item =
         MenuItemBuilder::with_id("toggle-theme", l["toggle-theme"]).build(handle)?;
 
+    #[cfg(feature = "github")]
     let check_update_item =
         MenuItemBuilder::with_id("check-update", l["check-update"]).build(handle)?;
     let about_item = MenuItemBuilder::with_id("about", l["about"]).build(handle)?;
@@ -529,9 +530,10 @@ fn build_menu(
         .accelerator(get_accelerator("app-quit", "CmdOrCtrl+Q", custom_accel))
         .build(handle)?;
 
-    let app_menu = SubmenuBuilder::new(handle, "Mark2")
-        .item(&about_item)
-        .item(&check_update_item)
+    let app_menu = SubmenuBuilder::new(handle, "Mark2").item(&about_item);
+    #[cfg(feature = "github")]
+    let app_menu = app_menu.item(&check_update_item);
+    let app_menu = app_menu
         .separator()
         .item(&settings_item)
         .item(&vault_item)

@@ -19,10 +19,11 @@ const MIME_TO_EXT = {
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico'];
 
+/** 将 Markdown 编辑器收到的图片数据或链接转换为文档节点。 */
 export class ImagePasteHandler {
-    constructor(getEditor, insertTextAtCursor, getCurrentFile) {
+    /** 保存当前编辑器与文档路径的访问入口。 */
+    constructor(getEditor, getCurrentFile) {
         this.getEditor = getEditor;
-        this.insertTextAtCursor = insertTextAtCursor;
         this.getCurrentFile = getCurrentFile ?? null;
         this._handler = null;
         this._editorDom = null;
@@ -34,9 +35,6 @@ export class ImagePasteHandler {
         const editor = this.getEditor();
         const editorDom = editor?.view?.dom;
         if (!editorDom) return;
-
-        const { invoke } = window.__TAURI__.core;
-        let pathModulePromise = null;
 
         const isImageFile = (path) => {
             if (!path || typeof path !== 'string') return false;
@@ -70,11 +68,6 @@ export class ImagePasteHandler {
         };
 
         const getFallbackFileName = (path) => basename(path) || '文件';
-
-        const escapeMarkdownLabel = (text) => {
-            if (!text) return '';
-            return text.replace(/([\[\]])/g, '\\$1');
-        };
 
         const getTimestampName = (mime) => {
             const ext = MIME_TO_EXT[mime] ?? 'png';
@@ -186,62 +179,6 @@ export class ImagePasteHandler {
                     }).run();
                 }
                 return;
-            }
-
-            // 3. 处理从文件管理器复制的文件路径
-            try {
-                const filePaths = await invoke('read_clipboard_file_paths');
-                if (!filePaths || filePaths.length === 0) return;
-
-                const imagePaths = filePaths.filter(isImageFile);
-                const otherPaths = filePaths.filter(p => !isImageFile(p));
-
-                if (imagePaths.length === 0 && otherPaths.length === 0) return;
-
-                event.preventDefault();
-
-                const markdownSegments = [];
-
-                if (imagePaths.length > 0) {
-                    markdownSegments.push(imagePaths.map(path => `![](${path})`).join('\n'));
-                }
-
-                if (otherPaths.length > 0) {
-                    if (!pathModulePromise) {
-                        pathModulePromise = import('@tauri-apps/api/path');
-                    }
-                    let basenameFn = null;
-                    try {
-                        const pathModule = await pathModulePromise;
-                        basenameFn = pathModule?.basename;
-                    } catch (error) {
-                        console.warn('[ImagePasteHandler] 动态加载 path 模块失败:', error);
-                        pathModulePromise = null;
-                    }
-
-                    const linkMarkdown = [];
-                    for (const filePath of otherPaths) {
-                        let displayName = null;
-                        if (typeof basenameFn === 'function') {
-                            try {
-                                displayName = await basenameFn(filePath);
-                            } catch (error) {
-                                console.warn('[ImagePasteHandler] 解析文件名失败:', error);
-                            }
-                        }
-                        const fallbackName = getFallbackFileName(filePath);
-                        const linkText = escapeMarkdownLabel(displayName || fallbackName || '文件');
-                        linkMarkdown.push(`[${linkText}](${filePath})`);
-                    }
-                    markdownSegments.push(linkMarkdown.join('\n'));
-                }
-
-                const finalMarkdown = markdownSegments.filter(Boolean).join('\n');
-                if (finalMarkdown) {
-                    this.insertTextAtCursor(finalMarkdown);
-                }
-            } catch (error) {
-                console.warn('[ImagePasteHandler] 读取剪贴板文件路径失败', error);
             }
         };
 

@@ -3,7 +3,7 @@ import { basename } from '../../utils/pathUtils.js';
 import { addClickHandler } from '../../utils/PointerHelper.js';
 import { createStore } from '../../services/storage.js';
 import { t } from '../../i18n/index.js';
-import { copyButtonIcon } from '../../icons/uiIcons.js';
+import { copyButtonIcon, sendIcon, stopIcon } from '../../icons/uiIcons.js';
 import { AiFileTaskService } from './AiFileTaskService.js';
 import { DocumentTaskResultStore } from './DocumentTaskResultStore.js';
 import { DocumentTaskSession } from './DocumentTaskSession.js';
@@ -11,6 +11,11 @@ import { DocumentTaskTimer, formatTaskDuration } from './DocumentTaskTimer.js';
 import { restoreDocumentEdits } from './DocumentEdits.js';
 import { isRecoverableDocumentTaskError } from './DocumentTaskRecovery.js';
 import { normalizeConversation, restoreConversation } from './DocumentTaskConversation.js';
+import { DocumentTaskModelPicker } from './DocumentTaskModelPicker.js';
+import { aiService } from '../ai-assistant/aiService.js';
+import { isImageFilePath } from '../../utils/fileTypeUtils.js';
+import { getDocumentTaskErrorKey } from './DocumentTaskErrors.js';
+import { readDocumentTaskInput } from './DocumentTaskInput.js';
 import MarkdownIt from 'markdown-it';
 
 const layoutStore = createStore('ai-file-task-sidebar');
@@ -50,7 +55,7 @@ function renderBasicMarkdown(value) {
  * @param {{editable?:boolean,isEditing?:boolean,previousContent?:string}} [options] - 最新回复的编辑状态
  * @returns {string} 消息内部 HTML
  */
-function renderMessageContents(role, content, { editable = false, isEditing = false, previousContent = '', edits = [], durationMs } = {}) {
+function renderMessageContents(role, content, { editable = false, isEditing = false, previousContent = '', edits = [], durationMs, canEditSource = true } = {}) {
     const isUser = role === 'user';
     const author = isUser ? escapeHtml(t('aiFileTask.you')) : 'AI';
     const avatar = isUser ? '' : `<span class="ai-file-task-sidebar__message-avatar" aria-hidden="true">
@@ -69,8 +74,8 @@ function renderMessageContents(role, content, { editable = false, isEditing = fa
     const replyActions = isUser ? `<div class="ai-file-task-sidebar__reply-actions">
         <button type="button" class="code-copy-button is-visible ai-file-task-sidebar__copy" data-action="copy-message" title="${escapeHtml(t('aiFileTask.copyMessage'))}" aria-label="${escapeHtml(t('aiFileTask.copyMessage'))}">${copyButtonIcon()}</button>
     </div>` : `<div class="ai-file-task-sidebar__reply-actions">
-        <button type="button" class="ai-file-task-sidebar__text-button" data-action="${edits.length ? 'apply-edits' : 'replace-result'}">${escapeHtml(t(edits.length ? 'aiFileTask.applyEdits' : 'aiFileTask.replaceDocument'))}</button>
-        <button type="button" class="ai-file-task-sidebar__text-button" data-action="insert-result">${escapeHtml(t('aiFileTask.insertResult'))}</button>
+        ${canEditSource ? `<button type="button" class="ai-file-task-sidebar__text-button" data-action="${edits.length ? 'apply-edits' : 'replace-result'}">${escapeHtml(t(edits.length ? 'aiFileTask.applyEdits' : 'aiFileTask.replaceDocument'))}</button>
+        <button type="button" class="ai-file-task-sidebar__text-button" data-action="insert-result">${escapeHtml(t('aiFileTask.insertResult'))}</button>` : ''}
         <button type="button" class="ai-file-task-sidebar__text-button" data-action="open-result">${escapeHtml(t('aiFileTask.openResult'))}</button>
         <button type="button" class="code-copy-button is-visible ai-file-task-sidebar__copy" data-action="copy-result" title="${escapeHtml(t('aiFileTask.copyResult'))}" aria-label="${escapeHtml(t('aiFileTask.copyResult'))}">${copyButtonIcon()}</button>
     </div>`;
@@ -148,6 +153,7 @@ export class AiFileTaskSidebar {
             if (label) label.textContent = formatTaskDuration(durationMs);
         } });
         this.root = null;
+        this.modelPicker = null;
         this.currentPath = '';
         this.currentDocumentId = '';
         this.result = null;
@@ -267,6 +273,7 @@ export class AiFileTaskSidebar {
             return;
         }
         this.root.classList.remove('is-visible');
+        this.modelPicker?.close();
         this.root.style.display = 'none';
         this.isVisible = false;
         document.getElementById('statusBarAiTask')?.classList.remove('is-active');
@@ -311,16 +318,23 @@ export class AiFileTaskSidebar {
                 <div class="ai-file-task-sidebar__processing" data-ref="processing" hidden role="status" aria-live="polite">
                     <div><span class="ai-file-task-sidebar__elapsed" data-ref="elapsed" aria-live="off">00:00</span><span data-ref="processing-label">${escapeHtml(t('aiFileTask.processingLabel'))}</span><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i></div>
                 </div>
-                <textarea id="aiFileTaskInstruction" name="instruction" rows="3" placeholder="${escapeHtml(t('aiFileTask.instruction'))}" aria-label="${escapeHtml(t('aiFileTask.instruction'))}" aria-describedby="aiFileTaskRequestHint"></textarea>
-                <div class="ai-file-task-sidebar__request-footer">
-                    <span id="aiFileTaskRequestHint" data-ref="request-hint"></span>
-                    <button type="button" class="ai-file-task-sidebar__run" data-action="run">${escapeHtml(t('aiFileTask.run'))}</button>
+                <div class="ai-file-task-sidebar__composer">
+                    <textarea id="aiFileTaskInstruction" name="instruction" rows="3" placeholder="${escapeHtml(t('aiFileTask.instruction'))}" aria-label="${escapeHtml(t('aiFileTask.instruction'))}" aria-describedby="aiFileTaskRequestHint"></textarea>
+                    <div class="ai-file-task-sidebar__composer-actions">
+                        <select class="ai-file-task-sidebar__model" data-ref="model"></select>
+                        <button type="button" class="ai-file-task-sidebar__run" data-action="run" aria-label="${escapeHtml(t('aiFileTask.run'))}">${sendIcon()}</button>
+                    </div>
                 </div>
+                <span class="ai-file-task-sidebar__request-hint" id="aiFileTaskRequestHint" data-ref="request-hint"></span>
             </section>
         `;
         // 侧栏与文档区域同级，从工具栏顶部开始；不占用文档内容区内部的高度。
         workspace.appendChild(root);
         this.root = root;
+        this.modelPicker = new DocumentTaskModelPicker(root.querySelector('[data-ref="model"]'), {
+            aiService,
+            translate: t,
+        });
 
         const savedWidth = Number(layoutStore.get('width', DEFAULT_WIDTH));
         root.style.width = `${Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, savedWidth))}px`;
@@ -473,7 +487,11 @@ export class AiFileTaskSidebar {
             ? this.messages.slice(0, -1) : this.messages;
         container.innerHTML = visibleMessages.map((message, index) => `
             <article class="ai-file-task-sidebar__message" data-role="${message.role}" data-message-index="${index}">
-                ${renderMessageContents(message.role, message.content, { edits: restoreDocumentEdits(message.edits), durationMs: message.durationMs })}
+                ${renderMessageContents(message.role, message.content, {
+                    edits: restoreDocumentEdits(message.edits),
+                    durationMs: message.durationMs,
+                    canEditSource: !isImageFilePath(this.currentPath),
+                })}
             </article>
         `).join('');
         this.renderDraft();
@@ -512,6 +530,7 @@ export class AiFileTaskSidebar {
             previousContent: this.previousContent,
             edits: restoreDocumentEdits(this.messages.at(-1)?.edits),
             durationMs: this.messages.at(-1)?.durationMs,
+            canEditSource: !isImageFilePath(this.currentPath),
         });
     }
 
@@ -525,6 +544,7 @@ export class AiFileTaskSidebar {
             element.disabled = this.isRunning
                 || (element.dataset.action === 'undo-result' && !this.previousContent);
         });
+        this.modelPicker?.setBusy(this.isRunning);
     }
 
     /** 提交当前提问与已完成的问答，失败或取消时保留此前工作稿和历史。 */
@@ -538,6 +558,7 @@ export class AiFileTaskSidebar {
             return;
         }
 
+        const modelSlot = aiService.getModelSlot('documentTask');
         const task = this.session.begin(this.currentPath);
         task.documentId = this.currentDocumentId;
         // shared 预览槽会在用户打开其他文件时被复用；固定源文档后，AI 任务期间仍可从独立 tab 返回。
@@ -556,15 +577,16 @@ export class AiFileTaskSidebar {
         this.syncActions();
         this.setBusy(true);
         try {
-            const fileContent = await this.readCurrentFileContent(task.sourcePath);
+            const source = await this.readCurrentInput(task.sourcePath);
             if (!this.session.isCurrent(task) || this.getDocumentId(task.sourcePath) !== task.documentId) return;
             const result = await this.service.runTask({
                 filePath: task.sourcePath,
-                fileContent,
+                ...source,
                 currentResult: oldContent,
                 initialInstruction: this.initialInstruction,
                 messages: history,
                 instruction,
+                modelSlot,
                 isActive: () => this.session.isCurrent(task) && this.getDocumentId(task.sourcePath) === task.documentId,
                 signal: task.signal,
                 onProgress: state => {
@@ -620,7 +642,7 @@ export class AiFileTaskSidebar {
                 return;
             }
             this.onTaskStateChange?.(task.sourcePath, 'error');
-            this.setStatus(error?.message || String(error), 'error');
+            this.setStatus(t(getDocumentTaskErrorKey(error)), 'error');
         } finally {
             if (!this.session.isCurrent(task)) return;
             this.setBusy(false);
@@ -672,21 +694,20 @@ export class AiFileTaskSidebar {
             input.setAttribute('aria-label', label);
         }
         const hint = this.root?.querySelector('[data-ref="request-hint"]');
-        if (hint) hint.textContent = this.result ? t('aiFileTask.refineHint') : t('aiFileTask.firstRunHint');
+        if (hint) {
+            const shortcuts = t(this.result ? 'aiFileTask.refineHint' : 'aiFileTask.firstRunHint');
+            hint.textContent = isImageFilePath(this.currentPath) ? `${t('aiFileTask.imageHint')} · ${shortcuts}` : shortcuts;
+        }
         if (focusInput && this.isVisible && !this.pendingPath) input?.focus();
     }
 
-    /** 读取当前文档内容，优先取编辑器内存快照。 */
-    async readCurrentFileContent(path = this.currentPath) {
-        this.saveCurrentEditorContentToCache?.();
+    /** 读取当前选中的文稿或图片，文字文稿优先使用未保存的编辑器内容。 */
+    async readCurrentInput(path = this.currentPath) {
+        if (!isImageFilePath(path)) this.saveCurrentEditorContentToCache?.();
         if (this.untitledFileManager?.isUntitledPath?.(path)) {
-            return this.untitledFileManager.getContent?.(path) || '';
+            return { fileContent: this.untitledFileManager.getContent?.(path) || '' };
         }
-        if (typeof this.getFileContent === 'function') {
-            const snapshot = await this.getFileContent(path);
-            if (snapshot && typeof snapshot.content === 'string') return snapshot.content;
-        }
-        return this.fileService.readText(path);
+        return readDocumentTaskInput(path, { fileService: this.fileService, getFileContent: this.getFileContent });
     }
 
     /** 把正在编辑的 Markdown 同步到组件状态。 */
@@ -797,8 +818,8 @@ export class AiFileTaskSidebar {
                 content,
                 filename: this.filename || createFallbackFilename(this.currentPath),
             });
-        } catch (error) {
-            this.setStatus(error?.message || String(error), 'error');
+        } catch {
+            this.setStatus(t('aiFileTask.error.openResultFailed'), 'error');
         }
     }
 
@@ -818,8 +839,8 @@ export class AiFileTaskSidebar {
                 this.copyFeedbackTimer = window.setTimeout(() => this.restoreCopyButton(), 1600);
             }
             this.setStatus(t('aiFileTask.copied'), 'success');
-        } catch (error) {
-            if (this.currentPath === sourcePath) this.setStatus(error?.message || String(error), 'error');
+        } catch {
+            if (this.currentPath === sourcePath) this.setStatus(t('aiFileTask.error.copyFailed'), 'error');
         }
     }
 
@@ -887,7 +908,8 @@ export class AiFileTaskSidebar {
         const runButton = this.root?.querySelector('[data-action="run"], [data-action="stop"]');
         if (runButton) {
             runButton.dataset.action = busy ? 'stop' : 'run';
-            runButton.textContent = t(busy ? 'aiFileTask.stop' : 'aiFileTask.run');
+            runButton.setAttribute('aria-label', t(busy ? 'aiFileTask.stop' : 'aiFileTask.run'));
+            runButton.innerHTML = busy ? stopIcon() : sendIcon();
         }
         if (busy) {
             const label = processing?.querySelector('[data-ref="processing-label"]');
@@ -897,6 +919,7 @@ export class AiFileTaskSidebar {
             if (['close', 'stop', 'copy-result', 'copy-message'].includes(element.dataset.action)) return;
             element.disabled = busy;
         });
+        this.modelPicker?.setBusy(busy);
         if (busy) {
             this.setStatus('');
             this.getStatusBarController()?.showProgress?.(t('aiFileTask.running'));
@@ -948,6 +971,7 @@ export class AiFileTaskSidebar {
         this.pendingPath = '';
         this.pendingVisibility = false;
         this.setBusy(false);
+        this.modelPicker?.close();
         this.root?.classList.remove('is-visible');
         if (this.root) this.root.style.display = 'none';
         this.isVisible = false;
@@ -964,6 +988,8 @@ export class AiFileTaskSidebar {
         this.resizeCleanup = null;
         this.cleanups.forEach(cleanup => cleanup?.());
         this.cleanups = [];
+        this.modelPicker?.destroy();
+        this.modelPicker = null;
         this.root?.remove();
         this.root = null;
     }

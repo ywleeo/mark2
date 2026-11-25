@@ -16,39 +16,114 @@
     background-color: var(--editorial-palette-paper);
 }
 
-/* 字阶只在完整皮肤中调整，保持正文行距与用户字体设置不变。 */
+/* 标题使用克制的字阶；正文行距、字体与缩放仍由用户设置决定。 */
 [data-theme-appearance] .tiptap-editor h1,
 .tiptap-editor[data-theme-appearance] h1 {
-    margin-top: 0.55em;
+    margin-top: 0.3em;
     margin-bottom: 0.65em;
     color: var(--editorial-md-ink);
     font-family: var(--editor-font-family, 'Iowan Old Style', 'Songti SC', 'Noto Serif CJK SC', Georgia, serif);
-    font-size: 2.5em;
+    font-size: 1.875em;
     font-weight: 600;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.02em;
     line-height: 1.25;
 }
 
 [data-theme-appearance] .tiptap-editor h2,
 .tiptap-editor[data-theme-appearance] h2 {
-    margin-top: 1.85em;
+    margin: 1.5em 0 0.6em;
     padding-bottom: 0;
     border-bottom: 0;
     color: var(--editorial-md-ink);
+    font-size: 1.3125em;
     font-weight: 650;
     letter-spacing: -0.015em;
+    line-height: 1.4;
+}
+
+/* 连续标题之间收紧距离，避免文档标题与第一节被大块留白分隔。 */
+[data-theme-appearance] .tiptap-editor h1 + h2,
+.tiptap-editor[data-theme-appearance] h1 + h2 {
+    margin-top: 1em;
 }
 
 [data-theme-appearance] .tiptap-editor h3,
-.tiptap-editor[data-theme-appearance] h3,
-[data-theme-appearance] .tiptap-editor h4,
-.tiptap-editor[data-theme-appearance] h4 {
+.tiptap-editor[data-theme-appearance] h3 {
+    margin: 1.25em 0 0.5em;
     color: var(--editorial-md-ink);
+    font-size: 1.15em;
+    font-weight: 650;
+    line-height: 1.45;
 }
 
+[data-theme-appearance] .tiptap-editor h4,
+.tiptap-editor[data-theme-appearance] h4 {
+    margin: 1.1em 0 0.45em;
+    color: var(--editorial-md-ink);
+    font-size: 1.05em;
+    font-weight: 650;
+    line-height: 1.5;
+}
+
+/* 段落与普通列表共享阅读节奏，列表内部比章节之间更紧凑。 */
 [data-theme-appearance] .tiptap-editor p,
 .tiptap-editor[data-theme-appearance] p {
     color: var(--editorial-md-ink);
+}
+
+/* 只调整正文段落，表格单元格、图片行和其他节点视图保留专用间距。 */
+[data-theme-appearance] .tiptap-editor > p:where(:not(.image-paragraph):not(.image-row)),
+.tiptap-editor[data-theme-appearance] > p:where(:not(.image-paragraph):not(.image-row)) {
+    margin: 0 0 0.8em;
+}
+
+[data-theme-appearance] .tiptap-editor ul:not([data-type='taskList']):not(.contains-task-list),
+.tiptap-editor[data-theme-appearance] ul:not([data-type='taskList']):not(.contains-task-list),
+[data-theme-appearance] .tiptap-editor ol,
+.tiptap-editor[data-theme-appearance] ol {
+    margin: 0.65em 0 0.9em;
+    padding-inline-start: 1.65em;
+    padding-inline-end: 0;
+}
+
+[data-theme-appearance] .tiptap-editor li:where(:not([data-type='taskItem']):not(.task-list-item):not([data-checked])),
+.tiptap-editor[data-theme-appearance] li:where(:not([data-type='taskItem']):not(.task-list-item):not([data-checked])) {
+    margin: 0.35em 0;
+}
+
+/* 子列表贴近父项，缩进随正文字号缩放；任务列表保留原有布局。 */
+[data-theme-appearance] .tiptap-editor li > ul:not([data-type='taskList']):not(.contains-task-list),
+.tiptap-editor[data-theme-appearance] li > ul:not([data-type='taskList']):not(.contains-task-list),
+[data-theme-appearance] .tiptap-editor li > ol,
+.tiptap-editor[data-theme-appearance] li > ol {
+    margin: 0.25em 0 0.15em;
+    padding-inline-start: 1.5em;
+}
+
+[data-theme-appearance] .tiptap-editor li li:where(:not([data-type='taskItem']):not(.task-list-item):not([data-checked])),
+.tiptap-editor[data-theme-appearance] li li:where(:not([data-type='taskItem']):not(.task-list-item):not([data-checked])) {
+    margin: 0.18em 0;
+}
+
+[data-theme-appearance] .tiptap-editor li > p,
+.tiptap-editor[data-theme-appearance] li > p {
+    margin: 0;
+}
+
+/* 多段列表保留段落分隔，避免长条目中的独立段落粘连。 */
+[data-theme-appearance] .tiptap-editor li > p + p,
+.tiptap-editor[data-theme-appearance] li > p + p {
+    margin-top: 0.5em;
+}
+
+[data-theme-appearance] .tiptap-editor li::marker,
+.tiptap-editor[data-theme-appearance] li::marker {
+    color: var(--editorial-md-muted);
+}
+
+[data-theme-appearance] .tiptap-editor strong,
+.tiptap-editor[data-theme-appearance] strong {
+    font-weight: 650;
 }
 
 [data-theme-appearance] .tiptap-editor a,
@@ -60,7 +135,7 @@
 
 [data-theme-appearance] .tiptap-editor blockquote,
 .tiptap-editor[data-theme-appearance] blockquote {
-    margin: 1.4em 0;
+    margin: 1em 0;
     padding: 0.25em 0 0.25em 1.1em;
     border-left-width: 2px;
     border-left-color: var(--editorial-md-accent);

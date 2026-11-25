@@ -1,0 +1,9 @@
+{
+  "signingIdentity": "Mac App Distribution: YOUR NAME (TEAMID)",
+  "installerIdentity": "Mac Installer Distribution: YOUR NAME (TEAMID)",
+  "profile": "~/Library/MobileDevice/Provisioning Profiles/Mark2.mas.provisionprofile",
+  "keyId": "YOUR_KEY_ID",
+  "issuerId": "YOUR_ISSUER_ID",
+  "keyPath": "apple_developer/AuthKey_YOUR_KEY_ID.p8",
+  "privacyPolicyUrl": "https://YOUR_DOMAIN/privacy"
+}

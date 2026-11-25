@@ -9,6 +9,8 @@ import {
 import { DocumentTaskEngine } from '../src/modules/ai-file-task/DocumentTaskEngine.js';
 import { DocumentTaskSession } from '../src/modules/ai-file-task/DocumentTaskSession.js';
 import { DocumentTaskResultStore } from '../src/modules/ai-file-task/DocumentTaskResultStore.js';
+import { readDocumentTaskInput } from '../src/modules/ai-file-task/DocumentTaskInput.js';
+import { classifyDocumentTaskRequestError, getDocumentTaskErrorKey } from '../src/modules/ai-file-task/DocumentTaskErrors.js';
 
 test('全文分块不裁剪正文，并尽量保持围栏代码块完整', () => {
     const source = `# 开头\n\n${'正文内容。'.repeat(60)}\n\n\`\`\`js\nconst value = 1;\n\`\`\`\n\n## 结尾\n最后一句。`;
@@ -59,6 +61,71 @@ test('文档任务只向模型暴露能力，不提供任务类型枚举', () =>
     assert.equal(JSON.stringify(tools).includes('context_scope'), false);
     assert.equal(JSON.stringify(tools).includes('synthesize'), false);
     assert.equal(JSON.stringify(tools).includes('transform'), false);
+});
+
+test('图片对话绕过文本读取，向选中模型发送图片与问题，不要求工具能力', async () => {
+    const input = await readDocumentTaskInput('/docs/photo.PNG', {
+        fileService: {
+            readImageBase64: async () => 'fixture',
+            readText: () => assert.fail('图片不能作为文本读取'),
+        },
+        getFileContent: () => assert.fail('图片不使用文稿的文本快照'),
+    });
+    const client = {
+        async complete({ messages, tools, phase }) {
+            assert.equal(phase, 'image');
+            assert.equal(tools, undefined);
+            assert.equal(messages[1].content, '之前的提问');
+            assert.deepEqual(messages.at(-1).content, [
+                { type: 'text', text: '图里有什么？' },
+                { type: 'image_url', image_url: { url: 'data:image/png;base64,fixture' } },
+            ]);
+            return { content: '有一张图。' };
+        },
+    };
+    const engine = new DocumentTaskEngine({ client });
+    assert.equal(await engine.execute({
+        ...input, instruction: '图里有什么？', messages: [
+            { role: 'user', content: '之前的提问' },
+            { role: 'assistant', content: '之前的回答' },
+        ],
+    }), '有一张图。');
+});
+
+test('区分本地文件打不开、图片损坏和服务商明确拒绝图片', async () => {
+    await assert.rejects(readDocumentTaskInput('/docs/obsolete.txt', {
+        fileService: { readText: () => { throw new Error('stream did not contain valid UTF-8'); } },
+    }), { code: 'AI_FILE_FORMAT' });
+    await assert.rejects(readDocumentTaskInput('/docs/photo.jpg', {
+        fileService: { readImageBase64: () => { throw new Error('Operation not permitted'); } },
+    }), { code: 'AI_FILE_PERMISSION' });
+    assert.equal(classifyDocumentTaskRequestError('API 请求失败: 400 This model does not support image input', { hasImage: true }).code, 'AI_IMAGE_NOT_SUPPORTED');
+    assert.equal(classifyDocumentTaskRequestError('Unsupported image format', { hasImage: true }).code, 'AI_IMAGE_UNREADABLE');
+    assert.equal(classifyDocumentTaskRequestError('HTTP 413 Payload too large', { hasImage: true }).code, 'AI_IMAGE_TOO_LARGE');
+    assert.equal(getDocumentTaskErrorKey(new Error('internal diagnostic')), 'aiFileTask.error.sendFailed');
+});
+
+test('本轮任务的主请求和子任务复用发送时选中的模型', async () => {
+    const modelSlot = { providerId: 'router', model: 'selected-model' };
+    const phases = [];
+    const client = {
+        complete() { assert.fail('不能回落到实时模型设置'); },
+        forTask(slot) {
+            assert.deepEqual(slot, modelSlot);
+            return {
+                async complete({ phase }) {
+                    phases.push(phase);
+                    if (phases.length === 1) {
+                        return { rawBody: createToolResponse('run_subtask', { objective: '分析文档' }) };
+                    }
+                    return { content: '完成', rawBody: '{"choices":[{"message":{"content":"完成"}}]}' };
+                },
+            };
+        },
+    };
+    const engine = new DocumentTaskEngine({ client });
+    assert.equal(await engine.execute({ instruction: '分析', modelSlot }), '完成');
+    assert.deepEqual(phases, ['agent', 'subtask', 'agent']);
 });
 
 test('文档任务由模型主动读取资料，当前用户任务始终位于初始请求末尾', async () => {

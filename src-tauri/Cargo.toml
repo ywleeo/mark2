@@ -12,8 +12,14 @@ tauri-build = { version = "2.0", features = [] }
 [dev-dependencies]
 tokio = { version = "1.37", features = ["test-util"] }
 
+[features]
+# GitHub 保留现有能力；MAS 必须关闭默认 features 后单独选择。
+default = ["github"]
+github = ["tauri/devtools", "dep:tauri-plugin-updater", "dep:tauri-plugin-process"]
+mas = []
+
 [dependencies]
-tauri = { version = "2.3", features = ["devtools"] }
+tauri = { version = "2.3", features = [] }
 tauri-plugin-dialog = "2.3"
 tauri-plugin-fs = { version = "2.4", features = ["watch"] }
 tauri-plugin-shell = "2.3"
@@ -34,8 +40,8 @@ tokio-rustls = "0.25"
 trash = "3"
 percent-encoding = "2.3"
 rfd = "0.15"
-tauri-plugin-updater = "2.9"
-tauri-plugin-process = "2.3"
+tauri-plugin-updater = { version = "2.9", optional = true }
+tauri-plugin-process = { version = "2.3", optional = true }
 aes-gcm = "0.10"
 rand = "0.8"
 uuid = { version = "1", features = ["v4"] }

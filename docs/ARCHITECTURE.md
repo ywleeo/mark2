@@ -653,3 +653,15 @@ command -> ExportManager -> exporter
   日志与 trace 约定
 
 AI 对话计时使用 `DocumentTaskTimer` 单调时钟，覆盖读取、所有工具轮次和模型生成；Thinking 前实时显示，完成后的 `durationMs` 随该条助手回复保存与恢复，不传入模型上下文。历史无耗时的数据不伪造显示。Send 在运行时切换为 Stop，任务取消经 AbortSignal 立即传入主请求、子任务及创建意图核对，释放后端流与监听；已有问答及未完成提问保留，迟到结果无法写回，新发送独立计时。关闭与销毁释放刷新定时器。
+
+## 发行渠道边界
+
+`tools/release/` 统一生成 `github` / `mas` 构建计划，使用 Tauri 配置叠加而非改写源码。Cargo 的互斥渠道 features 决定是否编译生产 DevTools、更新和重启插件；Vite 的编译常量控制前端入口和模块裁剪。MAS 不加载更新 IPC 权限，独立使用沙盒 entitlements、前端目录和原生构建目录。
+
+`src/modules/distributionUpdates.js` 是命令和启动层的更新适配边界；业务编辑器不判断发布渠道。`src/modules/privacy/` 管理第三方接收方授权，两种渠道共用，网络请求在发出前经过门禁。
+
+MAS 发布工具以显式动作完成预检、打包、验证、上传、状态查询和提审，产物报告绑定精确版本、构建号与 PKG 校验和。使用方式见 [发布工具](../tools/release/README.md)。
+
+### 商店买断
+
+MAS 通过 App Store 付费下载一次购买，全功能开放。客户端不接入 StoreKit 订阅，不验证编辑权益，也不向编辑器或命令系统注入付费门禁；已有免费用户继续使用完整功能。AI 使用用户自己的 API Key，购买不包含模型额度。GitHub 渠道保持现有开放能力。

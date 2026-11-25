@@ -62,18 +62,12 @@
 	<string>Mark2</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.7.72</string>
-	<key>CFBundleVersion</key>
-	<string>1.7.72</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>10.13</string>
 	<key>LSRequiresCarbon</key>
 	<true/>
 	<key>NSAppTransportSecurity</key>

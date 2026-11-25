@@ -1,0 +1,17 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "features": ["github"]
+  },
+  "app": {
+    "security": {
+      "capabilities": ["default", "desktop-updater"]
+    }
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "entitlements": "macos/Mark2-dmg.entitlements"
+    }
+  }
+}

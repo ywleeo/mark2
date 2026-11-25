@@ -49,3 +49,12 @@ export function isFileAccessPermissionError(error) {
     return /\bos error (?:1|13)\b/.test(description)
         || permissionPatterns.some(pattern => description.includes(pattern));
 }
+
+/** 将读取失败归类为用户可处理的原因，底层异常供日志或上层继续诊断。 */
+export function getFileReadFailureKind(error) {
+    const description = describeFsError(error);
+    if (isFileAccessPermissionError(error)) return 'permission';
+    if (/enoent|no such file|not.?found|does not exist|找不到|不存在/.test(description)) return 'missing';
+    if (/utf-?8|unsupported|encoding|file format/.test(description)) return 'format';
+    return 'unreadable';
+}

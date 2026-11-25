@@ -1,0 +1,38 @@
+[      42ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5173/favicon.ico:1
+[      64ms] [WARNING] [i18n] failed to write locale file: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at appDataDir (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-KIQYNKFI.js?v=1bf8d905:38:10)
+    at _syncLocaleFile (http://127.0.0.1:5173/src/i18n/index.js:33:27) @ http://127.0.0.1:5173/src/i18n/index.js:38
+[      66ms] [WARNING] [Settings] get_default_app_status failed: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at SettingsDialog._refreshDefaultAppStatus (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:696:34)
+    at SettingsDialog.open (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:680:14)
+    at async http://127.0.0.1:5173/output/playwright/mark2-file-exclusions-preview.html?html-proxy&index=0.js:16:1 @ http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:709
+[   18642ms] [WARNING] [i18n] failed to write locale file: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at appDataDir (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-KIQYNKFI.js?v=1bf8d905:38:10)
+    at _syncLocaleFile (http://127.0.0.1:5173/src/i18n/index.js:33:27) @ http://127.0.0.1:5173/src/i18n/index.js:38
+[   18646ms] [WARNING] [Settings] get_default_app_status failed: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at SettingsDialog._refreshDefaultAppStatus (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:696:34)
+    at SettingsDialog.open (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:680:14)
+    at async http://127.0.0.1:5173/output/playwright/mark2-file-exclusions-preview.html?html-proxy&index=0.js:16:1 @ http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:709
+[   18984ms] [WARNING] [i18n] failed to write locale file: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at appDataDir (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-KIQYNKFI.js?v=1bf8d905:38:10)
+    at _syncLocaleFile (http://127.0.0.1:5173/src/i18n/index.js:33:27) @ http://127.0.0.1:5173/src/i18n/index.js:38
+[   18987ms] [WARNING] [Settings] get_default_app_status failed: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at SettingsDialog._refreshDefaultAppStatus (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:696:34)
+    at SettingsDialog.open (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:680:14)
+    at async http://127.0.0.1:5173/output/playwright/mark2-file-exclusions-preview.html?html-proxy&index=0.js:16:1 @ http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:709
+[   19268ms] [WARNING] [i18n] failed to write locale file: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at appDataDir (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-KIQYNKFI.js?v=1bf8d905:38:10)
+    at _syncLocaleFile (http://127.0.0.1:5173/src/i18n/index.js:33:27) @ http://127.0.0.1:5173/src/i18n/index.js:38
+[   19271ms] [WARNING] [Settings] get_default_app_status failed: TypeError: Cannot read properties of undefined (reading 'invoke')
+    at invoke (http://127.0.0.1:5173/node_modules/.vite/deps/chunk-G7S6KQDI.js?v=1bf8d905:109:37)
+    at SettingsDialog._refreshDefaultAppStatus (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:696:34)
+    at SettingsDialog.open (http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:680:14)
+    at async http://127.0.0.1:5173/output/playwright/mark2-file-exclusions-preview.html?html-proxy&index=0.js:16:1 @ http://127.0.0.1:5173/src/components/SettingsDialog.js?t=1794287385675:709
+[   69751ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:865

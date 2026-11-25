@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # 本脚本用于 GitHub Actions 的 macOS DMG 构建链路。
-# 它只包含可公开提交的逻辑：切换 entitlements、构建 app/dmg、公证、staple、复制产物。
+# 它只包含可公开提交的逻辑：选择 GitHub 配置、构建 app/dmg、公证、staple、复制产物。
 # 所有敏感信息（签名身份、API key、team id）都通过 workflow 注入环境变量。
 
 # 输出带时间戳的构建日志，方便在 GitHub Actions 中定位步骤。
@@ -68,30 +68,10 @@ assess_dmg_with_spctl() {
     return "${status}"
 }
 
-# 根据 target 生成稳定的架构标签，用于产物命名。
-resolve_arch_label() {
-    local target="$1"
-    local prefix="${target%%-*}"
-    case "${prefix}" in
-        aarch64)
-            printf 'arm64\n'
-            ;;
-        x86_64)
-            printf 'x86_64\n'
-            ;;
-        universal)
-            printf 'universal\n'
-            ;;
-        *)
-            printf '%s\n' "${prefix}"
-            ;;
-    esac
-}
-
-# 主流程：构建指定 target 的 signed/notarized DMG。
+# 主流程：构建 Apple Silicon 的签名和公证 DMG。
 main() {
     local script_dir repo_root app_name target output_dir
-    local tauri_conf dmg_entitlements mas_entitlements dmg_primary_dir dmg_fallback_dir dmg_path
+    local dmg_primary_dir dmg_path executable
     local app_build_dir app_path dmg_basename dmg_name dmg_ext final_dmg_path arch_label
     local notary_key_path notary_key_id notary_issuer
 
@@ -103,8 +83,8 @@ main() {
     target="${TARGET_TRIPLE:-}"
     output_dir="${OUTPUT_DIR:-${repo_root}/artifacts}"
 
-    if [[ -z "${target}" ]]; then
-        echo "TARGET_TRIPLE is required." >&2
+    if [[ "${target}" != "aarch64-apple-darwin" ]]; then
+        echo "TARGET_TRIPLE must be aarch64-apple-darwin." >&2
         exit 1
     fi
 
@@ -114,16 +94,6 @@ main() {
     require_cmd codesign
     require_cmd spctl
     require_cmd security
-
-    tauri_conf="${repo_root}/src-tauri/tauri.conf.json"
-    dmg_entitlements="macos/Mark2-dmg.entitlements"
-    mas_entitlements="macos/Mark2.entitlements"
-
-    if [[ -f "${tauri_conf}" ]]; then
-        log "Switching entitlements to DMG version"
-        sed -i '' "s|\"entitlements\": \"${mas_entitlements}\"|\"entitlements\": \"${dmg_entitlements}\"|" "${tauri_conf}"
-        trap 'sed -i "" "s|\"entitlements\": \"'"${dmg_entitlements}"'\"|\"entitlements\": \"'"${mas_entitlements}"'\"|" "'"${tauri_conf}"'"; log "Restored entitlements to MAS version"' EXIT
-    fi
 
     if [[ -z "${APPLE_SIGNING_IDENTITY:-}" ]]; then
         APPLE_SIGNING_IDENTITY="$(find_signing_identity codesigning 'Developer ID Application')"
@@ -155,7 +125,7 @@ main() {
     export APPLE_SIGNING_IDENTITY
     export TAURI_SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY}"
     # 保留 bundler 子进程输出，避免 DMG 失败时只看到 bundle_dmg.sh 的汇总错误。
-    npm run tauri:build -- --target "${target}" --bundles app,dmg --verbose
+    npm run tauri:build -- --channel github --target "${target}" --bundles app,dmg --verbose
 
     app_build_dir="${repo_root}/src-tauri/target/${target}/release/bundle/macos"
     app_path="${app_build_dir}/${app_name}.app"
@@ -163,16 +133,20 @@ main() {
         echo "Expected .app bundle not found at ${app_path}" >&2
         exit 1
     fi
+    executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${app_path}/Contents/Info.plist")"
+    if [[ "$(xcrun lipo -archs "${app_path}/Contents/MacOS/${executable}")" != "arm64" ]]; then
+        echo "Expected an Apple Silicon app at ${app_path}." >&2
+        exit 1
+    fi
 
     dmg_primary_dir="${repo_root}/src-tauri/target/${target}/release/bundle/dmg"
-    dmg_fallback_dir="${repo_root}/src-tauri/target/release/bundle/dmg"
-    dmg_path="$(find_latest_dmg "${dmg_primary_dir}" "${dmg_fallback_dir}")"
+    dmg_path="$(find_latest_dmg "${dmg_primary_dir}")"
     if [[ -z "${dmg_path}" || ! -f "${dmg_path}" ]]; then
         echo "Unable to locate generated DMG for target ${target}." >&2
         exit 1
     fi
 
-    arch_label="$(resolve_arch_label "${target}")"
+    arch_label=arm64
     dmg_basename="$(basename "${dmg_path}")"
     dmg_name="${dmg_basename%.*}"
     dmg_ext="${dmg_basename##*.}"

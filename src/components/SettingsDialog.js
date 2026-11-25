@@ -6,10 +6,12 @@ import { saveCustomKeybindings } from '../utils/keybindingsStorage.js';
 import { PROVIDER_PRESETS } from '../modules/ai-assistant/providerPresets.js';
 import { invoke } from '@tauri-apps/api/core';
 import { isMac } from '../utils/platform.js';
+import { SUPPORTS_DESKTOP_UPDATER, PRIVACY_POLICY_URL } from '../config/distribution.js';
+import { revokeSharingConsents, showPrivacyInformation } from '../modules/privacy/dataSharingConsent.js';
 import { createLogger } from '../core/diagnostics/Logger.js';
 import { renderSettingsAiSection } from './settings/SettingsAiSection.js';
 import { buildAiProviderCard } from './settings/AiProviderCard.js';
-import { discoverProviderModels } from '../modules/ai-assistant/providerModels.js';
+import { discoverProviderModels, getConfiguredModelGroups } from '../modules/ai-assistant/providerModels.js';
 import { renderSettingsShareSection } from './settings/SettingsShareSection.js';
 import { SettingsFileExclusionsSection, renderSettingsFileExclusionsSection } from './settings/SettingsFileExclusionsSection.js';
 import { loadGistShareSettings, saveGistApiKey } from '../modules/share/gistSettings.js';
@@ -158,10 +160,16 @@ export class SettingsDialog {
                                 <span class="settings-row__label">${t('settings.autoSave')}</span>
                                 <input type="checkbox" name="autoSave" class="settings-row__control settings-row__control--toggle" />
                             </label>
-                            <label class="settings-row">
+                            ${SUPPORTS_DESKTOP_UPDATER ? `<label class="settings-row">
                                 <span class="settings-row__label">${t('settings.allowAutoUpdate')}</span>
                                 <input type="checkbox" name="allowAutoUpdate" class="settings-row__control settings-row__control--toggle" />
-                            </label>
+                            </label>` : ''}
+                            <div class="settings-row">
+                                <span class="settings-row__label">${t('privacy.title')}</span>
+                                <button type="button" data-action="privacyInfo">${t('privacy.view')}</button>
+                                ${PRIVACY_POLICY_URL ? `<button type="button" data-action="privacyPolicy">${t('privacy.policy')}</button>` : ''}
+                                <button type="button" data-action="revokeSharing">${t('privacy.revoke')}</button>
+                            </div>
                             ${isMac ? `
                             <div class="settings-row settings-row--default-app" data-ref="defaultAppRow">
                                 <span class="settings-row__label">${t('settings.defaultApp')}</span>
@@ -313,6 +321,15 @@ export class SettingsDialog {
         this.tocFontSizeInput = this.form.querySelector('input[name="tocFontSize"]');
         this.autoSaveCheckbox = this.form.querySelector('input[name="autoSave"]');
         this.allowAutoUpdateCheckbox = this.form.querySelector('input[name="allowAutoUpdate"]');
+        for (const [action, handler] of [
+            ['privacyInfo', showPrivacyInformation], ['revokeSharing', revokeSharingConsents],
+            ['privacyPolicy', () => invoke('open_path_in_browser', { path: PRIVACY_POLICY_URL })],
+        ]) {
+            const button = this.form.querySelector(`[data-action="${action}"]`);
+            if (button) this.cleanupFunctions.push(addClickHandler(button, () => {
+                void handler().catch(error => logger.warn('隐私操作失败', { action, error }));
+            }));
+        }
 
         // Code 模式设置字段
         this.codeThemeSelect = this.form.querySelector('select[name="codeTheme"]');
@@ -1286,20 +1303,14 @@ export class SettingsDialog {
             blank.textContent = '— ' + t('settings.selectModel') + ' —';
             fragment.appendChild(blank);
 
-            this.aiConfiguredProviders.forEach(provider => {
-                const preset = PROVIDER_PRESETS.find(p => p.id === provider.id);
-                if (!provider.apiKey) return;
-                const models = provider.isCustom
-                    ? (provider.models || [])
-                    : (provider.fetchedModels?.length ? provider.fetchedModels : (preset?.models || []));
-                const name = provider.isCustom ? provider.name : (preset?.name || provider.id);
+            getConfiguredModelGroups(this.aiConfiguredProviders).forEach(({ id, name, models }) => {
                 if (models.length === 0) return;
 
                 const group = document.createElement('optgroup');
                 group.label = name;
                 models.forEach(model => {
                     const opt = document.createElement('option');
-                    opt.value = `${provider.id}::${model}`;
+                    opt.value = `${id}::${model}`;
                     opt.textContent = model;
                     if (opt.value === currentVal) opt.selected = true;
                     group.appendChild(opt);

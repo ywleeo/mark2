@@ -1,3 +1,6 @@
+/** 卡片视觉模板与装饰文案；界面标签跟随当前语言。 */
+import { t, getLocale } from '../../i18n/index.js';
+
 export const CARD_TEMPLATES = [
     {
         id: 'warm-linen',
@@ -31,7 +34,7 @@ export const CARD_TEMPLATES = [
             { class: 'card-deco card-deco--wl-corner-br', content: '' },
             { class: 'card-deco card-deco--wl-quote', content: '\u201c' },
             { class: 'card-deco card-deco--wl-divider', content: '' },
-            { class: 'card-deco card-deco--wl-author', content: 'mark\u00b2 \u00b7 \u968f\u624b\u8bb0' },
+            { class: 'card-deco card-deco--wl-author', content: `mark² · ${t('cardExport.signature')}` },
         ],
     },
     {
@@ -63,8 +66,8 @@ export const CARD_TEMPLATES = [
 只输出 HTML，不加任何说明或代码块标记。`,
         buildDecorations: () => [
             { class: 'card-deco card-deco--gb-topbar', content: '' },
-            { class: 'card-deco card-deco--gb-tag', content: '\u2726 \u4eca\u65e5\u611f\u609f' },
-            { class: 'card-deco card-deco--gb-date', content: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }) },
+            { class: 'card-deco card-deco--gb-tag', content: `✦ ${t('cardExport.reflection')}` },
+            { class: 'card-deco card-deco--gb-date', content: new Date().toLocaleDateString(getLocale(), { year: 'numeric', month: '2-digit', day: '2-digit' }) },
             { class: 'card-deco card-deco--gb-dots', content: '\u25cf\u25cf\u25cf' },
         ],
     },
@@ -99,7 +102,7 @@ export const CARD_TEMPLATES = [
             { class: 'card-deco card-deco--is-header-line', content: '' },
             { class: 'card-deco card-deco--is-header-dot', content: '' },
             { class: 'card-deco card-deco--is-header-text', content: 'Note' },
-            { class: 'card-deco card-deco--is-footer', content: `${new Date().toLocaleDateString('zh-CN')} \u00b7 mark\u00b2` },
+            { class: 'card-deco card-deco--is-footer', content: `${new Date().toLocaleDateString(getLocale())} \u00b7 mark\u00b2` },
             { class: 'card-deco card-deco--is-mark', content: '\u2767' },
         ],
     },
@@ -133,7 +136,7 @@ export const CARD_TEMPLATES = [
             { class: 'card-deco card-deco--hn-tape', content: '' },
             { class: 'card-deco card-deco--hn-star-tr', content: '\u2726' },
             { class: 'card-deco card-deco--hn-star-bl', content: '\u2727' },
-            { class: 'card-deco card-deco--hn-author', content: 'mark\u00b2 \u00b7 \u968f\u624b\u8bb0 \u2665' },
+            { class: 'card-deco card-deco--hn-author', content: `mark² · ${t('cardExport.signature')} ♥` },
         ],
     },
     {
@@ -144,9 +147,9 @@ export const CARD_TEMPLATES = [
         baseFontSize: 14,
         buildDecorations: () => [
             { class: 'card-deco card-deco--sp-topline', content: '' },
-            { class: 'card-deco card-deco--sp-label', content: '随手记 · NOTE' },
+            { class: 'card-deco card-deco--sp-label', content: t('cardExport.noteLabel') },
             { class: 'card-deco card-deco--sp-seal', content: '' },
-            { class: 'card-deco card-deco--sp-author', content: `mark² · ${new Date().toLocaleDateString('zh-CN')}` },
+            { class: 'card-deco card-deco--sp-author', content: `mark² · ${new Date().toLocaleDateString(getLocale())}` },
         ],
     },
     {
@@ -175,7 +178,7 @@ export const CARD_TEMPLATES = [
 只输出 HTML，不加任何说明或代码块标记。`,
         buildDecorations: () => [
             { class: 'card-deco card-deco--cn-chrome', content: '' },
-            { class: 'card-deco card-deco--cn-footer', content: `mark\u00b2 \u00b7 ${new Date().toLocaleDateString('zh-CN')}` },
+            { class: 'card-deco card-deco--cn-footer', content: `mark\u00b2 \u00b7 ${new Date().toLocaleDateString(getLocale())}` },
         ],
     },
 ];

@@ -13,16 +13,18 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:mas": "node tools/release/build.mjs --channel mas --frontend-only",
     "test": "node --test",
     "test:markdown-roundtrip": "node --test tests/markdownRoundTripCorpus.test.js tests/sourcePreservingMarkdownSerializer.test.js",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
-    "tauri:build": "tauri build",
-    "tauri:run": "open src-tauri/target/release/bundle/macos/Mark2.app",
+    "tauri:build": "node tools/release/build.mjs",
+    "tauri:build:mas": "node tools/release/build.mjs --channel mas",
+    "tauri:run": "open src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Mark2.app",
     "release:github": "bash ./scripts/release-github.sh",
     "release:mac": "bash ./scripts/release-github.sh --platform mac",
     "release:win": "bash ./scripts/release-github.sh --platform win",
-    "release:mas": "bash ./scripts/release-mas.sh"
+    "release:mas": "node tools/release/mas.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",

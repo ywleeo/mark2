@@ -8,6 +8,7 @@ import { basename } from '../../utils/pathUtils.js';
 import { t } from '../../i18n/index.js';
 import { loadGistShareSettings } from './gistSettings.js';
 import { showShareToast } from './shareToast.js';
+import { ensureGistSharingConsent } from '../privacy/dataSharingConsent.js';
 
 /**
  * 根据当前文件生成可读且稳定的 HTML 文件名。
@@ -49,9 +50,9 @@ export async function shareCurrentDocument({ getMarkdown, getCurrentFile } = {})
 
     const currentFile = typeof getCurrentFile === 'function' ? getCurrentFile() : null;
     const filename = buildGistFilename(currentFile);
-    showShareToast({ title: t('share.uploading') });
-
     try {
+        await ensureGistSharingConsent();
+        showShareToast({ title: t('share.uploading') });
         // 分享页渲染器依赖 Markdown 与 Mermaid，仅在用户实际分享时按需加载。
         const { buildSharePageHtml } = await import('./sharePageBuilder.js');
         const pageHtml = await buildSharePageHtml({

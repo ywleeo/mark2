@@ -70,16 +70,20 @@ export class DocumentTaskEngine {
     async execute({
         filePath,
         fileContent,
+        imageUrl,
         currentResult = '',
         initialInstruction = '',
         messages: conversation = [],
         instruction,
+        modelSlot,
         createDocument = null,
         onDocumentEdits = null,
         isActive = () => true,
         signal,
         onProgress = null,
     }) {
+        const client = this.client.forTask?.(modelSlot) || this.client;
+        if (imageUrl) return this.answerAboutImage({ client, imageUrl, instruction, conversation, isActive, signal });
         const resources = {
             document: String(fileContent || ''),
             draft: String(currentResult || ''),
@@ -123,7 +127,7 @@ propose_document_edits 只保存待用户应用的预览，成功并不改变当
             round += 1;
             let response;
             try {
-                response = await this.client.complete({
+                response = await client.complete({
                     messages,
                     temperature: this.getTemperature(),
                     isActive,
@@ -179,11 +183,11 @@ propose_document_edits 只保存待用户应用的预览，成功并不改变当
                             hint: '已通过校验的提案仍保留，原文未改变。请用 read_current_document 已返回的 source_id 和 new_text 重提交失败范围，避免再次抄写 old_text；未知引用需重新读取。同批引用不要重叠。' });
                     }
                 } else if (isDocumentTaskSubtaskTool(call.name)) {
-                    content = await this.runSubtask(call.args, isActive, signal);
+                    content = await this.runSubtask(call.args, isActive, signal, client);
                 } else if (isDocumentTaskCreateDocumentTool(call.name)) {
                     // 独立核对只做一次；不向核对模型提供执行计划或文档中的指令。
                     creationAuthorized ??= await authorizeDocumentCreation({
-                        client: this.client, instruction, messages: conversation, isActive, signal,
+                        client, instruction, messages: conversation, isActive, signal,
                     });
                     if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
                     if (!creationAuthorized) {
@@ -201,6 +205,36 @@ propose_document_edits 只保存待用户应用的预览，成功并不改变当
             }
             messages.push(...toolMessages);
         }
+    }
+
+    /** 图片对话使用视觉输入并沿用文字历史，兼容只能读图、不能调用工具的模型。 */
+    async answerAboutImage({ client, imageUrl, instruction, conversation, isActive, signal }) {
+        if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
+        let response;
+        try {
+            response = await client.complete({
+                messages: [
+                    { role: 'system', content: withAiMarkdownOutputRules('你是 Mark2 的 AI 对话助手。结合当前图片和已完成的对话回答用户的问题。辨认不清的内容请如实说明。') },
+                    ...normalizeConversation(conversation).map(({ role, content }) => ({ role, content })),
+                    { role: 'user', content: [
+                        { type: 'text', text: String(instruction || '').trim() },
+                        { type: 'image_url', image_url: { url: imageUrl } },
+                    ] },
+                ],
+                temperature: this.getTemperature(),
+                isActive,
+                signal,
+                phase: 'image',
+            });
+        } catch (error) {
+            if (error?.code === 'AI_RESPONSE_INCOMPLETE') throw createDocumentTaskInterruption('AI_TASK_INCOMPLETE');
+            throw error;
+        }
+        if (!isActive()) throw createDocumentTaskInterruption('AI_TASK_CANCELLED');
+        const content = stripOuterMarkdownFence(response.content);
+        if (content) return content;
+        throw createDocumentTaskInterruption(response.refusal || response.finishReason === 'content_filter'
+            ? 'AI_RESPONSE_REFUSED' : 'AI_TASK_INCOMPLETE');
     }
 
     /**
@@ -232,11 +266,11 @@ propose_document_edits 只保存待用户应用的预览，成功并不改变当
      * @param {object|null} args - 子任务目标与模型选择的上下文
      * @returns {Promise<string>} 子任务结果
      */
-    async runSubtask(args, isActive = () => true, signal) {
+    async runSubtask(args, isActive = () => true, signal, client = this.client) {
         const objective = String(args?.objective || '').trim();
         if (!objective) return '子任务目标为空，请重新规划。';
         const context = String(args?.context || '').slice(0, 48000);
-        const response = await this.client.complete({
+        const response = await client.complete({
             messages: [
                 {
                     role: 'system',

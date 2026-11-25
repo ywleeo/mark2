@@ -67,13 +67,11 @@ jobs:
         run: npm ci
 
       - name: Build Tauri
-        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-        with:
-          tauriScript: npx tauri
+        run: npm run tauri:build -- --channel github
 
       - name: Get version
         id: version

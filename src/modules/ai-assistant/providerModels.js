@@ -1,6 +1,20 @@
 /** OpenAI-compatible 模型列表解析与配置更新，不持有界面或全局状态。 */
 import { PROVIDER_PRESETS } from './providerPresets.js';
 
+/** 为模型选择器提供已配置服务商的显示名称和可选模型，不暴露 API Key。 */
+export function getConfiguredModelGroups(providers) {
+    return (providers || []).filter(provider => provider.apiKey?.trim()).map(provider => {
+        const preset = PROVIDER_PRESETS.find(item => item.id === provider.id);
+        const models = provider.isCustom ? provider.models
+            : (provider.fetchedModels?.length ? provider.fetchedModels : preset?.models);
+        return {
+            id: provider.id,
+            name: (provider.isCustom ? provider.name : preset?.name) || provider.id,
+            models: [...new Set(models || [])],
+        };
+    });
+}
+
 /** 清理模型 ID，去重并排序；不把服务商响应中的其他字段带入配置。 */
 export function normalizeModelIds(models) {
     return [...new Set((Array.isArray(models) ? models : [])

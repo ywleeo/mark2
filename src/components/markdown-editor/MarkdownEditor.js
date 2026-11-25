@@ -351,7 +351,6 @@ export class MarkdownEditor {
 
         this.imagePasteHandler = new ImagePasteHandler(
             () => this.editor,
-            (text) => this.insertTextAtCursor(text),
             () => this.contentLoader.loadedFilePath
         );
         this.imagePasteHandler.setup();

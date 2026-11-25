@@ -1,11 +1,12 @@
 import { basename } from '../utils/pathUtils.js';
+import { getFileReadFailureKind } from '../utils/fileAccessErrors.js';
+import { t } from '../i18n/index.js';
 
 export class UnsupportedViewer {
     constructor(containerElement) {
         this.container = containerElement;
         this.currentFile = null;
         this.filenameElement = null;
-        this.errorElement = null;
         this.init();
     }
 
@@ -13,64 +14,34 @@ export class UnsupportedViewer {
         this.container.classList.add('unsupported-viewer');
         this.container.innerHTML = `
             <div class="unsupported-viewer-content">
-                <div class="unsupported-viewer-title">无法预览该文件</div>
+                <div class="unsupported-viewer-title"></div>
                 <div class="unsupported-viewer-filename"></div>
-                <div class="unsupported-viewer-description">
-                    这是一个不支持编辑或预览的文件类型，请使用系统应用打开它。
-                </div>
-                <div class="unsupported-viewer-error"></div>
+                <div class="unsupported-viewer-description"></div>
             </div>
         `;
 
+        this.titleElement = this.container.querySelector('.unsupported-viewer-title');
+        this.descriptionElement = this.container.querySelector('.unsupported-viewer-description');
         this.filenameElement = this.container.querySelector('.unsupported-viewer-filename');
-        this.errorElement = this.container.querySelector('.unsupported-viewer-error');
     }
 
+    /** 显示可处理的文件提示，避免把编码和系统错误原文放入预览。 */
     show(filePath, error = null) {
         this.currentFile = filePath;
+        this.titleElement.textContent = t('unsupportedViewer.title');
+        this.descriptionElement.textContent = t('unsupportedViewer.' + (error ? getFileReadFailureKind(error) : 'format'));
         const fileName = basename(filePath) || filePath || '';
         if (this.filenameElement) {
             this.filenameElement.textContent = fileName;
         }
 
-        if (this.errorElement) {
-            const message = this.normalizeErrorMessage(error);
-            if (message) {
-                this.errorElement.textContent = `错误信息: ${message}`;
-                this.errorElement.style.display = 'block';
-            } else {
-                this.errorElement.textContent = '';
-                this.errorElement.style.display = 'none';
-            }
-        }
-
         this.container.style.display = 'flex';
-    }
-
-    normalizeErrorMessage(error) {
-        if (!error) {
-            return '';
-        }
-        if (typeof error === 'string') {
-            return error;
-        }
-        if (error.message) {
-            return error.message;
-        }
-        if (error.error) {
-            return error.error;
-        }
-        return '';
     }
 
     clear() {
         this.currentFile = null;
         if (this.filenameElement) {
             this.filenameElement.textContent = '';
-        }
-        if (this.errorElement) {
-            this.errorElement.textContent = '';
-            this.errorElement.style.display = 'none';
         }
         this.container.style.display = 'none';
     }

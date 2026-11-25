@@ -1,5 +1,8 @@
+/** 状态栏控制器：按当前界面语言展示路径、统计和处理状态。 */
+import { t, getLocale } from '../i18n/index.js';
 import { addClickHandler } from '../utils/PointerHelper.js';
 
+/** 创建与文稿生命周期共享的状态栏适配器。 */
 export function createStatusBarController({
     statusBarElement,
     statusBarFilePathElement,
@@ -56,7 +59,7 @@ export function createStatusBarController({
         }
     }
 
-    function showProgress(message = '正在处理...', { state } = {}) {
+    function showProgress(message = t('statusBar.processing'), { state } = {}) {
         if (!statusBarProgressElement) {
             return;
         }
@@ -118,18 +121,18 @@ export function createStatusBarController({
             statusBarFilePathElement.textContent = filePath;
             statusBarFilePathElement.title = filePath;
         } else {
-            statusBarFilePathElement.textContent = '未打开文件';
+            statusBarFilePathElement.textContent = t('statusBar.noFile');
             statusBarFilePathElement.removeAttribute('title');
         }
         let statsText = '';
         if (typeof wordCount === 'object' && wordCount !== null) {
             // Markdown 文件：显示字数统计
-            statsText = `${wordCount.words} 字 / ${wordCount.characters} 字符`;
+            statsText = t('statusBar.wordStats', wordCount);
         } else if (typeof lineCount === 'object' && lineCount !== null) {
             // 代码文件：显示行数统计
-            statsText = `${lineCount.nonEmpty} 非空行 / ${lineCount.total} 行`;
+            statsText = t('statusBar.lineStats', lineCount);
         } else if (typeof wordCount === 'number' && !Number.isNaN(wordCount)) {
-            statsText = `${wordCount} 字`;
+            statsText = t('statusBar.wordTotal', { count: wordCount });
         }
         statusBarWordCountElement.textContent = statsText;
 
@@ -348,17 +351,17 @@ export function createStatusBarController({
             const now = new Date();
 
             if (date.toDateString() === now.toDateString()) {
-                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                return date.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
             }
 
             if (date.getFullYear() === now.getFullYear()) {
                 return (
-                    date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' +
-                    date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                    date.toLocaleDateString(getLocale(), { month: '2-digit', day: '2-digit' }) + ' ' +
+                    date.toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' })
                 );
             }
 
-            return date.toLocaleDateString('zh-CN', {
+            return date.toLocaleDateString(getLocale(), {
                 year: 'numeric',
                 month: '2-digit',
                 day: '2-digit',

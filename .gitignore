@@ -4,6 +4,7 @@ node_modules
 /server
 /src-tauri/target
 /dist
+/dist-mas
 /test-workspace
 AGENTS.md
 # Share root project guidance with agents in new clones and worktrees.

@@ -250,9 +250,9 @@ pub fn read_clipboard_file_paths() -> Result<Vec<String>, String> {
 pub async fn write_file(path: String, content: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let write = || write_document(Path::new(&path), content.as_bytes());
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", feature = "mas"))]
         let result = objc2::rc::autoreleasepool(|_| write());
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(not(all(target_os = "macos", feature = "mas")))]
         let result = write();
         result.map_err(|error| error.to_string())
     })
@@ -261,7 +261,7 @@ pub async fn write_file(path: String, content: String) -> Result<(), String> {
 }
 
 /// 在 macOS 使用 Foundation 原子保存，它能在只授权目标文件时准备写入用的临时文件。
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "mas"))]
 fn write_document(path: &Path, content: &[u8]) -> io::Result<()> {
     use std::os::unix::ffi::OsStrExt;
 
@@ -283,8 +283,8 @@ fn write_document(path: &Path, content: &[u8]) -> io::Result<()> {
         .map_err(|error| io::Error::other(crate::macos_security::error_to_string(error)))
 }
 
-/// 其他系统继续使用通用的原子写入实现。
-#[cfg(not(target_os = "macos"))]
+/// 非商店构建继续使用通用的原子写入实现。
+#[cfg(not(all(target_os = "macos", feature = "mas")))]
 fn write_document(path: &Path, content: &[u8]) -> io::Result<()> {
     write_file_atomically(path, content)
 }
@@ -602,10 +602,10 @@ mod tests {
         fs::remove_dir_all(&test_dir).expect("remove test directory");
     }
 
-    /// 在 macOS 覆盖首次保存和再次保存，并验证不会在目标目录留下其他文件。
-    #[cfg(target_os = "macos")]
+    /// 在商店渠道覆盖首次保存和再次保存，并验证不会在目标目录留下其他文件。
+    #[cfg(feature = "mas")]
     #[tokio::test]
-    async fn macos_document_write_creates_and_replaces_selected_file() {
+    async fn store_document_write_creates_and_replaces_selected_file() {
         let directory = std::env::temp_dir().join(format!("mark2-store-write-{}", Uuid::new_v4()));
         fs::create_dir(&directory).expect("create test directory");
         let path = directory.join("所选文稿.md");

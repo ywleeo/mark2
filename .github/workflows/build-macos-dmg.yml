@@ -17,18 +17,9 @@ env:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15-intel
-            target: x86_64-apple-darwin
-            arch_label: x86_64
-          - runner: macos-15
-            target: aarch64-apple-darwin
-            arch_label: arm64
-
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-15
+    env:
+      MACOS_TARGET: aarch64-apple-darwin
     permissions:
       contents: write
 
@@ -73,7 +64,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ env.MACOS_TARGET }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -107,8 +98,8 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER: ${{ secrets.APP_STORE_CONNECT_API_ISSUER }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-          TARGET_TRIPLE: ${{ matrix.target }}
-          OUTPUT_DIR: ${{ github.workspace }}/artifacts/${{ matrix.arch_label }}
+          TARGET_TRIPLE: ${{ env.MACOS_TARGET }}
+          OUTPUT_DIR: ${{ github.workspace }}/artifacts/arm64
         run: |
           set -euo pipefail
           bash ./.github/scripts/build-macos-dmg-ci.sh
@@ -116,30 +107,19 @@ jobs:
       - name: Prepare updater artifacts
         shell: bash
         run: |
-          set +e
-          TARGET=${{ matrix.target }}
-          ARCH=${{ matrix.arch_label }}
-          BUNDLE_DIR=src-tauri/target/${TARGET}/release/bundle/macos
-          TAR_GZ=$(find ${BUNDLE_DIR} -name '*.tar.gz' -not -name '*.sig' 2>/dev/null | head -1)
-          TAR_GZ_SIG=$(find ${BUNDLE_DIR} -name '*.tar.gz.sig' 2>/dev/null | head -1)
-          echo "TAR_GZ=${TAR_GZ}"
-          echo "TAR_GZ_SIG=${TAR_GZ_SIG}"
-          ls -la ${BUNDLE_DIR}/ || true
-          if [[ -n "$TAR_GZ" && -f "$TAR_GZ" ]]; then
-            cp "$TAR_GZ" "artifacts/${ARCH}/Mark2_${ARCH}.app.tar.gz"
-          fi
-          if [[ -n "$TAR_GZ_SIG" && -f "$TAR_GZ_SIG" ]]; then
-            cp "$TAR_GZ_SIG" "artifacts/${ARCH}/Mark2_${ARCH}.app.tar.gz.sig"
-          fi
+          set -euo pipefail
+          BUNDLE_DIR="src-tauri/target/${MACOS_TARGET}/release/bundle/macos"
+          cp "$BUNDLE_DIR/Mark2.app.tar.gz" artifacts/arm64/Mark2_arm64.app.tar.gz
+          cp "$BUNDLE_DIR/Mark2.app.tar.gz.sig" artifacts/arm64/Mark2_arm64.app.tar.gz.sig
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: |
-            artifacts/${{ matrix.arch_label }}/*.dmg
-            artifacts/${{ matrix.arch_label }}/*.tar.gz
-            artifacts/${{ matrix.arch_label }}/*.tar.gz.sig
+            artifacts/arm64/*.dmg
+            artifacts/arm64/Mark2_arm64.app.tar.gz
+            artifacts/arm64/Mark2_arm64.app.tar.gz.sig
 
       - name: Sync DMG to R2
         shell: bash
@@ -149,7 +129,7 @@ jobs:
           AWS_DEFAULT_REGION: auto
         run: |
           TAG=${{ steps.tag.outputs.tag }}
-          ARCH=${{ matrix.arch_label }}
+          ARCH=arm64
           DMG=$(ls artifacts/$ARCH/*.dmg | head -1)
           FILENAME=$(basename $DMG)
           ENDPOINT=https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
@@ -181,26 +161,18 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.tag.outputs.tag }}"
           VERSION="${TAG#v}"
-          ARCH=${{ matrix.arch_label }}
 
           # 读取签名文件内容
-          SIG_FILE="artifacts/${ARCH}/Mark2_${ARCH}.app.tar.gz.sig"
+          SIG_FILE="artifacts/arm64/Mark2_arm64.app.tar.gz.sig"
           if [[ ! -f "$SIG_FILE" ]]; then
             echo "Error: signature file not found: $SIG_FILE"
             exit 1
           fi
           SIGNATURE="$(cat "$SIG_FILE")"
 
-          # arm64 -> darwin-aarch64, x86_64 -> darwin-x86_64
-          if [[ "$ARCH" == "arm64" ]]; then
-            PLATFORM="darwin-aarch64"
-          else
-            PLATFORM="darwin-x86_64"
-          fi
-
           PAYLOAD=$(SIGNATURE="$SIGNATURE" node -e "
             console.log(JSON.stringify({
-              platform: '$PLATFORM',
+              platform: 'darwin-aarch64',
               version: '$VERSION',
               signature: process.env.SIGNATURE
             }));
@@ -220,6 +192,6 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{
               "files": [
-                "https://static.mark2app.com/mark2/latest/Mark2_${{ matrix.arch_label }}_latest.dmg"
+                "https://static.mark2app.com/mark2/latest/Mark2_arm64_latest.dmg"
               ]
             }'

@@ -198,10 +198,19 @@ body.ai-file-task-resizing {
     font: inherit;
 }
 
-.ai-file-task-sidebar__request textarea {
+.ai-file-task-sidebar__composer {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid var(--ai-task-border-strong);
+    border-radius: 12px;
+    background: var(--ai-task-surface);
+}
+
+.ai-file-task-sidebar__composer textarea {
     min-height: 76px;
-    padding: 9px 10px;
-    border-radius: 7px;
+    padding: 9px 11px 4px;
+    border: 0;
     font-size: 12px;
     line-height: 1.55;
 }
@@ -211,42 +220,67 @@ body.ai-file-task-resizing {
     opacity: 1;
 }
 
-.ai-file-task-sidebar__request textarea:focus,
+.ai-file-task-sidebar__composer:focus-within,
 .ai-file-task-sidebar__draft-editor:focus {
     border-color: color-mix(in srgb, var(--accent-color, #4775d1) 62%, transparent);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-color, #4775d1) 11%, transparent);
 }
 
-.ai-file-task-sidebar__request-footer {
+.ai-file-task-sidebar__composer-actions {
     display: flex;
+    justify-content: flex-end;
     align-items: center;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 6px;
+    padding: 0 6px 6px;
 }
 
-.ai-file-task-sidebar__request-footer > span {
-    flex: 1;
+.ai-file-task-sidebar__request-hint {
+    display: block;
+    margin-top: 5px;
     color: var(--ai-task-muted);
     font-size: 10px;
     line-height: 1.35;
 }
 
-.ai-file-task-sidebar__run {
-    appearance: none;
-    flex: 0 0 auto;
+.ai-file-task-sidebar__model.dropdown__trigger {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
     min-height: 28px;
-    padding: 0 11px;
-    border: 1px solid var(--ai-task-border-strong);
-    border-radius: 7px;
     background: var(--ai-task-surface);
+    border: 1px solid var(--ai-task-border-strong);
     color: var(--ai-task-text);
     font-size: 11px;
-    font-weight: 650;
+}
+
+.ai-file-task-sidebar__model.dropdown__trigger:disabled {
+    color: var(--ai-task-muted);
+    cursor: default;
+}
+
+.ai-file-task-sidebar__run {
+    appearance: none;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: var(--ai-task-text);
+    color: var(--ai-task-surface);
     cursor: pointer;
 }
 
 .ai-file-task-sidebar__run:hover {
-    background: var(--ai-task-surface-hover);
+    opacity: 0.84;
+}
+
+.ai-file-task-sidebar__run:focus-visible {
+    outline: 2px solid var(--accent-color, #4775d1);
+    outline-offset: 2px;
 }
 
 /* 运行提示属于输入区，与输入框左边缘对齐，只留 6px 间距。 */

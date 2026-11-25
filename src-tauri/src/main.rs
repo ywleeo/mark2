@@ -187,6 +187,7 @@ fn read_clipboard_text(app: tauri::AppHandle) -> Result<String, String> {
 /// 避免 plugin-process relaunch 直接 spawn 二进制导致窗口不前置、需手动点 dock 的问题。
 /// 非 macOS 平台直接退出——前端仅在 macOS 调用此命令，其他平台继续用 plugin-process relaunch。
 #[tauri::command]
+#[cfg(feature = "github")]
 fn relaunch_via_open(app: AppHandle) {
     #[cfg(target_os = "macos")]
     if let Ok(exe) = std::env::current_exe() {
@@ -229,6 +230,11 @@ fn main() {
         }
     }));
 
+    #[cfg(feature = "github")]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
+
     builder
         .register_uri_scheme_protocol("stream", |_, request| {
             media_stream::build_stream_response(&request).unwrap_or_else(|e| {
@@ -253,8 +259,6 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             fs_commands::open_path_in_browser,
             fs_commands::is_directory,
@@ -292,6 +296,7 @@ fn main() {
             ai_proxy::ai_proxy_start_stream,
             ai_proxy::ai_proxy_cancel_stream,
             read_clipboard_text,
+            #[cfg(feature = "github")]
             relaunch_via_open,
             recovery_store::upsert_recovery_snapshot,
             recovery_store::list_recovery_snapshots,
