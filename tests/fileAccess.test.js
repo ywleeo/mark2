@@ -62,3 +62,24 @@ test('授权后重新检查同名文件，避免覆盖授权前看到的不可�
     });
     await assert.rejects(file.createFile('/workspace/note.md'), /文件已存在/);
 });
+
+/** 流媒体预览在设置源地址前只探测可读权限，授权后重新探测同一文件。 */
+test('媒体探测遇到权限不足时复用授权流程', async () => {
+    const events = [];
+    const path = '/workspace/video.mp4';
+    const file = createFileService({
+        canRequestAccess: true,
+        fileApi: {
+            checkFileReadAccess(target) {
+                events.push(['probe', target]);
+                if (events.length === 1) throw new Error('Operation not permitted (os error 1)');
+            },
+        },
+        requestAccess: async target => {
+            events.push(['authorize', target]);
+            return true;
+        },
+    });
+    await file.ensureReadable(path);
+    assert.deepEqual(events, [['probe', path], ['authorize', path], ['probe', path]]);
+});

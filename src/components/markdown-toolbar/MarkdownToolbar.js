@@ -11,7 +11,6 @@ import { dismissToolbarNotice, showToolbarNotice } from './ToolbarNotice.js';
 import { ToolbarOverflowMenu } from './ToolbarOverflowMenu.js';
 import { setupPageWidthDrag } from './PageWidthDrag.js';
 import { t } from '../../i18n/index.js';
-import { navigationHistory } from '../../modules/navigationHistory.js';
 import { createStore } from '../../services/storage.js';
 
 const store = createStore('toolbar');
@@ -42,7 +41,6 @@ export class MarkdownToolbar {
         this.overflowMenu = null;
         this.resizeObserver = null;
         this._onWindowResize = null;
-        this._navUnsubscribe = null;
         this.pageWidthHandle = null;
         this.pageWidthDragState = null;
         this.pageWidthHoverState = null;
@@ -186,10 +184,6 @@ export class MarkdownToolbar {
         // Markdown 页宽是固定的全局布局偏好，工具栏只同步当前编辑栏的拖拽线。
         this.syncPageWidthLayout();
 
-        // 导航按钮初始状态 + 订阅历史变化
-        this.updateNavButtons();
-        this._navUnsubscribe = navigationHistory.onChange(() => this.updateNavButtons());
-
         // 首帧布局完成后算一次溢出
         this.overflowMenu.scheduleRecompute();
     }
@@ -270,8 +264,6 @@ export class MarkdownToolbar {
             this._onWindowResize = null;
         }
 
-        this._navUnsubscribe?.();
-        this._navUnsubscribe = null;
 
         this.selects.forEach(select => select.destroy());
         this.selects = [];
@@ -284,16 +276,6 @@ export class MarkdownToolbar {
         this.overflowMenu = null;
 
         this.disablePageWidthHandle();
-    }
-
-    /**
-     * 同步后退 / 前进按钮的可用状态
-     */
-    updateNavButtons() {
-        const backBtn = this.container?.querySelector('[data-action="navBack"]');
-        const forwardBtn = this.container?.querySelector('[data-action="navForward"]');
-        if (backBtn) backBtn.disabled = !navigationHistory.canGoBack();
-        if (forwardBtn) forwardBtn.disabled = !navigationHistory.canGoForward();
     }
 
     /**
@@ -340,15 +322,6 @@ export class MarkdownToolbar {
      * @param {string} action - 动作类型
      */
     handleAction(action) {
-        // 导航：后退 / 前进，直接驱动文档历史
-        if (action === 'navBack') {
-            navigationHistory.goBack();
-            return;
-        }
-        if (action === 'navForward') {
-            navigationHistory.goForward();
-            return;
-        }
         // 视图操作、复制、分享和 AI 操作不需要编辑器实例，直接触发回调。
         if (action === 'toggleViewMode' || action === 'copy'
             || action === 'copyMarkdown' || action === 'copyPlainText'

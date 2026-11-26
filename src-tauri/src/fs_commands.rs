@@ -117,6 +117,17 @@ pub fn read_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
+/// 模拟本地媒体流的文件打开操作，保留操作系统的权限错误。
+#[tauri::command]
+pub fn check_file_read_access(path: String) -> Result<(), String> {
+    let metadata = fs::metadata(&path).map_err(|error| error.to_string())?;
+    if !metadata.is_file() {
+        return Err("路径不是普通文件".into());
+    }
+    fs::File::open(path).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn encode_file_base64(path: &str) -> Result<String, String> {
     let bytes = fs::read(path).map_err(|e| e.to_string())?;
     let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);

@@ -14,7 +14,7 @@
 const MAX_ENTRIES = 100;
 
 function createNavigationHistory() {
-    // laneId -> { stack: string[], index: number }
+    // laneId -> { stack: Array<{ path, previewReturnPath }>, index, pendingPath }
     const lanes = new Map();
     let activeLaneId = null;
     let navigator = null;
@@ -34,10 +34,31 @@ function createNavigationHistory() {
         if (!laneId) return null;
         let lane = lanes.get(laneId);
         if (!lane && create) {
-            lane = { stack: [], index: -1 };
+            lane = { stack: [], index: -1, pendingPath: null };
             lanes.set(laneId, lane);
         }
         return lane || null;
+    }
+
+    /** 同一标签内串行跳转，成功后才提交历史位置。 */
+    async function navigate(step) {
+        const lane = getLane(activeLaneId);
+        if (!lane || lane.pendingPath || !navigator) return;
+        const stack = lane.stack;
+        const index = lane.index + step;
+        if (index < 0 || index >= lane.stack.length) return;
+
+        const entry = stack[index];
+        lane.pendingPath = entry.path;
+        try {
+            const loaded = await navigator(entry.path, entry);
+            if (loaded !== false && lane.stack === stack) lane.index = index;
+        } catch (error) {
+            console.error('[navigationHistory] 导航失败:', error);
+        } finally {
+            lane.pendingPath = null;
+            notify();
+        }
     }
 
     return {
@@ -64,14 +85,23 @@ function createNavigationHistory() {
          * 与车道指针一致的文档（后退 / 前进回到的、切 tab 切回来的）不重复记录；
          * 从车道中段发起新导航时，会截断 forward 部分。
          */
-        record(path) {
+        record(path, { previewReturnPath = null } = {}) {
             if (!path || path.startsWith('untitled://')) return;
             if (!activeLaneId) return;
             const lane = getLane(activeLaneId, { create: true });
-            if (lane.stack[lane.index] === path) return;
+            if (lane.pendingPath === path) return;
+            const current = lane.stack[lane.index];
+            if (current?.path === path) {
+                current.previewReturnPath = previewReturnPath;
+                return;
+            }
 
             lane.stack = lane.stack.slice(0, lane.index + 1);
-            lane.stack.push(path);
+            // 切换皮肤后的新历史位置也能从当前预览返回到来源。
+            if (!current && previewReturnPath && previewReturnPath !== path) {
+                lane.stack.push({ path: previewReturnPath, previewReturnPath: null });
+            }
+            lane.stack.push({ path, previewReturnPath });
             if (lane.stack.length > MAX_ENTRIES) {
                 lane.stack = lane.stack.slice(lane.stack.length - MAX_ENTRIES);
             }
@@ -102,32 +132,26 @@ function createNavigationHistory() {
             notify();
         },
 
+        /** 当前标签是否可以后退。 */
         canGoBack() {
             const lane = getLane(activeLaneId);
             return Boolean(lane) && lane.index > 0;
         },
 
+        /** 当前标签是否可以前进。 */
         canGoForward() {
             const lane = getLane(activeLaneId);
             return Boolean(lane) && lane.index < lane.stack.length - 1;
         },
 
+        /** 后退到当前标签访问过的上一个文件。 */
         goBack() {
-            const lane = getLane(activeLaneId);
-            if (!lane || lane.index <= 0) return;
-            lane.index -= 1;
-            const target = lane.stack[lane.index];
-            notify();
-            navigator?.(target);
+            return navigate(-1);
         },
 
+        /** 前进到当前标签访问过的下一个文件。 */
         goForward() {
-            const lane = getLane(activeLaneId);
-            if (!lane || lane.index >= lane.stack.length - 1) return;
-            lane.index += 1;
-            const target = lane.stack[lane.index];
-            notify();
-            navigator?.(target);
+            return navigate(1);
         },
 
         /**

@@ -171,8 +171,11 @@
             </div>
         </div>
 
-        <!-- Markdown 工具栏（应用级固定栏，由 MarkdownToolbarManager 填充） -->
-        <div id="markdownToolbar" class="md-toolbar"></div>
+        <!-- 文档导航与 Markdown 编辑控件共享一行，各自控制显隐。 -->
+        <div class="document-toolbar">
+            <div id="documentHistoryControls" class="document-history-controls"></div>
+            <div id="markdownToolbar" class="md-toolbar"></div>
+        </div>
 
         <!-- 编辑器/预览区 -->
         <div id="contentArea" class="content-area">

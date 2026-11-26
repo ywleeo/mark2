@@ -9,7 +9,7 @@ import { createDocumentContextActions, getDocumentContextActions, documentRename
 import { COMMAND_IDS } from '../src/core/commands/commandIds.js';
 import { DocumentModel } from '../src/core/documents/DocumentModel.js';
 import { createDocumentManager } from '../src/core/documents/DocumentManager.js';
-import { prepareDocumentOpen, getDocumentCloseTarget, isDocumentWorkspace }
+import { prepareDocumentOpen, getDocumentCloseTarget, isDocumentWorkspace, resolveLinkPreviewReturnPath }
     from '../src/modules/document-library/documentNavigation.js';
 import { getUntitledCloseContent } from '../src/modules/navigation/untitledClose.js';
 
@@ -34,6 +34,31 @@ test('最近记录只迁移文件且只执行一次，移除记录后重启不�
     const reopened = new DocumentHistory({ store });
     reopened.migrateRecent(items);
     assert.deepEqual(reopened.list().map(record => record.path), ['/docs/b.md']);
+});
+
+/** 验证链接预览经过文档生命周期后不进入侧栏，显式打开时可以转为普通文档。 */
+test('链接预览不进入文档目录，连续预览保留来源', () => {
+    const history = new DocumentHistory({ store: storage() });
+    const documents = createDocumentManager();
+    const notePath = '/docs/notes.md';
+    const videoPath = '/docs/clip.mp4';
+    const pdfPath = '/docs/spec.pdf';
+    documents.subscribe(({ type, path, document }) => {
+        if (type === 'activate') history.touch(path, { previewReturnPath: document.previewReturnPath });
+    });
+    documents.openDocument(notePath, { pinned: false });
+    const origin = resolveLinkPreviewReturnPath(notePath, documents.getActiveDocument(), videoPath);
+    documents.openDocument(videoPath, { pinned: false, previewReturnPath: origin });
+
+    const video = documents.getActiveDocument();
+    assert.equal(video.previewReturnPath, notePath);
+    assert.equal(resolveLinkPreviewReturnPath(videoPath, video, pdfPath), notePath);
+    assert.equal(resolveLinkPreviewReturnPath(videoPath, video, notePath), null);
+    assert.deepEqual(history.list().map(record => record.path), [notePath]);
+
+    documents.openDocument(videoPath, { previewReturnPath: null });
+    assert.equal(documents.getActiveDocument().previewReturnPath, null);
+    assert.deepEqual(history.list().map(record => record.path), [videoPath, notePath]);
 });
 
 test('超过 50 个文档仍完整保留，点击与未保存的编辑不改变顺序，新增进入顶部', () => {

@@ -131,6 +131,7 @@ export function createDocumentManager(options = {}) {
             sessionId: doc.sessionId,
             label: doc.label || null,
             pinned: doc.pinned !== false,
+            ...(doc.previewReturnPath && { previewReturnPath: doc.previewReturnPath }),
         };
     }
 
@@ -177,6 +178,10 @@ export function createDocumentManager(options = {}) {
             // pinned=true 代表"固定打开"（file tab 或 untitled）；
             // pinned=false 代表"临时预览"（shared tab），不会进入 openOrder
             pinned: patch.pinned ?? existing?.pinned ?? true,
+            // 链接预览保留来源。显式打开传 null，后台重载省略。
+            previewReturnPath: patch.previewReturnPath === undefined
+                ? existing?.previewReturnPath ?? null
+                : patch.previewReturnPath,
         });
         documents.set(normalizedPath, nextDocument);
         return nextDocument;

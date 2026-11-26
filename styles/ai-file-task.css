@@ -19,7 +19,7 @@
     grid-area: 1 / 1 / 2 / 2;
 }
 
-.content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .md-toolbar {
+.content-wrapper:has(> .ai-file-task-sidebar.is-visible) > .document-toolbar {
     grid-area: 2 / 1 / 3 / 2;
     min-width: 0;
 }

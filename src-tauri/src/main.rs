@@ -263,6 +263,7 @@ fn main() {
             fs_commands::open_path_in_browser,
             fs_commands::is_directory,
             fs_commands::read_file,
+            fs_commands::check_file_read_access,
             fs_commands::read_image_base64,
             fs_commands::read_binary_base64,
             fs_commands::read_clipboard_file_paths,

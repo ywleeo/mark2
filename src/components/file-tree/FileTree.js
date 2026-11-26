@@ -374,7 +374,8 @@ export class FileTree {
     // ========== 开放文件管理（委托 OpenFileManager）==========
 
     bindDocumentManager(dm) { return this.openFileManager.bindDocumentManager(dm); }
-    addToOpenFiles(path) { return this.openFileManager.add(path); }
+    /** 增加固定标签，可同时传入链接预览的来源。 */
+    addToOpenFiles(path, options) { return this.openFileManager.add(path, options); }
     replaceOpenFilePath(oldPath, newPath) { return this.openFileManager.replacePath(oldPath, newPath); }
     renderOpenFiles(options) { return this.openFileManager.render(options); }
     closeFile(path, options) { return this.openFileManager.close(path, options); }

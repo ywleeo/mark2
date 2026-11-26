@@ -58,6 +58,12 @@ export function createFileService({ fileApi = filesystem, requestAccess, canRequ
         return withAccess([{ path }], () => fileApi.readImageBase64(path));
     }
 
+    /** 流式预览使用标准文件授权流程，文件内容仍由 stream 协议读取。 */
+    async function ensureReadable(path) {
+        ensurePath(path, 'ensureReadable');
+        await withAccess([{ path }], () => fileApi.checkFileReadAccess(path));
+    }
+
     async function readSpreadsheet(path) {
         ensurePath(path, 'readSpreadsheet');
         return withAccess([{ path }], () => fileApi.readSpreadsheet(path));
@@ -190,6 +196,7 @@ export function createFileService({ fileApi = filesystem, requestAccess, canRequ
         readBinary,
         readBinaryBase64,
         readImageBase64,
+        ensureReadable,
         readSpreadsheet,
         writeText,
         writeBinary,

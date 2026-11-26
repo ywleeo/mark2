@@ -32,6 +32,30 @@ function createFileServiceDouble() {
     };
 }
 
+/** 链接预览不会被重启误恢复为普通打开的文件。 */
+test('保存工作区时链接预览恢复到原文稿', () => {
+    const videoPath = '/docs/clip.mp4';
+    const notePath = '/docs/notes.md';
+    const workspaceManager = createWorkspaceManagerDouble();
+    const controller = createWorkspaceController({
+        getCurrentFile: () => videoPath,
+        getFileTree: () => null,
+        getTabManager: () => ({ sharedTab: { path: videoPath } }),
+        fileService: createFileServiceDouble(),
+        workspaceManager,
+        untitledFileManager: createUntitledFileManager(),
+        documentManager: {
+            getDocumentByPath: path => path === videoPath ? { previewReturnPath: notePath } : null,
+        },
+    });
+    controller.persistWorkspaceState();
+    assert.equal(workspaceManager.getPersisted().currentFile, notePath);
+    assert.equal(workspaceManager.getPersisted().sharedTabPath, notePath);
+
+    controller.persistWorkspaceState({ openFiles: [notePath, videoPath] });
+    assert.deepEqual(workspaceManager.getPersisted().openFiles, [notePath]);
+});
+
 test('工作区快照保留空白 tab，并从 DocumentModel 读取 AI 文档正文', () => {
     const untitledFileManager = createUntitledFileManager();
     const emptyPath = untitledFileManager.createUntitledFile('md');

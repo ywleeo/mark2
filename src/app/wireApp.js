@@ -22,6 +22,7 @@ import { createDocumentRegistry } from '../core/documents/DocumentRegistry.js';
 import { createDefaultWorkspaceState, loadWorkspaceState, saveWorkspaceState } from '../utils/workspaceState.js';
 import { createWorkspaceController } from '../modules/workspaceController.js';
 import { createNavigationController } from '../modules/navigationController.js';
+import { isDocumentWorkspace } from '../modules/document-library/documentNavigation.js';
 import { createFileOperations } from '../modules/fileOperations.js';
 import { createFileMenuActions } from '../modules/fileMenuActions.js';
 import { createRecentFilesActions } from '../modules/recentFilesActions.js';
@@ -445,13 +446,16 @@ const toolbarController = createToolbarController({
     getMarkdownEditor: () => getActivePaneContext().editorRegistry.getMarkdownEditor(),
     getCodeEditor: () => getActivePaneContext().editorRegistry.getCodeEditor(),
     getCurrentFile: () => getActivePaneContext().documentPath,
-    // 导航历史车道 id：固定文档用路径、shared 预览位用 sharedTabId
+    getPreviewReturnPath: (path) => documentManager.getDocumentByPath(path)?.previewReturnPath,
+    // Classic 固定标签各有历史，Editorial 主栏始终复用同一个文档位置。
     getNavLaneId: () => {
         const currentFile = getActivePaneContext().documentPath;
         if (!currentFile) return null;
         if (getActivePaneContext().paneId === PANE_IDS.SECONDARY) return null;
         const pinned = documentManager?.getDocumentByPath?.(currentFile)?.pinned === true;
-        return pinned ? currentFile : (appState.getTabManager()?.sharedTabId ?? 'shared-preview');
+        return pinned && !isDocumentWorkspace()
+            ? currentFile
+            : (appState.getTabManager()?.sharedTabId ?? 'shared-preview');
     },
     getActiveViewMode: () => getActivePaneContext().viewMode,
     executeCommand: (commandId, payload, context) => commandManager.executeCommand(commandId, payload, context),

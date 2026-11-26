@@ -1,16 +1,24 @@
+/** 本地音视频播放器，按需加载原生媒体流并反馈访问与解码错误。 */
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { createLogger } from '../core/diagnostics/Logger.js';
+import { getFileReadFailureKind } from '../utils/fileAccessErrors.js';
 import { isAudioFilePath, isVideoFilePath } from '../utils/fileTypeUtils.js';
 import { basename } from '../utils/pathUtils.js';
 
+const logger = createLogger('media');
+
+/** 承载主栏或副栏的单个媒体播放器。 */
 export class MediaViewer {
+    /** 初始化播放器容器。 */
     constructor(containerElement) {
         this.container = containerElement;
         this.mediaElement = null;
-        this.currentFile = null;
+        this.loadId = 0;
         this.defaultHintText = '本地文件按需加载，使用系统解码能力播放';
         this.init();
     }
 
+    /** 构建播放器、文件名和反馈区域。 */
     init() {
         this.container.classList.add('media-viewer');
         this.container.innerHTML = `
@@ -30,14 +38,8 @@ export class MediaViewer {
         this.errorElement = this.container.querySelector('.media-viewer__error');
     }
 
+    /** 创建使用系统解码能力的媒体元素。 */
     createMediaElement(tagName) {
-        if (this.mediaElement) {
-            this.mediaElement.pause?.();
-            this.mediaElement.src = '';
-            this.mediaElement.load?.();
-            this.mediaElement.remove();
-        }
-
         const element = document.createElement(tagName);
         element.className = 'media-viewer__element';
         element.controls = true;
@@ -50,7 +52,9 @@ export class MediaViewer {
         return element;
     }
 
+    /** 将本地路径转换为支持按字节读取的 Tauri 地址。 */
     resolveStreamSrc(filePath) {
+        /** 兼容不同运行环境暴露的地址转换接口。 */
         const tryConvert = (convertFn) => {
             try {
                 const result = convertFn?.(filePath, 'stream');
@@ -70,6 +74,7 @@ export class MediaViewer {
         );
     }
 
+    /** 清空旧错误，恢复默认提示。 */
     hideError() {
         if (this.errorElement) {
             this.errorElement.textContent = '';
@@ -78,6 +83,7 @@ export class MediaViewer {
         this.resetHint();
     }
 
+    /** 展示当前媒体的错误。 */
     showError(message) {
         if (this.errorElement) {
             this.errorElement.textContent = message || '无法加载媒体文件';
@@ -85,6 +91,7 @@ export class MediaViewer {
         }
     }
 
+    /** 恢复默认播放提示。 */
     resetHint() {
         if (this.hintElement) {
             this.hintElement.textContent = this.defaultHintText;
@@ -92,6 +99,7 @@ export class MediaViewer {
         }
     }
 
+    /** 对时长元数据损坏的 MP3 提供提示。 */
     showDurationWarning() {
         if (this.hintElement) {
             this.hintElement.textContent = '无法读取时长，可能是 ID3 标签损坏。但不影响播放。可以自行手动修复。';
@@ -99,18 +107,11 @@ export class MediaViewer {
         }
     }
 
-    isMp3FilePath(filePath) {
-        if (typeof filePath !== 'string') {
-            return false;
-        }
-        return filePath.trim().toLowerCase().endsWith('.mp3');
-    }
-
-    async loadMedia(filePath) {
-        if (!filePath) {
-            this.clear();
-            return;
-        }
+    /** 授权完成后交给原生播放器异步取流，忽略过期的授权和媒体事件。 */
+    async loadMedia(filePath, { ensureReadable } = {}) {
+        this.clear();
+        if (!filePath) return;
+        const loadId = this.loadId;
 
         const isVideo = isVideoFilePath(filePath);
         const isAudio = isAudioFilePath(filePath);
@@ -119,37 +120,22 @@ export class MediaViewer {
             return;
         }
 
-        this.currentFile = filePath;
-        this.hideError();
-        this.resetHint();
         this.filenameElement.textContent = basename(filePath) || filePath;
 
-        const element = this.createMediaElement(isVideo ? 'video' : 'audio');
-        const tryLoad = (src, { isFallback } = {}) => new Promise((resolve, reject) => {
-            const cleanup = () => {
-                element.onloadedmetadata = null;
-                element.oncanplay = null;
-                element.onerror = null;
+        try {
+            await ensureReadable?.(filePath);
+        } catch (error) {
+            if (this.loadId !== loadId) return;
+            const kind = getFileReadFailureKind(error);
+            logger.warn('无法读取媒体文件', { path: filePath, kind, error: String(error) });
+            const messages = {
+                permission: '无法读取媒体文件，请授权访问该文件或所在文件夹',
+                missing: '找不到媒体文件，请检查链接路径',
             };
-            element.onloadedmetadata = () => {
-                cleanup();
-                resolve();
-            };
-            element.oncanplay = () => {
-                cleanup();
-                resolve();
-            };
-            element.onerror = (event) => {
-                cleanup();
-                if (isFallback) {
-                    reject(event?.error || new Error('媒体加载失败'));
-                } else {
-                    resolve('fallback');
-                }
-            };
-            element.src = src;
-            element.load();
-        });
+            this.showError(messages[kind] ?? '无法读取媒体文件');
+            return;
+        }
+        if (this.loadId !== loadId) return;
 
         const streamSrc = this.resolveStreamSrc(filePath);
         if (!streamSrc) {
@@ -157,50 +143,62 @@ export class MediaViewer {
             return;
         }
 
-        try {
-            await tryLoad(streamSrc);
-
-            if (isAudio) {
-                const duration = this.mediaElement?.duration;
-                const hasValidDuration = Number.isFinite(duration) && duration > 0;
-                if (!hasValidDuration && this.isMp3FilePath(filePath)) {
-                    // 部分 MP3 头部损坏时浏览器读不到 duration，提示用户手动修复 ID3
+        const element = this.createMediaElement(isVideo ? 'video' : 'audio');
+        if (isAudio && /\.mp3$/i.test(filePath)) {
+            /** 只在当前 MP3 缺失时长时显示修复提示。 */
+            element.onloadedmetadata = () => {
+                if (this.mediaElement !== element) return;
+                if (!Number.isFinite(element.duration) || element.duration <= 0) {
                     this.showDurationWarning();
-                } else {
-                    this.resetHint();
                 }
-            }
-        } catch (error) {
-            console.error('加载媒体失败:', error);
-            this.showError('媒体加载失败，请检查文件是否受支持');
+            };
         }
+        /** 加载或播放中发生的错误都应反馈给用户。 */
+        element.onerror = () => {
+            if (this.mediaElement !== element) return;
+            logger.warn('媒体流加载失败', {
+                path: filePath,
+                code: element.error?.code,
+                message: element.error?.message,
+            });
+            this.showError('媒体加载失败，请检查文件是否受支持');
+        };
+        element.src = streamSrc;
     }
 
+    /** 取消待处理的加载并释放正在播放的媒体资源。 */
     clear() {
-        this.currentFile = null;
+        this.loadId += 1;
         this.filenameElement.textContent = '';
         this.hideError();
         if (this.mediaElement) {
+            this.mediaElement.onerror = null;
+            this.mediaElement.onloadedmetadata = null;
             this.mediaElement.pause?.();
-            this.mediaElement.src = '';
+            this.mediaElement.removeAttribute('src');
             this.mediaElement.load?.();
             this.mediaElement.remove();
             this.mediaElement = null;
         }
     }
 
+    /** 离开预览时停止播放并清理媒体流。 */
     hide() {
+        this.clear();
         this.container.style.display = 'none';
     }
 
+    /** 显示媒体预览。 */
     show() {
         this.container.style.display = 'flex';
     }
 
+    /** 与其他查看器保持接口一致，由原生控件处理播放尺寸。 */
     setZoomScale() {
         // 媒体播放器不响应内容缩放，预留接口便于保持 API 一致性
     }
 
+    /** 销毁播放器时释放媒体资源。 */
     dispose() {
         this.clear();
     }

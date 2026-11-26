@@ -9,6 +9,7 @@ export function createToolbarController({
     getCodeEditor,
     getCurrentFile,
     getNavLaneId,
+    getPreviewReturnPath,
     getFocusedPaneId,
     getActiveViewMode,
     executeCommand,
@@ -113,12 +114,8 @@ export function createToolbarController({
         }, 2000);
     }
 
+    /** 同步当前文件的导航历史和编辑工具栏，所有文件类型都进入历史。 */
     function syncToolbarWithCurrentContext(options = {}) {
-        const markdownToolbarManager = getMarkdownToolbarManager();
-        if (!markdownToolbarManager) return;
-        markdownToolbarManager.executeCommand = executeCommand;
-        markdownToolbarManager.onCardExport = showCardExportSidebar;
-
         const activeViewMode = getActiveViewMode();
         const currentFile = getCurrentFile();
         const effectiveMode = options.mode ?? activeViewMode;
@@ -126,14 +123,14 @@ export function createToolbarController({
         const isMarkdownView = effectiveMode === 'markdown' || effectiveMode === 'split';
         const isCodeView = effectiveMode === 'code';
 
-        // 记录文档访问历史：先把历史车道对准当前文档所属的 tab，再记录文档
-        // 车道由文档 pinned 状态推导（file tab 用路径、shared 预览位用固定 id），
-        // 不依赖 activeTabId —— 它在 loadFile 之后才更新，此处读会拿到旧值
-        // 放在这里而非 handleToolbarOnFileChange，确保启动时首个文档也能被记录
+        // 文档状态先于标签栏投影更新，启动和切换时都用当前文档所属的导航位置。
         navigationHistory.setActiveLane(getNavLaneId?.() ?? null);
-        if (hasMarkdownFile) {
-            navigationHistory.record(currentFile);
-        }
+        navigationHistory.record(currentFile, { previewReturnPath: getPreviewReturnPath?.(currentFile) });
+
+        const markdownToolbarManager = getMarkdownToolbarManager();
+        if (!markdownToolbarManager) return;
+        markdownToolbarManager.executeCommand = executeCommand;
+        markdownToolbarManager.onCardExport = showCardExportSidebar;
 
         if (!hasMarkdownFile || (!isMarkdownView && !isCodeView)) {
             markdownToolbarManager.hide({ persist: false });
@@ -203,15 +200,8 @@ export function createToolbarController({
         syncToolbarWithCurrentContext({ mode: nextMode });
     }
 
-    function handleToolbarOnFileChange(nextPath) {
-        const markdownToolbarManager = getMarkdownToolbarManager();
-        if (!markdownToolbarManager) return;
-
-        if (!nextPath || !isMarkdownFilePath(nextPath)) {
-            markdownToolbarManager.hide({ persist: false });
-            return;
-        }
-
+    /** 文件切换后立即同步，无需等待媒体完成加载。 */
+    function handleToolbarOnFileChange() {
         syncToolbarWithCurrentContext();
     }
 

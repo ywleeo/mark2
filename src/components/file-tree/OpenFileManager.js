@@ -152,7 +152,8 @@ export class OpenFileManager {
         return dm.getOpenPaths() || [];
     }
 
-    add(path) {
+    /** 增加固定标签；链接替换从首次打开事件起携带来源。 */
+    add(path, { previewReturnPath } = {}) {
         const dm = this._requireDm();
         const normalized = this.normalizePath(path);
         if (!normalized) return;
@@ -161,6 +162,7 @@ export class OpenFileManager {
             kind: 'file',
             tabId: normalized,
             pinned: true,
+            previewReturnPath,
             activate: false,
             atStart: false,
         });

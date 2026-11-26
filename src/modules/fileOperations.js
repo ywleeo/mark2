@@ -735,6 +735,7 @@ export function createFileOperations({
             forceReload = false,
             autoFocus = true,
             suppressMissingFileErrors = false,
+            previewReturnPath = documentManager?.getDocumentByPath?.(filePath)?.previewReturnPath ?? null,
         } = options;
 
         const session = documentSessions.beginSession(filePath);
@@ -835,6 +836,7 @@ export function createFileOperations({
                 kind: isUntitled ? 'untitled' : 'file',
                 viewMode: initialViewMode,
                 sessionId,
+                previewReturnPath,
                 // 不传 dirty，保留 DM 中文件已有的 dirty 状态（切回 dirty tab 时不丢失原点）
                 // pinned=true → 作为 file tab 展示；pinned=false → 作为 shared tab 临时预览
                 pinned: hasPersistentTab || isUntitled,
@@ -970,6 +972,7 @@ export function createFileOperations({
                         getCodeEditor: () => codeEditor,
                     },
                     mediaViewer,
+                    fileService,
                     view: viewProtocol,
                 });
                 if (shouldAbort('media-load')) {
@@ -1109,7 +1112,7 @@ export function createFileOperations({
             persistWorkspaceState();
 
             // 记录文件打开历史
-            if (recentFilesService && typeof recentFilesService.recordOpen === 'function') {
+            if (!previewReturnPath && recentFilesService && typeof recentFilesService.recordOpen === 'function') {
                 try {
                     recentFilesService.recordOpen(filePath, 'file');
                     // 更新菜单

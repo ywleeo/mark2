@@ -60,7 +60,8 @@ export class DocumentHistory {
     }
 
     /** 记录使用时间但保持原位置，新文档加入列表顶部；点击和未保存的编辑不重排。 */
-    touch(path, { preserveExisting = false } = {}) {
+    touch(path, { preserveExisting = false, previewReturnPath = null } = {}) {
+        if (previewReturnPath) return false;
         const normalized = savedPath(path);
         if (!normalized) return false;
         const key = getPathIdentityKey(normalized);

@@ -4,6 +4,7 @@
  */
 
 import { MarkdownToolbarManager } from '../components/markdown-toolbar/MarkdownToolbarManager.js';
+import { setupDocumentHistoryControls } from '../components/DocumentHistoryControls.js';
 import { createMarkdownCodeMode } from '../modules/markdownCodeMode.js';
 import { createSvgCodeMode } from '../modules/svgCodeMode.js';
 import { createCsvTableMode } from '../modules/csvTableMode.js';
@@ -829,6 +830,9 @@ export function createAppBootstrap({
         }
 
         setupLinkNavigationListener();
+        appState.setCleanupFunction('documentHistoryControls', setupDocumentHistoryControls(
+            document.getElementById('documentHistoryControls'),
+        ));
         appState.setCleanupFunction('sidebarResizer', setupSidebarResizer());
 
         const fileDropController = createFileDropController({ openPathsFromSelection });
@@ -857,6 +861,12 @@ export function createAppBootstrap({
         syncToolbarWithCurrentContext();
         void syncFocusedPaneUi();
 
+        /** 皮肤切换会改变主栏的历史位置，在用户点击导航前完成同步。 */
+        const syncToolbarForProfile = () => syncToolbarWithCurrentContext();
+        document.addEventListener('workspace-profile-changed', syncToolbarForProfile);
+        appState.setCleanupFunction('toolbarProfile', () => {
+            document.removeEventListener('workspace-profile-changed', syncToolbarForProfile);
+        });
         setupToolbarEvents({ handleToolbarOnViewModeChange, handleToolbarOnFileChange });
 
         windowFocusHandler = createWindowFocusHandler({

@@ -12,9 +12,37 @@
     font-display: block;
 }
 
-/* 外层容器：content-wrapper 的 flex 子项，由 .is-visible 控制显隐 */
-.md-toolbar {
+/* 导航箭头固定显示。无历史时保留按钮位置，由 disabled 表达不可用状态。 */
+.document-toolbar {
+    display: flex;
     flex: 0 0 auto;
+    min-width: 0;
+}
+
+.document-history-controls {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 34px;
+    gap: 2px;
+    padding: 0 4px 0 8px;
+    box-sizing: border-box;
+    background: var(--classic-toolbar-bg, var(--content-bg));
+    border-bottom: 1px solid var(--classic-toolbar-border, var(--border-color));
+    --button-color: var(--classic-toolbar-button, var(--text-secondary));
+    --button-hover-color: var(--classic-toolbar-button-hover, var(--body-text-color));
+    --button-hover-bg: var(--classic-toolbar-button-hover-bg, var(--sidebar-bg));
+    --button-active-bg: var(--classic-toolbar-button-active-bg, var(--sidebar-bg));
+}
+
+.document-toolbar:not(:has(> .md-toolbar.is-visible)) .document-history-controls {
+    flex: 1 1 auto;
+}
+
+/* 编辑工具只在 Markdown 编辑上下文中显示。 */
+.md-toolbar {
+    flex: 1 1 auto;
+    min-width: 0;
     display: none;
     box-sizing: border-box;
 }

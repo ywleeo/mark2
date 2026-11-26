@@ -135,13 +135,18 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     history.migrateRecent(recentFilesService?.getRecentFiles?.(Number.MAX_SAFE_INTEGER) || []);
 
     /** 恢复打开的文件补入历史，但保留已知的最近使用时间。 */
-    for (const doc of documentManager.getOpenDocuments()) history.touch(doc.path, { preserveExisting: true });
+    for (const doc of documentManager.getOpenDocuments()) {
+        history.touch(doc.path, { preserveExisting: true, previewReturnPath: doc.previewReturnPath });
+    }
 
     /** 文档打开、编辑、重命名与关闭都由既有管理器提供，临时路径不会持久化。 */
     const unsubscribeDocuments = documentManager.subscribe(event => {
         if (event.type === 'rename') history.rename(event.oldPath, event.newPath);
         if (event.path && (['open', 'activate'].includes(event.type) || (event.type === 'dirty' && event.dirty))) {
-            history.touch(event.path, { preserveExisting: event.type === 'open' && !event.document?.active });
+            history.touch(event.path, {
+                preserveExisting: event.type === 'open' && !event.document?.active,
+                previewReturnPath: event.document?.previewReturnPath,
+            });
             const content = memoryContent(event.path);
             if (content !== null) titleReader.update(event.path, content);
         }
@@ -177,8 +182,14 @@ export function createDocumentLibraryController({ host, documentManager, fileSer
     window.addEventListener('focus', checkAvailability);
     syncProfile();
     return {
-        /** 关闭命令与列表减号共享移除事务，完成后按列表顺序激活相邻文档。 */
-        closeActiveDocument: () => remove(),
+        /** 关闭临时预览时恢复来源，关闭正式文档时继续走侧栏移除事务。 */
+        async closeActiveDocument() {
+            const active = documentManager.getActiveDocument();
+            if (!active?.previewReturnPath) return remove();
+            await close(active.path, { suppressFallback: true });
+            if (!getCurrentPath()) return select(active.previewReturnPath);
+            return false;
+        },
         /** 提供文档模式全文搜索范围，不再遍历旧工作区目录。 */
         getSavedPaths: () => history.list().map(record => record.path),
         /** 释放生命周期订阅和延迟刷新。 */

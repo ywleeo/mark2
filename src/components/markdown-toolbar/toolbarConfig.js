@@ -141,14 +141,6 @@ export const BUTTON_CONFIG = {
         icon: uicon('video-camera'),
         title: t('toolbar.video')
     },
-    navBack: {
-        icon: uicon('arrow-small-left'),
-        title: t('toolbar.navBack')
-    },
-    navForward: {
-        icon: uicon('arrow-small-right'),
-        title: t('toolbar.navForward')
-    },
     shareLink: {
         icon: uicon('share'),
         title: t('toolbar.shareLink')
@@ -168,7 +160,6 @@ export const BUTTON_CONFIG = {
  */
 export const TOOLBAR_GROUPS = {
     fixed: [
-        ['navBack', 'navForward'],
         ['bold', 'italic', 'strikethrough', 'code'],
         ['heading', 'list', 'insert'],
     ],

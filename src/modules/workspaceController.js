@@ -225,10 +225,13 @@ export function createWorkspaceController({
     function collectSharedTabPathForPersistence() {
         const tabManager = getTabManager();
         const sharedPath = tabManager?.sharedTab?.path;
-        if (!isNonEmptyString(sharedPath) || untitledFileManager.isUntitledPath(sharedPath)) {
+        const origin = documentManager?.getDocumentByPath?.(sharedPath)?.previewReturnPath;
+        if (origin && documentManager.getDocumentByPath(origin)?.pinned) return null;
+        const selectedPath = origin || sharedPath;
+        if (!isNonEmptyString(selectedPath) || untitledFileManager.isUntitledPath(selectedPath)) {
             return null;
         }
-        return canonicalizeWorkspacePath(sharedPath);
+        return canonicalizeWorkspacePath(selectedPath);
     }
 
     /**
@@ -251,18 +254,23 @@ export function createWorkspaceController({
     function persistWorkspaceState(overrides = {}, options = {}) {
         try {
             const fileTree = getFileTree();
-            const currentFile = getCurrentFile();
+            const activeFile = getCurrentFile();
+            const currentFile = documentManager?.getDocumentByPath?.(activeFile)?.previewReturnPath || activeFile;
             const currentWorkspaceState = workspaceManager.getSnapshot();
 
             const sidebarState = overrides.sidebar
                 ?? fileTree?.getPersistedState?.()
                 ?? currentWorkspaceState.sidebar;
 
-            const openFilesState = Array.isArray(overrides.openFiles)
+            const openFiles = Array.isArray(overrides.openFiles)
                 ? [...overrides.openFiles]
                 : fileTree?.getOpenFilePaths?.()
                     ? [...fileTree.getOpenFilePaths()]
                     : [...currentWorkspaceState.openFiles];
+            // Classic 固定标签也可能临时显示链接目标。保存标签时还原原文稿并保留原顺序。
+            const openFilesState = getCanonicalDedupedPaths(openFiles
+                .map(path => documentManager?.getDocumentByPath?.(path)?.previewReturnPath || path)
+                .filter(path => !untitledFileManager.isUntitledPath(path)));
 
             const nextState = {
                 currentFile,
@@ -282,9 +290,7 @@ export function createWorkspaceController({
                 nextState.sidebar = sidebarState;
             }
 
-            if (!Object.prototype.hasOwnProperty.call(overrides, 'openFiles')) {
-                nextState.openFiles = openFilesState;
-            }
+            nextState.openFiles = openFilesState;
             if (!Object.prototype.hasOwnProperty.call(overrides, 'untitledTabs')) {
                 nextState.untitledTabs = collectUntitledTabsForPersistence();
             }

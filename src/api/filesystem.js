@@ -14,6 +14,9 @@ function normalizeDialogOptions(options = {}) {
         multiple: options.multiple ?? true,
         defaultPath: options.defaultPath,
         filters: options.filters,
+        title: options.title,
+        message: options.message,
+        prompt: options.prompt,
         allowDirectories: options.allowDirectories ?? true,
         allowFiles: options.allowFiles ?? !wantsDirectoriesOnly,
     };
@@ -46,6 +49,12 @@ function mapSelectionEntries(selection) {
 export async function readFile(path) {
     ensurePath(path, 'readFile');
     return await invoke('read_file', { path });
+}
+
+/** 检查是否能打开本地文件供读取，无需通过 IPC 传输文件内容。 */
+export async function checkFileReadAccess(path) {
+    ensurePath(path, 'checkFileReadAccess');
+    await invoke('check_file_read_access', { path });
 }
 
 export async function readImageBase64(path) {
@@ -129,6 +138,7 @@ export async function pickPaths(options) {
                 multiple: normalizedOptions.multiple,
                 defaultPath: normalizedOptions.defaultPath,
                 filters: normalizedOptions.filters,
+                title: normalizedOptions.title,
             };
             const selection = await openDialog(fallbackOptions);
             return mapSelectionEntries(selection);

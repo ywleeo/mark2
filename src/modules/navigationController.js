@@ -4,7 +4,7 @@ import { PANE_IDS } from '../core/layout/PaneManager.js';
 import { t } from '../i18n/index.js';
 import { navigationHistory } from './navigationHistory.js';
 import { isActiveContentTab } from './navigation/tabActivity.js';
-import { isDocumentWorkspace } from './document-library/documentNavigation.js';
+import { isDocumentWorkspace, resolveLinkPreviewReturnPath } from './document-library/documentNavigation.js';
 import { getUntitledCloseContent } from './navigation/untitledClose.js';
 import { isFileAccessPermissionError } from '../utils/fileAccessErrors.js';
 
@@ -98,7 +98,6 @@ export function createNavigationController({
         throw new Error('navigationController 需要提供 getCodeEditor');
     }
 
-    let isOpeningFromLink = false;
     const closedTabsStack = [];
 
     /**
@@ -207,7 +206,7 @@ export function createNavigationController({
 
     /** 切换文件前尝试保存；写入失败时，可将有修改的文稿保留在原标签中。 */
     async function handleFileSelect(filePath, options = {}) {
-        const { autoFocus = true } = options;
+        const { autoFocus = true, replaceTabPath = null, previewReturnPath = null } = options;
         const fileTree = getFileTree();
         const tabManager = getTabManager();
         const previousFile = getCurrentFile();
@@ -228,6 +227,10 @@ export function createNavigationController({
         });
 
         if (filePath && previousIdentity && previousIdentity === nextIdentity && !shouldForceReload) {
+            if (!previewReturnPath && documentManager?.getDocumentByPath?.(filePath)?.previewReturnPath) {
+                documentManager.openDocument(filePath, { previewReturnPath: null });
+                persistWorkspaceState();
+            }
             logger?.info?.('handleFileSelect:skip', {
                 autoFocus,
                 filePath,
@@ -244,6 +247,7 @@ export function createNavigationController({
                 // 切换 tab 前保存当前滚动位置
                 rememberScrollPosition?.(previousFile, getActiveViewMode?.());
                 const saved = await autoSaveActiveFileIfNeeded(previousFile);
+                if (!saved && replaceTabPath) return;
                 if (!saved) {
                     saveCurrentEditorContentToCache();
                     const preserved = filePath && documentRegistry.getCachedEntry?.(previousFile)?.hasChanges
@@ -299,6 +303,10 @@ export function createNavigationController({
         }
 
         try {
+            if (replaceTabPath) {
+                navigationHistory.rekeyLane(replaceTabPath, filePath);
+                fileTree.addToOpenFiles(filePath, { previewReturnPath });
+            }
             const newFileWillUseSharedTab = documentManager?.getDocumentByPath?.(filePath)?.pinned !== true;
             const isCurrentFileInSharedTab = previousFile && documentManager?.getDocumentByPath?.(previousFile)?.pinned !== true;
 
@@ -312,7 +320,7 @@ export function createNavigationController({
                 newFileWillUseSharedTab,
                 isCurrentFileInSharedTab,
             });
-            await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId });
+            await loadFile(filePath, { forceReload: shouldForceReload, autoFocus, tabId, previewReturnPath });
             getEditor?.()?.refreshSearch?.();
 
             // 检查导入型文件是否已切换到 untitled 路径（当前仅 PPTX 保留该流程）。
@@ -333,10 +341,7 @@ export function createNavigationController({
 
             const isOpenTab = documentManager?.getDocumentByPath?.(filePath)?.pinned === true;
 
-            if (isOpeningFromLink) {
-                tabManager?.showSharedTab(filePath);
-                isOpeningFromLink = false;
-            } else if (isOpenTab) {
+            if (isOpenTab) {
                 tabManager?.setActiveFileTab(filePath, { silent: true });
             } else {
                 tabManager?.showSharedTab(filePath);
@@ -344,7 +349,7 @@ export function createNavigationController({
             logger?.info?.('handleFileSelect:done', {
                 filePath,
                 resolvedPath: getCurrentFile?.(),
-                tabStrategy: isOpeningFromLink ? 'shared-from-link' : (isOpenTab ? 'existing-tab' : 'shared-tab'),
+                tabStrategy: isOpenTab ? 'existing-tab' : 'shared-tab',
             });
         } catch (error) {
             console.error('文件选择失败，保持当前 tab 状态', { filePath, error });
@@ -352,7 +357,6 @@ export function createNavigationController({
                 filePath,
                 error,
             });
-            isOpeningFromLink = false;
         }
     }
 
@@ -698,65 +702,57 @@ export function createNavigationController({
         navigationHistory.dropLane(targetPath);
     }
 
-    /**
-     * file tab「替换式」切换：在同一个 tab 位上把文档从 fromPath 换成 toPath。
-     * 跟链接跳转、后退 / 前进 file tab 都走这里，顺带把导航车道随 tab 迁移。
-     * @param {string} fromPath - 切换前 file tab 的路径
-     * @param {string} toPath - 切换后的目标路径
-     */
-    function swapFileTab(fromPath, toPath) {
-        const fileTree = getFileTree();
-        if (!fileTree || !fromPath || !toPath || fromPath === toPath) {
-            return;
-        }
-        navigationHistory.rekeyLane(fromPath, toPath);
-        fileTree.addToOpenFiles(toPath);
-        fileTree.selectFile(toPath);
-        fileTree.closeFile(fromPath);
-    }
-
-    /**
-     * navigationHistory 注入的跳转实现：把当前 active tab 内的文档切到 targetPath。
-     * shared 预览位在自身内部切换；file tab 走替换式切换。两者都不会动到另一类 tab。
-     * @param {string} targetPath - 后退 / 前进的目标文档路径
-     */
-    async function performHistoryNavigation(targetPath) {
-        if (!targetPath) {
-            return;
-        }
-        // Editorial 的后退/前进复用当前文档位置，不把预览转成固定 tab。
-        if (isDocumentWorkspace()) {
-            await handleFileSelect(targetPath);
-            return;
-        }
+    /** 链接和历史共用同一切换流程，保存并加载成功后再关闭被替换的标签。 */
+    async function navigateInPrimary(targetPath, historyEntry) {
         const tabManager = getTabManager();
         const fileTree = getFileTree();
-        if (!tabManager || !fileTree) {
-            return;
-        }
+        if (!tabManager || !fileTree) return false;
 
-        const tabs = tabManager.getAllTabs?.() || [];
+        const target = normalizeComparablePath(fileTree, targetPath);
+        const targetIdentity = getPathIdentityKey(target);
+        const sourcePath = getCurrentFile();
+        const sourceIdentity = getPathIdentityKey(sourcePath);
+        if (!targetIdentity) return false;
+        if (targetIdentity === sourceIdentity) return true;
+
+        const tabs = tabManager.getAllTabs();
         const activeTab = tabs.find(tab => tab.id === tabManager.activeTabId);
-        if (!activeTab || activeTab.path === targetPath) {
-            return;
+        const existingFileTab = tabs.find(tab =>
+            tab.type === 'file' && getPathIdentityKey(tab.path) === targetIdentity);
+        const writing = isDocumentWorkspace();
+        const replaceTabPath = !writing && !existingFileTab && activeTab?.type === 'file'
+            ? activeTab.path
+            : null;
+        const sourceDocument = documentManager?.getDocumentByPath?.(sourcePath);
+        if (writing) {
+            // 刚切换皮肤时，来源文稿可能还只记录在 Classic 的固定标签历史中。
+            navigationHistory.setActiveLane(tabManager.sharedTabId);
+            navigationHistory.record(sourcePath, { previewReturnPath: sourceDocument?.previewReturnPath });
         }
+        // 两套皮肤使用同一种链接来源；既有标签保留其原来的打开方式。
+        const previewReturnPath = existingFileTab
+            ? documentManager?.getDocumentByPath?.(target)?.previewReturnPath ?? null
+            : historyEntry
+                ? historyEntry.previewReturnPath
+                : resolveLinkPreviewReturnPath(sourcePath, sourceDocument, target);
 
-        // 目标文档已作为固定 tab 打开：直接激活它，避免在 shared 预览位重复显示
-        const existingFileTab = tabs.find(tab => tab.type === 'file' && tab.path === targetPath);
-        if (existingFileTab) {
-            await activateTabTransition(existingFileTab, { autoFocus: true });
-            return;
+        await handleFileSelect(target, { replaceTabPath, previewReturnPath });
+        const loaded = getPathIdentityKey(getCurrentFile()) === targetIdentity;
+        if (loaded) {
+            await fileTree.selectFile(target, { silent: true });
+            const oldPreviewTab = writing && sourceDocument?.pinned && sourceDocument.previewReturnPath
+                ? sourcePath
+                : null;
+            const replacedTab = replaceTabPath || oldPreviewTab;
+            if (replacedTab) fileTree.closeFile(replacedTab, { suppressActivate: true });
+        } else if (replaceTabPath) {
+            navigationHistory.rekeyLane(target, replaceTabPath);
+            fileTree.closeFile(target, { suppressActivate: true });
         }
-
-        if (activeTab.type === 'file') {
-            swapFileTab(activeTab.path, targetPath);
-        } else {
-            // shared 预览位：在自身内部切换文档
-            isOpeningFromLink = true;
-            fileTree.selectFile(targetPath);
-        }
+        return loaded;
     }
 
+    /** 监听 Markdown 本地链接，保留链接来源所在的文档栏。 */
     function setupLinkNavigationListener() {
         window.addEventListener('open-file', async (event) => {
             const { path, paneId } = event.detail || {};
@@ -770,33 +766,12 @@ export function createNavigationController({
                 await openInSecondary?.(path);
                 return;
             }
-            // 文档模式中的链接同样替换主栏内容，保留原有保存失败时阻止切换的行为。
-            if (isDocumentWorkspace()) {
-                await handleFileSelect(path);
-                return;
-            }
-
-            const fileTree = getFileTree();
-            const tabManager = getTabManager();
-
-            if (!fileTree) {
-                console.error('fileTree 未初始化');
-                return;
-            }
-
-            const activeTab = tabManager?.getAllTabs().find(tabItem => tabItem.id === tabManager?.activeTabId);
-
-            if (activeTab && activeTab.type === 'file' && activeTab.path) {
-                swapFileTab(activeTab.path, path);
-            } else {
-                isOpeningFromLink = true;
-                fileTree.selectFile(path);
-            }
+            await navigateInPrimary(path);
         });
     }
 
     // 把后退 / 前进的实际跳转能力注入 navigationHistory
-    navigationHistory.setNavigator(performHistoryNavigation);
+    navigationHistory.setNavigator(navigateInPrimary);
 
     return {
         handleFileSelect,
