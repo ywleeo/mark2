@@ -45,6 +45,7 @@ import { createTabSidebarStateController } from './tabSidebarStateController.js'
 import { createDocumentLibraryController } from '../modules/document-library/documentLibraryController.js';
 import { extractDocumentTitle } from '../modules/document-library/documentTitle.js';
 import { isDocumentWorkspace } from '../modules/document-library/documentNavigation.js';
+import { askDocumentClose, confirmDiscardAfterSaveFailure } from '../modules/navigation/documentCloseDialog.js';
 import { createTabContextController } from '../modules/tab-context-menu/tabContextController.js';
 import { t } from '../i18n/index.js';
 
@@ -350,13 +351,42 @@ export function createAppBootstrap({
             return secondaryRuntime.loadDocument(normalizeFsPath(path) || path);
         }
 
-        /**
-         * 关闭副栏，dirty 文档必须先明确保存。
-         * @returns {Promise<boolean>} 是否成功关闭。
-         */
+        /** 关闭副栏时沿用主栏的三种选择，保存失败也可明确放弃。 */
         async function requestCloseSecondary() {
-            if (!await resolveSecondaryDirtyDocument('关闭')) {
-                return false;
+            const path = secondaryRuntime.getDocumentPath();
+            if (path && secondaryRuntime.isDirty()) {
+                secondaryRuntime.editorRegistry.getMarkdownEditor()?.clearAutoSaveTimer?.();
+                secondaryRuntime.editorRegistry.getCodeEditor()?.cancelAutoSave?.();
+                const sessions = secondaryRuntime.documentSessions;
+                const conflict = sessions.getExternalConflict(path);
+                try {
+                    const choice = await askDocumentClose(basename(path), { conflict: Boolean(conflict) });
+                    if (choice === 'cancel' || secondaryRuntime.getDocumentPath() !== path) return false;
+                    let discard = choice === 'discard';
+                    if (choice === 'save') {
+                        let saved = false;
+                        if (conflict) sessions.clearExternalConflict(path);
+                        try {
+                            saved = await secondaryRuntime.save();
+                        } catch (error) {
+                            console.warn('关闭副栏时保存失败', error);
+                        } finally {
+                            if (conflict && !saved) sessions.markExternalConflict(path, conflict);
+                        }
+                        discard = !saved && await confirmDiscardAfterSaveFailure(basename(path), confirm);
+                        if (!saved && !discard) return false;
+                        if (saved && secondaryRuntime.isDirty()) return false;
+                    }
+                    if (secondaryRuntime.getDocumentPath() !== path) return false;
+                    if (discard && !await documentRegistry.discardChanges(path)) return false;
+                    sessions.clearExternalConflict(path);
+                    documentSessions.clearExternalConflict(path);
+                    appState.getFileTree()?.clearExternalModification?.(path);
+                } catch (error) {
+                    console.warn('关闭副栏文档失败', error);
+                    return false;
+                }
+                if (secondaryRuntime.getDocumentPath() !== path) return false;
             }
             secondaryRuntime.close();
             paneManager.closeSecondary();

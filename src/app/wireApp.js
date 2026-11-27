@@ -127,6 +127,7 @@ const documentRegistry = createDocumentRegistry({
     fileService: ensureFileService(),
     getViewModeForPath,
     isCsvFilePath,
+    logger: ioLogger,
 });
 const recoveryService = createRecoveryService({
     documentRegistry,

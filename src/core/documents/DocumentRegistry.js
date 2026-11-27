@@ -48,6 +48,7 @@ export function createDocumentRegistry({
     readBinaryBase64,
     getViewModeForPath,
     isCsvFilePath,
+    logger,
 }) {
     if (typeof getViewModeForPath !== 'function') {
         throw new Error('createDocumentRegistry 需要 getViewModeForPath');
@@ -317,6 +318,25 @@ export function createDocumentRegistry({
         return mt;
     }
 
+    /** 丢弃本地编辑并通知共享该模型的编辑器，优先恢复当前磁盘正文。 */
+    async function discardChanges(filePath) {
+        const doc = documents.get(filePath);
+        if (!doc?.dirty) return true;
+        const revision = doc.getRevision();
+        let content = doc.getOriginalContent();
+        let modifiedTime = doc.getModifiedTime();
+        try {
+            content = await readText(filePath, { requestAuthorization: false });
+            modifiedTime = await fetchModifiedTime(filePath);
+        } catch (error) {
+            // 文件不可读时仍允许关闭；持有同一模型的视图回到最近一次已知磁盘内容。
+            logger?.warn?.('discardChanges:readFailed', { path: filePath, error });
+        }
+        if (documents.get(filePath) !== doc || doc.getRevision() !== revision) return false;
+        doc.reloadFromDisk(content, modifiedTime);
+        return true;
+    }
+
     function clearEntry(filePath, options = {}) {
         const activeLeases = documentLeases.get(filePath);
         if (activeLeases?.size > 0 && options.force !== true) {
@@ -503,6 +523,7 @@ export function createDocumentRegistry({
         getCachedEntry,
         refreshModifiedTime,
         clearEntry,
+        discardChanges,
         clearAll,
         renameEntry,
         // 新增 API(DocumentModel 通道)

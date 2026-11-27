@@ -11,7 +11,7 @@ import { getDocumentCloseTarget } from '../src/modules/document-library/document
 const imports = registerHooks({
     /** 当前测试不依赖翻译文本，也不应初始化 Tauri 的 locale 文件写入。 */
     resolve(specifier, context, nextResolve) {
-        if (specifier === '../i18n/index.js' && context.parentURL?.endsWith('/navigationController.js')) {
+        if (specifier === '../../i18n/index.js' && context.parentURL?.endsWith('/documentCloseDialog.js')) {
             return { url: 'data:text/javascript,export const t = key => key;', shortCircuit: true };
         }
         return nextResolve(specifier, context);
@@ -22,7 +22,8 @@ imports.deregister();
 
 /** 将真实 DocumentManager 和关闭控制器连接到列表动作，文件读写、对话框由替身提供。 */
 function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned = false, dirty = false,
-    saveSucceeds = true, missing = [], visiblePaths = null, onSave = () => {} } = {}) {
+    saveSucceeds = true, missing = [], visiblePaths = null, onSave = () => {},
+    conflict = false, showMessage = async (_message, { buttons }) => buttons.yes, confirmDiscard = false } = {}) {
     let current = null;
     let clock = 100;
     const calls = [];
@@ -32,6 +33,7 @@ function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned
         isDirty: () => dirty,
         getCachedEntry: path => path === active && dirty ? { hasChanges: true } : null,
         clearEntry: path => calls.push(['clear', path]),
+        discardChanges: async path => { calls.push(['discard', path]); return true; },
     };
     const manager = createDocumentManager({ appState: { setCurrentFile: path => { current = path; } }, documentRegistry: registry });
     manager.openDocument(active, { pinned });
@@ -48,15 +50,22 @@ function fixture({ paths = ['/a.md', '/b.md', '/c.md'], active = '/a.md', pinned
     const fileTree = { stopWatchingFile: () => {}, selectFile: path => { current = path; } };
     const navigation = createNavigationController({ getFileTree: () => fileTree, getTabManager: () => tabs,
         getCurrentFile: () => current, documentManager: manager, documentRegistry: registry,
-        documentSessions: { closeSessionForPath: path => calls.push(['close-session', path]) },
+        documentSessions: {
+            closeSessionForPath: path => calls.push(['close-session', path]),
+            hasExternalConflict: () => conflict,
+            clearExternalConflict: path => calls.push(['clear-conflict', path]),
+        },
         saveCurrentEditorContentToCache: () => {}, clearActiveFileView: () => { current = null; },
         loadFile: path => { calls.push(['unexpected-fallback-load', path]); },
-        persistWorkspaceState: () => {}, saveFile: async path => {
-            calls.push(['save', path]); onSave(history, path, manager, tabs); return saveSucceeds;
+        persistWorkspaceState: () => {}, saveFile: async (path, options) => {
+            calls.push(['save', path]);
+            if (options?.overwriteExternalConflict) calls.push(['overwrite-confirmed', path]);
+            onSave(history, path, manager, tabs);
+            return saveSucceeds;
         },
         getActiveViewMode: () => 'markdown', getEditor: () => ({ hasUnsavedChanges: () => dirty,
             clearAutoSaveTimer: () => calls.push(['stop-auto-save']) }),
-        getCodeEditor: () => null, confirm: async () => false });
+        getCodeEditor: () => null, showMessage, confirm: async () => confirmDiscard });
     const remove = createDocumentRemovalAction({
         getEntries: () => history.list().filter(entry => !visiblePaths || visiblePaths.includes(entry.path)),
         getAllEntries: () => history.list(), getCurrentPath: () => current,
@@ -146,6 +155,39 @@ test('保存失败并取消关闭时保留打开文档和列表，不跳到下�
         assert.equal(setup.history.list().length, 3);
         assert.deepEqual(setup.calls, [['stop-auto-save'], ['save', '/a.md']]);
     }
+});
+
+/** 固定标签和预览都可以放弃草稿，冲突时不写盘。 */
+test('关闭普通文稿或冲突文稿时，放弃修改后直接关闭', async () => {
+    for (const pinned of [false, true]) {
+        for (const conflict of [false, true]) {
+            const setup = fixture({ pinned, dirty: true, conflict, showMessage: async (_message, { buttons }) => {
+                assert.equal(buttons.yes, conflict ? 'fileConflict.closeOverwrite' : 'tabClose.dirty.save');
+                return buttons.no;
+            } });
+            assert.equal(await setup.remove('/a.md'), true);
+            assert.ok(setup.calls.some(([action]) => action === 'discard'));
+            assert.ok(!setup.calls.some(([action]) => action === 'save'));
+            assert.equal(setup.manager.getDocumentByPath('/a.md'), null);
+        }
+    }
+});
+
+/** 覆盖先经明确确认；取消及异常结果不落盘、不关闭。 */
+test('冲突关闭区分覆盖、取消与未知按钮结果', async () => {
+    for (const key of ['yes', 'cancel', 'unexpected']) {
+        const setup = fixture({ conflict: true, dirty: true, showMessage: async (_message, { buttons }) => buttons[key] });
+        assert.equal(await setup.remove('/a.md'), key === 'yes');
+        assert.equal(setup.calls.some(([action]) => action === 'overwrite-confirmed'), key === 'yes');
+        assert.ok(!setup.calls.some(([action]) => action === 'discard'));
+    }
+});
+
+/** 即使磁盘写入失败，预览也可以放弃并关闭。 */
+test('Editorial 预览保存失败后仍可放弃并关闭', async () => {
+    const setup = fixture({ dirty: true, conflict: true, saveSucceeds: false, confirmDiscard: true });
+    assert.equal(await setup.remove('/a.md'), true);
+    assert.ok(setup.calls.some(([action]) => action === 'discard'));
 });
 
 test('后台打开文档先关闭再移除，未打开的历史记录直接移除，两者都不切换当前内容', async () => {

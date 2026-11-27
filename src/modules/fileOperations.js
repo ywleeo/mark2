@@ -135,21 +135,20 @@ export function createFileOperations({
      * @param {string} filePath - 待保存文件
      * @returns {Promise<{allowed:boolean,complete:(success:boolean)=>void}>}
      */
-    async function prepareExternalConflictOverwrite(filePath) {
+    async function prepareExternalConflictOverwrite(filePath, { overwriteExternalConflict = false } = {}) {
         const pathKey = getSessionPathKey(filePath);
         const hasConflict = Boolean(pathKey && documentSessions.hasExternalConflict?.(pathKey));
         if (!hasConflict) {
             return { allowed: true, complete: () => {} };
         }
 
-        const shouldOverwrite = typeof confirm === 'function'
-            ? await confirm(t('fileConflict.message', { name: basename(filePath) }), {
+        const shouldOverwrite = overwriteExternalConflict || (typeof confirm === 'function'
+            && await confirm(t('fileConflict.message', { name: basename(filePath) }), {
                 title: t('fileConflict.title'),
                 kind: 'warning',
                 okLabel: t('fileConflict.overwrite'),
                 cancelLabel: t('common.cancel'),
-            })
-            : false;
+            }));
         if (!shouldOverwrite) {
             return { allowed: false, complete: () => {} };
         }
@@ -376,7 +375,7 @@ export function createFileOperations({
     }
 
     /** 保存活动文档，Markdown 保存失败时在状态栏呈现文件系统返回的原因。 */
-    async function saveCurrentFile() {
+    async function saveCurrentFile(options) {
         const currentFile = getCurrentFile();
         if (!currentFile) {
             logger?.info?.('saveCurrentFile:skip', { reason: 'no-current-file' });
@@ -411,7 +410,7 @@ export function createFileOperations({
             if (isSpreadsheetFilePath(currentFile) && !isCsvFilePath(currentFile)) {
                 return await saveExcelAsCsv(currentFile, editor);
             }
-            const conflictResolution = await prepareExternalConflictOverwrite(currentFile);
+            const conflictResolution = await prepareExternalConflictOverwrite(currentFile, options);
             if (!conflictResolution.allowed) {
                 return false;
             }
@@ -446,7 +445,7 @@ export function createFileOperations({
         }
 
         if (activeViewMode === 'code' && codeEditor) {
-            const conflictResolution = await prepareExternalConflictOverwrite(currentFile);
+            const conflictResolution = await prepareExternalConflictOverwrite(currentFile, options);
             if (!conflictResolution.allowed) {
                 return false;
             }
@@ -563,7 +562,8 @@ export function createFileOperations({
         return false;
     }
 
-    async function saveFile(filePath) {
+    /** 保存当前或后台文档，关闭时可沿用用户已明确确认的覆盖操作。 */
+    async function saveFile(filePath, options) {
         const currentFile = getCurrentFile();
         logger?.info?.('saveFile:start', {
             requestedPath: filePath,
@@ -575,7 +575,7 @@ export function createFileOperations({
         const cached = documentRegistry.getCachedEntry(filePath);
 
         if (requestedKey && currentKey && requestedKey === currentKey) {
-            return await saveCurrentFile();
+            return await saveCurrentFile(options);
         }
 
         if (!cached || !cached.hasChanges) {
@@ -587,7 +587,7 @@ export function createFileOperations({
         }
 
         const localWriteKey = getSessionPathKey(filePath);
-        const conflictResolution = await prepareExternalConflictOverwrite(filePath);
+        const conflictResolution = await prepareExternalConflictOverwrite(filePath, options);
         if (!conflictResolution.allowed) {
             return false;
         }

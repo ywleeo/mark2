@@ -1,11 +1,11 @@
 import { basename, getPathIdentityKey, normalizeFsPath } from '../utils/pathUtils.js';
 import { EVENT_IDS } from '../core/eventIds.js';
 import { PANE_IDS } from '../core/layout/PaneManager.js';
-import { t } from '../i18n/index.js';
 import { navigationHistory } from './navigationHistory.js';
 import { isActiveContentTab } from './navigation/tabActivity.js';
 import { isDocumentWorkspace, resolveLinkPreviewReturnPath } from './document-library/documentNavigation.js';
 import { getUntitledCloseContent } from './navigation/untitledClose.js';
+import { askDocumentClose, confirmDiscardAfterSaveFailure } from './navigation/documentCloseDialog.js';
 import { isFileAccessPermissionError } from '../utils/fileAccessErrors.js';
 
 function normalizeComparablePath(fileTree, value) {
@@ -52,6 +52,7 @@ export function createNavigationController({
     getEditor,
     getCodeEditor,
     confirm,
+    showMessage,
     untitledFileManager,
     saveUntitledFile,
     eventBus,
@@ -397,25 +398,56 @@ export function createNavigationController({
         }
     }
 
+    /** 无法完成保存时再次确认放弃，弹窗失败默认停止关闭。 */
     async function confirmDiscardAfterFailedSave(filePath) {
         if (!confirm) {
             return false;
         }
         const fileName = (filePath ? basename(filePath) : '') || filePath || '';
         try {
-            return await confirm(
-                t('tabClose.saveFailed.message', { name: fileName }),
-                {
-                    title: t('tabClose.saveFailed.title'),
-                    kind: 'warning',
-                    okLabel: t('tabClose.saveFailed.discard'),
-                    cancelLabel: t('common.cancel'),
-                }
-            );
+            return await confirmDiscardAfterSaveFailure(fileName, confirm);
         } catch (error) {
             console.warn('确认放弃更改弹窗失败', error);
             return false;
         }
+    }
+
+    /** 关闭时一次询问覆盖、放弃或取消。普通保存继续使用原来的确认流程。 */
+    async function resolveFileClose(filePath) {
+        if (!await checkFileHasUnsavedChanges(filePath)) return 'close';
+        const conflict = Boolean(documentSessions.hasExternalConflict?.(filePath));
+        let decision;
+        try {
+            decision = await askDocumentClose(basename(filePath), { conflict, showMessage });
+        } catch (error) {
+            logger?.warn?.('resolveFileClose:dialogFailed', { path: filePath, error });
+            return 'cancel';
+        }
+        if (decision !== 'save') return decision;
+
+        try {
+            if (await saveFile(filePath, { overwriteExternalConflict: conflict })) {
+                return documentRegistry.getDocument?.(filePath)?.dirty ? 'cancel' : 'close';
+            }
+        } catch (error) {
+            logger?.warn?.('resolveFileClose:saveFailed', { path: filePath, error });
+        }
+        return await confirmDiscardAfterFailedSave(filePath) ? 'discard' : 'cancel';
+    }
+
+    /** 丢弃草稿后解除冲突和文件树标记，重新打开时读取磁盘版本。 */
+    async function discardChangesForClose(filePath) {
+        if (await documentRegistry.discardChanges?.(filePath) === false) return false;
+        documentSessions.clearExternalConflict?.(filePath);
+        getFileTree()?.clearExternalModification?.(filePath);
+        return true;
+    }
+
+    /** 确认窗口打开前停掉待执行的自动保存，确保放弃决策不会变成落盘。 */
+    function pauseAutoSaveForClose(tab) {
+        if (!isCurrentContentTab(tab)) return;
+        getEditor()?.clearAutoSaveTimer?.();
+        getCodeEditor()?.cancelAutoSave?.();
     }
 
     /** 统一保存和关闭；文档列表可自行选择邻居，避免先加载一个无关的备选 tab。 */
@@ -432,22 +464,11 @@ export function createNavigationController({
         if (tab.type === 'file' && tab.path) {
             const targetPath = tab.path;
 
-            // 清除自动保存定时器
-            const editor = getEditor();
-            if (isCurrentContentTab(tab)) editor?.clearAutoSaveTimer?.();
+            pauseAutoSaveForClose(tab);
 
-            const hasChanges = await checkFileHasUnsavedChanges(targetPath);
-
-            if (hasChanges) {
-                // 直接保存；如失败则询问是否放弃更改
-                const saved = await saveFile(targetPath);
-                if (!saved) {
-                    const shouldDiscard = await confirmDiscardAfterFailedSave(targetPath);
-                    if (!shouldDiscard) {
-                        return;
-                    }
-                }
-            }
+            const decision = await resolveFileClose(targetPath);
+            if (decision === 'cancel') return;
+            if (decision === 'discard' && !await discardChangesForClose(targetPath)) return;
 
             const normalizedTarget = normalizeComparablePath(fileTree, tab.path);
             const wasActive = isCurrentContentTab(tab);
@@ -481,19 +502,11 @@ export function createNavigationController({
             if (tab.path) {
                 const targetPath = tab.path;
 
-                // 清除自动保存定时器
-                const editor = getEditor();
-                if (isCurrentContentTab(tab)) editor?.clearAutoSaveTimer?.();
+                pauseAutoSaveForClose(tab);
 
-                const hasChanges = await checkFileHasUnsavedChanges(targetPath);
-
-                if (hasChanges) {
-                    // 直接保存，不弹确认框
-                    const saved = await saveFile(targetPath);
-                    if (!saved) {
-                        return;
-                    }
-                }
+                const decision = await resolveFileClose(targetPath);
+                if (decision === 'cancel') return;
+                if (decision === 'discard' && !await discardChangesForClose(targetPath)) return;
 
                 // 保存期间预览位可能已经被另一篇文档复用，不能移除新预览或清空其视图。
                 const currentPreview = (tabManager?.getAllTabs?.() || []).find(candidate => candidate?.type === 'shared');
@@ -615,10 +628,6 @@ export function createNavigationController({
         await handleFileSelect(path, { autoFocus: true });
     }
 
-    /**
-     * 处理 untitled 文件的关闭
-     * untitled 文件不自动保存，关闭时询问用户是否保存
-     */
     /** 草稿关闭复用保存确认，允许文档列表自行选择相邻文档。 */
     async function handleUntitledTabClose(tab, { suppressFallback = false } = {}) {
         const tabManager = getTabManager();
@@ -645,35 +654,12 @@ export function createNavigationController({
 
         if (hasContent) {
             try {
-                const { message } = await import('@tauri-apps/plugin-dialog');
-                const saveLabel = t('tabClose.untitled.save');
-                const cancelLabel = t('common.cancel');
-                const choice = await message(
-                    t('tabClose.untitled.message', { name: displayName }),
-                    {
-                        title: t('tabClose.untitled.title'),
-                        kind: 'warning',
-                        buttons: {
-                            yes: saveLabel,
-                            no: t('tabClose.untitled.dontSave'),
-                            cancel: cancelLabel,
-                        },
-                    }
-                );
-
-                if (choice === saveLabel || choice === 'Yes') {
-                    // 调用 saveUntitledFile 弹出保存对话框
-                    const saved = await saveUntitledFile?.(targetPath, content);
-                    if (!saved) {
-                        // 用户取消了保存对话框，不关闭 tab
-                        return;
-                    }
-                } else if (choice === cancelLabel || choice === 'Cancel') {
-                    // 用户取消关闭，不移除 tab
-                    return;
-                }
+                const choice = await askDocumentClose(displayName, { showMessage });
+                if (choice === 'cancel') return;
+                if (choice === 'save' && !await saveUntitledFile?.(targetPath, content)) return;
             } catch (error) {
                 console.warn('确认保存弹窗失败', error);
+                return;
             }
         }
 

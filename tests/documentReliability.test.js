@@ -189,3 +189,33 @@ test('Pane 租约阻止标签关闭时销毁仍在使用的文档模型', async 
     assert.equal(registry.clearEntry(path), true);
     assert.equal(registry.getDocument(path), null);
 });
+
+/** 放弃编辑后，共用文档模型只保留外部写入的版本并发出恢复清理所需的重载事件。 */
+test('放弃修改时把最新磁盘内容同步到仍持有文档的副栏', async () => {
+    const path = '/tmp/conflicted.md';
+    let diskContent = '磁盘基线';
+    const reads = [];
+    const registry = createDocumentRegistry({
+        fileService: {
+            readText: async (target, options) => {
+                reads.push([target, options]);
+                return diskContent;
+            },
+            readSpreadsheet: async () => null,
+            readBinaryBase64: async () => '',
+            metadata: async () => ({ modified_time: 1 }),
+        },
+        getViewModeForPath: () => 'markdown',
+    });
+    const document = await registry.acquireDocument(path, { ownerId: 'pane:secondary' });
+    document.applyEditorChange('当前本地草稿');
+    diskContent = '外部写入';
+    const events = [];
+    registry.subscribe(({ event }) => events.push(event.type));
+
+    assert.equal(await registry.discardChanges(path), true);
+    assert.equal(document.getContent(), diskContent);
+    assert.equal(document.dirty, false);
+    assert.ok(events.includes('reload'));
+    assert.deepEqual(reads.at(-1), [path, { requestAuthorization: false }]);
+});
